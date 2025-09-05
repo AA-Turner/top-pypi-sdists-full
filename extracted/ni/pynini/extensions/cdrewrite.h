@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Google LLC
+// Copyright 2016-2025 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@
 #include "checkprops.h"
 #include "cross.h"
 #include "optimize.h"
+
 
 namespace fst {
 
@@ -275,8 +276,7 @@ void CDRewriteRule<Arc>::IgnoreMarkers(
 // Turns Sigma^* into (Sigma union markers)^*.
 template <class Arc>
 void CDRewriteRule<Arc>::AddMarkersToSigma(
-    MutableFst<Arc> *sigma,
-    const std::vector<std::pair<Label, Label>> &markers) {
+    MutableFst<Arc> *sigma, const std::vector<std::pair<Label, Label>> &markers) {
   for (StateIterator<MutableFst<Arc>> siter(*sigma); !siter.Done();
        siter.Next()) {
     const auto s = siter.Value();

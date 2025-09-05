@@ -127,3 +127,9 @@ class Vision:
         :return: Number of input tokens
         """
         return self.input_tokens
+
+    def reset(self):
+        """Reset state"""
+        self.attachments = {}
+        self.urls = []
+        self.input_tokens = 0

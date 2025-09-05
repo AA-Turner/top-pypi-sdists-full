@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpy2
-Version: 3.6.2
+Version: 3.6.3
 Summary: Python interface to the R language (embedded R)
 Author-email: Laurent Gautier <lgautier@gmail.com>
 License-Expression: GPL-2.0-or-later
@@ -21,8 +21,8 @@ Classifier: Intended Audience :: Science/Research
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: rpy2-rinterface>=3.6.2
-Requires-Dist: rpy2-robjects>=3.6.1
+Requires-Dist: rpy2-rinterface>=3.6.3
+Requires-Dist: rpy2-robjects>=3.6.2
 Requires-Dist: packaging; platform_system == "Windows"
 Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Provides-Extra: doc

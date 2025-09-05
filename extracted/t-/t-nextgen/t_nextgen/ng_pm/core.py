@@ -138,11 +138,16 @@ class NextGenPMCore:
     def login(
         self,
         practice: Optional[str] = None,
-        database: Optional[str] = None,
+        database: Optional[str | list[str]] = None,
         app_folder: str = Config.DIRECTORIES.BASE_DIR,
     ) -> None:
         """Login to the app."""
-        database = database if database else self.database
+        if not database:
+            databases = [self.database]
+        elif isinstance(database, str):
+            databases = [database]
+        else:
+            databases = database
         practice = practice if practice else self.practice
         if process := self.desktop_app.get_app_session_if_running(self.app_path):
             self.logger.debug(f"Process {process} is already running.")
@@ -151,7 +156,7 @@ class NextGenPMCore:
         try:
             self.desktop_app.start_app(app_path=self.app_path, app_folder=app_folder)
             self.desktop_app.wait_until_element_visible(auto_id="txtUserName", control_type="Edit")
-            self._check_database_name(db_name_flag=database)
+            self._check_database_names(db_names=databases)
             if not self.desktop_app.dialog.child_window(title="Windows Integrated", control_type="ComboBox").exists():
                 self.desktop_app.set_input_text(auto_id="txtUserName", text=self.username)
                 self.desktop_app.set_input_text(auto_id="txtPassword", text=self.password)
@@ -187,6 +192,23 @@ class NextGenPMCore:
         self.logger.info(f"App is connected to '{database_name}' database")
         if db_name_flag.lower() not in database_name.lower():
             raise WrongDatabaseSelectedError(f"'{database_name}' selected, wrong database selected.")
+
+    def _check_database_names(self, db_names: list[str]) -> None:
+        """Validates if the name received is part of the database selected.
+
+        Args:
+            db_names (list[str]): The database names to be validated.
+
+        Returns:
+            Raises WrongDatabaseSelected: if the database doesn't match.
+        """
+        for db_name in db_names:
+            try:
+                self._check_database_name(db_name)
+                return
+            except WrongDatabaseSelectedError:
+                continue
+        raise WrongDatabaseSelectedError(f"None of the databases '{db_names}' selected.")
 
     def handle_multiple_sessions_popup(self) -> None:
         """Close multiple sessions pop-up that comes immediately after login.

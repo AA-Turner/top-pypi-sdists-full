@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.11.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.12.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.11.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.12.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -426,6 +426,7 @@ __all__ = [
     "cognito_identity_pool_roles_attachment",
     "cognito_identity_provider",
     "cognito_log_delivery_configuration",
+    "cognito_managed_login_branding",
     "cognito_managed_user_pool_client",
     "cognito_resource_server",
     "cognito_risk_configuration",
@@ -2577,6 +2578,7 @@ from . import cognito_identity_pool_provider_principal_tag
 from . import cognito_identity_pool_roles_attachment
 from . import cognito_identity_provider
 from . import cognito_log_delivery_configuration
+from . import cognito_managed_login_branding
 from . import cognito_managed_user_pool_client
 from . import cognito_resource_server
 from . import cognito_risk_configuration

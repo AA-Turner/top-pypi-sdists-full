@@ -264,10 +264,6 @@ class Bento(StoreItem):
             )
             build_config.envs.extend(svc.envs)
             build_config.labels.update(svc.labels)
-            if livez_endpoint := svc.config.get("endpoints", {}).get("livez"):
-                build_config.labels["livez_endpoint"] = livez_endpoint
-            if readyz_endpoint := svc.config.get("endpoints", {}).get("readyz"):
-                build_config.labels["readyz_endpoint"] = readyz_endpoint
             if svc.image is not None:
                 image = svc.image
         if not disable_image:
@@ -751,7 +747,7 @@ class BaseBentoInfo:
     )
     models: t.List[BentoModelInfo] = attr.field(factory=list)
     # for BentoML 1.2+ SDK
-    entry_service: str = attr.field(factory=str)
+    entry_service: str = ""
     services: t.List[BentoServiceInfo] = attr.field(factory=list)
     envs: t.List[BentoEnvSchema] = attr.field(factory=list)
     schema: t.Dict[str, t.Any] = attr.field(factory=dict)
@@ -906,5 +902,9 @@ bentoml_cattr.register_structure_hook_factory(
 bentoml_cattr.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, BaseBentoInfo),
     # Ignore tag, tag is saved via the name and version field
-    lambda cls: make_dict_unstructure_fn(cls, bentoml_cattr, tag=override(omit=True)),
+    lambda cls: make_dict_unstructure_fn(
+        cls,
+        bentoml_cattr,
+        tag=override(omit=True),
+    ),
 )

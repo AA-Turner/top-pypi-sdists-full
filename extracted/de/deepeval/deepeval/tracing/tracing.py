@@ -26,6 +26,7 @@ from deepeval.tracing.api import (
     BaseApiSpan,
     SpanApiType,
     TraceApi,
+    TraceSpanApiStatus,
 )
 from deepeval.telemetry import capture_send_trace
 from deepeval.tracing.patchers import patch_openai_client
@@ -53,6 +54,7 @@ from deepeval.tracing.utils import (
 from deepeval.utils import dataclass_to_dict
 from deepeval.tracing.context import current_span_context, current_trace_context
 from deepeval.tracing.types import TestCaseMetricPair
+from deepeval.tracing.api import PromptApi
 
 
 class TraceManager:
@@ -610,6 +612,11 @@ class TraceManager:
             environment=(
                 self.environment if not trace.environment else trace.environment
             ),
+            status=(
+                TraceSpanApiStatus.SUCCESS
+                if trace.status == TraceSpanStatus.SUCCESS
+                else TraceSpanApiStatus.ERRORED
+            ),
         )
 
     def _convert_span_to_api_span(self, span: BaseSpan) -> BaseApiSpan:
@@ -681,6 +688,9 @@ class TraceManager:
             api_span.chunk_size = span.chunk_size
         elif isinstance(span, LlmSpan):
             api_span.model = span.model
+            alias = span.prompt.alias if span.prompt else None
+            version = span.prompt.version if span.prompt else None
+            api_span.prompt = PromptApi(alias=alias, version=version)
             api_span.cost_per_input_token = span.cost_per_input_token
             api_span.cost_per_output_token = span.cost_per_output_token
             api_span.input_token_count = span.input_token_count
@@ -724,6 +734,7 @@ class Observer:
         self.result = None
 
         self.name: str = self.observe_kwargs.get("name", func_name)
+        self.prompt = self.observe_kwargs.get("prompt", None)
         self.metrics = metrics
         self.metric_collection = metric_collection
         self.span_type: Optional[SpanType] = span_type
@@ -804,6 +815,13 @@ class Observer:
         if current_span.output is None:
             current_span.output = trace_manager.mask(self.result)
 
+        if (
+            isinstance(current_span, LlmSpan)
+            and self.prompt
+            and not current_span.prompt
+        ):
+            current_span.prompt = self.prompt
+
         trace_manager.remove_span(self.uuid)
         if current_span.parent_uuid:
             parent_span = trace_manager.get_span_by_uuid(
@@ -819,6 +837,8 @@ class Observer:
                 current_trace.input = self.function_kwargs
             if current_trace.output is None:
                 current_trace.output = self.result
+            if current_span.status == TraceSpanStatus.ERRORED:
+                current_trace.status = TraceSpanStatus.ERRORED
             if current_trace and current_trace.uuid == current_span.trace_uuid:
                 other_active_spans = [
                     span

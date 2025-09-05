@@ -25,6 +25,7 @@ from ibm_watsonx_ai.data_loaders.datasets.experiment import (
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
     CannotReadSavedRemoteDataBeforeFit,
+    ContainerTypeNotSupported,
     NotS3Connection,
 )
 from ibm_watsonx_ai.utils.autoai.utils import (
@@ -1023,6 +1024,8 @@ class BaseDataConnection(ABC):
         if self._api_client is not None:
             self._api_client._check_if_either_is_set()  # Space or project is required to use Container.
             if self._api_client.default_space_id is not None:
+                if self._api_client.ICP_PLATFORM_SPACES:
+                    raise ContainerTypeNotSupported()
                 details = (
                     self._api_client.spaces._get_details(  # get details with TTL cache
                         self._api_client.default_space_id,
@@ -1310,9 +1313,14 @@ class BaseDataConnection(ABC):
                 iterable_dataset.write(file_path=file_path)
 
     def _upload_data_to_file_system(
-        self, location: str, data: io.BufferedReader, remote_name: str
+        self, location: str, data: io.BufferedReader, remote_name: str | None = None
     ) -> None:
-        if location and "." in location and "." in location.split("/")[-1]:
+        filename, ext = os.path.splitext(os.path.basename(location))
+        if filename == "." or ext.endswith("."):
+            raise ValueError(
+                f"The provided `location.path`: '{location}' is invalid to upload data."
+            )
+        elif ext:
             is_filename_location = True
         else:
             is_filename_location = False
@@ -1320,12 +1328,10 @@ class BaseDataConnection(ABC):
         if remote_name:
             if location:
                 if is_filename_location:
-                    folder_name = os.path.basename(os.path.dirname(location))
-                    asset_path = folder_name + "/" + remote_name
-                else:
-                    asset_path = (
-                        location.split("/assets/", maxsplit=1)[-1] + "/" + remote_name
-                    )
+                    location = os.path.dirname(location)
+                asset_path = (
+                    location.split("/assets/", maxsplit=1)[-1] + "/" + remote_name
+                )
             else:
                 asset_path = "/" + remote_name
         elif is_filename_location:

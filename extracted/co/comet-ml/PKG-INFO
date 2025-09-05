@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comet_ml
-Version: 3.52.0
+Version: 3.52.1
 Summary: Supercharging Machine Learning
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -30,7 +30,7 @@ Requires-Dist: semantic-version>=2.8.0
 Requires-Dist: sentry-sdk>=1.1.0
 Requires-Dist: setuptools; python_version >= "3.12"
 Requires-Dist: simplejson
-Requires-Dist: urllib3>=1.21.1
+Requires-Dist: urllib3>=1.26.8
 Requires-Dist: wrapt>=1.11.2
 Requires-Dist: wurlitzer>=1.0.2
 Provides-Extra: cpu-logging

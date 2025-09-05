@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_xyz
-Version: 1.1.219
+Version: 1.1.220
 Summary: A Pulumi package for creating and managing xyz cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

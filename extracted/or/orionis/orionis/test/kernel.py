@@ -2,7 +2,6 @@ from orionis.foundation.contracts.application import IApplication
 from orionis.services.log.contracts.log_service import ILogger
 from orionis.test.contracts.kernel import ITestKernel
 from orionis.test.contracts.unit_test import IUnitTest
-from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.test.exceptions import OrionisTestConfigException
 
 class TestKernel(ITestKernel):
@@ -12,94 +11,80 @@ class TestKernel(ITestKernel):
         app: IApplication
     ) -> None:
         """
-        Initialize the TestKernel with the provided application instance.
+        Initialize the TestKernel instance with the provided application.
 
-        This constructor sets up the test kernel by validating the application
-        instance and resolving required dependencies for testing operations.
+        This constructor validates the given application instance and sets up
+        the test kernel by resolving required dependencies for unit testing.
+        It ensures that the application parameter is of the correct type and
+        retrieves the unit test service from the application's dependency container.
 
         Parameters
         ----------
         app : IApplication
-            The application instance that provides dependency injection
-            and service resolution capabilities.
+            The application instance responsible for dependency injection and
+            service resolution.
 
         Raises
         ------
         OrionisTestConfigException
-            If the provided app parameter is not an instance of IApplication.
+            If the provided `app` parameter is not an instance of `IApplication`.
 
         Returns
         -------
         None
-            This is a constructor method and does not return a value.
+            This constructor does not return any value.
         """
-        # Validate that the provided app parameter is an IApplication instance
+
+        # Ensure the provided app is a valid IApplication instance
         if not isinstance(app, IApplication):
             raise OrionisTestConfigException(
                 f"Failed to initialize TestKernel: expected IApplication, got {type(app).__module__}.{type(app).__name__}."
             )
 
-        # Load testing configuration from application config and create Testing instance
-        config = Testing(**app.config('testing'))
+        # Store the application instance for later use
+        self.__app: IApplication = app
 
-        # Resolve the unit test service from the application container
+        # Retrieve the unit test service from the application container
         self.__unit_test: IUnitTest = app.make(IUnitTest)
 
-        # Apply configuration settings to the UnitTest instance
-        self.__unit_test.configure(
-            verbosity=config.verbosity,                 # Set output verbosity level
-            execution_mode=config.execution_mode,       # Configure test execution mode
-            max_workers=config.max_workers,             # Set maximum worker threads for parallel execution
-            fail_fast=config.fail_fast,                 # Enable/disable fail-fast behavior
-            print_result=config.print_result,           # Control result output printing
-            throw_exception=config.throw_exception,     # Configure exception throwing behavior
-            persistent=config.persistent,               # Enable/disable persistent test results
-            persistent_driver=config.persistent_driver, # Set persistent storage driver
-            web_report=config.web_report                # Enable/disable web-based reporting
-        )
-
-        # Discover and load test files based on configuration criteria
-        self.__unit_test.discoverTests(
-            base_path=app.path('tests'),                # Base directory for test discovery
-            folder_path=config.folder_path,             # Specific folder path within base_path
-            pattern=config.pattern,                     # File name pattern for test files
-            test_name_pattern=config.test_name_pattern, # Pattern for test method names
-            tags=config.tags                            # Tags to filter tests during discovery
-        )
-
-        # Initialize the logger service for logging command execution details
-        self.__logger: ILogger = app.make(ILogger)
-
-    def handle(self) -> IUnitTest:
+    def handle(self) -> dict:
         """
-        Execute the unit test suite and handle any exceptions that occur during testing.
+        Executes the unit test suite and logs a summary of the results.
 
-        This method serves as the main entry point for running tests through the test kernel.
-        It executes the unit test suite via the injected unit test service and provides
-        comprehensive error handling for both expected test failures and unexpected errors.
-        The method ensures graceful termination of the application in case of any failures.
+        This method serves as the main entry point for running unit tests via the test kernel.
+        It invokes the unit test service, collects the results, and logs a detailed summary
+        including the number of tests, passed, failed, errors, skipped, total execution time,
+        and success rate. If no output is returned, no summary is logged.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
-        IUnitTest
-            The unit test service instance after successful test execution. This allows
-            for potential chaining of operations or access to test results.
+        dict
+            A dictionary containing the test results summary with keys such as
+            'total_tests', 'passed', 'failed', 'errors', 'skipped', 'total_time',
+            'success_rate', and 'timestamp'. If no tests are run, returns None.
         """
 
-        # Log the start of test execution
-        ouput = self.__unit_test.run()
+        # Run the unit test suite and collect the output summary
+        output = self.__unit_test.run()
 
-        if ouput is not None:
+        # Only log detailed report if output is available
+        if output is not None:
+            # Extract report details from output dictionary
+            total_tests = output.get("total_tests", 0)
+            passed = output.get("passed", 0)
+            failed = output.get("failed", 0)
+            errors = output.get("errors", 0)
+            skipped = output.get("skipped", 0)
+            total_time = output.get("total_time", 0)
+            success_rate = output.get("success_rate", 0)
+            timestamp = output.get("timestamp", 0)
 
-            # Extract report details from output
-            total_tests = ouput.get("total_tests")
-            passed = ouput.get("passed")
-            failed = ouput.get("failed")
-            errors = ouput.get("errors")
-            skipped = ouput.get("skipped")
-            total_time = ouput.get("total_time")
-            success_rate = ouput.get("success_rate")
-            timestamp = ouput.get("timestamp")
+            # Resolve the logger service from the application container
+            self.__logger: ILogger = self.__app.make(ILogger)
 
             # Log test execution completion with detailed summary
             self.__logger.info(
@@ -109,5 +94,5 @@ class TestKernel(ITestKernel):
                 f"Time: {total_time:.2f}s, Success rate: {success_rate:.2f}%"
             )
 
-        # Report the test results to the console
-        return ouput
+        # Return the test results summary dictionary (or None if no output)
+        return output

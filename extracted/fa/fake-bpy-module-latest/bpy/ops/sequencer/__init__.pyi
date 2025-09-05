@@ -1682,6 +1682,45 @@ def select_box(
         :type ignore_connections: bool | None
     """
 
+def select_circle(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    x: int | None = 0,
+    y: int | None = 0,
+    radius: int | None = 25,
+    wait_for_input: bool | None = True,
+    mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
+    ignore_connections: bool | None = False,
+) -> None:
+    """Select strips using circle selection
+
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param x: X
+        :type x: int | None
+        :param y: Y
+        :type y: int | None
+        :param radius: Radius
+        :type radius: int | None
+        :param wait_for_input: Wait for Input
+        :type wait_for_input: bool | None
+        :param mode: Mode
+
+    SET
+    Set -- Set a new selection.
+
+    ADD
+    Extend -- Extend existing selection.
+
+    SUB
+    Subtract -- Subtract existing selection.
+        :type mode: typing.Literal['SET','ADD','SUB'] | None
+        :param ignore_connections: Ignore Connections, Select strips individually whether or not they are connected
+        :type ignore_connections: bool | None
+    """
+
 def select_grouped(
     execution_context: int | str | None = None,
     undo: bool | None = None,

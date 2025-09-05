@@ -926,7 +926,7 @@ class RAGEngine(WMLResource):
 
         self._check_if_metrics_available(details)
 
-        results = details.get("entity", {}).get("results")
+        results = deepcopy(details.get("entity", {}).get("results"))
 
         if pattern_name:
             pattern_details = next(
@@ -964,6 +964,15 @@ class RAGEngine(WMLResource):
                     ):
                         pattern_details = pattern
                         metrics_best_score = test_data["mean"]
+
+        if (
+            settings_importance := pattern_details.get("context", {})
+            .get("rag_pattern", {})
+            .get("settings_importance")
+        ):
+            pattern_details["context"]["rag_pattern"]["settings_importance"] = (
+                self._process_settings_importance(settings_importance)
+            )
 
         return pattern_details
 
@@ -1271,3 +1280,21 @@ class RAGEngine(WMLResource):
         data_connection.set_client(self._client)
 
         return data_connection
+
+    @staticmethod
+    def _process_settings_importance(settings_importance: dict[str, list]) -> DataFrame:
+        list_of_tuples = [
+            (setting_category, item.get("parameter"), item.get("importance"))
+            for setting_category, parameters_importance in settings_importance.items()
+            for item in parameters_importance
+        ]
+
+        # Convert the list of tuples into a DataFrame with a multi-index
+        settings_importance_df = DataFrame(
+            list_of_tuples, columns=["setting_category", "parameter", "importance"]
+        ).set_index(["setting_category", "parameter"])
+        settings_importance_df.sort_values(
+            by="importance", ascending=False, inplace=True
+        )
+
+        return settings_importance_df

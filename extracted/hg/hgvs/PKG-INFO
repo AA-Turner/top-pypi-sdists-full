@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hgvs
-Version: 1.5.5
+Version: 1.5.6
 Summary: HGVS Parser, Formatter, Mapper, Validator
 Author-email: HGVS Contributors <biocommons-dev@googlegroups.com>
 License: 
@@ -233,7 +233,6 @@ Requires-Dist: configparser>=3.3.0
 Requires-Dist: importlib_resources
 Requires-Dist: ipython
 Requires-Dist: parsley
-Requires-Dist: pre-commit~=3.4
 Requires-Dist: psycopg2
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
@@ -241,7 +240,7 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
-Requires-Dist: pyright; extra == "dev"
+Requires-Dist: pre-commit~=3.4; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-recording; extra == "dev"

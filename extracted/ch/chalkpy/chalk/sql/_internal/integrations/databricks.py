@@ -244,6 +244,88 @@ class DatabricksSourceImpl(BaseSQLSource):
 
         return pa.RecordBatch.from_arrays(arrays=columns, names=column_names)
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for Databricks and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+
+        with safe_trace("databricks.execute_query_efficient_raw"):
+            try:
+                from databricks import sql
+            except ModuleNotFoundError:
+                raise missing_dependency_exception("chalkpy[databricks]")
+
+            # Use databricks-sql-python connection directly
+            if connection is not None:
+                # If SQLAlchemy connection provided, we can't use it directly with databricks-sql
+                # so we'll use the regular SQLAlchemy path
+                raise NotImplementedError("execute_query_efficient_raw with SQLAlchemy connection not supported")
+
+            # Connect using databricks-sql-python for efficient Arrow fetching
+            with sql.connect(
+                server_hostname=self.host,
+                http_path=self.http_path,
+                access_token=self.access_token,
+                catalog=self.db,
+            ) as databricks_cnx:
+                with databricks_cnx.cursor() as cursor:
+                    formatted_op, positional_params, named_params = self.compile_query(finalized_query)
+                    assert (
+                        len(positional_params) == 0 or len(named_params) == 0
+                    ), "Should not mix positional and named parameters"
+
+                    # Handle temp tables if any
+                    if finalized_query.temp_tables:
+                        # Temp tables not supported in databricks-sql-python connection
+                        raise NotImplementedError(
+                            "Temporary tables not supported with databricks-sql-python connection"
+                        )
+
+                    # Execute the query
+                    # Databricks cursor.execute expects Dict[str, str] for parameters
+                    if named_params:
+                        # Convert values to strings as databricks expects
+                        params_dict = {k: str(v) for k, v in named_params.items()}
+                        cursor.execute(formatted_op, parameters=params_dict)
+                    elif positional_params:
+                        # Databricks doesn't support positional params well, try without
+                        cursor.execute(formatted_op)
+                    else:
+                        cursor.execute(formatted_op)
+
+                    # Fetch all results as Arrow format
+                    while True:
+                        try:
+                            arrow_table = cursor.fetchmany_arrow(size=10000)
+                            if arrow_table is None or len(arrow_table) == 0:
+                                break
+
+                            # Map columns to expected schema
+                            arrays: list[pa.Array] = []
+                            for field in expected_output_schema:
+                                if field.name in arrow_table.column_names:
+                                    col = arrow_table.column(field.name)
+                                    # Cast to expected type if needed
+                                    if col.type != field.type:
+                                        col = pc.cast(col, field.type)
+                                    arrays.append(col)
+                                else:
+                                    # Column not found, create null array
+                                    arrays.append(pa.nulls(len(arrow_table), field.type))
+
+                            batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                            yield batch
+
+                        except Exception as e:
+                            if "no more data" in str(e).lower() or "end of result set" in str(e).lower():
+                                break
+                            raise
+
     def local_engine_url(self) -> URL:
         from sqlalchemy.engine.url import URL
 

@@ -417,7 +417,7 @@ class Ad(PinterestBaseModel):
             **kwargs
         )
 
-    def update_fields(self, **kwargs) -> bool:
+    def update_fields(self, client: PinterestSDKClient = None, **kwargs) -> bool:
         """
         Update Ad fields suing any arguments
 
@@ -440,5 +440,6 @@ class Ad(PinterestBaseModel):
             },
             api=AdsApi,
             update_fn=AdsApi.ads_update,
+            client=client,
             **kwargs
         )

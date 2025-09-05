@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_notification_destination`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_notification_destination`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination).
+Refer to the Terraform Registry for docs: [`data_newrelic_notification_destination`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicNotificationDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicNotificationDestination.DataNewrelicNotificationDestination",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination newrelic_notification_destination}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination newrelic_notification_destination}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataNewrelicNotificationDestination(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination newrelic_notification_destination} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination newrelic_notification_destination} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
-        :param id: The ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
-        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
+        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
+        :param id: The ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
+        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataNewrelicNotificationDestination(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicNotificationDestination to import.
-        :param import_from_id: The id of the existing DataNewrelicNotificationDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicNotificationDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicNotificationDestination to import is found.
         '''
         if __debug__:
@@ -295,10 +295,10 @@ class DataNewrelicNotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
-        :param id: The ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
-        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
+        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
+        :param id: The ID of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
+        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -407,7 +407,7 @@ class DataNewrelicNotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account ID under which to put the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#account_id DataNewrelicNotificationDestination#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -416,7 +416,7 @@ class DataNewrelicNotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def id(self) -> typing.Optional[builtins.str]:
         '''The ID of the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#id DataNewrelicNotificationDestination#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -428,7 +428,7 @@ class DataNewrelicNotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArg
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#name DataNewrelicNotificationDestination#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -439,7 +439,7 @@ class DataNewrelicNotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataNewrelicNotificationDestinationSecureUrl"]]]:
         '''secure_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#secure_url DataNewrelicNotificationDestination#secure_url}
         '''
         result = self._values.get("secure_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataNewrelicNotificationDestinationSecureUrl"]]], result)
@@ -625,7 +625,7 @@ class DataNewrelicNotificationDestinationPropertyOutputReference(
 class DataNewrelicNotificationDestinationSecureUrl:
     def __init__(self, *, prefix: builtins.str) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#prefix DataNewrelicNotificationDestination#prefix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#prefix DataNewrelicNotificationDestination#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__101d527a1eab651c10e734d2165dfa30b0b806fab18cb395ac8132694093485c)
@@ -636,7 +636,7 @@ class DataNewrelicNotificationDestinationSecureUrl:
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/notification_destination#prefix DataNewrelicNotificationDestination#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/notification_destination#prefix DataNewrelicNotificationDestination#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)

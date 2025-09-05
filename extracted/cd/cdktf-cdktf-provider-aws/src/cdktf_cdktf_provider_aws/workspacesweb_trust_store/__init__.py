@@ -1,7 +1,7 @@
 r'''
 # `aws_workspacesweb_trust_store`
 
-Refer to the Terraform Registry for docs: [`aws_workspacesweb_trust_store`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store).
+Refer to the Terraform Registry for docs: [`aws_workspacesweb_trust_store`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WorkspaceswebTrustStore(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.workspaceswebTrustStore.WorkspaceswebTrustStore",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store aws_workspacesweb_trust_store}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store aws_workspacesweb_trust_store}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class WorkspaceswebTrustStore(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store aws_workspacesweb_trust_store} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store aws_workspacesweb_trust_store} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class WorkspaceswebTrustStore(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WorkspaceswebTrustStore to import.
-        :param import_from_id: The id of the existing WorkspaceswebTrustStore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WorkspaceswebTrustStore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WorkspaceswebTrustStore to import is found.
         '''
         if __debug__:
@@ -228,7 +228,7 @@ class WorkspaceswebTrustStore(
 class WorkspaceswebTrustStoreCertificate:
     def __init__(self, *, body: builtins.str) -> None:
         '''
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#body WorkspaceswebTrustStore#body}.
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#body WorkspaceswebTrustStore#body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cbe909f4d323bf62cfb67165a22927baa1132787eb19fc16e0579c6ad340351)
@@ -239,7 +239,7 @@ class WorkspaceswebTrustStoreCertificate:
 
     @builtins.property
     def body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#body WorkspaceswebTrustStore#body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#body WorkspaceswebTrustStore#body}.'''
         result = self._values.get("body")
         assert result is not None, "Required property 'body' is missing"
         return typing.cast(builtins.str, result)
@@ -474,9 +474,9 @@ class WorkspaceswebTrustStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -584,7 +584,7 @@ class WorkspaceswebTrustStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[WorkspaceswebTrustStoreCertificate]]]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#certificate WorkspaceswebTrustStore#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[WorkspaceswebTrustStoreCertificate]]], result)
@@ -593,14 +593,14 @@ class WorkspaceswebTrustStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#region WorkspaceswebTrustStore#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/workspacesweb_trust_store#tags WorkspaceswebTrustStore#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

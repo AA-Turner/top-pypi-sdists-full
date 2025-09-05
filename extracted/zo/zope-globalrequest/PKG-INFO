@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: zope.globalrequest
-Version: 2.0
+Version: 2.1
 Summary: Global way of retrieving the currently active request.
 Home-page: https://github.com/zopefoundation/zope.globalrequest
 Author: Zope Foundation and Contributors
@@ -22,14 +22,32 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.7
+Requires-Python: >=3.9
+Requires-Dist: setuptools
+Requires-Dist: zope.interface
+Requires-Dist: zope.publisher
+Requires-Dist: zope.traversing
 Provides-Extra: test
+Requires-Dist: zope.testrunner; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 
@@ -48,6 +66,14 @@ the latter promotes a clean separation of concerns and the pattern of having a g
 
 Changelog
 =========
+
+2.1 (2025-09-04)
+----------------
+
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
+
 
 2.0 (2023-03-27)
 ----------------

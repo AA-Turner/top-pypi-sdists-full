@@ -88,7 +88,7 @@ class AppSession:
         if not forced and self.app_login:
             return self.app_login
 
-        idp_login: IdpLogin = Idp.login(self.host, idp_uri=idp_uri, forced=forced, use_token_from_env=use_token_from_env, use_cached_creds=use_cached_creds)
+        idp_login: IdpLogin = Idp.login(self.host, idp_uri=idp_uri, forced=forced, use_token_from_env=use_token_from_env, use_cached_creds=use_cached_creds, verify=False)
         if not idp_login:
             log2(f"Invalid username/password.")
 

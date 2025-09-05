@@ -2,6 +2,7 @@ from radboy.DB.db import *
 from radboy.FB.FormBuilder import FormBuilder
 from copy import deepcopy as copy
 from radboy.ExportUtility import *
+import radboy.HealthLog as HL
 def CountTo():
     fd={
         'Start':{
@@ -82,7 +83,222 @@ def CountTo():
                 continue
             print(final_msg)
             break
+MOOD_STRING='''
+How to read & rate on -10 to +10 mood & energy thermometer (+ 0 to +10 anger&anxiety):
+Less than half day Almost all day
+EXTREME 10
+(almost all day)
+EXTREME
+(less than half-day)
+9
+SEVERE
+8
+(almost all day) SEVERE
+(less than half-day)
+7
+MODERATE
+6
+(almost all day) MODERATE
+(less than half-day)
+5
+MILD
+4
+(almost all day) MILD
+(less than half-day)
+3
+SLIGHT
+2
+(almost all day) SLIGHT
+(less than half-day)
+1
+O (OKAY) (less than half-day)
+0
+0
+(almost all day)
+O (OKAY)
+MOOD & ENERGY THERMOMETER
+Please circle one or more of the below numbers FROM EACH COLUMN that reflects your mood & energy levels reflecting
+your day. You can circle more than one number if you mood/energy changes during the day.
++10 SUPER ELEVATED
+ Have constant excitement and feel super happy, and have no control over self & cannot
+be calmed down at all & cannot function at all & someone needs to be present to monitor
+safety.
++10 SUPER ENERGETIC
+ Have constant motor excitement, non-stop moving around, and cannot control self &
+cannot slow down at all & cannot function at all & someone needs to be present to monitor
+safety.
++9 EXTREMELY ELEVATED
+ Have extreme excitement and feel extremely happy, non-stop giggling & laughing, and
+cannot control self & cannot be calmed down & function poorly
++9 EXTREMELY ENERGETIC
+ Have motor excitement, non-stop moving around, and cannot control self & cannot slow
+down & function poorly.
++8 SEVERELY ELEVATED-almost all day
+ Feel very happy & giggling & laughing, and can control self only briefly & very difficult to
+calm down & don't function well.
++8 SEVERELY ENERGETIC -almost all day
+ Have excessive energy & constantly moving and pacing about, and can control energy
+only briefly & very difficult to slow down & don't function well.
++7 SEVERELY ELEVATED- less than 50% of the day
+ Feel very happy & giggling & laughing, and can control self only briefly & very difficult to
+calm down & don't function well.
++7 SEVERELY ENERGETIC- less than 50% of the day
+ Have excessive energy & constantly moving and pacing about, and can control energy
+only briefly & very difficult to slow down & don't function well.
++6 MODERATELY ELEVATED-almost all day
+ Feel cheerful/optimistic much more than usual/baseline (out of proportion) & some
+difficulty to control self & some difficulty to calm down & don't function as good as before.
++6 MODERATELY ENERGETIC -almost all day
+ Have excessive energy & constantly moving and pacing about, and can control energy
+only briefly & very difficult to slow down & don't function well.
++5 MODERATELY ELEVATED- less than 50% of the day
+ Feel cheerful/optimistic much more than usual/baseline (out of proportion) & some
+difficulty to control self & some difficulty to calm down & don't function as good as before.
++5 MODERATELY ENERGETIC-less than 50% of the day
+ Feel energetic and hyper much more than usual/baseline (out of proportion) &
+restless/pace & some difficulty to control energy & some difficulty to slow down & don't
+function as good as before.
++4 MILDLY ELEVATED-almost all day
+ Feel cheerful and optimistic more than usual/baseline & others may notice it, but can
+calm down & function ok.
++4 MILDLY ENERGETIC-almost all day
+ Feel energetic and hyper more than usual/baseline & others may notice it, but can easily
+slow down & function ok.
++3 MILDLY ELEVATED-less than 50% of the day
+ Feel cheerful and optimistic more than usual/baseline & others may notice it, but can
+calm down & function ok.
++3 MILDLY ENERGETIC-less than 50% of the day
+ Feel energetic and hyper more than usual/baseline & others may notice it, but can easily
+slow down & function ok.
++2 SLIGHTLY ELEVATED-almost all day long
+ Feel a little bit more cheerful and optimistic, but others don't notice & function ok
++2 SLIGHTLY MORE ENERGY-almost all day long
+ Feel a little bit more energetic than usual, but others don't notice a change & function ok.
++1 SLIGHTLY ELEVATED- less than 50% of the day
+ Feel a little bit more cheerful and optimistic, but others don't notice & function ok
++1 SLIGHTLY MORE ENERGY-less than 50% of the day
+ Feel a little bit more energetic than usual, but others don't notice a change & function ok.
+-1 SLIGHTLY DOWN- less than 50% of the day
+ Feel a little depressed and cheerless, but others don't notice a change & function ok
+-1 SLIGHTLY TIRED- less than 50% of the day
+ Feel a little bit tired, but others don't notice a change & function ok.
+-2 SLIGHTLY DOWN-almost all day
+ Feel a little depressed and cheerless, but others don't notice a change & function ok
+-2 SLIGHTLY TIRED-almost all day
+ Feel a little bit tired, but others don't notice a change & function ok.
+-3 MILDLY DOWN - less than 50% of the day
+ Feel depressed and cheerless more than usual & enjoying things and having fun is
+somewhat difficult & others may notice a change, but can brighten up & function ok.
+-3 MILDLY TIRED-less than 50% of the day
+ Feel more tired and less active than usual/baseline & others may notice it, but can be
+active during the day & function ok.
+-4 MILDLY DOWN -almost all day
+ Feel depressed and cheerless more than usual & enjoying things and having fun is
+somewhat difficult & others may notice a change, but can brighten up & function ok.
+-4 MILDLY TIRED-almost all day
+ Feel more tired and less active than usual/baseline & others may notice it, but can be
+active during the day & function ok.
+-5 MODERATELY DOWN - less than 50% of the day
+ Feel depressed and cheerless (out of proportion) much more than usual & enjoying things
+and having fun is more difficult & some difficulty to brighten up & don't function as good as
+before.
+-5 MODERATELY TIRED-less than 50% of the day
+ Feel more tired and less active than usual/baseline & others may notice it, but can be
+active during the day & function ok.
+-6 MODERATELY DOWN -almost all day
+ Feel depressed and cheerless (out of proportion) much more than usual & enjoying things
+and having fun is more difficult & some difficulty to brighten up & don't function as good as
+before.
+-6 MODERATELY TIRED-almost all day
+ Feel more tired and less active than usual/baseline & others may notice it, but can be
+active during the day & function ok.
+-7 SEVERELY DOWN- less than 50% of the day
+ Feel very depressed & cheerless & gloomy, and don’t enjoy things and don’t feel like
+having fun & very difficult to brighten up & don't function well.
+-7 SEVERELY TIRED- less than 50% of the day
+ Have excessive tiredness & very difficult to move around & spend very long time to rest
+& physical activity is limited to few & don't function well.
+-8 SEVERELY DOWN -almost all day
+ Feel very depressed & cheerless & gloomy, and don’t enjoy things and don’t feel like
+having fun & very difficult to brighten up & don't function well.
+-8 SEVERELY TIRED-almost all day
+ Have excessive tiredness & very difficult to move around & spend very long time to rest
+& physical activity is limited to few & don't function well.
+-9 EXTREMELY DOWN (life is not worth living)
+ Have extreme depression and feel very miserable, have psychic pain (“I cannot stand
+it”), and cannot control self & cannot be down & function poorly.
+-9 EXTREMELY TIRED
+ Feel like drained and worn out & almost no physical activity and cannot move around &
+function poorly.
+-10 AT THE LOWEST POINT
+ Have constant painful sadness and feel very numb & empty & don’t want to live & cannot
+function at all & someone needs to be present to monitor safety.
+-10 NO ENERGY AT ALL
+ Have constant motor retardation, and cannot move arms or legs & cannot function at all
+& someone needs to be present to monitor safety.
+ Rasim Somer Diler, MD. Child and Adolescent Bipolar Spectrum Services (Cabs), Western Psychiatric Institute and Clinic of University of Pittsburgh Medical Center: “Mood and Energy Thermometer.” Revised in 2013.
+DEPRESSED/DOWNELEVATED/UP
 
+Please circle one or more of the below numbers FROM EACH COLUMN that reflects your anger & anxiety/worry levels
+reflecting your day. You can circle more than one number if you anger/anxiety changes during the day.
++10 SUPER ANGRY
+ Have constant anger, and have no control over self & cannot be calmed down
+at all & cannot function at all & someone needs to be present to monitor safety.
++10 SUPER WORRIED/ANXIOUS
+ Have constant worries/anxiety, and have no control over self & cannot be calmed down at all &
+cannot function at all & someone needs to be present to monitor safety.
++9 EXTREMELY ANGRY
+ Have extreme anger, cannot control self & cannot be calmed down & function
+poorly
++9 EXTREMELY WORRIED/ANXIOUS
+ Have extreme worries/anxiety, cannot control self & cannot be calmed down & function poorly
++8 SEVERELY ANGRY-almost all day
+ Feel very angry, and can control self only briefly & very difficult to calm down
+& don't function well.
++8 SEVERELY WORRIED/ANXIOUS -almost all day
+ Feel very worried/anxious, and can control self only briefly & very difficult to calm down & don't
+function well.
++7 SEVERELY ANGRY- less than 50% of the day
+ Feel very angry, and can control self only briefly & very difficult to calm down
+& don't function well.
++7 SEVERELY WORRIED/ANXIOUS- less than 50% of the day
+ Feel very worried/anxious, and can control self only briefly & very difficult to calm down & don't
+function well.
++6 MODERATELY ANGRY-almost all day
+ Feel more angry than usual/baseline (out of proportion) & some difficulty to
+control self & some difficulty to calm down & don't function as good as before.
++6 MODERATELY WORRIED/ANXIOUS -almost all day
+ Feel more worried/anxious than usual/baseline (out of proportion) & some difficulty to control self
+& some difficulty to calm down & don't function as good as before.
++5 MODERATELY ANGRY- less than 50% of the day
+ Feel more angry than usual/baseline (out of proportion) & some difficulty to
+control self & some difficulty to calm down & don't function as good as before.
++5 MODERATELY WORRIED/ANXIOUS-less than 50% of the day
+ Feel more worried/anxious than usual/baseline (out of proportion) & some difficulty to control self
+& some difficulty to calm down & don't function as good as before.
++4 MILDLY ANGRY-almost all day
+ Feel more angry than usual/baseline & others may notice it, but can calm
+down & function ok.
++4 MILDLY WORRIED/ANXIOUS-almost all day
+ Feel worried/anxious than usual/baseline & others may notice it, but can easily slow down &
+function ok.
++3 MILDLY ANGRY-less than 50% of the day
+ Feel more angry than usual/baseline & others may notice it, but can calm
+down & function ok.
++3 MILDLY WORRIED/ANXIOUS-less than 50% of the day
+ Feel worried/anxious than usual/baseline & others may notice it, but can easily slow down &
+function ok.
++2 SLIGHTLY ANGRY-almost all day long
+ Feel a little bit more angry, but others don't notice & function ok
++2 SLIGHTLY WORRIED/ANXIOUS -almost all day long
+ Feel a little bit more worried/anxious than usual, but others don't notice a change & function ok.
++1 SLIGHTLY ANGRY- less than 50% of the day
+ Feel a little bit more angry, but others don't notice & function ok
++1 SLIGHTLY WORRIED/ANXIOUS -less than 50% of the day
+ Feel a little bit more worried/anxious than usual, but others don't notice a change & function ok.
+Rasim Somer Diler, MD. Child and Adolescent Bipolar Spectrum Services (Cabs), Western Psychiatric Institute and Clinic of University of Pittsburgh Medical Center: “Anger and Anxiety Thermometer.” 2014.
+ANGRYWORRIED/ANXIOUS
+'''
 
 class OrderedAndRecieved(BASE,Template):
     '''
@@ -178,6 +394,14 @@ class OrderedAndRecieved(BASE,Template):
 
     assisted_deli=Column(Boolean,default=False)
     assisted_deli_with=Column(String,default='')
+
+    rate_your_anger_neg1_to_pos10=Column(Integer,default=0)
+    rate_your_anxiety_neg1_to_pos10=Column(Integer,default=0)
+    rate_your_mood_neg1_to_pos10=Column(Integer,default=0)
+    rate_your_energy_neg1_to_pos10=Column(Integer,default=0)
+    rate_your_worriedness_neg1_to_pos10=Column(Integer,default=0)
+    personal_comment_related_to_rating=Column(String,default=MOOD_STRING)
+
 
 
 
@@ -371,6 +595,11 @@ class OrderAndRxdUi():
             'cmds':generate_cmds(startcmd=['fix','fx',],endCmd=['tbl', 'table',]),
             'desc':'drop and recreate table',
             'exec':lambda self=self:self.fixtable()
+        }
+        self.cmds[uuid1()]={
+            'cmds':generate_cmds(startcmd=['health','h',],endCmd=['log', 'l',]),
+            'desc':'healthlog',
+            'exec':lambda self=self:HL.HealthLog.HealthLogUi()
         }
         self.cmds["ExportTables"]={
         'cmds':["export tables","xpttbl",],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpy2-rinterface
-Version: 3.6.2
+Version: 3.6.3
 Summary: Low-level interface from Python to the R.
 Author-email: Laurent Gautier <lgautier@gmail.com>
 License: GPL-2.0-or-later

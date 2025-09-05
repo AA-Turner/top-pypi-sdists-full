@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_code_repository`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_code_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_code_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerCodeRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerCodeRepository.SagemakerCodeRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository aws_sagemaker_code_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository aws_sagemaker_code_repository}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SagemakerCodeRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository aws_sagemaker_code_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository aws_sagemaker_code_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param code_repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.
-        :param git_config: git_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.
+        :param code_repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.
+        :param git_config: git_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SagemakerCodeRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerCodeRepository to import.
-        :param import_from_id: The id of the existing SagemakerCodeRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerCodeRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerCodeRepository to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class SagemakerCodeRepository(
         secret_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.
-        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.
+        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.
         '''
         value = SagemakerCodeRepositoryGitConfig(
             repository_url=repository_url, branch=branch, secret_arn=secret_arn
@@ -325,12 +325,12 @@ class SagemakerCodeRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param code_repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.
-        :param git_config: git_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.
+        :param code_repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.
+        :param git_config: git_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -444,7 +444,7 @@ class SagemakerCodeRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def code_repository_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#code_repository_name SagemakerCodeRepository#code_repository_name}.'''
         result = self._values.get("code_repository_name")
         assert result is not None, "Required property 'code_repository_name' is missing"
         return typing.cast(builtins.str, result)
@@ -453,7 +453,7 @@ class SagemakerCodeRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def git_config(self) -> "SagemakerCodeRepositoryGitConfig":
         '''git_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#git_config SagemakerCodeRepository#git_config}
         '''
         result = self._values.get("git_config")
         assert result is not None, "Required property 'git_config' is missing"
@@ -461,7 +461,7 @@ class SagemakerCodeRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#id SagemakerCodeRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -473,20 +473,20 @@ class SagemakerCodeRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#region SagemakerCodeRepository#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags SagemakerCodeRepository#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#tags_all SagemakerCodeRepository#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -520,9 +520,9 @@ class SagemakerCodeRepositoryGitConfig:
         secret_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.
-        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.
+        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efcc61f5563a385df673b3756a5a281272e1bacba49e7ead58193b42978d6c82)
@@ -539,20 +539,20 @@ class SagemakerCodeRepositoryGitConfig:
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#repository_url SagemakerCodeRepository#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def branch(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#branch SagemakerCodeRepository#branch}.'''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/sagemaker_code_repository#secret_arn SagemakerCodeRepository#secret_arn}.'''
         result = self._values.get("secret_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 

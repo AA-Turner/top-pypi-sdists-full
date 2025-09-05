@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ the provided lexicon. The user can choose to rescore (e.g., with a language
 model) this lattice if desired.
 """
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import pynini
 from pynini.lib import pynutil

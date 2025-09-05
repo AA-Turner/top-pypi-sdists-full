@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlacodegen
-Version: 3.1.0
+Version: 3.1.1
 Summary: Automatic model code generator for SQLAlchemy
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>
 Maintainer-email: Idan Sheinberg <ishinberg0@gmail.com>
@@ -28,7 +28,7 @@ Requires-Dist: inflect>=4.0.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
 Requires-Dist: stdlib-list; python_version < "3.10"
 Provides-Extra: test
-Requires-Dist: sqlacodegen[pgvector,sqlmodel]; extra == "test"
+Requires-Dist: sqlacodegen[geoalchemy2,pgvector,sqlmodel]; extra == "test"
 Requires-Dist: pytest>=7.4; extra == "test"
 Requires-Dist: coverage>=7; extra == "test"
 Requires-Dist: psycopg[binary]; extra == "test"
@@ -38,7 +38,7 @@ Requires-Dist: sqlmodel>=0.0.22; extra == "sqlmodel"
 Provides-Extra: citext
 Requires-Dist: sqlalchemy-citext>=1.7.0; extra == "citext"
 Provides-Extra: geoalchemy2
-Requires-Dist: geoalchemy2>=0.11.1; extra == "geoalchemy2"
+Requires-Dist: geoalchemy2>=0.17.0; extra == "geoalchemy2"
 Provides-Extra: pgvector
 Requires-Dist: pgvector>=0.2.4; extra == "pgvector"
 Dynamic: license-file

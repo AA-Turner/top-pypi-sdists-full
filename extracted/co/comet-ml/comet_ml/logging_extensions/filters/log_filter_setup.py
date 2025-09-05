@@ -18,11 +18,7 @@ from ...rate_limiter.rate import OpRate
 from ..callback import BaseLoggingCallback
 from .log_filter import LogRecordRuleFilter
 from .log_filter_helpers import type_from_extra_dict
-from .log_record_types import (
-    ASSETS_UPLOAD_THROTTLING_MSG_EXTRA,
-    GENERAL_THROTTLING_MSG_EXTRA,
-    METRICS_THROTTLING_MSG_EXTRA,
-)
+from .log_record_types import ASSETS_UPLOAD_THROTTLING_MSG_EXTRA
 from .log_rules import (
     CompositeAndLogRecordRule,
     LogRecordCallbackRule,
@@ -31,12 +27,6 @@ from .log_rules import (
 
 
 def setup_filters(logger: logging.Logger, logging_callback: BaseLoggingCallback):
-    # once in 5 seconds rule
-    once_in_5_throttling_rule = RateLimitedLogRecordRule(
-        rate_limiter=OpRateLimiter([OpRate(1, Duration(5, TimeUnit.SECOND))]),
-        drop_excess_records=True,
-    )
-
     # once in 20 seconds rule
     once_in_20_throttling_rule = RateLimitedLogRecordRule(
         rate_limiter=OpRateLimiter([OpRate(1, Duration(20, TimeUnit.SECOND))]),
@@ -51,17 +41,8 @@ def setup_filters(logger: logging.Logger, logging_callback: BaseLoggingCallback)
 
     # add custom rules for different record types
     log_filter.add_rule(
-        CompositeAndLogRecordRule([once_in_5_throttling_rule, records_callback]),
-        record_type=type_from_extra_dict(METRICS_THROTTLING_MSG_EXTRA),
-    )
-
-    log_filter.add_rule(
         CompositeAndLogRecordRule([once_in_20_throttling_rule, records_callback]),
         record_type=type_from_extra_dict(ASSETS_UPLOAD_THROTTLING_MSG_EXTRA),
-    )
-
-    log_filter.add_rule(
-        records_callback, record_type=type_from_extra_dict(GENERAL_THROTTLING_MSG_EXTRA)
     )
 
     # add to the handlers

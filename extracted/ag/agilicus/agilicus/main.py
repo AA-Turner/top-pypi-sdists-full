@@ -1048,7 +1048,6 @@ def list_useful_orgs_(ctx, **kwargs):
 @click.option("--issuer", default=None)
 @click.option("--name", default=None)
 @click.option("--billing_account_id", default=None)
-@click.option("--enabled", type=bool, default=None)
 @click.option("--shard", default=None)
 @click.option("--cluster", default=None)
 @click.option("--subdomain", default=None)

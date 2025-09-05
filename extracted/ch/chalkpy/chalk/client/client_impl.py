@@ -4426,55 +4426,83 @@ https://docs.chalk.ai/cli/apply
 
         headers = dict(headers)
 
-        if is_many_query:
-            if isinstance(now, (str, datetime)):
-                nows = [now] * len(next(iter(parsed_inputs.values())))
-            else:
-                nows = now
-            if nows is not None:
-                nows = [datetime.fromisoformat(now) if isinstance(now, str) else now for now in nows]
-            assert not planner_options, "Planner options are not supported with query_bulk"
+        retry_pattern = re.compile(r"503|upstream connect error|connection termination|reset reason")
+        max_retries = 5
 
-            resp = self.query_bulk(
-                input=parsed_inputs,
-                output=outputs,
-                query_name=query_name,
-                query_name_version=query_name_version,
-                query_context=query_context,
-                now=nows,
-                staleness=staleness,
-                tags=tags,
-                headers=headers,
-            )
-            resp_errors = list(resp.global_errors)
-            for x in resp.results:
-                if x.errors:
-                    resp_errors.extend(x.errors)
-            resp_df = resp.results[0].scalars_df
-            resp_data = None
-            meta = resp.results[0].meta
-            assert isinstance(meta, QueryMeta)
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                if is_many_query:
+                    if isinstance(now, (str, datetime)):
+                        nows = [now] * len(next(iter(parsed_inputs.values())))
+                    else:
+                        nows = now
+                    if nows is not None:
+                        nows = [datetime.fromisoformat(now) if isinstance(now, str) else now for now in nows]
+                    assert not planner_options, "Planner options are not supported with query_bulk"
+
+                    resp = self.query_bulk(
+                        input=parsed_inputs,
+                        output=outputs,
+                        query_name=query_name,
+                        query_name_version=query_name_version,
+                        query_context=query_context,
+                        now=nows,
+                        staleness=staleness,
+                        tags=tags,
+                        headers=headers,
+                    )
+                    resp_errors = list(resp.global_errors)
+                    for x in resp.results:
+                        if x.errors:
+                            resp_errors.extend(x.errors)
+                    resp_df = resp.results[0].scalars_df
+                    resp_data = None
+                    meta = resp.results[0].meta
+                    assert isinstance(meta, QueryMeta)
+                else:
+                    assert isinstance(now, (str, datetime)) or now is None
+
+                    resp = self.query(
+                        input=parsed_inputs,
+                        output=outputs,
+                        query_name=query_name,
+                        query_name_version=query_name_version,
+                        query_context=query_context,
+                        now=datetime.fromisoformat(now) if isinstance(now, str) else now,
+                        staleness=staleness,
+                        tags=tags,
+                        planner_options=planner_options,
+                        include_meta=True,
+                        headers=headers,
+                    )
+                    resp_errors = list(resp.errors or ())
+                    resp_data = resp.data
+                    resp_df = None
+                    meta = resp.meta
+                    assert isinstance(meta, QueryMeta)
+
+                break
+
+            except Exception as e:
+                last_exception = e
+                if retry_pattern.search(str(e)):
+                    if attempt < max_retries - 1:
+                        # Exponential backoff with jitter
+                        base_wait = 2**attempt
+                        jitter = random.uniform(0, base_wait)
+                        wait_time = base_wait + jitter
+                        time.sleep(wait_time)
+                    continue
+                else:
+                    raise
         else:
-            assert isinstance(now, (str, datetime)) or now is None
-
-            resp = self.query(
-                input=parsed_inputs,
-                output=outputs,
-                query_name=query_name,
-                query_name_version=query_name_version,
-                query_context=query_context,
-                now=datetime.fromisoformat(now) if isinstance(now, str) else now,
-                staleness=staleness,
-                tags=tags,
-                planner_options=planner_options,
-                include_meta=True,
-                headers=headers,
-            )
-            resp_errors = list(resp.errors or ())
-            resp_data = resp.data
-            resp_df = None
-            meta = resp.meta
-            assert isinstance(meta, QueryMeta)
+            # All retries exhausted
+            if last_exception:
+                raise last_exception
+            else:
+                # This shouldn't happen, but satisfies type checker
+                raise RuntimeError("All retries exhausted but no exception recorded")
 
         def _canonicalize_error(x: ChalkError):
             return x.copy(

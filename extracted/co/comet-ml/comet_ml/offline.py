@@ -59,7 +59,6 @@ from ._typing import Any, Dict, List, Optional, Tuple
 from .api_helpers.experiment_key import get_experiment_key
 from .assets import asset_item
 from .batch_utils import MessageBatch, MessageBatchItem, ParametersBatch
-from .comet import OfflineStreamer
 from .comet_start.start_modes import SUPPORTED_START_MODES
 from .config import (
     ADDITIONAL_STREAMER_UPLOAD_TIMEOUT,
@@ -242,6 +241,7 @@ from .schemas import (
     get_upload_msg_validator,
     get_ws_msg_validator,
 )
+from .streamer import OfflineStreamer
 from .upload_callback.callback import UploadCallback
 from .upload_options import (
     AssetItemUploadOptions,

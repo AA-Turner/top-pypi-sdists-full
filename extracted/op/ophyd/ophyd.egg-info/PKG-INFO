@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd
-Version: 1.10.7
+Version: 1.11.0
 Summary: Bluesky hardware abstraction with an emphasis on EPICS
 Home-page: https://github.com/bluesky/ophyd
 License: BSD
@@ -8,6 +8,10 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE

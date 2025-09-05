@@ -30,6 +30,13 @@ class Pods:
         except Exception as e:
             log2("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
+    def delete_with_selector(namespace: str, label_selector: str):
+        v1 = client.CoreV1Api()
+
+        ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
+        for i in ret.items:
+            v1.delete_namespaced_pod(name=i.metadata.name, namespace=namespace)
+
     def on_pods(pods: list[str],
                 namespace: str,
                 body: Callable[[ThreadPoolExecutor, str, str, bool], T],
@@ -158,12 +165,12 @@ class Pods:
         v1 = client.CoreV1Api()
         return v1.read_namespaced_pod(name=pod_name, namespace=namespace)
 
-    def create_pod_spec(name: str, image: str, image_pull_secret: str, envs: list, volume_name: str, pvc_name:str, mount_path:str, command: list[str]=None, sa_name=None):
+    def create_pod_spec(name: str, image: str, image_pull_secret: str, envs: list, container_security_context: client.V1SecurityContext, volume_name: str, pvc_name:str, mount_path:str, command: list[str]=None, sa_name=None):
         volume_mounts = []
         if volume_name and pvc_name and mount_path:
             volume_mounts=[client.V1VolumeMount(mount_path=mount_path, name=volume_name)]
 
-        container = client.V1Container(name=name, image=image, env=envs, command=command,
+        container = client.V1Container(name=name, image=image, env=envs, security_context=container_security_context, command=command,
                                     volume_mounts=volume_mounts)
 
         volumes = []
@@ -183,9 +190,12 @@ class Pods:
             volumes=volumes
         )
 
-    def create(namespace: str, pod_name: str, image: str, command: list[str],
+    def create(namespace: str, pod_name: str, image: str,
+               command: list[str] = None,
                secret: str = None,
                env: dict[str, any] = {},
+               container_security_context: client.V1SecurityContext = None,
+               labels: dict[str, str] = {},
                volume_name: str = None,
                pvc_name: str = None,
                mount_path: str = None,
@@ -194,16 +204,23 @@ class Pods:
         envs = []
         for k, v in env.items():
             envs.append(client.V1EnvVar(name=str(k), value=str(v)))
-        pod = Pods.create_pod_spec(pod_name, image, secret, envs, volume_name, pvc_name, mount_path, command=command, sa_name=sa_name)
-        return v1.create_namespaced_pod(namespace=namespace,
-                                        body=client.V1Pod(spec=pod, metadata=client.V1ObjectMeta(name=pod_name)))
+        pod = Pods.create_pod_spec(pod_name, image, secret, envs, container_security_context, volume_name, pvc_name, mount_path, command=command, sa_name=sa_name)
+        return v1.create_namespaced_pod(
+            namespace=namespace,
+            body=client.V1Pod(spec=pod, metadata=client.V1ObjectMeta(
+                name=pod_name,
+                labels=labels
+            ))
+        )
 
-    def wait_for_running(namespace: str, pod_name: str):
+    def wait_for_running(namespace: str, pod_name: str, msg: str=None):
         msged = False
 
         while Pods.get(namespace, pod_name).status.phase != 'Running':
             if not msged:
-                log2(f'Waiting for the {pod_name} pod to start up...')
+                if not msg:
+                    msg = f'Waiting for the {pod_name} pod to start up...'
+                log2(msg)
                 msged = True
             time.sleep(5)
 

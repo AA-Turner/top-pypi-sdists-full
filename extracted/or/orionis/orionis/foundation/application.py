@@ -1912,21 +1912,22 @@ class Application(Container, IApplication):
         """
 
         # Create a local copy of the configuration to avoid mutating the original
-        local_config = self.__config.copy()
+        if not hasattr(self, '_Application__runtime_config') or self.__runtime_config is None:
+            self.__runtime_config = self.__config.copy()
 
         # Remove 'path' from the local copy to ensure path config is not returned here
-        if 'path' in local_config:
-            del local_config['path']
+        if 'path' in self.__runtime_config:
+            del self.__runtime_config['path']
 
         # Ensure the application is booted before accessing configuration
-        if not local_config:
+        if not self.__runtime_config:
             raise OrionisRuntimeError(
                 "Application configuration is not initialized. Please call create() before accessing configuration."
             )
 
         # If no key is provided, return the entire configuration (excluding 'path')
         if key is None:
-            return local_config
+            return self.__runtime_config
 
         # Ensure the key is a string
         if not isinstance(key, str):
@@ -1938,7 +1939,7 @@ class Application(Container, IApplication):
         parts = key.split('.')
 
         # Start with the full config and traverse according to the key parts
-        config_value = local_config
+        config_value = self.__runtime_config
         for part in parts:
             # If the part exists in the current config_value, go deeper
             if isinstance(config_value, dict) and part in config_value:
@@ -1992,10 +1993,11 @@ class Application(Container, IApplication):
         """
 
         # Create a local copy of the path configuration to avoid mutation
-        local_path_config = self.__config.get('path', {}).copy() if self.__config else {}
+        if not hasattr(self, '_Application__runtime_path_config') or self.__runtime_path_config is None:
+            self.__runtime_path_config = self.__config.get('path', {}).copy() if self.__config else {}
 
         # Ensure the application is booted before accessing configuration
-        if not local_path_config:
+        if not self.__runtime_path_config:
             raise OrionisRuntimeError(
                 "Application configuration is not initialized. Please call create() before accessing path configuration."
             )
@@ -2003,7 +2005,7 @@ class Application(Container, IApplication):
         # If no key is provided, return all paths as a dictionary of Path objects
         if key is None:
             path_resolved: Dict[str, Path] = {}
-            for k, v in local_path_config.items():
+            for k, v in self.__runtime_path_config.items():
                 # Convert each path string to a Path object
                 path_resolved[k] = Path(v)
             return path_resolved
@@ -2015,8 +2017,8 @@ class Application(Container, IApplication):
             )
 
         # Direct key match: return the resolved Path object if the key exists
-        if key in local_path_config:
-            return Path(local_path_config[key])
+        if key in self.__runtime_path_config:
+            return Path(self.__runtime_path_config[key])
 
         # If the key is not found, return None
         return None
@@ -2078,7 +2080,7 @@ class Application(Container, IApplication):
             # Mark as booted
             self.__booted = True
 
-            # Load core framework kernels
+            # Load core framework kernels with app booted
             self.__loadFrameworksKernel()
 
             # Retrieve logger and console instances from the container
@@ -2095,3 +2097,40 @@ class Application(Container, IApplication):
 
         # Return the application instance for method chaining
         return self
+
+    def isProduction(
+        self
+    ) -> bool:
+        """
+        Check if the application is running in a production environment.
+
+        This method determines whether the current application environment is set to 'production'.
+        It checks the 'app.env' configuration value to make this determination.
+
+        Returns
+        -------
+        bool
+            True if the application environment is 'production', False otherwise.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If the application configuration has not been initialized (i.e., if `create()` has not been called).
+
+        Notes
+        -----
+        The environment is typically defined in the application configuration and can be set to values such as 'development', 'testing', or 'production'.
+        This method is useful for conditionally executing code based on the environment, such as enabling/disabling debug features or logging verbosity.
+        """
+
+        # Retrieve the current application environment from configuration
+        app_env = self.config('app.env')
+
+        # Ensure the application is booted before accessing configuration
+        if app_env is None:
+            raise OrionisRuntimeError(
+                "Application configuration is not initialized. Please call create() before checking the environment."
+            )
+
+        # Return True if the environment is 'production', otherwise False
+        return str(app_env).lower() == 'production'

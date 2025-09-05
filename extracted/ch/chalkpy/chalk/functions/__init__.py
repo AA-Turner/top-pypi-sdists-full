@@ -10,7 +10,12 @@ from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features.underscore import Underscore, UnderscoreCast, UnderscoreFunction
 from chalk.functions.holidays import DayOfWeek
 from chalk.functions.http import http_delete, http_get, http_post, http_put, http_request
-from chalk.functions.proto import proto_deserialize, proto_serialize
+from chalk.functions.proto import (
+    proto_deserialize,
+    proto_enum_value_to_name,
+    proto_serialize,
+    proto_timestamp_to_datetime,
+)
 from chalk.ml.model_reference import ModelReference
 from chalk.utils.duration import parse_chalk_duration
 
@@ -5346,6 +5351,8 @@ __all__ = (
     "partial_ratio",
     "pi",
     "power",
+    "proto_enum_value_to_name",
+    "proto_timestamp_to_datetime",
     "proto_deserialize",
     "proto_serialize",
     "quarter",

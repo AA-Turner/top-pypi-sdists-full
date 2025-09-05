@@ -10,11 +10,12 @@
 cimport cython  # noqa: E402
 
 from capnp.helpers.helpers cimport init_capnp_api
-from capnp.includes.capnp_cpp cimport AsyncIoStream, WaitScope, PyPromise, VoidPromise, EventPort, EventLoop, Canceler, PyAsyncIoStream, PromiseFulfiller, VoidPromiseFulfiller, tryReadMessage, writeMessage, makeException, PythonInterfaceDynamicImpl
+from capnp.includes.capnp_cpp cimport AsyncIoStream, WaitScope, PyPromise, VoidPromise, EventPort, EventLoop, PyAsyncIoStream, PromiseFulfiller, VoidPromiseFulfiller, tryReadMessage, writeMessage, makeException, PythonInterfaceDynamicImpl
 from capnp.includes.schema_cpp cimport (MessageReader,)
 
-from cpython cimport array, Py_buffer, PyObject_CheckBuffer, memoryview, buffer
-from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE
+from cpython cimport array, Py_buffer, PyObject_CheckBuffer
+from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_WRITE, PyBUF_READ
+from cpython.memoryview cimport PyMemoryView_FromMemory
 from cpython.exc cimport PyErr_Clear
 from cython.operator cimport dereference as deref
 from libc.stdlib cimport malloc, free
@@ -129,10 +130,10 @@ def fill_context(method_name, context, returned_data):
     for arg_name, arg_val in zip(names, returned_data):
         setattr(results, arg_name, arg_val)
 
-cdef api VoidPromise * call_server_method(object server,
+cdef api Promise[void]* call_server_method(object server,
                                           char * _method_name,
                                           CallContext & _context,
-                                          object _kj_loop) except * with gil:
+                                          object _kj_loop) except* with gil:
     method_name = <object>_method_name
     kj_loop = <_EventLoop>_kj_loop
     kj_loop.check()
@@ -303,7 +304,7 @@ cdef api object get_exception_info(object exc_type, object exc_obj, object exc_t
         return (b'', 0, b"Couldn't determine python exception")
 
 
-cdef schema_cpp.ReaderOptions make_reader_opts(traversal_limit_in_words, nesting_limit) with gil:
+cdef schema_cpp.ReaderOptions make_reader_opts(traversal_limit_in_words, nesting_limit):
     cdef schema_cpp.ReaderOptions opts
     if traversal_limit_in_words is not None:
         opts.traversalLimitInWords = traversal_limit_in_words
@@ -428,7 +429,8 @@ cdef class _DynamicListReader:
         return self
 
     cpdef _get(self, int64_t index):
-        return to_python_reader(self.thisptr[index], self._parent)
+        ptr = self.thisptr[index]
+        return to_python_reader(ptr, self._parent)
 
     def __getitem__(self, int64_t index):
         cdef uint size = self.thisptr.size()
@@ -550,7 +552,8 @@ cdef class _DynamicListBuilder:
         return self
 
     cpdef _get(self, int64_t index):
-        return to_python_builder(self.thisptr[index], self._parent)
+        ptr = self.thisptr[index]
+        return to_python_builder(ptr, self._parent)
 
     def __getitem__(self, int64_t index):
         cdef uint size = self.thisptr.size()
@@ -609,7 +612,8 @@ cdef class _DynamicListBuilder:
         :type size: int
         :param size: Size of the element to be initialized.
         """
-        return to_python_builder(self.thisptr.init(index, size), self._parent)
+        ptr = self.thisptr.init(index, size)
+        return to_python_builder(ptr, self._parent)
 
     def __str__(self):
         return <char*>printListBuilder(self.thisptr).flatten().cStr()
@@ -803,17 +807,21 @@ cdef _setDynamicField(_DynamicSetterClasses thisptr, field, value, parent):
     elif isinstance(value, basestring):
         _setBaseString(thisptr, field, value)
     elif value_type is list:
-        builder = to_python_builder(thisptr.init(field, len(value)), parent)
+        ptr = thisptr.init(field, len(value))
+        builder = to_python_builder(ptr, parent)
         _from_list(builder, value)
     elif value_type is tuple:
-        builder = to_python_builder(thisptr.init(field, len(value)), parent)
+        ptr = thisptr.init(field, len(value))
+        builder = to_python_builder(ptr, parent)
         _from_tuple(builder, value)
     elif value_type is dict:
         if _DynamicSetterClasses is DynamicStruct_Builder:
-            builder = to_python_builder(thisptr.get(field), parent)
+            ptr = thisptr.get(field)
+            builder = to_python_builder(ptr, parent)
             builder.from_dict(value)
         else:
-            builder = to_python_builder(thisptr[field], parent)
+            ptr = thisptr[field]
+            builder = to_python_builder(ptr, parent)
             builder.from_dict(value)
     elif value is None:
         temp = C_DynamicValue.Reader(VOID)
@@ -864,10 +872,12 @@ cdef _setDynamicFieldWithField(DynamicStruct_Builder thisptr, _StructSchemaField
     elif isinstance(value, basestring):
         _setBaseStringField(thisptr, field, value)
     elif value_type is list:
-        builder = to_python_builder(thisptr.init(field.proto.name, len(value)), parent)
+        ptr = thisptr.init(field.proto.name, len(value))
+        builder = to_python_builder(ptr, parent)
         _from_list(builder, value)
     elif value_type is dict:
-        builder = to_python_builder(thisptr.getByField(field.thisptr), parent)
+        ptr = thisptr.getByField(field.thisptr)
+        builder = to_python_builder(ptr, parent)
         builder.from_dict(value)
     elif value is None:
         temp = C_DynamicValue.Reader(VOID)
@@ -918,10 +928,12 @@ cdef _setDynamicFieldStatic(DynamicStruct_Builder thisptr, field, value, parent)
     elif isinstance(value, basestring):
         _setBaseString(thisptr, field, value)
     elif value_type is list:
-        builder = to_python_builder(thisptr.init(field, len(value)), parent)
+        ptr = thisptr.init(field, len(value))
+        builder = to_python_builder(ptr, parent)
         _from_list(builder, value)
     elif value_type is dict:
-        builder = to_python_builder(thisptr.get(field), parent)
+        ptr = thisptr.get(field)
+        builder = to_python_builder(ptr, parent)
         builder.from_dict(value)
     elif value is None:
         temp = C_DynamicValue.Reader(VOID)
@@ -1029,7 +1041,7 @@ cdef class _DynamicEnum:
         self._parent = parent
         return self
 
-    cpdef _as_str(self) except +reraise_kj_exception:
+    cpdef _as_str(self):
         return <char*>helpers.fixMaybe(self.thisptr.getEnumerant()).getProto().getName().cStr()
 
     property raw:
@@ -1150,7 +1162,8 @@ cdef class _DynamicStructReader:
         return self
 
     cpdef _get(self, field):
-        return to_python_reader(self.thisptr.get(field), self)
+        ptr = self.thisptr.get(field)
+        return to_python_reader(ptr, self)
 
     def __getattr__(self, field):
         try:
@@ -1159,7 +1172,8 @@ cdef class _DynamicStructReader:
             raise e._to_python() from None
 
     cpdef _get_by_field(self, _StructSchemaField field):
-        return to_python_reader(self.thisptr.getByField(field.thisptr), self)
+        ptr = self.thisptr.getByField(field.thisptr)
+        return to_python_reader(ptr, self)
 
     cpdef _has(self, field):
         return self.thisptr.has(field)
@@ -1339,7 +1353,7 @@ cdef class _DynamicStructBuilder:
         _write_packed_message_to_fd(file.fileno(), self._parent)
         self._is_written = True
 
-    cpdef to_bytes(_DynamicStructBuilder self) except +reraise_kj_exception:
+    cpdef to_bytes(_DynamicStructBuilder self):
         """Returns the struct's containing message as a Python bytes object in the unpacked binary format.
 
         This is inefficient; it makes several copies.
@@ -1356,7 +1370,7 @@ cdef class _DynamicStructBuilder:
         self._is_written = True
         return ret
 
-    cpdef to_segments(_DynamicStructBuilder self) except +reraise_kj_exception:
+    cpdef to_segments(_DynamicStructBuilder self):
         """Returns the struct's containing message as a Python list of Python bytes objects.
 
         This avoids making copies.
@@ -1370,14 +1384,14 @@ cdef class _DynamicStructBuilder:
         segments = builder.get_segments_for_output()
         return segments
 
-    cpdef _to_bytes_packed_helper(_DynamicStructBuilder self, word_count) except +reraise_kj_exception:
+    cpdef _to_bytes_packed_helper(_DynamicStructBuilder self, word_count):
         cdef _MessageBuilder builder = self._parent
         array = helpers.messageToPackedBytes(deref(builder.thisptr), word_count)
         cdef const char* ptr = <const char *>array.begin()
         cdef bytes ret = ptr[:array.size()]
         return ret
 
-    cpdef to_bytes_packed(_DynamicStructBuilder self) except +reraise_kj_exception:
+    cpdef to_bytes_packed(_DynamicStructBuilder self):
         self._check_write()
         word_count = self.total_size.word_count + 2
 
@@ -1394,10 +1408,12 @@ cdef class _DynamicStructBuilder:
         return ret
 
     cpdef _get(self, field):
-        return to_python_builder(self.thisptr.get(field), self._parent)
+        ptr = self.thisptr.get(field)
+        return to_python_builder(ptr, self._parent)
 
     cpdef _get_by_field(self, _StructSchemaField field):
-        return to_python_builder(self.thisptr.getByField(field.thisptr), self._parent)
+        ptr = self.thisptr.getByField(field.thisptr)
+        return to_python_builder(ptr, self._parent)
 
     def __getattr__(self, field):
         try:
@@ -1441,9 +1457,11 @@ cdef class _DynamicStructBuilder:
         if isinstance(field, _StructModuleWhich):
             field = field.name[0].lower() + field.name[1:]
         if size is None:
-            return to_python_builder(self.thisptr.init(field), self._parent)
+            ptr = self.thisptr.init(field)
+            return to_python_builder(ptr, self._parent)
         else:
-            return to_python_builder(self.thisptr.init(field, size), self._parent)
+            ptr = self.thisptr.init(field, size)
+            return to_python_builder(ptr, self._parent)
 
     cpdef _init_by_field(self, _StructSchemaField field, size=None):
         """Method for initializing fields that are of type union/struct/list
@@ -1461,9 +1479,11 @@ cdef class _DynamicStructBuilder:
         :Raises: :exc:`KjException` if the field isn't in this struct
         """
         if size is None:
-            return to_python_builder(self.thisptr.initByField(field.thisptr), self._parent)
+            ptr = self.thisptr.initByField(field.thisptr)
+            return to_python_builder(ptr, self._parent)
         else:
-            return to_python_builder(self.thisptr.initByField(field.thisptr, size), self._parent)
+            ptr = self.thisptr.initByField(field.thisptr, size)
+            return to_python_builder(ptr, self._parent)
 
     cpdef init_resizable_list(self, field):
         """Method for initializing fields that are of type list (of structs)
@@ -1649,7 +1669,7 @@ cdef class _DynamicStructPipeline:
     def __dealloc__(self):
         del self.thisptr
 
-    cpdef _get(self, field) except +reraise_kj_exception:
+    cpdef _get(self, field):
         cdef int type = (<C_DynamicValue.Pipeline>self.thisptr.get(field)).getType()
         if type == capnp.TYPE_CAPABILITY:
             return _DynamicCapabilityClient()._init(
@@ -1719,7 +1739,7 @@ cdef class _DynamicObjectReader:
         self._parent = parent
         return self
 
-    cpdef as_struct(self, schema) except +reraise_kj_exception:
+    cpdef as_struct(self, schema):
         cdef _StructSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -1728,7 +1748,7 @@ cdef class _DynamicObjectReader:
 
         return _DynamicStructReader()._init(self.thisptr.getAs(s._thisptr()), self._parent)
 
-    cpdef as_interface(self, schema) except +reraise_kj_exception:
+    cpdef as_interface(self, schema):
         cdef _InterfaceSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -1737,7 +1757,7 @@ cdef class _DynamicObjectReader:
 
         return _DynamicCapabilityClient()._init(self.thisptr.getAsCapability(s.thisptr), self._parent)
 
-    cpdef as_list(self, schema) except +reraise_kj_exception:
+    cpdef as_list(self, schema):
         cdef _ListSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -1746,7 +1766,7 @@ cdef class _DynamicObjectReader:
 
         return _DynamicListReader()._init(self.thisptr.getAsList(s.thisptr), self._parent)
 
-    cpdef as_text(self) except +reraise_kj_exception:
+    cpdef as_text(self):
         return (<char*>self.thisptr.getAsText().cStr())[:]
 
 
@@ -1762,16 +1782,17 @@ cdef class _DynamicObjectBuilder:
     def __dealloc__(self):
         del self.thisptr
 
-    cpdef as_struct(self, schema) except +reraise_kj_exception:
+    cpdef as_struct(self, schema):
         cdef _StructSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
         else:
             s = schema
 
-        return _DynamicStructBuilder()._init(self.thisptr.getAs(s._thisptr()), self._parent)
+        ptr = s._thisptr()
+        return _DynamicStructBuilder()._init(self.thisptr.getAs(ptr), self._parent)
 
-    cpdef as_interface(self, schema) except +reraise_kj_exception:
+    cpdef as_interface(self, schema):
         cdef _InterfaceSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -1780,7 +1801,7 @@ cdef class _DynamicObjectBuilder:
 
         return _DynamicCapabilityClient()._init(self.thisptr.getAsCapability(s.thisptr), self._parent)
 
-    cpdef as_list(self, schema) except +reraise_kj_exception:
+    cpdef as_list(self, schema):
         cdef _ListSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -1806,13 +1827,13 @@ cdef class _DynamicObjectBuilder:
 
         return _DynamicListBuilder()._init(self.thisptr.initAsList(s.thisptr, size), self._parent)
 
-    cpdef as_text(self) except +reraise_kj_exception:
+    cpdef as_text(self):
         return (<char*>self.thisptr.getAsText().cStr())[:]
 
     cpdef as_reader(self):
         return _DynamicObjectReader()._init(self.thisptr.asReader(), self._parent)
 
-cdef void kjloop_runnable_callback(void* data) with gil:
+cdef kjloop_runnable_callback(void* data):
     cdef AsyncIoEventPort *port = <AsyncIoEventPort*>data
     assert port.runHandle is not None
     port.kjLoop.run()
@@ -1872,7 +1893,7 @@ cdef class _EventLoop:
     cdef object active_tasks
     cdef cbool closed
 
-    cdef _init(self, asyncio_loop) except +reraise_kj_exception:
+    cdef _init(self, asyncio_loop):
         self.event_port = capnp.heap[AsyncIoEventPort](<PyObject*>asyncio_loop)
         kj_loop = deref(self.event_port).getKjLoop()
         self.wait_scope = capnp.heap[WaitScope](deref(kj_loop))
@@ -2007,7 +2028,7 @@ cdef class _Promise:
         self.thisptr = capnp.heap[PyPromise](move(other))
         return self
 
-    cpdef cancel(self) except +reraise_kj_exception:
+    cpdef cancel(self):
         self.thisptr = Own[PyPromise]()
 
 
@@ -2022,7 +2043,7 @@ cdef class _RemotePromise:
         self._parent = parent
         return self
 
-    cdef void _check_consumed(self) except*:
+    cdef _check_consumed(self):
         if self.thisptr.get() == NULL:
             raise KjException(
                 "Promise was already used in a consuming operation. You can no longer use this Promise object")
@@ -2035,7 +2056,7 @@ cdef class _RemotePromise:
             .attach(capnp.heap[PyRefCounter](<PyObject*>self._parent))
             ).__await__()
 
-    cpdef _get(self, field) except +reraise_kj_exception:
+    cpdef _get(self, field):
         self._check_consumed()
         cdef int type = (<C_DynamicValue.Pipeline>self.thisptr.get().get(field)).getType()
         if type == capnp.TYPE_CAPABILITY:
@@ -2068,7 +2089,7 @@ cdef class _RemotePromise:
     def to_dict(self, verbose=False, ordered=False):
         return _to_dict(self, verbose, ordered)
 
-    cpdef cancel(self) except +reraise_kj_exception:
+    cpdef cancel(self):
         self.thisptr = Own[RemotePromise]()
         self._parent = None # We don't need parent anymore. Setting to none allows quicker garbage collection
 
@@ -2171,7 +2192,7 @@ cdef class _DynamicCapabilityClient:
             for key, val in kwargs.items():
                 _setDynamicField(<DynamicStruct_Builder>deref(request), key, val, self)
 
-    cpdef _send_helper(self, name, word_count, args, kwargs) except +reraise_kj_exception:
+    cpdef _send_helper(self, name, word_count, args, kwargs):
         # if word_count is None:
         #     word_count = 0
         C_DEFAULT_EVENT_LOOP_GETTER() # Make sure the event loop is running
@@ -2181,7 +2202,7 @@ cdef class _DynamicCapabilityClient:
 
         return _RemotePromise()._init(request.send(), self)
 
-    cpdef _request_helper(self, name, firstSegmentWordSize, args, kwargs) except +reraise_kj_exception:
+    cpdef _request_helper(self, name, firstSegmentWordSize, args, kwargs):
         # if word_count is None:
         #     word_count = 0
         cdef _Request req = _Request()._init_child(self.thisptr.newRequest(name), self)
@@ -2210,7 +2231,7 @@ cdef class _DynamicCapabilityClient:
         except KjException as e:
             raise e._to_python() from None
 
-    cpdef upcast(self, schema) except +reraise_kj_exception:
+    cpdef upcast(self, schema):
         cdef _InterfaceSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -2219,7 +2240,7 @@ cdef class _DynamicCapabilityClient:
 
         return _DynamicCapabilityClient()._init(self.thisptr.upcast(s.thisptr), self._parent)
 
-    cpdef cast_as(self, schema) except +reraise_kj_exception:
+    cpdef cast_as(self, schema):
         cdef _InterfaceSchema s
         if hasattr(schema, 'schema'):
             s = schema.schema
@@ -2239,16 +2260,13 @@ cdef class _DynamicCapabilityClient:
 
 
 cdef class _CapabilityClient:
-    cdef C_Capability.Client * thisptr
+    cdef Own[C_Capability.Client] thisptr
     cdef public object _parent
 
-    cdef _init(self, C_Capability.Client other, object parent):
-        self.thisptr = new C_Capability.Client(other)
+    cdef _init(self, Own[C_Capability.Client] other, object parent):
+        self.thisptr = move(other)
         self._parent = parent
         return self
-
-    def __dealloc__(self):
-        del self.thisptr
 
     cpdef cast_as(self, schema):
         cdef _InterfaceSchema s
@@ -2256,7 +2274,7 @@ cdef class _CapabilityClient:
             s = schema.schema
         else:
             s = schema
-        return _DynamicCapabilityClient()._init(self.thisptr.castAs(s.thisptr), self._parent)
+        return _DynamicCapabilityClient()._init(deref(self.thisptr).castAs(s.thisptr), self._parent)
 
 
 cdef class _TwoPartyVatNetwork:
@@ -2271,7 +2289,7 @@ cdef class _TwoPartyVatNetwork:
         self.thisptr = capnp.heap[C_TwoPartyVatNetwork](deref(stream.thisptr), side, opts)
         return self
 
-    cpdef on_disconnect(self) except +reraise_kj_exception:
+    cpdef on_disconnect(self):
         return _voidpromise_to_asyncio(deref(self.thisptr).onDisconnect())
 
 
@@ -2310,12 +2328,12 @@ cdef class TwoPartyClient:
 
         self.thisptr = capnp.heap[RpcSystem](makeRpcClient(deref(self._network.thisptr)))
 
-    cpdef bootstrap(self) except +reraise_kj_exception:
+    cpdef bootstrap(self):
         if self.closed:
             raise RuntimeError("This client is closed")
         return _CapabilityClient()._init(helpers.bootstrapHelper(deref(self.thisptr)), self)
 
-    cpdef on_disconnect(self) except +reraise_kj_exception:
+    cpdef on_disconnect(self):
         if self.closed:
             raise RuntimeError("This client is closed")
         return self._network.on_disconnect()
@@ -2365,12 +2383,12 @@ cdef class TwoPartyServer:
                 capnp.heap[PyRefCounter](<PyObject*>bootstrap),
                 capnp.heap[PyRefCounter](<PyObject*>loop)))))
 
-    cpdef bootstrap(self) except +reraise_kj_exception:
+    cpdef bootstrap(self):
         if self.closed:
             raise RuntimeError("This server is closed")
         return _CapabilityClient()._init(helpers.bootstrapHelperServer(deref(self.thisptr)), self)
 
-    cpdef on_disconnect(self) except +reraise_kj_exception:
+    cpdef on_disconnect(self):
         if self.closed:
             raise RuntimeError("This server is closed")
         return _voidpromise_to_asyncio(deref(self._network.thisptr).onDisconnect()
@@ -2581,7 +2599,7 @@ cdef class _PyAsyncIoStreamProtocol(DummyBaseClass, asyncio.BufferedProtocol):
             self.read_overflow_buffer_current = bytearray(size)
             return self.read_overflow_buffer_current
         else:
-            return memoryview.PyMemoryView_FromMemory(self.read_buffer, self.read_max_bytes, buffer.PyBUF_WRITE)
+            return PyMemoryView_FromMemory(self.read_buffer, self.read_max_bytes, PyBUF_WRITE)
 
     def buffer_updated(self, size):
         if self.read_buffer == NULL: # Should not happen, but for SSL it does, see comment above
@@ -2613,7 +2631,7 @@ cdef class _PyAsyncIoStreamProtocol(DummyBaseClass, asyncio.BufferedProtocol):
         cdef const ArrayPtr[const uint8_t]* piece
         for i in range(self.write_index, self.write_pieces.size()):
             piece = &self.write_pieces[i]
-            view = memoryview.PyMemoryView_FromMemory(<char*>piece.begin(), piece.size(), buffer.PyBUF_READ)
+            view = PyMemoryView_FromMemory(<char*>piece.begin(), piece.size(), PyBUF_READ)
             self.transport.write(view)
             if self.write_paused:
                 self.write_index = i+1
@@ -2667,7 +2685,7 @@ cdef api void _asyncio_stream_read_start(
     # Begin of draining the overflow buffer, which is created because of a bug in SSL, see comment above.
     # Can be removed once Python < 3.11 is not longer supported.
     if self.read_overflow_buffer:
-        to_copy = min(len(self.read_overflow_buffer), max_bytes)
+        to_copy = min(<size_t>len(self.read_overflow_buffer), max_bytes)
         memcpy(buffer, <char*>self.read_overflow_buffer, to_copy)
         del self.read_overflow_buffer[:to_copy]
         self.read_buffer += to_copy
@@ -2704,7 +2722,8 @@ cdef class _Schema:
         return self
 
     cpdef as_const_value(self):
-        return to_python_reader(<C_DynamicValue.Reader>self.thisptr.asConst(), self)
+        ptr = <C_DynamicValue.Reader>self.thisptr.asConst()
+        return to_python_reader(ptr, self)
 
     cpdef as_struct(self):
         return _StructSchema()._init_child(self.thisptr.asStruct())
@@ -3401,7 +3420,7 @@ cdef class _StringArrayPtr:
     def __dealloc__(self):
         free(self.thisptr)
 
-    cdef ArrayPtr[StringPtr] asArrayPtr(self) except +reraise_kj_exception:
+    cdef ArrayPtr[StringPtr] asArrayPtr(self):
         return ArrayPtr[StringPtr](self.thisptr, self.size)
 
 
@@ -3448,7 +3467,7 @@ cdef class SchemaParser:
     def __dealloc__(self):
         del self.thisptr
 
-    cpdef _parse_disk_file(self, displayName, diskPath, imports) except +reraise_kj_exception:
+    cpdef _parse_disk_file(self, displayName, diskPath, imports):
         cdef _StringArrayPtr importArray
 
         if self._last_import_array and self._last_import_array.parent == imports:
@@ -3614,9 +3633,10 @@ cdef class _MessageBuilder:
             s = schema.schema
         else:
             s = schema
-        return _DynamicStructBuilder()._init(self.thisptr.initRootDynamicStruct(s._thisptr()), self, True)
+        ptr = s._thisptr()
+        return _DynamicStructBuilder()._init(self.thisptr.initRootDynamicStruct(ptr), self, True)
 
-    cpdef get_root(self, schema) except +reraise_kj_exception:
+    cpdef get_root(self, schema):
         """A method for instantiating Cap'n Proto structs, from an already pre-written buffer
 
         Don't use this method unless you know what you're doing. You probably
@@ -3639,9 +3659,10 @@ cdef class _MessageBuilder:
             s = schema.schema
         else:
             s = schema
-        return _DynamicStructBuilder()._init(self.thisptr.getRootDynamicStruct(s._thisptr()), self, True)
+        ptr = s._thisptr()
+        return _DynamicStructBuilder()._init(self.thisptr.getRootDynamicStruct(ptr), self, True)
 
-    cpdef get_root_as_any(self) except +reraise_kj_exception:
+    cpdef get_root_as_any(self):
         """A method for getting a Cap'n Proto AnyPointer, from an already pre-written buffer
 
         Don't use this method unless you know what you're doing.
@@ -3651,7 +3672,7 @@ cdef class _MessageBuilder:
         """
         return _DynamicObjectBuilder()._init(self.thisptr.getRootAnyPointer(), self)
 
-    cpdef set_root(self, value) except +reraise_kj_exception:
+    cpdef set_root(self, value):
         """A method for instantiating Cap'n Proto structs by copying from an existing struct
 
         :type value: :class:`_DynamicStructReader`
@@ -3667,7 +3688,7 @@ cdef class _MessageBuilder:
             self.thisptr.setRootDynamicStruct((<_DynamicStructReader>value).thisptr)
             return self.get_root(value.schema)
 
-    cpdef get_segments_for_output(self) except +reraise_kj_exception:
+    cpdef get_segments_for_output(self):
         segments = self.thisptr.getSegmentsForOutput()
         res = []
         cdef const char* ptr
@@ -3679,7 +3700,7 @@ cdef class _MessageBuilder:
             res.append(segment_bytes)
         return res
 
-    cpdef new_orphan(self, schema) except +reraise_kj_exception:
+    cpdef new_orphan(self, schema):
         """A method for instantiating Cap'n Proto orphans
 
         Don't use this method unless you know what you're doing.
@@ -3700,8 +3721,8 @@ cdef class _MessageBuilder:
             s = schema.schema
         else:
             s = schema
-
-        return _DynamicOrphan()._init(self.thisptr.newOrphan(s._thisptr()), self)
+        ptr = s._thisptr()
+        return _DynamicOrphan()._init(self.thisptr.newOrphan(ptr), self)
 
 
 cdef class _MallocMessageBuilder(_MessageBuilder):
@@ -3737,7 +3758,7 @@ cdef class _MessageReader:
     def __init__(self):
         raise NotImplementedError("This is an abstract base class")
 
-    cpdef get_root(self, schema) except +reraise_kj_exception:
+    cpdef get_root(self, schema):
         """A method for instantiating Cap'n Proto structs
 
         You will need to pass in a schema to specify which struct to
@@ -3759,9 +3780,10 @@ cdef class _MessageReader:
             s = schema.schema
         else:
             s = schema
-        return _DynamicStructReader()._init(self.thisptr.getRootDynamicStruct(s._thisptr()), self)
+        ptr = s._thisptr()
+        return _DynamicStructReader()._init(self.thisptr.getRootDynamicStruct(ptr), self)
 
-    cpdef get_root_as_any(self) except +reraise_kj_exception:
+    cpdef get_root_as_any(self):
         """A method for getting a Cap'n Proto AnyPointer, from an already pre-written buffer
 
         Don't use this method unless you know what you're doing.
@@ -4399,15 +4421,13 @@ class _Loader:
         self.fullname = fullname
         self.path = path
 
-    def load_module(self, fullname):
-        assert self.fullname == fullname, (
-            "invalid module, expected {}, got {}".format(self.fullname, fullname))
-
+    def create_module(self, _spec):
         imports = _capnp_paths + [path if path != '' else '.' for path in _sys.path]
-        module = load(self.path, fullname, imports=imports)
-        _sys.modules[fullname] = module
-
+        module = load(self.path, self.fullname, imports=imports)
         return module
+
+    def exec_module(self, _module):
+        pass
 
 
 class _Importer:

@@ -23,6 +23,7 @@ class StringChalkQuery(StringChalkQueryProtocol):
         params: Mapping[str, Any],
         query: Union[str, TextClause],
         fields: Mapping[str, Feature],
+        arrow_schema: Mapping[str, Feature] | None,
     ):
         super().__init__()
         try:
@@ -33,6 +34,7 @@ class StringChalkQuery(StringChalkQueryProtocol):
         self._query = text(query) if isinstance(query, str) else query
         self._params = params
         self._fields = {k: Feature.from_root_fqn(v) if isinstance(v, str) else v for (k, v) in fields.items()}
+        self._arrow_schema = arrow_schema
 
     @classmethod
     def __init_subclass__(cls, **kwargs: Any):

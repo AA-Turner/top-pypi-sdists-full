@@ -24,7 +24,6 @@ import aiofiles
 import anyio
 import fastapi
 from fastapi.middleware import cors
-from sqlalchemy import pool
 import starlette.middleware.base
 import uvloop
 
@@ -72,6 +71,7 @@ from sky.utils import dag_utils
 from sky.utils import perf_utils
 from sky.utils import status_lib
 from sky.utils import subprocess_utils
+from sky.utils.db import db_utils
 from sky.volumes.server import server as volumes_rest
 from sky.workspaces import server as workspaces_rest
 
@@ -1322,18 +1322,17 @@ async def download(download_body: payloads.DownloadBody,
                                     detail=f'Error creating zip file: {str(e)}')
 
 
+# TODO(aylei): run it asynchronously after global_user_state support async op
 @app.post('/provision_logs')
-async def provision_logs(cluster_body: payloads.ClusterNameBody,
-                         follow: bool = True,
-                         tail: int = 0) -> fastapi.responses.StreamingResponse:
+def provision_logs(cluster_body: payloads.ClusterNameBody,
+                   follow: bool = True,
+                   tail: int = 0) -> fastapi.responses.StreamingResponse:
     """Streams the provision.log for the latest launch request of a cluster."""
     # Prefer clusters table first, then cluster_history as fallback.
-    log_path_str = await context_utils.to_thread(
-        global_user_state.get_cluster_provision_log_path,
+    log_path_str = global_user_state.get_cluster_provision_log_path(
         cluster_body.cluster_name)
     if not log_path_str:
-        log_path_str = await context_utils.to_thread(
-            global_user_state.get_cluster_history_provision_log_path,
+        log_path_str = global_user_state.get_cluster_history_provision_log_path(
             cluster_body.cluster_name)
     if not log_path_str:
         raise fastapi.HTTPException(
@@ -1908,13 +1907,6 @@ if __name__ == '__main__':
 
     skyuvicorn.add_timestamp_prefix_for_server_logs()
 
-    # Initialize global user state db
-    global_user_state.initialize_and_get_db(pool.QueuePool)
-    # Initialize request db
-    requests_lib.reset_db_and_logs()
-    # Restore the server user hash
-    _init_or_restore_server_user_hash()
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', default=46580, type=int)
@@ -1930,7 +1922,17 @@ if __name__ == '__main__':
     # that it is shown only when the API server is started.
     usage_lib.maybe_show_privacy_policy()
 
-    config = server_config.compute_server_config(cmd_args.deploy)
+    # Initialize global user state db
+    db_utils.set_max_connections(1)
+    global_user_state.initialize_and_get_db()
+    # Initialize request db
+    requests_lib.reset_db_and_logs()
+    # Restore the server user hash
+    _init_or_restore_server_user_hash()
+    max_db_connections = global_user_state.get_max_db_connections()
+    config = server_config.compute_server_config(cmd_args.deploy,
+                                                 max_db_connections)
+
     num_workers = config.num_server_workers
 
     queue_server: Optional[multiprocessing.Process] = None
@@ -1955,11 +1957,12 @@ if __name__ == '__main__':
         logger.info(f'Starting SkyPilot API server, workers={num_workers}')
         # We don't support reload for now, since it may cause leakage of request
         # workers or interrupt running requests.
-        config = uvicorn.Config('sky.server.server:app',
-                                host=cmd_args.host,
-                                port=cmd_args.port,
-                                workers=num_workers)
-        skyuvicorn.run(config)
+        uvicorn_config = uvicorn.Config('sky.server.server:app',
+                                        host=cmd_args.host,
+                                        port=cmd_args.port,
+                                        workers=num_workers)
+        skyuvicorn.run(uvicorn_config,
+                       max_db_connections=config.num_db_connections_per_worker)
     except Exception as exc:  # pylint: disable=broad-except
         logger.error(f'Failed to start SkyPilot API server: '
                      f'{common_utils.format_exception(exc, use_bracket=True)}')

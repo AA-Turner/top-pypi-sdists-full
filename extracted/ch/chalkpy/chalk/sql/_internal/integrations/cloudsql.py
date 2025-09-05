@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Mapping, Optional
 
 from chalk.integrations.named import create_integration_variable, load_integration_variable
+from chalk.sql._internal.query_execution_parameters import QueryExecutionParameters
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind
+from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
+    import pyarrow as pa
+    from sqlalchemy.engine import Connection
     from sqlalchemy.engine.url import URL
 
 
@@ -124,3 +128,72 @@ class CloudSQLSourceImpl(BaseSQLSource):
             ]
             if v is not None
         }
+
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for CloudSQL and return raw PyArrow RecordBatches."""
+        import contextlib
+
+        import pyarrow as pa
+        import pyarrow.compute as pc
+
+        # Use existing connection or create new one
+        with (self.get_engine().connect() if connection is None else contextlib.nullcontext(connection)) as cnx:
+            with cnx.begin():
+                # Handle temp tables
+                with contextlib.ExitStack() as exit_stack:
+                    for (
+                        _,
+                        temp_value,
+                        create_temp_table,
+                        temp_table,
+                        drop_temp_table,
+                    ) in finalized_query.temp_tables.values():
+                        exit_stack.enter_context(
+                            self._create_temp_table(create_temp_table, temp_table, drop_temp_table, cnx, temp_value)
+                        )
+
+                    # Execute query
+                    result = cnx.execute(finalized_query.query, finalized_query.params)
+
+                    # Convert result to PyArrow
+                    rows = result.fetchall()
+                    column_names = result.keys()
+
+                    if not rows:
+                        # Return empty batch with expected schema
+                        arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
+                        batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                        if query_execution_parameters.yield_empty_batches:
+                            yield batch
+                        return
+
+                    # Convert rows to column arrays
+                    data: dict[str, list[Any]] = {}
+                    for i, col_name in enumerate(column_names):
+                        col_data = [row[i] for row in rows]
+                        data[col_name] = col_data
+
+                    # Create PyArrow table
+                    table = pa.table(data)
+
+                    # Map columns to expected schema
+                    arrays: list[pa.Array] = []
+                    for field in expected_output_schema:
+                        if field.name in table.column_names:
+                            col = table.column(field.name)
+                            # Cast to expected type if needed
+                            if col.type != field.type:
+                                col = pc.cast(col, field.type)
+                            arrays.append(col)
+                        else:
+                            # Column not found, create null array
+                            arrays.append(pa.nulls(len(table), field.type))
+
+                    batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                    yield batch

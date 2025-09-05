@@ -14,9 +14,11 @@
 import json
 import string
 
+import packaging
 import pretend
 import pytest
 from packaging import metadata
+from packaging import version
 
 from twine import exceptions
 from twine import package as package_file
@@ -175,6 +177,10 @@ def test_package_safe_name_is_correct(pkg_name, expected_name):
 def test_metadata_keys_consistency():
     """Check that the translation keys exist in the respective ``TypedDict``."""
     raw_keys = metadata.RawMetadata.__annotations__.keys()
+    if version.Version(packaging.__version__) < version.Version("24.1"):
+        # ``packaging`` version 24.0 and earlier do not know about the
+        # License-Expression and License-File metadata fields yet.
+        raw_keys = raw_keys | set(("license_files", "license_expression"))
     assert set(package_file._RAW_TO_PACKAGE_METADATA.keys()).issubset(raw_keys)
     package_keys = package_file.PackageMetadata.__annotations__.keys()
     assert set(package_file._RAW_TO_PACKAGE_METADATA.values()).issubset(package_keys)
@@ -288,7 +294,6 @@ def test_metadata_dictionary_values(gpg_signature, attestation):
 
 
 TWINE_1_5_0_WHEEL_HEXDIGEST = package_file.Hexdigest(
-    "1919f967e990bee7413e2a4bc35fd5d1",
     "d86b0f33f0c7df49e888b11c43b417da5520cbdbce9f20618b1494b600061e67",
     "b657a4148d05bd0098c1d6d8cc4e14e766dbe93c3a5ab6723b969da27a87bac0",
 )
@@ -300,18 +305,6 @@ def test_hash_manager():
     hasher = package_file.HashManager(filename)
     hasher.hash()
     assert hasher.hexdigest() == TWINE_1_5_0_WHEEL_HEXDIGEST
-
-
-def test_fips_hash_manager_md5(monkeypatch):
-    """Generate hexdigest without MD5 when hashlib is using FIPS mode."""
-    replaced_md5 = pretend.raiser(ValueError("fipsmode"))
-    monkeypatch.setattr(package_file.hashlib, "md5", replaced_md5)
-
-    filename = "tests/fixtures/twine-1.5.0-py2.py3-none-any.whl"
-    hasher = package_file.HashManager(filename)
-    hasher.hash()
-    hashes = TWINE_1_5_0_WHEEL_HEXDIGEST._replace(md5=None)
-    assert hasher.hexdigest() == hashes
 
 
 @pytest.mark.parametrize("exception_class", [TypeError, ValueError])
@@ -327,21 +320,18 @@ def test_fips_hash_manager_blake2(exception_class, monkeypatch):
     assert hasher.hexdigest() == hashes
 
 
-def test_fips_metadata_excludes_md5_and_blake2(monkeypatch):
+def test_fips_metadata_excludes_blake2(monkeypatch):
     """Generate a valid metadata dictionary for Nexus when FIPS is enabled.
 
     See also: https://github.com/pypa/twine/issues/775
     """
     replaced_blake2b = pretend.raiser(ValueError("fipsmode"))
-    replaced_md5 = pretend.raiser(ValueError("fipsmode"))
-    monkeypatch.setattr(package_file.hashlib, "md5", replaced_md5)
     monkeypatch.setattr(package_file.hashlib, "blake2b", replaced_blake2b)
 
     filename = "tests/fixtures/twine-1.5.0-py2.py3-none-any.whl"
     pf = package_file.PackageFile.from_filename(filename, None)
 
     mddict = pf.metadata_dictionary()
-    assert "md5_digest" not in mddict
     assert "blake2_256_digest" not in mddict
 
 
@@ -434,32 +424,37 @@ def test_package_from_unrecognized_file_error():
     assert "Unknown distribution format" in err.value.args[0]
 
 
-@pytest.mark.parametrize(
-    "read_data, filtered",
-    [
-        pytest.param(
-            "Metadata-Version: 2.1\n"
-            "Name: test-package\n"
-            "Version: 1.0.0\n"
-            "License-File: LICENSE\n",
-            True,
-            id="invalid License-File",
-        ),
-        pytest.param(
-            "Metadata-Version: 2.4\n"
-            "Name: test-package\n"
-            "Version: 1.0.0\n"
-            "License-File: LICENSE\n",
-            False,
-            id="valid License-File",
-        ),
-    ],
-)
-def test_setuptools_license_file(read_data, filtered, monkeypatch):
+def test_setuptools_license_file_invalid(monkeypatch):
     """Drop License-File metadata entries if Metadata-Version is less than 2.4."""
+    read_data = (
+        "Metadata-Version: 2.1\n"
+        "Name: test-package\n"
+        "Version: 1.0.0\n"
+        "License-File: LICENSE\n"
+    )
     monkeypatch.setattr(package_file.wheel.Wheel, "read", lambda _: read_data)
     filename = "tests/fixtures/twine-1.5.0-py2.py3-none-any.whl"
 
     package = package_file.PackageFile.from_filename(filename, comment=None)
     meta = package.metadata_dictionary()
-    assert filtered != ("license_file" in meta)
+    assert "license_file" not in meta
+
+
+@pytest.mark.skipif(
+    version.Version(packaging.__version__) < version.Version("24.1"),
+    reason="packaging is too old",
+)
+def test_setuptools_license_file_valid(monkeypatch):
+    """License-File metadata entries are kept when Metadata-Version is 2.4."""
+    read_data = (
+        "Metadata-Version: 2.4\n"
+        "Name: test-package\n"
+        "Version: 1.0.0\n"
+        "License-File: LICENSE\n"
+    )
+    monkeypatch.setattr(package_file.wheel.Wheel, "read", lambda _: read_data)
+    filename = "tests/fixtures/twine-1.5.0-py2.py3-none-any.whl"
+
+    package = package_file.PackageFile.from_filename(filename, comment=None)
+    meta = package.metadata_dictionary()
+    assert "license_file" in meta

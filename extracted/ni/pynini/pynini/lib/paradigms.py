@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,8 +89,8 @@ This is the inverse of the lemmatizer:
 """
 
 import array
-
-from typing import Iterator, List, Optional, Sequence, Tuple
+from collections.abc import Iterator, Sequence
+from typing import Optional
 
 import pynini
 from pynini.lib import byte
@@ -173,8 +173,8 @@ def suffix(affix: pynini.FstLike, stem_form: pynini.FstLike) -> pynini.Fst:
 
 # Type aliases used below.
 
-Analysis = Tuple[str, features.FeatureVector]
-ParadigmSlot = Tuple[pynini.Fst, features.FeatureVector]
+Analysis = tuple[str, features.FeatureVector]
+ParadigmSlot = tuple[pynini.Fst, features.FeatureVector]
 
 
 class Paradigm:
@@ -394,7 +394,7 @@ class Paradigm:
     self._analyzer @= self._deleter
     self._analyzer.invert().optimize()
 
-  def analyze(self, word: pynini.FstLike) -> List[Analysis]:
+  def analyze(self, word: pynini.FstLike) -> list[Analysis]:
     """Returns list of possible analyses.
 
     Args:
@@ -423,7 +423,7 @@ class Paradigm:
     self._tagger = self._analyzer @ self._boundary_deleter
     self._tagger.optimize()
 
-  def tag(self, word: pynini.FstLike) -> List[Analysis]:
+  def tag(self, word: pynini.FstLike) -> list[Analysis]:
     """Returns list of possible taggings.
 
     Args:
@@ -462,7 +462,7 @@ class Paradigm:
     self._lemmatizer @= self._lemma + self.category.feature_labels
     self._lemmatizer.optimize()
 
-  def lemmatize(self, word: pynini.FstLike) -> List[Analysis]:
+  def lemmatize(self, word: pynini.FstLike) -> list[Analysis]:
     """Returns list of possible lemmatizations.
 
     Args:
@@ -486,8 +486,9 @@ class Paradigm:
     self._inflector = pynini.invert(self._lemmatizer)
     return self._inflector
 
-  def inflect(self, lemma: pynini.FstLike,
-              featvec: features.FeatureVector) -> List[str]:
+  def inflect(
+      self, lemma: pynini.FstLike, featvec: features.FeatureVector
+  ) -> list[str]:
     """Returns list of possible inflections.
 
     Args:
@@ -507,7 +508,7 @@ class Paradigm:
     return self._category
 
   @property
-  def slots(self) -> List[ParadigmSlot]:
+  def slots(self) -> list[ParadigmSlot]:
     return self._slots
 
   @property
@@ -519,7 +520,7 @@ class Paradigm:
     return self._boundary
 
   @property
-  def stems(self) -> List[pynini.FstLike]:
+  def stems(self) -> list[pynini.FstLike]:
     return self._stems
 
   @property
@@ -535,7 +536,7 @@ class Paradigm:
     return self._feature_label_encoder
 
   @property
-  def rules(self) -> Optional[List[pynini.Fst]]:
+  def rules(self) -> Optional[list[pynini.Fst]]:
     return self._rules
 
   @property

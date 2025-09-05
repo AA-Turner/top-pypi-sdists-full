@@ -664,6 +664,7 @@ class StackEventTypeDef(TypedDict):
     HookStatus: NotRequired[HookStatusType]
     HookStatusReason: NotRequired[str]
     HookInvocationPoint: NotRequired[Literal["PRE_PROVISION"]]
+    HookInvocationId: NotRequired[str]
     HookFailureMode: NotRequired[HookFailureModeType]
     DetailedStatus: NotRequired[DetailedStatusType]
 
@@ -795,6 +796,7 @@ class WarningsTypeDef(TypedDict):
 
 
 class HookResultSummaryTypeDef(TypedDict):
+    HookResultId: NotRequired[str]
     InvocationPoint: NotRequired[Literal["PRE_PROVISION"]]
     FailureMode: NotRequired[HookFailureModeType]
     TypeName: NotRequired[str]
@@ -802,6 +804,11 @@ class HookResultSummaryTypeDef(TypedDict):
     TypeConfigurationVersionId: NotRequired[str]
     Status: NotRequired[HookStatusType]
     HookStatusReason: NotRequired[str]
+    InvokedAt: NotRequired[datetime]
+    TargetType: NotRequired[ListHookResultsTargetTypeType]
+    TargetId: NotRequired[str]
+    TypeArn: NotRequired[str]
+    HookExecutionTarget: NotRequired[str]
 
 
 class ListChangeSetsInputTypeDef(TypedDict):
@@ -829,8 +836,10 @@ class TemplateSummaryTypeDef(TypedDict):
 
 
 class ListHookResultsInputTypeDef(TypedDict):
-    TargetType: ListHookResultsTargetTypeType
-    TargetId: str
+    TargetType: NotRequired[ListHookResultsTargetTypeType]
+    TargetId: NotRequired[str]
+    TypeArn: NotRequired[str]
+    Status: NotRequired[HookStatusType]
     NextToken: NotRequired[str]
 
 

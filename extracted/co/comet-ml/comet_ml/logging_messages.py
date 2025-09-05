@@ -316,9 +316,7 @@ OS_PACKAGE_MSG_SENDING_ERROR = "Error sending os_packages message, got %d %r"
 
 METRICS_BATCH_MSG_SENDING_ERROR = "Failed to send metrics batch message, got %d %r"
 
-MESSAGES_THROTTLED_BY_BACKEND_ERROR = (
-    "Data loss. %s Reduce logging or request higher limits from Comet admin."
-)
+MESSAGES_THROTTLED_BY_BACKEND_ERROR = "Message(s) of type '%s' were throttled due to backend limits and will be retried after: %s (in %s seconds)"
 
 PARAMETERS_BATCH_MSG_SENDING_ERROR = (
     "Failed to send parameters batch message, got %d %r"
@@ -719,9 +717,7 @@ UNSUPPORTED_URI_SYNCED_REMOTE_ASSET = "Unsupported URI '%s' for synced remote as
 
 MODEL_REMOTE_ASSET_DOWNLOAD_UNSUPPORTED_URI = "Unsupported remote asset's link: %r for automatic asset download. Use model.get_assets() to download asset manually."
 
-UNEXPECTED_STREAMING_ERROR = (
-    "Unexpected streaming error detected. Check logs for details."
-)
+UNEXPECTED_STREAMING_ERROR = "Unexpected streaming error detected. Reason: %s."
 
 UNEXPECTED_ERROR_WHEN_LOGGING_FIGURE = (
     "Unexpected error detected while logging a figure. Check logs for details."

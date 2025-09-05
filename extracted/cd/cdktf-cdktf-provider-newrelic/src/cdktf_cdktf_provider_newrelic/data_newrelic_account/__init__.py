@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_account`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account).
+Refer to the Terraform Registry for docs: [`data_newrelic_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicAccount.DataNewrelicAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account newrelic_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account newrelic_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataNewrelicAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account newrelic_account} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account newrelic_account} Data Source.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#id DataNewrelicAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#name DataNewrelicAccount#name}
-        :param scope: The scope of the account in New Relic. Valid values are "global" and "in_region". Defaults to "in_region". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#id DataNewrelicAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#name DataNewrelicAccount#name}
+        :param scope: The scope of the account in New Relic. Valid values are "global" and "in_region". Defaults to "in_region". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataNewrelicAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicAccount to import.
-        :param import_from_id: The id of the existing DataNewrelicAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicAccount to import is found.
         '''
         if __debug__:
@@ -262,10 +262,10 @@ class DataNewrelicAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#id DataNewrelicAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#name DataNewrelicAccount#name}
-        :param scope: The scope of the account in New Relic. Valid values are "global" and "in_region". Defaults to "in_region". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#id DataNewrelicAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#name DataNewrelicAccount#name}
+        :param scope: The scope of the account in New Relic. Valid values are "global" and "in_region". Defaults to "in_region". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -374,14 +374,14 @@ class DataNewrelicAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The ID of the account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#account_id DataNewrelicAccount#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#id DataNewrelicAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#id DataNewrelicAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -393,7 +393,7 @@ class DataNewrelicAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#name DataNewrelicAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#name DataNewrelicAccount#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -402,7 +402,7 @@ class DataNewrelicAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> typing.Optional[builtins.str]:
         '''The scope of the account in New Relic.  Valid values are "global" and "in_region".  Defaults to "in_region".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/account#scope DataNewrelicAccount#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)

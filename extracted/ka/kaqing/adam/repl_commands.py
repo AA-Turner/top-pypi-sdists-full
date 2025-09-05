@@ -1,11 +1,13 @@
 from adam.commands.app import App
 from adam.commands.app_ping import AppPing
-from adam.commands.frontend.code_start import CodeStart
-from adam.commands.frontend.code_stop import CodeStop
-from adam.commands.frontend.setup import Setup
-from adam.commands.frontend.setup_frontend import SetupFrontend
-from adam.commands.frontend.teardown import TearDown
-from adam.commands.frontend.teardown_frontend import TearDownFrontend
+from adam.commands.deploy.code_start import CodeStart
+from adam.commands.deploy.code_stop import CodeStop
+from adam.commands.deploy.deploy import Deploy
+from adam.commands.deploy.deploy_frontend import DeployFrontend
+from adam.commands.deploy.deploy_pod import DeployPod
+from adam.commands.deploy.undeploy import Undeploy
+from adam.commands.deploy.undeploy_frontend import UndeployFrontend
+from adam.commands.deploy.undeploy_pod import UndeployPod
 from adam.commands.show.show_app_queues import ShowAppQueues
 from adam.commands.cp import ClipboardCopy
 from adam.commands.bash import Bash
@@ -48,7 +50,7 @@ class ReplCommands:
         cmds: list[Command] = ReplCommands.navigation() + ReplCommands.cassandra_check() + ReplCommands.cassandra_ops() + \
             ReplCommands.tools() + ReplCommands.app() + ReplCommands.exit()
 
-        intermediate_cmds: list[Command] = [App(), Reaper(), Repair(), Setup(), Show(), TearDown()]
+        intermediate_cmds: list[Command] = [App(), Reaper(), Repair(), Deploy(), Show(), Undeploy()]
         ic = [c.command() for c in intermediate_cmds]
         # 1. dedup commands
         deduped = []
@@ -75,7 +77,7 @@ class ReplCommands:
         return Medusa.cmd_list() + [Restart(), RollOut(), Watch()] + Reaper.cmd_list() + Repair.cmd_list()
 
     def tools() -> list[Command]:
-        return [Cqlsh(), Postgres(), Bash(), CodeStart(), CodeStop(), SetupFrontend(), TearDownFrontend()]
+        return [Cqlsh(), Postgres(), Bash(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod()]
 
     def app() -> list[Command]:
         return [ShowAppActions(), ShowAppId(), ShowAppQueues(), AppPing(), App()]

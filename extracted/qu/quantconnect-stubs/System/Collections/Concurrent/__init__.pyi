@@ -11,15 +11,15 @@ import System.Collections.Generic
 import System.Threading
 
 System_Collections_Concurrent_IProducerConsumerCollection_T = typing.TypeVar("System_Collections_Concurrent_IProducerConsumerCollection_T")
+System_Collections_Concurrent_ConcurrentDictionary_TKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TKey")
+System_Collections_Concurrent_ConcurrentDictionary_TValue = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TValue")
+System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey")
 System_Collections_Concurrent_ConcurrentQueue_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentQueue_T")
 System_Collections_Concurrent_BlockingCollection_T = typing.TypeVar("System_Collections_Concurrent_BlockingCollection_T")
 System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
 System_Collections_Concurrent_OrderablePartitioner_TSource = typing.TypeVar("System_Collections_Concurrent_OrderablePartitioner_TSource")
 System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
-System_Collections_Concurrent_ConcurrentDictionary_TKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TKey")
-System_Collections_Concurrent_ConcurrentDictionary_TValue = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TValue")
-System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey")
 
 
 class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
@@ -62,6 +62,380 @@ class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_I
         
         :param item: When this method returns, if the object was removed and returned successfully,  contains the removed object. If no object was available to be removed, the value is unspecified.
         :returns: true if an object was removed and returned successfully; otherwise, false.
+        """
+        ...
+
+
+class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Collections.IDictionary, System.Collections.Generic.IReadOnlyDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]):
+    """Represents a thread-safe collection of keys and values."""
+
+    class AlternateLookup(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey]):
+        """
+        Provides a type that may be used to perform operations on a ConcurrentDictionary{TKey, TValue}
+        using a TAlternateKey as a key instead of a TKey.
+        """
+
+        @property
+        def dictionary(self) -> System.Collections.Concurrent.ConcurrentDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+            """Gets the ConcurrentDictionary{TKey, TValue} against which this instance performs operations."""
+            ...
+
+        def __getitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+            """
+            Gets or sets the value associated with the specified alternate key.
+            
+            :param key: The alternate key of the value to get or set.
+            """
+            ...
+
+        def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:
+            """
+            Gets or sets the value associated with the specified alternate key.
+            
+            :param key: The alternate key of the value to get or set.
+            """
+            ...
+
+        def contains_key(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey) -> bool:
+            """
+            Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified alternate key.
+            
+            :param key: The alternate key to check.
+            :returns: true if the key is in the dictionary; otherwise, false.
+            """
+            ...
+
+        def try_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
+            """
+            Attempts to add the specified key and value to the dictionary.
+            
+            :param key: The alternate key of the element to add.
+            :param value: The value of the element to add.
+            :returns: true if the key/value pair was added to the dictionary successfully; otherwise, false.
+            """
+            ...
+
+        @overload
+        def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+            """
+            Gets the value associated with the specified alternate key.
+            
+            :param key: The alternate key of the value to get.
+            :param value: When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter.
+            :returns: true if an entry was found; otherwise, false.
+            """
+            ...
+
+        @overload
+        def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, actual_key: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TKey], value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+            """
+            Gets the value associated with the specified alternate key.
+            
+            :param key: The alternate key of the value to get.
+            :param actual_key: When this method returns, contains the actual key associated with the alternate key, if the key is found; otherwise, the default value for the type of the key parameter.
+            :param value: When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter.
+            :returns: true if an entry was found; otherwise, false.
+            """
+            ...
+
+        @overload
+        def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+            """
+            Removes the value with the specified alternate key from the Dictionary{TKey, TValue},
+            and copies the element to the value parameter.
+            
+            :param key: The alternate key of the element to remove.
+            :param value: The removed element.
+            :returns: true if the element is successfully found and removed; otherwise, false.
+            """
+            ...
+
+        @overload
+        def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, actual_key: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TKey], value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+            """
+            Removes the value with the specified alternate key from the Dictionary{TKey, TValue},
+            and copies the associated key and element to the value parameter.
+            
+            :param key: The alternate key of the element to remove.
+            :param actual_key: The removed key.
+            :param value: The removed element.
+            :returns: true if the element is successfully found and removed; otherwise, false.
+            """
+            ...
+
+    @property
+    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]:
+        """
+        Gets the IEqualityComparer{TKey}
+        that is used to determine equality of keys for the dictionary.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of key/value pairs contained in the ConcurrentDictionary{TKey,TValue}."""
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets a value that indicates whether the ConcurrentDictionary{TKey,TValue} is empty."""
+        ...
+
+    @property
+    def keys(self) -> System.Collections.Generic.ICollection[System_Collections_Concurrent_ConcurrentDictionary_TKey]:
+        """Gets a snapshot containing all the keys in the ConcurrentDictionary{TKey,TValue}."""
+        ...
+
+    @property
+    def values(self) -> System.Collections.Generic.ICollection[System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+        """Gets a snapshot containing all the values in the ConcurrentDictionary{TKey,TValue}."""
+        ...
+
+    def __contains__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
+        """
+        Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified key.
+        
+        :param key: The key to locate in the ConcurrentDictionary{TKey, TValue}.
+        :returns: true if the ConcurrentDictionary{TKey, TValue} contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def __getitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        """
+        Gets or sets the value associated with the specified key.
+        
+        :param key: The key of the value to get or set.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that is empty, has the default concurrency level, has the default initial capacity, and
+        uses the default comparer for the key type.
+        """
+        ...
+
+    @overload
+    def __init__(self, concurrency_level: int, capacity: int) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that is empty, has the specified concurrency level and capacity, and uses the default
+        comparer for the key type.
+        
+        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
+        :param capacity: The initial number of elements that the ConcurrentDictionary{TKey,TValue} can contain.
+        """
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that contains elements copied from the specified IEnumerable{T}, has the default concurrency
+        level, has the default initial capacity, and uses the default comparer for the key type.
+        
+        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
+        """
+        ...
+
+    @overload
+    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that is empty, has the specified concurrency level and capacity, and uses the specified
+        IEqualityComparer{TKey}.
+        
+        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
+        """
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that contains elements copied from the specified IEnumerable, has the default concurrency
+        level, has the default initial capacity, and uses the specified IEqualityComparer{TKey}.
+        
+        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
+        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
+        """
+        ...
+
+    @overload
+    def __init__(self, concurrency_level: int, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that contains elements copied from the specified IEnumerable,
+        has the specified concurrency level, has the specified initial capacity, and uses the specified
+        IEqualityComparer{TKey}.
+        
+        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
+        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
+        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
+        """
+        ...
+
+    @overload
+    def __init__(self, concurrency_level: int, capacity: int, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
+        class that is empty, has the specified concurrency level, has the specified initial capacity, and
+        uses the specified IEqualityComparer{TKey}.
+        
+        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
+        :param capacity: The initial number of elements that the ConcurrentDictionary{TKey,TValue} can contain.
+        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:
+        """
+        Gets or sets the value associated with the specified key.
+        
+        :param key: The key of the value to get or set.
+        """
+        ...
+
+    @overload
+    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue], update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        """
+        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue} if the key does not already
+        exist, or updates a key/value pair in the ConcurrentDictionary{TKey,TValue} if the key
+        already exists.
+        
+        :param key: The key to be added or whose value should be updated
+        :param add_value_factory: The function used to generate a value for an absent key
+        :param update_value_factory: The function used to generate a new value for an existing key based on the key's existing value
+        :returns: The new value for the key.  This will be either the result of add_value_factory (if the key was absent) or the result of update_value_factory (if the key was present).
+        """
+        ...
+
+    @overload
+    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        """
+        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue} if the key does not already
+        exist, or updates a key/value pair in the ConcurrentDictionary{TKey,TValue} if the key
+        already exists.
+        
+        :param key: The key to be added or whose value should be updated
+        :param add_value: The value to be added for an absent key
+        :param update_value_factory: The function used to generate a new value for an existing key based on the key's existing value
+        :returns: The new value for the key.  This will be either the value of add_value (if the key was absent) or the result of update_value_factory (if the key was present).
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all keys and values from the ConcurrentDictionary{TKey,TValue}."""
+        ...
+
+    def contains_key(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
+        """
+        Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified key.
+        
+        :param key: The key to locate in the ConcurrentDictionary{TKey, TValue}.
+        :returns: true if the ConcurrentDictionary{TKey, TValue} contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
+        """
+        Returns an enumerator that iterates through the ConcurrentDictionary{TKey,TValue}.
+        
+        :returns: An enumerator for the ConcurrentDictionary{TKey,TValue}.
+        """
+        ...
+
+    @overload
+    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        """
+        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue}
+        if the key does not already exist.
+        
+        :param key: The key of the element to add.
+        :param value_factory: The function used to generate a value for the key
+        :returns: The value for the key.  This will be either the existing value for the key if the key is already in the dictionary, or the new value for the key as returned by value_factory if the key was not in the dictionary.
+        """
+        ...
+
+    @overload
+    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
+        """
+        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue}
+        if the key does not already exist.
+        
+        :param key: The key of the element to add.
+        :param value: the value to be added, if the key does not already exist
+        :returns: The value for the key.  This will be either the existing value for the key if the key is already in the dictionary, or the new value if the key was not in the dictionary.
+        """
+        ...
+
+    def to_array(self) -> typing.List[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
+        """
+        Copies the key and value pairs stored in the ConcurrentDictionary{TKey,TValue} to a
+        new array.
+        
+        :returns: A new array containing a snapshot of key and value pairs copied from the ConcurrentDictionary{TKey,TValue}.
+        """
+        ...
+
+    def try_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
+        """
+        Attempts to add the specified key and value to the ConcurrentDictionary{TKey, TValue}.
+        
+        :param key: The key of the element to add.
+        :param value: The value of the element to add. The value can be a null reference (Nothing in Visual Basic) for reference types.
+        :returns: true if the key/value pair was added to the ConcurrentDictionary{TKey, TValue} successfully; otherwise, false.
+        """
+        ...
+
+    def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+        """
+        Attempts to get the value associated with the specified key from the ConcurrentDictionary{TKey,TValue}.
+        
+        :param key: The key of the value to get.
+        :param value: When this method returns,  contains the object from the ConcurrentDictionary{TKey,TValue} with the specified key or the default value of TValue, if the operation failed.
+        :returns: true if the key was found in the ConcurrentDictionary{TKey,TValue}; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
+        """
+        Attempts to remove and return the value with the specified key from the ConcurrentDictionary{TKey, TValue}.
+        
+        :param key: The key of the element to remove and return.
+        :param value: When this method returns,  contains the object removed from the ConcurrentDictionary{TKey,TValue} or the default value of TValue if the operation failed.
+        :returns: true if an object was removed successfully; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> bool:
+        """
+        Removes a key and value from the dictionary.
+        
+        :param item: The KeyValuePair{TKey,TValue} representing the key and value to remove.
+        :returns: true if the key and value represented by  are successfully found and removed; otherwise, false.
+        """
+        ...
+
+    def try_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, new_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, comparison_value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
+        """
+        Updates the value associated with  to  if the existing value is equal
+        to .
+        
+        :param key: The key whose value is compared with  and possibly replaced.
+        :param new_value: The value that replaces the value of the element with  if the comparison results in equality.
+        :param comparison_value: The value that is compared to the value of the element with .
+        :returns: true if the value with  was equal to  and replaced with ; otherwise, false.
         """
         ...
 
@@ -956,380 +1330,6 @@ class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentSta
         :param start_index: The zero-based offset in  at which to begin inserting elements from the top of the ConcurrentStack{T}.
         :param count: The number of elements to be popped from top of the ConcurrentStack{T} and inserted into .
         :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
-        """
-        ...
-
-
-class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Collections.IDictionary, System.Collections.Generic.IReadOnlyDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]):
-    """Represents a thread-safe collection of keys and values."""
-
-    class AlternateLookup(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey]):
-        """
-        Provides a type that may be used to perform operations on a ConcurrentDictionary{TKey, TValue}
-        using a TAlternateKey as a key instead of a TKey.
-        """
-
-        @property
-        def dictionary(self) -> System.Collections.Concurrent.ConcurrentDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-            """Gets the ConcurrentDictionary{TKey, TValue} against which this instance performs operations."""
-            ...
-
-        def __getitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-            """
-            Gets or sets the value associated with the specified alternate key.
-            
-            :param key: The alternate key of the value to get or set.
-            """
-            ...
-
-        def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:
-            """
-            Gets or sets the value associated with the specified alternate key.
-            
-            :param key: The alternate key of the value to get or set.
-            """
-            ...
-
-        def contains_key(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey) -> bool:
-            """
-            Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified alternate key.
-            
-            :param key: The alternate key to check.
-            :returns: true if the key is in the dictionary; otherwise, false.
-            """
-            ...
-
-        def try_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
-            """
-            Attempts to add the specified key and value to the dictionary.
-            
-            :param key: The alternate key of the element to add.
-            :param value: The value of the element to add.
-            :returns: true if the key/value pair was added to the dictionary successfully; otherwise, false.
-            """
-            ...
-
-        @overload
-        def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-            """
-            Gets the value associated with the specified alternate key.
-            
-            :param key: The alternate key of the value to get.
-            :param value: When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter.
-            :returns: true if an entry was found; otherwise, false.
-            """
-            ...
-
-        @overload
-        def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, actual_key: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TKey], value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-            """
-            Gets the value associated with the specified alternate key.
-            
-            :param key: The alternate key of the value to get.
-            :param actual_key: When this method returns, contains the actual key associated with the alternate key, if the key is found; otherwise, the default value for the type of the key parameter.
-            :param value: When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter.
-            :returns: true if an entry was found; otherwise, false.
-            """
-            ...
-
-        @overload
-        def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-            """
-            Removes the value with the specified alternate key from the Dictionary{TKey, TValue},
-            and copies the element to the value parameter.
-            
-            :param key: The alternate key of the element to remove.
-            :param value: The removed element.
-            :returns: true if the element is successfully found and removed; otherwise, false.
-            """
-            ...
-
-        @overload
-        def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey, actual_key: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TKey], value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-            """
-            Removes the value with the specified alternate key from the Dictionary{TKey, TValue},
-            and copies the associated key and element to the value parameter.
-            
-            :param key: The alternate key of the element to remove.
-            :param actual_key: The removed key.
-            :param value: The removed element.
-            :returns: true if the element is successfully found and removed; otherwise, false.
-            """
-            ...
-
-    @property
-    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]:
-        """
-        Gets the IEqualityComparer{TKey}
-        that is used to determine equality of keys for the dictionary.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of key/value pairs contained in the ConcurrentDictionary{TKey,TValue}."""
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value that indicates whether the ConcurrentDictionary{TKey,TValue} is empty."""
-        ...
-
-    @property
-    def keys(self) -> System.Collections.Generic.ICollection[System_Collections_Concurrent_ConcurrentDictionary_TKey]:
-        """Gets a snapshot containing all the keys in the ConcurrentDictionary{TKey,TValue}."""
-        ...
-
-    @property
-    def values(self) -> System.Collections.Generic.ICollection[System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-        """Gets a snapshot containing all the values in the ConcurrentDictionary{TKey,TValue}."""
-        ...
-
-    def __contains__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
-        """
-        Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified key.
-        
-        :param key: The key to locate in the ConcurrentDictionary{TKey, TValue}.
-        :returns: true if the ConcurrentDictionary{TKey, TValue} contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    def __getitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        """
-        Gets or sets the value associated with the specified key.
-        
-        :param key: The key of the value to get or set.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that is empty, has the default concurrency level, has the default initial capacity, and
-        uses the default comparer for the key type.
-        """
-        ...
-
-    @overload
-    def __init__(self, concurrency_level: int, capacity: int) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that is empty, has the specified concurrency level and capacity, and uses the default
-        comparer for the key type.
-        
-        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
-        :param capacity: The initial number of elements that the ConcurrentDictionary{TKey,TValue} can contain.
-        """
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that contains elements copied from the specified IEnumerable{T}, has the default concurrency
-        level, has the default initial capacity, and uses the default comparer for the key type.
-        
-        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
-        """
-        ...
-
-    @overload
-    def __init__(self, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that is empty, has the specified concurrency level and capacity, and uses the specified
-        IEqualityComparer{TKey}.
-        
-        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
-        """
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that contains elements copied from the specified IEnumerable, has the default concurrency
-        level, has the default initial capacity, and uses the specified IEqualityComparer{TKey}.
-        
-        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
-        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
-        """
-        ...
-
-    @overload
-    def __init__(self, concurrency_level: int, collection: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]], comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that contains elements copied from the specified IEnumerable,
-        has the specified concurrency level, has the specified initial capacity, and uses the specified
-        IEqualityComparer{TKey}.
-        
-        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
-        :param collection: The IEnumerable{T} whose elements are copied to the new ConcurrentDictionary{TKey,TValue}.
-        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
-        """
-        ...
-
-    @overload
-    def __init__(self, concurrency_level: int, capacity: int, comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Concurrent_ConcurrentDictionary_TKey]) -> None:
-        """
-        Initializes a new instance of the ConcurrentDictionary{TKey,TValue}
-        class that is empty, has the specified concurrency level, has the specified initial capacity, and
-        uses the specified IEqualityComparer{TKey}.
-        
-        :param concurrency_level: The estimated number of threads that will update the ConcurrentDictionary{TKey,TValue} concurrently, or -1 to indicate a default value.
-        :param capacity: The initial number of elements that the ConcurrentDictionary{TKey,TValue} can contain.
-        :param comparer: The IEqualityComparer{TKey} implementation to use when comparing keys.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:
-        """
-        Gets or sets the value associated with the specified key.
-        
-        :param key: The key of the value to get or set.
-        """
-        ...
-
-    @overload
-    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue], update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        """
-        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue} if the key does not already
-        exist, or updates a key/value pair in the ConcurrentDictionary{TKey,TValue} if the key
-        already exists.
-        
-        :param key: The key to be added or whose value should be updated
-        :param add_value_factory: The function used to generate a value for an absent key
-        :param update_value_factory: The function used to generate a new value for an existing key based on the key's existing value
-        :returns: The new value for the key.  This will be either the result of add_value_factory (if the key was absent) or the result of update_value_factory (if the key was present).
-        """
-        ...
-
-    @overload
-    def add_or_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, add_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, update_value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        """
-        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue} if the key does not already
-        exist, or updates a key/value pair in the ConcurrentDictionary{TKey,TValue} if the key
-        already exists.
-        
-        :param key: The key to be added or whose value should be updated
-        :param add_value: The value to be added for an absent key
-        :param update_value_factory: The function used to generate a new value for an existing key based on the key's existing value
-        :returns: The new value for the key.  This will be either the value of add_value (if the key was absent) or the result of update_value_factory (if the key was present).
-        """
-        ...
-
-    def clear(self) -> None:
-        """Removes all keys and values from the ConcurrentDictionary{TKey,TValue}."""
-        ...
-
-    def contains_key(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
-        """
-        Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified key.
-        
-        :param key: The key to locate in the ConcurrentDictionary{TKey, TValue}.
-        :returns: true if the ConcurrentDictionary{TKey, TValue} contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
-        """
-        Returns an enumerator that iterates through the ConcurrentDictionary{TKey,TValue}.
-        
-        :returns: An enumerator for the ConcurrentDictionary{TKey,TValue}.
-        """
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value_factory: typing.Callable[[System_Collections_Concurrent_ConcurrentDictionary_TKey], System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        """
-        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue}
-        if the key does not already exist.
-        
-        :param key: The key of the element to add.
-        :param value_factory: The function used to generate a value for the key
-        :returns: The value for the key.  This will be either the existing value for the key if the key is already in the dictionary, or the new value for the key as returned by value_factory if the key was not in the dictionary.
-        """
-        ...
-
-    @overload
-    def get_or_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
-        """
-        Adds a key/value pair to the ConcurrentDictionary{TKey,TValue}
-        if the key does not already exist.
-        
-        :param key: The key of the element to add.
-        :param value: the value to be added, if the key does not already exist
-        :returns: The value for the key.  This will be either the existing value for the key if the key is already in the dictionary, or the new value if the key was not in the dictionary.
-        """
-        ...
-
-    def to_array(self) -> typing.List[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
-        """
-        Copies the key and value pairs stored in the ConcurrentDictionary{TKey,TValue} to a
-        new array.
-        
-        :returns: A new array containing a snapshot of key and value pairs copied from the ConcurrentDictionary{TKey,TValue}.
-        """
-        ...
-
-    def try_add(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
-        """
-        Attempts to add the specified key and value to the ConcurrentDictionary{TKey, TValue}.
-        
-        :param key: The key of the element to add.
-        :param value: The value of the element to add. The value can be a null reference (Nothing in Visual Basic) for reference types.
-        :returns: true if the key/value pair was added to the ConcurrentDictionary{TKey, TValue} successfully; otherwise, false.
-        """
-        ...
-
-    def try_get_value(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-        """
-        Attempts to get the value associated with the specified key from the ConcurrentDictionary{TKey,TValue}.
-        
-        :param key: The key of the value to get.
-        :param value: When this method returns,  contains the object from the ConcurrentDictionary{TKey,TValue} with the specified key or the default value of TValue, if the operation failed.
-        :returns: true if the key was found in the ConcurrentDictionary{TKey,TValue}; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_remove(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: typing.Optional[System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentDictionary_TValue]:
-        """
-        Attempts to remove and return the value with the specified key from the ConcurrentDictionary{TKey, TValue}.
-        
-        :param key: The key of the element to remove and return.
-        :param value: When this method returns,  contains the object removed from the ConcurrentDictionary{TKey,TValue} or the default value of TValue if the operation failed.
-        :returns: true if an object was removed successfully; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]) -> bool:
-        """
-        Removes a key and value from the dictionary.
-        
-        :param item: The KeyValuePair{TKey,TValue} representing the key and value to remove.
-        :returns: true if the key and value represented by  are successfully found and removed; otherwise, false.
-        """
-        ...
-
-    def try_update(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, new_value: System_Collections_Concurrent_ConcurrentDictionary_TValue, comparison_value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> bool:
-        """
-        Updates the value associated with  to  if the existing value is equal
-        to .
-        
-        :param key: The key whose value is compared with  and possibly replaced.
-        :param new_value: The value that replaces the value of the element with  if the comparison results in equality.
-        :param comparison_value: The value that is compared to the value of the element with .
-        :returns: true if the value with  was equal to  and replaced with ; otherwise, false.
         """
         ...
 

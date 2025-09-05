@@ -6,11 +6,9 @@ import contextlib
 from dataclasses import dataclass
 import io
 import sys
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any
 import unittest
 from unittest import TestCase
-
-from packaging.version import Version
 
 from tap import tapify
 
@@ -20,7 +18,7 @@ try:
 except ModuleNotFoundError:
     _IS_PYDANTIC_V1 = None
 else:
-    _IS_PYDANTIC_V1 = Version(pydantic.__version__) < Version("2.0.0")
+    _IS_PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
 
 
 # Suppress prints from SystemExit
@@ -237,21 +235,21 @@ class TapifyTests(TestCase):
             self.assertEqual(output, "1 simple 3.14 -0.3 True wee")
 
     def test_tapify_complex_types(self):
-        def concat(complexity: List[str], requires: Tuple[int, int], intelligence: Person) -> str:
+        def concat(complexity: list[str], requires: tuple[int, int], intelligence: Person) -> str:
             return f'{" ".join(complexity)} {requires[0]} {requires[1]} {intelligence}'
 
-        def concat_with_positionals(complexity: List[str], /, requires: Tuple[int, int], intelligence: Person) -> str:
+        def concat_with_positionals(complexity: list[str], /, requires: tuple[int, int], intelligence: Person) -> str:
             return f'{" ".join(complexity)} {requires[0]} {requires[1]} {intelligence}'
 
         class Concat:
-            def __init__(self, complexity: List[str], requires: Tuple[int, int], intelligence: Person):
+            def __init__(self, complexity: list[str], requires: tuple[int, int], intelligence: Person):
                 self.kwargs = {"complexity": complexity, "requires": requires, "intelligence": intelligence}
 
             def __eq__(self, other: str) -> bool:
                 return other == concat(**self.kwargs)
 
         class ConcatWithPositionals:
-            def __init__(self, complexity: List[str], /, requires: Tuple[int, int], intelligence: Person):
+            def __init__(self, complexity: list[str], /, requires: tuple[int, int], intelligence: Person):
                 self.kwargs = {"complexity": complexity, "requires": requires, "intelligence": intelligence}
 
             def __eq__(self, other: str) -> bool:
@@ -321,9 +319,6 @@ class TapifyTests(TestCase):
 
             self.assertEqual(output, "complex things require 1 0 Person(jesse)")
 
-    @unittest.skipIf(
-        sys.version_info < (3, 9), "Parameterized standard collections (e.g., list[int]) introduced in Python 3.9"
-    )
     def test_tapify_complex_types_parameterized_standard(self):
         def concat(complexity: list[int], requires: tuple[int, int], intelligence: Person) -> str:
             return f'{" ".join(map(str, complexity))} {requires[0]} {requires[1]} {intelligence}'
@@ -1471,7 +1466,7 @@ class TestTapifyKwargs(unittest.TestCase):
             pydantic_data_models = []
 
         class Concat:
-            def __init__(self, a: int, b: int = 2, **kwargs: Dict[str, str]):
+            def __init__(self, a: int, b: int = 2, **kwargs: dict[str, str]):
                 """Concatenate three numbers.
 
                 :param a: The first number.
@@ -1485,7 +1480,7 @@ class TestTapifyKwargs(unittest.TestCase):
                 return other == concat(self.a, self.b, **self.kwargs)
 
         class ConcatWithPositionals:
-            def __init__(self, a: int, /, b: int = 2, **kwargs: Dict[str, str]):
+            def __init__(self, a: int, /, b: int = 2, **kwargs: dict[str, str]):
                 """Concatenate three numbers.
 
                 :param a: The first number.
@@ -1522,6 +1517,42 @@ class TestTapifyKwargs(unittest.TestCase):
             output = tapify(class_or_function, command_line_args=["--a", "1", "--c", "3", "--b", "5", "--d", "4"])
 
             self.assertEqual(output, "1_5_c=3-d=4")
+
+
+class TestTapifyUnderscoresToDashes(unittest.TestCase):
+    def setUp(self) -> None:
+        class MyClass:
+            def __init__(self, my_arg: str):
+                self.my_arg = my_arg
+
+            def __eq__(self, other: str) -> bool:
+                return self.my_arg == other
+
+        @dataclass
+        class DataClassTarget:
+            my_arg: str
+
+            def __eq__(self, other: str) -> bool:
+                return self.my_arg == other
+
+        def my_function(my_arg: str) -> str:
+            return my_arg
+
+        self.class_or_functions = [my_function, MyClass, DataClassTarget]
+
+    def test_underscores_to_dashes(self) -> None:
+        for target in self.class_or_functions:
+            # With underscores_to_dashes True and using dashes in the args.
+            instance = tapify(target, command_line_args=["--my-arg", "value"], underscores_to_dashes=True)
+            self.assertEqual(instance, "value")
+
+            # With underscores_to_dashes False and using underscore in the args.
+            instance = tapify(target, command_line_args=["--my_arg", "value"], underscores_to_dashes=False)
+            self.assertEqual(instance, "value")
+
+            # Using underscore when dashes are expected causes a parse error.
+            with self.assertRaises(SystemExit):
+                tapify(target, command_line_args=["--my_arg", "value"], underscores_to_dashes=True)
 
 
 if __name__ == "__main__":

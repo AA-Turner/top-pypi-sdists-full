@@ -103,7 +103,7 @@ setup(
         "structlog",
         "sqlalchemy>=1.0,<3",
         "toposort>=1.0",
-        "watchdog>=0.8.3,<6",
+        "watchdog>=0.8.3,<7",
         'psutil>=1.0; platform_system=="Windows"',
         # https://github.com/mhammond/pywin32/issues/1439
         'pywin32!=226; platform_system=="Windows"',
@@ -112,8 +112,8 @@ setup(
         "universal_pathlib>=0.2.0; python_version>='3.12'",
         "rich",
         "filelock",
-        "dagster-pipes==1.11.8",
-        "dagster-shared==1.11.8",
+        "dagster-pipes==1.11.9",
+        "dagster-shared==1.11.9",
         "antlr4-python3-runtime",
     ],
     extras_require={

@@ -12,8 +12,4 @@
 # *******************************************************
 from .log_filter_helpers import extra_for_type
 
-METRICS_THROTTLING_MSG_EXTRA = extra_for_type("metrics-throttling-msg")
 ASSETS_UPLOAD_THROTTLING_MSG_EXTRA = extra_for_type("assets-upload-throttling-msg")
-
-# Other throttling messages fall into this category
-GENERAL_THROTTLING_MSG_EXTRA = extra_for_type("general-throttling-msg")

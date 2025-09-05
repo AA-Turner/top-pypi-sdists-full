@@ -315,8 +315,8 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ActivateTypeInputTypeDef]
     ) -> ActivateTypeOutputTypeDef:
         """
-        Activates a public third-party extension, making it available for use in stack
-        templates.
+        Activates a public third-party extension, such as a resource or module, to make
+        it available for use in stack templates in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/activate_type.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#activate_type)
@@ -327,7 +327,7 @@ class CloudFormationClient(BaseClient):
     ) -> BatchDescribeTypeConfigurationsOutputTypeDef:
         """
         Returns configuration data for the specified CloudFormation extensions, from
-        the CloudFormation registry for the account and Region.
+        the CloudFormation registry in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/batch_describe_type_configurations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#batch_describe_type_configurations)
@@ -347,8 +347,8 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ContinueUpdateRollbackInputTypeDef]
     ) -> Dict[str, Any]:
         """
-        For a specified stack that's in the <code>UPDATE_ROLLBACK_FAILED</code> state,
-        continues rolling it back to the <code>UPDATE_ROLLBACK_COMPLETE</code> state.
+        Continues rolling back a stack from <code>UPDATE_ROLLBACK_FAILED</code> to
+        <code>UPDATE_ROLLBACK_COMPLETE</code> state.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/continue_update_rollback.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#continue_update_rollback)
@@ -410,7 +410,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[CreateStackSetInputTypeDef]
     ) -> CreateStackSetOutputTypeDef:
         """
-        Creates a stack set.
+        Creates a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/create_stack_set.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#create_stack_set)
@@ -426,8 +426,8 @@ class CloudFormationClient(BaseClient):
 
     def deactivate_type(self, **kwargs: Unpack[DeactivateTypeInputTypeDef]) -> Dict[str, Any]:
         """
-        Deactivates a public extension that was previously activated in this account
-        and Region.
+        Deactivates a public third-party extension, such as a resource or module, or a
+        CloudFormation Hook when you no longer use it.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/deactivate_type.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#deactivate_type)
@@ -474,7 +474,7 @@ class CloudFormationClient(BaseClient):
 
     def delete_stack_set(self, **kwargs: Unpack[DeleteStackSetInputTypeDef]) -> Dict[str, Any]:
         """
-        Deletes a stack set.
+        Deletes a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/delete_stack_set.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#delete_stack_set)
@@ -672,7 +672,8 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[DescribeTypeInputTypeDef]
     ) -> DescribeTypeOutputTypeDef:
         """
-        Returns detailed information about an extension that has been registered.
+        Returns detailed information about an extension from the CloudFormation
+        registry in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/describe_type.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#describe_type)
@@ -717,7 +718,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[DetectStackSetDriftInputTypeDef]
     ) -> DetectStackSetDriftOutputTypeDef:
         """
-        Detect drift on a stack set.
+        Detect drift on a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/detect_stack_set_drift.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#detect_stack_set_drift)
@@ -794,7 +795,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ImportStacksToStackSetInputTypeDef]
     ) -> ImportStacksToStackSetOutputTypeDef:
         """
-        Import existing stacks into a new stack sets.
+        Import existing stacks into a new StackSets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/import_stacks_to_stack_set.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#import_stacks_to_stack_set)
@@ -833,8 +834,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ListHookResultsInputTypeDef]
     ) -> ListHookResultsOutputTypeDef:
         """
-        Returns summaries of invoked Hooks when a change set or Cloud Control API
-        operation target is provided.
+        Returns summaries of invoked Hooks.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_hook_results.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_hook_results)
@@ -893,7 +893,7 @@ class CloudFormationClient(BaseClient):
     ) -> ListStackInstancesOutputTypeDef:
         """
         Returns summary information about stack instances that are associated with the
-        specified stack set.
+        specified StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_instances.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_stack_instances)
@@ -934,7 +934,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ListStackSetAutoDeploymentTargetsInputTypeDef]
     ) -> ListStackSetAutoDeploymentTargetsOutputTypeDef:
         """
-        Returns summary information about deployment targets for a stack set.
+        Returns summary information about deployment targets for a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_auto_deployment_targets.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_stack_set_auto_deployment_targets)
@@ -944,7 +944,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ListStackSetOperationResultsInputTypeDef]
     ) -> ListStackSetOperationResultsOutputTypeDef:
         """
-        Returns summary information about the results of a stack set operation.
+        Returns summary information about the results of a StackSet operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_operation_results.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_stack_set_operation_results)
@@ -954,7 +954,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ListStackSetOperationsInputTypeDef]
     ) -> ListStackSetOperationsOutputTypeDef:
         """
-        Returns summary information about operations performed on a stack set.
+        Returns summary information about operations performed on a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_operations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_stack_set_operations)
@@ -964,7 +964,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[ListStackSetsInputTypeDef]
     ) -> ListStackSetsOutputTypeDef:
         """
-        Returns summary information about stack sets that are associated with the user.
+        Returns summary information about StackSets that are associated with the user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_sets.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_stack_sets)
@@ -1001,8 +1001,9 @@ class CloudFormationClient(BaseClient):
 
     def list_types(self, **kwargs: Unpack[ListTypesInputTypeDef]) -> ListTypesOutputTypeDef:
         """
-        Returns summary information about extension that have been registered with
-        CloudFormation.
+        Returns summary information about all extensions, including your private
+        resource types, modules, and Hooks as well as all public extensions from Amazon
+        Web Services and third-party publishers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_types.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#list_types)
@@ -1114,8 +1115,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[StopStackSetOperationInputTypeDef]
     ) -> Dict[str, Any]:
         """
-        Stops an in-progress operation on a stack set and its associated stack
-        instances.
+        Stops an in-progress operation on a StackSet and its associated stack instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/stop_stack_set_operation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/client/#stop_stack_set_operation)
@@ -1163,7 +1163,7 @@ class CloudFormationClient(BaseClient):
         self, **kwargs: Unpack[UpdateStackSetInputTypeDef]
     ) -> UpdateStackSetOutputTypeDef:
         """
-        Updates the stack set and associated stack instances in the specified accounts
+        Updates the StackSet and associated stack instances in the specified accounts
         and Amazon Web Services Regions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/update_stack_set.html)

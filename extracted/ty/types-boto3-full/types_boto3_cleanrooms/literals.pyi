@@ -80,6 +80,7 @@ __all__ = (
     "ProtectedJobAnalysisTypeType",
     "ProtectedJobStatusType",
     "ProtectedJobTypeType",
+    "ProtectedJobWorkerComputeTypeType",
     "ProtectedQueryStatusType",
     "ProtectedQueryTypeType",
     "RegionName",
@@ -192,6 +193,7 @@ ProtectedJobStatusType = Literal[
     "CANCELLED", "CANCELLING", "FAILED", "STARTED", "SUBMITTED", "SUCCESS"
 ]
 ProtectedJobTypeType = Literal["PYSPARK"]
+ProtectedJobWorkerComputeTypeType = Literal["CR.1X", "CR.4X"]
 ProtectedQueryStatusType = Literal[
     "CANCELLED", "CANCELLING", "FAILED", "STARTED", "SUBMITTED", "SUCCESS", "TIMED_OUT"
 ]

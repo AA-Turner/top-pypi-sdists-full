@@ -86,6 +86,7 @@ __all__ = (
     "DescribeSourceRegionsPaginatorName",
     "DescribeTenantDatabasesPaginatorName",
     "DownloadDBLogFilePortionPaginatorName",
+    "EndpointNetworkTypeType",
     "EngineFamilyType",
     "ExportSourceTypeType",
     "FailoverStatusType",
@@ -103,6 +104,7 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SourceTypeType",
+    "TargetConnectionNetworkTypeType",
     "TargetHealthReasonType",
     "TargetRoleType",
     "TargetStateType",
@@ -204,6 +206,7 @@ DescribeReservedDBInstancesPaginatorName = Literal["describe_reserved_db_instanc
 DescribeSourceRegionsPaginatorName = Literal["describe_source_regions"]
 DescribeTenantDatabasesPaginatorName = Literal["describe_tenant_databases"]
 DownloadDBLogFilePortionPaginatorName = Literal["download_db_log_file_portion"]
+EndpointNetworkTypeType = Literal["DUAL", "IPV4", "IPV6"]
 EngineFamilyType = Literal["MYSQL", "POSTGRESQL", "SQLSERVER"]
 ExportSourceTypeType = Literal["CLUSTER", "SNAPSHOT"]
 FailoverStatusType = Literal["cancelling", "failing-over", "pending"]
@@ -241,6 +244,7 @@ SourceTypeType = Literal[
     "db-security-group",
     "db-snapshot",
 ]
+TargetConnectionNetworkTypeType = Literal["IPV4", "IPV6"]
 TargetHealthReasonType = Literal[
     "AUTH_FAILURE",
     "CONNECTION_FAILED",

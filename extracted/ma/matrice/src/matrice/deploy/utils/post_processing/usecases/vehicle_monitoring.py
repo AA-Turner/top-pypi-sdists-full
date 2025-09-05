@@ -29,10 +29,12 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.6
+
+    #JBK_720_GATE POLYGON = [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
     zone_config: Optional[Dict[str, Dict[str, List[List[float]]]]] = None #field(
 #     default_factory=lambda: {
 #         "zones": {
-#             "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
+#             "Interest_Region": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]],
 #         }
 #     }
 # )
@@ -134,6 +136,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
+        config.confidence_threshold = 0.25
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
@@ -146,9 +149,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
 
+        processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
         if config.target_categories:
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
             self.logger.debug("Applied category filtering")
+        
 
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
@@ -185,10 +190,6 @@ class VehicleMonitoringUseCase(BaseProcessor):
             if start_frame is not None and end_frame is not None and start_frame == end_frame:
                 frame_number = start_frame
 
-        print("--------------------------------------")
-        print("config.zone_config",config.zone_config)
-        print(config)
-        print("--------------------------------------")
         general_counting_summary = calculate_counting_summary(data)
         counting_summary = self._count_categories(processed_data, config)
         total_counts = self.get_total_counts()
@@ -197,36 +198,19 @@ class VehicleMonitoringUseCase(BaseProcessor):
         for detection in processed_data:
             category = detection.get("category", "unknown")
             counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
-        
-        # print("---------------------PROCESSEDD-----------------------")
-        # print(processed_data)
-        # print("---------------------PROCESSEDD-----------------------")
-        print("------------------CONFIGS--------------------------------")
-        print(config.alert_config)
-        print(config.usecase_categories)
-        print(config.confidence_threshold)
-        print(config.target_categories)
-        print(config.zone_config)
-        print("------------------CONFIGS--------------------------------")
+
         zone_analysis = {}
         if config.zone_config and config.zone_config['zones']:
             # Convert single frame to format expected by count_objects_in_zones
             frame_data = processed_data #[frame_detections]
-            zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
-            # print("-----------------------------ZONEEEE1-----------------------------------")
-            # print(zone_analysis)
-            # print("-----------------------------ZONEEEE1-----------------------------------")
-            # Update zone tracking with current frame data (always enhance to keep cumulative totals)
-            print("--------------------------__TRUE--------------------------------------")
+            zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'], stream_info)
+
             if zone_analysis:
                 enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
                     
-        print("-----------------------------ZONEEEE-----------------------------------")
-        print(zone_analysis)
-        print("-----------------------------ZONEEEE-----------------------------------")
 
         alerts = self._check_alerts(counting_summary,zone_analysis, frame_number, config)
         predictions = self._extract_predictions(processed_data)
@@ -234,9 +218,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         incidents_list = self._generate_incidents(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
         incidents_list = []
         tracking_stats_list = self._generate_tracking_stats(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
-        # print("---------------------------TS--------------------------------------")
-        # print(tracking_stats_list)
-        # print("---------------------------TS--------------------------------------")
+
         business_analytics_list = self._generate_business_analytics(counting_summary,zone_analysis, alerts, config, stream_info, is_empty=True)
         summary_list = self._generate_summary(counting_summary,zone_analysis, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
@@ -320,9 +302,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
                     current_frame_zone_tracks[zone_name].add(track_id)
                     if track_id not in self._total_count_list:
                         self._total_count_list.append(track_id)
-        # print("------------------------asd----------------------------------")
-        # print(zone_analysis)
-        # print("------------------------asd----------------------------------")
+
         # Update zone tracking for each zone
         for zone_name, zone_counts in zone_analysis.items():
             # Get current frame tracks for this zone
@@ -337,11 +317,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
             # Update counts
             self._zone_current_counts[zone_name] = len(current_tracks)
             self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
-            # print("------------------------asd1----------------------------------")
-            # print(self._zone_current_counts)
-            # print("------------------------asd1----------------------------------")
-            # print(self._zone_total_counts)
-            # print("------------------------asd1----------------------------------")
+
             # Create enhanced zone analysis
             enhanced_zone_analysis[zone_name] = {
                 "current_count": self._zone_current_counts[zone_name],
@@ -743,9 +719,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        print("---------------------------------STREAM_INFO------------------------------")
-        print(stream_info)
-        print("---------------------------------STREAM_INFO------------------------------")
+
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:

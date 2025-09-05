@@ -1261,6 +1261,7 @@ __protobuf__ = proto.module(
         "ResourcePolicyWeeklyCycleDayOfWeek",
         "ResourcePolicyWorkloadPolicy",
         "ResourceStatus",
+        "ResourceStatusEffectiveInstanceMetadata",
         "ResourceStatusPhysicalHostTopology",
         "ResourceStatusScheduling",
         "ResumeInstanceRequest",
@@ -16040,6 +16041,13 @@ class BackendService(proto.Message):
                 This is a simple policy in which each healthy
                 backend is selected in round robin order. This
                 is the default.
+            WEIGHTED_GCP_RENDEZVOUS (82501640):
+                Per-instance weighted Load Balancing via
+                health check reported weights. In internal
+                passthrough network load balancing, it is
+                weighted rendezvous hashing. This option is only
+                supported in internal passthrough network load
+                balancing.
             WEIGHTED_MAGLEV (254930962):
                 Per-instance weighted Load Balancing via health check
                 reported weights. If set, the Backend Service must configure
@@ -16070,6 +16078,7 @@ class BackendService(proto.Message):
         RANDOM = 262527171
         RING_HASH = 432795069
         ROUND_ROBIN = 153895801
+        WEIGHTED_GCP_RENDEZVOUS = 82501640
         WEIGHTED_MAGLEV = 254930962
         WEIGHTED_ROUND_ROBIN = 5584977
 
@@ -17778,6 +17787,13 @@ class BackendServiceLocalityLoadBalancingPolicyConfigPolicy(proto.Message):
                 This is a simple policy in which each healthy
                 backend is selected in round robin order. This
                 is the default.
+            WEIGHTED_GCP_RENDEZVOUS (82501640):
+                Per-instance weighted Load Balancing via
+                health check reported weights. In internal
+                passthrough network load balancing, it is
+                weighted rendezvous hashing. This option is only
+                supported in internal passthrough network load
+                balancing.
             WEIGHTED_MAGLEV (254930962):
                 Per-instance weighted Load Balancing via health check
                 reported weights. If set, the Backend Service must configure
@@ -17808,6 +17824,7 @@ class BackendServiceLocalityLoadBalancingPolicyConfigPolicy(proto.Message):
         RANDOM = 262527171
         RING_HASH = 432795069
         ROUND_ROBIN = 153895801
+        WEIGHTED_GCP_RENDEZVOUS = 82501640
         WEIGHTED_MAGLEV = 254930962
         WEIGHTED_ROUND_ROBIN = 5584977
 
@@ -29888,7 +29905,7 @@ class FirewallPolicy(proto.Message):
         rules (MutableSequence[google.cloud.compute_v1.types.FirewallPolicyRule]):
             A list of rules that belong to this policy. There must
             always be a default rule (rule with priority 2147483647 and
-            match "*"). If no rules are provided when creating a
+            match "\*"). If no rules are provided when creating a
             firewall policy, a default rule with action "allow" will be
             added.
         self_link (str):
@@ -30958,7 +30975,7 @@ class ForwardingRule(proto.Message):
             portRanges. For internal forwarding rules within the same
             VPC network, two or more forwarding rules cannot use the
             same [IPAddress, IPProtocol] pair, and cannot have
-            overlapping portRanges. @pattern: \\d+(?:-\d+)?
+            overlapping portRanges. @pattern: \\d+(?:-\\d+)?
 
             This field is a member of `oneof`_ ``_port_range``.
         ports (MutableSequence[str]):
@@ -30979,7 +30996,7 @@ class ForwardingRule(proto.Message):
             forwarding rules within the same VPC network, two or more
             forwarding rules cannot use the same [IPAddress, IPProtocol]
             pair if they share at least one port number. @pattern:
-            \\d+(?:-\d+)?
+            \\d+(?:-\\d+)?
         psc_connection_id (int):
             [Output Only] The PSC connection id of the PSC forwarding
             rule.
@@ -38814,7 +38831,7 @@ class HostRule(proto.Message):
         hosts (MutableSequence[str]):
             The list of host patterns to match. They must be valid
             hostnames with optional port numbers in the format
-            host:port. \* matches any string of ([a-z0-9-.]*). In that
+            host:port. \* matches any string of ([a-z0-9-.]\*). In that
             case, \* must be the first character, and if followed by
             anything, the immediate following character must be either -
             or .. \* based matching is not supported when the URL map is
@@ -55663,7 +55680,7 @@ class InterconnectOutageNotification(proto.Message):
             window. - PARTIAL_OUTAGE: Some circuits comprising the
             Interconnect as a whole should remain up, but with reduced
             bandwidth. Note that the versions of this enum prefixed with
-            `IT_` have been deprecated in favor of the unprefixed
+            "IT\_" have been deprecated in favor of the unprefixed
             values. Check the IssueType enum for the list of possible
             values.
 
@@ -55694,7 +55711,7 @@ class InterconnectOutageNotification(proto.Message):
             outage associated with this notification was cancelled
             before the outage was due to start. - COMPLETED: The outage
             associated with this notification is complete. Note that the
-            versions of this enum prefixed with `NS_` have been
+            versions of this enum prefixed with "NS\_" have been
             deprecated in favor of the unprefixed values. Check the
             State enum for the list of possible values.
 
@@ -55707,7 +55724,7 @@ class InterconnectOutageNotification(proto.Message):
         of service for some or all of the specified window. -
         PARTIAL_OUTAGE: Some circuits comprising the Interconnect as a whole
         should remain up, but with reduced bandwidth. Note that the versions
-        of this enum prefixed with `IT_` have been deprecated in favor of
+        of this enum prefixed with "IT\_" have been deprecated in favor of
         the unprefixed values.
 
         Values:
@@ -55763,7 +55780,7 @@ class InterconnectOutageNotification(proto.Message):
         end_time for scheduling. - CANCELLED: The outage associated with
         this notification was cancelled before the outage was due to start.
         - COMPLETED: The outage associated with this notification is
-        complete. Note that the versions of this enum prefixed with `NS_`
+        complete. Note that the versions of this enum prefixed with "NS\_"
         have been deprecated in favor of the unprefixed values.
 
         Values:
@@ -56486,8 +56503,8 @@ class Items(proto.Message):
     Attributes:
         key (str):
             Key for the metadata entry. Keys must conform to the
-            following regexp: [a-zA-Z0-9-_]+, and be less than 128 bytes
-            in length. This is reflected as part of a URL in the
+            following regexp: [a-zA-Z0-9-\_]+, and be less than 128
+            bytes in length. This is reflected as part of a URL in the
             metadata server. Additionally, to avoid ambiguity, keys must
             not conflict with any other metadata keys for the project.
 
@@ -95298,6 +95315,14 @@ class ResourceStatus(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        effective_instance_metadata (google.cloud.compute_v1.types.ResourceStatusEffectiveInstanceMetadata):
+            [Output Only] Effective metadata is a field that
+            consolidates project, zonal instance settings, and
+            instance-level predefined metadata keys to provide the
+            overridden value for those metadata keys at the instance
+            level.
+
+            This field is a member of `oneof`_ ``_effective_instance_metadata``.
         physical_host (str):
             [Output Only] The precise location of your instance within
             the zone's data center, including the block, sub-block, and
@@ -95320,6 +95345,14 @@ class ResourceStatus(proto.Message):
             This field is a member of `oneof`_ ``_upcoming_maintenance``.
     """
 
+    effective_instance_metadata: "ResourceStatusEffectiveInstanceMetadata" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=55052033,
+            optional=True,
+            message="ResourceStatusEffectiveInstanceMetadata",
+        )
+    )
     physical_host: str = proto.Field(
         proto.STRING,
         number=464370704,
@@ -95342,6 +95375,95 @@ class ResourceStatus(proto.Message):
         number=227348592,
         optional=True,
         message="UpcomingMaintenance",
+    )
+
+
+class ResourceStatusEffectiveInstanceMetadata(proto.Message):
+    r"""Effective values of predefined metadata keys for an instance.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        block_project_ssh_keys_metadata_value (bool):
+            Effective block-project-ssh-keys value at
+            Instance level.
+
+            This field is a member of `oneof`_ ``_block_project_ssh_keys_metadata_value``.
+        enable_guest_attributes_metadata_value (bool):
+            Effective enable-guest-attributes value at
+            Instance level.
+
+            This field is a member of `oneof`_ ``_enable_guest_attributes_metadata_value``.
+        enable_os_inventory_metadata_value (bool):
+            Effective enable-os-inventory value at
+            Instance level.
+
+            This field is a member of `oneof`_ ``_enable_os_inventory_metadata_value``.
+        enable_osconfig_metadata_value (bool):
+            Effective enable-osconfig value at Instance
+            level.
+
+            This field is a member of `oneof`_ ``_enable_osconfig_metadata_value``.
+        enable_oslogin_metadata_value (bool):
+            Effective enable-oslogin value at Instance
+            level.
+
+            This field is a member of `oneof`_ ``_enable_oslogin_metadata_value``.
+        serial_port_enable_metadata_value (bool):
+            Effective serial-port-enable value at
+            Instance level.
+
+            This field is a member of `oneof`_ ``_serial_port_enable_metadata_value``.
+        serial_port_logging_enable_metadata_value (bool):
+            Effective serial-port-logging-enable value at
+            Instance level.
+
+            This field is a member of `oneof`_ ``_serial_port_logging_enable_metadata_value``.
+        vm_dns_setting_metadata_value (str):
+            Effective VM DNS setting at Instance level.
+
+            This field is a member of `oneof`_ ``_vm_dns_setting_metadata_value``.
+    """
+
+    block_project_ssh_keys_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=338623101,
+        optional=True,
+    )
+    enable_guest_attributes_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=420155878,
+        optional=True,
+    )
+    enable_os_inventory_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=371752675,
+        optional=True,
+    )
+    enable_osconfig_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=502966494,
+        optional=True,
+    )
+    enable_oslogin_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=216603159,
+        optional=True,
+    )
+    serial_port_enable_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=430536330,
+        optional=True,
+    )
+    serial_port_logging_enable_metadata_value: bool = proto.Field(
+        proto.BOOL,
+        number=311813290,
+        optional=True,
+    )
+    vm_dns_setting_metadata_value: str = proto.Field(
+        proto.STRING,
+        number=411127950,
+        optional=True,
     )
 
 
@@ -100117,18 +100239,18 @@ class SecurityPolicy(proto.Message):
             requests targeting backend services (including Cloud
             CDN-enabled) as well as backend buckets (Cloud Storage).
             They filter requests before the request is served from
-            Google's cache. - CLOUD_ARMOR_INTERNAL_SERVICE: Cloud Armor
-            internal service policies can be configured to filter HTTP
-            requests targeting services managed by Traffic Director in a
-            service mesh. They filter requests before the request is
-            served from the application. - CLOUD_ARMOR_NETWORK: Cloud
-            Armor network policies can be configured to filter packets
-            targeting network load balancing resources such as backend
-            services, target pools, target instances, and instances with
-            external IPs. They filter requests before the request is
-            served from the application. This field can be set only at
-            resource creation time. Check the Type enum for the list of
-            possible values.
+            Google's cache. - CLOUD_ARMOR_INTERNAL_SERVICE (preview
+            only): Cloud Armor internal service policies can be
+            configured to filter HTTP requests targeting services
+            managed by Traffic Director in a service mesh. They filter
+            requests before the request is served from the application.
+            - CLOUD_ARMOR_NETWORK: Cloud Armor network policies can be
+            configured to filter packets targeting network load
+            balancing resources such as backend services, target pools,
+            target instances, and instances with external IPs. They
+            filter requests before the request is served from the
+            application. This field can be set only at resource creation
+            time. Check the Type enum for the list of possible values.
 
             This field is a member of `oneof`_ ``_type``.
         user_defined_fields (MutableSequence[google.cloud.compute_v1.types.SecurityPolicyUserDefinedField]):
@@ -100151,12 +100273,12 @@ class SecurityPolicy(proto.Message):
         configured to filter incoming HTTP requests targeting backend
         services (including Cloud CDN-enabled) as well as backend buckets
         (Cloud Storage). They filter requests before the request is served
-        from Google's cache. - CLOUD_ARMOR_INTERNAL_SERVICE: Cloud Armor
-        internal service policies can be configured to filter HTTP requests
-        targeting services managed by Traffic Director in a service mesh.
-        They filter requests before the request is served from the
-        application. - CLOUD_ARMOR_NETWORK: Cloud Armor network policies can
-        be configured to filter packets targeting network load balancing
+        from Google's cache. - CLOUD_ARMOR_INTERNAL_SERVICE (preview only):
+        Cloud Armor internal service policies can be configured to filter
+        HTTP requests targeting services managed by Traffic Director in a
+        service mesh. They filter requests before the request is served from
+        the application. - CLOUD_ARMOR_NETWORK: Cloud Armor network policies
+        can be configured to filter packets targeting network load balancing
         resources such as backend services, target pools, target instances,
         and instances with external IPs. They filter requests before the
         request is served from the application. This field can be set only
@@ -100792,7 +100914,11 @@ class SecurityPolicyRule(proto.Message):
             CLOUD_ARMOR. - throttle: limit client traffic to the
             configured threshold. Configure parameters for this action
             in rateLimitOptions. Requires rate_limit_options to be set
-            for this.
+            for this. - fairshare (preview only): when traffic reaches
+            the threshold limit, requests from the clients matching this
+            rule begin to be rate-limited using the Fair Share
+            algorithm. This action is only allowed in security policies
+            of type ``CLOUD_ARMOR_INTERNAL_SERVICE``.
 
             This field is a member of `oneof`_ ``_action``.
         description (str):
@@ -100836,11 +100962,11 @@ class SecurityPolicyRule(proto.Message):
             specified match field. If no match values are specified for
             a match field, then any field value is considered to match
             it, and it's not required to be present. For strings
-            specifying '*' is also equivalent to match all. For a packet
-            to match a rule, all specified match fields must match the
-            corresponding field values derived from the packet. Example:
-            networkMatch: srcIpRanges: - "192.0.2.0/24" -
-            "198.51.100.0/24" userDefinedFields: - name:
+            specifying '\*' is also equivalent to match all. For a
+            packet to match a rule, all specified match fields must
+            match the corresponding field values derived from the
+            packet. Example: networkMatch: srcIpRanges: - "192.0.2.0/24"
+            - "198.51.100.0/24" userDefinedFields: - name:
             "ipv4_fragment_offset" values: - "1-0x1fff" The above match
             condition matches packets with a source IP in 192.0.2.0/24
             or 198.51.100.0/24 and a user-defined field named
@@ -100872,7 +100998,8 @@ class SecurityPolicyRule(proto.Message):
             This field is a member of `oneof`_ ``_priority``.
         rate_limit_options (google.cloud.compute_v1.types.SecurityPolicyRuleRateLimitOptions):
             Must be specified if the action is "rate_based_ban" or
-            "throttle". Cannot be specified for any other actions.
+            "throttle" or "fairshare". Cannot be specified for any other
+            actions.
 
             This field is a member of `oneof`_ ``_rate_limit_options``.
         redirect_options (google.cloud.compute_v1.types.SecurityPolicyRuleRedirectOptions):
@@ -101466,8 +101593,10 @@ class SecurityPolicyRuleRateLimitOptions(proto.Message):
             the key type defaults to IP. - TLS_JA4_FINGERPRINT: JA4
             TLS/SSL fingerprint if the client connects using HTTPS,
             HTTP/2 or HTTP/3. If not available, the key type defaults to
-            ALL. Check the EnforceOnKey enum for the list of possible
-            values.
+            ALL. For "fairshare" action, this value is limited to ALL
+            i.e. a single rate limit threshold is enforced for all the
+            requests matching the rule. Check the EnforceOnKey enum for
+            the list of possible values.
 
             This field is a member of `oneof`_ ``_enforce_on_key``.
         enforce_on_key_configs (MutableSequence[google.cloud.compute_v1.types.SecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfig]):
@@ -101540,7 +101669,9 @@ class SecurityPolicyRuleRateLimitOptions(proto.Message):
         configuration or an IP address cannot be resolved from it, the key
         type defaults to IP. - TLS_JA4_FINGERPRINT: JA4 TLS/SSL fingerprint
         if the client connects using HTTPS, HTTP/2 or HTTP/3. If not
-        available, the key type defaults to ALL.
+        available, the key type defaults to ALL. For "fairshare" action,
+        this value is limited to ALL i.e. a single rate limit threshold is
+        enforced for all the requests matching the rule.
 
         Values:
             UNDEFINED_ENFORCE_ON_KEY (0):
@@ -120449,11 +120580,11 @@ class UrlRewrite(proto.Message):
             path_template_match field - You can omit variables from the
             rewritten URL - The \* and \*\* operators cannot be matched
             unless they have a corresponding variable name - e.g.
-            {format=*} or {var=**}. For example, a path_template_match
-            of /static/{format=**} could be rewritten as
-            /static/content/{format} to prefix /content to the URL.
-            Variables can also be re-ordered in a rewrite, so that
-            /{country}/{format}/{suffix=**} can be rewritten as
+            {format=\*} or {var=\ **}. For example, a
+            path_template_match of /static/{format=**} could be
+            rewritten as /static/content/{format} to prefix /content to
+            the URL. Variables can also be re-ordered in a rewrite, so
+            that /{country}/{format}/{suffix=*\*} can be rewritten as
             /content/{format}/{country}/{suffix}. At least one non-empty
             routeRules[].matchRules[].path_template_match is required.
             Only one of path_prefix_rewrite or path_template_rewrite may

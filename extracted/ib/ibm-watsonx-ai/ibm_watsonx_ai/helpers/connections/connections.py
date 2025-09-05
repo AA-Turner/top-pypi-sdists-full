@@ -1986,7 +1986,8 @@ class DataConnection(BaseDataConnection):
         file_paths = [
             asset["path"]
             for asset in asset_files["resources"]
-            if asset["type"] == "file" and asset["path"].startswith(self.location.path)
+            if asset["type"] == "file"
+            and asset["path"].startswith(self.location.get_location().strip("/"))
         ]
         return file_paths
 
@@ -2064,28 +2065,32 @@ class DataConnection(BaseDataConnection):
             and self._api_client.CLOUD_PLATFORM_SPACES
         ):  # S3Location, NFSLocation and ContainerLocation on Cloud
             data_connections = self._get_connections_from_folder(recursive=True)
-            for data_connection in data_connections:
-                relative_item_path = (
-                    data_connection.location.get_location()
-                    .removeprefix(self.location.get_location())
-                    .strip("/")
-                )
-                file_path = os.path.join(local_dir, relative_item_path)
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                data_connection.download(file_path)
         else:  # FSLocation and ContainerLocation on CPD
             file_paths = self._get_file_paths_from_location()
             data_connections = self._get_connections_from_paths(file_paths)
-            for data_connection in data_connections:
-                file_path = data_connection.location.get_location().removeprefix(
-                    self.location.path
-                )
-                directory = os.path.dirname(file_path)
-                if directory:
-                    directory = os.path.join(local_dir, directory)
-                    os.makedirs(directory, exist_ok=True)
-                download_path = os.path.join(local_dir, file_path)
-                data_connection.download(download_path)
+        self._download_files_from_connections(data_connections, local_dir)
+
+    def _download_files_from_connections(
+        self, data_connections: list["DataConnection"], local_dir: str
+    ) -> None:
+        """Download files from data connections contained in this parent folder DataConnection instance.
+
+        :param data_connections: list of data connections to files to be downloaded
+        :type data_connections: list[DataConnection]
+
+        :param local_dir: path to the local directory where data will be downloaded
+        :type local_dir: str
+
+        """
+        for data_connection in data_connections:
+            relative_file_path = (
+                data_connection.location.get_location()
+                .removeprefix(self.location.get_location().strip("/"))
+                .strip("/")
+            )
+            file_path = os.path.join(local_dir, relative_file_path)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            data_connection.download(file_path)
 
     def _get_filename(self):
         """Get file name of the file in data connection, if applicable.

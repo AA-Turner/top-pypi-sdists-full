@@ -34,6 +34,7 @@ from .literals import (
     DBProxyEndpointStatusType,
     DBProxyEndpointTargetRoleType,
     DBProxyStatusType,
+    EndpointNetworkTypeType,
     EngineFamilyType,
     ExportSourceTypeType,
     FailoverStatusType,
@@ -46,6 +47,7 @@ from .literals import (
     MasterUserAuthenticationTypeType,
     ReplicaModeType,
     SourceTypeType,
+    TargetConnectionNetworkTypeType,
     TargetHealthReasonType,
     TargetRoleType,
     TargetStateType,
@@ -723,6 +725,7 @@ class DBProxyEndpointTypeDef(TypedDict):
     CreatedDate: NotRequired[datetime]
     TargetRole: NotRequired[DBProxyEndpointTargetRoleType]
     IsDefault: NotRequired[bool]
+    EndpointNetworkType: NotRequired[EndpointNetworkTypeType]
 
 class UserAuthConfigTypeDef(TypedDict):
     Description: NotRequired[str]
@@ -1622,6 +1625,7 @@ class CreateDBProxyEndpointRequestTypeDef(TypedDict):
     VpcSecurityGroupIds: NotRequired[Sequence[str]]
     TargetRole: NotRequired[DBProxyEndpointTargetRoleType]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    EndpointNetworkType: NotRequired[EndpointNetworkTypeType]
 
 class CreateDBSecurityGroupMessageTypeDef(TypedDict):
     DBSecurityGroupName: str
@@ -2543,6 +2547,8 @@ class CreateDBProxyRequestTypeDef(TypedDict):
     IdleClientTimeout: NotRequired[int]
     DebugLogging: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    EndpointNetworkType: NotRequired[EndpointNetworkTypeType]
+    TargetConnectionNetworkType: NotRequired[TargetConnectionNetworkTypeType]
 
 class ModifyDBProxyRequestTypeDef(TypedDict):
     DBProxyName: str
@@ -2755,6 +2761,8 @@ class DBProxyTypeDef(TypedDict):
     DebugLogging: NotRequired[bool]
     CreatedDate: NotRequired[datetime]
     UpdatedDate: NotRequired[datetime]
+    EndpointNetworkType: NotRequired[EndpointNetworkTypeType]
+    TargetConnectionNetworkType: NotRequired[TargetConnectionNetworkTypeType]
 
 class DBSecurityGroupTypeDef(TypedDict):
     OwnerId: NotRequired[str]

@@ -7,7 +7,8 @@ YDATA_PROFILE_SKIP = sys.version_info[:2] > (3, 12)
 # there is no Ray yet exists for 3.13
 RAY_SKIP = sys.version_info[:2] > (3, 12)
 
-DUMMY_BACKEND_ADDRESS = "https://localhost/clientlib/"
+DUMMY_BACKEND_ADDRESS = "https://test.local/"
+DUMMY_COMET_URL_OVERRIDE = DUMMY_BACKEND_ADDRESS + "clientlib/"
 
 TEST_LOGO_IMAGE_PATH = join(dirname(__file__), "logo.png")
 TEST_AUDIO_SAMPLE_PATH = join(dirname(__file__), "test.wav")

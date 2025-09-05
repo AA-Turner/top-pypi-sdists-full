@@ -38,6 +38,13 @@ def is_job_running(job_type: bpy.stub_internal.rna_enums.WmJobTypeItems) -> bool
     :rtype: bool
     """
 
+def undo_memory_info() -> int:
+    """Get undo memory usage information.
+
+    :return: total_memory.
+    :rtype: int
+    """
+
 alembic: typing.Any
 """ Constant value bpy.app.alembic(supported=True, version=(1, 8, 3), version_string= 1,  8,  3)
 """

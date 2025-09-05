@@ -7,10 +7,9 @@ handling
 
 import dataclasses
 import inspect
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TypeVar, Union
+from typing import Any, Callable, Optional, Sequence, TypeVar, Union
 
 from docstring_parser import Docstring, parse
-from packaging.version import Version
 
 try:
     import pydantic
@@ -21,7 +20,7 @@ except ModuleNotFoundError:
     _PydanticField = type("_PydanticField", (object,), {})
     _PYDANTIC_FIELD_TYPES = ()
 else:
-    _IS_PYDANTIC_V1 = Version(pydantic.__version__) < Version("2.0.0")
+    _IS_PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
     from pydantic import BaseModel
     from pydantic.fields import FieldInfo as PydanticFieldBaseModel
     from pydantic.dataclasses import FieldInfo as PydanticFieldDataclass
@@ -32,10 +31,9 @@ else:
 
 from tap import Tap
 
-InputType = TypeVar("InputType")
 OutputType = TypeVar("OutputType")
 
-_ClassOrFunction = Union[Callable[[InputType], OutputType], Type[OutputType]]
+_ClassOrFunction = Union[Callable[..., OutputType], type[OutputType]]
 
 
 @dataclasses.dataclass
@@ -46,7 +44,7 @@ class _ArgData:
 
     name: str
 
-    annotation: Type
+    annotation: type
     "The type of values this argument accepts"
 
     is_required: bool
@@ -68,7 +66,7 @@ class _TapData:
     Data about a class' or function's arguments which are sufficient to inform a Tap class.
     """
 
-    args_data: List[_ArgData]
+    args_data: list[_ArgData]
     "List of data about each argument in the class or function"
 
     has_kwargs: bool
@@ -78,14 +76,14 @@ class _TapData:
     "If true, ignore extra arguments and only parse known arguments"
 
 
-def _is_pydantic_base_model(obj: Union[Type[Any], Any]) -> bool:
-    if inspect.isclass(obj):  # issublcass requires that obj is a class
+def _is_pydantic_base_model(obj: Union[type[Any], Any]) -> bool:
+    if inspect.isclass(obj):  # issubclass requires that obj is a class
         return issubclass(obj, BaseModel)
     else:
         return isinstance(obj, BaseModel)
 
 
-def _is_pydantic_dataclass(obj: Union[Type[Any], Any]) -> bool:
+def _is_pydantic_dataclass(obj: Union[type[Any], Any]) -> bool:
     if _IS_PYDANTIC_V1:
         # There's no public function in v1. This is a somewhat safe but linear check
         return dataclasses.is_dataclass(obj) and any(key.startswith("__pydantic") for key in obj.__dict__)
@@ -94,7 +92,7 @@ def _is_pydantic_dataclass(obj: Union[Type[Any], Any]) -> bool:
 
 
 def _tap_data_from_data_model(
-    data_model: Any, func_kwargs: Dict[str, Any], param_to_description: Dict[str, str] = None
+    data_model: Any, func_kwargs: dict[str, Any], param_to_description: dict[str, str] = None
 ) -> _TapData:
     """
     Currently only works when `data_model` is a:
@@ -124,7 +122,7 @@ def _tap_data_from_data_model(
             description,
         )
 
-    def arg_data_from_pydantic(name: str, field: _PydanticField, annotation: Optional[Type] = None) -> _ArgData:
+    def arg_data_from_pydantic(name: str, field: _PydanticField, annotation: Optional[type] = None) -> _ArgData:
         annotation = field.annotation if annotation is None else annotation
         # Prefer the description from param_to_description (from the data model / class docstring) over the
         # field.description b/c a docstring can be modified on the fly w/o causing real issues
@@ -153,7 +151,7 @@ def _tap_data_from_data_model(
     # dataclass fields in a pydantic BaseModel. It's also possible to use (builtin) dataclass fields and pydantic Fields
     # in the same data model. Therefore, the type of the data model doesn't determine the type of each field. The
     # solution is to iterate through the fields and check each type.
-    args_data: List[_ArgData] = []
+    args_data: list[_ArgData] = []
     for name, field in name_to_field.items():
         if isinstance(field, dataclasses.Field):
             # Idiosyncrasy: if a pydantic Field is used in a pydantic dataclass, then field.default is a FieldInfo
@@ -177,7 +175,7 @@ def _tap_data_from_data_model(
 
 
 def _tap_data_from_class_or_function(
-    class_or_function: _ClassOrFunction, func_kwargs: Dict[str, Any], param_to_description: Dict[str, str]
+    class_or_function: _ClassOrFunction, func_kwargs: dict[str, Any], param_to_description: dict[str, str]
 ) -> _TapData:
     """
     Extract data by inspecting the signature of `class_or_function`.
@@ -186,13 +184,27 @@ def _tap_data_from_class_or_function(
     ----
     Deletes redundant keys from `func_kwargs`
     """
-    args_data: List[_ArgData] = []
+    args_data: list[_ArgData] = []
     has_kwargs = False
     known_only = False
 
     sig = inspect.signature(class_or_function)
 
-    for param_name, param in sig.parameters.items():
+    is_pydantic_v1_dataclass_class = (
+        _IS_PYDANTIC_V1 and _is_pydantic_dataclass(class_or_function) and inspect.isclass(class_or_function)
+    )
+
+    for idx, (param_name, param) in enumerate(sig.parameters.items()):
+        if (
+            idx == 0
+            and param.annotation == inspect.Parameter.empty
+            and param_name == "self"
+            and is_pydantic_v1_dataclass_class
+        ):
+            # This check gets around a quirk of Pydantic v1 dataclasses. Sometime after Python 3.13.0, the signature
+            # started including self as the first parameter out of inspect.signature
+            continue
+
         # Skip **kwargs
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             has_kwargs = True
@@ -227,7 +239,7 @@ def _tap_data_from_class_or_function(
     return _TapData(args_data, has_kwargs, known_only)
 
 
-def _is_data_model(obj: Union[Type[Any], Any]) -> bool:
+def _is_data_model(obj: Union[type[Any], Any]) -> bool:
     return dataclasses.is_dataclass(obj) or _is_pydantic_base_model(obj)
 
 
@@ -240,7 +252,7 @@ def _docstring(class_or_function) -> Docstring:
     return parse(doc)
 
 
-def _tap_data(class_or_function: _ClassOrFunction, param_to_description: Dict[str, str], func_kwargs) -> _TapData:
+def _tap_data(class_or_function: _ClassOrFunction, param_to_description: dict[str, str], func_kwargs) -> _TapData:
     """
     Controls how :class:`_TapData` is extracted from `class_or_function`.
     """
@@ -258,7 +270,7 @@ def _tap_data(class_or_function: _ClassOrFunction, param_to_description: Dict[st
     return _tap_data_from_class_or_function(class_or_function, func_kwargs, param_to_description)
 
 
-def _tap_class(args_data: Sequence[_ArgData]) -> Type[Tap]:
+def _tap_class(args_data: Sequence[_ArgData]) -> type[Tap]:
     """
     Transfers argument data to a :class:`tap.Tap` class. Arguments will be added to the parser on initialization.
     """
@@ -282,7 +294,7 @@ def _tap_class(args_data: Sequence[_ArgData]) -> Type[Tap]:
     return ArgParser
 
 
-def to_tap_class(class_or_function: _ClassOrFunction) -> Type[Tap]:
+def to_tap_class(class_or_function: _ClassOrFunction) -> type[Tap]:
     """Creates a `Tap` class from `class_or_function`. This can be subclassed to add custom argument handling and
     instantiated to create a typed argument parser.
 
@@ -296,10 +308,11 @@ def to_tap_class(class_or_function: _ClassOrFunction) -> Type[Tap]:
 
 
 def tapify(
-    class_or_function: Union[Callable[[InputType], OutputType], Type[OutputType]],
+    class_or_function: Union[Callable[..., OutputType], type[OutputType]],
     known_only: bool = False,
-    command_line_args: Optional[List[str]] = None,
+    command_line_args: Optional[list[str]] = None,
     explicit_bool: bool = False,
+    underscores_to_dashes: bool = False,
     description: Optional[str] = None,
     **func_kwargs,
 ) -> OutputType:
@@ -312,6 +325,7 @@ def tapify(
     :param explicit_bool: Booleans can be specified on the command line as `--arg True` or `--arg False` rather than
                           `--arg`. Additionally, booleans can be specified by prefixes of True and False with any
                           capitalization as well as 1 or 0.
+    :param underscores_to_dashes: If True, convert underscores in flag names to dashes.
     :param description: The description displayed in the help message—the same description passed in
                         `argparse.ArgumentParser(description=...)`. By default, it's extracted from `class_or_function`'s
                         docstring.
@@ -327,7 +341,7 @@ def tapify(
     # Create a Tap object
     if description is None:
         description = "\n".join(filter(None, (docstring.short_description, docstring.long_description)))
-    tap = tap_class(description=description, explicit_bool=explicit_bool)
+    tap = tap_class(description=description, explicit_bool=explicit_bool, underscores_to_dashes=underscores_to_dashes)
 
     # If any func_kwargs remain, they are not used in the function, so raise an error
     known_only = known_only or tap_data.known_only
@@ -339,7 +353,7 @@ def tapify(
 
     # Prepare command line arguments for class_or_function, respecting positional-only args
     class_or_function_args: list[Any] = []
-    class_or_function_kwargs: Dict[str, Any] = {}
+    class_or_function_kwargs: dict[str, Any] = {}
     command_line_args_dict = command_line_args.as_dict()
     for arg_data in tap_data.args_data:
         arg_value = command_line_args_dict[arg_data.name]

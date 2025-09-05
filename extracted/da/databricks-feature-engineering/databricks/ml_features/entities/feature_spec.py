@@ -1,1 +1,0 @@
-from databricks.ml_features_common.entities.feature_spec import FeatureSpec

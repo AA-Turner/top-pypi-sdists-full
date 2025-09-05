@@ -29,7 +29,13 @@ from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServi
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
-from chalk._gen.chalk.protosql.v1.sql_service_pb2 import ExecuteSqlQueryRequest, PlanSqlQueryRequest
+from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
+    ExecuteSqlQueryRequest,
+    GetDbCatalogsRequest,
+    GetDbSchemasRequest,
+    GetTablesRequest,
+    PlanSqlQueryRequest,
+)
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
 from chalk._gen.chalk.server.v1.deploy_pb2 import (
@@ -1191,6 +1197,32 @@ class ChalkGRPCClient:
 
     def explain_sql(self, sql: str):
         return self._stub_refresher.call_sql_stub(lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)))
+
+    def get_sql_catalogs(self):
+        return self._stub_refresher.call_sql_stub(lambda x: x.GetDbCatalogs(GetDbCatalogsRequest()))
+
+    def get_sql_schemas(self, catalog: str | None = None, db_schema_filter_pattern: str | None = None):
+        return self._stub_refresher.call_sql_stub(
+            lambda x: x.GetDbSchemas(
+                GetDbSchemasRequest(catalog=catalog, db_schema_filter_pattern=db_schema_filter_pattern)
+            )
+        )
+
+    def get_sql_tables(
+        self,
+        catalog: str | None = None,
+        db_schema_filter_pattern: str | None = None,
+        table_name_filter_pattern: str | None = None,
+    ):
+        return self._stub_refresher.call_sql_stub(
+            lambda x: x.GetTables(
+                GetTablesRequest(
+                    catalog=catalog,
+                    db_schema_filter_pattern=db_schema_filter_pattern,
+                    table_name_filter_pattern=table_name_filter_pattern,
+                )
+            )
+        )
 
     def execute_plan(self, *, lazy_frame_calls: expr_pb.LogicalExprNode) -> ExecutePlanResponse:
         return self._stub_refresher.call_dataframe_stub(

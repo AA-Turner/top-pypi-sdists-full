@@ -9,7 +9,7 @@ class Authenticator:
         return None
 
     @abstractmethod
-    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str) -> IdpLogin:
+    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str, verify: bool = True) -> IdpLogin:
         pass
 
     def extract(self, form: str, pattern: re.Pattern):

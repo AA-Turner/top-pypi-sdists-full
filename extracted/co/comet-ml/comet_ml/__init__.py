@@ -29,7 +29,6 @@ from .api import API, APIExperiment
 from .api_helpers.experiment_key import get_experiment_key
 from .api_objects.model import Model
 from .artifacts import Artifact, LoggedArtifact
-from .comet import Streamer
 from .comet_start.comet_start import CometExperiment, ExperimentBase, start
 from .comet_start.config_manager import ConfigurationManager, InitParameters
 from .comet_start.experiment_config import ExperimentConfig
@@ -44,7 +43,7 @@ from .config import (
 )
 from .config.config_init import init, init_onprem, login
 from .confusion_matrix import ConfusionMatrix
-from .connection import INITIAL_BEAT_DURATION, RestApiClient, RestServerConnection
+from .connection import RestApiClient, RestServerConnection
 from .connection.connection_factory import get_comet_api_client, get_rest_api_client
 from .data_structure import Embedding, Histogram
 from .debug.debug_helpers import error_mode
@@ -89,6 +88,7 @@ from .monkey_patching import CometModuleFinder
 from .offline import ExistingOfflineExperiment, OfflineExperiment
 from .optimizer import Optimizer
 from .rpc import create_remote_call, get_remote_action_definition
+from .streamer import OnlineStreamer
 from .upload_callback.callback import UploadCallback
 from .upload_callback.s3_uploader import get_s3_uploader
 from .utils import (

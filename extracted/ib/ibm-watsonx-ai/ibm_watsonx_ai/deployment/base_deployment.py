@@ -33,6 +33,7 @@ from ..utils.deployment.errors import (
     ServingNameNotAvailable,
     WrongDeploymnetType,
 )
+from ..wml_client_error import MissingValue
 from ..workspace import WorkSpace
 
 if TYPE_CHECKING:
@@ -106,6 +107,15 @@ class BaseDeployment(ABC):
         target_space_id = cast(str, target_space_id)
         source_project_id = cast(str, source_project_id)
         source_space_id = cast(str, source_space_id)
+
+        if source_instance_credentials is None and (
+            source_project_id or source_space_id
+        ):
+            raise MissingValue(
+                value_name="source_instance_credentials",
+                reason="Source instance credentials are required when "
+                "'source_project_id' or 'source_space_id' is provided",
+            )
 
         if isinstance(source_instance_credentials, dict):  # backward compatibility
             source_instance_credentials = Credentials.from_dict(

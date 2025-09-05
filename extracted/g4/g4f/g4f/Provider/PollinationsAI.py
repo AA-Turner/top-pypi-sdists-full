@@ -102,7 +102,10 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
     @classmethod
     def get_models(cls, **kwargs):
         def get_alias(model: dict) -> str:
-            return model.get("aliases", model.get("name")).replace("-instruct", "").replace("qwen-", "qwen").replace("qwen", "qwen-")
+            alias = model.get("name")
+            if (model.get("aliases")):
+                alias = model.get("aliases")[0]
+            return alias.replace("-instruct", "").replace("qwen-", "qwen").replace("qwen", "qwen-")
         if not cls._models_loaded:
             try:
                 # Update of image models
@@ -122,7 +125,9 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                 
                 cls.image_models = image_models
 
-                text_response = requests.get("https://text.pollinations.ai/models")
+                text_response = requests.get("https://g4f.dev/api/pollinations.ai/models")
+                if not text_response.ok:
+                    text_response = requests.get("https://text.pollinations.ai/models")
                 text_response.raise_for_status()
                 models = text_response.json()
 

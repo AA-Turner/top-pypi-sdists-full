@@ -13,10 +13,14 @@
 //
 use std::path::PathBuf;
 
-use pyo3::{prelude::*, types::PyType};
+use pyo3::{
+    prelude::*,
+    types::{PyBytes, PyType},
+};
 
 use crate::{
     macros::{downcast_or_new, enum_mapper, wrapper},
+    time::TimestampId,
     utils::{IntoPyResult, IntoRust},
 };
 
@@ -78,7 +82,7 @@ impl WhatAmI {
         Ok(s.parse::<zenoh::config::WhatAmI>().into_pyres()?.into())
     }
 
-    fn __or__(&self, #[pyo3(from_py_with = "WhatAmI::from_py")] other: WhatAmI) -> WhatAmIMatcher {
+    fn __or__(&self, #[pyo3(from_py_with = Self::from_py)] other: Self) -> WhatAmIMatcher {
         (self.into_rust() | other.into_rust()).into()
     }
 
@@ -136,11 +140,11 @@ impl WhatAmIMatcher {
         self.0.is_empty()
     }
 
-    fn matches(&self, #[pyo3(from_py_with = "WhatAmI::from_py")] whatami: WhatAmI) -> bool {
+    fn matches(&self, #[pyo3(from_py_with = WhatAmI::from_py)] whatami: WhatAmI) -> bool {
         self.0.matches(whatami.into())
     }
 
-    fn __contains__(&self, #[pyo3(from_py_with = "WhatAmI::from_py")] whatami: WhatAmI) -> bool {
+    fn __contains__(&self, #[pyo3(from_py_with = WhatAmI::from_py)] whatami: WhatAmI) -> bool {
         self.0.matches(whatami.into())
     }
 
@@ -153,10 +157,22 @@ impl WhatAmIMatcher {
     }
 }
 
-wrapper!(zenoh::config::ZenohId);
+wrapper!(zenoh::config::ZenohId: Clone, Copy);
 
 #[pymethods]
 impl ZenohId {
+    fn __bytes__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        TimestampId(self.0.to_le_bytes().try_into().into_pyres()?).__bytes__(py)
+    }
+
+    fn __eq__(&self, other: ZenohId) -> PyResult<bool> {
+        Ok(self.0 == other.0)
+    }
+
+    fn __hash__(&self, py: Python) -> PyResult<isize> {
+        self.__bytes__(py)?.hash()
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.0)
     }

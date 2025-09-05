@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-evals
-Version: 0.8.1
+Version: 1.0.0
 Summary: Framework for evaluating stochastic code execution, especially code making use of LLMs
 Project-URL: Homepage, https://ai.pydantic.dev/evals
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -9,7 +9,7 @@ Project-URL: Changelog, https://github.com/pydantic/pydantic-ai/releases
 Author-email: Samuel Colvin <samuel@pydantic.dev>, Marcelo Trylesinski <marcelotryle@gmail.com>, David Montague <david@pydantic.dev>, Alex Hall <alex@pydantic.dev>, Douwe Maan <douwe@pydantic.dev>
 License-Expression: MIT
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: MacOS X
 Classifier: Intended Audience :: Developers
@@ -21,18 +21,17 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: anyio>=0
 Requires-Dist: eval-type-backport>=0; python_version < '3.11'
 Requires-Dist: logfire-api>=3.14.1
-Requires-Dist: pydantic-ai-slim==0.8.1
+Requires-Dist: pydantic-ai-slim==1.0.0
 Requires-Dist: pydantic>=2.10
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rich>=13.9.4

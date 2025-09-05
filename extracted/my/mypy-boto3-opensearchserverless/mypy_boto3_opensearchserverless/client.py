@@ -164,7 +164,7 @@ class OpenSearchServiceServerlessClient(BaseClient):
     ) -> BatchGetCollectionResponseTypeDef:
         """
         Returns attributes for one or more collections, including the collection
-        endpoint and the OpenSearch Dashboards endpoint.
+        endpoint, the OpenSearch Dashboards endpoint, and FIPS-compliant endpoints.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/batch_get_collection.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearchserverless/client/#batch_get_collection)

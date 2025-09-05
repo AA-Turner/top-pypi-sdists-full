@@ -55363,7 +55363,6 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
             )
         ),
@@ -55376,7 +55375,6 @@ class Query(sgqlc.types.Type):
     * `monitor_uuid` (`UUID!`): The monitor for which to fetch the
       labels
     * `start_time` (`DateTime`): Filter for data newer than this
-    * `end_time` (`DateTime`): Filter for data older than this
     * `limit` (`Int`): Limit results retrieved
     """
 
@@ -55393,16 +55391,8 @@ class Query(sgqlc.types.Type):
                 ),
                 (
                     "warehouse_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
-                    ),
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
                 ),
-                (
-                    "full_table_id",
-                    sgqlc.types.Arg(String, graphql_name="fullTableId", default=None),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 (
@@ -55421,13 +55411,7 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): The monitor for which to locate labels
-    * `warehouse_uuid` (`UUID!`): The warehouse uuid the monitor is
-      being run on
-    * `full_table_id` (`String`): The table being monitored
-    * `start_time` (`DateTime`): Filter for labels from this date. If
-      not provided, use monitor creation time.
-    * `end_time` (`DateTime`): Filter for labels until and including
-      this date
+    * `warehouse_uuid` (`UUID`): DEPRECATED
     * `first` (`Int`): Number of results to return (default/max:
       10,000)
     * `after` (`String`): Fetch batch of 'first' results after this
@@ -55449,16 +55433,8 @@ class Query(sgqlc.types.Type):
                 ),
                 (
                     "warehouse_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
-                    ),
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
                 ),
-                (
-                    "full_table_id",
-                    sgqlc.types.Arg(String, graphql_name="fullTableId", default=None),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 (
                     "include_terms",
                     sgqlc.types.Arg(
@@ -55477,13 +55453,7 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): The monitor for which to locate labels
-    * `warehouse_uuid` (`UUID!`): The warehouse uuid the monitor is
-      being run on
-    * `full_table_id` (`String`): The table being monitored
-    * `start_time` (`DateTime`): Filter for labels from this date. If
-      not provided, use monitor creation time.
-    * `end_time` (`DateTime`): Filter for labels until and including
-      this date
+    * `warehouse_uuid` (`UUID`): DEPRECATED
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment fields
     """
@@ -55499,8 +55469,6 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
                     ),
                 ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 (
@@ -55519,10 +55487,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): Filter to this monitor.
-    * `start_time` (`DateTime`): Filter from this time. Defaults to
-      monitor creation time.
-    * `end_time` (`DateTime`): Filter through this time. Defaults to
-      now.
     * `first` (`Int`): Number of results to return. Default: 1,000.
       Max: 10,000.
     * `after` (`String`): Fetch batch of 'first' results after this
@@ -55542,8 +55506,6 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
                     ),
                 ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 (
                     "include_terms",
                     sgqlc.types.Arg(
@@ -55560,10 +55522,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): Filter to this monitor.
-    * `start_time` (`DateTime`): Filter from this time. Defaults to
-      monitor creation time.
-    * `end_time` (`DateTime`): Filter through this time. Defaults to
-      now.
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment label
     """

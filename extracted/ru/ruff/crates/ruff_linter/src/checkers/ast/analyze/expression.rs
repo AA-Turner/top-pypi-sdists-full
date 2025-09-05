@@ -673,6 +673,9 @@ pub(crate) fn expression(expr: &Expr, checker: &Checker) {
             ]) {
                 flake8_async::rules::blocking_process_invocation(checker, call);
             }
+            if checker.is_rule_enabled(Rule::BlockingInputInAsyncFunction) {
+                flake8_async::rules::blocking_input(checker, call);
+            }
             if checker.is_rule_enabled(Rule::BlockingSleepInAsyncFunction) {
                 flake8_async::rules::blocking_sleep(checker, call);
             }
@@ -1316,12 +1319,9 @@ pub(crate) fn expression(expr: &Expr, checker: &Checker) {
                 pylint::rules::yield_in_init(checker, expr);
             }
         }
-        Expr::YieldFrom(yield_from) => {
+        Expr::YieldFrom(_) => {
             if checker.is_rule_enabled(Rule::YieldInInit) {
                 pylint::rules::yield_in_init(checker, expr);
-            }
-            if checker.is_rule_enabled(Rule::YieldFromInAsyncFunction) {
-                pylint::rules::yield_from_in_async_function(checker, yield_from);
             }
         }
         Expr::FString(f_string_expr @ ast::ExprFString { value, .. }) => {

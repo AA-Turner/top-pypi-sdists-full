@@ -7,13 +7,15 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, Iterable, Mapping, O
 import pyarrow as pa
 
 from chalk.integrations.named import create_integration_variable, load_integration_variable
+from chalk.sql._internal.query_execution_parameters import QueryExecutionParameters
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind
+from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.sql.protocols import ChalkQueryProtocol, StringChalkQueryProtocol
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
+    from sqlalchemy.engine import Connection, Engine
     from sqlalchemy.engine.url import URL
 
 
@@ -153,6 +155,17 @@ class DynamoDBSourceImpl(BaseSQLSource):
 
     def _execute_query_inefficient(self, *args: Any, **kwargs: Any) -> pa.RecordBatch:
         raise NotImplementedError("DynamoDB sources cannot be queried without native sql enabled")
+
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for DynamoDB and return raw PyArrow RecordBatches."""
+        raise NotImplementedError("DynamoDB sources cannot be queried without native sql enabled")
+        yield  # noqa: unreachable code
 
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {

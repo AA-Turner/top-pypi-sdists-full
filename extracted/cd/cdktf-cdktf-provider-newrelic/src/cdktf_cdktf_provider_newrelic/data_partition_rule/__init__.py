@@ -1,7 +1,7 @@
 r'''
 # `newrelic_data_partition_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_data_partition_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule).
+Refer to the Terraform Registry for docs: [`newrelic_data_partition_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataPartitionRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataPartitionRule.DataPartitionRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule newrelic_data_partition_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule newrelic_data_partition_rule}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DataPartitionRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule newrelic_data_partition_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule newrelic_data_partition_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Whether or not this data partition rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
-        :param nrql: The NRQL to match events for this data partition rule. Logs matching this criteria will be routed to the specified data partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
-        :param retention_policy: The retention policy of the data partition data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
-        :param target_data_partition: The name of the data partition where logs will be allocated once the rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
-        :param account_id: The account id associated with the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
-        :param description: The description of the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#id DataPartitionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
+        :param enabled: Whether or not this data partition rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
+        :param nrql: The NRQL to match events for this data partition rule. Logs matching this criteria will be routed to the specified data partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
+        :param retention_policy: The retention policy of the data partition data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
+        :param target_data_partition: The name of the data partition where logs will be allocated once the rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
+        :param account_id: The account id associated with the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
+        :param description: The description of the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#id DataPartitionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DataPartitionRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataPartitionRule to import.
-        :param import_from_id: The id of the existing DataPartitionRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataPartitionRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataPartitionRule to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class DataPartitionRule(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.
         '''
         value = DataPartitionRuleTimeouts(create=create)
 
@@ -364,14 +364,14 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Whether or not this data partition rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
-        :param nrql: The NRQL to match events for this data partition rule. Logs matching this criteria will be routed to the specified data partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
-        :param retention_policy: The retention policy of the data partition data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
-        :param target_data_partition: The name of the data partition where logs will be allocated once the rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
-        :param account_id: The account id associated with the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
-        :param description: The description of the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#id DataPartitionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
+        :param enabled: Whether or not this data partition rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
+        :param nrql: The NRQL to match events for this data partition rule. Logs matching this criteria will be routed to the specified data partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
+        :param retention_policy: The retention policy of the data partition data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
+        :param target_data_partition: The name of the data partition where logs will be allocated once the rule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
+        :param account_id: The account id associated with the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
+        :param description: The description of the data partition rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#id DataPartitionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -491,7 +491,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not this data partition rule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#enabled DataPartitionRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -503,7 +503,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Logs matching this criteria will be routed to the specified data partition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#nrql DataPartitionRule#nrql}
         '''
         result = self._values.get("nrql")
         assert result is not None, "Required property 'nrql' is missing"
@@ -513,7 +513,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_policy(self) -> builtins.str:
         '''The retention policy of the data partition data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#retention_policy DataPartitionRule#retention_policy}
         '''
         result = self._values.get("retention_policy")
         assert result is not None, "Required property 'retention_policy' is missing"
@@ -523,7 +523,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_data_partition(self) -> builtins.str:
         '''The name of the data partition where logs will be allocated once the rule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#target_data_partition DataPartitionRule#target_data_partition}
         '''
         result = self._values.get("target_data_partition")
         assert result is not None, "Required property 'target_data_partition' is missing"
@@ -533,7 +533,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id associated with the data partition rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#account_id DataPartitionRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -542,14 +542,14 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the data partition rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#description DataPartitionRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#id DataPartitionRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#id DataPartitionRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -561,7 +561,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataPartitionRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#timeouts DataPartitionRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataPartitionRuleTimeouts"], result)
@@ -586,7 +586,7 @@ class DataPartitionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataPartitionRuleTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd8f30b4aa1d4aa39cf25d1b04f63859c876e103fce6c2e34f71f60ae6d92e81)
@@ -597,7 +597,7 @@ class DataPartitionRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/data_partition_rule#create DataPartitionRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -81,6 +81,13 @@ class TestSingleStore(Validator):
         self.validate_identity("SELECT '{\"a\" : 1}' :> JSON")
         self.validate_identity("SELECT NOW() !:> TIMESTAMP(6)")
         self.validate_identity("SELECT x :> GEOGRAPHYPOINT")
+        self.validate_all(
+            "SELECT age :> TEXT FROM `users`",
+            read={
+                "": "SELECT CAST(age, 'TEXT') FROM users",
+                "singlestore": "SELECT age :> TEXT FROM `users`",
+            },
+        )
 
     def test_unix_functions(self):
         self.validate_identity("SELECT FROM_UNIXTIME(1234567890)")
@@ -334,6 +341,13 @@ class TestSingleStore(Validator):
                 "": "SELECT VARIANCE_POP(yearly_total) FROM player_scores",
             },
         )
+        self.validate_all(
+            "SELECT POWER(id, 1 / 3) FROM orders",
+            read={
+                "": "SELECT CBRT(id) FROM orders",
+                "singlestore": "SELECT POWER(id, 1 / 3) FROM orders",
+            },
+        )
 
     def test_logical(self):
         self.validate_all(
@@ -417,6 +431,13 @@ class TestSingleStore(Validator):
             read={
                 "redshift": "SELECT STRTOL('f',16)",
                 "singlestore": "SELECT CONV('f', 16, 10)",
+            },
+        )
+        self.validate_all(
+            "SELECT LOWER('ABC') RLIKE LOWER('a.*')",
+            read={
+                "postgres": "SELECT 'ABC' ~* 'a.*'",
+                "singlestore": "SELECT LOWER('ABC') RLIKE LOWER('a.*')",
             },
         )
 
@@ -531,6 +552,51 @@ class TestSingleStore(Validator):
                 "": "SELECT TIMESTAMP_TRUNC('2016-08-08 12:05:31', MINUTE)",
                 "singlestore": "SELECT DATE_TRUNC('MINUTE', '2016-08-08 12:05:31')",
             },
+        )
+        self.validate_all(
+            "SELECT TIMESTAMPDIFF(WEEK, '2009-01-01', '2009-12-31') AS numweeks",
+            read={
+                "redshift": "SELECT datediff(week,'2009-01-01','2009-12-31') AS numweeks",
+                "singlestore": "SELECT TIMESTAMPDIFF(WEEK, '2009-01-01', '2009-12-31') AS numweeks",
+            },
+        )
+        self.validate_all(
+            "SELECT DATEDIFF('2009-12-31', '2009-01-01') AS numweeks",
+            read={
+                "": "SELECT TS_OR_DS_DIFF('2009-12-31', '2009-01-01') AS numweeks",
+                "singlestore": "SELECT DATEDIFF('2009-12-31', '2009-01-01') AS numweeks",
+            },
+        )
+        self.validate_all(
+            "SELECT CURRENT_DATE()",
+            read={
+                "": "SELECT CURRENT_DATE()",
+                "singlestore": "SELECT CURRENT_DATE",
+            },
+        )
+        self.validate_all(
+            "SELECT UTC_DATE()",
+            read={
+                "": "SELECT CURRENT_DATE('UTC')",
+                "singlestore": "SELECT UTC_DATE",
+            },
+            write={"": "SELECT CURRENT_DATE('UTC')"},
+        )
+        self.validate_all(
+            "SELECT CURRENT_TIME()",
+            read={
+                "": "SELECT CURRENT_TIME()",
+                "singlestore": "SELECT CURRENT_TIME",
+            },
+        )
+        self.validate_identity("SELECT CURRENT_TIME(6)")
+        self.validate_all(
+            "SELECT UTC_TIME()",
+            read={
+                "": "SELECT CURRENT_TIME('UTC')",
+                "singlestore": "SELECT UTC_TIME",
+            },
+            write={"": "SELECT CURRENT_TIME('UTC')"},
         )
 
     def test_types(self):
@@ -685,3 +751,21 @@ class TestSingleStore(Validator):
 
     def test_column_with_tablename(self):
         self.validate_identity("SELECT `t0`.`name` FROM `t0`")
+
+    def test_unicodestring_sql(self):
+        self.validate_all(
+            "SELECT 'data'",
+            read={"presto": "SELECT U&'d\\0061t\\0061'", "singlestore": "SELECT 'data'"},
+        )
+
+    def test_collate_sql(self):
+        self.validate_all(
+            "SELECT name :> LONGTEXT COLLATE 'utf8mb4_bin' FROM `users`",
+            read={
+                "": "SELECT name COLLATE 'utf8mb4_bin' FROM users",
+            },
+        )
+        self.validate_identity(
+            "SELECT name :> LONGTEXT COLLATE 'utf8mb4_bin' FROM `users`",
+            "SELECT name :> LONGTEXT :> LONGTEXT COLLATE 'utf8mb4_bin' FROM `users`",
+        )

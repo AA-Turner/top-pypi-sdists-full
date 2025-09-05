@@ -124,6 +124,10 @@ def linear_to_lora_layers(
         "hunyuan_v1_dense",
         "gpt_oss",
         "ernie4_5_moe",
+        "granitemoe",
+        "longcat_flash",
+        "seed_oss",
+        "apertus",
     }:
         keys = {"self_attn.q_proj", "self_attn.v_proj"}
         if model.model_type in ["mixtral", "phimoe"]:
@@ -133,6 +137,8 @@ def linear_to_lora_layers(
             keys.add("mlp.shared_expert_gate")
         if model.model_type in ["olmoe", "qwen3_moe", "dots1"]:
             keys.add("mlp.gate")
+        if model.model_type in ["longcat_flash"]:
+            keys.add("mlp.router.classifier")
     elif model.model_type == "gpt_bigcode":
         keys = {"attn.c_attn"}
     elif model.model_type == "gpt2":
@@ -151,7 +157,12 @@ def linear_to_lora_layers(
         keys = {"norm_attn_norm.attn.Wqkv", "ffn.router.layer"}
     elif model.model_type == "internlm2":
         keys = {"attention.wqkv", "attention.wo"}
-    elif model.model_type in {"deepseek_v2", "deepseek_v3", "minicpm3"}:
+    elif model.model_type in {
+        "deepseek_v2",
+        "deepseek_v3",
+        "longcat_flash",
+        "minicpm3",
+    }:
         keys = {
             "self_attn.q_proj",
             "self_attn.q_a_proj",
@@ -170,6 +181,13 @@ def linear_to_lora_layers(
         keys = {"attn.attention.q_proj", "attn.attention.v_proj"}
     elif model.model_type == "bailing_moe":
         keys = {"attention.query_key_value", "attention.dense"}
+    elif model.model_type == "nemotron_h":
+        keys.add("mixer.in_proj")
+        keys.add("mixer.out_proj")
+        keys.add("mixer.q_proj")
+        keys.add("mixer.k_proj")
+        keys.add("mixer.v_proj")
+        keys.add("mixer.o_proj")
     else:
         raise ValueError(f"Lora does not support {model.model_type}")
 

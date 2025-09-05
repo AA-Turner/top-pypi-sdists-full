@@ -126,6 +126,7 @@ ws_editor/org_id,ws_id:
     - r:workspace_file/org_id,ws_id,{env=live}
     - r:workspace_case_template/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
+    - r:workspace_case_queue/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id
@@ -144,6 +145,7 @@ ws_admin/org_id,ws_id:
     - r+w:workspace_file/org_id,ws_id,{env=*}
     - r+w:workspace_case_template/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
+    - r+w:workspace_case_queue/org_id,ws_id
 api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_job/org_id,ws_id

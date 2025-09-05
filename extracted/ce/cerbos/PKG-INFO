@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cerbos
-Version: 0.13.0
+Version: 0.14.0
 Summary: SDK for working with Cerbos: an open core, language-agnostic, scalable authorization solution
 Author-Email: Cerbos Developers <sdk+python@cerbos.dev>
 License: Apache-2.0

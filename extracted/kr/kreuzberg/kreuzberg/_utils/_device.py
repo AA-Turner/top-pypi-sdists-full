@@ -1,4 +1,3 @@
-"""Device detection and management utilities for GPU acceleration."""
 # ruff: noqa: BLE001  # ~keep
 
 from __future__ import annotations
@@ -15,8 +14,6 @@ DeviceType = Literal["cpu", "cuda", "mps", "auto"]
 
 @dataclass(frozen=True, slots=True)
 class DeviceInfo:
-    """Information about a compute device."""
-
     device_type: Literal["cpu", "cuda", "mps"]
     """The type of device."""
     device_id: int | None = None
@@ -30,12 +27,6 @@ class DeviceInfo:
 
 
 def detect_available_devices() -> list[DeviceInfo]:
-    """Detect all available compute devices.
-
-    Returns:
-        List of available devices, with the most preferred device first.
-    """
-    # Build device lists efficiently using generators
     cpu_device = DeviceInfo(device_type="cpu", name="CPU")
 
     cuda_devices = _get_cuda_devices() if _is_cuda_available() else []
@@ -43,17 +34,11 @@ def detect_available_devices() -> list[DeviceInfo]:
     mps_device = _get_mps_device() if _is_mps_available() else None
     mps_devices = [mps_device] if mps_device else []
 
-    # Return GPU devices first, then CPU using itertools.chain
     gpu_devices = list(chain(cuda_devices, mps_devices))
     return [*gpu_devices, cpu_device]
 
 
 def get_optimal_device() -> DeviceInfo:
-    """Get the optimal device for OCR processing.
-
-    Returns:
-        The best available device, preferring GPU over CPU.
-    """
     devices = detect_available_devices()
     return devices[0] if devices else DeviceInfo(device_type="cpu", name="CPU")
 
@@ -65,20 +50,6 @@ def validate_device_request(
     memory_limit: float | None = None,
     fallback_to_cpu: bool = True,
 ) -> DeviceInfo:
-    """Validate and resolve a device request.
-
-    Args:
-        requested: The requested device type.
-        backend: Name of the OCR backend requesting the device.
-        memory_limit: Optional memory limit in GB.
-        fallback_to_cpu: Whether to fallback to CPU if requested device unavailable.
-
-    Returns:
-        A validated DeviceInfo object.
-
-    Raises:
-        ValidationError: If the requested device is not available and fallback is disabled.
-    """
     available_devices = detect_available_devices()
 
     if requested == "auto":
@@ -118,14 +89,6 @@ def validate_device_request(
 
 
 def get_device_memory_info(device: DeviceInfo) -> tuple[float | None, float | None]:
-    """Get memory information for a device.
-
-    Args:
-        device: The device to query.
-
-    Returns:
-        Tuple of (total_memory_gb, available_memory_gb). None values if unknown.
-    """
     if device.device_type == "cpu":
         return None, None
 
@@ -139,7 +102,6 @@ def get_device_memory_info(device: DeviceInfo) -> tuple[float | None, float | No
 
 
 def _is_cuda_available() -> bool:
-    """Check if CUDA is available."""
     try:
         import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
@@ -149,7 +111,6 @@ def _is_cuda_available() -> bool:
 
 
 def _is_mps_available() -> bool:
-    """Check if MPS (Apple Silicon) is available."""
     try:
         import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
@@ -159,7 +120,6 @@ def _is_mps_available() -> bool:
 
 
 def _get_cuda_devices() -> list[DeviceInfo]:
-    """Get information about available CUDA devices."""
     devices: list[DeviceInfo] = []
 
     try:
@@ -197,7 +157,6 @@ def _get_cuda_devices() -> list[DeviceInfo]:
 
 
 def _get_mps_device() -> DeviceInfo | None:
-    """Get information about the MPS device."""
     try:
         import torch  # noqa: PLC0415
 
@@ -214,7 +173,6 @@ def _get_mps_device() -> DeviceInfo | None:
 
 
 def _get_cuda_memory_info(device_id: int) -> tuple[float | None, float | None]:
-    """Get CUDA memory information for a specific device."""
     try:
         import torch  # noqa: PLC0415
 
@@ -237,20 +195,10 @@ def _get_cuda_memory_info(device_id: int) -> tuple[float | None, float | None]:
 
 
 def _get_mps_memory_info() -> tuple[float | None, float | None]:
-    """Get MPS memory information."""
     return None, None
 
 
 def _validate_memory_limit(device: DeviceInfo, memory_limit: float) -> None:
-    """Validate that a device has enough memory for the requested limit.
-
-    Args:
-        device: The device to validate.
-        memory_limit: Required memory in GB.
-
-    Raises:
-        ValidationError: If the device doesn't have enough memory.
-    """
     if device.device_type == "cpu":
         # CPU memory validation is complex and OS-dependent, skip for now  # ~keep
         return
@@ -279,28 +227,11 @@ def _validate_memory_limit(device: DeviceInfo, memory_limit: float) -> None:
 
 
 def is_backend_gpu_compatible(backend: str) -> bool:
-    """Check if an OCR backend supports GPU acceleration.
-
-    Args:
-        backend: Name of the OCR backend.
-
-    Returns:
-        True if the backend supports GPU acceleration.
-    """
     # EasyOCR and PaddleOCR support GPU, Tesseract does not  # ~keep
     return backend.lower() in ("easyocr", "paddleocr")
 
 
 def get_recommended_batch_size(device: DeviceInfo, input_size_mb: float = 10.0) -> int:
-    """Get recommended batch size for OCR processing.
-
-    Args:
-        device: The device to optimize for.
-        input_size_mb: Estimated input size per item in MB.
-
-    Returns:
-        Recommended batch size.
-    """
     if device.device_type == "cpu":
         # Conservative batch size for CPU  # ~keep
         return 1
@@ -322,11 +253,6 @@ def get_recommended_batch_size(device: DeviceInfo, input_size_mb: float = 10.0) 
 
 
 def cleanup_device_memory(device: DeviceInfo) -> None:
-    """Clean up device memory.
-
-    Args:
-        device: The device to clean up.
-    """
     if device.device_type == "cuda":
         try:
             import torch  # noqa: PLC0415

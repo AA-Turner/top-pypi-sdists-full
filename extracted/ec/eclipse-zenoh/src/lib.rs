@@ -68,7 +68,7 @@ pub(crate) mod zenoh {
         sample::{Locality, Sample, SampleKind},
         scouting::{scout, Hello, Scout},
         session::{open, EntityGlobalId, Session, SessionInfo},
-        time::Timestamp,
+        time::{Timestamp, TimestampId},
         ZError,
     };
 
@@ -93,7 +93,7 @@ pub(crate) mod zenoh {
 
     #[pymodule_init]
     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
-        let sys_modules = m.py().import_bound("sys")?.getattr("modules")?;
+        let sys_modules = m.py().import("sys")?.getattr("modules")?;
         sys_modules.set_item("zenoh.handlers", m.getattr("handlers")?)?;
         #[cfg(feature = "zenoh-ext")]
         sys_modules.set_item("zenoh._ext", m.getattr("_ext")?)?;
@@ -107,5 +107,5 @@ pub(crate) mod zenoh {
 #[test]
 #[cfg(not(feature = "default"))]
 fn test_no_default_features() {
-    assert_eq!(::zenoh::FEATURES, concat!(" zenoh/unstable"));
+    assert_eq!(::zenoh::FEATURES, " zenoh/unstable");
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: behave
-Version: 1.3.2
+Version: 1.3.3
 Summary: behave is behaviour-driven development, Python style
 Author: Benno Rice, Richard Jones
 Author-email: Jens Engel <jenisys@noreply.github.com>
@@ -44,10 +44,12 @@ Requires-Dist: enum34; python_version < "3.4"
 Requires-Dist: parse>=1.18.0
 Requires-Dist: parse-type>=0.6.0
 Requires-Dist: six>=1.15.0
-Requires-Dist: traceback2; python_version < "3.0"
-Requires-Dist: scandir>=1.10.0; python_version < "3.5"
-Requires-Dist: win_unicode_console; python_version <= "3.9"
 Requires-Dist: contextlib2; python_version < "3.5"
+Requires-Dist: pathlib; python_version < "3.4"
+Requires-Dist: pathlib2>=2.3.6; python_version < "3.6"
+Requires-Dist: scandir>=1.10.0; python_version < "3.5"
+Requires-Dist: traceback2; python_version < "3.0"
+Requires-Dist: win_unicode_console; python_version <= "3.9"
 Requires-Dist: colorama>=0.3.7
 Requires-Dist: tomli>=1.1.0; python_version >= "3.0" and python_version < "3.11"
 Requires-Dist: toml>=0.10.2; python_version < "3.0"
@@ -72,7 +74,6 @@ Requires-Dist: invoke>=1.7.0; python_version >= "3.6" and extra == "develop"
 Requires-Dist: path>=13.1.0; python_version >= "3.5" and extra == "develop"
 Requires-Dist: path.py>=11.5.0; python_version < "3.5" and extra == "develop"
 Requires-Dist: pycmd; extra == "develop"
-Requires-Dist: pathlib; python_version <= "3.4" and extra == "develop"
 Requires-Dist: modernize>=0.5; extra == "develop"
 Requires-Dist: pylint; extra == "develop"
 Requires-Dist: ruff; python_version >= "3.7" and extra == "develop"
@@ -99,7 +100,6 @@ Requires-Dist: assertpy>=1.1; extra == "testing"
 Requires-Dist: chardet; extra == "testing"
 Requires-Dist: path>=13.1.0; python_version >= "3.5" and extra == "testing"
 Requires-Dist: path.py<13.0,>=11.5.0; python_version < "3.5" and extra == "testing"
-Requires-Dist: pathlib; python_version <= "3.4" and extra == "testing"
 Requires-Dist: freezegun>=1.5.1; python_version > "3.7" and extra == "testing"
 Dynamic: license-file
 Dynamic: provides

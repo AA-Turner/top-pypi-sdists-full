@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyVISA-py
-Version: 0.8.0
+Version: 0.8.1
 Summary: Pure Python implementation of a VISA library.
 Author-email: "Hernan E. Grecco" <hernan.grecco@gmail.com>
 Maintainer-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>
@@ -57,6 +57,9 @@ Provides-Extra: serial
 Requires-Dist: pyserial>=3.0; extra == "serial"
 Provides-Extra: usb
 Requires-Dist: pyusb; extra == "usb"
+Provides-Extra: usb-full
+Requires-Dist: pyusb; extra == "usb-full"
+Requires-Dist: libusb-package; extra == "usb-full"
 Provides-Extra: psutil
 Requires-Dist: psutil; extra == "psutil"
 Provides-Extra: hislip-discovery

@@ -4905,7 +4905,7 @@ class Rollback(Expression):
 
 class Alter(Expression):
     arg_types = {
-        "this": True,
+        "this": False,
         "kind": True,
         "actions": True,
         "exists": False,
@@ -4924,6 +4924,10 @@ class Alter(Expression):
     @property
     def actions(self) -> t.List[Expression]:
         return self.args.get("actions") or []
+
+
+class AlterSession(Expression):
+    arg_types = {"expressions": True, "unset": False}
 
 
 class Analyze(Expression):
@@ -5441,6 +5445,74 @@ class Func(Condition):
 
 class Typeof(Func):
     pass
+
+
+class Acos(Func):
+    pass
+
+
+class Acosh(Func):
+    pass
+
+
+class Asin(Func):
+    pass
+
+
+class Asinh(Func):
+    pass
+
+
+class Atan(Func):
+    arg_types = {"this": True, "expression": False}
+
+
+class Atanh(Func):
+    pass
+
+
+class Atan2(Func):
+    arg_types = {"this": True, "expression": True}
+
+
+class Cot(Func):
+    pass
+
+
+class Coth(Func):
+    pass
+
+
+class Csc(Func):
+    pass
+
+
+class Csch(Func):
+    pass
+
+
+class Sec(Func):
+    pass
+
+
+class Sech(Func):
+    pass
+
+
+class Sin(Func):
+    pass
+
+
+class Sinh(Func):
+    pass
+
+
+class CosineDistance(Func):
+    arg_types = {"this": True, "expression": True}
+
+
+class EuclideanDistance(Func):
+    arg_types = {"this": True, "expression": True}
 
 
 class AggFunc(Func):
@@ -5996,6 +6068,14 @@ class CurrentSchema(Func):
 
 class CurrentUser(Func):
     arg_types = {"this": False}
+
+
+class UtcDate(Func):
+    arg_types = {}
+
+
+class UtcTime(Func):
+    arg_types = {}
 
 
 class DateAdd(Func, IntervalOp):
@@ -6675,7 +6755,7 @@ class JSONBExtractScalar(Binary, Func):
 
 
 class JSONFormat(Func):
-    arg_types = {"this": False, "options": False, "is_json": False}
+    arg_types = {"this": False, "options": False, "is_json": False, "to_json": False}
     _sql_names = ["JSON_FORMAT"]
 
 
@@ -6952,6 +7032,10 @@ class RangeN(Func):
     arg_types = {"this": True, "expressions": True, "each": False}
 
 
+class RangeBucket(Func):
+    arg_types = {"this": True, "expression": True}
+
+
 class Rank(AggFunc):
     arg_types = {"expressions": False}
     is_var_len_args = True
@@ -7045,7 +7129,23 @@ class RowNumber(Func):
     arg_types = {"this": False}
 
 
+class SafeAdd(Func):
+    arg_types = {"this": True, "expression": True}
+
+
 class SafeDivide(Func):
+    arg_types = {"this": True, "expression": True}
+
+
+class SafeMultiply(Func):
+    arg_types = {"this": True, "expression": True}
+
+
+class SafeNegate(Func):
+    pass
+
+
+class SafeSubtract(Func):
     arg_types = {"this": True, "expression": True}
 
 

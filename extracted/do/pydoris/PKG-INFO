@@ -1,12 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydoris
-Version: 1.0.6
+Version: 1.1.0
 Summary: Python interface to Doris
-Home-page: https://github.com/apache/doris
-Author: liujiwen-up
-Author-email: wen15580974595@163.com
+Author: liujiwen-up, bingquanzhao, catpineapple
+Maintainer-email: catpineapple <catpineapple1122@gmail.com>
 License: Apache 2.0
-Platform: UNKNOWN
+Project-URL: Homepage, https://github.com/apache/doris
+Project-URL: Repository, https://github.com/apache/doris
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -16,8 +16,14 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database :: Front-Ends
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: sqlalchemy<2,>=1.4
+Requires-Dist: sqlalchemy-utils<0.39,>=0.38.3
+Requires-Dist: mysqlclient<3,>=2.1.0
+Requires-Dist: requests
+Dynamic: license-file
 
 # Apache Doris Python Client
 A Apache Doris client for the Python programming language.
@@ -66,5 +72,3 @@ connection = engine.connect()
 
 rows = connection.execute(text("SELECT * FROM hive_table")).fetchall()
 ```
-
-

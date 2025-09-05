@@ -274,6 +274,7 @@ class Event(ServiceResource):
     hook_status: HookStatusType
     hook_status_reason: str
     hook_invocation_point: Literal["PRE_PROVISION"]
+    hook_invocation_id: str
     hook_failure_mode: HookFailureModeType
     detailed_status: DetailedStatusType
     meta: CloudFormationResourceMeta  # type: ignore[override]

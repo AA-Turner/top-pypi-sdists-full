@@ -47,6 +47,7 @@ from .literals import (
     ParameterTypeType,
     PrivacyBudgetTemplateAutoRefreshType,
     ProtectedJobStatusType,
+    ProtectedJobWorkerComputeTypeType,
     ProtectedQueryStatusType,
     ResultFormatType,
     ScalarFunctionsType,
@@ -368,6 +369,7 @@ __all__ = (
     "PrivacyBudgetTemplateUpdateParametersTypeDef",
     "PrivacyBudgetTypeDef",
     "PrivacyImpactTypeDef",
+    "ProtectedJobComputeConfigurationTypeDef",
     "ProtectedJobConfigurationDetailsTypeDef",
     "ProtectedJobDirectAnalysisConfigurationDetailsTypeDef",
     "ProtectedJobErrorTypeDef",
@@ -388,6 +390,7 @@ __all__ = (
     "ProtectedJobStatisticsTypeDef",
     "ProtectedJobSummaryTypeDef",
     "ProtectedJobTypeDef",
+    "ProtectedJobWorkerComputeConfigurationTypeDef",
     "ProtectedQueryDistributeOutputConfigurationLocationTypeDef",
     "ProtectedQueryDistributeOutputConfigurationOutputTypeDef",
     "ProtectedQueryDistributeOutputConfigurationTypeDef",
@@ -1342,6 +1345,15 @@ class PopulateIdMappingTableInputTypeDef(TypedDict):
     membershipIdentifier: str
 
 
+ProtectedJobWorkerComputeConfigurationTypeDef = TypedDict(
+    "ProtectedJobWorkerComputeConfigurationTypeDef",
+    {
+        "type": ProtectedJobWorkerComputeTypeType,
+        "number": int,
+    },
+)
+
+
 class ProtectedJobDirectAnalysisConfigurationDetailsTypeDef(TypedDict):
     receiverAccountIds: NotRequired[List[str]]
 
@@ -2005,6 +2017,10 @@ class MembershipProtectedQueryOutputConfigurationTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
 
 
+class ProtectedJobComputeConfigurationTypeDef(TypedDict):
+    worker: NotRequired[ProtectedJobWorkerComputeConfigurationTypeDef]
+
+
 class ProtectedJobConfigurationDetailsTypeDef(TypedDict):
     directAnalysisConfigurationDetails: NotRequired[
         ProtectedJobDirectAnalysisConfigurationDetailsTypeDef
@@ -2636,6 +2652,7 @@ StartProtectedJobInputTypeDef = TypedDict(
         "membershipIdentifier": str,
         "jobParameters": ProtectedJobParametersTypeDef,
         "resultConfiguration": NotRequired[ProtectedJobResultConfigurationInputTypeDef],
+        "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationTypeDef],
     },
 )
 ProtectedJobTypeDef = TypedDict(
@@ -2651,6 +2668,7 @@ ProtectedJobTypeDef = TypedDict(
         "statistics": NotRequired[ProtectedJobStatisticsTypeDef],
         "result": NotRequired[ProtectedJobResultTypeDef],
         "error": NotRequired[ProtectedJobErrorTypeDef],
+        "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationTypeDef],
     },
 )
 

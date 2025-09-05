@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ requires = ["Cython>=3.0.6", "setuptools>=32.0.0", "wheel"]
 
 [project]
 name = "pynini"
-version = "2.1.6.post1"
+version = "2.1.7"
 description = "Finite-state grammar compilation"
 readme = "README.md"
 requires-python = ">= 3.8"

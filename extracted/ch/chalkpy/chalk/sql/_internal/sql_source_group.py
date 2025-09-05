@@ -53,6 +53,9 @@ class SQLSourceGroup(BaseSQLSourceProtocol):
             raise missing_dependency_exception("chalkpy[sql]")
         del sqlalchemy  # unused
 
+    def raw_query(self, query: str, output_arrow_schema: Optional[Any] = None) -> Any:
+        return self._default.raw_query(query, output_arrow_schema)
+
     def to_json(self) -> Dict[str, str]:
         return self._default.to_json()
 

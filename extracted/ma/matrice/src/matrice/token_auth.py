@@ -40,16 +40,14 @@ class RefreshToken(AuthBase):
                 self.VALIDATE_ACCESS_KEY_URL,
                 headers=headers,
                 data=payload,
-                timeout=60,
+                timeout=120,
             )
         except Exception as e:
             logging.error("Error while making request to the auth server in RefreshToken")
             logging.error(e)
-            sys.exit(0)
         if response.status_code != 200:
             logging.error("Error response from the auth server in RefreshToken")
             logging.error(response.text)
-            sys.exit(0)
         res_dict = response.json()
         
         if res_dict["success"]:
@@ -57,7 +55,6 @@ class RefreshToken(AuthBase):
             self.bearer_token = "Bearer " + res_dict["data"]["refreshToken"]
         else:
             logging.error("The provided credentials are incorrect!! in RefreshToken")
-            sys.exit(0)
 
 
 class AuthToken(AuthBase):
@@ -93,20 +90,17 @@ class AuthToken(AuthBase):
                 self.REFRESH_TOKEN_URL,
                 headers=headers,
                 auth=self.refresh_token,
-                timeout=60,
+                timeout=120,
             )
         except Exception as e:
             logging.error("Error while making request to the auth server in AuthToken")
             logging.error(e)
-            sys.exit(0)
         if response.status_code != 200:
             logging.error("Error response from the auth server in AuthToken")
             logging.error(response.text)
-            sys.exit(0)
         res_dict = response.json()
         if res_dict["success"]:
             self.bearer_token = "Bearer " + res_dict["data"]["token"]
             self.expiry_time = parse(res_dict["data"]["expiresAt"])
         else:
             logging.error("The provided credentials are incorrect!! in AuthToken")
-            sys.exit(0)

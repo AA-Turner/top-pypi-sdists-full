@@ -7,9 +7,8 @@ import dataclasses
 import io
 import re
 import sys
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Callable, List, Literal, Optional, Type, Union
 
-from packaging.version import Version
 import pytest
 
 from tap import to_tap_class, Tap
@@ -21,12 +20,17 @@ try:
 except ModuleNotFoundError:
     _IS_PYDANTIC_V1 = None
 else:
-    _IS_PYDANTIC_V1 = Version(pydantic.__version__) < Version("2.0.0")
+    _IS_PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
 
 
-# To properly test the help message, we need to know how argparse formats it. It changed from 3.8 -> 3.9 -> 3.10
+# To properly test the help message, we need to know how argparse formats it. It changed from 3.9 -> 3.10 -> 3.13
 _OPTIONS_TITLE = "options" if not sys.version_info < (3, 10) else "optional arguments"
-_ARG_LIST_DOTS = "..." if not sys.version_info < (3, 9) else "[ARG_LIST ...]"
+_ARG_LIST_DOTS = "..."
+_ARG_WITH_ALIAS = (
+    "-arg, --argument_with_really_long_name ARGUMENT_WITH_REALLY_LONG_NAME"
+    if not sys.version_info < (3, 13)
+    else "-arg ARGUMENT_WITH_REALLY_LONG_NAME, --argument_with_really_long_name ARGUMENT_WITH_REALLY_LONG_NAME"
+)
 
 
 @dataclasses.dataclass
@@ -245,7 +249,7 @@ def _test_raises_system_exit(tap: Tap, args_string: str) -> str:
 def _test_subclasser(
     subclasser: Callable[[Any], Type[Tap]],
     class_or_function: Any,
-    args_string_and_arg_to_expected_value: Tuple[str, Union[Dict[str, Any], BaseException]],
+    args_string_and_arg_to_expected_value: tuple[str, Union[dict[str, Any], BaseException]],
     test_call: bool = True,
 ):
     """
@@ -261,7 +265,7 @@ def _test_subclasser(
 
     if isinstance(arg_to_expected_value, SystemExit):
         stderr = _test_raises_system_exit(tap, args_string)
-        assert str(arg_to_expected_value) in stderr
+        assert re.search(str(arg_to_expected_value), stderr)
     elif isinstance(arg_to_expected_value, BaseException):
         expected_exception = arg_to_expected_value.__class__
         expected_error_message = str(arg_to_expected_value) or None
@@ -328,7 +332,7 @@ def _test_subclasser_message(
     ],
 )
 def test_subclasser_simple(
-    class_or_function_: Any, args_string_and_arg_to_expected_value: Tuple[str, Union[Dict[str, Any], BaseException]]
+    class_or_function_: Any, args_string_and_arg_to_expected_value: tuple[str, Union[dict[str, Any], BaseException]]
 ):
     _test_subclasser(subclasser_simple, class_or_function_, args_string_and_arg_to_expected_value)
 
@@ -401,7 +405,7 @@ def test_subclasser_simple_help_message(class_or_function_: Any):
     ],
 )
 def test_subclasser_complex(
-    class_or_function_: Any, args_string_and_arg_to_expected_value: Tuple[str, Union[Dict[str, Any], BaseException]]
+    class_or_function_: Any, args_string_and_arg_to_expected_value: tuple[str, Union[dict[str, Any], BaseException]]
 ):
     # Currently setting test_call=False b/c all data models except the pydantic Model don't accept extra args
     _test_subclasser(subclasser_complex, class_or_function_, args_string_and_arg_to_expected_value, test_call=False)
@@ -416,9 +420,9 @@ def test_subclasser_complex_help_message(class_or_function_: Any):
     {description}
 
     {_OPTIONS_TITLE}:
-    -arg ARGUMENT_WITH_REALLY_LONG_NAME, --argument_with_really_long_name ARGUMENT_WITH_REALLY_LONG_NAME
-                            (Union[float, int], default=3) This argument has a long name and will be aliased with a short
-                            one
+    {_ARG_WITH_ALIAS}
+                            ({type_to_str(Union[float, int])}, default=3) This argument has a long name and will be
+                            aliased with a short one
     --arg_int ARG_INT     (int, required) some integer
     --arg_bool            (bool, default=True)
     --arg_list [ARG_LIST {_ARG_LIST_DOTS}]
@@ -465,11 +469,7 @@ def test_subclasser_complex_help_message(class_or_function_: Any):
         ),
         (
             "--arg_int 1 --baz X --foo b",
-            SystemExit(
-                "error: argument {a,b}: invalid choice: 'X' (choose from 'a', 'b')"
-                if sys.version_info >= (3, 9)
-                else "error: invalid choice: 'X' (choose from 'a', 'b')"
-            ),
+            SystemExit(r"error: argument \{a,b}: invalid choice: 'X' \(choose from '?a'?, '?b'?\)"),
         ),
         (
             "--arg_int 1 b --baz X --foo",
@@ -477,25 +477,23 @@ def test_subclasser_complex_help_message(class_or_function_: Any):
         ),
         (
             "--arg_int 1 --foo b --baz A",
-            SystemExit("""error: argument --baz: Value for variable "baz" must be one of ['X', 'Y', 'Z']."""),
+            SystemExit(r"""error: argument --baz: Value for variable "baz" must be one of \['X', 'Y', 'Z']."""),
         ),
     ],
 )
 def test_subclasser_subparser(
-    class_or_function_: Any, args_string_and_arg_to_expected_value: Tuple[str, Union[Dict[str, Any], BaseException]]
+    class_or_function_: Any, args_string_and_arg_to_expected_value: tuple[str, Union[dict[str, Any], BaseException]]
 ):
     # Currently setting test_call=False b/c all data models except the pydantic Model don't accept extra args
     _test_subclasser(subclasser_subparser, class_or_function_, args_string_and_arg_to_expected_value, test_call=False)
 
 
-# @pytest.mark.skipif(sys.version_info < (3, 10), reason="argparse is different. Need to fix help_message_expected")
 @pytest.mark.parametrize(
     "args_string_and_description_and_expected_message",
     [
         (
             "-h",
             "Script description",
-            # foo help likely missing b/c class nesting. In a demo in a Python 3.8 env, foo help appears in -h
             f"""
             usage: pytest [--foo] --arg_int ARG_INT [--arg_bool] [--arg_list [ARG_LIST {_ARG_LIST_DOTS}]] [-h]
                           {{a,b}} ...
@@ -508,7 +506,7 @@ def test_subclasser_subparser(
                 b                   b help
 
             {_OPTIONS_TITLE}:
-            --foo                 (bool, default=False) {'' if sys.version_info < (3, 9) else 'foo help'}
+            --foo                 (bool, default=False) foo help
             --arg_int ARG_INT     (int, required) some integer
             --arg_bool            (bool, default=True)
             --arg_list [ARG_LIST {_ARG_LIST_DOTS}]
@@ -543,7 +541,7 @@ def test_subclasser_subparser(
     ],
 )
 def test_subclasser_subparser_help_message(
-    class_or_function_: Any, args_string_and_description_and_expected_message: Tuple[str, str]
+    class_or_function_: Any, args_string_and_description_and_expected_message: tuple[str, str, str]
 ):
     args_string, description, expected_message = args_string_and_description_and_expected_message
     _test_subclasser_message(

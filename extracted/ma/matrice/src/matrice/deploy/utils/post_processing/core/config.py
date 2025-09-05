@@ -370,6 +370,11 @@ class PeopleCountingConfig(BaseConfig):
     
     # Alert configuration
     alert_config: Optional[AlertConfig] = None
+
+    target_categories: List[str] = field(
+        default_factory=lambda: [
+            'person', 'people', 'human', 'man', 'woman', 'male', 'female']
+    )
     
     def validate(self) -> List[str]:
         """Validate people counting configuration."""

@@ -25,6 +25,7 @@ class ProviderArgs:
                  client_certificate_path: Optional[pulumi.Input[builtins.str]] = None,
                  client_id: Optional[pulumi.Input[builtins.str]] = None,
                  client_secret: Optional[pulumi.Input[builtins.str]] = None,
+                 disable_instance_discovery: Optional[pulumi.Input[builtins.bool]] = None,
                  disable_pulumi_partner_id: Optional[pulumi.Input[builtins.bool]] = None,
                  environment: Optional[pulumi.Input[builtins.str]] = None,
                  location: Optional[pulumi.Input[builtins.str]] = None,
@@ -36,6 +37,7 @@ class ProviderArgs:
                  partner_id: Optional[pulumi.Input[builtins.str]] = None,
                  subscription_id: Optional[pulumi.Input[builtins.str]] = None,
                  tenant_id: Optional[pulumi.Input[builtins.str]] = None,
+                 use_default_azure_credential: Optional[pulumi.Input[builtins.bool]] = None,
                  use_msi: Optional[pulumi.Input[builtins.bool]] = None,
                  use_oidc: Optional[pulumi.Input[builtins.bool]] = None):
         """
@@ -45,8 +47,9 @@ class ProviderArgs:
         :param pulumi.Input[builtins.str] client_certificate_path: The path to the Client Certificate associated with the Service Principal for use when authenticating as a Service Principal using a Client Certificate.
         :param pulumi.Input[builtins.str] client_id: The Client ID which should be used.
         :param pulumi.Input[builtins.str] client_secret: The Client Secret which should be used. For use When authenticating as a Service Principal using a Client Secret.
+        :param pulumi.Input[builtins.bool] disable_instance_discovery: Determines whether or not instance discovery is performed when attempting to authenticate. Setting this to true will completely disable both instance discovery and authority validation. This functionality is intended for use in scenarios where the metadata endpoint cannot be reached, such as in private clouds or Azure Stack.
         :param pulumi.Input[builtins.bool] disable_pulumi_partner_id: This will disable the Pulumi Partner ID which is used if a custom `partnerId` isn't specified.
-        :param pulumi.Input[builtins.str] environment: The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public.
+        :param pulumi.Input[builtins.str] environment: The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public. Not used when metadataHost is specified or when ARM_METADATA_HOSTNAME is set.
         :param pulumi.Input[builtins.str] location: The location to use. ResourceGroups will consult this property for a default location, if one was not supplied explicitly when defining the resource.
         :param pulumi.Input[builtins.str] metadata_host: The Hostname of the Azure Metadata Service.
         :param pulumi.Input[builtins.str] msi_endpoint: The path to a custom endpoint for Managed Service Identity - in most circumstances this should be detected automatically.
@@ -56,6 +59,7 @@ class ProviderArgs:
         :param pulumi.Input[builtins.str] partner_id: A GUID/UUID that is registered with Microsoft to facilitate partner resource usage attribution.
         :param pulumi.Input[builtins.str] subscription_id: The Subscription ID which should be used.
         :param pulumi.Input[builtins.str] tenant_id: The Tenant ID which should be used.
+        :param pulumi.Input[builtins.bool] use_default_azure_credential: Use the default credential chain of the Azure SDK (see https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview).
         :param pulumi.Input[builtins.bool] use_msi: Allow Managed Service Identity to be used for Authentication.
         :param pulumi.Input[builtins.bool] use_oidc: Allow OpenID Connect (OIDC) to be used for Authentication.
         """
@@ -69,6 +73,8 @@ class ProviderArgs:
             pulumi.set(__self__, "client_id", client_id)
         if client_secret is not None:
             pulumi.set(__self__, "client_secret", client_secret)
+        if disable_instance_discovery is not None:
+            pulumi.set(__self__, "disable_instance_discovery", disable_instance_discovery)
         if disable_pulumi_partner_id is not None:
             pulumi.set(__self__, "disable_pulumi_partner_id", disable_pulumi_partner_id)
         if environment is None:
@@ -93,6 +99,8 @@ class ProviderArgs:
             pulumi.set(__self__, "subscription_id", subscription_id)
         if tenant_id is not None:
             pulumi.set(__self__, "tenant_id", tenant_id)
+        if use_default_azure_credential is not None:
+            pulumi.set(__self__, "use_default_azure_credential", use_default_azure_credential)
         if use_msi is not None:
             pulumi.set(__self__, "use_msi", use_msi)
         if use_oidc is not None:
@@ -159,6 +167,18 @@ class ProviderArgs:
         pulumi.set(self, "client_secret", value)
 
     @property
+    @pulumi.getter(name="disableInstanceDiscovery")
+    def disable_instance_discovery(self) -> Optional[pulumi.Input[builtins.bool]]:
+        """
+        Determines whether or not instance discovery is performed when attempting to authenticate. Setting this to true will completely disable both instance discovery and authority validation. This functionality is intended for use in scenarios where the metadata endpoint cannot be reached, such as in private clouds or Azure Stack.
+        """
+        return pulumi.get(self, "disable_instance_discovery")
+
+    @disable_instance_discovery.setter
+    def disable_instance_discovery(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "disable_instance_discovery", value)
+
+    @property
     @pulumi.getter(name="disablePulumiPartnerId")
     def disable_pulumi_partner_id(self) -> Optional[pulumi.Input[builtins.bool]]:
         """
@@ -174,7 +194,7 @@ class ProviderArgs:
     @pulumi.getter
     def environment(self) -> Optional[pulumi.Input[builtins.str]]:
         """
-        The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public.
+        The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public. Not used when metadataHost is specified or when ARM_METADATA_HOSTNAME is set.
         """
         return pulumi.get(self, "environment")
 
@@ -291,6 +311,18 @@ class ProviderArgs:
         pulumi.set(self, "tenant_id", value)
 
     @property
+    @pulumi.getter(name="useDefaultAzureCredential")
+    def use_default_azure_credential(self) -> Optional[pulumi.Input[builtins.bool]]:
+        """
+        Use the default credential chain of the Azure SDK (see https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview).
+        """
+        return pulumi.get(self, "use_default_azure_credential")
+
+    @use_default_azure_credential.setter
+    def use_default_azure_credential(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "use_default_azure_credential", value)
+
+    @property
     @pulumi.getter(name="useMsi")
     def use_msi(self) -> Optional[pulumi.Input[builtins.bool]]:
         """
@@ -326,6 +358,7 @@ class Provider(pulumi.ProviderResource):
                  client_certificate_path: Optional[pulumi.Input[builtins.str]] = None,
                  client_id: Optional[pulumi.Input[builtins.str]] = None,
                  client_secret: Optional[pulumi.Input[builtins.str]] = None,
+                 disable_instance_discovery: Optional[pulumi.Input[builtins.bool]] = None,
                  disable_pulumi_partner_id: Optional[pulumi.Input[builtins.bool]] = None,
                  environment: Optional[pulumi.Input[builtins.str]] = None,
                  location: Optional[pulumi.Input[builtins.str]] = None,
@@ -337,6 +370,7 @@ class Provider(pulumi.ProviderResource):
                  partner_id: Optional[pulumi.Input[builtins.str]] = None,
                  subscription_id: Optional[pulumi.Input[builtins.str]] = None,
                  tenant_id: Optional[pulumi.Input[builtins.str]] = None,
+                 use_default_azure_credential: Optional[pulumi.Input[builtins.bool]] = None,
                  use_msi: Optional[pulumi.Input[builtins.bool]] = None,
                  use_oidc: Optional[pulumi.Input[builtins.bool]] = None,
                  __props__=None):
@@ -350,8 +384,9 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[builtins.str] client_certificate_path: The path to the Client Certificate associated with the Service Principal for use when authenticating as a Service Principal using a Client Certificate.
         :param pulumi.Input[builtins.str] client_id: The Client ID which should be used.
         :param pulumi.Input[builtins.str] client_secret: The Client Secret which should be used. For use When authenticating as a Service Principal using a Client Secret.
+        :param pulumi.Input[builtins.bool] disable_instance_discovery: Determines whether or not instance discovery is performed when attempting to authenticate. Setting this to true will completely disable both instance discovery and authority validation. This functionality is intended for use in scenarios where the metadata endpoint cannot be reached, such as in private clouds or Azure Stack.
         :param pulumi.Input[builtins.bool] disable_pulumi_partner_id: This will disable the Pulumi Partner ID which is used if a custom `partnerId` isn't specified.
-        :param pulumi.Input[builtins.str] environment: The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public.
+        :param pulumi.Input[builtins.str] environment: The Cloud Environment which should be used. Possible values are public, usgovernment, and china. Defaults to public. Not used when metadataHost is specified or when ARM_METADATA_HOSTNAME is set.
         :param pulumi.Input[builtins.str] location: The location to use. ResourceGroups will consult this property for a default location, if one was not supplied explicitly when defining the resource.
         :param pulumi.Input[builtins.str] metadata_host: The Hostname of the Azure Metadata Service.
         :param pulumi.Input[builtins.str] msi_endpoint: The path to a custom endpoint for Managed Service Identity - in most circumstances this should be detected automatically.
@@ -361,6 +396,7 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[builtins.str] partner_id: A GUID/UUID that is registered with Microsoft to facilitate partner resource usage attribution.
         :param pulumi.Input[builtins.str] subscription_id: The Subscription ID which should be used.
         :param pulumi.Input[builtins.str] tenant_id: The Tenant ID which should be used.
+        :param pulumi.Input[builtins.bool] use_default_azure_credential: Use the default credential chain of the Azure SDK (see https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview).
         :param pulumi.Input[builtins.bool] use_msi: Allow Managed Service Identity to be used for Authentication.
         :param pulumi.Input[builtins.bool] use_oidc: Allow OpenID Connect (OIDC) to be used for Authentication.
         """
@@ -393,6 +429,7 @@ class Provider(pulumi.ProviderResource):
                  client_certificate_path: Optional[pulumi.Input[builtins.str]] = None,
                  client_id: Optional[pulumi.Input[builtins.str]] = None,
                  client_secret: Optional[pulumi.Input[builtins.str]] = None,
+                 disable_instance_discovery: Optional[pulumi.Input[builtins.bool]] = None,
                  disable_pulumi_partner_id: Optional[pulumi.Input[builtins.bool]] = None,
                  environment: Optional[pulumi.Input[builtins.str]] = None,
                  location: Optional[pulumi.Input[builtins.str]] = None,
@@ -404,6 +441,7 @@ class Provider(pulumi.ProviderResource):
                  partner_id: Optional[pulumi.Input[builtins.str]] = None,
                  subscription_id: Optional[pulumi.Input[builtins.str]] = None,
                  tenant_id: Optional[pulumi.Input[builtins.str]] = None,
+                 use_default_azure_credential: Optional[pulumi.Input[builtins.bool]] = None,
                  use_msi: Optional[pulumi.Input[builtins.bool]] = None,
                  use_oidc: Optional[pulumi.Input[builtins.bool]] = None,
                  __props__=None):
@@ -420,6 +458,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["client_certificate_path"] = client_certificate_path
             __props__.__dict__["client_id"] = None if client_id is None else pulumi.Output.secret(client_id)
             __props__.__dict__["client_secret"] = None if client_secret is None else pulumi.Output.secret(client_secret)
+            __props__.__dict__["disable_instance_discovery"] = pulumi.Output.from_input(disable_instance_discovery).apply(pulumi.runtime.to_json) if disable_instance_discovery is not None else None
             __props__.__dict__["disable_pulumi_partner_id"] = pulumi.Output.from_input(disable_pulumi_partner_id).apply(pulumi.runtime.to_json) if disable_pulumi_partner_id is not None else None
             if environment is None:
                 environment = 'public'
@@ -433,6 +472,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["partner_id"] = partner_id
             __props__.__dict__["subscription_id"] = subscription_id
             __props__.__dict__["tenant_id"] = tenant_id
+            __props__.__dict__["use_default_azure_credential"] = pulumi.Output.from_input(use_default_azure_credential).apply(pulumi.runtime.to_json) if use_default_azure_credential is not None else None
             __props__.__dict__["use_msi"] = pulumi.Output.from_input(use_msi).apply(pulumi.runtime.to_json) if use_msi is not None else None
             __props__.__dict__["use_oidc"] = pulumi.Output.from_input(use_oidc).apply(pulumi.runtime.to_json) if use_oidc is not None else None
         super(Provider, __self__).__init__(

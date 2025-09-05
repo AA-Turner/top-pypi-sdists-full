@@ -1,0 +1,17 @@
+---
+schema-version: v1
+kind: mergequeue
+enable: true
+workflow_type: noqueue # TODO: change to speculative once stable
+merge_method: squash
+gitlab_check_enable: true
+gitlab_jobs_retry_enable: true
+gitlab_fail_fast: true
+
+---
+schema-version: v1
+kind: mergegate
+rules:
+  - require: commit-signatures
+    excluded_emails:
+      - '41898282+github-actions[bot]@users.noreply.github.com'

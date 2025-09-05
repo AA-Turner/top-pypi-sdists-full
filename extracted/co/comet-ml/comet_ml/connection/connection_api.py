@@ -39,6 +39,7 @@ import requests.utils
 from .._typing import HeartBeatResponse, PreparedRequest
 from ..batch_utils import MessageBatchItem
 from ..config import (
+    MAXIMAL_LENGTH_OF_OUTPUT_LINE,
     Config,
     get_backend_address,
     get_check_tls_certificate,
@@ -187,6 +188,7 @@ from .connection_helpers import (
     format_remote_assets_batch_items,
     format_stdout_message_batch_items,
     raise_for_status_code,
+    split_output_by_breaks_and_length,
 )
 from .connection_upload import send_file, send_file_like
 from .connection_url_helpers import (
@@ -219,8 +221,6 @@ from .http_session import (
     get_retry_strategy,
     get_retry_strategy_for_get_or_add_run,
 )
-
-INITIAL_BEAT_DURATION = 10000  # 10 second
 
 LOGGER = logging.getLogger("comet_ml.connection")
 
@@ -2836,23 +2836,35 @@ class RestApiClient(BaseApiClient):
         context: Optional[str] = None,
         stderr: bool = False,
         timestamp: Optional[float] = None,
+        max_line_length: int = MAXIMAL_LENGTH_OF_OUTPUT_LINE,
     ) -> requests.Response:
         """
-        Log an output line.
+        Logs the output of an experiment.
+
+        This method sends the experiment output data to a specific endpoint. It allows for
+        splitting output into lines and adding metadata such as timestamps and offsets.
 
         Args:
-            experiment_key: str, the experiment id
-            output: str, the output to log
-            context: str, the context of the output
-            stderr: bool, if True, then output is stderr
-            timestamp: int, time in seconds, since epoch
+            experiment_key: The unique identifier for the experiment.
+            output: The output string to be logged.
+            context: An optional context string related to the experiment run.
+            stderr: A flag indicating whether the output is from a standard error. Defaults to False.
+            timestamp: Optional timestamp for the output. If not provided, a monotonic time value
+                       will be used.
+            max_line_length: The maximum allowable length for a line in the output. Defaults to
+                             5_000_000 characters.
+
+        Returns:
+            requests.Response: The response object resulting from the POST request to the endpoint.
         """
         if timestamp is None:
             timestamp = get_time_monotonic()
 
         stdout_lines = []
 
-        for offset, line in enumerate(output.splitlines(True)):
+        for offset, line in enumerate(
+            split_output_by_breaks_and_length(output, max_line_length=max_line_length)
+        ):
             stdout_lines.append(
                 {
                     PAYLOAD_STDERR: stderr,
@@ -2911,6 +2923,7 @@ class RestApiClient(BaseApiClient):
         experiment_key: str,
         compress: bool = True,
         timestamp: Optional[int] = None,
+        max_line_length: int = MAXIMAL_LENGTH_OF_OUTPUT_LINE,
     ) -> None:
 
         endpoint_url = "write/experiment/output"
@@ -2932,6 +2945,7 @@ class RestApiClient(BaseApiClient):
                 timestamp=timestamp,
                 experiment_key=experiment_key,
                 stderr=stderr,
+                max_line_length=max_line_length,
             )
             if payload is not None:
                 self.post_from_endpoint(

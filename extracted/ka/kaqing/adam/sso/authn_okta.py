@@ -23,7 +23,7 @@ class OktaAuthenticator(Authenticator):
 
         return cls.instance
 
-    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str) -> IdpLogin:
+    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str, verify: bool) -> IdpLogin:
         parsed_url = urlparse(idp_uri)
         query_string = parsed_url.query
         params = parse_qs(query_string)
@@ -70,6 +70,10 @@ class OktaAuthenticator(Authenticator):
                 log2('id_token not found\n' + r.text)
 
             raise OktaException('Invalid username/password.')
+
+        if not verify:
+            # just relay id_token, it will be verified by SP
+            return IdpLogin(redirect_url, id_token, state_token, username, idp_uri=idp_uri, id_token_obj=None, session=session)
 
         if group := Config().get('app.login.admin-group', '{host}/C3.ClusterAdmin').replace('{host}', app_host):
             parsed = OktaAuthenticator.parse_id_token(okta_host, id_token)

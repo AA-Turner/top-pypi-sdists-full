@@ -33,9 +33,9 @@ from .backend_response_helper import (
     get_param_value,
     is_backend_timestamp_newer,
 )
-from .comet import FallbackStreamer, Streamer
 from .config import (
     AUTO_OUTPUT_LOGGING_DEFAULT_VALUE,
+    INITIAL_HEARTBEAT_INTERVAL,
     MAXIMAL_KEY_LENGTH,
     discard_api_key,
     get_api_key,
@@ -43,7 +43,7 @@ from .config import (
     get_config,
     get_previous_experiment,
 )
-from .connection import INITIAL_BEAT_DURATION, RestApiClient, RestServerConnection
+from .connection import RestApiClient, RestServerConnection
 from .connection.connection_factory import (
     get_rest_api_client,
     get_rest_server_connection,
@@ -95,6 +95,7 @@ from .logging_messages import (
 )
 from .rpc import create_remote_call, get_remote_action_definition
 from .semantic_version import SemanticVersion
+from .streamer import FallbackStreamer, OnlineStreamer
 from .upload_callback.callback import UploadCallback
 from .utils import (
     get_time_monotonic,
@@ -336,7 +337,7 @@ class Experiment(CometExperiment):
 
         # Initiate the heartbeat thread
         self._heartbeat_thread = HeartbeatThread(
-            beat_duration=INITIAL_BEAT_DURATION / 1000.0,
+            beat_duration=INITIAL_HEARTBEAT_INTERVAL,
             status_update_callback=self._send_status_update,
             pending_rpcs_callback=self._on_pending_rpcs_callback,
         )
@@ -401,8 +402,10 @@ class Experiment(CometExperiment):
         else:
             LOGGER.debug(DIRECT_S3_UPLOAD_ENABLED)
 
-        online_streamer = Streamer(
-            beat_duration=INITIAL_BEAT_DURATION,
+        online_streamer = OnlineStreamer(
+            beat_duration=self.config.get_int(
+                None, "comet.internal.streamer_beat_duration"
+            ),
             connection=self.connection,
             initial_offset=initial_offset,
             experiment_key=self.id,
@@ -416,6 +419,9 @@ class Experiment(CometExperiment):
             worker_count=self.config.get_raw(None, "comet.internal.worker_count"),
             verify_tls=self._check_tls_certificate,
             msg_waiting_timeout=self.config["comet.timeout.cleaning"],
+            wait_for_finish_sleep_interval=self.config.get_int(
+                None, "comet.internal.streamer_wait_sleep_interval"
+            ),
             file_upload_waiting_timeout=self.config["comet.timeout.upload"],
             file_upload_read_timeout=self.config.get_int(
                 None, "comet.timeout.file_upload"
@@ -1152,6 +1158,71 @@ class Experiment(CometExperiment):
         recursive: bool = True,
         use_cached_dataset: bool = True,
     ) -> List[str]:
+        """
+        Fetches Comet artifact files to be used as Hugging Face dataset using specified parameters.
+
+        This method retrieves a dataset artifact from Comet, allowing
+        specification of workspace, version or alias, file pathname, and
+        recursive fetching. The dataset is downloaded to the specified directory or custom
+        directory if no download directory is specified. By default, all files are downloaded
+        only once for specified parameters and cached locally. Later calls to this method
+        with the same parameters will retrieve the cached dataset.
+
+        Args:
+            name: The name of the dataset artifact to retrieve. This could either be a fully
+                qualified artifact name like `workspace/artifact-name:versionOrAlias` or just the name
+                of the artifact like `artifact-name`.
+            workspace: The workspace context where the artifact exists.
+            version_or_alias: Specific version or alias to identify the artifact dataset.
+            download_directory: The directory to download the dataset to. If not specified, the dataset
+                will be downloaded to a directory created using the artifact name and version or alias in the
+                current working directory.
+            pathname: File path or pattern to match within the dataset. This can be a glob pattern. Defaults to "**".
+            recursive: Determines whether to fetch files recursively. Defaults to True.
+            use_cached_dataset: Determines whether to use cached dataset. Defaults to True.
+
+        Returns:
+            List of strings representing the retrieved dataset files.
+
+        Example:
+            ```python
+            import comet_ml
+            from comet_ml import Artifact
+
+            # log a dataset artifact
+            exp = comet_ml.start(project_name="hf-datasets")
+            dataset_artifact = Artifact(
+                artifact_type="dataset",
+                name="iris",
+            )
+            dataset_artifact.add(
+                local_path_or_data="./Downloads/iris", # folder with 2 csvs
+            )
+            exp.log_artifact(dataset_artifact)
+            exp.end()
+
+            # retrieve the dataset artifact and load it as HuggingFace dataset
+            from datasets import load_dataset
+
+            dataset = load_dataset(
+                "csv",
+                data_files={
+                    "train": exp.get_hf_dataset(
+                        name="iris",
+                        version_or_alias="1.0.0",
+                        pathname="train/*.csv",
+                        download_directory="./iris-dataset",
+                    ),
+                    "test": exp.get_hf_dataset(
+                        name="iris",
+                        version_or_alias="1.0.0",
+                        pathname="test/*.csv",
+                        download_directory="./iris-dataset",
+                    )
+                }
+            )
+            ```
+        """
         logged_artifact = self.get_artifact(
             artifact_name=name,
             workspace=workspace,

@@ -941,18 +941,60 @@ class CheckModelCreationAllowedResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     IS_CREATABLE_FIELD_NUMBER: builtins.int
-    ERROR_DETAILS_FIELD_NUMBER: builtins.int
+    MODEL_EXISTS_FIELD_NUMBER: builtins.int
+    MODEL_NOT_EXISTS_FIELD_NUMBER: builtins.int
+    MODEL_EXISTS_WITH_MISMATCH_FIELD_NUMBER: builtins.int
     is_creatable: builtins.bool
     """set to true if allowed to create, otherwise false"""
     @property
-    def error_details(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """upon errors, returns a list of errors"""
+    def model_exists(self) -> global___ModelExists: ...
+    @property
+    def model_not_exists(self) -> global___ModelNotExists: ...
+    @property
+    def model_exists_with_mismatch(self) -> global___ModelExistsWithMismatch: ...
     def __init__(
         self,
         *,
         is_creatable: builtins.bool = ...,
-        error_details: collections.abc.Iterable[builtins.str] | None = ...,
+        model_exists: global___ModelExists | None = ...,
+        model_not_exists: global___ModelNotExists | None = ...,
+        model_exists_with_mismatch: global___ModelExistsWithMismatch | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["error_details", b"error_details", "is_creatable", b"is_creatable"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["model_exists", b"model_exists", "model_exists_with_mismatch", b"model_exists_with_mismatch", "model_not_exists", b"model_not_exists", "status", b"status"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["is_creatable", b"is_creatable", "model_exists", b"model_exists", "model_exists_with_mismatch", b"model_exists_with_mismatch", "model_not_exists", b"model_not_exists", "status", b"status"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["status", b"status"]) -> typing_extensions.Literal["model_exists", "model_not_exists", "model_exists_with_mismatch"] | None: ...
 
 global___CheckModelCreationAllowedResponse = CheckModelCreationAllowedResponse
+
+class ModelExists(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ModelExists = ModelExists
+
+class ModelNotExists(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ModelNotExists = ModelNotExists
+
+class ModelExistsWithMismatch(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DETAILS_FIELD_NUMBER: builtins.int
+    @property
+    def details(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        details: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["details", b"details"]) -> None: ...
+
+global___ModelExistsWithMismatch = ModelExistsWithMismatch

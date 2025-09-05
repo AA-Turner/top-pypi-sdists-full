@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: webauthn
-Version: 2.6.0
+Version: 2.7.0
 Summary: Pythonic WebAuthn
 Author-email: Duo Labs <labs@duo.com>
 License-Expression: BSD-3-Clause
@@ -9,7 +9,7 @@ Keywords: webauthn,fido2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asn1crypto>=1.5.1

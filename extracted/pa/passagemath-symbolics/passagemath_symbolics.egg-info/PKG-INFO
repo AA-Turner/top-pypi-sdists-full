@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-symbolics
-Version: 10.6.14
+Version: 10.6.15
 Summary: passagemath: Symbolic calculus
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -33,20 +33,21 @@ Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: numpy>=1.19
 Requires-Dist: numpy>=1.22.4
-Requires-Dist: passagemath-categories~=10.6.14.0
-Requires-Dist: passagemath-ecl~=10.6.14.0
-Requires-Dist: passagemath-environment~=10.6.14.0
-Requires-Dist: passagemath-flint~=10.6.14.0
-Requires-Dist: passagemath-maxima~=10.6.14.0
-Requires-Dist: passagemath-modules~=10.6.14.0
-Requires-Dist: passagemath-ntl~=10.6.14.0
-Requires-Dist: passagemath-singular~=10.6.14.0
+Requires-Dist: passagemath-categories~=10.6.15.0
+Requires-Dist: passagemath-ecl~=10.6.15.0
+Requires-Dist: passagemath-environment~=10.6.15.0
+Requires-Dist: passagemath-flint~=10.6.15.0
+Requires-Dist: passagemath-maxima~=10.6.15.0
+Requires-Dist: passagemath-modules~=10.6.15.0
+Requires-Dist: passagemath-ntl~=10.6.15.0
+Requires-Dist: passagemath-singular~=10.6.15.0
 Requires-Dist: sympy<2.0,>=1.6
 Provides-Extra: conf
 Requires-Dist: passagemath-conf; extra == "conf"
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
-Provides-Extra: axiom
+Provides-Extra: fricas
+Requires-Dist: passagemath-fricas; extra == "fricas"
 Provides-Extra: giac
 Requires-Dist: passagemath-giac; extra == "giac"
 Provides-Extra: ginac
@@ -167,6 +168,9 @@ Using `SageManifolds <https://sagemanifolds.obspm.fr/>`_::
 
 Available as extras, from other distributions
 ---------------------------------------------
+
+``pip install "passagemath-symbolics[fricas]"``
+ Computer algebra system `FriCAS <https://passagemath.org/docs/latest/html/en/reference/spkg/fricas.html>`_, via `passagemath-fricas <https://passagemath.org/docs/latest/html/en/reference/spkg/sagemath_fricas.html>`_
 
 ``pip install "passagemath-symbolics[giac]"``
  Computer algebra system `Giac <https://passagemath.org/docs/latest/html/en/reference/spkg/giac.html>`_, via `passagemath-giac <https://passagemath.org/docs/latest/html/en/reference/spkg/sagemath_giac.html>`_

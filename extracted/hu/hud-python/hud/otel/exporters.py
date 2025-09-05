@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import time
 from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -362,5 +363,7 @@ class HudSpanExporter(SpanExporter):
         pass
 
     def force_flush(self, timeout_millis: int | None = None) -> bool:  # type: ignore[override]
+        if timeout_millis:
+            time.sleep(timeout_millis / 1000)
         # Synchronous export, nothing buffered here
         return True

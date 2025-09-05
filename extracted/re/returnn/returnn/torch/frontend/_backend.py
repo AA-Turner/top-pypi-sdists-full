@@ -1572,6 +1572,7 @@ class TorchBackend(Backend[torch.Tensor]):
                 indices_out_raw = indices_raw % a.dimension
                 indices_raw = indices_raw // a.dimension
                 indices = values.copy_template(name=f"top_k_indices_{a.name or i}")
+                indices.feature_dim = None
                 indices.dtype = TorchBackend.get_dtype_name_raw(indices_out_raw)
                 indices.sparse_dim = a
                 indices.raw_tensor = indices_out_raw
@@ -1588,6 +1589,7 @@ class TorchBackend(Backend[torch.Tensor]):
         values = source.copy_template_replace_dim_tag(axis=axis_int, new_dim_tag=k_dim, name="top_k_values")
         values.raw_tensor = values_raw
         indices = source.copy_template_replace_dim_tag(axis=axis_int, new_dim_tag=k_dim, name="top_k_indices")
+        indices.feature_dim = None
         indices.dtype = TorchBackend.get_dtype_name_raw(indices_raw)
         indices.sparse_dim = axis
         indices.raw_tensor = indices_raw
@@ -1639,6 +1641,8 @@ class TorchBackend(Backend[torch.Tensor]):
                 name=f"random_{distribution}", dims=dims, dtype=dtype, sparse_dim=sparse_dim, feature_dim=feature_dim
             )
             out.raw_tensor = torch.empty(shape, dtype=dtype_, device=device or rf.get_default_device())
+        if out.raw_tensor.device.type == "meta":
+            return out  # nothing more to do
         assert explicit_state is None  # not implemented otherwise
         generator = None  # using the global default from PT
         assert isinstance(static, bool)

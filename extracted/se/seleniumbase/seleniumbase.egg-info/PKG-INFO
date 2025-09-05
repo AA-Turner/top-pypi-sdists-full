@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.41.3
+Version: 4.41.4
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -118,12 +118,12 @@ Requires-Dist: iniconfig==2.1.0
 Requires-Dist: pluggy==1.5.0; python_version < "3.9"
 Requires-Dist: pluggy==1.6.0; python_version >= "3.9"
 Requires-Dist: pytest==8.3.5; python_version < "3.9"
-Requires-Dist: pytest==8.4.1; python_version >= "3.9"
+Requires-Dist: pytest==8.4.2; python_version >= "3.9"
 Requires-Dist: pytest-html==4.0.2
 Requires-Dist: pytest-metadata==3.1.1
 Requires-Dist: pytest-ordering==0.6
 Requires-Dist: pytest-rerunfailures==14.0; python_version < "3.9"
-Requires-Dist: pytest-rerunfailures==15.1; python_version >= "3.9"
+Requires-Dist: pytest-rerunfailures==16.0.1; python_version >= "3.9"
 Requires-Dist: pytest-xdist==3.6.1; python_version < "3.9"
 Requires-Dist: pytest-xdist==3.8.0; python_version >= "3.9"
 Requires-Dist: parameterized==0.9.0
@@ -143,7 +143,7 @@ Requires-Dist: allure-python-commons>=2.13.5; extra == "allure"
 Requires-Dist: allure-behave>=2.13.5; extra == "allure"
 Provides-Extra: coverage
 Requires-Dist: coverage>=7.6.1; python_version < "3.9" and extra == "coverage"
-Requires-Dist: coverage>=7.10.5; python_version >= "3.9" and extra == "coverage"
+Requires-Dist: coverage>=7.10.6; python_version >= "3.9" and extra == "coverage"
 Requires-Dist: pytest-cov>=5.0.0; python_version < "3.9" and extra == "coverage"
 Requires-Dist: pytest-cov>=6.2.1; python_version >= "3.9" and extra == "coverage"
 Provides-Extra: flake8
@@ -164,7 +164,7 @@ Provides-Extra: pdfminer
 Requires-Dist: pdfminer.six==20250324; python_version < "3.9" and extra == "pdfminer"
 Requires-Dist: pdfminer.six==20250506; python_version >= "3.9" and extra == "pdfminer"
 Requires-Dist: cryptography==39.0.2; python_version < "3.9" and extra == "pdfminer"
-Requires-Dist: cryptography==45.0.6; python_version >= "3.9" and extra == "pdfminer"
+Requires-Dist: cryptography==45.0.7; python_version >= "3.9" and extra == "pdfminer"
 Requires-Dist: cffi==1.17.1; extra == "pdfminer"
 Requires-Dist: pycparser==2.22; extra == "pdfminer"
 Provides-Extra: pillow

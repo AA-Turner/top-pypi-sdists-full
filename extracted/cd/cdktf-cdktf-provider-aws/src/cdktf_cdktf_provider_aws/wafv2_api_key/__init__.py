@@ -1,7 +1,7 @@
 r'''
 # `aws_wafv2_api_key`
 
-Refer to the Terraform Registry for docs: [`aws_wafv2_api_key`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key).
+Refer to the Terraform Registry for docs: [`aws_wafv2_api_key`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Wafv2ApiKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafv2ApiKey.Wafv2ApiKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key aws_wafv2_api_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key aws_wafv2_api_key}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Wafv2ApiKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key aws_wafv2_api_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key aws_wafv2_api_key} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are CLOUDFRONT or REGIONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
-        :param token_domains: The domains that you want to be able to use the API key with, for example example.com. Maximum of 5 domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
+        :param scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are CLOUDFRONT or REGIONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
+        :param token_domains: The domains that you want to be able to use the API key with, for example example.com. Maximum of 5 domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Wafv2ApiKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Wafv2ApiKey to import.
-        :param import_from_id: The id of the existing Wafv2ApiKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Wafv2ApiKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Wafv2ApiKey to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class Wafv2ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are CLOUDFRONT or REGIONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
-        :param token_domains: The domains that you want to be able to use the API key with, for example example.com. Maximum of 5 domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
+        :param scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are CLOUDFRONT or REGIONAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
+        :param token_domains: The domains that you want to be able to use the API key with, for example example.com. Maximum of 5 domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -342,7 +342,7 @@ class Wafv2ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are CLOUDFRONT or REGIONAL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#scope Wafv2ApiKey#scope}
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -352,7 +352,7 @@ class Wafv2ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def token_domains(self) -> typing.List[builtins.str]:
         '''The domains that you want to be able to use the API key with, for example example.com. Maximum of 5 domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#token_domains Wafv2ApiKey#token_domains}
         '''
         result = self._values.get("token_domains")
         assert result is not None, "Required property 'token_domains' is missing"
@@ -362,7 +362,7 @@ class Wafv2ApiKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/wafv2_api_key#region Wafv2ApiKey#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

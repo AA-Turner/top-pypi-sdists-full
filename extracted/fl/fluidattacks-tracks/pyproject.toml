@@ -7,7 +7,7 @@ license = "MPL-2.0"
 name = "fluidattacks-tracks"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-version = "0.8.3"
+version = "0.8.5"
 
 dependencies = [
   "aiohttp>=3.12.15",
@@ -16,10 +16,12 @@ dependencies = [
   "tenacity>=9.1.2",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 auth = [
   "aiobotocore>=2.16.0",
 ]
+
+[dependency-groups]
 dev = [
   "mypy==1.15.0",
   "ruff==0.12.1",

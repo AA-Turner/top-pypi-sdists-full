@@ -1,7 +1,7 @@
 r'''
 # `newrelic_infra_alert_condition`
 
-Refer to the Terraform Registry for docs: [`newrelic_infra_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition).
+Refer to the Terraform Registry for docs: [`newrelic_infra_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class InfraAlertCondition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.infraAlertCondition.InfraAlertCondition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition newrelic_infra_alert_condition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition newrelic_infra_alert_condition}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class InfraAlertCondition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition newrelic_infra_alert_condition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition newrelic_infra_alert_condition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The Infrastructure alert condition's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
-        :param policy_id: The ID of the alert policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
-        :param type: The type of Infrastructure alert condition. Valid values are infra_process_running, infra_metric, and infra_host_not_reporting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
-        :param comparison: The operator used to evaluate the threshold value. Valid values are above, below, and equal. Supported by the infra_metric and infra_process_running condition types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
-        :param critical: critical block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
-        :param description: The description of the Infrastructure alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
-        :param enabled: Whether the condition is turned on or off. Valid values are true and false. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
-        :param event: The metric event; for example, SystemSample or StorageSample. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_provider: For alerts on integrations, use this instead of event. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
-        :param process_where: Any filters applied to processes; for example: commandName = 'java'. Supported by the infra_process_running condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
-        :param select: The attribute name to identify the metric being targeted; for example, cpuPercent, diskFreePercent, or memoryResidentSizeBytes. The underlying API will automatically populate this value for Infrastructure integrations (for example diskFreePercent), so make sure to explicitly include this value to avoid diff issues. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
-        :param violation_close_timer: Determines how much time, in hours, will pass before an incident is automatically closed. Valid values are 1, 2, 4, 8, 12, 24, 48, or 72 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
-        :param warning: warning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
-        :param where: If applicable, this identifies any Infrastructure host filters used; for example: hostname LIKE '%cassandra%'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
+        :param name: The Infrastructure alert condition's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
+        :param policy_id: The ID of the alert policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
+        :param type: The type of Infrastructure alert condition. Valid values are infra_process_running, infra_metric, and infra_host_not_reporting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
+        :param comparison: The operator used to evaluate the threshold value. Valid values are above, below, and equal. Supported by the infra_metric and infra_process_running condition types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
+        :param critical: critical block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
+        :param description: The description of the Infrastructure alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
+        :param enabled: Whether the condition is turned on or off. Valid values are true and false. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
+        :param event: The metric event; for example, SystemSample or StorageSample. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_provider: For alerts on integrations, use this instead of event. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
+        :param process_where: Any filters applied to processes; for example: commandName = 'java'. Supported by the infra_process_running condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
+        :param select: The attribute name to identify the metric being targeted; for example, cpuPercent, diskFreePercent, or memoryResidentSizeBytes. The underlying API will automatically populate this value for Infrastructure integrations (for example diskFreePercent), so make sure to explicitly include this value to avoid diff issues. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
+        :param violation_close_timer: Determines how much time, in hours, will pass before an incident is automatically closed. Valid values are 1, 2, 4, 8, 12, 24, 48, or 72 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
+        :param warning: warning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
+        :param where: If applicable, this identifies any Infrastructure host filters used; for example: hostname LIKE '%cassandra%'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class InfraAlertCondition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the InfraAlertCondition to import.
-        :param import_from_id: The id of the existing InfraAlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing InfraAlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the InfraAlertCondition to import is found.
         '''
         if __debug__:
@@ -168,9 +168,9 @@ class InfraAlertCondition(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
-        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
+        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
         '''
         value_ = InfraAlertConditionCritical(
             duration=duration, time_function=time_function, value=value
@@ -187,9 +187,9 @@ class InfraAlertCondition(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
-        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
+        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
         '''
         value_ = InfraAlertConditionWarning(
             duration=duration, time_function=time_function, value=value
@@ -606,22 +606,22 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The Infrastructure alert condition's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
-        :param policy_id: The ID of the alert policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
-        :param type: The type of Infrastructure alert condition. Valid values are infra_process_running, infra_metric, and infra_host_not_reporting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
-        :param comparison: The operator used to evaluate the threshold value. Valid values are above, below, and equal. Supported by the infra_metric and infra_process_running condition types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
-        :param critical: critical block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
-        :param description: The description of the Infrastructure alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
-        :param enabled: Whether the condition is turned on or off. Valid values are true and false. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
-        :param event: The metric event; for example, SystemSample or StorageSample. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_provider: For alerts on integrations, use this instead of event. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
-        :param process_where: Any filters applied to processes; for example: commandName = 'java'. Supported by the infra_process_running condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
-        :param select: The attribute name to identify the metric being targeted; for example, cpuPercent, diskFreePercent, or memoryResidentSizeBytes. The underlying API will automatically populate this value for Infrastructure integrations (for example diskFreePercent), so make sure to explicitly include this value to avoid diff issues. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
-        :param violation_close_timer: Determines how much time, in hours, will pass before an incident is automatically closed. Valid values are 1, 2, 4, 8, 12, 24, 48, or 72 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
-        :param warning: warning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
-        :param where: If applicable, this identifies any Infrastructure host filters used; for example: hostname LIKE '%cassandra%'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
+        :param name: The Infrastructure alert condition's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
+        :param policy_id: The ID of the alert policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
+        :param type: The type of Infrastructure alert condition. Valid values are infra_process_running, infra_metric, and infra_host_not_reporting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
+        :param comparison: The operator used to evaluate the threshold value. Valid values are above, below, and equal. Supported by the infra_metric and infra_process_running condition types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
+        :param critical: critical block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
+        :param description: The description of the Infrastructure alert condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
+        :param enabled: Whether the condition is turned on or off. Valid values are true and false. Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
+        :param event: The metric event; for example, SystemSample or StorageSample. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_provider: For alerts on integrations, use this instead of event. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
+        :param process_where: Any filters applied to processes; for example: commandName = 'java'. Supported by the infra_process_running condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
+        :param select: The attribute name to identify the metric being targeted; for example, cpuPercent, diskFreePercent, or memoryResidentSizeBytes. The underlying API will automatically populate this value for Infrastructure integrations (for example diskFreePercent), so make sure to explicitly include this value to avoid diff issues. Supported by the infra_metric condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
+        :param violation_close_timer: Determines how much time, in hours, will pass before an incident is automatically closed. Valid values are 1, 2, 4, 8, 12, 24, 48, or 72 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
+        :param warning: warning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
+        :param where: If applicable, this identifies any Infrastructure host filters used; for example: hostname LIKE '%cassandra%'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -768,7 +768,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The Infrastructure alert condition's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#name InfraAlertCondition#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -778,7 +778,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_id(self) -> jsii.Number:
         '''The ID of the alert policy where this condition should be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#policy_id InfraAlertCondition#policy_id}
         '''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
@@ -788,7 +788,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The type of Infrastructure alert condition. Valid values are infra_process_running, infra_metric, and infra_host_not_reporting.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#type InfraAlertCondition#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -800,7 +800,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are above, below, and equal. Supported by the infra_metric and infra_process_running condition types.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#comparison InfraAlertCondition#comparison}
         '''
         result = self._values.get("comparison")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -809,7 +809,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def critical(self) -> typing.Optional["InfraAlertConditionCritical"]:
         '''critical block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#critical InfraAlertCondition#critical}
         '''
         result = self._values.get("critical")
         return typing.cast(typing.Optional["InfraAlertConditionCritical"], result)
@@ -818,7 +818,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the Infrastructure alert condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#description InfraAlertCondition#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -829,7 +829,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the condition is turned on or off. Valid values are true and false. Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#enabled InfraAlertCondition#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -838,14 +838,14 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event(self) -> typing.Optional[builtins.str]:
         '''The metric event; for example, SystemSample or StorageSample. Supported by the infra_metric condition type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#event InfraAlertCondition#event}
         '''
         result = self._values.get("event")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#id InfraAlertCondition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -857,7 +857,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def integration_provider(self) -> typing.Optional[builtins.str]:
         '''For alerts on integrations, use this instead of event. Supported by the infra_metric condition type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#integration_provider InfraAlertCondition#integration_provider}
         '''
         result = self._values.get("integration_provider")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -866,7 +866,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def process_where(self) -> typing.Optional[builtins.str]:
         '''Any filters applied to processes; for example: commandName = 'java'. Supported by the infra_process_running condition type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#process_where InfraAlertCondition#process_where}
         '''
         result = self._values.get("process_where")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -875,7 +875,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runbook_url(self) -> typing.Optional[builtins.str]:
         '''Runbook URL to display in notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#runbook_url InfraAlertCondition#runbook_url}
         '''
         result = self._values.get("runbook_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -886,7 +886,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         for example, cpuPercent, diskFreePercent, or memoryResidentSizeBytes. The underlying API will automatically populate this value for Infrastructure integrations (for example diskFreePercent), so make sure to explicitly include this value to avoid diff issues. Supported by the infra_metric condition type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#select InfraAlertCondition#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -897,7 +897,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are 1, 2, 4, 8, 12, 24, 48, or 72
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#violation_close_timer InfraAlertCondition#violation_close_timer}
         '''
         result = self._values.get("violation_close_timer")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -906,7 +906,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def warning(self) -> typing.Optional["InfraAlertConditionWarning"]:
         '''warning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#warning InfraAlertCondition#warning}
         '''
         result = self._values.get("warning")
         return typing.cast(typing.Optional["InfraAlertConditionWarning"], result)
@@ -915,7 +915,7 @@ class InfraAlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def where(self) -> typing.Optional[builtins.str]:
         '''If applicable, this identifies any Infrastructure host filters used; for example: hostname LIKE '%cassandra%'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#where InfraAlertCondition#where}
         '''
         result = self._values.get("where")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -950,9 +950,9 @@ class InfraAlertConditionCritical:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
-        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
+        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7296760f72a4c0211f75374f9d66ff404e5b40874fa56eed8c0e564c69b9daeb)
@@ -969,20 +969,20 @@ class InfraAlertConditionCritical:
 
     @builtins.property
     def duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.'''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def time_function(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.'''
         result = self._values.get("time_function")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1111,9 +1111,9 @@ class InfraAlertConditionWarning:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
-        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.
+        :param time_function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5e07f2290f7788a889de4e4869c793e946a660ecede10497ba45ec8bb49b1b3)
@@ -1130,20 +1130,20 @@ class InfraAlertConditionWarning:
 
     @builtins.property
     def duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#duration InfraAlertCondition#duration}.'''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def time_function(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#time_function InfraAlertCondition#time_function}.'''
         result = self._values.get("time_function")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/infra_alert_condition#value InfraAlertCondition#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 

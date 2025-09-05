@@ -10,6 +10,7 @@
 #  Copyright (C) 2015-2024 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+import math
 from http import HTTPStatus
 from typing import IO, Any, Dict, List, Optional
 
@@ -34,11 +35,35 @@ from .http_session import API_KEY_HEADER
 BACKOFF_MAX = 120
 
 
+def split_output_by_breaks_and_length(
+    output: str, max_line_length: int, keep_ends: bool = True
+) -> List[str]:
+    lines = []
+    for line in output.splitlines(keepends=keep_ends):
+        split_lines = split_line_by_length(line, max_line_length)
+        lines.extend(split_lines)
+
+    return lines
+
+
+def split_line_by_length(line: str, max_line_length: int) -> List[str]:
+    lines = []
+    while len(line) > max_line_length:
+        lines.append(line[:max_line_length])
+        line = line[max_line_length:]
+
+    if len(line) > 0:
+        lines.append(line)
+
+    return lines
+
+
 def format_stdout_message_batch_items(
     batch_items: List[MessageBatchItem],
     timestamp: int,
     experiment_key: str,
     stderr: bool,
+    max_line_length: int,
 ) -> Optional[Dict[str, Any]]:
     stdout_lines = []
     timestamp = int(timestamp * 1000)  # the Java format - milliseconds since epoch
@@ -51,14 +76,26 @@ def format_stdout_message_batch_items(
             # different message type than requested
             continue
 
-        stdout_lines.append(
-            {
-                PAYLOAD_STDERR: stderr,
-                PAYLOAD_OUTPUT: item.message.output,
-                PAYLOAD_LOCAL_TIMESTAMP: timestamp,
-                PAYLOAD_OFFSET: item.message.message_id,
-            }
-        )
+        lines = split_line_by_length(item.message.output, max_line_length)
+        if len(lines) == 0:
+            continue
+
+        # message_id increases monotonically, but we need gaps in the sequence to allow inserting
+        # new values between existing ones. To achieve this, we expand the numeric range by a factor of 1.5
+        offset = int(math.ceil(item.message.message_id * 1.5))
+
+        for i, line in enumerate(lines):
+            if i > 0:
+                offset += 1
+
+            stdout_lines.append(
+                {
+                    PAYLOAD_STDERR: stderr,
+                    PAYLOAD_OUTPUT: line,
+                    PAYLOAD_LOCAL_TIMESTAMP: timestamp,
+                    PAYLOAD_OFFSET: offset,
+                }
+            )
 
     if len(stdout_lines) == 0:
         return None

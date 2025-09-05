@@ -1,6 +1,6 @@
 import io
 import json
-from os import walk
+import os
 import re
 import time
 import traceback
@@ -8,11 +8,13 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
+from importlib import import_module
+from os import walk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
-from orionis.foundation.config.testing.enums.verbosity import VerbosityMode
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.test.contracts.test_result import IOrionisTestResult
@@ -33,11 +35,10 @@ from orionis.test.validators import (
     ValidPersistentDriver,
     ValidPersistent,
     ValidPrintResult,
-    ValidTags,
     ValidThrowException,
     ValidVerbosity,
     ValidWebReport,
-    ValidWorkers
+    ValidWorkers,
 )
 from orionis.test.view.render import TestingResultRender
 
@@ -47,7 +48,22 @@ class UnitTest(IUnitTest):
 
     Advanced unit testing manager for the Orionis framework.
 
-    This class provides mechanisms for discovering, executing, and reporting unit tests with extensive configurability. It supports sequential and parallel execution, test filtering by name or tags, and detailed result tracking including execution times, error messages, and tracebacks.
+    This class provides mechanisms for discovering, executing, and reporting unit tests with extensive configurability.
+    It supports sequential and parallel execution, test filtering by name or tags, and detailed result tracking including
+    execution times, error messages, and tracebacks. The UnitTest manager integrates with the Orionis application for
+    dependency injection, configuration loading, and result persistence.
+
+    Parameters
+    ----------
+    app : IApplication
+        The application instance used for dependency injection, configuration access, and path resolution.
+
+    Notes
+    -----
+    - The application instance is stored for later use in dependency resolution and configuration access.
+    - The test loader and suite are initialized for test discovery and execution.
+    - Output buffers, paths, configuration, modules, and tests are loaded in sequence to prepare the test manager.
+    - Provides methods for running tests, retrieving results, and printing output/error buffers.
     """
 
     def __init__(
@@ -55,441 +71,386 @@ class UnitTest(IUnitTest):
         app: IApplication
     ) -> None:
         """
-        Initialize a UnitTest instance with default configuration and internal state.
+        Initialize the UnitTest manager for the Orionis framework.
 
-        Sets up all internal attributes required for test discovery, execution, result reporting, and configuration management. Does not perform test discovery or execution.
+        This constructor sets up the internal state required for advanced unit testing,
+        including dependency injection, configuration loading, test discovery, and result tracking.
+        It initializes the application instance, test loader, test suite, module list, and result storage.
+        The constructor also loads output buffers, paths, configuration, test modules, and discovered tests.
+
+        Parameters
+        ----------
+        app : IApplication
+            The application instance used for dependency injection, configuration access, and path resolution.
 
         Returns
         -------
         None
-        """
-
-        # Application instance for dependency injection
-        self.__app: IApplication = app
-
-        # Storage path for test results
-        self.__storage: Optional[str] = self.__app.path('testing')
-
-        # Configuration values (set via configure)
-        self.__verbosity: Optional[int] = None
-        self.__execution_mode: Optional[str] = None
-        self.__max_workers: Optional[int] = None
-        self.__fail_fast: Optional[bool] = None
-        self.__throw_exception: Optional[bool] = None
-        self.__persistent: Optional[bool] = None
-        self.__persistent_driver: Optional[str] = None
-        self.__web_report: Optional[bool] = None
-
-        # Test discovery parameters for folders
-        self.__folder_path: Optional[str] = None
-        self.__base_path: Optional[str] = None
-        self.__pattern: Optional[str] = None
-        self.__test_name_pattern: Optional[str] = None
-        self.__tags: Optional[List[str]] = None
-
-        # Test discovery parameter for modules
-        self.__module_name: Optional[str] = None
-
-        # Initialize the unittest loader and suite for test discovery and execution
-        self.__loader = unittest.TestLoader()
-        self.__suite = unittest.TestSuite()
-        self.__discovered_tests: List = []
-
-        # Printer for console output (set during configuration)
-        self.__printer: TestPrinter = None
-
-        # Buffers for capturing standard output and error during test execution
-        self.__output_buffer = None
-        self.__error_buffer = None
-
-        # Stores the result summary after test execution
-        self.__result = None
-
-    def configure(
-        self,
-        *,
-        verbosity: int | VerbosityMode,
-        execution_mode: str | ExecutionMode,
-        max_workers: int,
-        fail_fast: bool,
-        print_result: bool,
-        throw_exception: bool,
-        persistent: bool,
-        persistent_driver: str | PersistentDrivers,
-        web_report: bool
-    ) -> 'UnitTest':
-        """
-        Configure the UnitTest instance with execution and reporting parameters.
-
-        Parameters
-        ----------
-        verbosity : int or VerbosityMode
-            Verbosity level for test output.
-        execution_mode : str or ExecutionMode
-            Execution mode ('SEQUENTIAL' or 'PARALLEL').
-        max_workers : int
-            Maximum number of workers for parallel execution.
-        fail_fast : bool
-            Whether to stop on the first failure.
-        print_result : bool
-            Whether to print results to the console.
-        throw_exception : bool
-            Whether to raise exceptions on test failures.
-        persistent : bool
-            Whether to enable result persistence.
-        persistent_driver : str or PersistentDrivers
-            Persistence driver ('sqlite' or 'json').
-        web_report : bool
-            Whether to enable web report generation.
-
-        Returns
-        -------
-        UnitTest
-            The configured UnitTest instance.
-
-        Raises
-        ------
-        OrionisTestValueError
-            If any parameter is invalid.
-        """
-
-        # Validate and assign parameters using specialized validators
-        self.__verbosity = ValidVerbosity(verbosity)
-        self.__execution_mode = ValidExecutionMode(execution_mode)
-        self.__max_workers = ValidWorkers(max_workers)
-        self.__fail_fast = ValidFailFast(fail_fast)
-        self.__throw_exception = ValidThrowException(throw_exception)
-        self.__persistent = ValidPersistent(persistent)
-        self.__persistent_driver = ValidPersistentDriver(persistent_driver)
-        self.__web_report = ValidWebReport(web_report)
-
-        # Initialize the result printer with the current configuration
-        self.__printer = TestPrinter(
-            print_result = ValidPrintResult(print_result)
-        )
-
-        # Return the instance to allow method chaining
-        return self
-
-    def discoverTests(
-        self,
-        base_path: str | Path,
-        folder_path: str | List[str],
-        pattern: str,
-        test_name_pattern: Optional[str] = None,
-        tags: Optional[List[str]] = None
-    ) -> 'UnitTest':
-        """
-        Discover test cases from specified folders using flexible path discovery.
-
-        This method provides a convenient way to discover and load test cases from multiple folders
-        based on various path specifications. It supports wildcard discovery, single folder loading,
-        and multiple folder loading. The method automatically resolves paths relative to the base
-        directory and discovers all folders containing files matching the specified pattern.
-
-        Parameters
-        ----------
-        base_path : str or Path
-            Base directory path for resolving relative folder paths. This serves as the root
-            directory from which all folder searches are conducted.
-        folder_path : str or list of str
-            Specification of folders to search for test cases. Can be:
-            - '*' : Discover all folders containing matching files within base_path
-            - str : Single folder path relative to base_path
-            - list of str : Multiple folder paths relative to base_path
-        pattern : str
-            File name pattern to match test files, supporting wildcards (* and ?).
-            Examples: 'test_*.py', '*_test.py', 'test*.py'
-        test_name_pattern : str, optional
-            Regular expression pattern to filter test method names. Only tests whose
-            names match this pattern will be included. Default is None (no filtering).
-        tags : list of str, optional
-            List of tags to filter tests. Only tests decorated with matching tags
-            will be included. Default is None (no tag filtering).
-
-        Returns
-        -------
-        UnitTest
-            The current UnitTest instance with discovered tests added to the suite,
-            enabling method chaining.
+            This method does not return a value. It initializes the internal state of the UnitTest instance.
 
         Notes
         -----
-        - All paths are resolved as absolute paths relative to the base_path
-        - When folder_path is '*', the method searches recursively through all subdirectories
-        - The method uses the existing discoverTestsInFolder method for actual test discovery
-        - Duplicate folders are automatically eliminated using a set data structure
-        - The method does not validate the existence of specified folders; validation
-          occurs during the actual test discovery process
+        - The application instance is stored for later use in dependency resolution and configuration access.
+        - The test loader and suite are initialized for test discovery and execution.
+        - Output buffers, paths, configuration, modules, and tests are loaded in sequence to prepare the test manager.
         """
-        # Resolve the base path as an absolute path from the current working directory
-        base_path = (Path.cwd() / base_path).resolve()
 
-        # Use a set to store discovered folders and automatically eliminate duplicates
-        discovered_folders = set()
+        # Store the application instance for dependency injection and configuration access
+        self.__app: IApplication = app
 
-        # Handle wildcard discovery: search all folders containing matching files
-        if folder_path == '*':
+        # Initialize the unittest loader for discovering test cases
+        self.__loader = unittest.TestLoader()
 
-            # Search recursively through the entire base path for folders with matching files
-            discovered_folders.update(self.__listMatchingFolders(base_path, base_path, pattern))
+        # Initialize the test suite to hold discovered tests
+        self.__suite = unittest.TestSuite()
 
-        # Handle multiple folder paths: process each folder in the provided list
-        elif isinstance(folder_path, list):
-            for custom in folder_path:
-                # Resolve each custom folder path relative to the base path
-                custom_path = (base_path / custom).resolve()
-                # Add all matching folders found within this custom path
-                discovered_folders.update(self.__listMatchingFolders(base_path, custom_path, pattern))
+        # List to store imported test modules
+        self.__modules: List = []
 
-        # Handle single folder path: process the single specified folder
-        else:
+        # List to track discovered tests and their metadata
+        self.__discovered_tests: List = []
 
-            # Resolve the single folder path relative to the base path
-            custom_path = (base_path / folder_path).resolve()
-            # Add all matching folders found within this single path
-            discovered_folders.update(self.__listMatchingFolders(base_path, custom_path, pattern))
+        # Variable to store the result summary after test execution
+        self.__result: Optional[Dict[str, Any]] = None
 
-        # Iterate through all discovered folders and perform test discovery
-        for folder in discovered_folders:
+        # Load the output and error buffers for capturing test execution output
+        self.__loadOutputBuffer()
 
-            # Use the existing discoverTestsInFolder method to actually discover and load tests
-            self.discoverTestsInFolder(
-                base_path=base_path,
-                folder_path=folder,
-                pattern=pattern,
-                test_name_pattern=test_name_pattern or None,
-                tags=tags or None
-            )
+        # Load and set internal paths for test discovery and result storage
+        self.__loadPaths()
 
-        # Return the current instance to enable method chaining
-        return self
+        # Load and validate the testing configuration from the application
+        self.__loadConfig()
 
-    def discoverTestsInFolder(
-        self,
-        *,
-        base_path: str | Path,
-        folder_path: str,
-        pattern: str,
-        test_name_pattern: Optional[str] = None,
-        tags: Optional[List[str]] = None
-    ) -> 'UnitTest':
+        # Discover and import test modules based on the configuration
+        self.__loadModules()
+
+        # Discover and load all test cases from the imported modules into the suite
+        self.__loadTests()
+
+    def __loadOutputBuffer(
+        self
+    ) -> None:
         """
-        Discover and add unit tests from a specified folder to the test suite.
+        Load the output buffer from the last test execution.
+
+        This method retrieves the output buffer containing standard output generated during
+        the last test run. It stores the output as a string in an internal attribute for later access.
 
         Parameters
         ----------
-        base_path : str or Path
-            Base directory for resolving the folder path.
-        folder_path : str
-            Relative path to the folder containing test files.
-        pattern : str
-            File name pattern to match test files.
-        test_name_pattern : str, optional
-            Regular expression pattern to filter test names.
-        tags : list of str, optional
-            Tags to filter tests.
+        None
 
         Returns
         -------
-        UnitTest
-            The current instance with discovered tests added.
+        None
+            This method does not return a value. It sets the internal output buffer attribute.
+        """
+        self.__output_buffer = None
+        self.__error_buffer = None
+
+    def __loadPaths(
+        self
+    ) -> None:
+        """
+        Load and set internal paths required for test discovery and result storage.
+
+        This method retrieves the base test path, project root path, and storage path from the application instance.
+        It then sets the internal attributes for the test path, root path, base path (relative to the project root),
+        and the absolute storage path for test results.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            This method does not return any value. It sets internal attributes for test and storage paths.
+
+        Notes
+        -----
+        - The base path is computed as the relative path from the test directory to the project root.
+        - The storage path is set to an absolute path for storing test results under 'testing/results'.
+        """
+
+        # Get the base test path and project root path from the application
+        self.__test_path = ValidBasePath(self.__app.path('tests'))
+        self.__root_path = ValidBasePath(self.__app.path('root'))
+
+        # Compute the base path for test discovery, relative to the project root
+        # Remove the root path prefix and leading slash
+        self.__base_path: Optional[str] = self.__test_path.as_posix().replace(self.__root_path.as_posix(), '')[1:]
+
+        # Get the storage path from the application and set the absolute path for test results
+        storage_path = self.__app.path('storage')
+        self.__storage: Path = (storage_path / 'testing' / 'results').resolve()
+
+    def __loadConfig(
+        self
+    ) -> None:
+        """
+        Load and validate the testing configuration from the application.
+
+        This method retrieves the testing configuration from the application instance,
+        validates each configuration parameter, and updates the internal state of the
+        UnitTest instance accordingly. It ensures that all required fields are present
+        and correctly formatted.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            This method does not return a value. It updates the internal state of the UnitTest instance.
 
         Raises
         ------
         OrionisTestValueError
-            If arguments are invalid, folder does not exist, no tests are found, or import/discovery errors occur.
+            If the testing configuration is invalid or missing required fields.
         """
-        # Validate Parameters
-        self.__base_path = ValidBasePath(base_path)
-        self.__folder_path = ValidFolderPath(folder_path)
-        self.__pattern = ValidPattern(pattern)
-        self.__test_name_pattern = ValidNamePattern(test_name_pattern)
-        self.__tags = ValidTags(tags)
 
-        # Try to discover tests in the specified folder
+        # Load the testing configuration from the application
         try:
-
-            # Ensure the folder path is absolute
-            full_path = Path(self.__base_path / self.__folder_path).resolve()
-
-            # Validate the full path
-            if not full_path.exists():
-                raise OrionisTestValueError(
-                    f"Test folder not found at the specified path: '{str(full_path)}'. "
-                    "Please verify that the path is correct and the folder exists."
-                )
-
-            # Discover tests using the unittest TestLoader
-            tests = self.__loader.discover(
-                start_dir=str(full_path),
-                pattern=self.__pattern,
-                top_level_dir="."
+            config = Testing(**self.__app.config('testing'))
+        except Exception as e:
+            raise OrionisTestValueError(
+                f"Failed to load testing configuration: {str(e)}. "
+                "Please ensure the testing configuration is correctly defined in the application settings."
             )
 
-            # Check for failed test imports (unittest.loader._FailedTest)
-            for test in self.__flattenTestSuite(tests):
-                if test.__class__.__name__ == "_FailedTest":
+        # Set verbosity level for test output
+        self.__verbosity: Optional[int] = ValidVerbosity(config.verbosity)
 
-                    # Extract the error message from the test's traceback
-                    error_message = ""
-                    if hasattr(test, "_exception"):
-                        error_message = str(test._exception)
-                    elif hasattr(test, "_outcome") and hasattr(test._outcome, "errors"):
-                        error_message = str(test._outcome.errors)
-                    # Try to get error from test id or str(test)
-                    else:
-                        error_message = str(test)
+        # Set execution mode (sequential or parallel)
+        self.__execution_mode: Optional[str] = ValidExecutionMode(config.execution_mode)
 
+        # Set maximum number of workers for parallel execution
+        self.__max_workers: Optional[int] = ValidWorkers(config.max_workers)
+
+        # Set fail-fast behavior (stop on first failure)
+        self.__fail_fast: Optional[bool] = ValidFailFast(config.fail_fast)
+
+        # Set whether to throw an exception if tests fail
+        self.__throw_exception: Optional[bool] = ValidThrowException(config.throw_exception)
+
+        # Set persistence flag for saving test results
+        self.__persistent: Optional[bool] = ValidPersistent(config.persistent)
+
+        # Set the persistence driver (e.g., 'sqlite', 'json')
+        self.__persistent_driver: Optional[str] = ValidPersistentDriver(config.persistent_driver)
+
+        # Set web report flag for generating web-based test reports
+        self.__web_report: Optional[bool] = ValidWebReport(config.web_report)
+
+        # Initialize the printer for console output
+        self.__printer = TestPrinter(
+            print_result = ValidPrintResult(config.print_result)
+        )
+
+        # Set the file name pattern for test discovery
+        self.__pattern: Optional[str] = ValidPattern(config.pattern)
+
+        # Set the test method name pattern for filtering
+        self.__test_name_pattern: Optional[str] = ValidNamePattern(config.test_name_pattern)
+
+        # Set the folder(s) where test files are located
+        folder_path = config.folder_path
+
+        # If folder_path is a list, validate each entry
+        if isinstance(folder_path, list):
+
+            # Clean and validate each folder path in the list
+            cleaned_folders = []
+
+            # Validate each folder path in the list
+            for folder in folder_path:
+
+                # If any folder is invalid, raise an error
+                if not isinstance(folder, str) or not folder.strip():
                     raise OrionisTestValueError(
-                        f"Failed to import test module: {test.id()}.\n"
-                        f"Error details: {error_message}\n"
-                        "Please check for import errors or missing dependencies."
+                        f"Invalid 'folder_path' configuration: expected '*' or a list of relative folder paths, got {repr(folder_path)}."
                     )
 
-            # If name pattern is provided, filter tests by name
-            if test_name_pattern:
-                tests = self.__filterTestsByName(
-                    suite=tests,
-                    pattern=self.__test_name_pattern
+                # Remove leading/trailing slashes and base path
+                scope_folder = folder.strip().lstrip("/\\").rstrip("/\\")
+
+                # Make folder path relative to base path if it starts with it
+                if scope_folder.startswith(self.__base_path):
+                    scope_folder = scope_folder[len(self.__base_path):].lstrip("/\\")
+                if not scope_folder:
+                    raise OrionisTestValueError(
+                        f"Invalid 'folder_path' configuration: expected '*' or a list of relative folder paths, got {repr(folder_path)}."
+                    )
+
+                # Add the cleaned folder path to the list
+                cleaned_folders.append(ValidFolderPath(scope_folder))
+
+            # Store the cleaned list of folder paths
+            self.__folder_path: Optional[List[str]] = cleaned_folders
+
+        elif isinstance(folder_path, str) and folder_path == '*':
+
+            # Use wildcard to search all folders
+            self.__folder_path: Optional[str] = '*'
+
+        else:
+
+            # Invalid folder_path configuration
+            raise OrionisTestValueError(
+                f"Invalid 'folder_path' configuration: expected '*' or a list of relative folder paths, got {repr(folder_path)}."
+            )
+
+    def __loadModules(
+        self
+    ) -> None:
+        """
+        Loads and validates Python modules for test discovery based on the configured folder paths and file patterns.
+
+        This method determines which test modules to load by inspecting the `folder_path` configuration.
+        If the folder path is set to '*', it discovers all modules matching the configured file pattern in the test directory.
+        If the folder path is a list, it discovers modules in each specified subdirectory.
+        The discovered modules are imported and stored in the internal state for later test discovery and execution.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            This method does not return any value. It updates the internal state of the UnitTest instance by extending
+            the `self.__modules` list with the discovered and imported module objects.
+
+        Raises
+        ------
+        OrionisTestValueError
+            If any module name or folder path is invalid, or if module discovery fails.
+
+        Notes
+        -----
+        - Uses `__listMatchingModules` to find and import modules matching the file pattern.
+        - Avoids duplicate modules by using a set.
+        - Updates the internal module list for subsequent test discovery.
+        """
+
+        modules = set()  # Use a set to avoid duplicate module imports
+
+        # If folder_path is '*', discover all modules matching the pattern in the test directory
+        if self.__folder_path == '*':
+            list_modules = self.__listMatchingModules(
+                self.__root_path, self.__test_path, None, self.__pattern
+            )
+            modules.update(list_modules)
+
+        # If folder_path is a list, discover modules in each specified subdirectory
+        elif isinstance(self.__folder_path, list):
+            for custom_path in self.__folder_path:
+                list_modules = self.__listMatchingModules(
+                    self.__root_path, self.__test_path, custom_path, self.__pattern
                 )
+                modules.update(list_modules)
 
-            # If tags are provided, filter tests by tags
-            if tags:
-                tests = self.__filterTestsByTags(
-                    suite=tests,
-                    tags=self.__tags
-                )
+        # Extend the internal module list with the sorted discovered modules
+        self.__modules.extend(modules)
 
-            # If no tests are found, raise an error
-            if not list(tests):
-                raise OrionisTestValueError(
-                    f"No tests found in '{str(full_path)}' matching file pattern '{pattern}'"
-                    + (f", test name pattern '{test_name_pattern}'" if test_name_pattern else "")
-                    + (f", and tags {tags}" if tags else "") +
-                    ". Please check your patterns, tags, and test files."
-                )
+    def __loadTests(
+        self
+    ) -> None:
+        """
+        Discover and load all test cases from the imported test modules into the test suite.
 
-            # Add discovered tests to the suite
-            self.__suite.addTests(tests)
+        This method iterates through all imported test modules, loads their test cases,
+        flattens nested suites, checks for failed imports, applies optional test name filtering,
+        and adds the discovered tests to the main test suite. It also tracks the number of discovered
+        tests per module and raises detailed errors for import failures or missing tests.
 
-            # Count the number of tests discovered
-            # Using __flattenTestSuite to ensure we count all individual test cases
-            test_count = len(list(self.__flattenTestSuite(tests)))
+        Returns
+        -------
+        None
 
-            # Append the discovered tests information
-            self.__discovered_tests.append({
-                "folder": str(full_path),
-                "test_count": test_count,
-            })
+        Raises
+        ------
+        OrionisTestValueError
+            If a test module fails to import, or if no tests are found matching the provided patterns.
 
-            # Return the current instance
-            return self
+        Notes
+        -----
+        - Uses `__flattenTestSuite` to extract individual test cases from each module.
+        - Applies test name filtering if `self.__test_name_pattern` is set.
+        - Updates `self.__suite` and `self.__discovered_tests` with discovered tests and metadata.
+        - Provides detailed error messages for failed imports and missing tests.
+        """
+        try:
+            for test_module in self.__modules:
+                # Load all tests from the current module
+                module_suite = self.__loader.loadTestsFromModule(test_module)
+
+                # Flatten the suite to get individual test cases
+                flat_tests = self.__flattenTestSuite(module_suite)
+
+                # Check for failed imports and raise a detailed error if found
+                for test in flat_tests:
+                    if test.__class__.__name__ == "_FailedTest":
+                        error_message = ""
+                        if hasattr(test, "_exception"):
+                            error_message = str(test._exception)
+                        elif hasattr(test, "_outcome") and hasattr(test._outcome, "errors"):
+                            error_message = str(test._outcome.errors)
+                        else:
+                            error_message = str(test)
+                        raise OrionisTestValueError(
+                            f"Failed to import test module: {test.id()}.\n"
+                            f"Error details: {error_message}\n"
+                            "Please check for import errors or missing dependencies."
+                        )
+
+                # Rebuild the suite with only valid tests
+                valid_suite = unittest.TestSuite(flat_tests)
+
+                # If a test name pattern is provided, filter tests by name
+                if self.__test_name_pattern:
+                    valid_suite = self.__filterTestsByName(
+                        suite=valid_suite,
+                        pattern=self.__test_name_pattern
+                    )
+
+                # If no tests are found, raise an error
+                if not list(valid_suite):
+                    raise OrionisTestValueError(
+                        f"No tests found in module '{test_module.__name__}' matching file pattern '{self.__pattern}'"
+                        + (f", test name pattern '{self.__test_name_pattern}'" if self.__test_name_pattern else "")
+                        + ". Please check your patterns and test files."
+                    )
+
+                # Add discovered tests to the main suite
+                self.__suite.addTests(valid_suite)
+
+                # Count the number of tests discovered
+                test_count = len(list(self.__flattenTestSuite(valid_suite)))
+
+                # Append discovered tests information for reporting
+                self.__discovered_tests.append({
+                    "module": test_module.__name__,
+                    "test_count": test_count,
+                })
 
         except ImportError as e:
 
             # Raise a specific error if the import fails
             raise OrionisTestValueError(
-                f"Error importing tests from path '{str(full_path)}': {str(e)}.\n"
-                "Please verify that the directory and test modules are accessible and correct."
+                f"Error importing tests from module '{getattr(test_module, '__name__', str(test_module))}': {str(e)}.\n"
+                "Please verify that the module and test files are accessible and correct."
             )
 
         except Exception as e:
 
             # Raise a general error for unexpected issues
             raise OrionisTestValueError(
-                f"Unexpected error while discovering tests in '{str(full_path)}': {str(e)}.\n"
+                f"Unexpected error while discovering tests in module '{getattr(test_module, '__name__', str(test_module))}': {str(e)}.\n"
                 "Ensure that the test files are valid and that there are no syntax errors or missing dependencies."
-            )
-
-    def discoverTestsInModule(
-        self,
-        *,
-        module_name: str,
-        test_name_pattern: Optional[str] = None
-    ) -> 'UnitTest':
-        """
-        Discover and add unit tests from a specified Python module to the test suite.
-
-        Parameters
-        ----------
-        module_name : str
-            Fully qualified name of the module to discover tests from.
-        test_name_pattern : str, optional
-            Regular expression pattern to filter test names.
-
-        Returns
-        -------
-        UnitTest
-            The current UnitTest instance with discovered tests added.
-
-        Raises
-        ------
-        OrionisTestValueError
-            If module_name is invalid, test_name_pattern is not a valid regex, the module cannot be imported, or no tests are found.
-        """
-
-        # Validate input parameters
-        self.__module_name = ValidModuleName(module_name)
-        self.__test_name_pattern = ValidNamePattern(test_name_pattern)
-
-        try:
-            # Load all tests from the specified module
-            tests = self.__loader.loadTestsFromName(
-                name=self.__module_name
-            )
-
-            # If a test name pattern is provided, filter the discovered tests
-            if test_name_pattern:
-                tests = self.__filterTestsByName(
-                    suite=tests,
-                    pattern=self.__test_name_pattern
-                )
-
-            # Add the filtered (or all) tests to the suite
-            self.__suite.addTests(tests)
-
-            # Count the number of discovered tests
-            test_count = len(list(self.__flattenTestSuite(tests)))
-
-            if test_count == 0:
-                raise OrionisTestValueError(
-                    f"No tests found in module '{self.__module_name}'"
-                    + (f" matching test name pattern '{test_name_pattern}'." if test_name_pattern else ".")
-                    + " Please ensure the module contains valid test cases and the pattern is correct."
-                )
-
-            # Record discovery metadata
-            self.__discovered_tests.append({
-                "module": self.__module_name,
-                "test_count": test_count
-            })
-
-            # Return the current instance for method chaining
-            return self
-
-        except ImportError as e:
-
-            # Raise an error if the module cannot be imported
-            raise OrionisTestValueError(
-                f"Failed to import tests from module '{self.__module_name}': {str(e)}. "
-                "Ensure the module exists, is importable, and contains valid test cases."
-            )
-
-        except re.error as e:
-
-            # Raise an error if the test name pattern is not a valid regex
-            raise OrionisTestValueError(
-                f"Invalid regular expression for test_name_pattern: '{test_name_pattern}'. "
-                f"Regex compilation error: {str(e)}. Please check the pattern syntax."
-            )
-
-        except Exception as e:
-
-            # Raise a general error for unexpected issues
-            raise OrionisTestValueError(
-                f"An unexpected error occurred while discovering tests in module '{self.__module_name}': {str(e)}. "
-                "Verify that the module name is correct, test methods are valid, and there are no syntax errors or missing dependencies."
             )
 
     def run(
@@ -950,8 +911,8 @@ class UnitTest(IUnitTest):
         # Define a function to run a single test case and return its result
         def run_single_test(test):
             runner = unittest.TextTestRunner(
-                stream=io.StringIO(),  # Use a separate buffer for each test
-                verbosity=0,
+                stream=io.StringIO(),
+                verbosity=self.__verbosity,
                 failfast=False,
                 resultclass=result_class
             )
@@ -1457,93 +1418,69 @@ class UnitTest(IUnitTest):
         # Return the suite containing only the filtered tests
         return filtered_suite
 
-    def __filterTestsByTags(
+    def __listMatchingModules(
         self,
-        suite: unittest.TestSuite,
-        tags: List[str]
-    ) -> unittest.TestSuite:
+        root_path: Path,
+        test_path: Path,
+        custom_path: Path,
+        pattern_file: str
+    ) -> List[str]:
         """
-        Filters tests in a unittest TestSuite by matching specified tags.
+        Discover and import Python modules containing test files that match a given filename pattern within a specified directory.
+
+        This method recursively searches for Python files in the directory specified by `test_path / custom_path` that match the provided
+        filename pattern. For each matching file, it constructs the module's fully qualified name relative to the project root, imports
+        the module using `importlib.import_module`, and adds it to a set to avoid duplicates. The method returns a list of imported module objects.
 
         Parameters
         ----------
-        suite : unittest.TestSuite
-            The original TestSuite containing all test cases to be filtered.
-        tags : list of str
-            List of tags to filter the tests by.
+        root_path : Path
+            The root directory of the project, used to calculate the relative module path.
+        test_path : Path
+            The base directory where tests are located.
+        custom_path : Path
+            The subdirectory within `test_path` to search for matching test files.
+        pattern_file : str
+            The filename pattern to match (supports '*' and '?' wildcards).
 
         Returns
         -------
-        unittest.TestSuite
-            A new TestSuite containing only the tests that have at least one matching tag.
+        List[module]
+            A list of imported Python module objects corresponding to test files that match the pattern.
 
         Notes
         -----
-        This method inspects each test case in the provided suite and checks for the presence of tags
-        either on the test method (via a `__tags__` attribute) or on the test class instance itself.
-        If any of the specified tags are found in the test's tags, the test is included in the returned suite.
+        - Only files ending with `.py` are considered as Python modules.
+        - Duplicate modules are avoided by using a set.
+        - The module name is constructed by converting the relative path to dot notation.
+        - If the relative path is '.', only the module name is used.
+        - The method imports modules dynamically and returns them as objects.
         """
 
-        # Create a new TestSuite to hold the filtered tests
-        filtered_suite = unittest.TestSuite()
+        # Compile the filename pattern into a regular expression for matching.
+        regex = re.compile('^' + pattern_file.replace('*', '.*').replace('?', '.') + '$')
 
-        # Convert the list of tags to a set for efficient intersection checks
-        tag_set = set(tags)
-
-        # Iterate through all test cases in the flattened suite
-        for test in self.__flattenTestSuite(suite):
-
-            # Attempt to retrieve the test method from the test case
-            test_method = getattr(test, test._testMethodName, None)
-
-            # Check if the test method has a __tags__ attribute
-            if hasattr(test_method, '__tags__'):
-                method_tags = set(getattr(test_method, '__tags__'))
-
-                # If there is any intersection between the method's tags and the filter tags, add the test
-                if tag_set.intersection(method_tags):
-                    filtered_suite.addTest(test)
-
-            # If the method does not have tags, check if the test case itself has a __tags__ attribute
-            elif hasattr(test, '__tags__'):
-                class_tags = set(getattr(test, '__tags__'))
-
-                # If there is any intersection between the class's tags and the filter tags, add the test
-                if tag_set.intersection(class_tags):
-                    filtered_suite.addTest(test)
-
-        # Return the suite containing only the filtered tests
-        return filtered_suite
-
-    def __listMatchingFolders(
-        self,
-        base_path: Path,
-        custom_path: Path,
-        pattern: str
-    ) -> List[str]:
-        """
-        List folders within a given path containing files matching a pattern.
-
-        Parameters
-        ----------
-        base_path : Path
-            The base directory path for calculating relative paths.
-        custom_path : Path
-            The directory path to search for matching files.
-        pattern : str
-            The filename pattern to match, supporting '*' and '?' wildcards.
-
-        Returns
-        -------
-        List[str]
-            List of relative folder paths containing files matching the pattern.
-        """
-        regex = re.compile('^' + pattern.replace('*', '.*').replace('?', '.') + '$')
+        # Use a set to avoid duplicate module imports.
         matched_folders = set()
-        for root, _, files in walk(str(custom_path)):
-            if any(regex.fullmatch(file) for file in files):
-                rel_path = Path(root).relative_to(base_path).as_posix()
-                matched_folders.add(rel_path)
+
+        # Walk through all files in the target directory.
+        for root, _, files in walk(str(test_path / custom_path) if custom_path else str(test_path)):
+            for file in files:
+
+                # Check if the file matches the pattern and is a Python file.
+                if regex.fullmatch(file) and file.endswith('.py'):
+
+                    # Calculate the relative path from the root, convert to module notation.
+                    ralative_path = str(Path(root).relative_to(root_path)).replace(os.sep, '.')
+                    module_name = file[:-3]  # Remove '.py' extension.
+
+                    # Build the full module name.
+                    full_module = f"{ralative_path}.{module_name}" if ralative_path != '.' else module_name
+
+                    # Import the module and add to the set.
+                    matched_folders.add(import_module(ValidModuleName(full_module)))
+
+        # Return the list of imported module objects.
         return list(matched_folders)
 
     def getTestNames(

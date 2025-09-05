@@ -6,7 +6,7 @@
 # SPDX-FileCopyrightText: 2021 Robin Vobruba <hoijui.quaero@gmail.com>
 # SPDX-FileCopyrightText: 2021-2022 Alliander N.V. <https://alliander.com>
 # SPDX-FileCopyrightText: 2022 Carmen Bianca Bakker <carmenbianca@fsfe.org>
-# SPDX-FileCopyrightText: 2022 Florian Snow <florian@familysnow.net>
+# SPDX-FileCopyrightText: 2022, 2025 Florian Snow <florian@familysnow.net>
 # SPDX-FileCopyrightText: 2022 Nico Rikken <nico.rikken@fsfe.org>
 # SPDX-FileCopyrightText: 2022 Sebastian Crane <seabass@fsfe.org>
 # SPDX-FileCopyrightText: 2022 Stefan Hynek <stefan.hynek@uni-goettingen.de>
@@ -18,6 +18,10 @@
 # SPDX-FileCopyrightText: 2023 Shun Sakai <sorairolake@protonmail.ch>
 # SPDX-FileCopyrightText: 2024 Rivos Inc.
 # SPDX-FileCopyrightText: 2024 Anthony Loiseau <anthony.loiseau@allcircuits.com>
+# SPDX-FileCopyrightText: 2025 Raphael Schlarb <info@raphael.schlarb.one>
+# SPDX-FileCopyrightText: 2025 András Nagy <nagyandris0718@gmail.com>
+# SPDX-FileCopyrightText: 2025 Kiko Fernandez-Reyes <kiko@erlang.org>
+# SPDX-FileCopyrightText: 2025 Hatzka <hatzka@nezumi.studio>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -356,6 +360,7 @@ class CppSingleCommentStyle(CommentStyle):
 
     SINGLE_LINE = "//"
     INDENT_AFTER_SINGLE = " "
+    SHEBANGS = ["#!"]  # Gleam
 
 
 class EmptyCommentStyle(CommentStyle):
@@ -446,6 +451,19 @@ class JuliaCommentStyle(CommentStyle):
     SHEBANGS = ["#!"]
 
 
+class LeanCommentStyle(CommentStyle):
+    """Lean comment style."""
+
+    SHORTHAND = "lean"
+
+    SINGLE_LINE = "--"
+    INDENT_AFTER_SINGLE = " "
+    MULTI_LINE = MultiLineSegments("/-", "-", "-/")
+    INDENT_BEFORE_MIDDLE = " "
+    INDENT_AFTER_MIDDLE = " "
+    INDENT_BEFORE_END = " "
+
+
 class LispCommentStyle(CommentStyle):
     """Lisp comment style."""
 
@@ -524,7 +542,7 @@ class TexCommentStyle(CommentStyle):
 
     SINGLE_LINE = "%"
     INDENT_AFTER_SINGLE = " "
-    SHEBANGS = ["% !TEX", "%!TEX"]
+    SHEBANGS = ["% !TEX", "%!TEX", "#!"]
 
 
 class UncommentableCommentStyle(EmptyCommentStyle):
@@ -629,10 +647,13 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".doc": UncommentableCommentStyle,
     ".docx": UncommentableCommentStyle,
     ".dotx": UncommentableCommentStyle,
+    ".dtd": HtmlCommentStyle,
     ".dts": CppCommentStyle,
     ".dtsi": CppCommentStyle,
     ".el": LispCommentStyle,
     ".erl": TexCommentStyle,
+    ".escript": TexCommentStyle,
+    ".es": TexCommentStyle,
     ".ex": PythonCommentStyle,
     ".exs": PythonCommentStyle,
     ".f": FortranCommentStyle,
@@ -653,7 +674,9 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".fsx": CppCommentStyle,
     ".ftl": FtlCommentStyle,
     ".gemspec": PythonCommentStyle,
+    ".gleam": CppSingleCommentStyle,
     ".go": CppCommentStyle,
+    ".gperf": CppCommentStyle,
     ".gradle": CppCommentStyle,
     ".graphql": PythonCommentStyle,
     ".graphqls": PythonCommentStyle,
@@ -671,6 +694,7 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".html": HtmlCommentStyle,
     ".hx": CppCommentStyle,
     ".hxsl": CppCommentStyle,
+    ".ilean": UncommentableCommentStyle,
     ".ini": SemicolonCommentStyle,
     ".ino": CppCommentStyle,
     ".ipynb": UncommentableCommentStyle,
@@ -695,6 +719,7 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".l": LispCommentStyle,
     ".latex": TexCommentStyle,
     ".ld": CCommentStyle,
+    ".lean": LeanCommentStyle,
     ".less": CCommentStyle,
     ".license": EmptyCommentStyle,
     ".lisp": LispCommentStyle,
@@ -721,6 +746,7 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".odp": UncommentableCommentStyle,
     ".ods": UncommentableCommentStyle,
     ".odt": UncommentableCommentStyle,
+    ".olean": UncommentableCommentStyle,
     ".org": PythonCommentStyle,
     ".otp": UncommentableCommentStyle,
     ".ots": UncommentableCommentStyle,
@@ -824,11 +850,13 @@ EXTENSION_COMMENT_STYLE_MAP = {
     ".xqm": XQueryCommentStyle,
     ".xqy": XQueryCommentStyle,
     ".xquery": XQueryCommentStyle,
+    ".xrl": TexCommentStyle,
     ".xsd": HtmlCommentStyle,
     ".xsh": PythonCommentStyle,
     ".xsl": HtmlCommentStyle,
     ".yaml": PythonCommentStyle,
     ".yml": PythonCommentStyle,
+    ".yrl": TexCommentStyle,
     ".zig": CppSingleCommentStyle,
     ".zsh": PythonCommentStyle,
 }
@@ -874,7 +902,7 @@ FILENAME_COMMENT_STYLE_MAP = {
     "ansible.cfg": PythonCommentStyle,
     "archive.sctxar": UncommentableCommentStyle,  # SuperCollider global archive
     "cabal.project": HaskellCommentStyle,
-    "Cargo.lock": PythonCommentStyle,
+    "Cargo.lock": UncommentableCommentStyle,
     "CMakeLists.txt": PythonCommentStyle,
     "CODEOWNERS": PythonCommentStyle,
     "configure.ac": M4CommentStyle,

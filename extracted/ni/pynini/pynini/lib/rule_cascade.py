@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@ the path property.
 See `rewrite.py` for more information about interpreting the rewrite functions.
 """
 
-from typing import Iterable, List, Optional
+from collections.abc import Iterable
+from typing import Optional
 
 import pynini
 from pynini.lib import rewrite
@@ -112,11 +113,13 @@ class RuleCascade:
         lattice = pynini.intersect(lattice, ostring, compose_filter="sequence")
     return lattice.start() != pynini.NO_STATE_ID
 
-  def rewrites(self,
-               string: pynini.FstLike,
-               input_token_type: Optional[pynini.TokenType] = None,
-               output_token_type: Optional[pynini.TokenType] = None,
-               state_multiplier: int = 4) -> List[str]:
+  def rewrites(
+      self,
+      string: pynini.FstLike,
+      input_token_type: Optional[pynini.TokenType] = None,
+      output_token_type: Optional[pynini.TokenType] = None,
+      state_multiplier: int = 4,
+  ) -> list[str]:
     """Returns all rewrites.
 
     Args:
@@ -138,7 +141,8 @@ class RuleCascade:
       string: pynini.FstLike,
       nshortest: int,
       input_token_type: Optional[pynini.TokenType] = None,
-      output_token_type: Optional[pynini.TokenType] = None) -> List[str]:
+      output_token_type: Optional[pynini.TokenType] = None,
+  ) -> list[str]:
     """Returns the top n rewrites.
 
     Args:
@@ -192,11 +196,13 @@ class RuleCascade:
     lattice = rewrite.lattice_to_dfa(lattice, True, state_multiplier)
     return rewrite.lattice_to_one_top_string(lattice, output_token_type)
 
-  def optimal_rewrites(self,
-                       string: pynini.FstLike,
-                       input_token_type: Optional[pynini.TokenType] = None,
-                       output_token_type: Optional[pynini.TokenType] = None,
-                       state_multiplier: int = 4) -> List[str]:
+  def optimal_rewrites(
+      self,
+      string: pynini.FstLike,
+      input_token_type: Optional[pynini.TokenType] = None,
+      output_token_type: Optional[pynini.TokenType] = None,
+      state_multiplier: int = 4,
+  ) -> list[str]:
     """Returns all optimal rewrites.
 
     Args:

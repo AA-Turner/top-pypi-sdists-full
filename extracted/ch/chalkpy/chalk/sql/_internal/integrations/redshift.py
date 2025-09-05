@@ -315,6 +315,116 @@ class RedshiftSourceImpl(BaseSQLSource):
         if not yielded and schema is not None:
             yield pa.RecordBatch.from_pydict({k: [] for k in schema.names}, schema)
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for Redshift and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+
+        temp_query_id = id(finalized_query)
+        _public_logger.debug(f"Executing RedShift query [{temp_query_id}]...")
+
+        if self._s3_bucket is None:
+            raise UnsupportedEfficientExecutionError(
+                "No S3 destination bucket configured for Redshift UNLOAD command, falling back to default execution mode.",
+                log_level=logging.INFO,
+            )
+
+        with self.get_engine().connect() if connection is None else contextlib.nullcontext(connection) as cnx:
+            with cnx.begin():
+                cursor = cnx.connection.cursor()
+                compiled_statement = self._get_compiled_query(finalized_query)
+
+                from sqlalchemy.sql import Select
+
+                if isinstance(finalized_query.query, Select):
+                    validate_dtypes_for_efficient_execution(
+                        finalized_query.query, supported_types=get_supported_redshift_unload_types()
+                    )
+
+                execution_context = self.get_engine().dialect.execution_ctx_cls._init_compiled(  # type: ignore
+                    connection=cnx,
+                    dialect=cnx.dialect,
+                    dbapi_connection=cnx.connection.dbapi_connection,
+                    execution_options={},
+                    compiled=compiled_statement,
+                    parameters=[],
+                    invoked_statement=None,
+                    extracted_parameters=None,
+                )
+                assert isinstance(execution_context, self.get_engine().dialect.execution_ctx_cls)
+                operation = execution_context.statement
+                assert operation is not None
+                operation = operation.strip().removesuffix(";")
+                params = execution_context.parameters[0]
+                unload_destination = None
+
+                temp_table_name = f"query_{str(uuid.uuid4()).replace('-', '_')}"
+                try:
+                    _logger.debug(f"Executing query & creating temp table '{temp_table_name}'")
+                    cursor.execute(f"CREATE TEMP TABLE {temp_table_name} AS ({operation})", params)
+                except Exception as e:
+                    _public_logger.error(f"Failed to create temp table for operation: {operation}", exc_info=e)
+                    raise RuntimeError(f"Failed to create temp table for operation: {operation}") from e
+                else:
+                    unload_destination = f"{temp_table_name}/"
+                    unload_uri = f"s3://{self._s3_bucket}/{unload_destination}"
+                    unload_iam_role = "default" if self.unload_iam_role is None else f"'{self.unload_iam_role}'"
+                    unload_query = f"UNLOAD ('SELECT * FROM {temp_table_name}') TO '{unload_uri}' IAM_ROLE {unload_iam_role} FORMAT PARQUET EXTENSION 'parquet'"
+                    _public_logger.info(f"Executing UNLOAD query [{temp_query_id}]: {unload_query}")
+                    cursor.execute(unload_query)
+                finally:
+                    try:
+                        cursor.execute(f"DROP TABLE {temp_table_name}")
+                    except Exception:
+                        _logger.warning(f"Failed to drop temp table '{temp_table_name}'", exc_info=True)
+
+        # Download files and map to expected schema
+        assert unload_destination is not None
+        assert self._s3_bucket is not None
+        filenames = list(_list_files(self._s3_client, self._s3_bucket, unload_destination))
+
+        yielded = False
+        for filename in filenames:
+            buffer = io.BytesIO()
+            with _boto_lock_ctx():
+                self._s3_client.download_fileobj(Bucket=self._s3_bucket, Key=filename, Fileobj=buffer)
+                buffer.seek(0)
+                if env_var_bool("CHALK_REDSHIFT_POLARS_PARQUET"):
+                    tbl = read_parquet(buffer, use_pyarrow=False).to_arrow()
+                else:
+                    tbl = pq.read_table(buffer)
+
+            if len(tbl) == 0:
+                continue
+
+            # Map columns to expected schema
+            arrays: list[pa.Array] = []
+            for field in expected_output_schema:
+                if field.name in tbl.column_names:
+                    col = tbl.column(field.name)
+                    # Cast to expected type if needed
+                    if col.type != field.type:
+                        col = pc.cast(col, field.type)
+                    arrays.append(col)
+                else:
+                    # Column not found, create null array
+                    arrays.append(pa.nulls(len(tbl), field.type))
+
+            batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+            yield batch
+            yielded = True
+
+        if not yielded and query_execution_parameters.yield_empty_batches:
+            # Create empty batch with expected schema
+            arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
+            batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+            yield batch
+
     @classmethod
     def register_sqlalchemy_compiler_overrides(cls):
         try:

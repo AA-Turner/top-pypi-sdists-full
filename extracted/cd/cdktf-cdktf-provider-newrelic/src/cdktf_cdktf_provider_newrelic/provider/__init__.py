@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`newrelic`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs).
+Refer to the Terraform Registry for docs: [`newrelic`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NewrelicProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.provider.NewrelicProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs newrelic}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs newrelic}.'''
 
     def __init__(
         self,
@@ -66,24 +66,24 @@ class NewrelicProvider(
         region: typing.Optional[builtins.str] = None,
         synthetics_api_url: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs newrelic} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs newrelic} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#account_id NewrelicProvider#account_id}.
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_key NewrelicProvider#api_key}.
-        :param admin_api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#admin_api_key NewrelicProvider#admin_api_key}.
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#alias NewrelicProvider#alias}
-        :param api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_url NewrelicProvider#api_url}.
-        :param cacert_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#cacert_file NewrelicProvider#cacert_file}.
-        :param infrastructure_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.
-        :param insecure_skip_verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.
-        :param insights_insert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.
-        :param insights_insert_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.
-        :param insights_query_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_query_url NewrelicProvider#insights_query_url}.
-        :param nerdgraph_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.
-        :param region: The data center for which your New Relic account is configured. Only one region per provider block is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#region NewrelicProvider#region}
-        :param synthetics_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#account_id NewrelicProvider#account_id}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_key NewrelicProvider#api_key}.
+        :param admin_api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#admin_api_key NewrelicProvider#admin_api_key}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#alias NewrelicProvider#alias}
+        :param api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_url NewrelicProvider#api_url}.
+        :param cacert_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#cacert_file NewrelicProvider#cacert_file}.
+        :param infrastructure_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.
+        :param insecure_skip_verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.
+        :param insights_insert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.
+        :param insights_insert_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.
+        :param insights_query_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_query_url NewrelicProvider#insights_query_url}.
+        :param nerdgraph_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.
+        :param region: The data center for which your New Relic account is configured. Only one region per provider block is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#region NewrelicProvider#region}
+        :param synthetics_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2afa037631c2b6bae79191bb584dd1a23c1c2764f77ff94450c3708f8ed37e50)
@@ -121,7 +121,7 @@ class NewrelicProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NewrelicProvider to import.
-        :param import_from_id: The id of the existing NewrelicProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NewrelicProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NewrelicProvider to import is found.
         '''
         if __debug__:
@@ -479,20 +479,20 @@ class NewrelicProviderConfig:
         synthetics_api_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#account_id NewrelicProvider#account_id}.
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_key NewrelicProvider#api_key}.
-        :param admin_api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#admin_api_key NewrelicProvider#admin_api_key}.
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#alias NewrelicProvider#alias}
-        :param api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_url NewrelicProvider#api_url}.
-        :param cacert_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#cacert_file NewrelicProvider#cacert_file}.
-        :param infrastructure_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.
-        :param insecure_skip_verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.
-        :param insights_insert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.
-        :param insights_insert_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.
-        :param insights_query_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_query_url NewrelicProvider#insights_query_url}.
-        :param nerdgraph_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.
-        :param region: The data center for which your New Relic account is configured. Only one region per provider block is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#region NewrelicProvider#region}
-        :param synthetics_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#account_id NewrelicProvider#account_id}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_key NewrelicProvider#api_key}.
+        :param admin_api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#admin_api_key NewrelicProvider#admin_api_key}.
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#alias NewrelicProvider#alias}
+        :param api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_url NewrelicProvider#api_url}.
+        :param cacert_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#cacert_file NewrelicProvider#cacert_file}.
+        :param infrastructure_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.
+        :param insecure_skip_verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.
+        :param insights_insert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.
+        :param insights_insert_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.
+        :param insights_query_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_query_url NewrelicProvider#insights_query_url}.
+        :param nerdgraph_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.
+        :param region: The data center for which your New Relic account is configured. Only one region per provider block is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#region NewrelicProvider#region}
+        :param synthetics_api_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a75853fe83269a9b7f75343771859bada06ccf5431d89b2f4e22ae38d4508b9)
@@ -541,21 +541,21 @@ class NewrelicProviderConfig:
 
     @builtins.property
     def account_id(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#account_id NewrelicProvider#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#account_id NewrelicProvider#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_key NewrelicProvider#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_key NewrelicProvider#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def admin_api_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#admin_api_key NewrelicProvider#admin_api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#admin_api_key NewrelicProvider#admin_api_key}.'''
         result = self._values.get("admin_api_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -563,26 +563,26 @@ class NewrelicProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#alias NewrelicProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#alias NewrelicProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def api_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#api_url NewrelicProvider#api_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#api_url NewrelicProvider#api_url}.'''
         result = self._values.get("api_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cacert_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#cacert_file NewrelicProvider#cacert_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#cacert_file NewrelicProvider#cacert_file}.'''
         result = self._values.get("cacert_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def infrastructure_api_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#infrastructure_api_url NewrelicProvider#infrastructure_api_url}.'''
         result = self._values.get("infrastructure_api_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -590,31 +590,31 @@ class NewrelicProviderConfig:
     def insecure_skip_verify(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insecure_skip_verify NewrelicProvider#insecure_skip_verify}.'''
         result = self._values.get("insecure_skip_verify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def insights_insert_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_key NewrelicProvider#insights_insert_key}.'''
         result = self._values.get("insights_insert_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def insights_insert_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_insert_url NewrelicProvider#insights_insert_url}.'''
         result = self._values.get("insights_insert_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def insights_query_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#insights_query_url NewrelicProvider#insights_query_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#insights_query_url NewrelicProvider#insights_query_url}.'''
         result = self._values.get("insights_query_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def nerdgraph_api_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#nerdgraph_api_url NewrelicProvider#nerdgraph_api_url}.'''
         result = self._values.get("nerdgraph_api_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -622,14 +622,14 @@ class NewrelicProviderConfig:
     def region(self) -> typing.Optional[builtins.str]:
         '''The data center for which your New Relic account is configured. Only one region per provider block is permitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#region NewrelicProvider#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#region NewrelicProvider#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def synthetics_api_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs#synthetics_api_url NewrelicProvider#synthetics_api_url}.'''
         result = self._values.get("synthetics_api_url")
         return typing.cast(typing.Optional[builtins.str], result)
 

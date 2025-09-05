@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-litellm
-Version: 0.6.0
+Version: 0.6.2
 Summary: llama-index llms litellm integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

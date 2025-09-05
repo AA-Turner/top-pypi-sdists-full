@@ -12,7 +12,8 @@ use super::{
         PushDownAntiSemiJoin, PushDownFilter, PushDownJoinPredicate, PushDownLimit,
         PushDownProjection, PushDownShard, ReorderJoins, RewriteCountDistinct, RewriteOffset,
         ShardScans, SimplifyExpressionsRule, SimplifyNullFilteredJoin, SplitExplodeFromProject,
-        SplitGranularProjection, SplitUDFs, UnnestPredicateSubquery, UnnestScalarSubquery,
+        SplitGranularProjection, SplitUDFs, SplitUDFsFromFilters, UnnestPredicateSubquery,
+        UnnestScalarSubquery,
     },
 };
 use crate::LogicalPlan;
@@ -170,6 +171,7 @@ impl OptimizerBuilder {
             // UDFs and monotonically increasing ids.
             RuleBatch::new(
                 vec![
+                    Box::new(SplitUDFsFromFilters::new()),
                     Box::new(SplitUDFs::new()),
                     Box::new(PushDownProjection::new()),
                     Box::new(DetectMonotonicId::new()),
@@ -835,6 +837,7 @@ mod tests {
                 )))))
                 .with_columns(Some(Arc::new(vec!["a".to_string()]))),
         )
+        .aggregate(vec![unresolved_col("a").sum()], vec![])?
         .build();
 
         let scan_materializer_and_stats_enricher = get_scan_materializer_and_stats_enricher();

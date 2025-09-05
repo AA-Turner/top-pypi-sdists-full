@@ -42,7 +42,8 @@ class ProductionJobEvent(object):
         'origin': 'HaJobEventOrigin',
         'ha_job_id': 'str',
         'cluster_id': 'str',
-        'metadata': 'object'
+        'metadata': 'object',
+        'has_additional_sensitive_message': 'bool'
     }
 
     attribute_map = {
@@ -55,10 +56,11 @@ class ProductionJobEvent(object):
         'origin': 'origin',
         'ha_job_id': 'ha_job_id',
         'cluster_id': 'cluster_id',
-        'metadata': 'metadata'
+        'metadata': 'metadata',
+        'has_additional_sensitive_message': 'has_additional_sensitive_message'
     }
 
-    def __init__(self, id=None, created_at=None, event_type=None, error_type=None, level=None, message=None, origin=None, ha_job_id=None, cluster_id=None, metadata=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, event_type=None, error_type=None, level=None, message=None, origin=None, ha_job_id=None, cluster_id=None, metadata=None, has_additional_sensitive_message=False, local_vars_configuration=None):  # noqa: E501
         """ProductionJobEvent - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +76,7 @@ class ProductionJobEvent(object):
         self._ha_job_id = None
         self._cluster_id = None
         self._metadata = None
+        self._has_additional_sensitive_message = None
         self.discriminator = None
 
         self.id = id
@@ -92,6 +95,8 @@ class ProductionJobEvent(object):
             self.cluster_id = cluster_id
         if metadata is not None:
             self.metadata = metadata
+        if has_additional_sensitive_message is not None:
+            self.has_additional_sensitive_message = has_additional_sensitive_message
 
     @property
     def id(self):
@@ -330,6 +335,29 @@ class ProductionJobEvent(object):
         """
 
         self._metadata = metadata
+
+    @property
+    def has_additional_sensitive_message(self):
+        """Gets the has_additional_sensitive_message of this ProductionJobEvent.  # noqa: E501
+
+        Whether we have additional sensitive message details stored that can be subsequently fetched.  # noqa: E501
+
+        :return: The has_additional_sensitive_message of this ProductionJobEvent.  # noqa: E501
+        :rtype: bool
+        """
+        return self._has_additional_sensitive_message
+
+    @has_additional_sensitive_message.setter
+    def has_additional_sensitive_message(self, has_additional_sensitive_message):
+        """Sets the has_additional_sensitive_message of this ProductionJobEvent.
+
+        Whether we have additional sensitive message details stored that can be subsequently fetched.  # noqa: E501
+
+        :param has_additional_sensitive_message: The has_additional_sensitive_message of this ProductionJobEvent.  # noqa: E501
+        :type: bool
+        """
+
+        self._has_additional_sensitive_message = has_additional_sensitive_message
 
     def to_dict(self):
         """Returns the model properties as a dict"""

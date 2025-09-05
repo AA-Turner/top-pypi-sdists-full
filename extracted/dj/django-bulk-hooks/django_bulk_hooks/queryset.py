@@ -51,7 +51,11 @@ class HookQuerySetMixin:
             if obj.pk is not None:
                 # Cache all foreign key relationships by accessing them
                 for field in model_cls._meta.fields:
-                    if field.is_relation and not field.many_to_many and not field.one_to_many:
+                    if (
+                        field.is_relation
+                        and not field.many_to_many
+                        and not field.one_to_many
+                    ):
                         try:
                             # Access the related field to cache it before deletion
                             getattr(obj, field.name)
@@ -481,12 +485,16 @@ class HookQuerySetMixin:
         but supports multi-table inheritance (MTI) models and hooks. All arguments are supported and
         passed through to the correct logic. For MTI, only a subset of options may be supported.
         """
-        model_cls = self.model
-        
-        print(f"DEBUG: bulk_create called for {model_cls.__name__} with {len(objs)} objects")
-        print(f"DEBUG: update_conflicts={update_conflicts}, unique_fields={unique_fields}, update_fields={update_fields}")
-        logger.debug(f"bulk_create called for {model_cls.__name__} with {len(objs)} objects")
-        logger.debug(f"update_conflicts={update_conflicts}, unique_fields={unique_fields}, update_fields={update_fields}")
+        model_cls, ctx, originals = self._setup_bulk_operation(
+            objs,
+            "bulk_create",
+            require_pks=False,
+            bypass_hooks=bypass_hooks,
+            bypass_validation=bypass_validation,
+            update_conflicts=update_conflicts,
+            unique_fields=unique_fields,
+            update_fields=update_fields,
+        )
 
         # When you bulk insert you don't get the primary keys back (if it's an
         # autoincrement, except if can_return_rows_from_bulk_insert=True), so
@@ -506,77 +514,138 @@ class HookQuerySetMixin:
         if not objs:
             return objs
 
-        if any(not isinstance(obj, model_cls) for obj in objs):
-            raise TypeError(
-                f"bulk_create expected instances of {model_cls.__name__}, but got {set(type(obj).__name__ for obj in objs)}"
-            )
+        self._validate_objects(objs, require_pks=False, operation_name="bulk_create")
 
         # Check for MTI - if we detect multi-table inheritance, we need special handling
-        # This follows Django's approach: check that the parents share the same concrete model
-        # with our model to detect the inheritance pattern ConcreteGrandParent ->
-        # MultiTableParent -> ProxyChild. Simply checking self.model._meta.proxy would not
-        # identify that case as involving multiple tables.
-        is_mti = False
-        for parent in model_cls._meta.all_parents:
-            if parent._meta.concrete_model is not model_cls._meta.concrete_model:
-                is_mti = True
-                break
+        is_mti = self._is_multi_table_inheritance()
 
         # Fire hooks before DB ops
         if not bypass_hooks:
-            ctx = HookContext(model_cls, bypass_hooks=False)  # Pass bypass_hooks
-            
             if update_conflicts and unique_fields:
                 # For upsert operations, we need to determine which records will be created vs updated
                 # Check which records already exist in the database based on unique fields
                 existing_records = []
                 new_records = []
 
-                # Store the records for AFTER hooks to avoid duplicate queries
-                ctx.upsert_existing_records = existing_records
-                ctx.upsert_new_records = new_records
-                
+                # We'll store the records for AFTER hooks after classification is complete
+
                 # Build a filter to check which records already exist
                 unique_values = []
                 for obj in objs:
                     unique_value = {}
+                    query_fields = {}  # Track which database field to use for each unique field
                     for field_name in unique_fields:
-                        if hasattr(obj, field_name):
+                        # First check for _id field (more reliable for ForeignKeys)
+                        if hasattr(obj, field_name + "_id"):
+                            # Handle ForeignKey fields where _id suffix is used
+                            unique_value[field_name] = getattr(obj, field_name + "_id")
+                            query_fields[field_name] = (
+                                field_name + "_id"
+                            )  # Use _id field for query
+                        elif hasattr(obj, field_name):
                             unique_value[field_name] = getattr(obj, field_name)
+                            query_fields[field_name] = field_name
                     if unique_value:
-                        unique_values.append(unique_value)
+                        unique_values.append((unique_value, query_fields))
 
                 if unique_values:
                     # Query the database to see which records already exist - SINGLE BULK QUERY
                     from django.db.models import Q
+
                     existing_filters = Q()
-                    for unique_value in unique_values:
+                    for unique_value, query_fields in unique_values:
                         filter_kwargs = {}
                         for field_name, value in unique_value.items():
-                            filter_kwargs[field_name] = value
+                            # Use the correct database field name (may include _id suffix)
+                            db_field_name = query_fields[field_name]
+                            filter_kwargs[db_field_name] = value
                         existing_filters |= Q(**filter_kwargs)
 
+                    logger.debug(
+                        f"DEBUG: Existence check query filters: {existing_filters}"
+                    )
+                    logger.debug(
+                        f"DEBUG: Unique fields for values_list: {unique_fields}"
+                    )
+
                     # Get all existing records in one query and create a lookup set
+                    # We need to use the original unique_fields for values_list to maintain consistency
                     existing_records_lookup = set()
-                    for existing_record in model_cls.objects.filter(existing_filters).values_list(*unique_fields):
-                        # Convert tuple to a hashable key for lookup
-                        existing_records_lookup.add(existing_record)
+                    existing_query = model_cls.objects.filter(existing_filters)
+                    logger.debug(f"DEBUG: Existence check SQL: {existing_query.query}")
+
+                    # Also get the raw database values for debugging
+                    raw_existing = list(existing_query.values_list(*unique_fields))
+                    logger.debug(f"DEBUG: Raw existing records from DB: {raw_existing}")
+
+                    # Convert database values to match object types for comparison
+                    # This handles cases where object values are strings but DB values are integers
+                    existing_records_lookup = set()
+                    for existing_record in raw_existing:
+                        # Convert each value in the tuple to match the type from object extraction
+                        converted_record = []
+                        for i, field_name in enumerate(unique_fields):
+                            db_value = existing_record[i]
+                            # Convert all values to strings for consistent comparison
+                            # This ensures all database values are strings like object values
+                            converted_record.append(str(db_value))
+                        converted_tuple = tuple(converted_record)
+                        existing_records_lookup.add(converted_tuple)
+
+                    logger.debug(
+                        f"DEBUG: Found {len(raw_existing)} existing records from DB"
+                    )
+                    logger.debug(
+                        f"DEBUG: Existing records lookup set: {existing_records_lookup}"
+                    )
 
                     # Separate records based on whether they already exist
                     for obj in objs:
                         obj_unique_value = {}
                         for field_name in unique_fields:
-                            if hasattr(obj, field_name):
+                            # First check for _id field (more reliable for ForeignKeys)
+                            if hasattr(obj, field_name + "_id"):
+                                # Handle ForeignKey fields where _id suffix is used
+                                obj_unique_value[field_name] = getattr(
+                                    obj, field_name + "_id"
+                                )
+                            elif hasattr(obj, field_name):
                                 obj_unique_value[field_name] = getattr(obj, field_name)
 
                         # Check if this record already exists using our bulk lookup
                         if obj_unique_value:
                             # Convert object values to tuple for comparison with existing records
-                            obj_unique_tuple = tuple(obj_unique_value[field_name] for field_name in unique_fields)
+                            # Apply the same type conversion as we did for database values
+                            obj_unique_tuple = []
+                            for field_name in unique_fields:
+                                value = obj_unique_value[field_name]
+                                # Check if this field uses _id suffix in the query
+                                query_field_name = query_fields[field_name]
+                                if query_field_name.endswith("_id"):
+                                    # Convert to string to match how we convert DB values
+                                    obj_unique_tuple.append(str(value))
+                                else:
+                                    # For non-_id fields, also convert to string for consistency
+                                    # This ensures all values are strings like in the database lookup
+                                    obj_unique_tuple.append(str(value))
+                            obj_unique_tuple = tuple(obj_unique_tuple)
+
+                            logger.debug(
+                                f"DEBUG: Object unique tuple: {obj_unique_tuple}"
+                            )
+                            logger.debug(
+                                f"DEBUG: Object unique value: {obj_unique_value}"
+                            )
                             if obj_unique_tuple in existing_records_lookup:
                                 existing_records.append(obj)
+                                logger.debug(
+                                    f"DEBUG: Found existing record for tuple: {obj_unique_tuple}"
+                                )
                             else:
                                 new_records.append(obj)
+                                logger.debug(
+                                    f"DEBUG: No existing record found for tuple: {obj_unique_tuple}"
+                                )
                         else:
                             # If we can't determine uniqueness, treat as new
                             new_records.append(obj)
@@ -584,16 +653,14 @@ class HookQuerySetMixin:
                     # If no unique fields, treat all as new
                     new_records = objs
 
+                # Store the classified records for AFTER hooks to avoid duplicate queries
+                ctx.upsert_existing_records = existing_records
+                ctx.upsert_new_records = new_records
+
                 # Handle auto_now fields intelligently for upsert operations
                 # Only set auto_now fields on records that will actually be created
-                for obj in new_records:
-                    for field in model_cls._meta.local_fields:
-                        if hasattr(field, "auto_now") and field.auto_now:
-                            field.pre_save(obj, add=True)
-                        elif hasattr(field, "auto_now_add") and field.auto_now_add:
-                            if getattr(obj, field.name) is None:
-                                field.pre_save(obj, add=True)
-                
+                self._handle_auto_now_fields(new_records, add=True)
+
                 # For existing records, preserve their original auto_now values
                 # We'll need to fetch them from the database to preserve the timestamps
                 if existing_records:
@@ -606,7 +673,7 @@ class HookQuerySetMixin:
                                 unique_value[field_name] = getattr(obj, field_name)
                         if unique_value:
                             existing_unique_values.append(unique_value)
-                    
+
                     if existing_unique_values:
                         # Build filter to fetch existing records
                         existing_filters = Q()
@@ -615,14 +682,16 @@ class HookQuerySetMixin:
                             for field_name, value in unique_value.items():
                                 filter_kwargs[field_name] = value
                             existing_filters |= Q(**filter_kwargs)
-                        
+
                         # Fetch existing records to preserve their auto_now values
                         existing_db_records = model_cls.objects.filter(existing_filters)
                         existing_db_map = {}
                         for db_record in existing_db_records:
-                            key = tuple(getattr(db_record, field) for field in unique_fields)
+                            key = tuple(
+                                getattr(db_record, field) for field in unique_fields
+                            )
                             existing_db_map[key] = db_record
-                        
+
                         # For existing records, populate all fields from database and set auto_now fields
                         for obj in existing_records:
                             key = tuple(getattr(obj, field) for field in unique_fields)
@@ -631,28 +700,42 @@ class HookQuerySetMixin:
                                 # Copy all fields from the database record to ensure completeness
                                 populated_fields = []
                                 for field in model_cls._meta.local_fields:
-                                    if field.name != 'id':  # Don't overwrite the ID
+                                    if field.name != "id":  # Don't overwrite the ID
                                         db_value = getattr(db_record, field.name)
-                                        if db_value is not None:  # Only set non-None values
+                                        if (
+                                            db_value is not None
+                                        ):  # Only set non-None values
                                             setattr(obj, field.name, db_value)
                                             populated_fields.append(field.name)
-                                print(f"DEBUG: Populated {len(populated_fields)} fields for existing record: {populated_fields}")
-                                logger.debug(f"Populated {len(populated_fields)} fields for existing record: {populated_fields}")
-                                
+                                print(
+                                    f"DEBUG: Populated {len(populated_fields)} fields for existing record: {populated_fields}"
+                                )
+                                logger.debug(
+                                    f"Populated {len(populated_fields)} fields for existing record: {populated_fields}"
+                                )
+
                                 # Now set auto_now fields using Django's pre_save method
                                 for field in model_cls._meta.local_fields:
                                     if hasattr(field, "auto_now") and field.auto_now:
-                                        field.pre_save(obj, add=False)  # add=False for updates
-                                        print(f"DEBUG: Set {field.name} using pre_save for existing record {obj.pk}")
-                                        logger.debug(f"Set {field.name} using pre_save for existing record {obj.pk}")
-                
+                                        field.pre_save(
+                                            obj, add=False
+                                        )  # add=False for updates
+                                        print(
+                                            f"DEBUG: Set {field.name} using pre_save for existing record {obj.pk}"
+                                        )
+                                        logger.debug(
+                                            f"Set {field.name} using pre_save for existing record {obj.pk}"
+                                        )
+
                 # Remove duplicate code since we're now handling this above
-                
+
                 # CRITICAL: Handle auto_now fields intelligently for existing records
                 # We need to exclude them from Django's ON CONFLICT DO UPDATE clause to prevent
                 # Django's default behavior, but still ensure they get updated via pre_save
                 if existing_records and update_fields:
-                    logger.debug(f"Processing {len(existing_records)} existing records with update_fields: {update_fields}")
+                    logger.debug(
+                        f"Processing {len(existing_records)} existing records with update_fields: {update_fields}"
+                    )
 
                     # Identify auto_now fields
                     auto_now_fields = set()
@@ -669,24 +752,32 @@ class HookQuerySetMixin:
 
                         # Filter out auto_now fields from update_fields for the database operation
                         # This prevents Django from including them in ON CONFLICT DO UPDATE
-                        filtered_update_fields = [f for f in update_fields if f not in auto_now_fields]
+                        filtered_update_fields = [
+                            f for f in update_fields if f not in auto_now_fields
+                        ]
 
-                        logger.debug(f"Filtered update_fields: {filtered_update_fields}")
+                        logger.debug(
+                            f"Filtered update_fields: {filtered_update_fields}"
+                        )
                         logger.debug(f"Excluded auto_now fields: {auto_now_fields}")
 
                         # Use filtered update_fields for Django's bulk_create operation
                         update_fields = filtered_update_fields
 
-                        logger.debug(f"Final update_fields for DB operation: {update_fields}")
+                        logger.debug(
+                            f"Final update_fields for DB operation: {update_fields}"
+                        )
                     else:
                         logger.debug("No auto_now fields found to handle")
                 else:
-                    logger.debug(f"No existing records or update_fields to process. existing_records: {len(existing_records) if existing_records else 0}, update_fields: {update_fields}")
-                
+                    logger.debug(
+                        f"No existing records or update_fields to process. existing_records: {len(existing_records) if existing_records else 0}, update_fields: {update_fields}"
+                    )
+
                 # Run validation hooks on all records
                 if not bypass_validation:
                     engine.run(model_cls, VALIDATE_CREATE, objs, ctx=ctx)
-                
+
                 # Run appropriate BEFORE hooks based on what will happen
                 if new_records:
                     engine.run(model_cls, BEFORE_CREATE, new_records, ctx=ctx)
@@ -695,19 +786,12 @@ class HookQuerySetMixin:
             else:
                 # For regular create operations, run create hooks before DB ops
                 # Handle auto_now fields normally for new records
-                for obj in objs:
-                    for field in model_cls._meta.local_fields:
-                        if hasattr(field, "auto_now") and field.auto_now:
-                            field.pre_save(obj, add=True)
-                        elif hasattr(field, "auto_now_add") and field.auto_now_add:
-                            if getattr(obj, field.name) is None:
-                                field.pre_save(obj, add=True)
-                
+                self._handle_auto_now_fields(objs, add=True)
+
                 if not bypass_validation:
                     engine.run(model_cls, VALIDATE_CREATE, objs, ctx=ctx)
                 engine.run(model_cls, BEFORE_CREATE, objs, ctx=ctx)
         else:
-            ctx = HookContext(model_cls, bypass_hooks=True)  # Pass bypass_hooks
             logger.debug("bulk_create bypassed hooks")
 
         # For MTI models, we need to handle them specially
@@ -731,10 +815,16 @@ class HookQuerySetMixin:
             # but we need to call it on the base manager to avoid recursion
             # Filter out custom parameters that Django's bulk_create doesn't accept
 
-            logger.debug(f"Calling Django bulk_create with update_fields: {update_fields}")
-            logger.debug(f"Calling Django bulk_create with update_conflicts: {update_conflicts}")
-            logger.debug(f"Calling Django bulk_create with unique_fields: {unique_fields}")
-            
+            logger.debug(
+                f"Calling Django bulk_create with update_fields: {update_fields}"
+            )
+            logger.debug(
+                f"Calling Django bulk_create with update_conflicts: {update_conflicts}"
+            )
+            logger.debug(
+                f"Calling Django bulk_create with unique_fields: {unique_fields}"
+            )
+
             result = super().bulk_create(
                 objs,
                 batch_size=batch_size,
@@ -743,15 +833,17 @@ class HookQuerySetMixin:
                 update_fields=update_fields,
                 unique_fields=unique_fields,
             )
-            
+
             logger.debug(f"Django bulk_create completed with result: {result}")
 
         # Fire AFTER hooks
         if not bypass_hooks:
             if update_conflicts and unique_fields:
                 # Handle auto_now fields that were excluded from the main update
-                if hasattr(ctx, 'auto_now_fields') and existing_records:
-                    logger.debug(f"Performing separate update for auto_now fields: {ctx.auto_now_fields}")
+                if hasattr(ctx, "auto_now_fields") and existing_records:
+                    logger.debug(
+                        f"Performing separate update for auto_now fields: {ctx.auto_now_fields}"
+                    )
 
                     # Perform a separate bulk_update for the auto_now fields that were set via pre_save
                     # This ensures they get saved to the database even though they were excluded from the main upsert
@@ -761,29 +853,39 @@ class HookQuerySetMixin:
                         auto_now_update_result = base_manager.bulk_update(
                             existing_records, list(ctx.auto_now_fields)
                         )
-                        logger.debug(f"Auto_now fields update completed with result: {auto_now_update_result}")
+                        logger.debug(
+                            f"Auto_now fields update completed with result: {auto_now_update_result}"
+                        )
                     except Exception as e:
                         logger.error(f"Failed to update auto_now fields: {e}")
                         # Don't raise the exception - the main operation succeeded
 
                 # Restore original update_fields if we modified them
-                if hasattr(ctx, 'original_update_fields'):
-                    logger.debug(f"Restoring original update_fields: {ctx.original_update_fields}")
+                if hasattr(ctx, "original_update_fields"):
+                    logger.debug(
+                        f"Restoring original update_fields: {ctx.original_update_fields}"
+                    )
                     update_fields = ctx.original_update_fields
-                    delattr(ctx, 'original_update_fields')
-                    if hasattr(ctx, 'auto_now_fields'):
-                        delattr(ctx, 'auto_now_fields')
+                    delattr(ctx, "original_update_fields")
+                    if hasattr(ctx, "auto_now_fields"):
+                        delattr(ctx, "auto_now_fields")
                     logger.debug(f"Restored update_fields: {update_fields}")
 
                 # For upsert operations, reuse the existing/new records determination from BEFORE hooks
                 # This avoids duplicate queries and improves performance
-                if hasattr(ctx, 'upsert_existing_records') and hasattr(ctx, 'upsert_new_records'):
+                if hasattr(ctx, "upsert_existing_records") and hasattr(
+                    ctx, "upsert_new_records"
+                ):
                     existing_records = ctx.upsert_existing_records
                     new_records = ctx.upsert_new_records
-                    logger.debug(f"Reusing upsert record classification from BEFORE hooks: {len(existing_records)} existing, {len(new_records)} new")
+                    logger.debug(
+                        f"Reusing upsert record classification from BEFORE hooks: {len(existing_records)} existing, {len(new_records)} new"
+                    )
                 else:
                     # Fallback: determine records that actually exist after bulk operation
-                    logger.warning("Upsert record classification not found in context, performing fallback query")
+                    logger.warning(
+                        "Upsert record classification not found in context, performing fallback query"
+                    )
                     existing_records = []
                     new_records = []
 
@@ -800,6 +902,7 @@ class HookQuerySetMixin:
                     if unique_values:
                         # Query the database to see which records exist after bulk operation
                         from django.db.models import Q
+
                         existing_filters = Q()
                         for unique_value in unique_values:
                             filter_kwargs = {}
@@ -809,7 +912,9 @@ class HookQuerySetMixin:
 
                         # Get all existing records in one query and create a lookup set
                         existing_records_lookup = set()
-                        for existing_record in model_cls.objects.filter(existing_filters).values_list(*unique_fields):
+                        for existing_record in model_cls.objects.filter(
+                            existing_filters
+                        ).values_list(*unique_fields):
                             # Convert tuple to a hashable key for lookup
                             existing_records_lookup.add(existing_record)
 
@@ -818,12 +923,17 @@ class HookQuerySetMixin:
                             obj_unique_value = {}
                             for field_name in unique_fields:
                                 if hasattr(obj, field_name):
-                                    obj_unique_value[field_name] = getattr(obj, field_name)
+                                    obj_unique_value[field_name] = getattr(
+                                        obj, field_name
+                                    )
 
                             # Check if this record exists using our bulk lookup
                             if obj_unique_value:
                                 # Convert object values to tuple for comparison with existing records
-                                obj_unique_tuple = tuple(obj_unique_value[field_name] for field_name in unique_fields)
+                                obj_unique_tuple = tuple(
+                                    obj_unique_value[field_name]
+                                    for field_name in unique_fields
+                                )
                                 if obj_unique_tuple in existing_records_lookup:
                                     existing_records.append(obj)
                                 else:
@@ -846,162 +956,589 @@ class HookQuerySetMixin:
 
         return result
 
-    @transaction.atomic
-    def bulk_update(
-        self, objs, fields, bypass_hooks=False, bypass_validation=False, **kwargs
-    ):
+    def _detect_changed_fields(self, objs):
         """
-        Bulk update objects in the database with MTI support.
+        Auto-detect which fields have changed by comparing objects with database values.
+        Returns a set of field names that have changed across all objects.
         """
-        model_cls = self.model
+        if not objs:
+            return set()
 
+        model_cls = self.model
+        changed_fields = set()
+
+        # Get primary key field names
+        pk_fields = [f.name for f in model_cls._meta.pk_fields]
+        if not pk_fields:
+            pk_fields = ["pk"]
+
+        # Get all object PKs
+        obj_pks = []
+        for obj in objs:
+            if hasattr(obj, "pk") and obj.pk is not None:
+                obj_pks.append(obj.pk)
+            else:
+                # Skip objects without PKs
+                continue
+
+        if not obj_pks:
+            return set()
+
+        # Fetch current database values for all objects
+        existing_objs = {
+            obj.pk: obj for obj in model_cls.objects.filter(pk__in=obj_pks)
+        }
+
+        # Compare each object's current values with database values
+        for obj in objs:
+            if obj.pk not in existing_objs:
+                continue
+
+            db_obj = existing_objs[obj.pk]
+
+            # Check all concrete fields for changes
+            for field in model_cls._meta.concrete_fields:
+                field_name = field.name
+
+                # Skip primary key fields
+                if field_name in pk_fields:
+                    continue
+
+                # Get current value from object
+                current_value = getattr(obj, field_name, None)
+                # Get database value
+                db_value = getattr(db_obj, field_name, None)
+
+                # Compare values (handle None cases)
+                if current_value != db_value:
+                    changed_fields.add(field_name)
+
+        return changed_fields
+
+    @transaction.atomic
+    def bulk_update(self, objs, bypass_hooks=False, bypass_validation=False, **kwargs):
         if not objs:
             return []
 
-        if any(not isinstance(obj, model_cls) for obj in objs):
-            raise TypeError(
-                f"bulk_update expected instances of {model_cls.__name__}, but got {set(type(obj).__name__ for obj in objs)}"
+        self._validate_objects(objs, require_pks=True, operation_name="bulk_update")
+
+        changed_fields = self._detect_changed_fields(objs)
+        is_mti = self._is_multi_table_inheritance()
+        hook_context, originals = self._init_hook_context(
+            bypass_hooks, objs, "bulk_update"
+        )
+
+        fields_set, auto_now_fields, custom_update_fields = self._prepare_update_fields(
+            changed_fields
+        )
+
+        self._apply_auto_now_fields(objs, auto_now_fields)
+        self._apply_custom_update_fields(objs, custom_update_fields, fields_set)
+
+        if is_mti:
+            return self._mti_bulk_update(objs, list(fields_set), **kwargs)
+        else:
+            return self._single_table_bulk_update(
+                objs, fields_set, auto_now_fields, **kwargs
             )
 
+    def _apply_custom_update_fields(self, objs, custom_update_fields, fields_set):
+        """
+        Call pre_save() for custom fields that require update handling
+        (e.g., CurrentUserField) and update both the objects and the field set.
+
+        Args:
+            objs (list[Model]): The model instances being updated.
+            custom_update_fields (list[Field]): Fields that define a pre_save() hook.
+            fields_set (set[str]): The overall set of fields to update, mutated in place.
+        """
+        if not custom_update_fields:
+            return
+
+        model_cls = self.model
+        pk_field_names = [f.name for f in model_cls._meta.pk_fields]
+
         logger.debug(
-            f"bulk_update {model_cls.__name__} bypass_hooks={bypass_hooks} objs={len(objs)} fields={fields}"
+            "Applying pre_save() on custom update fields: %s",
+            [f.name for f in custom_update_fields],
         )
-        print(f"DEBUG: bulk_update {model_cls.__name__} bypass_hooks={bypass_hooks} objs={len(objs)} fields={fields}")
 
-        # Check for MTI
-        is_mti = False
-        for parent in model_cls._meta.all_parents:
-            if parent._meta.concrete_model is not model_cls._meta.concrete_model:
-                is_mti = True
-                break
+        for obj in objs:
+            for field in custom_update_fields:
+                try:
+                    # Call pre_save with add=False (since this is an update)
+                    new_value = field.pre_save(obj, add=False)
 
-        if not bypass_hooks:
-            logger.debug("bulk_update: hooks will run in update()")
-            ctx = HookContext(model_cls, bypass_hooks=False)
-            originals = [None] * len(objs)  # Placeholder for after_update call
-        else:
-            logger.debug("bulk_update: hooks bypassed")
+                    # Only assign if pre_save returned something
+                    if new_value is not None:
+                        setattr(obj, field.name, new_value)
+
+                        # Ensure this field is included in the update set
+                        if (
+                            field.name not in fields_set
+                            and field.name not in pk_field_names
+                        ):
+                            fields_set.add(field.name)
+
+                        logger.debug(
+                            "Custom field %s updated via pre_save() for object %s",
+                            field.name,
+                            obj.pk,
+                        )
+
+                except Exception as e:
+                    logger.warning(
+                        "Failed to call pre_save() on custom field %s for object %s: %s",
+                        field.name,
+                        getattr(obj, "pk", None),
+                        e,
+                    )
+
+    def _single_table_bulk_update(self, objs, fields_set, auto_now_fields, **kwargs):
+        """
+        Perform bulk_update for single-table models, handling Django semantics
+        for kwargs and setting a value map for hook execution.
+
+        Args:
+            objs (list[Model]): The model instances being updated.
+            fields_set (set[str]): The names of fields to update.
+            auto_now_fields (list[str]): Names of auto_now fields included in update.
+            **kwargs: Extra arguments (only Django-supported ones are passed through).
+
+        Returns:
+            list[Model]: The updated model instances.
+        """
+        # Strip out unsupported bulk_update kwargs
+        django_kwargs = self._filter_django_kwargs(kwargs)
+
+        # Build a value map: {pk -> {field: raw_value}} for later hook use
+        value_map = self._build_value_map(objs, fields_set, auto_now_fields)
+
+        if value_map:
+            set_bulk_update_value_map(value_map)
+
+        try:
+            logger.debug(
+                "Calling Django bulk_update for %d objects on fields %s",
+                len(objs),
+                list(fields_set),
+            )
+            return super().bulk_update(objs, list(fields_set), **django_kwargs)
+        finally:
+            # Always clear thread-local state
+            set_bulk_update_value_map(None)
+
+    def _filter_django_kwargs(self, kwargs):
+        """
+        Remove unsupported arguments before passing to Django's bulk_update.
+        """
+        unsupported = {
+            "unique_fields",
+            "update_conflicts",
+            "update_fields",
+            "ignore_conflicts",
+        }
+        passthrough = {}
+        for k, v in kwargs.items():
+            if k in unsupported:
+                logger.warning(
+                    "Parameter '%s' is not supported by bulk_update. "
+                    "It is only available for bulk_create UPSERT operations.",
+                    k,
+                )
+            elif k not in {"bypass_hooks", "bypass_validation"}:
+                passthrough[k] = v
+        return passthrough
+
+    def _build_value_map(self, objs, fields_set, auto_now_fields):
+        """
+        Build a mapping of {pk -> {field_name: raw_value}} for hook processing.
+
+        Expressions are not included; only concrete values assigned on the object.
+        """
+        value_map = {}
+        for obj in objs:
+            if obj.pk is None:
+                continue  # skip unsaved objects
+            field_values = {}
+            for field_name in fields_set:
+                value = getattr(obj, field_name)
+                field_values[field_name] = value
+                if field_name in auto_now_fields:
+                    logger.debug("Object %s %s=%s", obj.pk, field_name, value)
+            if field_values:
+                value_map[obj.pk] = field_values
+
+        logger.debug("Built value_map for %d objects", len(value_map))
+        return value_map
+
+    def _validate_objects(self, objs, require_pks=False, operation_name="bulk_update"):
+        """
+        Validate that all objects are instances of this queryset's model.
+
+        Args:
+            objs (list): Objects to validate
+            require_pks (bool): Whether to validate that objects have primary keys
+            operation_name (str): Name of the operation for error messages
+        """
+        model_cls = self.model
+
+        # Type check
+        invalid_types = {
+            type(obj).__name__ for obj in objs if not isinstance(obj, model_cls)
+        }
+        if invalid_types:
+            raise TypeError(
+                f"{operation_name} expected instances of {model_cls.__name__}, "
+                f"but got {invalid_types}"
+            )
+
+        # Primary key check (optional, for operations that require saved objects)
+        if require_pks:
+            missing_pks = [obj for obj in objs if obj.pk is None]
+            if missing_pks:
+                raise ValueError(
+                    f"{operation_name} cannot operate on unsaved {model_cls.__name__} instances. "
+                    f"{len(missing_pks)} object(s) have no primary key."
+                )
+
+        logger.debug(
+            "Validated %d %s objects for %s",
+            len(objs),
+            model_cls.__name__,
+            operation_name,
+        )
+
+    def _init_hook_context(
+        self, bypass_hooks: bool, objs, operation_name="bulk_update"
+    ):
+        """
+        Initialize the hook context for bulk operations.
+
+        Args:
+            bypass_hooks (bool): Whether to bypass hooks
+            objs (list): List of objects being operated on
+            operation_name (str): Name of the operation for logging
+
+        Returns:
+            (HookContext, list): The hook context and a placeholder list
+            for 'originals', which can be populated later if needed for
+            after_update hooks.
+        """
+        model_cls = self.model
+
+        if bypass_hooks:
+            logger.debug(
+                "%s: hooks bypassed for %s", operation_name, model_cls.__name__
+            )
             ctx = HookContext(model_cls, bypass_hooks=True)
-            originals = [None] * len(
-                objs
-            )  # Ensure originals is defined for after_update call
+        else:
+            logger.debug("%s: hooks enabled for %s", operation_name, model_cls.__name__)
+            ctx = HookContext(model_cls, bypass_hooks=False)
 
-        # Handle auto_now fields like Django's update_or_create does
-        fields_set = set(fields)
-        pk_fields = model_cls._meta.pk_fields
-        pk_field_names = [f.name for f in pk_fields]
+        # Keep `originals` aligned with objs to support later hook execution.
+        originals = [None] * len(objs)
+
+        return ctx, originals
+
+    def _prepare_update_fields(self, changed_fields):
+        """
+        Determine the final set of fields to update, including auto_now
+        fields and custom fields that require pre_save() on updates.
+
+        Args:
+            changed_fields (Iterable[str]): Fields detected as changed.
+
+        Returns:
+            tuple:
+                fields_set (set): All fields that should be updated.
+                auto_now_fields (list[str]): Fields that require auto_now behavior.
+                custom_update_fields (list[Field]): Fields with pre_save hooks to call.
+        """
+        model_cls = self.model
+        fields_set = set(changed_fields)
+        pk_field_names = [f.name for f in model_cls._meta.pk_fields]
+
         auto_now_fields = []
-        custom_update_fields = []  # Fields that need pre_save() called on update
-        logger.debug(f"Checking for auto_now and custom update fields in {model_cls.__name__}")
+        custom_update_fields = []
+
         for field in model_cls._meta.local_concrete_fields:
-            # Only add auto_now fields (like updated_at) that aren't already in the fields list
-            # Don't include auto_now_add fields (like created_at) as they should only be set on creation
-            if hasattr(field, "auto_now") and field.auto_now:
-                logger.debug(f"Found auto_now field: {field.name}")
-                print(f"DEBUG: Found auto_now field: {field.name}")
+            # Handle auto_now fields
+            if getattr(field, "auto_now", False):
                 if field.name not in fields_set and field.name not in pk_field_names:
                     fields_set.add(field.name)
-                    if field.name != field.attname:
+                    if field.name != field.attname:  # handle attname vs name
                         fields_set.add(field.attname)
                     auto_now_fields.append(field.name)
-                    logger.debug(f"Added auto_now field {field.name} to fields list")
-                    print(f"DEBUG: Added auto_now field {field.name} to fields list")
-                else:
-                    logger.debug(f"Auto_now field {field.name} already in fields list or is PK")
-                    print(f"DEBUG: Auto_now field {field.name} already in fields list or is PK")
-            elif hasattr(field, "auto_now_add") and field.auto_now_add:
-                logger.debug(f"Found auto_now_add field: {field.name} (skipping)")
-            # Check for custom fields that might need pre_save() on update (like CurrentUserField)
-            elif hasattr(field, 'pre_save'):
-                # Only call pre_save on fields that aren't already being updated
+                    logger.debug("Added auto_now field %s to update set", field.name)
+
+            # Skip auto_now_add (only applies at creation time)
+            elif getattr(field, "auto_now_add", False):
+                continue
+
+            # Handle custom pre_save fields
+            elif hasattr(field, "pre_save"):
                 if field.name not in fields_set and field.name not in pk_field_names:
                     custom_update_fields.append(field)
-                    logger.debug(f"Found custom field with pre_save: {field.name}")
-                    print(f"DEBUG: Found custom field with pre_save: {field.name}")
-        
-        logger.debug(f"Auto_now fields detected: {auto_now_fields}")
-        print(f"DEBUG: Auto_now fields detected: {auto_now_fields}")
-        fields = list(fields_set)
-        
-        # Set auto_now field values to current timestamp
-        if auto_now_fields:
-            from django.utils import timezone
-            current_time = timezone.now()
-            print(f"DEBUG: Setting auto_now fields {auto_now_fields} to current time: {current_time}")
-            logger.debug(f"Setting auto_now fields {auto_now_fields} to current time: {current_time}")
-            for obj in objs:
-                for field_name in auto_now_fields:
-                    setattr(obj, field_name, current_time)
-                    print(f"DEBUG: Set {field_name} to {current_time} for object {obj.pk}")
+                    logger.debug(
+                        "Marked custom field %s for pre_save update", field.name
+                    )
 
-        # Call pre_save() on custom fields that need update handling
-        if custom_update_fields:
-            logger.debug(f"Calling pre_save() on custom update fields: {[f.name for f in custom_update_fields]}")
-            print(f"DEBUG: Calling pre_save() on custom update fields: {[f.name for f in custom_update_fields]}")
-            for obj in objs:
-                for field in custom_update_fields:
-                    try:
-                        # Call pre_save with add=False to indicate this is an update
-                        new_value = field.pre_save(obj, add=False)
-                        # Only update the field if pre_save returned a new value
-                        if new_value is not None:
-                            setattr(obj, field.name, new_value)
-                            # Add this field to the update fields if it's not already there and not a primary key
-                            if field.name not in fields_set and field.name not in pk_field_names:
-                                fields_set.add(field.name)
-                                fields.append(field.name)
-                            logger.debug(f"Custom field {field.name} updated via pre_save() for object {obj.pk}")
-                            print(f"DEBUG: Custom field {field.name} updated via pre_save() for object {obj.pk}")
-                    except Exception as e:
-                        logger.warning(f"Failed to call pre_save() on custom field {field.name}: {e}")
-                        print(f"DEBUG: Failed to call pre_save() on custom field {field.name}: {e}")
+        logger.debug(
+            "Prepared update fields: fields_set=%s, auto_now_fields=%s, custom_update_fields=%s",
+            fields_set,
+            auto_now_fields,
+            [f.name for f in custom_update_fields],
+        )
 
-        # Handle MTI models differently
-        if is_mti:
-            result = self._mti_bulk_update(objs, fields, **kwargs)
-        else:
-            # For single-table models, use Django's built-in bulk_update
-            django_kwargs = {
-                k: v
-                for k, v in kwargs.items()
-                if k not in ["bypass_hooks", "bypass_validation"]
-            }
-            logger.debug("Calling Django bulk_update")
-            print("DEBUG: Calling Django bulk_update")
-            # Build a per-object concrete value map to avoid leaking expressions into hooks
-            value_map = {}
-            logger.debug(f"Building value map for {len(objs)} objects with fields: {fields}")
-            for obj in objs:
-                if obj.pk is None:
-                    continue
-                field_values = {}
-                for field_name in fields:
-                    # Capture raw values assigned on the object (not expressions)
-                    field_values[field_name] = getattr(obj, field_name)
-                    if field_name in auto_now_fields:
-                        logger.debug(f"Object {obj.pk} {field_name}: {field_values[field_name]}")
-                if field_values:
-                    value_map[obj.pk] = field_values
+        return fields_set, auto_now_fields, custom_update_fields
 
-            # Make the value map available to the subsequent update() call
-            if value_map:
-                set_bulk_update_value_map(value_map)
+    def _apply_auto_now_fields(self, objs, auto_now_fields, add=False):
+        """
+        Apply the current timestamp to all auto_now fields on each object.
 
-            try:
-                result = super().bulk_update(objs, fields, **django_kwargs)
-            finally:
-                # Always clear after the internal update() path finishes
-                set_bulk_update_value_map(None)
-            logger.debug(f"Django bulk_update done: {result}")
+        Args:
+            objs (list[Model]): The model instances being processed.
+            auto_now_fields (list[str]): Field names that require auto_now behavior.
+            add (bool): Whether this is for creation (add=True) or update (add=False).
+        """
+        if not auto_now_fields:
+            return
 
-        # Note: We don't run AFTER_UPDATE hooks here to prevent double execution
-        # The update() method will handle all hook execution based on thread-local state
-        if not bypass_hooks:
-            logger.debug("bulk_update: skipping AFTER_UPDATE (update() will handle)")
-        else:
-            logger.debug("bulk_update: hooks bypassed")
+        from django.utils import timezone
+
+        current_time = timezone.now()
+
+        logger.debug(
+            "Setting auto_now fields %s to %s for %d objects (add=%s)",
+            auto_now_fields,
+            current_time,
+            len(objs),
+            add,
+        )
+
+        for obj in objs:
+            for field_name in auto_now_fields:
+                setattr(obj, field_name, current_time)
+
+    def _handle_auto_now_fields(self, objs, add=False):
+        """
+        Handle auto_now and auto_now_add fields for objects.
+
+        Args:
+            objs (list[Model]): The model instances being processed.
+            add (bool): Whether this is for creation (add=True) or update (add=False).
+
+        Returns:
+            list[str]: Names of auto_now fields that were handled.
+        """
+        model_cls = self.model
+        handled_fields = []
+
+        for obj in objs:
+            for field in model_cls._meta.local_fields:
+                # Handle auto_now_add only during creation
+                if add and hasattr(field, "auto_now_add") and field.auto_now_add:
+                    if getattr(obj, field.name) is None:
+                        field.pre_save(obj, add=True)
+                    handled_fields.append(field.name)
+                # Handle auto_now during creation or update
+                elif hasattr(field, "auto_now") and field.auto_now:
+                    field.pre_save(obj, add=add)
+                    handled_fields.append(field.name)
+
+        return list(set(handled_fields))  # Remove duplicates
+
+    def _execute_hooks_with_operation(
+        self,
+        operation_func,
+        validate_hook,
+        before_hook,
+        after_hook,
+        objs,
+        originals=None,
+        ctx=None,
+        bypass_hooks=False,
+        bypass_validation=False,
+    ):
+        """
+        Execute the complete hook lifecycle around a database operation.
+
+        Args:
+            operation_func (callable): The database operation to execute
+            validate_hook: Hook constant for validation
+            before_hook: Hook constant for before operation
+            after_hook: Hook constant for after operation
+            objs (list): Objects being operated on
+            originals (list, optional): Original objects for comparison hooks
+            ctx: Hook context
+            bypass_hooks (bool): Whether to skip hooks
+            bypass_validation (bool): Whether to skip validation hooks
+
+        Returns:
+            The result of the database operation
+        """
+        model_cls = self.model
+
+        # Run validation hooks first (if not bypassed)
+        if not bypass_validation and validate_hook:
+            engine.run(model_cls, validate_hook, objs, ctx=ctx)
+
+        # Run before hooks (if not bypassed)
+        if not bypass_hooks and before_hook:
+            engine.run(model_cls, before_hook, objs, originals, ctx=ctx)
+
+        # Execute the database operation
+        result = operation_func()
+
+        # Run after hooks (if not bypassed)
+        if not bypass_hooks and after_hook:
+            engine.run(model_cls, after_hook, objs, originals, ctx=ctx)
 
         return result
+
+    def _log_bulk_operation_start(self, operation_name, objs, **kwargs):
+        """
+        Log the start of a bulk operation with consistent formatting.
+
+        Args:
+            operation_name (str): Name of the operation (e.g., "bulk_create")
+            objs (list): Objects being operated on
+            **kwargs: Additional parameters to log
+        """
+        model_cls = self.model
+
+        # Build parameter string for additional kwargs
+        param_str = ""
+        if kwargs:
+            param_parts = []
+            for key, value in kwargs.items():
+                if isinstance(value, (list, tuple)):
+                    param_parts.append(f"{key}={value}")
+                else:
+                    param_parts.append(f"{key}={value}")
+            param_str = f", {', '.join(param_parts)}"
+
+        # Use both print and logger for consistency with existing patterns
+        print(
+            f"DEBUG: {operation_name} called for {model_cls.__name__} with {len(objs)} objects{param_str}"
+        )
+        logger.debug(
+            f"{operation_name} called for {model_cls.__name__} with {len(objs)} objects{param_str}"
+        )
+
+    def _execute_delete_hooks_with_operation(
+        self,
+        operation_func,
+        objs,
+        ctx=None,
+        bypass_hooks=False,
+        bypass_validation=False,
+    ):
+        """
+        Execute hooks for delete operations with special field caching logic.
+
+        Args:
+            operation_func (callable): The delete operation to execute
+            objs (list): Objects being deleted
+            ctx: Hook context
+            bypass_hooks (bool): Whether to skip hooks
+            bypass_validation (bool): Whether to skip validation hooks
+
+        Returns:
+            The result of the delete operation
+        """
+        model_cls = self.model
+
+        # Run validation hooks first (if not bypassed)
+        if not bypass_validation:
+            engine.run(model_cls, VALIDATE_DELETE, objs, ctx=ctx)
+
+        # Run before hooks (if not bypassed)
+        if not bypass_hooks:
+            engine.run(model_cls, BEFORE_DELETE, objs, ctx=ctx)
+
+            # Before deletion, ensure all related fields are properly cached
+            # to avoid DoesNotExist errors in AFTER_DELETE hooks
+            for obj in objs:
+                if obj.pk is not None:
+                    # Cache all foreign key relationships by accessing them
+                    for field in model_cls._meta.fields:
+                        if (
+                            field.is_relation
+                            and not field.many_to_many
+                            and not field.one_to_many
+                        ):
+                            try:
+                                # Access the related field to cache it before deletion
+                                getattr(obj, field.name)
+                            except Exception:
+                                # If we can't access the field (e.g., already deleted, no permission, etc.)
+                                # continue with other fields
+                                pass
+
+        # Execute the database operation
+        result = operation_func()
+
+        # Run after hooks (if not bypassed)
+        if not bypass_hooks:
+            engine.run(model_cls, AFTER_DELETE, objs, ctx=ctx)
+
+        return result
+
+    def _setup_bulk_operation(
+        self,
+        objs,
+        operation_name,
+        require_pks=False,
+        bypass_hooks=False,
+        bypass_validation=False,
+        **log_kwargs,
+    ):
+        """
+        Common setup logic for bulk operations.
+
+        Args:
+            objs (list): Objects to operate on
+            operation_name (str): Name of the operation for logging and validation
+            require_pks (bool): Whether objects must have primary keys
+            bypass_hooks (bool): Whether to bypass hooks
+            bypass_validation (bool): Whether to bypass validation
+            **log_kwargs: Additional parameters to log
+
+        Returns:
+            tuple: (model_cls, ctx, originals)
+        """
+        # Log operation start
+        self._log_bulk_operation_start(operation_name, objs, **log_kwargs)
+
+        # Validate objects
+        self._validate_objects(
+            objs, require_pks=require_pks, operation_name=operation_name
+        )
+
+        # Initialize hook context
+        ctx, originals = self._init_hook_context(bypass_hooks, objs, operation_name)
+
+        return self.model, ctx, originals
+
+    def _is_multi_table_inheritance(self) -> bool:
+        """
+        Determine whether this model uses multi-table inheritance (MTI).
+        Returns True if the model has any concrete parent models other than itself.
+        """
+        model_cls = self.model
+        for parent in model_cls._meta.all_parents:
+            if parent._meta.concrete_model is not model_cls._meta.concrete_model:
+                logger.debug(
+                    "%s detected as MTI model (parent: %s)",
+                    model_cls.__name__,
+                    getattr(parent, "__name__", str(parent)),
+                )
+                return True
+
+        logger.debug("%s is not an MTI model", model_cls.__name__)
+        return False
 
     def _detect_modified_fields(self, new_instances, original_instances):
         """
@@ -1310,7 +1847,9 @@ class HookQuerySetMixin:
 
         return child_obj
 
-    def _mti_bulk_update(self, objs, fields, field_groups=None, inheritance_chain=None, **kwargs):
+    def _mti_bulk_update(
+        self, objs, fields, field_groups=None, inheritance_chain=None, **kwargs
+    ):
         """
         Custom bulk update implementation for MTI models.
         Updates each table in the inheritance chain efficiently using Django's batch_size.
@@ -1319,12 +1858,23 @@ class HookQuerySetMixin:
         if inheritance_chain is None:
             inheritance_chain = self._get_inheritance_chain()
 
-        # Remove custom hook kwargs before passing to Django internals
-        django_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in ["bypass_hooks", "bypass_validation"]
-        }
+        # Remove custom hook kwargs and unsupported parameters before passing to Django internals
+        unsupported_params = [
+            "unique_fields",
+            "update_conflicts",
+            "update_fields",
+            "ignore_conflicts",
+        ]
+        django_kwargs = {}
+        for k, v in kwargs.items():
+            if k in unsupported_params:
+                logger.warning(
+                    f"Parameter '{k}' is not supported by bulk_update. "
+                    f"This parameter is only available in bulk_create for UPSERT operations."
+                )
+                print(f"WARNING: Parameter '{k}' is not supported by bulk_update")
+            elif k not in ["bypass_hooks", "bypass_validation"]:
+                django_kwargs[k] = v
 
         # Safety check to prevent infinite recursion
         if len(inheritance_chain) > 10:  # Arbitrary limit to prevent infinite loops
@@ -1341,15 +1891,19 @@ class HookQuerySetMixin:
                     if hasattr(field, "auto_now") and field.auto_now:
                         field.pre_save(obj, add=False)
                     # Check for custom fields that might need pre_save() on update (like CurrentUserField)
-                    elif hasattr(field, 'pre_save') and field.name not in fields:
+                    elif hasattr(field, "pre_save") and field.name not in fields:
                         try:
                             new_value = field.pre_save(obj, add=False)
                             if new_value is not None:
                                 setattr(obj, field.name, new_value)
                                 custom_update_fields.append(field.name)
-                                logger.debug(f"Custom field {field.name} updated via pre_save() for MTI object {obj.pk}")
+                                logger.debug(
+                                    f"Custom field {field.name} updated via pre_save() for MTI object {obj.pk}"
+                                )
                         except Exception as e:
-                            logger.warning(f"Failed to call pre_save() on custom field {field.name} in MTI: {e}")
+                            logger.warning(
+                                f"Failed to call pre_save() on custom field {field.name} in MTI: {e}"
+                            )
 
         # Add auto_now fields to the fields list so they get updated in the database
         auto_now_fields = set()
@@ -1501,52 +2055,30 @@ class HookQuerySetMixin:
         if not objs:
             return 0
 
-        if any(not isinstance(obj, model_cls) for obj in objs):
-            raise TypeError(
-                f"bulk_delete expected instances of {model_cls.__name__}, but got {set(type(obj).__name__ for obj in objs)}"
-            )
-
-        logger.debug(
-            f"bulk_delete {model_cls.__name__} bypass_hooks={bypass_hooks} objs={len(objs)}"
+        model_cls, ctx, _ = self._setup_bulk_operation(
+            objs,
+            "bulk_delete",
+            require_pks=True,
+            bypass_hooks=bypass_hooks,
+            bypass_validation=bypass_validation,
         )
 
-        # Fire hooks before DB ops
-        if not bypass_hooks:
-            ctx = HookContext(model_cls, bypass_hooks=False)
-            if not bypass_validation:
-                engine.run(model_cls, VALIDATE_DELETE, objs, ctx=ctx)
-            engine.run(model_cls, BEFORE_DELETE, objs, ctx=ctx)
-        else:
-            ctx = HookContext(model_cls, bypass_hooks=True)
-            logger.debug("bulk_delete bypassed hooks")
+        # Execute the database operation with hooks
+        def delete_operation():
+            pks = [obj.pk for obj in objs if obj.pk is not None]
+            if pks:
+                # Use the base manager to avoid recursion
+                return self.model._base_manager.filter(pk__in=pks).delete()[0]
+            else:
+                return 0
 
-        # Before deletion, ensure all related fields are properly cached
-        # to avoid DoesNotExist errors in AFTER_DELETE hooks
-        if not bypass_hooks:
-            for obj in objs:
-                if obj.pk is not None:
-                    # Cache all foreign key relationships by accessing them
-                    for field in model_cls._meta.fields:
-                        if field.is_relation and not field.many_to_many and not field.one_to_many:
-                            try:
-                                # Access the related field to cache it before deletion
-                                getattr(obj, field.name)
-                            except Exception:
-                                # If we can't access the field (e.g., already deleted, no permission, etc.)
-                                # continue with other fields
-                                pass
-
-        # Use Django's standard delete() method on the queryset
-        pks = [obj.pk for obj in objs if obj.pk is not None]
-        if pks:
-            # Use the base manager to avoid recursion
-            result = self.model._base_manager.filter(pk__in=pks).delete()[0]
-        else:
-            result = 0
-
-        # Fire AFTER_DELETE hooks
-        if not bypass_hooks:
-            engine.run(model_cls, AFTER_DELETE, objs, ctx=ctx)
+        result = self._execute_delete_hooks_with_operation(
+            delete_operation,
+            objs,
+            ctx=ctx,
+            bypass_hooks=bypass_hooks,
+            bypass_validation=bypass_validation,
+        )
 
         return result
 

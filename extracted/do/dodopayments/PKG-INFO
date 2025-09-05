@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dodopayments
-Version: 1.52.4
+Version: 1.52.5
 Summary: The official Python library for the Dodo Payments API
 Project-URL: Homepage, https://github.com/dodopayments/dodopayments-python
 Project-URL: Repository, https://github.com/dodopayments/dodopayments-python

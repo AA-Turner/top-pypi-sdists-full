@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-glightbox
-Version: 0.5.0
+Version: 0.5.1
 Summary: MkDocs plugin supports image lightbox with GLightbox.
 Project-URL: Homepage, https://blueswen.github.io/mkdocs-glightbox/
 Project-URL: Source, https://github.com/blueswen/mkdocs-glightbox
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Documentation
 Classifier: Topic :: Text Processing
 Requires-Python: >=3.8
-Requires-Dist: selectolax>=0.3.29
+Requires-Dist: selectolax==0.3.29
 Description-Content-Type: text/markdown
 
 # MkDocs GLightbox

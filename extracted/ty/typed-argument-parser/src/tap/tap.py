@@ -8,7 +8,7 @@ from pathlib import Path
 from pprint import pformat
 from shlex import quote, split
 from types import MethodType
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, get_type_hints
+from typing import Any, Callable, List, Optional, Sequence, Set, Tuple, TypeVar, Union, get_type_hints
 from typing_inspect import is_literal_type
 
 from tap.utils import (
@@ -26,7 +26,6 @@ from tap.utils import (
     TupleTypeEnforcer,
     define_python_object_encoder,
     as_python_object,
-    fix_py36_copy,
     enforce_reproducibility,
     PathLike,
 )
@@ -54,9 +53,9 @@ class Tap(ArgumentParser):
         *args,
         underscores_to_dashes: bool = False,
         explicit_bool: bool = False,
-        config_files: Optional[List[PathLike]] = None,
+        config_files: Optional[list[PathLike]] = None,
         **kwargs,
-    ):
+    ) -> None:
         """Initializes the Tap instance.
 
         :param args: Arguments passed to the super class ArgumentParser.
@@ -89,7 +88,7 @@ class Tap(ArgumentParser):
         self.argument_buffer = {}
 
         # Create a place to put the subparsers
-        self._subparser_buffer: List[Tuple[str, type, Dict[str, Any]]] = []
+        self._subparser_buffer: list[tuple[str, type, dict[str, Any]]] = []
 
         # Get class variables help strings from the comments
         self.class_variables = self._get_class_variables()
@@ -227,7 +226,7 @@ class Tap(ArgumentParser):
                 # Handle Tuple type (with type args) by extracting types of Tuple elements and enforcing them
                 elif get_origin(var_type) in (Tuple, tuple) and len(get_args(var_type)) > 0:
                     loop = False
-                    types = get_args(var_type)
+                    types = list(get_args(var_type))
 
                     # Handle Tuple[type, ...]
                     if len(types) == 2 and types[1] == Ellipsis:
@@ -331,7 +330,7 @@ class Tap(ArgumentParser):
         self._subparser_buffer.append((flag, subparser_type, kwargs))
 
     def _add_subparsers(self) -> None:
-        """Add each of the subparsers to the Tap object. """
+        """Add each of the subparsers to the Tap object."""
         # Initialize the _subparsers object if not already created
         if self._subparsers is None and len(self._subparser_buffer) > 0:
             self._subparsers = super(Tap, self).add_subparsers()
@@ -345,7 +344,7 @@ class Tap(ArgumentParser):
         self._subparsers = super().add_subparsers(**kwargs)
 
     def _configure(self) -> None:
-        """Executes the user-defined configuration. """
+        """Executes the user-defined configuration."""
         # Call the user-defined configuration
         self.configure()
 
@@ -370,7 +369,7 @@ class Tap(ArgumentParser):
         pass
 
     @staticmethod
-    def get_reproducibility_info(repo_path: Optional[PathLike] = None) -> Dict[str, str]:
+    def get_reproducibility_info(repo_path: Optional[PathLike] = None) -> dict[str, str]:
         """Gets a dictionary of reproducibility information.
 
         Reproducibility information always includes:
@@ -380,7 +379,8 @@ class Tap(ArgumentParser):
         If git is installed, reproducibility information also includes:
         - git_root: The root of the git repo where the command is run.
         - git_url: The url of the current hash of the git repo where the command is run.
-                   Ex. https://github.com/swansonk14/rationale-alignment/tree/<hash>
+                   Ex. https://github.com/swansonk14/rationale-alignment/tree/<hash>.
+                   If it is a local repo, the url is None.
         - git_has_uncommitted_changes: Whether the current git repo has uncommitted changes.
 
         :param repo_path: Path to the git repo to examine for reproducibility info.
@@ -401,11 +401,11 @@ class Tap(ArgumentParser):
         if git_info.has_git():
             reproducibility["git_root"] = git_info.get_git_root()
             reproducibility["git_url"] = git_info.get_git_url(commit_hash=True)
-            reproducibility["git_has_uncommitted_changes"] = git_info.has_uncommitted_changes()
+            reproducibility["git_has_uncommitted_changes"] = str(git_info.has_uncommitted_changes())
 
         return reproducibility
 
-    def _log_all(self, repo_path: Optional[PathLike] = None) -> Dict[str, Any]:
+    def _log_all(self, repo_path: Optional[PathLike] = None) -> dict[str, Any]:
         """Gets all arguments along with reproducibility information.
 
         :param repo_path: Path to the git repo to examine for reproducibility info.
@@ -418,7 +418,10 @@ class Tap(ArgumentParser):
         return arg_log
 
     def parse_args(
-        self: TapType, args: Optional[Sequence[str]] = None, known_only: bool = False, legacy_config_parsing=False
+        self: TapType,
+        args: Optional[Sequence[str]] = None,
+        known_only: bool = False,
+        legacy_config_parsing: bool = False,
     ) -> TapType:
         """Parses arguments, sets attributes of self equal to the parsed arguments, and processes arguments.
 
@@ -483,7 +486,7 @@ class Tap(ArgumentParser):
         return self
 
     @classmethod
-    def _get_from_self_and_super(cls, extract_func: Callable[[type], dict]) -> Union[Dict[str, Any], Dict]:
+    def _get_from_self_and_super(cls, extract_func: Callable[[type], dict]) -> Union[dict[str, Any], dict]:
         """Returns a dictionary mapping variable names to values.
 
         Variables and values are extracted from classes using key starting
@@ -503,7 +506,7 @@ class Tap(ArgumentParser):
         while len(super_classes) > 0:
             super_class = super_classes.pop(0)
 
-            if super_class not in visited and issubclass(super_class, Tap):
+            if super_class not in visited and issubclass(super_class, Tap) and super_class is not Tap:
                 super_dictionary = extract_func(super_class)
 
                 # Update only unseen variables to avoid overriding subclass values
@@ -518,7 +521,7 @@ class Tap(ArgumentParser):
 
         return dictionary
 
-    def _get_class_dict(self) -> Dict[str, Any]:
+    def _get_class_dict(self) -> dict[str, Any]:
         """Returns a dictionary mapping class variable names to values from the class dict."""
         class_dict = self._get_from_self_and_super(
             extract_func=lambda super_class: dict(getattr(super_class, "__dict__", dict()))
@@ -526,18 +529,12 @@ class Tap(ArgumentParser):
         class_dict = {
             var: val
             for var, val in class_dict.items()
-            if not (
-                var.startswith("_")
-                or callable(val)
-                or isinstance(val, staticmethod)
-                or isinstance(val, classmethod)
-                or isinstance(val, property)
-            )
+            if not (var.startswith("_") or callable(val) or isinstance(val, (staticmethod, classmethod, property)))
         }
 
         return class_dict
 
-    def _get_annotations(self) -> Dict[str, Any]:
+    def _get_annotations(self) -> dict[str, Any]:
         """Returns a dictionary mapping variable names to their type annotations."""
         return self._get_from_self_and_super(extract_func=lambda super_class: dict(get_type_hints(super_class)))
 
@@ -546,13 +543,15 @@ class Tap(ArgumentParser):
         class_variable_names = {**self._get_annotations(), **self._get_class_dict()}.keys()
 
         try:
-            class_variables = self._get_from_self_and_super(
-                extract_func=lambda super_class: get_class_variables(super_class)
-            )
+            class_variables = self._get_from_self_and_super(extract_func=get_class_variables)
 
             # Handle edge-case of source code modification while code is running
-            variables_to_add = class_variable_names - class_variables.keys()
-            variables_to_remove = class_variables.keys() - class_variable_names
+            variables_to_add = (
+                variable for variable in class_variable_names if variable not in class_variables
+            )
+            variables_to_remove = (
+                variable for variable in class_variables.keys() if variable not in class_variable_names
+            )
 
             for variable in variables_to_add:
                 class_variables[variable] = {"comment": ""}
@@ -567,7 +566,7 @@ class Tap(ArgumentParser):
 
         return class_variables
 
-    def _get_argument_names(self) -> Set[str]:
+    def _get_argument_names(self) -> set[str]:
         """Returns a list of variable names corresponding to the arguments."""
         return (
             {get_dest(*name_or_flags, **kwargs) for name_or_flags, kwargs in self.argument_buffer.values()}
@@ -575,7 +574,7 @@ class Tap(ArgumentParser):
             | set(self._annotations.keys())
         ) - {"help"}
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Returns the member variables corresponding to the parsed arguments.
 
         Note: This does not include attributes set directly on an instance
@@ -604,7 +603,7 @@ class Tap(ArgumentParser):
 
         return stored_dict
 
-    def from_dict(self, args_dict: Dict[str, Any], skip_unsettable: bool = False) -> TapType:
+    def from_dict(self, args_dict: dict[str, Any], skip_unsettable: bool = False) -> TapType:
         """Loads arguments from a dictionary, ensuring all required arguments are set.
 
         :param args_dict: A dictionary from argument names to the values of the arguments.
@@ -690,7 +689,7 @@ class Tap(ArgumentParser):
 
         return self
 
-    def _load_from_config_files(self, config_files: Optional[List[str]]) -> List[str]:
+    def _load_from_config_files(self, config_files: Optional[list[str]]) -> list[str]:
         """Loads arguments from a list of configuration files containing command line arguments.
 
         :param config_files: A list of paths to configuration files containing the command line arguments
@@ -716,8 +715,7 @@ class Tap(ArgumentParser):
         """
         return pformat(self.as_dict())
 
-    @fix_py36_copy
-    def __deepcopy__(self, memo: Dict[int, Any] = None) -> TapType:
+    def __deepcopy__(self, memo: dict[int, Any] = None) -> TapType:
         """Deepcopy the Tap object."""
         copied = type(self).__new__(type(self))
 
@@ -726,16 +724,16 @@ class Tap(ArgumentParser):
 
         memo[id(self)] = copied
 
-        for (k, v) in self.__dict__.items():
+        for k, v in self.__dict__.items():
             copied.__dict__[k] = deepcopy(v, memo)
 
         return copied
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Gets the state of the object for pickling."""
         return self.as_dict()
 
-    def __setstate__(self, d: Dict[str, Any]) -> None:
+    def __setstate__(self, d: dict[str, Any]) -> None:
         """
         Initializes the object with the provided dictionary of arguments for unpickling.
 

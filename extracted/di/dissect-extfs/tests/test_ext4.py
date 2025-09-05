@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import datetime
-import gzip
 import stat
 from io import BytesIO
 from typing import TYPE_CHECKING, BinaryIO
 from unittest.mock import call, patch
-
-import pytest
 
 from dissect.extfs.c_ext import c_ext
 from dissect.extfs.extfs import EXT4, ExtFS, INode
@@ -80,25 +77,11 @@ def test_sparse(ext4_sparse_bin: BinaryIO) -> None:
     assert sparse_all.dataruns() == [(None, 5120)]
 
 
-@pytest.mark.parametrize(
-    "image_file",
-    [
-        ("tests/data/ext4_symlink_test1.bin.gz"),
-        ("tests/data/ext4_symlink_test2.bin.gz"),
-        ("tests/data/ext4_symlink_test3.bin.gz"),
-    ],
-)
-def test_symlinks(image_file: str) -> None:
+def test_symlinks(ext4_symlink_bin: BinaryIO) -> None:
     path = "/path/to/dir/with/file.ext"
-    expect = b"resolved!\n"
 
-    def resolve(node: INode) -> INode:
-        while node.filetype == stat.S_IFLNK:
-            node = node.link_inode
-        return node
-
-    with gzip.open(image_file, "rb") as disk:
-        assert resolve(ExtFS(disk).get(path)).open().read() == expect
+    extfs = ExtFS(ext4_symlink_bin)
+    assert extfs.get(path).link == "../../../../other/path/source/to/my/file.ext"
 
 
 @patch("dissect.extfs.extfs.INode.open", return_value=BytesIO(b"\x00" * 16))
@@ -108,7 +91,7 @@ def test_infinite_loop_protection(ExtFS: ExtFS, log: Logger, *args) -> None:
     ExtFS.sb.s_inodes_count = 69
     ExtFS._dirtype = c_ext.ext2_dir_entry_2
     inode = INode(ExtFS, 1, filetype=stat.S_IFDIR)
-    inode._size = 16
+    inode.size = 16
     for _ in inode.iterdir():
         pass
     assert call.critical("Zero-length directory entry in %s (offset 0x%x)", inode, 0) in log.mock_calls

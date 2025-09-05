@@ -1,5 +1,5 @@
 #cython: language_level=3
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from libc.stdint cimport uint64_t
 
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
+from libcpp.optional cimport optional
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
@@ -113,6 +114,14 @@ cdef extern from "<fst/fstlib.h>" namespace "fst" nogil:
   const uint8_t kEncodeLabels
   const uint8_t kEncodeWeights
   const uint8_t kEncodeFlags
+
+  # Weight flags.
+  const uint64_t kLeftSemiring
+  const uint64_t kRightSemiring
+  const uint64_t kSemiring
+  const uint64_t kCommutative
+  const uint64_t kIdempotent
+  const uint64_t kPath
 
   # Default argument constants.
   const float kDelta
@@ -301,6 +310,8 @@ cdef extern from "<fst/script/fstscript.h>" namespace "fst::script" \
 
     bool Member()
 
+    uint64_t Properties()
+
     @staticmethod
     const WeightClass &Zero(const string &)
 
@@ -355,6 +366,8 @@ cdef extern from "<fst/script/fstscript.h>" namespace "fst::script" \
     size_t NumInputEpsilons(int64_t)
 
     size_t NumOutputEpsilons(int64_t)
+
+    optional[int64_t] NumStatesIfKnown()
 
     const string &ArcType()
 

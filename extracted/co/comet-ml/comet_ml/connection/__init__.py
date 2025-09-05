@@ -11,7 +11,6 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 from .connection_api import (
-    INITIAL_BEAT_DURATION,
     CometApiClient,
     OptimizerAPI,
     Reporting,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: reuse
-Version: 5.0.2
+Version: 5.1.0
 Summary: reuse is a tool for compliance with the REUSE recommendations.
 Home-page: https://reuse.software/
 License: Apache-2.0 AND CC0-1.0 AND CC-BY-SA-4.0 AND GPL-3.0-or-later
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Jinja2 (>=3.0.0)
 Requires-Dist: attrs (>=21.3)
 Requires-Dist: binaryornot (>=0.4.4)
@@ -284,7 +285,7 @@ Git. This uses [pre-commit](https://pre-commit.com/). Once you
 ```yaml
 repos:
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v5.0.2
+    rev: v5.1.0
     hooks:
       - id: reuse
 ```
@@ -299,7 +300,7 @@ use the following configuration:
 ```yaml
 repos:
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v5.0.2
+    rev: v5.1.0
     hooks:
       - id: reuse-lint-file
 ```
@@ -322,6 +323,7 @@ Alternatively, you can place the generated completion script in
 ## Maintainers
 
 - Carmen Bianca Bakker <carmenbianca@fsfe.org>
+- Florian Snow <floriansnow@fsfe.org>
 
 ### Former maintainers
 

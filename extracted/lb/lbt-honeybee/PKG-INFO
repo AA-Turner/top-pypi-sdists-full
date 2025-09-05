@@ -1,23 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lbt-honeybee
-Version: 0.9.115
+Version: 0.9.121
 Summary: Installs a collection of all Honeybee core and extension libraries.
 Home-page: https://github.com/ladybug-tools/lbt-honeybee
 Author: Ladybug Tools
 Author-email: info@ladybug.tools
 License: AGPL-3.0
 Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-radiance-postprocess==0.4.555
-Requires-Dist: honeybee-energy[openstudio,standards]==1.116.69
+Requires-Dist: honeybee-radiance-postprocess==0.4.557
+Requires-Dist: honeybee-energy[openstudio,standards]==1.116.71
 Requires-Dist: honeybee-display==0.5.5
-Requires-Dist: lbt-ladybug==0.27.151
+Requires-Dist: lbt-ladybug==0.27.153
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 
 ![Honeybee](http://www.ladybug.tools/assets/img/honeybee.png)

@@ -69,17 +69,70 @@ of the operator, only its other properties.
 
 --------------------
 
-Getter/setter functions can be used for boolean, int, float, string and enum properties.
-If these callbacks are defined the property will not be stored in the ID properties
+Accessor functions can be used for boolean, int, float, string and enum properties.
+
+If get
+
+ or set
+
+ callbacks are defined, the property will not be stored in the ID properties
 automatically. Instead, the get
 
  and set
 
  functions will be called when the property
-is respectively read or written from the API.
+is respectively read or written from the API, and are responsible to handle the data storage.
+
+Note that:
+
+* It is illegal to define a set
+
+ callback without a matching get
+
+ one.
+* When a get
+
+ callback is defined but no set
+
+ one, the property is read-only.
+
+get_transform
+
+ and set_transform
+
+ can be used when the returned value needs to be modified,
+but the default internal storage is still used. They can only transform the value before it is
+set or returned, but do not control how/where that data is stored.
+
+[NOTE]
+It is possible to define both get
+
+/set
+
+ and get_transform
+
+/set_transform
+
+ callbacks
+for a same property. In practice however, this should rarely be needed, as most 'transform'
+operation can also happen within a get
+
+/set
+
+ callback.
 
 [WARNING]
 Remember that these callbacks may be executed in threaded context.
+
+[WARNING]
+Take care when accessing other properties in these callbacks, as it can easily trigger
+complex issues, such as infinite loops (if e.g. two properties try to also set the other
+property's value in their own set
+
+ callback), or unexpected side effects due to changes
+in data, caused e.g. by an update
+
+ callback.
 
 ```../examples/bpy.props.5.py```
 

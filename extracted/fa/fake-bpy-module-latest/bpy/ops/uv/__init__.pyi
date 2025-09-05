@@ -995,14 +995,44 @@ def select_similar(
 ) -> None:
     """Select similar UVs by property types
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param type: Type
-    :type type: typing.Literal['PIN','LENGTH','LENGTH_3D','AREA','AREA_3D','MATERIAL','OBJECT','SIDES','WINDING','FACE'] | None
-    :param compare: Compare
-    :type compare: typing.Literal['EQUAL','GREATER','LESS'] | None
-    :param threshold: Threshold
-    :type threshold: float | None
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param type: Type
+
+    PIN
+    Pinned.
+
+    LENGTH
+    Length -- Edge length in UV space.
+
+    LENGTH_3D
+    Length 3D -- Length of edge in 3D space.
+
+    AREA
+    Area -- Face area in UV space.
+
+    AREA_3D
+    Area 3D -- Area of face in 3D space.
+
+    MATERIAL
+    Material.
+
+    OBJECT
+    Object.
+
+    SIDES
+    Polygon Sides.
+
+    WINDING
+    Winding -- Face direction defined by (clockwise or anti-clockwise winding (facing up or facing down).
+
+    FACE
+    Amount of Faces in Island.
+        :type type: typing.Literal['PIN','LENGTH','LENGTH_3D','AREA','AREA_3D','MATERIAL','OBJECT','SIDES','WINDING','FACE'] | None
+        :param compare: Compare
+        :type compare: typing.Literal['EQUAL','GREATER','LESS'] | None
+        :param threshold: Threshold
+        :type threshold: float | None
     """
 
 def select_split(

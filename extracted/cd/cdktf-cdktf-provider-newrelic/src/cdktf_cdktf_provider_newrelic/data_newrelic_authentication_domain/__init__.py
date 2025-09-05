@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_authentication_domain`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_authentication_domain`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain).
+Refer to the Terraform Registry for docs: [`data_newrelic_authentication_domain`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicAuthenticationDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicAuthenticationDomain.DataNewrelicAuthenticationDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain newrelic_authentication_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain newrelic_authentication_domain}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataNewrelicAuthenticationDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain newrelic_authentication_domain} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain newrelic_authentication_domain} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the authentication domain to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
+        :param name: The name of the authentication domain to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataNewrelicAuthenticationDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicAuthenticationDomain to import.
-        :param import_from_id: The id of the existing DataNewrelicAuthenticationDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicAuthenticationDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicAuthenticationDomain to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class DataNewrelicAuthenticationDomainConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the authentication domain to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
+        :param name: The name of the authentication domain to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class DataNewrelicAuthenticationDomainConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def name(self) -> builtins.str:
         '''The name of the authentication domain to be queried.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/authentication_domain#name DataNewrelicAuthenticationDomain#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

@@ -27,7 +27,7 @@ dependencies = [
 ]
 requires-python = ">=3.9"
 dynamic = []
-version = "0.13.0"
+version = "0.14.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -182,4 +182,5 @@ tools = [
     "jedi-language-server>=0.45.1",
     "ast-comments>=1.2.2",
     "tokenize-rt>=6.2.0",
+    "mypy>=1.17.1",
 ]

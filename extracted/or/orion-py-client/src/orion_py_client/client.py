@@ -1,4 +1,4 @@
-from .utils.helpers import get_features_details
+from .utils.helpers import get_features_details, touch_cloud_path, file_exists
 import numpy as np
 
 
@@ -382,6 +382,7 @@ class OrionPyClient:
         kafka_topic,
         additional_options={},
         kafka_num_batches=1,
+        push_all_data=False
     ):
         """
         Optimized Kafka writing using partitioned proto data
@@ -400,20 +401,23 @@ class OrionPyClient:
             print("Wrote single batch to Kafka")
         else:
             print(f"Writing {kafka_num_batches} batches to Kafka using partitioned reads")
-            
+
             # Read each batch partition
             for i in range(kafka_num_batches):
-                partition_path = f"{proto_out_path}/batch_no={i}"
-                
-                # Dynamic partition pruning read
-                df_batch = spark.read \
-                    .option("basePath", proto_out_path) \
-                    .parquet(partition_path)
-                
-                # Clean up columns
-                columns_to_drop = [col for col in ["batch_no", "intra_batch_id"] if col in df_batch.columns]
-                if columns_to_drop:
-                    df_batch = df_batch.drop(*columns_to_drop)
-                
-                df_batch.write.format("kafka").options(**kafka_config).save()
-                print(f"Wrote batch {i} to Kafka")
+                partition_path = f"{proto_out_path}batch_no={i}/"
+                is_partition_pushed = file_exists(partition_path + '_PUSHED')
+
+                if push_all_data or not is_partition_pushed:
+                    # Dynamic partition pruning read
+                    df_batch = spark.read \
+                        .option("basePath", proto_out_path) \
+                        .parquet(partition_path)
+                    
+                    # Clean up columns
+                    columns_to_drop = [col for col in ["batch_no", "intra_batch_id"] if col in df_batch.columns]
+                    if columns_to_drop:
+                        df_batch = df_batch.drop(*columns_to_drop)
+                    
+                    df_batch.write.format("kafka").options(**kafka_config).save()
+                    print(f"Wrote batch {i} to Kafka")
+                    touch_cloud_path(partition_path, '_PUSHED')

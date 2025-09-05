@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lsst-sphgeom
-Version: 29.2025.3502
+Version: 29.2025.3600
 Summary: A spherical geometry library.
 Author-email: Rubin Observatory Data Management <dm-admin@lists.lsst.org>
 License: BSD 3-Clause License

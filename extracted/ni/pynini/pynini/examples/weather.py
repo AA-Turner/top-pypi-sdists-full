@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # pynini.opengrm.org.
 """Grammar for generating simple weather expressions given tabular input."""
 
-from typing import Dict, NamedTuple
+from typing import NamedTuple
 
 import pynini
 from pynini.lib import byte
@@ -50,7 +50,7 @@ class WeatherTable:
                "with winds out of the $WIND_DIRECTION "
                "at $WIND_SPEED kilometers per hour.")
 
-  _table: Dict[str, WeatherTuple]
+  _table: dict[str, WeatherTuple]
 
   def __init__(self) -> None:
     self._table = {}

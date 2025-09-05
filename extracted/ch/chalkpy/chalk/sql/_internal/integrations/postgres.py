@@ -433,6 +433,115 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
                 yield pa.RecordBatch.from_pydict({k: [] for k in parsed_table.schema.names}, parsed_table.schema)
             return
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for PostgreSQL and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+        from sqlalchemy.sql import Select
+
+        if finalized_query.finalizer in (Finalizer.FIRST, Finalizer.ONE, Finalizer.ONE_OR_NONE):
+            raise UnsupportedEfficientExecutionError(
+                (
+                    f"Falling back to SQLAlchemy execution for finalizer '{finalized_query.finalizer.value}', "
+                    "as it is faster for small results."
+                ),
+                log_level=logging.DEBUG,
+            )
+
+        if isinstance(finalized_query.query, Select):
+            validate_dtypes_for_efficient_execution(
+                finalized_query.query, _supported_sqlalchemy_types_for_pa_csv_querying
+            )
+
+        assert len(finalized_query.temp_tables) == 0, "Should not create temp tables with postgres source"
+
+        # Use the existing CSV export mechanism
+        if query_execution_parameters.postgres.polars_read_csv:
+            buffer = self._get_result_csv_buffer(
+                finalized_query,
+                connection=connection,
+                escape_char='"',
+                query_execution_parameters=query_execution_parameters,
+            )
+            first_line = buffer.readline()
+            _ = list(
+                csv.reader(
+                    [first_line.decode("utf8")],
+                    doublequote=True,
+                    quoting=csv.QUOTE_MINIMAL,
+                )
+            )[0]
+            buffer.seek(0)
+
+            import polars as pl
+
+            parse_dtypes: Dict[str, pl.PolarsDataType] = {}
+            for field in expected_output_schema:
+                # Convert PyArrow types to Polars types for parsing
+                if pa.types.is_boolean(field.type):
+                    parse_dtypes[field.name] = pl.Utf8  # Parse as string, convert later
+                elif pa.types.is_list(field.type):
+                    parse_dtypes[field.name] = pl.Utf8  # Parse as string
+                elif pa.types.is_date32(field.type) or pa.types.is_date64(field.type):
+                    parse_dtypes[field.name] = pl.Utf8  # Parse as string, convert later
+                elif pa.types.is_timestamp(field.type):
+                    parse_dtypes[field.name] = pl.Utf8  # Parse as string, convert later
+                elif pa.types.is_integer(field.type):
+                    parse_dtypes[field.name] = pl.Int64
+                elif pa.types.is_floating(field.type):
+                    parse_dtypes[field.name] = pl.Float64
+                else:
+                    parse_dtypes[field.name] = pl.Utf8
+
+            pl_table = pl.read_csv(buffer, dtypes=parse_dtypes)  # pyright: ignore[reportCallIssue]
+
+            # Convert to arrow and map to expected schema
+            arrow_table = pl_table.to_arrow()
+        else:
+            buffer = self._get_result_csv_buffer(
+                finalized_query,
+                connection=connection,
+                escape_char="\\",
+                query_execution_parameters=query_execution_parameters,
+            )
+            buffer.seek(0)
+            arrow_table = pyarrow.csv.read_csv(
+                buffer,
+                parse_options=pyarrow.csv.ParseOptions(
+                    newlines_in_values=True,
+                    escape_char="\\",
+                    double_quote=False,
+                ),
+                convert_options=pyarrow.csv.ConvertOptions(
+                    true_values=["t"],
+                    false_values=["f"],
+                    strings_can_be_null=True,
+                    quoted_strings_can_be_null=False,
+                ),
+            )
+
+        # Map columns to expected schema
+        arrays: list[pa.Array] = []
+        for field in expected_output_schema:
+            if field.name in arrow_table.column_names:
+                col = arrow_table.column(field.name)
+                # Cast to expected type if needed
+                if col.type != field.type:
+                    col = pc.cast(col, field.type)
+                arrays.append(col)
+            else:
+                # Column not found, create null array
+                arrays.append(pa.nulls(len(arrow_table), field.type))
+
+        batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+        if len(batch) > 0 or query_execution_parameters.yield_empty_batches:
+            yield batch
+
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {
             k: v

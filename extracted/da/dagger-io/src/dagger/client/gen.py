@@ -155,6 +155,11 @@ class JSON(Scalar):
     """An arbitrary JSON-encoded value."""
 
 
+class JSONValueID(Scalar):
+    """The `JSONValueID` scalar type represents an identifier for an
+    object of type JSONValue."""
+
+
 class LLMID(Scalar):
     """The `LLMID` scalar type represents an identifier for an object of
     type LLM."""
@@ -214,6 +219,16 @@ class SDKConfigID(Scalar):
 class ScalarTypeDefID(Scalar):
     """The `ScalarTypeDefID` scalar type represents an identifier for an
     object of type ScalarTypeDef."""
+
+
+class SearchResultID(Scalar):
+    """The `SearchResultID` scalar type represents an identifier for an
+    object of type SearchResult."""
+
+
+class SearchSubmatchID(Scalar):
+    """The `SearchSubmatchID` scalar type represents an identifier for an
+    object of type SearchSubmatch."""
 
 
 class SecretID(Scalar):
@@ -515,6 +530,12 @@ class Binding(Type):
         _ctx = self._select("asGitRepository", _args)
         return GitRepository(_ctx)
 
+    def as_json_value(self) -> "JSONValue":
+        """Retrieve the binding value, as type JSONValue"""
+        _args: list[Arg] = []
+        _ctx = self._select("asJSONValue", _args)
+        return JSONValue(_ctx)
+
     def as_llm(self) -> "LLM":
         """Retrieve the binding value, as type LLM"""
         _args: list[Arg] = []
@@ -538,6 +559,18 @@ class Binding(Type):
         _args: list[Arg] = []
         _ctx = self._select("asModuleSource", _args)
         return ModuleSource(_ctx)
+
+    def as_search_result(self) -> "SearchResult":
+        """Retrieve the binding value, as type SearchResult"""
+        _args: list[Arg] = []
+        _ctx = self._select("asSearchResult", _args)
+        return SearchResult(_ctx)
+
+    def as_search_submatch(self) -> "SearchSubmatch":
+        """Retrieve the binding value, as type SearchSubmatch"""
+        _args: list[Arg] = []
+        _ctx = self._select("asSearchSubmatch", _args)
+        return SearchSubmatch(_ctx)
 
     def as_secret(self) -> "Secret":
         """Retrieve the binding value, as type Secret"""
@@ -918,6 +951,30 @@ class Container(Type):
         ]
         _ctx = self._select("build", _args)
         return Container(_ctx)
+
+    async def combined_output(self) -> str:
+        """The combined buffered standard output and standard error stream of the
+        last executed command
+
+        Returns an error if no command was executed
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("combinedOutput", _args)
+        return await _ctx.execute(str)
 
     async def default_args(self) -> list[str]:
         """Return the container's default arguments.
@@ -3272,6 +3329,69 @@ class Directory(Type):
         _ctx = self._select("name", _args)
         return await _ctx.execute(str)
 
+    async def search(
+        self,
+        pattern: str,
+        *,
+        paths: list[str] | None = None,
+        globs: list[str] | None = None,
+        literal: bool | None = False,
+        multiline: bool | None = False,
+        dotall: bool | None = False,
+        insensitive: bool | None = False,
+        skip_ignored: bool | None = False,
+        skip_hidden: bool | None = False,
+        files_only: bool | None = False,
+        limit: int | None = None,
+    ) -> list["SearchResult"]:
+        """Searches for content matching the given regular expression or literal
+        string.
+
+        Uses Rust regex syntax; escape literal ., [, ], {, }, | with
+        backslashes.
+
+        Parameters
+        ----------
+        pattern:
+            The text to match.
+        paths:
+            Directory or file paths to search
+        globs:
+            Glob patterns to match (e.g., "*.md")
+        literal:
+            Interpret the pattern as a literal string instead of a regular
+            expression.
+        multiline:
+            Enable searching across multiple lines.
+        dotall:
+            Allow the . pattern to match newlines in multiline mode.
+        insensitive:
+            Enable case-insensitive matching.
+        skip_ignored:
+            Honor .gitignore, .ignore, and .rgignore files.
+        skip_hidden:
+            Skip hidden files (files starting with .).
+        files_only:
+            Only return matching files, not lines and content
+        limit:
+            Limit the number of results to return
+        """
+        _args = [
+            Arg("pattern", pattern),
+            Arg("paths", [] if paths is None else paths, []),
+            Arg("globs", [] if globs is None else globs, []),
+            Arg("literal", literal, False),
+            Arg("multiline", multiline, False),
+            Arg("dotall", dotall, False),
+            Arg("insensitive", insensitive, False),
+            Arg("skipIgnored", skip_ignored, False),
+            Arg("skipHidden", skip_hidden, False),
+            Arg("filesOnly", files_only, False),
+            Arg("limit", limit, None),
+        ]
+        _ctx = self._select("search", _args)
+        return await _ctx.execute_object_list(SearchResult)
+
     async def sync(self) -> Self:
         """Force evaluation in the engine.
 
@@ -4601,6 +4721,48 @@ class Env(Type):
         _ctx = self._select("withGitRepositoryOutput", _args)
         return Env(_ctx)
 
+    def with_json_value_input(
+        self,
+        name: str,
+        value: "JSONValue",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type JSONValue in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The JSONValue value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withJSONValueInput", _args)
+        return Env(_ctx)
+
+    def with_json_value_output(self, name: str, description: str) -> Self:
+        """Declare a desired JSONValue output to be assigned in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withJSONValueOutput", _args)
+        return Env(_ctx)
+
     def with_llm_input(
         self,
         name: str,
@@ -4770,6 +4932,92 @@ class Env(Type):
             Arg("description", description),
         ]
         _ctx = self._select("withModuleSourceOutput", _args)
+        return Env(_ctx)
+
+    def with_search_result_input(
+        self,
+        name: str,
+        value: "SearchResult",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type SearchResult in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The SearchResult value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withSearchResultInput", _args)
+        return Env(_ctx)
+
+    def with_search_result_output(self, name: str, description: str) -> Self:
+        """Declare a desired SearchResult output to be assigned in the
+        environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withSearchResultOutput", _args)
+        return Env(_ctx)
+
+    def with_search_submatch_input(
+        self,
+        name: str,
+        value: "SearchSubmatch",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type SearchSubmatch in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The SearchSubmatch value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withSearchSubmatchInput", _args)
+        return Env(_ctx)
+
+    def with_search_submatch_output(self, name: str, description: str) -> Self:
+        """Declare a desired SearchSubmatch output to be assigned in the
+        environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withSearchSubmatchOutput", _args)
         return Env(_ctx)
 
     def with_secret_input(
@@ -5254,8 +5502,20 @@ class FieldTypeDef(Type):
 class File(Type):
     """A file."""
 
-    async def contents(self) -> str:
+    async def contents(
+        self,
+        *,
+        offset_lines: int | None = None,
+        limit_lines: int | None = None,
+    ) -> str:
         """Retrieves the contents of the file.
+
+        Parameters
+        ----------
+        offset_lines:
+            Start reading after this line
+        limit_lines:
+            Maximum number of lines to read
 
         Returns
         -------
@@ -5271,7 +5531,10 @@ class File(Type):
         QueryError
             If the API returns an error.
         """
-        _args: list[Arg] = []
+        _args = [
+            Arg("offsetLines", offset_lines, None),
+            Arg("limitLines", limit_lines, None),
+        ]
         _ctx = self._select("contents", _args)
         return await _ctx.execute(str)
 
@@ -5392,6 +5655,67 @@ class File(Type):
         _ctx = self._select("name", _args)
         return await _ctx.execute(str)
 
+    async def search(
+        self,
+        pattern: str,
+        *,
+        literal: bool | None = False,
+        multiline: bool | None = False,
+        dotall: bool | None = False,
+        insensitive: bool | None = False,
+        skip_ignored: bool | None = False,
+        skip_hidden: bool | None = False,
+        files_only: bool | None = False,
+        limit: int | None = None,
+        paths: list[str] | None = None,
+        globs: list[str] | None = None,
+    ) -> list["SearchResult"]:
+        """Searches for content matching the given regular expression or literal
+        string.
+
+        Uses Rust regex syntax; escape literal ., [, ], {, }, | with
+        backslashes.
+
+        Parameters
+        ----------
+        pattern:
+            The text to match.
+        literal:
+            Interpret the pattern as a literal string instead of a regular
+            expression.
+        multiline:
+            Enable searching across multiple lines.
+        dotall:
+            Allow the . pattern to match newlines in multiline mode.
+        insensitive:
+            Enable case-insensitive matching.
+        skip_ignored:
+            Honor .gitignore, .ignore, and .rgignore files.
+        skip_hidden:
+            Skip hidden files (files starting with .).
+        files_only:
+            Only return matching files, not lines and content
+        limit:
+            Limit the number of results to return
+        paths:
+        globs:
+        """
+        _args = [
+            Arg("pattern", pattern),
+            Arg("literal", literal, False),
+            Arg("multiline", multiline, False),
+            Arg("dotall", dotall, False),
+            Arg("insensitive", insensitive, False),
+            Arg("skipIgnored", skip_ignored, False),
+            Arg("skipHidden", skip_hidden, False),
+            Arg("filesOnly", files_only, False),
+            Arg("limit", limit, None),
+            Arg("paths", [] if paths is None else paths, []),
+            Arg("globs", [] if globs is None else globs, []),
+        ]
+        _ctx = self._select("search", _args)
+        return await _ctx.execute_object_list(SearchResult)
+
     async def size(self) -> int:
         """Retrieves the size of the file, in bytes.
 
@@ -5441,6 +5765,46 @@ class File(Type):
             Arg("name", name),
         ]
         _ctx = self._select("withName", _args)
+        return File(_ctx)
+
+    def with_replaced(
+        self,
+        search: str,
+        replacement: str,
+        *,
+        all: bool | None = False,
+        first_from: int | None = None,
+    ) -> Self:
+        """Retrieves the file with content replaced with the given text.
+
+        If 'all' is true, all occurrences of the pattern will be replaced.
+
+        If 'firstAfter' is specified, only the first match starting at the
+        specified line will be replaced.
+
+        If neither are specified, and there are multiple matches for the
+        pattern, this will error.
+
+        If there are no matches for the pattern, this will error.
+
+        Parameters
+        ----------
+        search:
+            The text to match.
+        replacement:
+            The text to match.
+        all:
+            Replace all occurrences of the pattern.
+        first_from:
+            Replace the first match starting from the specified line.
+        """
+        _args = [
+            Arg("search", search),
+            Arg("replacement", replacement),
+            Arg("all", all, False),
+            Arg("firstFrom", first_from, None),
+        ]
+        _ctx = self._select("withReplaced", _args)
         return File(_ctx)
 
     def with_timestamps(self, timestamp: int) -> Self:
@@ -6387,6 +6751,27 @@ class GitRepository(Type):
         _ctx = self._select("tags", _args)
         return await _ctx.execute(list[str])
 
+    async def url(self) -> str | None:
+        """The URL of the git repository.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("url", _args)
+        return await _ctx.execute(str | None)
+
     def with_auth_header(self, header: "Secret") -> Self:
         """Header to authenticate the remote with.
 
@@ -6446,6 +6831,20 @@ class GitRepository(Type):
 class Host(Type):
     """Information about the host environment."""
 
+    def container_image(self, name: str) -> Container:
+        """Accesses a container image on the host.
+
+        Parameters
+        ----------
+        name:
+            Name of the image to access.
+        """
+        _args = [
+            Arg("name", name),
+        ]
+        _ctx = self._select("containerImage", _args)
+        return Container(_ctx)
+
     def directory(
         self,
         path: str,
@@ -6453,6 +6852,7 @@ class Host(Type):
         exclude: list[str] | None = None,
         include: list[str] | None = None,
         no_cache: bool | None = False,
+        no_git_auto_ignore: bool | None = False,
     ) -> Directory:
         """Accesses a directory on the host.
 
@@ -6468,12 +6868,15 @@ class Host(Type):
             ["app/", "package.*"]).
         no_cache:
             If true, the directory will always be reloaded from the host.
+        no_git_auto_ignore:
+            Don't apply .gitignore filter rules inside the directory
         """
         _args = [
             Arg("path", path),
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
             Arg("noCache", no_cache, False),
+            Arg("noGitAutoIgnore", no_git_auto_ignore, False),
         ]
         _ctx = self._select("directory", _args)
         return Directory(_ctx)
@@ -6793,6 +7196,249 @@ class InterfaceTypeDef(Type):
         _args: list[Arg] = []
         _ctx = self._select("sourceModuleName", _args)
         return await _ctx.execute(str)
+
+
+@typecheck
+class JSONValue(Type):
+    async def as_array(self) -> list["JSONValue"]:
+        """Decode an array from json"""
+        _args: list[Arg] = []
+        _ctx = self._select("asArray", _args)
+        return await _ctx.execute_object_list(JSONValue)
+
+    async def as_boolean(self) -> bool:
+        """Decode a boolean from json
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("asBoolean", _args)
+        return await _ctx.execute(bool)
+
+    async def as_integer(self) -> int:
+        """Decode an integer from json
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("asInteger", _args)
+        return await _ctx.execute(int)
+
+    async def as_string(self) -> str:
+        """Decode a string from json
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("asString", _args)
+        return await _ctx.execute(str)
+
+    async def contents(
+        self,
+        *,
+        pretty: bool | None = False,
+        indent: str | None = "  ",
+    ) -> JSON:
+        """Return the value encoded as json
+
+        Parameters
+        ----------
+        pretty:
+            Pretty-print
+        indent:
+            Optional line prefix
+
+        Returns
+        -------
+        JSON
+            An arbitrary JSON-encoded value.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args = [
+            Arg("pretty", pretty, False),
+            Arg("indent", indent, "  "),
+        ]
+        _ctx = self._select("contents", _args)
+        return await _ctx.execute(JSON)
+
+    def field(self, path: list[str]) -> Self:
+        """Lookup the field at the given path, and return its value.
+
+        Parameters
+        ----------
+        path:
+            Path of the field to lookup, encoded as an array of field names
+        """
+        _args = [
+            Arg("path", path),
+        ]
+        _ctx = self._select("field", _args)
+        return JSONValue(_ctx)
+
+    async def fields(self) -> list[str]:
+        """List fields of the encoded object
+
+        Returns
+        -------
+        list[str]
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("fields", _args)
+        return await _ctx.execute(list[str])
+
+    async def id(self) -> JSONValueID:
+        """A unique identifier for this JSONValue.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        JSONValueID
+            The `JSONValueID` scalar type represents an identifier for an
+            object of type JSONValue.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(JSONValueID)
+
+    def new_boolean(self, value: bool) -> Self:
+        """Encode a boolean to json
+
+        Parameters
+        ----------
+        value:
+            New boolean value
+        """
+        _args = [
+            Arg("value", value),
+        ]
+        _ctx = self._select("newBoolean", _args)
+        return JSONValue(_ctx)
+
+    def new_integer(self, value: int) -> Self:
+        """Encode an integer to json
+
+        Parameters
+        ----------
+        value:
+            New integer value
+        """
+        _args = [
+            Arg("value", value),
+        ]
+        _ctx = self._select("newInteger", _args)
+        return JSONValue(_ctx)
+
+    def new_string(self, value: str) -> Self:
+        """Encode a string to json
+
+        Parameters
+        ----------
+        value:
+            New string value
+        """
+        _args = [
+            Arg("value", value),
+        ]
+        _ctx = self._select("newString", _args)
+        return JSONValue(_ctx)
+
+    def with_contents(self, contents: JSON) -> Self:
+        """Return a new json value, decoded from the given content
+
+        Parameters
+        ----------
+        contents:
+            New JSON-encoded contents
+        """
+        _args = [
+            Arg("contents", contents),
+        ]
+        _ctx = self._select("withContents", _args)
+        return JSONValue(_ctx)
+
+    def with_field(self, path: list[str], value: Self) -> Self:
+        """Set a new field at the given path
+
+        Parameters
+        ----------
+        path:
+            Path of the field to set, encoded as an array of field names
+        value:
+            The new value of the field
+        """
+        _args = [
+            Arg("path", path),
+            Arg("value", value),
+        ]
+        _ctx = self._select("withField", _args)
+        return JSONValue(_ctx)
+
+    def with_(self, cb: Callable[["JSONValue"], "JSONValue"]) -> "JSONValue":
+        """Call the provided callable with current JSONValue.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
 
 
 @typecheck
@@ -8783,6 +9429,12 @@ class Client(Root):
         _ctx = self._select("http", _args)
         return File(_ctx)
 
+    def json(self) -> JSONValue:
+        """Initialize a JSON value"""
+        _args: list[Arg] = []
+        _ctx = self._select("json", _args)
+        return JSONValue(_ctx)
+
     def llm(
         self,
         *,
@@ -9042,6 +9694,14 @@ class Client(Root):
         _ctx = self._select("loadInterfaceTypeDefFromID", _args)
         return InterfaceTypeDef(_ctx)
 
+    def load_json_value_from_id(self, id: JSONValueID) -> JSONValue:
+        """Load a JSONValue from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadJSONValueFromID", _args)
+        return JSONValue(_ctx)
+
     def load_llm_from_id(self, id: LLMID) -> LLM:
         """Load a LLM from its ID."""
         _args = [
@@ -9131,6 +9791,22 @@ class Client(Root):
         ]
         _ctx = self._select("loadScalarTypeDefFromID", _args)
         return ScalarTypeDef(_ctx)
+
+    def load_search_result_from_id(self, id: SearchResultID) -> "SearchResult":
+        """Load a SearchResult from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadSearchResultFromID", _args)
+        return SearchResult(_ctx)
+
+    def load_search_submatch_from_id(self, id: SearchSubmatchID) -> "SearchSubmatch":
+        """Load a SearchSubmatch from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadSearchSubmatchFromID", _args)
+        return SearchSubmatch(_ctx)
 
     def load_secret_from_id(self, id: SecretID) -> "Secret":
         """Load a Secret from its ID."""
@@ -9472,6 +10148,213 @@ class ScalarTypeDef(Type):
 
 
 @typecheck
+class SearchResult(Type):
+    async def absolute_offset(self) -> int:
+        """The byte offset of this line within the file.
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("absoluteOffset", _args)
+        return await _ctx.execute(int)
+
+    async def file_path(self) -> str:
+        """The path to the file that matched.
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("filePath", _args)
+        return await _ctx.execute(str)
+
+    async def id(self) -> SearchResultID:
+        """A unique identifier for this SearchResult.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        SearchResultID
+            The `SearchResultID` scalar type represents an identifier for an
+            object of type SearchResult.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(SearchResultID)
+
+    async def line_number(self) -> int:
+        """The first line that matched.
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("lineNumber", _args)
+        return await _ctx.execute(int)
+
+    async def matched_lines(self) -> str:
+        """The line content that matched.
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("matchedLines", _args)
+        return await _ctx.execute(str)
+
+    async def submatches(self) -> list["SearchSubmatch"]:
+        """Sub-match positions and content within the matched lines."""
+        _args: list[Arg] = []
+        _ctx = self._select("submatches", _args)
+        return await _ctx.execute_object_list(SearchSubmatch)
+
+
+@typecheck
+class SearchSubmatch(Type):
+    async def end(self) -> int:
+        """The match's end offset within the matched lines.
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("end", _args)
+        return await _ctx.execute(int)
+
+    async def id(self) -> SearchSubmatchID:
+        """A unique identifier for this SearchSubmatch.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        SearchSubmatchID
+            The `SearchSubmatchID` scalar type represents an identifier for an
+            object of type SearchSubmatch.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(SearchSubmatchID)
+
+    async def start(self) -> int:
+        """The match's start offset within the matched lines.
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("start", _args)
+        return await _ctx.execute(int)
+
+    async def text(self) -> str:
+        """The matched text.
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("text", _args)
+        return await _ctx.execute(str)
+
+
+@typecheck
 class Secret(Type):
     """A reference to a secret value, which can be handled more safely
     than the value itself."""
@@ -9696,6 +10579,29 @@ class Service(Type):
             Arg("kill", kill, False),
         ]
         return await self._ctx.execute_sync(self, "stop", _args)
+
+    async def sync(self) -> Self:
+        """Forces evaluation of the pipeline in the engine.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        return await self._ctx.execute_sync(self, "sync", _args)
+
+    def __await__(self):
+        return self.sync().__await__()
+
+    def terminal(self, *, cmd: list[str] | None = None) -> Self:
+        _args = [
+            Arg("cmd", [] if cmd is None else cmd, []),
+        ]
+        _ctx = self._select("terminal", _args)
+        return Service(_ctx)
 
     async def up(
         self,
@@ -10384,6 +11290,8 @@ __all__ = [
     "InputTypeDefID",
     "InterfaceTypeDef",
     "InterfaceTypeDefID",
+    "JSONValue",
+    "JSONValueID",
     "LLMTokenUsage",
     "LLMTokenUsageID",
     "Label",
@@ -10410,6 +11318,10 @@ __all__ = [
     "SDKConfigID",
     "ScalarTypeDef",
     "ScalarTypeDefID",
+    "SearchResult",
+    "SearchResultID",
+    "SearchSubmatch",
+    "SearchSubmatchID",
     "Secret",
     "SecretID",
     "Service",

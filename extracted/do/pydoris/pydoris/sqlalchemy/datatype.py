@@ -52,19 +52,6 @@ class QUANTILE_STATE(Numeric):  # pylint: disable=no-init
 class AGG_STATE(Numeric):  # pylint: disable=no-init
     __visit_name__ = "AGG_STATE"
 
-class VARIANT(String):   # pylint: disable=no-init
-    __visit_name__ = "VARIANT"
-
-    @property
-    def python_type(self) -> Optional[Type[List[Any]]]:
-        return list
-
-class IPV4(String):  # pylint: disable=no-init
-   __visit_name__ = "IPV4"
-
-class IPV6(String):  # pylint: disable=no-init
-   __visit_name__ = "IPV6"
-
 class ARRAY(TypeEngine):  # pylint: disable=no-init
     __visit_name__ = "ARRAY"
 
@@ -93,7 +80,7 @@ _type_map = {
     # === Boolean ===
     "boolean": sqltypes.BOOLEAN,
     # === Integer ===
-    "tinyint": TINYINT,
+    "tinyint": sqltypes.SMALLINT,
     "smallint": sqltypes.SMALLINT,
     "int": sqltypes.INTEGER,
     "bigint": sqltypes.BIGINT,
@@ -124,9 +111,6 @@ _type_map = {
     'quantile_state': QUANTILE_STATE,
     'bitmap': BITMAP,
     'agg_state': AGG_STATE,
-    'variant': VARIANT,
-    'ipv4': IPV4,
-    'ipv6': IPV6,
 }
 
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+import polars as pl
+
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._types import ExtractionConfig, ExtractionResult  # noqa: TC001
 from kreuzberg.exceptions import MissingDependencyError
@@ -40,21 +42,8 @@ DOCUMENT_CLASSIFIERS = {
 
 
 def _get_translated_text(result: ExtractionResult) -> str:
-    """Translate extracted text to English using Google Translate API.
-
-    Args:
-        result: ExtractionResult containing the text to be translated
-
-    Returns:
-        str: The translated text in lowercase English
-
-    Raises:
-        MissingDependencyError: If the deep-translator package is not installed
-    """
-    # Combine content with metadata for classification
     text_to_classify = result.content
     if result.metadata:
-        # Add metadata values to the text for classification
         metadata_text = " ".join(str(value) for value in result.metadata.values() if value)
         text_to_classify = f"{text_to_classify} {metadata_text}"
 
@@ -68,21 +57,10 @@ def _get_translated_text(result: ExtractionResult) -> str:
     try:
         return str(GoogleTranslator(source="auto", target="en").translate(text_to_classify).lower())
     except Exception:  # noqa: BLE001
-        # Fall back to original content in lowercase if translation fails
         return text_to_classify.lower()
 
 
 def classify_document(result: ExtractionResult, config: ExtractionConfig) -> tuple[str | None, float | None]:
-    """Classifies the document type based on keywords and patterns.
-
-    Args:
-        result: The extraction result containing the content.
-        config: The extraction configuration.
-
-    Returns:
-        A tuple containing the detected document type and the confidence score,
-        or (None, None) if no type is detected with sufficient confidence.
-    """
     if not config.auto_detect_document_type:
         return None, None
 
@@ -111,33 +89,20 @@ def classify_document(result: ExtractionResult, config: ExtractionConfig) -> tup
 def classify_document_from_layout(
     result: ExtractionResult, config: ExtractionConfig
 ) -> tuple[str | None, float | None]:
-    """Classifies the document type based on layout information from OCR.
-
-    Args:
-        result: The extraction result containing the layout data.
-        config: The extraction configuration.
-
-    Returns:
-        A tuple containing the detected document type and the confidence score,
-        or (None, None) if no type is detected with sufficient confidence.
-    """
     if not config.auto_detect_document_type:
         return None, None
 
-    if result.layout is None or result.layout.empty:
+    if result.layout is None or result.layout.is_empty():
         return None, None
 
     layout_df = result.layout
     if not all(col in layout_df.columns for col in ["text", "top", "height"]):
         return None, None
 
-    # Use layout text for classification, not the content
-    layout_text = " ".join(layout_df["text"].astype(str).tolist())
+    layout_text = " ".join(layout_df["text"].cast(str).to_list())
 
-    # Translate layout text directly for classification
     text_to_classify = layout_text
     if result.metadata:
-        # Add metadata values to the text for classification
         metadata_text = " ".join(str(value) for value in result.metadata.values() if value)
         text_to_classify = f"{text_to_classify} {metadata_text}"
 
@@ -146,20 +111,29 @@ def classify_document_from_layout(
 
         translated_text = str(GoogleTranslator(source="auto", target="en").translate(text_to_classify).lower())
     except Exception:  # noqa: BLE001
-        # Fall back to original content in lowercase if translation fails
         translated_text = text_to_classify.lower()
 
-    layout_df["translated_text"] = translated_text
+    layout_df = layout_df.with_columns(pl.lit(translated_text).alias("translated_text"))
 
-    page_height = layout_df["top"].max() + layout_df["height"].max()
+    try:
+        layout_df = layout_df.with_columns(
+            [pl.col("top").cast(pl.Float64, strict=False), pl.col("height").cast(pl.Float64, strict=False)]
+        )
+
+        page_height_val = layout_df.select(pl.col("top").max() + pl.col("height").max()).item()
+        if page_height_val is None:
+            page_height_val = 0.0
+        page_height = float(page_height_val)
+    except Exception:  # noqa: BLE001
+        page_height = 1000.0
     scores = dict.fromkeys(DOCUMENT_CLASSIFIERS, 0.0)
 
     for doc_type, patterns in DOCUMENT_CLASSIFIERS.items():
         for pattern in patterns:
-            found_words = layout_df[layout_df["translated_text"].str.contains(pattern, case=False, na=False)]
-            if not found_words.empty:
+            found_words = layout_df.filter(layout_df["translated_text"].str.contains(pattern))
+            if not found_words.is_empty():
                 scores[doc_type] += 1.0
-                word_top = found_words.iloc[0]["top"]
+                word_top = found_words[0, "top"]
                 if word_top < page_height * 0.3:
                     scores[doc_type] += 0.5
 
@@ -183,8 +157,7 @@ def auto_detect_document_type(
     if config.document_classification_mode == "vision" and file_path:
         layout_result = get_ocr_backend("tesseract").process_file_sync(file_path, **config.get_config_dict())
         result.document_type, result.document_type_confidence = classify_document_from_layout(layout_result, config)
-    elif result.layout is not None and not result.layout.empty:
-        # Use layout-based classification if layout data is available
+    elif result.layout is not None and not result.layout.is_empty():
         result.document_type, result.document_type_confidence = classify_document_from_layout(result, config)
     else:
         result.document_type, result.document_type_confidence = classify_document(result, config)

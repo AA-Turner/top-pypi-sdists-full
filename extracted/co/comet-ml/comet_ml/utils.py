@@ -175,6 +175,10 @@ def timestamp_milliseconds(timestamp_in_seconds: float) -> int:
     return int(timestamp_in_seconds * 1000)
 
 
+def seconds_to_datetime_str(seconds: float) -> str:
+    return datetime.fromtimestamp(seconds).isoformat()
+
+
 def wait_for_done(
     check_function: Callable,
     timeout: float,

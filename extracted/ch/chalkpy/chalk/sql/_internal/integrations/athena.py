@@ -586,6 +586,122 @@ class AthenaSourceImpl(BaseSQLSource):
                 )
                 return
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for Athena and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+
+        with safe_trace("athena.execute_query_efficient_raw"):
+            try:
+                from pyathena.arrow.result_set import AthenaArrowResultSet
+            except ModuleNotFoundError:
+                raise missing_dependency_exception("chalkpy[athena]")
+
+            if self.s3_staging_dir is None:
+                raise ValueError("Could not query Athena, no s3_staging_dir set")
+
+            formatted_op, positional_params, named_params = self.compile_query(finalized_query)
+            assert (
+                len(positional_params) == 0 or len(named_params) == 0
+            ), "Should not mix positional and named parameters"
+            execution_params = None
+            paramstyle = None
+            if len(positional_params) > 0:
+                execution_params = list(positional_params)
+                if not all(isinstance(x, str) for x in positional_params):
+                    raise ValueError("Only strings are allowed as positional parameters in Athena client")
+            elif len(named_params) > 0:
+                execution_params = named_params
+                paramstyle = "named"
+
+            with self._pyathena_connection().cursor() as cursor:
+                job_id = str(uuid.uuid4())
+                job_prefix = f"chalk-unload/{job_id}"
+                s3_prefix = f"{self.s3_staging_dir.rstrip('/')}/{job_prefix}"
+
+                final_sql = self._rewrite_query_for_unload(
+                    sql=formatted_op,
+                    s3_staging_dir_for_job=s3_prefix,
+                )
+                with contextlib.ExitStack() as exit_stack:
+                    for (
+                        ext_table_name,
+                        (ext_table_columns, ext_pa_table, _, _, _),
+                    ) in finalized_query.temp_tables.items():
+                        exit_stack.enter_context(
+                            self._create_athena_external_table(
+                                ext_table_name,
+                                ext_table_columns={
+                                    k: _sqlalchemy_to_athena_str_type(v) for k, v in ext_table_columns.items()
+                                },
+                                pa_table=ext_pa_table,
+                                cursor=cursor,
+                            )
+                        )
+
+                    _, query_fut = cursor.execute(
+                        operation=final_sql,
+                        parameters=execution_params,
+                        paramstyle=paramstyle,
+                    )
+
+                    query_result = query_fut.result()
+                    assert isinstance(
+                        query_result, AthenaArrowResultSet
+                    ), "Expected athena query result to be AthenaArrowResultSet"
+                    if query_result.error_type and query_result.error_category and query_result.error_message:
+                        raise ValueError(
+                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
+                        )
+
+                    bucket_name = s3_prefix.split("/")[2]
+                    remaining_prefix = "/".join(s3_prefix.split("/")[3:])
+                    objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
+
+                    if "Contents" not in objects_list_response:
+                        # No data unloaded
+                        if query_execution_parameters.yield_empty_batches:
+                            arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
+                            batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                            yield batch
+                        return
+
+                    # Process unloaded files
+                    for object in objects_list_response["Contents"]:
+                        if "Key" not in object or "Size" not in object:
+                            raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {object}")
+                        object_key = object["Key"]
+
+                        # Download and process the file
+                        result_handle = AthenaResultHandle(
+                            uri=f"{bucket_name}/{object_key}", compressed_size=object["Size"]
+                        )
+                        tbl = result_handle.to_arrow(self._s3_filesystem())
+
+                        if len(tbl) == 0:
+                            continue
+
+                        # Map columns to expected schema
+                        arrays: list[pa.Array] = []
+                        for field in expected_output_schema:
+                            if field.name in tbl.column_names:
+                                col = tbl.column(field.name)
+                                # Cast to expected type if needed
+                                if col.type != field.type:
+                                    col = pc.cast(col, field.type)
+                                arrays.append(col)
+                            else:
+                                # Column not found, create null array
+                                arrays.append(pa.nulls(len(tbl), field.type))
+
+                        batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                        yield batch
+
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {
             k: v

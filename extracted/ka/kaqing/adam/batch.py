@@ -6,8 +6,8 @@ from adam.commands.cp import ClipboardCopy, CopyCommandHelper
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterCommandHelper, ClusterOrPodCommandHelper, PodCommandHelper
 from adam.commands.cqlsh import CqlCommandHelper, Cqlsh
-from adam.commands.frontend.setup import Setup, SetupCommandHelper
-from adam.commands.frontend.teardown import TearDown, TearDownCommandHelper
+from adam.commands.deploy.deploy import Deploy, DeployCommandHelper
+from adam.commands.deploy.undeploy import Undeploy, UndeployCommandHelper
 from adam.commands.issues import Issues
 from adam.commands.login import Login
 from adam.commands.logs import Logs
@@ -75,6 +75,16 @@ def copy(kubeconfig: str, config: str, param: list[str], cluster: str, namespace
 @click.argument('extra_args', nargs=-1, metavar='CQL-STATEMENTS <cluster|pod>', type=click.UNPROCESSED)
 def cql(kubeconfig: str, config: str, param: list[str], cluster: str, namespace: str, pod: str, extra_args):
     run_command(Cqlsh(), kubeconfig, config, param, cluster, namespace, pod, extra_args)
+
+
+@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=DeployCommandHelper, help='Setup.')
+@click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
+@click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
+@click.option('--param', '-v', multiple=True, metavar='<key>=<value>', help='parameter override')
+@click.option('--namespace', '-n', required=False, metavar='namespace', help='Kubernetes namespace')
+@click.argument('extra_args', nargs=-1, metavar='<pod>', type=click.UNPROCESSED)
+def deploy(kubeconfig: str, config: str, param: list[str], namespace: str, extra_args):
+    run_command(Deploy(), kubeconfig, config, param, None, namespace, None, extra_args)
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=ClusterOrPodCommandHelper, help="Print Qing's issues.")
@@ -229,16 +239,6 @@ def rollout(kubeconfig: str, config: str, param: list[str], cluster: str, namesp
     run_command(RollOut(), kubeconfig, config, param, cluster, namespace, None, extra_args)
 
 
-@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=SetupCommandHelper, help='Setup.')
-@click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
-@click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
-@click.option('--param', '-v', multiple=True, metavar='<key>=<value>', help='parameter override')
-@click.option('--namespace', '-n', required=False, metavar='namespace', help='Kubernetes namespace')
-@click.argument('extra_args', nargs=-1, metavar='<pod>', type=click.UNPROCESSED)
-def setup(kubeconfig: str, config: str, param: list[str], namespace: str, extra_args):
-    run_command(Setup(), kubeconfig, config, param, None, namespace, None, extra_args)
-
-
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=ShowCommandHelper, help='Show configuration or kubectl commands.')
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
 @click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
@@ -251,14 +251,14 @@ def show(kubeconfig: str, config: str, param: list[str], cluster: str, namespace
     run_command(Show(), kubeconfig, config, param, cluster, namespace, pod, extra_args)
 
 
-@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=TearDownCommandHelper, help='Teardown.')
+@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=UndeployCommandHelper, help='Undeploy.')
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
 @click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
 @click.option('--param', '-v', multiple=True, metavar='<key>=<value>', help='parameter override')
 @click.option('--namespace', '-n', required=False, metavar='namespace', help='Kubernetes namespace')
 @click.argument('extra_args', nargs=-1, metavar='<pod>', type=click.UNPROCESSED)
-def teardown(kubeconfig: str, config: str, param: list[str], namespace: str, extra_args):
-    run_command(TearDown(), kubeconfig, config, param, None, namespace, None, extra_args)
+def undeploy(kubeconfig: str, config: str, param: list[str], namespace: str, extra_args):
+    run_command(Undeploy(), kubeconfig, config, param, None, namespace, None, extra_args)
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=PodCommandHelper, help='Get cassandra log.')

@@ -1420,6 +1420,7 @@ __all__ = [
     'GetLogsIndexesLogsIndexFilterResult',
     'GetLogsPipelinesLogsPipelineResult',
     'GetLogsPipelinesLogsPipelineFilterResult',
+    'GetMetricActiveTagsAndAggregationsActiveAggregationResult',
     'GetMonitorConfigPoliciesMonitorConfigPolicyResult',
     'GetMonitorConfigPoliciesMonitorConfigPolicyTagPolicyResult',
     'GetMonitorMonitorThresholdResult',
@@ -93083,6 +93084,8 @@ class SensitiveDataScannerRuleTextReplacement(dict):
             suggest = "number_of_chars"
         elif key == "replacementString":
             suggest = "replacement_string"
+        elif key == "shouldSaveMatch":
+            suggest = "should_save_match"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SensitiveDataScannerRuleTextReplacement. Access the value via the '{suggest}' property getter instead.")
@@ -93098,17 +93101,21 @@ class SensitiveDataScannerRuleTextReplacement(dict):
     def __init__(__self__, *,
                  type: _builtins.str,
                  number_of_chars: Optional[_builtins.int] = None,
-                 replacement_string: Optional[_builtins.str] = None):
+                 replacement_string: Optional[_builtins.str] = None,
+                 should_save_match: Optional[_builtins.bool] = None):
         """
         :param _builtins.str type: Type of the replacement text. None means no replacement. hash means the data will be stubbed. replacement*string means that one can chose a text to replace the data. partial*replacement*from*beginning allows a user to partially replace the data from the beginning, and partial*replacement*from_end on the other hand, allows to replace data from the end. Valid values are `none`, `hash`, `replacement_string`, `partial_replacement_from_beginning`, `partial_replacement_from_end`.
         :param _builtins.int number_of_chars: Required if type == 'partial*replacement*from*beginning' or 'partial*replacement*from*end'. It must be > 0.
         :param _builtins.str replacement_string: Required if type == 'replacement_string'.
+        :param _builtins.bool should_save_match: Only valid when type == `replacement_string`. When enabled, matches can be unmasked in logs by users with ‘Data Scanner Unmask’ permission. As a security best practice, avoid masking for highly-sensitive, long-lived data.
         """
         pulumi.set(__self__, "type", type)
         if number_of_chars is not None:
             pulumi.set(__self__, "number_of_chars", number_of_chars)
         if replacement_string is not None:
             pulumi.set(__self__, "replacement_string", replacement_string)
+        if should_save_match is not None:
+            pulumi.set(__self__, "should_save_match", should_save_match)
 
     @_builtins.property
     @pulumi.getter
@@ -93133,6 +93140,14 @@ class SensitiveDataScannerRuleTextReplacement(dict):
         Required if type == 'replacement_string'.
         """
         return pulumi.get(self, "replacement_string")
+
+    @_builtins.property
+    @pulumi.getter(name="shouldSaveMatch")
+    def should_save_match(self) -> Optional[_builtins.bool]:
+        """
+        Only valid when type == `replacement_string`. When enabled, matches can be unmasked in logs by users with ‘Data Scanner Unmask’ permission. As a security best practice, avoid masking for highly-sensitive, long-lived data.
+        """
+        return pulumi.get(self, "should_save_match")
 
 
 @pulumi.output_type
@@ -99892,6 +99907,25 @@ class GetLogsPipelinesLogsPipelineFilterResult(dict):
         Pipeline filter criteria.
         """
         return pulumi.get(self, "query")
+
+
+@pulumi.output_type
+class GetMetricActiveTagsAndAggregationsActiveAggregationResult(dict):
+    def __init__(__self__, *,
+                 space: _builtins.str,
+                 time: _builtins.str):
+        pulumi.set(__self__, "space", space)
+        pulumi.set(__self__, "time", time)
+
+    @_builtins.property
+    @pulumi.getter
+    def space(self) -> _builtins.str:
+        return pulumi.get(self, "space")
+
+    @_builtins.property
+    @pulumi.getter
+    def time(self) -> _builtins.str:
+        return pulumi.get(self, "time")
 
 
 @pulumi.output_type

@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
 # limitations under the License.
 # For general information on the Pynini grammar compilation library, see
 # pynini.opengrm.org.
-"""Tests for Paradigms."""
-
 from absl.testing import absltest
 
 import pynini

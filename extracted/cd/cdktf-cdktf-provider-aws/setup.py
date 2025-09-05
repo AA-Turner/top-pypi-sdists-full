@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.9.1",
+    "version": "21.10.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -323,6 +323,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.cognito_identity_pool_roles_attachment",
         "cdktf_cdktf_provider_aws.cognito_identity_provider",
         "cdktf_cdktf_provider_aws.cognito_log_delivery_configuration",
+        "cdktf_cdktf_provider_aws.cognito_managed_login_branding",
         "cdktf_cdktf_provider_aws.cognito_managed_user_pool_client",
         "cdktf_cdktf_provider_aws.cognito_resource_server",
         "cdktf_cdktf_provider_aws.cognito_risk_configuration",
@@ -2172,7 +2173,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.9.1.jsii.tgz"
+            "provider-aws@21.10.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

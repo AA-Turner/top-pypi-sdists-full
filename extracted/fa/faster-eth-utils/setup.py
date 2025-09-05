@@ -12,8 +12,9 @@ else:
         [
             "faster_eth_utils/abi.py",
             "faster_eth_utils/address.py",
-            #"faster_eth_utils/applicators.py",
+            "faster_eth_utils/applicators.py",
             "faster_eth_utils/conversions.py",
+            "faster_eth_utils/crypto.py",
             "faster_eth_utils/currency.py",
             "faster_eth_utils/debug.py",
             "faster_eth_utils/decorators.py",
@@ -23,7 +24,9 @@ else:
             "faster_eth_utils/hexadecimal.py",
             "faster_eth_utils/humanize.py",
             "faster_eth_utils/module_loading.py",
-            # "faster_eth_utils/network.py", compiled module has no __file__
+            "faster_eth_utils/network.py",
+            "faster_eth_utils/numeric.py",
+            "faster_eth_utils/toolz.py",
             "faster_eth_utils/types.py",
             "faster_eth_utils/units.py",
             "--pretty",
@@ -37,7 +40,7 @@ else:
         ],
     )
 
-MYPY_REQUIREMENT = "mypy==1.10.0"
+MYPY_REQUIREMENT = "mypy==1.17.1"
 
 extras_require = {
     "dev": [
@@ -61,6 +64,7 @@ extras_require = {
         "hypothesis>=4.43.0",
         MYPY_REQUIREMENT,
         "pytest>=7.0.0",
+        "pytest-codspeed>=2.0.0",
         "pytest-xdist>=2.4.0",
     ],
 }
@@ -77,7 +81,7 @@ with open("./README.md") as readme:
 setup(
     name="faster-eth-utils",
     # *IMPORTANT*: Don't manually change the version here. Use `make bump`, as described in readme
-    version="5.3.4",
+    version="5.3.5",
     description=(
         """A fork of eth-utils: Common utility functions for python code that interacts with Ethereum, implemented in C"""
     ),

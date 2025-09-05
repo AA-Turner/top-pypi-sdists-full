@@ -41,27 +41,6 @@
 /** The domain separator for verify_cell_kzg_proof_batch's random challenge. */
 static const char *RANDOM_CHALLENGE_DOMAIN_VERIFY_CELL_KZG_PROOF_BATCH = "RCKZGCBATCH__V1_";
 
-/**
- * This is a precomputed map of cell index to reverse-bits-limited cell index.
- *
- * for (size_t i = 0; i < CELLS_PER_EXT_BLOB; i++)
- *   printf("%#04llx,\n", reverse_bits_limited(CELLS_PER_EXT_BLOB, i));
- *
- * Because of the way our evaluation domain is defined, we can use CELL_INDICES_RBL to find the
- * coset factor of a cell. In particular, for cell i, its coset factor is
- * roots_of_unity[CELLS_INDICES_RBL[i]].
- */
-static const uint64_t CELL_INDICES_RBL[CELLS_PER_EXT_BLOB] = {
-    0x00, 0x40, 0x20, 0x60, 0x10, 0x50, 0x30, 0x70, 0x08, 0x48, 0x28, 0x68, 0x18, 0x58, 0x38, 0x78,
-    0x04, 0x44, 0x24, 0x64, 0x14, 0x54, 0x34, 0x74, 0x0c, 0x4c, 0x2c, 0x6c, 0x1c, 0x5c, 0x3c, 0x7c,
-    0x02, 0x42, 0x22, 0x62, 0x12, 0x52, 0x32, 0x72, 0x0a, 0x4a, 0x2a, 0x6a, 0x1a, 0x5a, 0x3a, 0x7a,
-    0x06, 0x46, 0x26, 0x66, 0x16, 0x56, 0x36, 0x76, 0x0e, 0x4e, 0x2e, 0x6e, 0x1e, 0x5e, 0x3e, 0x7e,
-    0x01, 0x41, 0x21, 0x61, 0x11, 0x51, 0x31, 0x71, 0x09, 0x49, 0x29, 0x69, 0x19, 0x59, 0x39, 0x79,
-    0x05, 0x45, 0x25, 0x65, 0x15, 0x55, 0x35, 0x75, 0x0d, 0x4d, 0x2d, 0x6d, 0x1d, 0x5d, 0x3d, 0x7d,
-    0x03, 0x43, 0x23, 0x63, 0x13, 0x53, 0x33, 0x73, 0x0b, 0x4b, 0x2b, 0x6b, 0x1b, 0x5b, 0x3b, 0x7b,
-    0x07, 0x47, 0x27, 0x67, 0x17, 0x57, 0x37, 0x77, 0x0f, 0x4f, 0x2f, 0x6f, 0x1f, 0x5f, 0x3f, 0x7f,
-};
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Compute
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,9 +187,14 @@ C_KZG_RET recover_cells_and_kzg_proofs(
         goto out;
     }
 
-    /* Check that cell indices are valid */
     for (size_t i = 0; i < num_cells; i++) {
+        /* Check that cell indices are valid */
         if (cell_indices[i] >= CELLS_PER_EXT_BLOB) {
+            ret = C_KZG_BADARGS;
+            goto out;
+        }
+        /* Check that indices are in strictly ascending order */
+        if (i > 0 && cell_indices[i] <= cell_indices[i - 1]) {
             ret = C_KZG_BADARGS;
             goto out;
         }
@@ -231,19 +215,8 @@ C_KZG_RET recover_cells_and_kzg_proofs(
     for (size_t i = 0; i < num_cells; i++) {
         size_t index = cell_indices[i] * FIELD_ELEMENTS_PER_CELL;
         for (size_t j = 0; j < FIELD_ELEMENTS_PER_CELL; j++) {
-            fr_t *ptr = &recovered_cells_fr[index + j];
-
-            /*
-             * Check if the field has already been set. If it has, there was a duplicate cell index
-             * and we can return an error. The compiler will optimize this and the overhead is
-             * practically zero.
-             */
-            if (!fr_is_null(ptr)) {
-                ret = C_KZG_BADARGS;
-                goto out;
-            }
-
             /* Convert the untrusted input bytes to a field element */
+            fr_t *ptr = &recovered_cells_fr[index + j];
             size_t offset = j * BYTES_PER_FIELD_ELEMENT;
             ret = bytes_to_bls_field(ptr, (const Bytes32 *)&cells[i].bytes[offset]);
             if (ret != C_KZG_OK) goto out;
@@ -252,7 +225,13 @@ C_KZG_RET recover_cells_and_kzg_proofs(
 
     if (num_cells == CELLS_PER_EXT_BLOB) {
         /* Nothing to recover, copy the cells */
-        memcpy(recovered_cells, cells, CELLS_PER_EXT_BLOB * sizeof(Cell));
+        for (size_t i = 0; i < CELLS_PER_EXT_BLOB; i++) {
+            /*
+             * At this point, and based on our checks above, we know that all indices are in the
+             * right order. That is: cell_indices[i] == i
+             */
+            recovered_cells[i] = cells[i];
+        }
     } else {
         /* Perform cell recovery */
         ret = recover_cells(recovered_cells_fr, cell_indices, num_cells, recovered_cells_fr, s);
@@ -374,22 +353,21 @@ static void deduplicate_commitments(
 }
 
 /**
- * Compute random linear combination challenge scalars for verify_cell_kzg_proof_batch. In this, we
- * must hash EVERYTHING that the prover can control.
+ * Compute the challenge value used for batch verification of cell KZG proofs.
  *
- * @param[out]  r_powers_out        The output challenges, length `num_cells`
+ * @param[out]  challenge_out       The output challenge as a BLS field element
  * @param[in]   commitments_bytes   The input commitments, length `num_commitments`
  * @param[in]   num_commitments     The number of commitments
  * @param[in]   commitment_indices  The cell commitment indices, length `num_cells`
  * @param[in]   cell_indices        The cell indices, length `num_cells`
- * @param[in]   cells               The cell, length `num_cells`
- * @param[in]   proofs_bytes        The cell proof, length `num_cells`
+ * @param[in]   cells               The cells, length `num_cells`
+ * @param[in]   proofs_bytes        The cell proofs, length `num_cells`
  * @param[in]   num_cells           The number of cells
  */
-static C_KZG_RET compute_r_powers_for_verify_cell_kzg_proof_batch(
-    fr_t *r_powers_out,
+C_KZG_RET compute_verify_cell_kzg_proof_batch_challenge(
+    fr_t *challenge_out,
     const Bytes48 *commitments_bytes,
-    size_t num_commitments,
+    uint64_t num_commitments,
     const uint64_t *commitment_indices,
     const uint64_t *cell_indices,
     const Cell *cells,
@@ -399,10 +377,10 @@ static C_KZG_RET compute_r_powers_for_verify_cell_kzg_proof_batch(
     C_KZG_RET ret;
     uint8_t *bytes = NULL;
     Bytes32 r_bytes;
-    fr_t r;
 
     /* Calculate the size of the data we're going to hash */
     size_t input_size = DOMAIN_STR_LENGTH                          /* The domain separator */
+                        + sizeof(uint64_t)                         /* FIELD_ELEMENTS_PER_BLOB */
                         + sizeof(uint64_t)                         /* FIELD_ELEMENTS_PER_CELL */
                         + sizeof(uint64_t)                         /* num_commitments */
                         + sizeof(uint64_t)                         /* num_cells */
@@ -425,6 +403,10 @@ static C_KZG_RET compute_r_powers_for_verify_cell_kzg_proof_batch(
     /* Copy domain separator */
     memcpy(offset, RANDOM_CHALLENGE_DOMAIN_VERIFY_CELL_KZG_PROOF_BATCH, DOMAIN_STR_LENGTH);
     offset += DOMAIN_STR_LENGTH;
+
+    /* Copy field elements per blob */
+    bytes_from_uint64(offset, FIELD_ELEMENTS_PER_BLOB);
+    offset += sizeof(uint64_t);
 
     /* Copy field elements per cell */
     bytes_from_uint64(offset, FIELD_ELEMENTS_PER_CELL);
@@ -462,15 +444,14 @@ static C_KZG_RET compute_r_powers_for_verify_cell_kzg_proof_batch(
         offset += BYTES_PER_PROOF;
     }
 
-    /* Now let's create the challenge! */
-    blst_sha256(r_bytes.bytes, bytes, input_size);
-    hash_to_bls_field(&r, &r_bytes);
-
-    /* Raise power of r for each cell */
-    compute_powers(r_powers_out, &r, num_cells);
-
     /* Make sure we wrote the entire buffer */
     assert(offset == bytes + input_size);
+
+    /* Create the challenge hash */
+    blst_sha256(r_bytes.bytes, bytes, input_size);
+
+    /* Convert to BLS field element */
+    hash_to_bls_field(challenge_out, &r_bytes);
 
 out:
     c_kzg_free(bytes);
@@ -549,7 +530,7 @@ static void get_inv_coset_shift_for_cell(
      * Get the cell index in reverse-bit order.
      * This index points to this cell's coset factor h_k in the roots_of_unity array.
      */
-    uint64_t cell_idx_rbl = CELL_INDICES_RBL[cell_index];
+    uint64_t cell_idx_rbl = reverse_bits_limited(CELLS_PER_EXT_BLOB, cell_index);
 
     /*
      * Observe that for every element in roots_of_unity, we can find its inverse by
@@ -581,7 +562,7 @@ static void get_coset_shift_pow_for_cell(
      * Get the cell index in reverse-bit order.
      * This index points to this cell's coset factor h_k in the roots_of_unity array.
      */
-    uint64_t cell_idx_rbl = CELL_INDICES_RBL[cell_index];
+    uint64_t cell_idx_rbl = reverse_bits_limited(CELLS_PER_EXT_BLOB, cell_index);
 
     /*
      * Get the index to h_k^n in the roots_of_unity array.
@@ -828,6 +809,7 @@ C_KZG_RET verify_cell_kzg_proof_batch(
     const KZGSettings *s
 ) {
     C_KZG_RET ret;
+    fr_t r;
     g1_t interpolation_poly_commit;
     g1_t final_g1_sum;
     g1_t proof_lincomb;
@@ -889,13 +871,10 @@ C_KZG_RET verify_cell_kzg_proof_batch(
     // Compute powers of r, and extract KZG proofs out of input bytes
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /*
-     * Derive random factors for the linear combination. The exponents start with 0. That is, they
-     * are r^0, r^1, r^2, r^3, and so on.
-     */
-    ret = compute_r_powers_for_verify_cell_kzg_proof_batch(
-        r_powers,
-        unique_commitments,
+    /* Compute the challenge */
+    ret = compute_verify_cell_kzg_proof_batch_challenge(
+        &r,
+        commitments_bytes,
         num_commitments,
         commitment_indices,
         cell_indices,
@@ -904,6 +883,12 @@ C_KZG_RET verify_cell_kzg_proof_batch(
         num_cells
     );
     if (ret != C_KZG_OK) goto out;
+
+    /*
+     * Derive random factors for the linear combination. The exponents start with 0. That is, they
+     * are r^0, r^1, r^2, r^3, and so on.
+     */
+    compute_powers(r_powers, &r, num_cells);
 
     /* There should be a proof for each cell */
     for (size_t i = 0; i < num_cells; i++) {

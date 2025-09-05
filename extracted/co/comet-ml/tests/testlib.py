@@ -38,7 +38,7 @@ from comet_ml.offline import (
     get_upload_msg_validator,
     get_ws_msg_validator,
 )
-from comet_ml.testlib.dummy import DummyHeartBeatThread, DummyStreamer
+from comet_ml.testlib.dummy import DummyHeartBeatThread, DummyOnlineStreamer
 from comet_ml.testlib.predicates import AlwaysEquals
 from comet_ml.utils import url_join
 
@@ -76,7 +76,7 @@ def experiment_builder(
 
         def _setup_streamer(self, *args, **kwargs):
             if streamer is None:
-                self.streamer = DummyStreamer(
+                self.streamer = DummyOnlineStreamer(
                     api_key=SOME_API_KEY, run_id=SOME_RUN_ID, project_id=SOME_PROJECT_ID
                 )
             else:
@@ -158,7 +158,7 @@ def a_live_experiment(
 ):
     # this line is used for source code testing, don't remove this comment
 
-    streamer = DummyStreamer(
+    streamer = DummyOnlineStreamer(
         api_key=api_key,
         run_id=run_id,
         project_id=project_id,
@@ -555,7 +555,7 @@ def parse_response_body(response_call):
     return json.loads(body)
 
 
-def find_streamer_messages_by_type(fake_streamer: DummyStreamer, message_type: Any) -> List[Any]:
+def find_streamer_messages_by_type(fake_streamer: DummyOnlineStreamer, message_type: Any) -> List[Any]:
     return [m for m in fake_streamer.messages if isinstance(m, message_type)]
 
 
@@ -824,3 +824,10 @@ def read_messages_from_offline_experiment_zip(offline_dir, offline_archive_file_
         lines = messages_file.readlines()
 
     return lines
+
+
+def print_loaded_modules():
+    # Print all loaded modules
+    print("Modules currently loaded:")
+    for name, module in sys.modules.items():
+        print(f"- {name}")

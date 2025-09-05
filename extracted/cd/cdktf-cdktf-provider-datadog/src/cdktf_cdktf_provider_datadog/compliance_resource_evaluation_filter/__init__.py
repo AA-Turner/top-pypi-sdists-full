@@ -1,7 +1,7 @@
 r'''
 # `datadog_compliance_resource_evaluation_filter`
 
-Refer to the Terraform Registry for docs: [`datadog_compliance_resource_evaluation_filter`](https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter).
+Refer to the Terraform Registry for docs: [`datadog_compliance_resource_evaluation_filter`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComplianceResourceEvaluationFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.complianceResourceEvaluationFilter.ComplianceResourceEvaluationFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter datadog_compliance_resource_evaluation_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter datadog_compliance_resource_evaluation_filter}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class ComplianceResourceEvaluationFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter datadog_compliance_resource_evaluation_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter datadog_compliance_resource_evaluation_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cloud_provider: The cloud provider of the filter's targeted resource. Only ``aws``, ``gcp``, or ``azure`` are considered valid cloud providers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
-        :param resource_id: The ID of the of the filter's targeted resource. Different cloud providers target different resource IDs: - ``aws``: account ID - ``gcp``: project ID - ``azure``: subscription ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
-        :param tags: List of tags to filter misconfiguration detections. Each entry should follow the format: "key":"value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
+        :param cloud_provider: The cloud provider of the filter's targeted resource. Only ``aws``, ``gcp``, or ``azure`` are considered valid cloud providers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
+        :param resource_id: The ID of the of the filter's targeted resource. Different cloud providers target different resource IDs: - ``aws``: account ID - ``gcp``: project ID - ``azure``: subscription ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
+        :param tags: List of tags to filter misconfiguration detections. Each entry should follow the format: "key":"value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class ComplianceResourceEvaluationFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComplianceResourceEvaluationFilter to import.
-        :param import_from_id: The id of the existing ComplianceResourceEvaluationFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComplianceResourceEvaluationFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComplianceResourceEvaluationFilter to import is found.
         '''
         if __debug__:
@@ -229,9 +229,9 @@ class ComplianceResourceEvaluationFilterConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cloud_provider: The cloud provider of the filter's targeted resource. Only ``aws``, ``gcp``, or ``azure`` are considered valid cloud providers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
-        :param resource_id: The ID of the of the filter's targeted resource. Different cloud providers target different resource IDs: - ``aws``: account ID - ``gcp``: project ID - ``azure``: subscription ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
-        :param tags: List of tags to filter misconfiguration detections. Each entry should follow the format: "key":"value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
+        :param cloud_provider: The cloud provider of the filter's targeted resource. Only ``aws``, ``gcp``, or ``azure`` are considered valid cloud providers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
+        :param resource_id: The ID of the of the filter's targeted resource. Different cloud providers target different resource IDs: - ``aws``: account ID - ``gcp``: project ID - ``azure``: subscription ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
+        :param tags: List of tags to filter misconfiguration detections. Each entry should follow the format: "key":"value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -335,7 +335,7 @@ class ComplianceResourceEvaluationFilterConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def cloud_provider(self) -> builtins.str:
         '''The cloud provider of the filter's targeted resource. Only ``aws``, ``gcp``, or ``azure`` are considered valid cloud providers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#cloud_provider ComplianceResourceEvaluationFilter#cloud_provider}
         '''
         result = self._values.get("cloud_provider")
         assert result is not None, "Required property 'cloud_provider' is missing"
@@ -351,7 +351,7 @@ class ComplianceResourceEvaluationFilterConfig(_cdktf_9a9027ec.TerraformMetaArgu
         - ``gcp``: project ID
         - ``azure``: subscription ID
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#resource_id ComplianceResourceEvaluationFilter#resource_id}
         '''
         result = self._values.get("resource_id")
         assert result is not None, "Required property 'resource_id' is missing"
@@ -361,7 +361,7 @@ class ComplianceResourceEvaluationFilterConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def tags(self) -> typing.List[builtins.str]:
         '''List of tags to filter misconfiguration detections. Each entry should follow the format: "key":"value".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/compliance_resource_evaluation_filter#tags ComplianceResourceEvaluationFilter#tags}
         '''
         result = self._values.get("tags")
         assert result is not None, "Required property 'tags' is missing"

@@ -37,7 +37,7 @@ from ..utils import (
 
 @dataclass
 class FireSmokeConfig(BaseConfig):
-    confidence_threshold: float = 0.05
+    confidence_threshold: float = 0.85
 
     # Only fire and smoke categories included here (exclude normal)
     fire_smoke_categories: List[str] = field(
@@ -141,6 +141,7 @@ class FireSmokeUseCase(BaseProcessor):
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
+            config.confidence_threshold = 0.85
             self.logger.info(f"Processing fire and smoke detection with format: {input_format.value} with threshold: {config.confidence_threshold}")
 
             # Step 2: Confidence thresholding
@@ -240,12 +241,7 @@ class FireSmokeUseCase(BaseProcessor):
                 alerts = tracking_stats_list[1]
                 incidents = tracking_stats_list[2]
                 tracking_stats = tracking_stats_list[0]
-                print("-----------------------------------------------------########-------------")
-                print('alerts',alerts)
-                print('incidents',incidents)
-                print('tracking_stats',tracking_stats)
-                print('FRAME_NUMBER',str(frame_number))
-                print("-----------------------------------------------------########-------------")
+
 
             business_analytics = business_analytics_list[0] if business_analytics_list else []
             summary = summary_list[0] if summary_list else {}
@@ -646,7 +642,7 @@ class FireSmokeUseCase(BaseProcessor):
 
         if len(self.id_hit_list)==1:
             last_ending_id, incident_id = self._get_alert_incident_ids("",stream_info)
-            print('last_ending_id',last_ending_id, incident_id, self.return_id_counter)
+            
             if len(self.id_timing_list)>0 and len(self.id_timing_list)>=5:
                     start_timestamp = self.id_timing_list[-1]
             if incident_id==self.return_id_counter:
@@ -678,7 +674,7 @@ class FireSmokeUseCase(BaseProcessor):
 
     def _generate_summary(
             self, summary: dict, general_summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List
-    ) -> str:
+    ) -> List[str]:
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
         """
@@ -901,9 +897,7 @@ class FireSmokeUseCase(BaseProcessor):
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        print("---------------------------------STREAM_INFO------------------------------")
-        print(stream_info)
-        print("---------------------------------STREAM_INFO------------------------------")
+
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:

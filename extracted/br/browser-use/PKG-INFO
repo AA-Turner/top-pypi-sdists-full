@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.7.1
+Version: 0.7.2
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: <4.0,>=3.11
 Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: aiohttp==3.12.15
-Requires-Dist: anthropic==0.58.2
+Requires-Dist: anthropic<1.0.0,>=0.58.2
 Requires-Dist: anyio>=4.9.0
 Requires-Dist: authlib>=1.6.0
 Requires-Dist: bubus>=1.5.6
@@ -20,14 +20,15 @@ Requires-Dist: google-api-core>=2.25.0
 Requires-Dist: google-api-python-client>=2.174.0
 Requires-Dist: google-auth-oauthlib>=1.2.2
 Requires-Dist: google-auth>=2.40.3
-Requires-Dist: google-genai==1.29.0
+Requires-Dist: google-genai<2.0.0,>=1.29.0
 Requires-Dist: groq>=0.30.0
+Requires-Dist: html2text>=2025.4.15
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: markdown-pdf==1.5
-Requires-Dist: markdownify==1.1.0
 Requires-Dist: mcp>=1.10.1
 Requires-Dist: ollama>=0.5.1
-Requires-Dist: openai==1.99.2
+Requires-Dist: openai<2.0.0,>=1.99.2
+Requires-Dist: pillow>=11.2.1
 Requires-Dist: portalocker<3.0.0,>=2.7.0
 Requires-Dist: posthog>=3.7.0
 Requires-Dist: psutil>=7.0.0
@@ -40,6 +41,7 @@ Requires-Dist: screeninfo>=0.8.1; platform_system != 'darwin'
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: uuid7>=0.1.0
 Provides-Extra: all
+Requires-Dist: agentmail>=0.0.53; extra == 'all'
 Requires-Dist: boto3>=1.38.45; extra == 'all'
 Requires-Dist: botocore>=1.37.23; extra == 'all'
 Requires-Dist: click>=8.1.8; extra == 'all'
@@ -58,10 +60,10 @@ Requires-Dist: anyio>=4.9.0; extra == 'eval'
 Requires-Dist: browserbase==1.4.0; extra == 'eval'
 Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
 Requires-Dist: hyperbrowser==0.47.0; extra == 'eval'
-Requires-Dist: lmnr[all]==0.7.6; extra == 'eval'
-Requires-Dist: pillow>=11.2.1; extra == 'eval'
+Requires-Dist: lmnr[all]==0.7.10; extra == 'eval'
 Requires-Dist: psutil>=7.0.0; extra == 'eval'
 Provides-Extra: examples
+Requires-Dist: agentmail>=0.0.53; extra == 'examples'
 Requires-Dist: botocore>=1.37.23; extra == 'examples'
 Requires-Dist: imgcat>=0.6.0; extra == 'examples'
 Requires-Dist: langchain-openai>=0.3.26; extra == 'examples'
@@ -85,7 +87,22 @@ Description-Content-Type: text/markdown
 
 🌤️ Want to skip the setup? Use our <b>[cloud](https://cloud.browser-use.com)</b> for faster, scalable, stealth-enabled browser automation!
 
-# Quick start
+## 🎉 OSS Twitter Hackathon
+
+We just hit **69,000 GitHub ⭐**!
+To celebrate, we're launching **#nicehack69** — a Twitter-first hackathon with a **$6,900 prize pool**. Dream big and show us the future of browser-use agents that go beyond demos!
+
+**Deadline: September 6, 2025**
+
+**[🚀 Join the hackathon →](https://github.com/browser-use/nicehack69)**
+
+<div align="center">
+<a href="https://github.com/browser-use/nicehack69">
+<img src="./static/NiceHack69.png" alt="NiceHack69 Hackathon" width="600"/>
+</a>
+</div>
+
+# Quickstart
 
 With pip (Python>=3.11):
 

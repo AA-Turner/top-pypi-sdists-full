@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-secret-manager-wrapper-layer",
-    "version": "2.1.147",
+    "version": "2.1.148",
     "description": "cdk-secret-manager-wrapper-layer",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-secret-manager-wrapper-layer.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_secret_manager_wrapper_layer._jsii": [
-            "cdk-secret-manager-wrapper-layer@2.1.147.jsii.tgz"
+            "cdk-secret-manager-wrapper-layer@2.1.148.jsii.tgz"
         ],
         "cdk_secret_manager_wrapper_layer": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.181.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.113.0, <2.0.0",
+        "jsii>=1.114.1, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

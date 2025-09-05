@@ -722,6 +722,7 @@ WaiterName = Literal[
     "workflow_version_active",
 ]
 RegionName = Literal[
+    "ap-northeast-2",
     "ap-southeast-1",
     "eu-central-1",
     "eu-west-1",

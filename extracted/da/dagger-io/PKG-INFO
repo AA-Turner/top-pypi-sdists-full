@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dagger-io
-Version: 0.18.16
+Version: 0.18.17
 Summary: A client package for running Dagger pipelines in Python.
 Author: Dagger
 Author-email: Dagger <hello@dagger.io>
@@ -20,7 +20,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
 Requires-Dist: anyio>=3.6.2
 Requires-Dist: cattrs>=25.1.0
-Requires-Dist: gql[httpx]~=3.5.0
+Requires-Dist: gql[httpx]>=4.0
 Requires-Dist: beartype>=0.18.2
 Requires-Dist: platformdirs>=2.6.2
 Requires-Dist: typing-extensions>=4.13.0

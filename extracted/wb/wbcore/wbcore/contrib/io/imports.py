@@ -12,7 +12,7 @@ from django.db import models
 from django.db.models import Model
 from tqdm import tqdm
 
-from .exceptions import DeserializationError, ImportError
+from .exceptions import DeserializationError, ImportError, SkipImportError
 from .models import ImportedObjectProviderRelationship, ImportSource
 from .utils import nest_row
 
@@ -296,12 +296,14 @@ class ImportExportHandler:
                     unmodified_objs.append(_object)
                 if (
                     len(self.import_source.log) > self.MAX_ALLOWED_LOG_SIZE
-                ):  # In case we are exceedning the max log size, we reset the log to avoid issue when saving it
+                ):  # In case we are exceeding the max log size, we reset the log to avoid issue when saving it
                     self.import_source.log = ""
                 if object_id := getattr(_object, "id", None):
                     self.processed_ids.append(object_id)
+            except SkipImportError as e:
+                self.import_source.log += f"skipping Row {self.import_source.progress_index}: {str(e)}\n"
             except DeserializationError as e:
-                self.import_source.errors_log += f"Row {self.import_source.progress_index}: {str(e)}\n"
+                self.import_source.errors_log += f"Warning Row {self.import_source.progress_index}: {str(e)}\n"
             self.import_source.progress_index += 1
         if with_post_processing:
             if history.exists():

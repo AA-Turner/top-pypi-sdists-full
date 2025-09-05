@@ -1246,3 +1246,30 @@ class IApplication(IContainer):
         for performance monitoring purposes.
         """
         pass
+
+    @abstractmethod
+    def isProduction(
+        self
+    ) -> bool:
+        """
+        Check if the application is running in a production environment.
+
+        This method determines whether the current application environment is set to 'production'.
+        It checks the 'app.env' configuration value to make this determination.
+
+        Returns
+        -------
+        bool
+            True if the application environment is 'production', False otherwise.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If the application configuration has not been initialized (i.e., if `create()` has not been called).
+
+        Notes
+        -----
+        The environment is typically defined in the application configuration and can be set to values such as 'development', 'testing', or 'production'.
+        This method is useful for conditionally executing code based on the environment, such as enabling/disabling debug features or logging verbosity.
+        """
+        pass

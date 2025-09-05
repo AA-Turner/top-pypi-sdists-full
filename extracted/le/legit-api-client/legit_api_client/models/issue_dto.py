@@ -257,11 +257,6 @@ class IssueDto(BaseModel):
         if self.snoozed_until is None and "snoozed_until" in self.model_fields_set:
             _dict['snoozedUntil'] = None
 
-        # set to None if ai_validation_result (nullable) is None
-        # and model_fields_set contains the field
-        if self.ai_validation_result is None and "ai_validation_result" in self.model_fields_set:
-            _dict['aiValidationResult'] = None
-
         # set to None if verified_validation_url (nullable) is None
         # and model_fields_set contains the field
         if self.verified_validation_url is None and "verified_validation_url" in self.model_fields_set:

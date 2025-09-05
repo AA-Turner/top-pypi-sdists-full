@@ -10,15 +10,17 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import polars as pl
 from anyio import Path as AsyncPath
 from PIL import Image
 from python_calamine import CalamineWorkbook
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE, SPREADSHEET_MIME_TYPES
-from kreuzberg._types import ExtractionResult, Metadata
+from kreuzberg._types import ExtractionResult, Metadata, TableData
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup
+from kreuzberg._utils._table import enhance_table_markdown
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
 
@@ -70,7 +72,6 @@ class SpreadSheetExtractor(Extractor):
             ) from e
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
-        """Pure sync implementation of extract_bytes."""
         fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
 
         try:
@@ -83,7 +84,6 @@ class SpreadSheetExtractor(Extractor):
                 Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
-        """Pure sync implementation of extract_path."""
         try:
             workbook = CalamineWorkbook.from_path(str(path))
             results = []
@@ -108,14 +108,6 @@ class SpreadSheetExtractor(Extractor):
 
     @staticmethod
     def _convert_cell_to_str(value: Any) -> str:
-        """Convert a cell value to string representation.
-
-        Args:
-            value: The cell value to convert.
-
-        Returns:
-            String representation of the cell value.
-        """
         if value is None:
             return ""
         if isinstance(value, bool):
@@ -139,7 +131,7 @@ class SpreadSheetExtractor(Extractor):
         csv_buffer.close()
 
         csv_path, unlink = await create_temp_file(".csv")
-        await AsyncPath(csv_path).write_text(csv_data)
+        await AsyncPath(csv_path).write_text(csv_data, encoding="utf-8")
 
         csv_reader = csv.reader(StringIO(csv_data))
         rows = list(csv_reader)
@@ -162,7 +154,6 @@ class SpreadSheetExtractor(Extractor):
         return f"## {sheet_name}\n\n{normalize_spaces(result)}"
 
     def _convert_sheet_to_text_sync(self, workbook: CalamineWorkbook, sheet_name: str) -> str:
-        """Synchronous version of _convert_sheet_to_text."""
         values = workbook.get_sheet_by_name(sheet_name).to_python()
 
         csv_buffer = StringIO()
@@ -195,82 +186,57 @@ class SpreadSheetExtractor(Extractor):
         return f"## {sheet_name}\n\n{normalize_spaces(result)}"
 
     def _enhance_sheet_with_table_data(self, workbook: CalamineWorkbook, sheet_name: str) -> str:
-        """Enhanced sheet processing with better table structure preservation."""
         try:
-            # pandas is optional dependency
-            import pandas as pd  # noqa: PLC0415
-
-            from kreuzberg._utils._table import enhance_table_markdown  # noqa: PLC0415
-
             sheet = workbook.get_sheet_by_name(sheet_name)
             data = sheet.to_python()
 
             if not data or not any(row for row in data):
                 return f"## {sheet_name}\n\n*Empty sheet*"
 
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
+            df = pl.DataFrame(data)
 
-            # Clean up empty rows and columns
-            df = df.dropna(how="all").dropna(axis=1, how="all")
+            df = df.filter(~pl.all_horizontal(pl.all().is_null()))
+            df = df.select([col for col in df.columns if not df[col].is_null().all()])
 
-            if df.empty:
+            if df.is_empty():
                 return f"## {sheet_name}\n\n*No data*"
 
-            # Create a mock TableData for enhanced formatting
-            from kreuzberg._types import TableData  # noqa: PLC0415
-
-            # Create a 1x1 transparent image as placeholder
             placeholder_image = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
             mock_table: TableData = {"df": df, "text": "", "page_number": 0, "cropped_image": placeholder_image}
 
             enhanced_markdown = enhance_table_markdown(mock_table)
             return f"## {sheet_name}\n\n{enhanced_markdown}"
 
-        except (ImportError, AttributeError, ValueError):
-            # Fallback to original method if pandas/table enhancement fails
+        except (AttributeError, ValueError):
             return self._convert_sheet_to_text_sync(workbook, sheet_name)
 
     @staticmethod
     def _extract_spreadsheet_metadata(workbook: CalamineWorkbook) -> Metadata:
-        """Extract metadata from spreadsheet using python-calamine.
-
-        Args:
-            workbook: CalamineWorkbook instance
-
-        Returns:
-            Metadata dict using existing metadata keys where possible
-        """
         metadata: Metadata = {}
 
-        # Extract basic document properties
         SpreadSheetExtractor._extract_document_properties(workbook, metadata)
 
-        # Add structural information
         SpreadSheetExtractor._add_structure_info(workbook, metadata)
 
-        # Analyze content complexity
         SpreadSheetExtractor._analyze_content_complexity(workbook, metadata)
 
         return metadata
 
     @staticmethod
     def _extract_document_properties(workbook: CalamineWorkbook, metadata: Metadata) -> None:
-        """Extract basic document properties from workbook."""
         with contextlib.suppress(AttributeError, Exception):
             if not (hasattr(workbook, "metadata") and workbook.metadata):
                 return
 
             props = workbook.metadata
 
-            # Basic properties mapping
             property_mapping = {
                 "title": "title",
-                "author": "authors",  # Convert to list
+                "author": "authors",
                 "subject": "subject",
                 "comments": "comments",
-                "keywords": "keywords",  # Process separately
-                "category": "categories",  # Convert to list
+                "keywords": "keywords",
+                "category": "categories",
                 "company": "organization",
                 "manager": "modified_by",
             }
@@ -286,12 +252,10 @@ class SpreadSheetExtractor(Extractor):
                     else:
                         metadata[meta_key] = value  # type: ignore[literal-required]
 
-            # Handle dates separately
             SpreadSheetExtractor._extract_date_properties(props, metadata)
 
     @staticmethod
     def _extract_date_properties(props: Any, metadata: Metadata) -> None:
-        """Extract and format date properties."""
         date_mapping = {"created": "created_at", "modified": "modified_at"}
 
         for prop_name, meta_key in date_mapping.items():
@@ -304,14 +268,12 @@ class SpreadSheetExtractor(Extractor):
 
     @staticmethod
     def _add_structure_info(workbook: CalamineWorkbook, metadata: Metadata) -> None:
-        """Add structural information about the spreadsheet."""
         if not (hasattr(workbook, "sheet_names") and workbook.sheet_names):
             return
 
         sheet_count = len(workbook.sheet_names)
         structure_info = f"Spreadsheet with {sheet_count} sheet{'s' if sheet_count != 1 else ''}"
 
-        # Don't list too many sheet names (magic number made constant)
         max_sheet_names_to_list = 5
         if sheet_count <= max_sheet_names_to_list:
             structure_info += f": {', '.join(workbook.sheet_names)}"
@@ -320,12 +282,10 @@ class SpreadSheetExtractor(Extractor):
 
     @staticmethod
     def _analyze_content_complexity(workbook: CalamineWorkbook, metadata: Metadata) -> None:
-        """Analyze spreadsheet content for complexity indicators."""
         with contextlib.suppress(Exception):
             has_formulas = False
             total_cells = 0
 
-            # Check only first few sheets for performance
             max_sheets_to_check = 3
             max_rows_to_check = 50
 
@@ -335,17 +295,15 @@ class SpreadSheetExtractor(Extractor):
                     data = sheet.to_python()
 
                     for row in data[:max_rows_to_check]:
-                        if not row:  # Skip empty rows
+                        if not row:
                             continue
 
                         total_cells += sum(1 for cell in row if cell is not None and str(cell).strip())
 
-                        # Check for formulas (simple heuristic)
                         if any(isinstance(cell, str) and cell.startswith("=") for cell in row):
                             has_formulas = True
                             break
 
-            # Build summary
             summary_parts = []
             if total_cells > 0:
                 summary_parts.append(f"Contains {total_cells}+ data cells")

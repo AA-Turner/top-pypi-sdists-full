@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: keeper-secrets-manager-core
-Version: 16.6.6
+Version: 17.0.0
 Summary: Keeper Secrets Manager for Python 3
 Home-page: https://github.com/Keeper-Security/secrets-manager
 Author: Keeper Security
@@ -30,12 +30,30 @@ License-File: LICENSE.txt
 Requires-Dist: requests
 Requires-Dist: cryptography>=39.0.1
 Requires-Dist: importlib_metadata
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Keeper Secrets Manager Python SDK
 
 For more information see our official documentation page https://docs.keeper.io/secrets-manager/secrets-manager/developer-sdk-library/python-sdk
 
 # Change Log
+
+## 17.0.0
+* KSM-566 - Added parsing for KSM tokens with prefix
+* KSM-631 - Added links2Remove parameter for files removal
+* KSM-635 - HTTPError should include response object
 
 ## 16.6.6
 * KSM-552 - Stop generating UIDs that start with "-"

@@ -92,7 +92,6 @@ from .artifacts import Artifact, LoggedArtifact
 from .assets import preprocess as assets_preprocess
 from .cli_args_parse import parse_command_line_arguments
 from .cloud_storage_utils import META_ERROR_MESSAGE, META_SYNCED
-from .comet import BaseStreamer
 from .config import (
     AUTO_OUTPUT_LOGGING_DEFAULT_VALUE,
     DEFAULT_3D_CLOUD_UPLOAD_LIMITS,
@@ -364,6 +363,7 @@ from .messages import (
 )
 from .monkey_patching import ALREADY_IMPORTED_MODULES
 from .rpc import RemoteCall, call_remote_function
+from .streamer import BaseStreamer
 from .summary import Summary
 from .synchronization.model_upload import status_handler
 from .system.cpu.cpu_metrics_data_logger import CPUMetricsDataLogger
@@ -778,12 +778,15 @@ class CometExperiment(CommonExperiment):
         """
         self._on_end(wait=True)
 
-    def flush(self) -> bool:
+    def flush(self, timeout: Optional[int] = None) -> bool:
         """
         Flush all pending data to the Comet server. It works similar to
         [end][comet_ml.CometExperiment.end] but without ending the run. This is a
         blocking operation that will wait for all the data logged so far to
         be delivered to the Comet server.
+
+        Args:
+            timeout: the timeout to wait for flushing data or None for default timeout (seconds).
 
         Returns:
             Returns a Boolean indicating whether the flush was successful or
@@ -797,7 +800,7 @@ class CometExperiment(CommonExperiment):
 
         LOGGER.debug("Flushing streamer")
         if self.streamer is not None:
-            if self.streamer.flush():
+            if self.streamer.flush(timeout=timeout):
                 LOGGER.debug("Streamer flushed successfully")
                 return True
             else:
@@ -1077,7 +1080,7 @@ class CometExperiment(CommonExperiment):
         if self.streamer is not None:
             LOGGER.debug("Closing streamer: %r", self.streamer)
             self.streamer.close()
-            if wait is True:
+            if wait:
                 try:
                     if self._streamer_wait_for_finish():
                         LOGGER.debug("Streamer cleaned successfully")
@@ -1095,6 +1098,9 @@ class CometExperiment(CommonExperiment):
 
                 # set flag that streamer was closed in synchronous mode
                 self.streamer_wait_completed_and_closed = True
+            else:
+                # mark to eventually terminate the message loop
+                self.streamer.stop()
 
         self._mark_as_ended()
 
@@ -2181,7 +2187,7 @@ class CometExperiment(CommonExperiment):
                     name,
                     logger=LOGGER,
                 )
-                return None
+                return
 
             self._track_framework_usage(framework)
 
@@ -2196,7 +2202,9 @@ class CometExperiment(CommonExperiment):
                 raise_on_warning=debug_helpers.has_enabled_debug_exception_raising(),
             )
 
-            message.set_metric(name, value, self.curr_step, self.curr_epoch)
+            message.set_metric(
+                name, value=value, step=self.curr_step, epoch=self.curr_epoch
+            )
             self._enqueue_message(message)
             self._summary.set(
                 "metrics",

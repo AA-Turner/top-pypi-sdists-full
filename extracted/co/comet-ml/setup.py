@@ -44,7 +44,7 @@ setuptools.setup(
         "sentry-sdk>=1.1.0",
         "setuptools ; python_version>='3.12'",
         "simplejson",
-        "urllib3>=1.21.1",
+        "urllib3>=1.26.8",
         "wrapt>=1.11.2",
         "wurlitzer>=1.0.2",
     ],
@@ -70,5 +70,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.52.0",
+    version="3.52.1",
 )

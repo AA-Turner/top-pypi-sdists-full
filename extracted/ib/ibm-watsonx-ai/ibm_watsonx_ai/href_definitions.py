@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import os
 import re
 
 TRAINING_MODEL_HREF_PATTERN = "{}/v4/trainings/{}"
@@ -484,6 +485,10 @@ class HrefDefinitions:
         return IAM_TOKEN_API.format(apikey)
 
     def get_aws_token_url(self) -> str:
+        # On AWS GovCloud PreProd & Prod IAM endpoints are not available from outside, because of this,
+        # normal path is available internally for services  by setting WATSONX_USE_PRIVATE_TOKEN_URL=true,
+        # while the users received new endpoints `/api/rest/mcsp/apikeys/token`, with the same usage as original one.
+
         match self.url:
             case (
                 "https://ap-south-1.aws.wxai.ibm.com"
@@ -496,14 +501,28 @@ class HrefDefinitions:
                 | "https://private.wxai.prep.ibmforusgov.com"
             ):
                 # PreProd AWS GovCloud
-                base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
+                if (
+                    os.getenv("WATSONX_USE_PRIVATE_TOKEN_URL", "").lower().strip()
+                    == "true"
+                ):  # path for internal services
+                    base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
+                else:  # path for users
+                    return "{}/api/rest/mcsp/apikeys/token".format(
+                        self.platform_url.replace("https://api.", "https://")
+                    )
             case (
                 "https://wxai.ibmforusgov.com" | "https://private.wxai.ibmforusgov.com"
             ):
                 # Prod AWS GovCloud
-                base_auth_url = (
-                    "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
-                )
+                if (
+                    os.getenv("WATSONX_USE_PRIVATE_TOKEN_URL", "").lower().strip()
+                    == "true"
+                ):  # path for internal services
+                    base_auth_url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
+                else:  # path for users
+                    return "{}/api/rest/mcsp/apikeys/token".format(
+                        self.platform_url.replace("https://api.", "https://")
+                    )
             case _:
                 # AWS Dev
                 base_auth_url = "https://account-iam.platform.test.saas.ibm.com"

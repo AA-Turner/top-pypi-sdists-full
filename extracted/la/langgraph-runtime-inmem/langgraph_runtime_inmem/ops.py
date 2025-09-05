@@ -2057,7 +2057,10 @@ class Runs(Authenticated):
     @asynccontextmanager
     @staticmethod
     async def enter(
-        run_id: UUID, thread_id: UUID | None, loop: asyncio.AbstractEventLoop
+        run_id: UUID,
+        thread_id: UUID | None,
+        loop: asyncio.AbstractEventLoop,
+        resumable: bool,
     ) -> AsyncIterator[ValueEvent]:
         """Enter a run, listen for cancellation while running, signal when done."
         This method should be called as a context manager by a worker executing a run.
@@ -2087,7 +2090,9 @@ class Runs(Authenticated):
                 topic=f"run:{run_id}:stream".encode(),
                 data={"event": "control", "message": b"done"},
             )
-            await stream_manager.put(run_id, thread_id, stream_message)
+            await stream_manager.put(
+                run_id, thread_id, stream_message, resumable=resumable
+            )
 
             # Remove the control_queue (normal queue is cleaned up during run deletion)
             await stream_manager.remove_control_queue(run_id, thread_id, control_queue)

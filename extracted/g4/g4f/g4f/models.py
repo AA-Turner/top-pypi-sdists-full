@@ -14,6 +14,7 @@ from .Provider import (
     HuggingSpace,
     Grok,
     DeepseekAI_JanusPro7b,
+    GLM,
     Kimi,
     LambdaChat,
     Mintlify,
@@ -25,6 +26,7 @@ from .Provider import (
     PerplexityLabs,
     PollinationsAI,
     PollinationsImage,
+    Qwen,
     TeachAnything,
     Together,
     WeWordle,
@@ -159,8 +161,10 @@ default = Model(
         DeepInfra,
         OperaAria,
         Startnest,
-        LambdaChat,
+        GLM,
+        Kimi,
         PollinationsAI,
+        Qwen,
         Together,
         Chatai,
         WeWordle,
@@ -279,7 +283,7 @@ gpt_4_1_mini = Model(
 gpt_4_1_nano = Model(
     name          = 'gpt-4.1-nano',
     base_provider = 'OpenAI',
-    best_provider = IterListProvider([Blackbox, PollinationsAI])
+    best_provider = IterListProvider([Blackbox])
 )
 
 gpt_4_5 = Model(

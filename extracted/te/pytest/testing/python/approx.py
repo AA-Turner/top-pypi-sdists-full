@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import decimal
 from decimal import Decimal
 from fractions import Fraction
 from math import sqrt
@@ -1015,6 +1016,11 @@ class TestApprox:
         expected_repr = "approx([1 ± 1.0e-06, 2 ± 2.0e-06, 3 ± 3.0e-06, 4 ± 4.0e-06])"
         assert repr(approx(expected)) == expected_repr
 
+    def test_decimal_approx_repr(self, monkeypatch) -> None:
+        monkeypatch.setitem(decimal.getcontext().traps, decimal.FloatOperation, True)
+        approx_obj = pytest.approx(decimal.Decimal("2.60"))
+        assert decimal.Decimal("2.600001") == approx_obj
+
     def test_allow_ordered_sequences_only(self) -> None:
         """pytest.approx() should raise an error on unordered sequences (#9692)."""
         with pytest.raises(TypeError, match="only supports ordered sequences"):
@@ -1079,10 +1085,10 @@ class TestRecursiveSequenceMap:
         ]
 
     def test_map_over_mixed_sequence(self):
-        assert _recursive_sequence_map(sqrt, [4, (25, 64), [(49)]]) == [
+        assert _recursive_sequence_map(sqrt, [4, (25, 64), [49]]) == [
             2,
             (5, 8),
-            [(7)],
+            [7],
         ]
 
     def test_map_over_sequence_like(self):

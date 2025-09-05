@@ -6,17 +6,81 @@ import builtins
 import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sys
 import typing
 
-if sys.version_info >= (3, 8):
+if sys.version_info >= (3, 10):
     import typing as typing_extensions
 else:
     import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _RepositoryType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _RepositoryTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_RepositoryType.ValueType], builtins.type):  # noqa: F821
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    REPOSITORY_TYPE_UNSPECIFIED: _RepositoryType.ValueType  # 0
+    LOCAL: _RepositoryType.ValueType  # 1
+    REMOTE: _RepositoryType.ValueType  # 2
+
+class RepositoryType(_RepositoryType, metaclass=_RepositoryTypeEnumTypeWrapper): ...
+
+REPOSITORY_TYPE_UNSPECIFIED: RepositoryType.ValueType  # 0
+LOCAL: RepositoryType.ValueType  # 1
+REMOTE: RepositoryType.ValueType  # 2
+global___RepositoryType = RepositoryType
+
+class _JFrogPermissionType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _JFrogPermissionTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_JFrogPermissionType.ValueType], builtins.type):  # noqa: F821
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    JFROG_PERMISSION_TYPE_UNSPECIFIED: _JFrogPermissionType.ValueType  # 0
+    """Unspecified permission type"""
+    READ: _JFrogPermissionType.ValueType  # 1
+    """Action: `r` - Read Permssions"""
+    WRITE: _JFrogPermissionType.ValueType  # 2
+    """Action: `w` - Write/ Deploy/Cache Permssions. Needed to e.g. push images, or cache images in remote repos."""
+    DELETE: _JFrogPermissionType.ValueType  # 3
+    """Action: `d` - Delete permission"""
+    ANNOTATE: _JFrogPermissionType.ValueType  # 4
+    """Action: `a`"""
+    EXECUTE: _JFrogPermissionType.ValueType  # 5
+    """Action: `x`"""
+    SCAN: _JFrogPermissionType.ValueType  # 6
+    """Action: `s`"""
+    MANAGE: _JFrogPermissionType.ValueType  # 7
+    """Action: `m` - Manage permission"""
+
+class JFrogPermissionType(_JFrogPermissionType, metaclass=_JFrogPermissionTypeEnumTypeWrapper):
+    """JFrog permission types.
+    Options are taken from https://jfrog.com/help/r/jfrog-rest-apis/create-scoped-token
+    """
+
+JFROG_PERMISSION_TYPE_UNSPECIFIED: JFrogPermissionType.ValueType  # 0
+"""Unspecified permission type"""
+READ: JFrogPermissionType.ValueType  # 1
+"""Action: `r` - Read Permssions"""
+WRITE: JFrogPermissionType.ValueType  # 2
+"""Action: `w` - Write/ Deploy/Cache Permssions. Needed to e.g. push images, or cache images in remote repos."""
+DELETE: JFrogPermissionType.ValueType  # 3
+"""Action: `d` - Delete permission"""
+ANNOTATE: JFrogPermissionType.ValueType  # 4
+"""Action: `a`"""
+EXECUTE: JFrogPermissionType.ValueType  # 5
+"""Action: `x`"""
+SCAN: JFrogPermissionType.ValueType  # 6
+"""Action: `s`"""
+MANAGE: JFrogPermissionType.ValueType  # 7
+"""Action: `m` - Manage permission"""
+global___JFrogPermissionType = JFrogPermissionType
 
 class JFrogToken(google.protobuf.message.Message):
     """//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,6 +209,7 @@ class ArtifactoryImagePullTokenSpec(google.protobuf.message.Message):
     REPOSITORY_KEY_FIELD_NUMBER: builtins.int
     TTL_SPEC_FIELD_NUMBER: builtins.int
     REPOSITORY_KEYS_FIELD_NUMBER: builtins.int
+    REPOSITORY_TOKEN_SPECS_FIELD_NUMBER: builtins.int
     jfrog_tenant_id: builtins.str
     """JFrog tenant id"""
     repository_key: builtins.str
@@ -155,7 +220,11 @@ class ArtifactoryImagePullTokenSpec(google.protobuf.message.Message):
     def ttl_spec(self) -> global___JFrogTokenTTLSpec:
         """Ttl spec"""
     @property
-    def repository_keys(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def repository_keys(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Deprecated: use `repository_token_specs` instead."""
+    @property
+    def repository_token_specs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___RepositoryTokenSpec]:
+        """Repository token specifications"""
     def __init__(
         self,
         *,
@@ -163,9 +232,10 @@ class ArtifactoryImagePullTokenSpec(google.protobuf.message.Message):
         repository_key: builtins.str = ...,
         ttl_spec: global___JFrogTokenTTLSpec | None = ...,
         repository_keys: collections.abc.Iterable[builtins.str] | None = ...,
+        repository_token_specs: collections.abc.Iterable[global___RepositoryTokenSpec] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["ttl_spec", b"ttl_spec"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["jfrog_tenant_id", b"jfrog_tenant_id", "repository_key", b"repository_key", "repository_keys", b"repository_keys", "ttl_spec", b"ttl_spec"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["jfrog_tenant_id", b"jfrog_tenant_id", "repository_key", b"repository_key", "repository_keys", b"repository_keys", "repository_token_specs", b"repository_token_specs", "ttl_spec", b"ttl_spec"]) -> None: ...
 
 global___ArtifactoryImagePullTokenSpec = ArtifactoryImagePullTokenSpec
 
@@ -217,6 +287,29 @@ class JFrogTokenRevokeSpec(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["token_descriptor_type", b"token_descriptor_type"]) -> typing_extensions.Literal["token", "token_id"] | None: ...
 
 global___JFrogTokenRevokeSpec = JFrogTokenRevokeSpec
+
+class RepositoryTokenSpec(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    KEY_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    PERMISSIONS_FIELD_NUMBER: builtins.int
+    key: builtins.str
+    """Artifactory repository key"""
+    type: global___RepositoryType.ValueType
+    """Artifactory repository type"""
+    @property
+    def permissions(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___JFrogPermissionType.ValueType]: ...
+    def __init__(
+        self,
+        *,
+        key: builtins.str = ...,
+        type: global___RepositoryType.ValueType = ...,
+        permissions: collections.abc.Iterable[global___JFrogPermissionType.ValueType] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "permissions", b"permissions", "type", b"type"]) -> None: ...
+
+global___RepositoryTokenSpec = RepositoryTokenSpec
 
 class JFrogTokenTTLSpec(google.protobuf.message.Message):
     """//////////////////////////////////////////////////////////////////////////////////////////////////////////////

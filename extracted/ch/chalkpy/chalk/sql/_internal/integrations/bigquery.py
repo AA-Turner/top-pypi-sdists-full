@@ -540,6 +540,87 @@ class BigQuerySourceImpl(BaseSQLSource):
                             )
                     chalk_logger.info(f"Loaded {total_rows=} rows and {total_bytes=} bytes from BigQuery")
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for BigQuery and return raw PyArrow RecordBatches."""
+        try:
+            import google.cloud.bigquery
+            import google.cloud.bigquery._pandas_helpers
+            import pyarrow.compute as pc
+            from sqlalchemy.sql import Select
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[bigquery]")
+
+        if isinstance(finalized_query.query, Select):
+            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+
+        client: google.cloud.bigquery.Client
+        with self._get_bq_client() as client:
+            query_job = client.query(
+                "select 1;",
+                job_config=google.cloud.bigquery.QueryJobConfig(priority="INTERACTIVE", create_session=True),
+            )
+            if query_job.session_info is not None:
+                session_id = query_job.session_info.session_id
+            else:
+                session_id = None
+            if session_id is None:
+                _logger.warning("Failed to create a session, which is required for temp tables.")
+            else:
+                _logger.info(f"Created {session_id=}.")
+
+            with contextlib.ExitStack() as exit_stack:
+                for (
+                    _,
+                    temp_value,
+                    create_temp_table,
+                    temp_table,
+                    drop_temp_table,
+                ) in finalized_query.temp_tables.values():
+                    exit_stack.enter_context(
+                        self._create_bigquery_temp_table(
+                            create_temp_table, temp_table, drop_temp_table, client, temp_value, session_id
+                        )
+                    )
+                formatted_op, positional_params, named_params = self.compile_query(finalized_query)
+                if named_params:
+                    positional_params = [
+                        google.cloud.bigquery.ScalarQueryParameter(
+                            name, google.cloud.bigquery._pandas_helpers.bq_to_arrow_data_type(value), value
+                        )
+                        for name, value in named_params.items()
+                    ]
+                query_job = client.query(
+                    formatted_op,
+                    job_config=google.cloud.bigquery.QueryJobConfig(
+                        priority="INTERACTIVE",
+                        use_query_cache=True,
+                        query_parameters=positional_params,
+                        session_id=session_id,
+                    ),
+                )
+                result = query_job.result()
+                table = result.to_arrow()
+
+                # Map to expected schema
+                arrays: list[pa.Array] = []
+                for field in expected_output_schema:
+                    if field.name in table.schema.names:
+                        col = table.column(field.name)
+                        if col.type != field.type:
+                            col = pc.cast(col, field.type)
+                        arrays.append(col)
+                    else:
+                        arrays.append(pa.nulls(len(table), field.type))
+
+                batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                yield batch
+
     @classmethod
     def register_sqlalchemy_compiler_overrides(cls):
         try:

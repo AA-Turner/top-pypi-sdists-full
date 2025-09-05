@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud-cli
-Version: 1.11.8
+Version: 1.11.9
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-cloud-cli
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -22,6 +22,7 @@ Requires-Dist: PyYAML>=5.1
 Requires-Dist: github3.py
 Requires-Dist: Jinja2
 Requires-Dist: setuptools
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Provides-Extra: test
 Requires-Dist: freezegun; extra == "test"
 Requires-Dist: pytest>=8; extra == "test"

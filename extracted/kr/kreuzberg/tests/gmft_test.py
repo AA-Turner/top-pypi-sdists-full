@@ -80,7 +80,8 @@ async def test_gmft_integration_with_extraction_api(tiny_pdf_with_tables: Path) 
 
             assert "|" in table["text"]
 
-            assert not table["df"].empty
+            assert table["df"] is not None
+            assert not table["df"].is_empty()
 
     except MissingDependencyError:
         pytest.skip("GMFT dependency not installed")
@@ -245,7 +246,6 @@ async def test_gmft_config_custom_values() -> None:
 
 
 def test_extract_tables_sync_with_tiny_pdf(tiny_pdf_with_tables: Path) -> None:
-    """Test sync table extraction - covers lines 246-334."""
     try:
         from kreuzberg._gmft import extract_tables_sync
 
@@ -269,7 +269,6 @@ def test_extract_tables_sync_with_tiny_pdf(tiny_pdf_with_tables: Path) -> None:
 
 
 def test_extract_tables_sync_missing_dependency(tiny_pdf_with_tables: Path) -> None:
-    """Test sync extraction with missing dependency - covers lines 259-260, 277."""
     if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
         pytest.skip("Cannot test missing dependency with isolated process")
 
@@ -284,7 +283,6 @@ def test_extract_tables_sync_missing_dependency(tiny_pdf_with_tables: Path) -> N
 
 
 def test_extract_tables_sync_os_error(tmp_path: Path) -> None:
-    """Test sync extraction with OS error when reading file stats - covers lines 259-264."""
     if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
         pytest.skip("File errors handled differently in isolated process")
 
@@ -298,7 +296,6 @@ def test_extract_tables_sync_os_error(tmp_path: Path) -> None:
 
 @pytest.mark.anyio
 async def test_extract_tables_cache_processing_coordination(tiny_pdf_with_tables: Path) -> None:
-    """Test cache processing coordination - covers lines 160-168."""
     import anyio
 
     from kreuzberg._gmft import extract_tables
@@ -354,7 +351,6 @@ async def test_extract_tables_cache_processing_coordination(tiny_pdf_with_tables
 
 @pytest.mark.anyio
 async def test_extract_tables_cache_hit(tiny_pdf_with_tables: Path) -> None:
-    """Test cache hit path - should return cached result without processing."""
     from kreuzberg._gmft import extract_tables
     from kreuzberg._utils._cache import get_table_cache
 
@@ -392,448 +388,401 @@ async def test_extract_tables_cache_hit(tiny_pdf_with_tables: Path) -> None:
     assert len(result) == len(cached_tables)
     assert result[0]["page_number"] == cached_tables[0]["page_number"]
     assert result[0]["text"] == cached_tables[0]["text"]
+    assert result[0]["df"] is not None
+    assert cached_tables[0]["df"] is not None
     assert result[0]["df"].equals(cached_tables[0]["df"])
     assert len(result) == 1
     assert result[0]["text"] == "cached table"
 
 
-# =============================================================================
-# COMPREHENSIVE TESTS (for improved coverage)
-# =============================================================================
+def test_gmft_config_comprehensive_cell_required_confidence_edge_cases() -> None:
+    custom_confidence = {
+        0: 0.0,
+        1: 1.0,
+        2: 0.001,
+        3: 0.999,
+        4: 0.5,
+        5: 0.5,
+        6: 99,
+    }
+
+    config = GMFTConfig(cell_required_confidence=custom_confidence)  # type: ignore[arg-type]
+    assert config.cell_required_confidence[0] == 0.0
+    assert config.cell_required_confidence[1] == 1.0
+    assert config.cell_required_confidence[2] == 0.001
+    assert config.cell_required_confidence[3] == 0.999
 
 
-class TestGMFTConfigComprehensive:
-    """Test comprehensive GMFTConfig scenarios."""
-
-    def test_gmft_config_cell_required_confidence_edge_cases(self) -> None:
-        """Test GMFTConfig with edge case confidence values."""
-        custom_confidence = {
-            0: 0.0,  # Minimum confidence
-            1: 1.0,  # Maximum confidence
-            2: 0.001,  # Very low confidence
-            3: 0.999,  # Very high confidence
-            4: 0.5,
-            5: 0.5,
-            6: 99,
-        }
-
-        config = GMFTConfig(cell_required_confidence=custom_confidence)  # type: ignore[arg-type]
-        assert config.cell_required_confidence[0] == 0.0
-        assert config.cell_required_confidence[1] == 1.0
-        assert config.cell_required_confidence[2] == 0.001
-        assert config.cell_required_confidence[3] == 0.999
-
-    def test_gmft_config_semantic_hierarchical_left_fill_none(self) -> None:
-        """Test GMFTConfig with semantic_hierarchical_left_fill set to None."""
-        config = GMFTConfig(semantic_hierarchical_left_fill=None)
-        assert config.semantic_hierarchical_left_fill is None
-
-    def test_gmft_config_extreme_threshold_values(self) -> None:
-        """Test GMFTConfig with extreme threshold values."""
-        config = GMFTConfig(
-            total_overlap_reject_threshold=1.0,  # 100% overlap
-            total_overlap_warn_threshold=0.0,  # 0% overlap warning
-            nms_warn_threshold=1,  # Warn after 1 removal
-            iob_reject_threshold=0.0,  # 0% IOB threshold
-            iob_warn_threshold=1.0,  # 100% IOB warning
-        )
-
-        assert config.total_overlap_reject_threshold == 1.0
-        assert config.total_overlap_warn_threshold == 0.0
-        assert config.nms_warn_threshold == 1
-        assert config.iob_reject_threshold == 0.0
-        assert config.iob_warn_threshold == 1.0
-
-    def test_gmft_config_large_table_extreme_values(self) -> None:
-        """Test GMFTConfig with extreme large table configuration."""
-        config = GMFTConfig(
-            large_table_if_n_rows_removed=0,  # Minimum rows for large table
-            large_table_threshold=0,  # Force large table assumption always
-            large_table_row_overlap_threshold=0.0,  # No overlap threshold
-            large_table_maximum_rows=10000,  # Very large maximum
-            force_large_table_assumption=False,  # Explicitly disable
-        )
-
-        assert config.large_table_if_n_rows_removed == 0
-        assert config.large_table_threshold == 0
-        assert config.large_table_row_overlap_threshold == 0.0
-        assert config.large_table_maximum_rows == 10000
-        assert config.force_large_table_assumption is False
+def test_gmft_config_comprehensive_semantic_hierarchical_left_fill_none() -> None:
+    config = GMFTConfig(semantic_hierarchical_left_fill=None)
+    assert config.semantic_hierarchical_left_fill is None
 
 
-class TestGMFTEnvironmentVariableHandling:
-    """Test environment variable handling in GMFT."""
+def test_gmft_config_comprehensive_extreme_threshold_values() -> None:
+    config = GMFTConfig(
+        total_overlap_reject_threshold=1.0,
+        total_overlap_warn_threshold=0.0,
+        nms_warn_threshold=1,
+        iob_reject_threshold=0.0,
+        iob_warn_threshold=1.0,
+    )
 
-    @pytest.mark.anyio
-    async def test_extract_tables_isolated_environment_true(self, tiny_pdf_with_tables: Path) -> None:
-        """Test extract_tables with KREUZBERG_GMFT_ISOLATED=true."""
-        with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "true"}):
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
-                assert isinstance(result, list)
-            except MissingDependencyError:
-                pytest.skip("GMFT dependency not installed")
-
-    @pytest.mark.anyio
-    async def test_extract_tables_isolated_environment_1(self, tiny_pdf_with_tables: Path) -> None:
-        """Test extract_tables with KREUZBERG_GMFT_ISOLATED=1."""
-        with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "1"}):
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
-                assert isinstance(result, list)
-            except MissingDependencyError:
-                pytest.skip("GMFT dependency not installed")
-
-    @pytest.mark.anyio
-    async def test_extract_tables_isolated_environment_yes(self, tiny_pdf_with_tables: Path) -> None:
-        """Test extract_tables with KREUZBERG_GMFT_ISOLATED=yes."""
-        with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "yes"}):
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
-                assert isinstance(result, list)
-            except MissingDependencyError:
-                pytest.skip("GMFT dependency not installed")
-
-    @pytest.mark.anyio
-    async def test_extract_tables_isolated_environment_false(self, tiny_pdf_with_tables: Path) -> None:
-        """Test extract_tables with KREUZBERG_GMFT_ISOLATED=false."""
-        with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "false"}):
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
-                assert isinstance(result, list)
-            except MissingDependencyError:
-                pytest.skip("GMFT dependency not installed")
-
-    def test_extract_tables_sync_isolated_environment_variables(self, tiny_pdf_with_tables: Path) -> None:
-        """Test sync extract_tables with various environment variable values."""
-        test_values = ["true", "1", "yes", "false", "0", "no"]
-
-        for env_value in test_values:
-            with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": env_value}):
-                try:
-                    result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=None)
-                    assert isinstance(result, list)
-                except MissingDependencyError:
-                    pytest.skip("GMFT dependency not installed")
+    assert config.total_overlap_reject_threshold == 1.0
+    assert config.total_overlap_warn_threshold == 0.0
+    assert config.nms_warn_threshold == 1
+    assert config.iob_reject_threshold == 0.0
+    assert config.iob_warn_threshold == 1.0
 
 
-class TestGMFTCacheProcessingEdgeCases:
-    """Test GMFT cache processing edge cases."""
+def test_gmft_config_comprehensive_large_table_extreme_values() -> None:
+    config = GMFTConfig(
+        large_table_if_n_rows_removed=0,
+        large_table_threshold=0,
+        large_table_row_overlap_threshold=0.0,
+        large_table_maximum_rows=10000,
+        force_large_table_assumption=False,
+    )
 
-    @pytest.mark.anyio
-    async def test_extract_tables_file_stat_error_handling(self, tmp_path: Path) -> None:
-        """Test extract_tables handles file stat errors gracefully."""
-        # Create a path that doesn't exist
-        nonexistent_file = tmp_path / "nonexistent.pdf"
+    assert config.large_table_if_n_rows_removed == 0
+    assert config.large_table_threshold == 0
+    assert config.large_table_row_overlap_threshold == 0.0
+    assert config.large_table_maximum_rows == 10000
+    assert config.force_large_table_assumption is False
 
+
+@pytest.mark.anyio
+async def test_gmft_environment_variable_handling_isolated_environment_true(tiny_pdf_with_tables: Path) -> None:
+    with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "true"}):
         try:
-            result = await extract_tables(nonexistent_file)
-            # Should handle the error and use default file info
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
             assert isinstance(result, list)
-        except (MissingDependencyError, ParsingError):
-            # Either dependency missing or file doesn't exist - both acceptable
-            pass
+        except MissingDependencyError:
+            pytest.skip("GMFT dependency not installed")
 
-    def test_extract_tables_sync_file_stat_error_handling(self, tmp_path: Path) -> None:
-        """Test sync extract_tables handles file stat errors gracefully."""
-        # Create a path that doesn't exist
-        nonexistent_file = tmp_path / "nonexistent.pdf"
 
+@pytest.mark.anyio
+async def test_gmft_environment_variable_handling_isolated_environment_1(tiny_pdf_with_tables: Path) -> None:
+    with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "1"}):
         try:
-            result = extract_tables_sync(nonexistent_file)
-            # Should handle the error and use default file info
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
             assert isinstance(result, list)
-        except (MissingDependencyError, ParsingError):
-            # Either dependency missing or file doesn't exist - both acceptable
-            pass
+        except MissingDependencyError:
+            pytest.skip("GMFT dependency not installed")
 
-    @pytest.mark.anyio
-    async def test_extract_tables_cache_processing_coordination_wait_failure(self, tiny_pdf_with_tables: Path) -> None:
-        """Test cache processing coordination when wait event fails to complete."""
-        from kreuzberg._gmft import extract_tables
-        from kreuzberg._utils._cache import get_table_cache
 
-        cache = get_table_cache()
+@pytest.mark.anyio
+async def test_gmft_environment_variable_handling_isolated_environment_yes(tiny_pdf_with_tables: Path) -> None:
+    with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "yes"}):
+        try:
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
+            assert isinstance(result, list)
+        except MissingDependencyError:
+            pytest.skip("GMFT dependency not installed")
 
-        file_stat = tiny_pdf_with_tables.stat()
-        file_info = str(
-            sorted(
-                {
-                    "path": str(tiny_pdf_with_tables.resolve()),
-                    "size": file_stat.st_size,
-                    "mtime": file_stat.st_mtime,
-                }.items()
-            )
+
+@pytest.mark.anyio
+async def test_gmft_environment_variable_handling_isolated_environment_false(tiny_pdf_with_tables: Path) -> None:
+    with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": "false"}):
+        try:
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=None)
+            assert isinstance(result, list)
+        except MissingDependencyError:
+            pytest.skip("GMFT dependency not installed")
+
+
+def test_gmft_environment_variable_handling_sync_isolated_environment_variables(tiny_pdf_with_tables: Path) -> None:
+    test_values = ["true", "1", "yes", "false", "0", "no"]
+
+    for env_value in test_values:
+        with patch.dict(os.environ, {"KREUZBERG_GMFT_ISOLATED": env_value}):
+            try:
+                result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=None)
+                assert isinstance(result, list)
+            except MissingDependencyError:
+                pytest.skip("GMFT dependency not installed")
+
+
+@pytest.mark.anyio
+async def test_gmft_cache_processing_edge_cases_file_stat_error_handling(tmp_path: Path) -> None:
+    nonexistent_file = tmp_path / "nonexistent.pdf"
+
+    try:
+        result = await extract_tables(nonexistent_file)
+        assert isinstance(result, list)
+    except (MissingDependencyError, ParsingError):
+        pass
+
+
+def test_gmft_cache_processing_edge_cases_sync_file_stat_error_handling(tmp_path: Path) -> None:
+    nonexistent_file = tmp_path / "nonexistent.pdf"
+
+    try:
+        result = extract_tables_sync(nonexistent_file)
+        assert isinstance(result, list)
+    except (MissingDependencyError, ParsingError):
+        pass
+
+
+@pytest.mark.anyio
+async def test_gmft_cache_processing_edge_cases_coordination_wait_failure(tiny_pdf_with_tables: Path) -> None:
+    from kreuzberg._gmft import extract_tables
+    from kreuzberg._utils._cache import get_table_cache
+
+    cache = get_table_cache()
+
+    file_stat = tiny_pdf_with_tables.stat()
+    file_info = str(
+        sorted(
+            {
+                "path": str(tiny_pdf_with_tables.resolve()),
+                "size": file_stat.st_size,
+                "mtime": file_stat.st_mtime,
+            }.items()
         )
-        config_str = str(sorted(asdict(GMFTConfig()).items()))
+    )
+    config_str = str(sorted(asdict(GMFTConfig()).items()))
 
-        cache_kwargs = {
-            "file_info": file_info,
-            "extractor": "gmft",
-            "config": config_str,
-        }
+    cache_kwargs = {
+        "file_info": file_info,
+        "extractor": "gmft",
+        "config": config_str,
+    }
 
-        # Mark as processing but never complete it
-        cache.mark_processing(**cache_kwargs)
+    cache.mark_processing(**cache_kwargs)
 
-        # This should timeout waiting for the processing to complete
-        try:
-            with patch("anyio.to_thread.run_sync") as mock_to_thread:
-                # Mock the event.wait to simulate timeout or failure
-                mock_event = MagicMock()
-                mock_event.wait = MagicMock()
-                mock_to_thread.return_value = None  # Simulate wait completing
+    try:
+        with patch("anyio.to_thread.run_sync") as mock_to_thread:
+            mock_event = MagicMock()
+            mock_event.wait = MagicMock()
+            mock_to_thread.return_value = None
 
-                # Mock the cache methods
-                with patch.object(cache, "mark_processing", return_value=mock_event):
-                    result = await extract_tables(tiny_pdf_with_tables)
-                    # Should eventually proceed with extraction
-                    assert isinstance(result, list)
-        except (MissingDependencyError, ParsingError, TimeoutError):
-            # Various errors are acceptable in this edge case test
-            pass
-        finally:
-            # Clean up the processing marker
-            cache.mark_complete(**cache_kwargs)
-
-
-class TestGMFTInlineExtractionEdgeCases:
-    """Test inline (non-isolated) extraction edge cases."""
-
-    @pytest.mark.anyio
-    async def test_extract_tables_inline_with_doc_close_error(self, tiny_pdf_with_tables: Path) -> None:
-        """Test inline extraction handles document close errors gracefully."""
-        if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
-            pytest.skip("Testing inline extraction, but isolated mode is enabled")
-
-        with patch("kreuzberg._gmft.run_sync") as mock_run_sync:
-            mock_doc = MagicMock()
-            mock_doc.close.side_effect = Exception("Close error")
-            mock_run_sync.side_effect = [mock_doc, [], None]  # doc, cropped_tables, close
-
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=False)
-                # Should handle close error gracefully
+            with patch.object(cache, "mark_processing", return_value=mock_event):
+                result = await extract_tables(tiny_pdf_with_tables)
                 assert isinstance(result, list)
-            except (MissingDependencyError, ImportError):
-                pytest.skip("GMFT dependency not available for inline testing")
+    except (MissingDependencyError, ParsingError, TimeoutError):
+        pass
+    finally:
+        cache.mark_complete(**cache_kwargs)
 
-    def test_extract_tables_sync_inline_with_doc_close_error(self, tiny_pdf_with_tables: Path) -> None:
-        """Test sync inline extraction handles document close errors gracefully."""
-        if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
-            pytest.skip("Testing inline extraction, but isolated mode is enabled")
 
-        try:
-            from gmft.pdf_bindings.pdfium import PyPDFium2Document
+@pytest.mark.anyio
+async def test_gmft_inline_extraction_edge_cases_with_doc_close_error(tiny_pdf_with_tables: Path) -> None:
+    if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
+        pytest.skip("Testing inline extraction, but isolated mode is enabled")
 
-            with patch.object(PyPDFium2Document, "close", side_effect=Exception("Close error")):
-                result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=False)
-                # Should handle close error gracefully
-                assert isinstance(result, list)
-        except (ImportError, MissingDependencyError):
-            pytest.skip("GMFT dependency not available for inline testing")
-
-    @pytest.mark.anyio
-    async def test_extract_tables_inline_empty_cropped_tables(self, tiny_pdf_with_tables: Path) -> None:
-        """Test inline extraction with no cropped tables found."""
-        if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
-            pytest.skip("Testing inline extraction, but isolated mode is enabled")
-
-        with patch("kreuzberg._gmft.run_sync") as mock_run_sync:
-            mock_doc = MagicMock()
-            mock_doc.close = MagicMock()
-            mock_page = MagicMock()
-            mock_doc.__iter__.return_value = [mock_page]
-
-            # No cropped tables extracted
-            mock_run_sync.side_effect = [mock_doc, [], None]  # doc, empty cropped_tables, close
-
-            try:
-                result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=False)
-                assert result == []  # Should return empty list
-            except (MissingDependencyError, ImportError):
-                pytest.skip("GMFT dependency not available for inline testing")
-
-    def test_extract_tables_sync_inline_empty_cropped_tables(self, tiny_pdf_with_tables: Path) -> None:
-        """Test sync inline extraction with no cropped tables found."""
-        if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
-            pytest.skip("Testing inline extraction, but isolated mode is enabled")
+    with patch("kreuzberg._gmft.run_sync") as mock_run_sync:
+        mock_doc = MagicMock()
+        mock_doc.close.side_effect = Exception("Close error")
+        mock_run_sync.side_effect = [mock_doc, [], None]
 
         try:
-            from gmft.auto import AutoTableDetector  # type: ignore[attr-defined]
-
-            with patch.object(AutoTableDetector, "extract", return_value=[]):
-                result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=False)
-                assert result == []  # Should return empty list
-        except (ImportError, MissingDependencyError):
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=False)
+            assert isinstance(result, list)
+        except (MissingDependencyError, ImportError):
             pytest.skip("GMFT dependency not available for inline testing")
 
 
-class TestGMFTWithoutTables:
-    """Test GMFT behavior with PDFs that have no tables - issue #104."""
+def test_gmft_inline_extraction_edge_cases_sync_with_doc_close_error(tiny_pdf_with_tables: Path) -> None:
+    if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
+        pytest.skip("Testing inline extraction, but isolated mode is enabled")
 
-    @pytest.mark.anyio
-    async def test_extract_tables_pdf_without_tables_async(self) -> None:
-        """Test that extract_tables handles PDFs without tables gracefully (async)."""
-        pdf_path = Path("tests/test_source_files/searchable.pdf")
+    try:
+        from gmft.pdf_bindings.pdfium import PyPDFium2Document
 
-        try:
-            tables = await extract_tables(pdf_path)
+        with patch.object(PyPDFium2Document, "close", side_effect=Exception("Close error")):
+            result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=False)
+            assert isinstance(result, list)
+    except (ImportError, MissingDependencyError):
+        pytest.skip("GMFT dependency not available for inline testing")
 
-            assert isinstance(tables, list)
 
-            for table in tables:
-                assert "page_number" in table
-                assert "text" in table
-                assert "df" in table
-                assert "cropped_image" in table
+@pytest.mark.anyio
+async def test_gmft_inline_extraction_edge_cases_empty_cropped_tables(tiny_pdf_with_tables: Path) -> None:
+    if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
+        pytest.skip("Testing inline extraction, but isolated mode is enabled")
 
-                import pandas as pd
+    with patch("kreuzberg._gmft.run_sync") as mock_run_sync:
+        mock_doc = MagicMock()
+        mock_doc.close = MagicMock()
+        mock_page = MagicMock()
+        mock_doc.__iter__.return_value = [mock_page]
 
-                assert isinstance(table["df"], pd.DataFrame)
-        except MissingDependencyError:
-            pytest.skip("GMFT dependency not installed")
-
-    def test_extract_tables_pdf_without_tables_sync(self) -> None:
-        """Test that extract_tables_sync handles PDFs without tables gracefully (sync)."""
-        # Using searchable.pdf which is a simple text PDF without tables
-        pdf_path = Path("tests/test_source_files/searchable.pdf")
+        mock_run_sync.side_effect = [mock_doc, [], None]
 
         try:
-            tables = extract_tables_sync(pdf_path)
-
-            assert isinstance(tables, list)
-
-            for table in tables:
-                assert "page_number" in table
-                assert "text" in table
-                assert "df" in table
-                assert "cropped_image" in table
-
-                import pandas as pd
-
-                assert isinstance(table["df"], pd.DataFrame)
-        except MissingDependencyError:
-            pytest.skip("GMFT dependency not installed")
-
-    @pytest.mark.anyio
-    async def test_extract_file_with_gmft_pdf_without_tables(self) -> None:
-        """Test that extract_file with extract_tables=True handles PDFs without tables gracefully."""
-        pdf_path = Path("tests/test_source_files/searchable.pdf")
-
-        config = ExtractionConfig(
-            extract_tables=True,
-            gmft_config=GMFTConfig(
-                detector_base_threshold=0.85,
-                remove_null_rows=True,
-                enable_multi_header=True,
-            ),
-        )
-
-        try:
-            result = await extract_file(pdf_path, config=config)
-
-            assert result.content
-            assert "Sample PDF" in result.content
-
-            assert hasattr(result, "tables")
-            assert isinstance(result.tables, list)
-
-            for table in result.tables:
-                assert "page_number" in table
-                assert "text" in table
-                assert "df" in table
-                assert "cropped_image" in table
-
-                import pandas as pd
-
-                assert isinstance(table["df"], pd.DataFrame)
-        except MissingDependencyError:
-            pytest.skip("GMFT dependency not installed")
-
-    def test_extract_file_sync_with_gmft_pdf_without_tables(self) -> None:
-        """Test that extract_file_sync with extract_tables=True handles PDFs without tables gracefully."""
-        pdf_path = Path("tests/test_source_files/searchable.pdf")
-
-        from kreuzberg.extraction import extract_file_sync
-
-        config = ExtractionConfig(
-            extract_tables=True,
-            gmft_config=GMFTConfig(
-                detector_base_threshold=0.85,
-                remove_null_rows=True,
-                enable_multi_header=True,
-            ),
-        )
-
-        try:
-            result = extract_file_sync(pdf_path, config=config)
-
-            assert result.content
-            assert "Sample PDF" in result.content
-
-            assert hasattr(result, "tables")
-            assert isinstance(result.tables, list)
-
-            for table in result.tables:
-                assert "page_number" in table
-                assert "text" in table
-                assert "df" in table
-                assert "cropped_image" in table
-
-                import pandas as pd
-
-                assert isinstance(table["df"], pd.DataFrame)
-        except MissingDependencyError:
-            pytest.skip("GMFT dependency not installed")
+            result = await extract_tables(tiny_pdf_with_tables, use_isolated_process=False)
+            assert result == []
+        except (MissingDependencyError, ImportError):
+            pytest.skip("GMFT dependency not available for inline testing")
 
 
-class TestGMFTConfigSerialization:
-    """Test GMFTConfig serialization for multiprocessing."""
+def test_gmft_inline_extraction_edge_cases_sync_empty_cropped_tables(tiny_pdf_with_tables: Path) -> None:
+    if os.getenv("KREUZBERG_GMFT_ISOLATED", "true").lower() == "true":
+        pytest.skip("Testing inline extraction, but isolated mode is enabled")
 
-    def test_gmft_config_msgspec_serialization(self) -> None:
-        """Test GMFTConfig can be serialized and deserialized with msgspec."""
-        import msgspec
+    try:
+        from gmft.auto import AutoTableDetector  # type: ignore[attr-defined]
 
-        original_config = GMFTConfig(
-            verbosity=2,
-            formatter_base_threshold=0.4,
+        with patch.object(AutoTableDetector, "extract", return_value=[]):
+            result = extract_tables_sync(tiny_pdf_with_tables, use_isolated_process=False)
+            assert result == []
+    except (ImportError, MissingDependencyError):
+        pytest.skip("GMFT dependency not available for inline testing")
+
+
+@pytest.mark.anyio
+async def test_gmft_without_tables_pdf_async() -> None:
+    pdf_path = Path("tests/test_source_files/searchable.pdf")
+
+    try:
+        tables = await extract_tables(pdf_path)
+
+        assert isinstance(tables, list)
+
+        for table in tables:
+            assert "page_number" in table
+            assert "text" in table
+            assert "df" in table
+            assert "cropped_image" in table
+
+            import pandas as pd
+
+            assert isinstance(table["df"], pd.DataFrame)
+    except MissingDependencyError:
+        pytest.skip("GMFT dependency not installed")
+
+
+def test_gmft_without_tables_pdf_sync() -> None:
+    pdf_path = Path("tests/test_source_files/searchable.pdf")
+
+    try:
+        tables = extract_tables_sync(pdf_path)
+
+        assert isinstance(tables, list)
+
+        for table in tables:
+            assert "page_number" in table
+            assert "text" in table
+            assert "df" in table
+            assert "cropped_image" in table
+
+            import pandas as pd
+
+            assert isinstance(table["df"], pd.DataFrame)
+    except MissingDependencyError:
+        pytest.skip("GMFT dependency not installed")
+
+
+@pytest.mark.anyio
+async def test_gmft_without_tables_extract_file_with_gmft() -> None:
+    pdf_path = Path("tests/test_source_files/searchable.pdf")
+
+    config = ExtractionConfig(
+        extract_tables=True,
+        gmft_config=GMFTConfig(
             detector_base_threshold=0.85,
+            remove_null_rows=True,
             enable_multi_header=True,
-            semantic_spanning_cells=True,
-        )
+        ),
+    )
 
-        # Serialize to builtins (for multiprocessing)
-        serialized = msgspec.to_builtins(original_config)
-        assert isinstance(serialized, dict)
+    try:
+        result = await extract_file(pdf_path, config=config)
 
-        # Recreate config from serialized data
-        recreated_config = GMFTConfig(**serialized)
+        assert result.content
+        assert "Sample PDF" in result.content
 
-        assert recreated_config.verbosity == original_config.verbosity
-        assert recreated_config.formatter_base_threshold == original_config.formatter_base_threshold
-        assert recreated_config.detector_base_threshold == original_config.detector_base_threshold
-        assert recreated_config.enable_multi_header == original_config.enable_multi_header
-        assert recreated_config.semantic_spanning_cells == original_config.semantic_spanning_cells
+        assert hasattr(result, "tables")
+        assert isinstance(result.tables, list)
 
-    def test_gmft_config_complex_cell_confidence_serialization(self) -> None:
-        """Test GMFTConfig with complex cell_required_confidence serialization."""
-        import msgspec
+        for table in result.tables:
+            assert "page_number" in table
+            assert "text" in table
+            assert "df" in table
+            assert "cropped_image" in table
 
-        complex_confidence = {
-            0: 0.15,
-            1: 0.25,
-            2: 0.35,
-            3: 0.45,
-            4: 0.55,
-            5: 0.65,
-            6: 75,
-        }
+            import pandas as pd
 
-        config = GMFTConfig(cell_required_confidence=complex_confidence)  # type: ignore[arg-type]
+            assert isinstance(table["df"], pd.DataFrame)
+    except MissingDependencyError:
+        pytest.skip("GMFT dependency not installed")
 
-        # Serialize and deserialize
-        serialized = msgspec.to_builtins(config)
-        recreated_config = GMFTConfig(**serialized)
 
-        assert recreated_config.cell_required_confidence == complex_confidence
+def test_gmft_without_tables_extract_file_sync_with_gmft() -> None:
+    pdf_path = Path("tests/test_source_files/searchable.pdf")
+
+    from kreuzberg.extraction import extract_file_sync
+
+    config = ExtractionConfig(
+        extract_tables=True,
+        gmft_config=GMFTConfig(
+            detector_base_threshold=0.85,
+            remove_null_rows=True,
+            enable_multi_header=True,
+        ),
+    )
+
+    try:
+        result = extract_file_sync(pdf_path, config=config)
+
+        assert result.content
+        assert "Sample PDF" in result.content
+
+        assert hasattr(result, "tables")
+        assert isinstance(result.tables, list)
+
+        for table in result.tables:
+            assert "page_number" in table
+            assert "text" in table
+            assert "df" in table
+            assert "cropped_image" in table
+
+            import pandas as pd
+
+            assert isinstance(table["df"], pd.DataFrame)
+    except MissingDependencyError:
+        pytest.skip("GMFT dependency not installed")
+
+
+def test_gmft_config_serialization_msgspec() -> None:
+    import msgspec
+
+    original_config = GMFTConfig(
+        verbosity=2,
+        formatter_base_threshold=0.4,
+        detector_base_threshold=0.85,
+        enable_multi_header=True,
+        semantic_spanning_cells=True,
+    )
+
+    serialized = msgspec.to_builtins(original_config)
+    assert isinstance(serialized, dict)
+
+    recreated_config = GMFTConfig(**serialized)
+
+    assert recreated_config.verbosity == original_config.verbosity
+    assert recreated_config.formatter_base_threshold == original_config.formatter_base_threshold
+    assert recreated_config.detector_base_threshold == original_config.detector_base_threshold
+    assert recreated_config.enable_multi_header == original_config.enable_multi_header
+    assert recreated_config.semantic_spanning_cells == original_config.semantic_spanning_cells
+
+
+def test_gmft_config_serialization_complex_cell_confidence() -> None:
+    import msgspec
+
+    complex_confidence = {
+        0: 0.15,
+        1: 0.25,
+        2: 0.35,
+        3: 0.45,
+        4: 0.55,
+        5: 0.65,
+        6: 75,
+    }
+
+    config = GMFTConfig(cell_required_confidence=complex_confidence)  # type: ignore[arg-type]
+
+    serialized = msgspec.to_builtins(config)
+    recreated_config = GMFTConfig(**serialized)
+
+    assert recreated_config.cell_required_confidence == complex_confidence

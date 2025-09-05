@@ -6,31 +6,25 @@ license = {file = "LICENSE"}
 dependencies = [
     # Core dependencies
     "numpy",
-    "datasets",
+    "datasets>=4.0.0",
     "tiktoken",
     "pydantic>=2.0.0",
     "nest-asyncio",
     "appdirs",
     "diskcache>=5.6.3",
-    
+    "typer",
+    "rich",
+    "openai>=1.0.0",
+    "tqdm",
+    "instructor",
+    "gitpython",
+    "pillow>=10.4.0",
+
     # LangChain ecosystem
     "langchain",
     "langchain-core",
     "langchain-community",
     "langchain_openai",
-    
-    # CLI dependencies
-    "typer",
-    "rich",
-    
-    # LLM providers
-    "openai>=1.0.0",
-    
-    # Experimental features
-    "tqdm",
-    "instructor",
-    "gitpython",
-    "pillow>=10.4.0",
 ]
 dynamic = ["version", "readme"]
 
@@ -56,7 +50,6 @@ all = [
 ]
 
 # Specific integrations
-examples = ["openai>=1.0.0"]
 tracing = ["langfuse>=3.2.4", "mlflow>=3.1.4"]
 gdrive = [
     "google-api-python-client>=2.178.0",
@@ -65,7 +58,23 @@ gdrive = [
 ]
 ai-frameworks = ["haystack-ai"]
 
-test = []
+# Minimal dev dependencies for fast development setup (used by make install-minimal)
+dev-minimal = [
+    "ruff",
+    "pyright>=1.1.403",
+    "pre-commit>=4.3.0",
+    "pytest",
+    "pytest-xdist[psutil]",
+    "pytest-asyncio",
+    "nbmake",
+    "build>=1.3.0",
+]
+
+# Test only dependencies
+test = [
+    "scipy",
+]
+
 [project.entry-points."ragas.backends"]
 "local/csv" = "ragas.backends.local_csv:LocalCSVBackend"
 "local/jsonl" = "ragas.backends.local_jsonl:LocalJSONLBackend"
@@ -81,7 +90,39 @@ package-dir = {"" = "src"}
 [tool.setuptools.dynamic]
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
-# Ruff configuration is inherited from workspace.toml at the monorepo root
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+exclude = ["*.ipynb", "*/_version.py"]  # Exclude Jupyter notebooks and auto-generated version files from linting
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]  # Line length handled by formatter
+
+[tool.ruff.lint.isort]
+# Import sorting configuration
+known-first-party = ["ragas"]
+force-single-line = false
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+docstring-code-format = false
+preview = false
+
+[tool.pyright]
+include = ["src/ragas"]
+excludeTypeshedPaths = ["@types/*"]
+pythonVersion = "3.9"
+pythonPlatform = "All"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+reportGeneralTypeIssues = "warning"
+reportReturnType = "warning"
 
 [build-system]
 requires = ["setuptools>=64", "setuptools_scm>=8"]
@@ -90,33 +131,39 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 # Path to version file relative to this pyproject.toml
 version_file = "src/ragas/_version.py"
-# Point to the repository root (one level up)
-root = ".."
+
+# UV Workspace Configuration
+[tool.uv.workspace]
+members = [".", "examples"]
+
+# Workspace dependency sources
+[tool.uv.sources]
+ragas-examples = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "-n 0"
 asyncio_default_fixture_loop_scope = "function"
-[pytest]
 testpaths = ["tests"]
-markers = [
-    "experimental_ci: Set of tests that will be run as part of Experimental CI",
-    "e2e: End-to-End tests for Experimental",
-]
 
 [dependency-groups]
+# Full dev dependencies with all features (used by make install)
 dev = [
+    # Core dev tools (shared with minimal)
     "ruff",
     "pyright>=1.1.403",
     "pre-commit>=4.3.0",
     "pytest",
     "pytest-xdist[psutil]",
     "pytest-asyncio",
+    "build>=1.3.0",
+    # Additional tools for full dev
     "nbmake",
     "notebook",
+    "unstructured[md]",
     "arize-phoenix>=6.1.0",
     "openinference-instrumentation-langchain>=0.1.29",
+    # Include all optional features
     "ragas[all,tracing,gdrive,ai-frameworks]",
-    "build>=1.3.0",
 ]
 docs = [
     "mkdocs>=1.6.1",

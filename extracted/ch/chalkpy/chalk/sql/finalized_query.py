@@ -104,6 +104,7 @@ class FinalizedChalkQuery:
             Mapping[str, Tuple[Mapping[str, sqlalchemy.types.TypeEngine], pa.Table, CreateTable, Table, DropTable]]
             | None
         ) = None,
+        field_schema: Optional[pa.Schema] = None,
         is_empty: bool = False,
     ) -> None:
         """
@@ -116,6 +117,7 @@ class FinalizedChalkQuery:
         self._incremental_settings = incremental_settings
         self._source = source
         self._fields = fields
+        self._field_schema = field_schema
         self._temp_tables = dict(temp_tables) if temp_tables is not None else {}
         self._is_empty = is_empty
 

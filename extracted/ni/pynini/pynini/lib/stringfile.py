@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ string literal for use as a field in a stringfile as well as a
 `csv.writer.writerow` and `csv.writer.writerows`.
 """
 
-from typing import IO, Iterable
+from collections.abc import Iterable
+from typing import IO
 
 import logging
 

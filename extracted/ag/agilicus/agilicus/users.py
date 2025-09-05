@@ -1197,6 +1197,8 @@ def format_support_request_as_text(ctx, info):
         status_column("supporting_user_id"),
         status_column("support_request_group"),
         status_column("acknowledgements"),
+        status_column("organisation"),
+        status_column("issuer"),
     ]
 
     return format_table(ctx, info, columns)

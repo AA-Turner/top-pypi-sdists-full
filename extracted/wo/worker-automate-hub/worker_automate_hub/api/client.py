@@ -144,41 +144,42 @@ async def get_processo(uuidProcesso: str) -> RpaProcesso:
         RpaProcesso: O processo caso tenha sido encontrado.
     """
     env_config, _ = load_env_config()
-    try:
-        if not uuidProcesso:
-            raise ValueError("O uuid do processo deve ser informado")
+    x = 0
+    while x < 10:
+        try:
+            if not uuidProcesso:
+                raise ValueError("O uuid do processo deve ser informado")
 
-        headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
-        timeout = aiohttp.ClientTimeout(total=600) 
+            headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+            timeout = aiohttp.ClientTimeout(total=600) 
 
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
-        ) as session:
-            async with session.get(
-                f"{env_config["API_BASE_URL"]}/processo/{uuidProcesso}",
-                headers=headers_basic,
-            ) as response:
-                if response.status != 200:
-                    error_content = await response.text()
-                    raise Exception(f"Erro ao obter o processo: {error_content}")
-                res = await response.json()
-                if type(res["campos"]) == str and res["campos"] == "{}":
-                    res["campos"] = {}
-                return RpaProcesso(**res)
+            async with aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
+            ) as session:
+                async with session.get(
+                    f"{env_config["API_BASE_URL"]}/processo/{uuidProcesso}",
+                    headers=headers_basic,
+                ) as response:
+                    if response.status != 200:
+                        x += 1
+                        console.print(f"Erro ao obter o processo: {response.content}")
+                        continue
+                    else:
+                        res = await response.json()
+                        if type(res["campos"]) == str and res["campos"] == "{}":
+                            res["campos"] = {}
+                        return RpaProcesso(**res)
 
-    except ValueError as e:
-        logger.error(f"Erro ao obter o processo: {str(e)}")
-        console.print(
-            f"{e}\n",
-            style="bold red",
+        except ValueError as e:
+            x += 1
+            logger.error(f"Erro ao obter o processo: {str(e)}")
+            console.print(
+                f"{e}\n",
+                style="bold red",
         )
-    except Exception as e:
-        logger.error(f"Erro ao obter o processo: {str(e)}")
-        console.print(
-            f"{e}\n",
-            style="bold red",
-        )
-        return None
+            continue
+            
+    return None
 
 
 async def get_workers():

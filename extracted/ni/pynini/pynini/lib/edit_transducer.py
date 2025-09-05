@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ Here, we provide three concrete classes:
   match(es).
 """
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
 import pynini
 from pynini.lib import pynutil
@@ -66,21 +66,23 @@ class EditTransducer:
   INSERT = "<insert>"
   SUBSTITUTE = "<substitute>"
 
-  def __init__(self,
-               alphabet: Iterable[str],
-               insert_cost: float = DEFAULT_INSERT_COST,
-               delete_cost: float = DEFAULT_DELETE_COST,
-               substitute_cost: float = DEFAULT_SUBSTITUTE_COST,
-               bound: int = 0):
+  def __init__(
+      self,
+      alphabet: Iterable[pynini.FstLike],
+      insert_cost: float = DEFAULT_INSERT_COST,
+      delete_cost: float = DEFAULT_DELETE_COST,
+      substitute_cost: float = DEFAULT_SUBSTITUTE_COST,
+      bound: int = 0,
+  ):
     """Constructor.
 
     Args:
-      alphabet: edit alphabet (an iterable of strings).
+      alphabet: edit alphabet.
       insert_cost: the cost for the insertion operation.
       delete_cost: the cost for the deletion operation.
       substitute_cost: the cost for the substitution operation.
-      bound: the number of permissible edits, or `0` (the default) if there
-          is no upper bound.
+      bound: the number of permissible edits, or `0` (the default) if there is
+        no upper bound.
     """
     # Left factor; note that we divide the edit costs by two because they also
     # will be incurred when traversing the right factor.
@@ -168,18 +170,20 @@ class LevenshteinDistance(EditTransducer):
 class LevenshteinAutomaton(LevenshteinDistance):
   """Edit transducer with a fixed output lexicon and closest-match methods."""
 
-  def __init__(self,
-               alphabet: Iterable[str],
-               lexicon: Iterable[str],
-               insert_cost: float = DEFAULT_INSERT_COST,
-               delete_cost: float = DEFAULT_DELETE_COST,
-               substitute_cost: float = DEFAULT_SUBSTITUTE_COST,
-               bound: int = 0):
+  def __init__(
+      self,
+      alphabet: Iterable[pynini.FstLike],
+      lexicon: Iterable[pynini.FstLike],
+      insert_cost: float = DEFAULT_INSERT_COST,
+      delete_cost: float = DEFAULT_DELETE_COST,
+      substitute_cost: float = DEFAULT_SUBSTITUTE_COST,
+      bound: int = 0,
+  ):
     """Constructor.
 
     Args:
-      alphabet: edit alphabet (an iterable of strings).
-      lexicon: lexicon (an iterable of strings).
+      alphabet: edit alphabet.
+      lexicon: lexicon.
       insert_cost: the cost for the insertion operation.
       delete_cost: the cost for the deletion operation.
       substitute_cost: the cost for the substitution operation.
@@ -226,7 +230,7 @@ class LevenshteinAutomaton(LevenshteinDistance):
     lattice = self.lattice(query)
     return pynini.shortestpath(lattice).string()
 
-  def closest_matches(self, query: pynini.FstLike) -> List[str]:
+  def closest_matches(self, query: pynini.FstLike) -> list[str]:
     """Returns all of the closest strings to the query in the lexicon.
 
     This method returns, for an input string or acceptor, the closest strings

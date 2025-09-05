@@ -1,7 +1,7 @@
 r'''
 # `aws_appsync_channel_namespace`
 
-Refer to the Terraform Registry for docs: [`aws_appsync_channel_namespace`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace).
+Refer to the Terraform Registry for docs: [`aws_appsync_channel_namespace`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsyncChannelNamespace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appsyncChannelNamespace.AppsyncChannelNamespace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace aws_appsync_channel_namespace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace aws_appsync_channel_namespace}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class AppsyncChannelNamespace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace aws_appsync_channel_namespace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace aws_appsync_channel_namespace} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.
-        :param code_handlers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.
-        :param handler_configs: handler_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
-        :param publish_auth_mode: publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
-        :param subscribe_auth_mode: subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.
+        :param code_handlers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.
+        :param handler_configs: handler_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
+        :param publish_auth_mode: publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
+        :param subscribe_auth_mode: subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class AppsyncChannelNamespace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsyncChannelNamespace to import.
-        :param import_from_id: The id of the existing AppsyncChannelNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsyncChannelNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsyncChannelNamespace to import is found.
         '''
         if __debug__:
@@ -392,14 +392,14 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.
-        :param code_handlers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.
-        :param handler_configs: handler_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
-        :param publish_auth_mode: publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
-        :param subscribe_auth_mode: subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.
+        :param code_handlers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.
+        :param handler_configs: handler_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
+        :param publish_auth_mode: publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
+        :param subscribe_auth_mode: subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -517,21 +517,21 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#api_id AppsyncChannelNamespace#api_id}.'''
         result = self._values.get("api_id")
         assert result is not None, "Required property 'api_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#name AppsyncChannelNamespace#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def code_handlers(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#code_handlers AppsyncChannelNamespace#code_handlers}.'''
         result = self._values.get("code_handlers")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -541,7 +541,7 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigs"]]]:
         '''handler_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#handler_configs AppsyncChannelNamespace#handler_configs}
         '''
         result = self._values.get("handler_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigs"]]], result)
@@ -552,7 +552,7 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespacePublishAuthMode"]]]:
         '''publish_auth_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#publish_auth_mode AppsyncChannelNamespace#publish_auth_mode}
         '''
         result = self._values.get("publish_auth_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespacePublishAuthMode"]]], result)
@@ -561,7 +561,7 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#region AppsyncChannelNamespace#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -572,14 +572,14 @@ class AppsyncChannelNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceSubscribeAuthMode"]]]:
         '''subscribe_auth_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#subscribe_auth_mode AppsyncChannelNamespace#subscribe_auth_mode}
         '''
         result = self._values.get("subscribe_auth_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceSubscribeAuthMode"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#tags AppsyncChannelNamespace#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -608,8 +608,8 @@ class AppsyncChannelNamespaceHandlerConfigs:
         on_subscribe: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncChannelNamespaceHandlerConfigsOnSubscribe", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param on_publish: on_publish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#on_publish AppsyncChannelNamespace#on_publish}
-        :param on_subscribe: on_subscribe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#on_subscribe AppsyncChannelNamespace#on_subscribe}
+        :param on_publish: on_publish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#on_publish AppsyncChannelNamespace#on_publish}
+        :param on_subscribe: on_subscribe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#on_subscribe AppsyncChannelNamespace#on_subscribe}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b65ecd40498140dd37803bcae465bc5b731e16929200692bedb1c9438cc71d73)
@@ -627,7 +627,7 @@ class AppsyncChannelNamespaceHandlerConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublish"]]]:
         '''on_publish block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#on_publish AppsyncChannelNamespace#on_publish}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#on_publish AppsyncChannelNamespace#on_publish}
         '''
         result = self._values.get("on_publish")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublish"]]], result)
@@ -638,7 +638,7 @@ class AppsyncChannelNamespaceHandlerConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribe"]]]:
         '''on_subscribe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#on_subscribe AppsyncChannelNamespace#on_subscribe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#on_subscribe AppsyncChannelNamespace#on_subscribe}
         '''
         result = self._values.get("on_subscribe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribe"]]], result)
@@ -761,8 +761,8 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublish:
         integration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.
-        :param integration: integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.
+        :param integration: integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4003a0ce180cf850e8ae8b72fa1db2d60cee3d8052f393fbcb8c9c23a0c6b77)
@@ -776,7 +776,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublish:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -787,7 +787,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublish:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration"]]]:
         '''integration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
         '''
         result = self._values.get("integration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration"]]], result)
@@ -820,8 +820,8 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration:
         lambda_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegrationLambdaConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
+        :param data_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f8fedbfb4edbb57b815da01876fbdb11442c59f6e8fafd10e17d8b1344b1fdf)
@@ -835,7 +835,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration:
 
     @builtins.property
     def data_source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.'''
         result = self._values.get("data_source_name")
         assert result is not None, "Required property 'data_source_name' is missing"
         return typing.cast(builtins.str, result)
@@ -846,7 +846,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegrationLambdaConfig"]]]:
         '''lambda_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
         '''
         result = self._values.get("lambda_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnPublishIntegrationLambdaConfig"]]], result)
@@ -871,7 +871,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegration:
 class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegrationLambdaConfig:
     def __init__(self, *, invoke_type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param invoke_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.
+        :param invoke_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48231af654eeee0b5d1f46fdd6840bed1e12f0781ea1cdc248dfb33afea87f74)
@@ -882,7 +882,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnPublishIntegrationLambdaConfig:
 
     @builtins.property
     def invoke_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.'''
         result = self._values.get("invoke_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1439,8 +1439,8 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribe:
         integration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.
-        :param integration: integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.
+        :param integration: integration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0cc7ccb8c732eee5a5ff43025c59cc996aab66caccb7d94629f1797ed092f2f4)
@@ -1454,7 +1454,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribe:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#behavior AppsyncChannelNamespace#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -1465,7 +1465,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration"]]]:
         '''integration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#integration AppsyncChannelNamespace#integration}
         '''
         result = self._values.get("integration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration"]]], result)
@@ -1498,8 +1498,8 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration:
         lambda_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegrationLambdaConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
+        :param data_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21dcfc1705387540bcdeff4ebb1b0b368d398de4b7e6f702c301a6413ced771c)
@@ -1513,7 +1513,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration:
 
     @builtins.property
     def data_source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#data_source_name AppsyncChannelNamespace#data_source_name}.'''
         result = self._values.get("data_source_name")
         assert result is not None, "Required property 'data_source_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1524,7 +1524,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegrationLambdaConfig"]]]:
         '''lambda_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#lambda_config AppsyncChannelNamespace#lambda_config}
         '''
         result = self._values.get("lambda_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegrationLambdaConfig"]]], result)
@@ -1549,7 +1549,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegration:
 class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegrationLambdaConfig:
     def __init__(self, *, invoke_type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param invoke_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.
+        :param invoke_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ffcc0918befa865d54828386676c5112fcd11ec7648f7365bba43aab880db21)
@@ -1560,7 +1560,7 @@ class AppsyncChannelNamespaceHandlerConfigsOnSubscribeIntegrationLambdaConfig:
 
     @builtins.property
     def invoke_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#invoke_type AppsyncChannelNamespace#invoke_type}.'''
         result = self._values.get("invoke_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2214,7 +2214,7 @@ class AppsyncChannelNamespaceHandlerConfigsOutputReference(
 class AppsyncChannelNamespacePublishAuthMode:
     def __init__(self, *, auth_type: builtins.str) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec95cb4588d3800bd202e8ca4b070a9b05145d58e1f40550c6a9fa0492708d37)
@@ -2225,7 +2225,7 @@ class AppsyncChannelNamespacePublishAuthMode:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
@@ -2404,7 +2404,7 @@ class AppsyncChannelNamespacePublishAuthModeOutputReference(
 class AppsyncChannelNamespaceSubscribeAuthMode:
     def __init__(self, *, auth_type: builtins.str) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__658a9348444c76097fb4fc1d105ba8be31d604e780065ffa713fc707afa17eb0)
@@ -2415,7 +2415,7 @@ class AppsyncChannelNamespaceSubscribeAuthMode:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/appsync_channel_namespace#auth_type AppsyncChannelNamespace#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)

@@ -755,7 +755,7 @@ class SparkExpectationsWriter:
             # TODO check if streaming_stats is set to off, if it's enabled only then this should run
 
             _se_stats_dict = self._context.get_se_streaming_stats_dict
-            if _se_stats_dict["se.enable.streaming"]:
+            if _se_stats_dict[user_config.se_enable_streaming]:
                 kafka_write_options: dict = self.get_kafka_write_options(_se_stats_dict)
                 _sink_hook.writer(
                     _write_args={
@@ -775,9 +775,18 @@ class SparkExpectationsWriter:
         try:
             _log.info("_write_error_records_final started")
 
-            failed_records = [
-                f"size({dq_column}) != 0" for dq_column in df.columns if dq_column.startswith(f"{rule_type}")
-            ]
+            # Find columns matching the rule_type prefix
+            rule_type_columns = [_col for _col in df.columns if _col.startswith(f"{rule_type}")]
+            if not rule_type_columns:
+                error_msg = (
+                    f"No columns found in DataFrame matching rule_type prefix '{rule_type}'. "
+                    "Cannot proceed with error record writing. "
+                    "Check that rule evaluation has produced the expected columns."
+                )
+                _log.error(error_msg)
+                raise SparkExpectationsMiscException(error_msg)
+
+            failed_records = [f"size({dq_column}) != 0" for dq_column in rule_type_columns]
 
             failed_records_rules = " or ".join(failed_records)
             # df = df.filter(expr(failed_records_rules))
@@ -786,9 +795,9 @@ class SparkExpectationsWriter:
                 f"meta_{rule_type}_results",
                 when(
                     expr(failed_records_rules),
-                    array(*[_col for _col in df.columns if _col.startswith(f"{rule_type}")]),
+                    array(*rule_type_columns),
                 ).otherwise(array(create_map())),
-            ).drop(*[_col for _col in df.columns if _col.startswith(f"{rule_type}")])
+            ).drop(*rule_type_columns)
 
             df = (
                 df.withColumn(

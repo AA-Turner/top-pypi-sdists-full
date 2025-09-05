@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: pyicloud
-Version: 2.0.2
+Version: 2.0.3
 Summary: PyiCloud is a module which allows pythonistas to interact with iCloud webservices.
 Author: The PyiCloud Authors
+License-Expression: MIT
 Project-URL: homepage, https://github.com/timlaing/pyicloud
 Project-URL: download, https://github.com/timlaing/pyicloud/releases/latest
 Project-URL: bug_tracker, https://github.com/timlaing/pyicloud/issues

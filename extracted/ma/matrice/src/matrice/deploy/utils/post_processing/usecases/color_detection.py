@@ -81,10 +81,12 @@ class ColorDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
+
+    #JBK_720_GATE POLYGON = [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
     zone_config: Optional[Dict[str, List[List[float]]]] = field(
     default_factory=lambda: {
         "zones": {
-            "Entrance": [[148, 474], [1207, 486], [1914, 882], [1910, 1070], [151, 1075]],
+            "Interest_Region": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]],
         }
     }
 )
@@ -123,7 +125,7 @@ class ColorDetectionUseCase(BaseProcessor):
         super().__init__("color_detection")
         self.category = "visual_appearance"
         
-        self.target_categories = ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+        self.target_categories = ["car", "bicycle", "bus", "motorcycle"]
         
         self.CASE_TYPE: Optional[str] = 'color_detection'
         self.CASE_VERSION: Optional[str] = '1.3'
@@ -154,195 +156,6 @@ class ColorDetectionUseCase(BaseProcessor):
         self._zone_total_counts = {}  # zone_name -> total count that have been in zone
         self.logger.info("Initialized ColorDetectionUseCase with zone tracking")
         #self.jpeg = TurboJPEG()
-
-    def reset_tracker(self) -> None:
-        """Reset the advanced tracker instance."""
-        if self.tracker is not None:
-            self.tracker.reset()
-            self.logger.info("AdvancedTracker reset for new tracking session")
-
-    def reset_color_tracking(self) -> None:
-        """Reset color tracking state."""
-        self._color_total_track_ids = defaultdict(set)
-        self._color_current_frame_track_ids = defaultdict(set)
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self.logger.info("Color tracking state reset")
-
-    def reset_all_tracking(self) -> None:
-        """Reset both advanced tracker and color tracking state."""
-        self.reset_tracker()
-        self.reset_color_tracking()
-        self.logger.info("All color tracking state reset")
-
-    def _is_in_zone(self, bbox: Dict[str, Any], zone_polygon: List[List[int]]) -> bool:
-        """Check if the bottom 25% center point of a bounding box lies within the given zone polygon."""
-        if not zone_polygon or not isinstance(bbox, dict):
-            return True  # No zone defined, or invalid bbox, process all detections
-        try:
-            # Get bottom 25% center point
-            center_point = get_bbox_bottom25_center(bbox)
-            # Convert zone polygon to list of tuples
-            polygon_points = [(point[0], point[1]) for point in zone_polygon]
-            # Check if point is inside polygon
-            in_zone = point_in_polygon(center_point, polygon_points)
-            self.logger.debug(f"BBox center {center_point} in zone: {in_zone}")
-            return in_zone
-        except (KeyError, TypeError) as e:
-            self.logger.warning(f"Failed to check zone for bbox {bbox}: {e}")
-            return False
-
-    @staticmethod
-    def _iou(bbox1, bbox2):
-        """Compute IoU between two bboxes (dicts with xmin/ymin/xmax/ymax or x/y/width/height)."""
-        if "xmin" in bbox1:
-            x1 = max(bbox1["xmin"], bbox2["xmin"])
-            y1 = max(bbox1["ymin"], bbox2["ymin"])
-            x2 = min(bbox1["xmax"], bbox2["xmax"])
-            y2 = min(bbox1["ymax"], bbox2["ymax"])
-            area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-            area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
-        else:
-            x1 = max(bbox1["x"], bbox2["x"])
-            y1 = max(bbox1["y"], bbox2["y"])
-            x2 = min(bbox1["x"] + bbox1["width"], bbox2["x"] + bbox2["width"])
-            y2 = min(bbox1["y"] + bbox1["height"], bbox2["y"] + bbox2["height"])
-            area1 = bbox1["width"] * bbox1["height"]
-            area2 = bbox2["width"] * bbox2["height"]
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
-        inter_area = inter_w * inter_h
-        union = area1 + area2 - inter_area
-        return inter_area / union if union > 0 else 0.0
-
-    @staticmethod
-    def _deduplicate_detections(detections, iou_thresh=0.7):
-        """Suppress duplicate/overlapping detections with same category and high IoU."""
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
-                continue
-            group = [i]
-            for j in range(i + 1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box", det.get("bbox"))
-                    bbox2 = detections[j].get("bounding_box", detections[j].get("bbox"))
-                    if bbox1 and bbox2 and ColorDetectionUseCase._iou(bbox1, bbox2) > iou_thresh:
-                        used[j] = True
-                        group.append(j)
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
-        
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get JSON schema for configuration validation."""
-        return {
-            "type": "object",
-            "properties": {
-                "confidence_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.5},
-                "top_k_colors": {"type": "integer", "minimum": 1, "default": 3},
-                "frame_skip": {"type": "integer", "minimum": 1, "default": 1},
-                "target_categories": {"type": ["array", "null"], "items": {"type": "string"}, "default": [
-                    "person", "people", "car", "cars", "truck", "trucks", "motorcycle", "motorcycles", "vehicle", "vehicles", "bus", "bicycle"
-                ]},
-                "fps": {"type": ["number", "null"], "minimum": 1.0, "default": None},
-                "bbox_format": {"type": "string", "enum": ["auto", "xmin_ymin_xmax_ymax", "x_y_width_height"], "default": "auto"},
-                "index_to_category": {"type": ["object", "null"], "default": None},
-                "alert_config": {"type": ["object", "null"], "default": None}
-            },
-            "required": ["confidence_threshold", "top_k_colors"],
-            "additionalProperties": False
-        }
-        
-    def create_default_config(self, **overrides) -> ColorDetectionConfig:
-        """Create default configuration with optional overrides."""
-        defaults = {
-            "category": self.category,
-            "usecase": self.name,
-            "confidence_threshold": 0.5,
-            "top_k_colors": 3,
-            "frame_skip": 1,
-            "target_categories": [
-                "person", "people", "car", "cars", "truck", "trucks", 
-                "motorcycle", "motorcycles", "vehicle", "vehicles", "bus", "bicycle"
-            ],
-            "fps": None,
-            "bbox_format": "auto",
-            "index_to_category": None,
-            "alert_config": None
-        }
-        defaults.update(overrides)
-        return ColorDetectionConfig(**defaults)
-    
-    def _update_color_tracking_state(self, detections: List[Dict]):
-        """Track unique track_ids per category and color for total count."""
-        # Ensure storage is a defaultdict(set) to allow safe .add()
-        existing_store = getattr(self, '_color_total_track_ids', None)
-        if not isinstance(existing_store, defaultdict):
-            existing_store = {} if existing_store is None else dict(existing_store)
-            self._color_total_track_ids = defaultdict(set, existing_store)
-        else:
-            self._color_total_track_ids = existing_store
-        self._color_current_frame_track_ids = defaultdict(set)
-        for det in detections:
-            cat = det.get('category')
-            color = det.get('main_color')
-            track_id = det.get('track_id')
-            if cat and track_id is not None:
-                key = f"{cat}:{color}" if color else cat
-                self._color_total_track_ids[key].add(track_id)
-                self._color_current_frame_track_ids[key].add(track_id)
-
-    def get_total_color_counts(self):
-        """Return total unique track_id count per color (across all categories)."""
-        store = getattr(self, '_color_total_track_ids', {})
-        if not isinstance(store, dict):
-            return {}
-        color_to_ids = defaultdict(set)
-        for key, id_set in store.items():
-            if isinstance(key, str) and ':' in key:
-                _, color = key.split(':', 1)
-            else:
-                color = None
-            # Support both set and iterable
-            ids = id_set if isinstance(id_set, set) else set(id_set or [])
-            if color:
-                color_to_ids[color].update(ids)
-        return {color: len(ids) for color, ids in color_to_ids.items()}
-
-    def get_total_category_counts(self):
-        """Return total unique track_id count per category (across all colors)."""
-        store = getattr(self, '_color_total_track_ids', {})
-        if not isinstance(store, dict):
-            return {}
-        category_to_ids = defaultdict(set)
-        for key, id_set in store.items():
-            if isinstance(key, str) and ':' in key:
-                cat, _ = key.split(':', 1)
-            else:
-                cat = key
-            ids = id_set if isinstance(id_set, set) else set(id_set or [])
-            category_to_ids[cat].update(ids)
-        return {cat: len(ids) for cat, ids in category_to_ids.items()}
-
-    def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
-        """Get detailed information about track IDs for color detections (per frame)."""
-        frame_track_ids = set(det.get('track_id') for det in detections if det.get('track_id') is not None)
-        total_track_ids = set()
-        for s in getattr(self, '_color_total_track_ids', {}).values():
-            total_track_ids.update(s)
-        return {
-            "total_count": len(total_track_ids),
-            "current_frame_count": len(frame_track_ids),
-            "total_unique_track_ids": len(total_track_ids),
-            "current_frame_track_ids": list(frame_track_ids),
-            "last_update_time": time.time(),
-            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
-        }
         
     def process(
         self,
@@ -377,10 +190,6 @@ class ColorDetectionUseCase(BaseProcessor):
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
 
-            print("--------------------------------------")
-            print("config.zone_config",config.zone_config)
-            print(config)
-            print("--------------------------------------")
             
             self.logger.info(f"Processing color detection with format: {input_format.value}")
             
@@ -396,13 +205,7 @@ class ColorDetectionUseCase(BaseProcessor):
             if config.target_categories:
                 color_processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
                 self.logger.debug("Applied category filtering")
-                # print("-------------------COLOR_PROCESSED_DATA-------------------")
-                # print(color_processed_data)
-                # print("-------------------COLOR_PROCESSED_DATA-------------------")
-            
-            # Step 2.5: Filter to only include target categories
-            # color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
-            # self.logger.debug(f"Applied target category filtering for: {config.target_categories}")
+
             
             raw_processed_data = [copy.deepcopy(det) for det in color_processed_data]
             # Step 3: Apply bounding box smoothing if enabled
@@ -434,12 +237,7 @@ class ColorDetectionUseCase(BaseProcessor):
             except Exception as e:
                 self.logger.warning(f"AdvancedTracker failed: {e}")
             
-            # Step 5: Deduplicate detections
-            #color_processed_data = self._deduplicate_detections(color_processed_data, iou_thresh=0.7)
-            
-            # Step 6: Update tracking state (will be done after color analysis)
-            # self._update_color_tracking_state(color_processed_data)  # Removed - colors not available yet
-            #print("--------------------tracking state will be updated after color analysis-------------------")
+
             color_processed_data = self._attach_masks_to_detections(color_processed_data, raw_processed_data)
             self._total_frame_counter += 1
             
@@ -458,9 +256,7 @@ class ColorDetectionUseCase(BaseProcessor):
                 input_bytes, 
                 config
             )
-            # print("-------------------COLOR_ANALYSIS-------------------")
-            # print(color_analysis)
-            # print("-------------------COLOR_ANALYSIS-------------------")
+
             
             # Step 8: Update color tracking state
             self._update_color_tracking_state_from_analysis(color_analysis)
@@ -479,9 +275,7 @@ class ColorDetectionUseCase(BaseProcessor):
             total_category_counts = self.get_total_category_counts()
             color_summary['total_color_counts'] = totals
             color_summary['total_category_counts'] = total_category_counts
-            # print("-------------------COLOR_SUMMARY-------------------")
-            # print(color_summary)
-            # print("-------------------COLOR_SUMMARY-------------------")
+
             general_summary = self._calculate_general_summary(processed_data, config)
             
             # Step 10: Zone analysis
@@ -489,38 +283,25 @@ class ColorDetectionUseCase(BaseProcessor):
             zone_analysis = {}
             if config.zone_config and config.zone_config['zones']:
                 frame_data = color_processed_data
-                zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
+                zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'], stream_info)
                 if zone_analysis and config.enable_unique_counting:
                     enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, color_processed_data, config)
                     for zone_name, enhanced_data in enhanced_zone_analysis.items():
                         zone_analysis[zone_name] = enhanced_data
-            # else:
-            #     frame_data = color_processed_data
-            #     zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
-            #     enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, color_processed_data, config)
-            #     for zone_name, enhanced_data in enhanced_zone_analysis.items():
-            #             zone_analysis[zone_name] = enhanced_data
+
 
             
             # Step 11: Generate alerts, incidents, tracking stats, and summary
             alerts = self._check_alerts(color_summary, frame_number, config)
-            # print("-------------------ALERTS-------------------")
-            # print(alerts)
-            # print("-------------------ALERTS-------------------")
+
             incidents_list = self._generate_incidents(color_summary, alerts, config, frame_number, stream_info)
             incidents_list = []
-            # print("-------------------INCIDENTS_LIST-------------------")
-            # print(incidents_list)
-            # print("-------------------INCIDENTS_LIST-------------------")
+
             tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number, stream_info)
-            # print("-------------------TRACKING_STATS_LIST-------------------")
-            # print(tracking_stats_list)
-            # print("-------------------TRACKING_STATS_LIST-------------------")
+
             business_analytics_list = []
             summary_list = self._generate_summary(color_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
-            # print("-------------------SUMMARY_LIST-------------------")
-            # print(summary_list)
-            # print("-------------------SUMMARY_LIST-------------------")
+
             
             incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
@@ -861,9 +642,7 @@ class ColorDetectionUseCase(BaseProcessor):
                 "frame_id": record["frame_id"],
                 "main_color": record["main_color"]
             })
-        # print("-------------------category_colors-------------------")
-        # print(category_colors)
-        # print("-------------------category_colors-------------------")
+
             
         self.logger.debug(f"Valid detections after filtering: {len(detections)}")
         summary = {
@@ -873,18 +652,14 @@ class ColorDetectionUseCase(BaseProcessor):
             "dominant_colors": {},
             "zone_counts": self._zone_current_counts if config.zone_config and config.zone_config['zones'] else {}
         }
-        # print("-------------------summary-------------------")
-        # print(summary)
-        # print("-------------------summary-------------------")
+
 
         all_colors = defaultdict(int)
         for category_data in category_colors.values():
             for color, count in category_data.items():
                 all_colors[color] += count
         summary["color_distribution"] = dict(all_colors)
-        # print("-------------------summary1-------------------")
-        # print(summary)
-        # print("-------------------summary1-------------------")
+
 
         for category, colors in category_colors.items():
             if colors:
@@ -897,9 +672,7 @@ class ColorDetectionUseCase(BaseProcessor):
                         "count": dominant_color[1],
                         "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
                     }
-        # print("-------------------summary2-------------------")
-        # print(summary)
-        # print("-------------------summary2-------------------")
+
 
         return summary
         
@@ -1121,9 +894,7 @@ class ColorDetectionUseCase(BaseProcessor):
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         camera_info = self.get_camera_info_from_stream(stream_info)
-        # print("----------------COLOR_DICT----------------")
-        # print(self.color_det_dict)
-        # print("----------------COLOR_DICT----------------")
+
         human_text_lines = []
 
         # CURRENT FRAME section
@@ -1298,6 +1069,193 @@ class ColorDetectionUseCase(BaseProcessor):
         
         return "\n".join(text_parts)
 
+    def reset_tracker(self) -> None:
+        """Reset the advanced tracker instance."""
+        if self.tracker is not None:
+            self.tracker.reset()
+            self.logger.info("AdvancedTracker reset for new tracking session")
+
+    def reset_color_tracking(self) -> None:
+        """Reset color tracking state."""
+        self._color_total_track_ids = defaultdict(set)
+        self._color_current_frame_track_ids = defaultdict(set)
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+        self.logger.info("Color tracking state reset")
+
+    def reset_all_tracking(self) -> None:
+        """Reset both advanced tracker and color tracking state."""
+        self.reset_tracker()
+        self.reset_color_tracking()
+        self.logger.info("All color tracking state reset")
+
+    def _is_in_zone(self, bbox: Dict[str, Any], zone_polygon: List[List[int]]) -> bool:
+        """Check if the bottom 25% center point of a bounding box lies within the given zone polygon."""
+        if not zone_polygon or not isinstance(bbox, dict):
+            return True  # No zone defined, or invalid bbox, process all detections
+        try:
+            # Get bottom 25% center point
+            center_point = get_bbox_bottom25_center(bbox)
+            # Convert zone polygon to list of tuples
+            polygon_points = [(point[0], point[1]) for point in zone_polygon]
+            # Check if point is inside polygon
+            in_zone = point_in_polygon(center_point, polygon_points)
+            self.logger.debug(f"BBox center {center_point} in zone: {in_zone}")
+            return in_zone
+        except (KeyError, TypeError) as e:
+            self.logger.warning(f"Failed to check zone for bbox {bbox}: {e}")
+            return False
+
+    @staticmethod
+    def _iou(bbox1, bbox2):
+        """Compute IoU between two bboxes (dicts with xmin/ymin/xmax/ymax or x/y/width/height)."""
+        if "xmin" in bbox1:
+            x1 = max(bbox1["xmin"], bbox2["xmin"])
+            y1 = max(bbox1["ymin"], bbox2["ymin"])
+            x2 = min(bbox1["xmax"], bbox2["xmax"])
+            y2 = min(bbox1["ymax"], bbox2["ymax"])
+            area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
+            area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
+        else:
+            x1 = max(bbox1["x"], bbox2["x"])
+            y1 = max(bbox1["y"], bbox2["y"])
+            x2 = min(bbox1["x"] + bbox1["width"], bbox2["x"] + bbox2["width"])
+            y2 = min(bbox1["y"] + bbox1["height"], bbox2["y"] + bbox2["height"])
+            area1 = bbox1["width"] * bbox1["height"]
+            area2 = bbox2["width"] * bbox2["height"]
+        inter_w = max(0, x2 - x1)
+        inter_h = max(0, y2 - y1)
+        inter_area = inter_w * inter_h
+        union = area1 + area2 - inter_area
+        return inter_area / union if union > 0 else 0.0
+
+    @staticmethod
+    def _deduplicate_detections(detections, iou_thresh=0.7):
+        """Suppress duplicate/overlapping detections with same category and high IoU."""
+        filtered = []
+        used = [False] * len(detections)
+        for i, det in enumerate(detections):
+            if used[i]:
+                continue
+            group = [i]
+            for j in range(i + 1, len(detections)):
+                if used[j]:
+                    continue
+                if det.get("category") == detections[j].get("category"):
+                    bbox1 = det.get("bounding_box", det.get("bbox"))
+                    bbox2 = detections[j].get("bounding_box", detections[j].get("bbox"))
+                    if bbox1 and bbox2 and ColorDetectionUseCase._iou(bbox1, bbox2) > iou_thresh:
+                        used[j] = True
+                        group.append(j)
+            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
+            filtered.append(detections[best_idx])
+            used[best_idx] = True
+        return filtered
+        
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Get JSON schema for configuration validation."""
+        return {
+            "type": "object",
+            "properties": {
+                "confidence_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.5},
+                "top_k_colors": {"type": "integer", "minimum": 1, "default": 3},
+                "frame_skip": {"type": "integer", "minimum": 1, "default": 1},
+                "target_categories": {"type": ["array", "null"], "items": {"type": "string"}, "default": [
+                    "car", "bicycle", "bus", "motorcycle"
+                ]},
+                "fps": {"type": ["number", "null"], "minimum": 1.0, "default": None},
+                "bbox_format": {"type": "string", "enum": ["auto", "xmin_ymin_xmax_ymax", "x_y_width_height"], "default": "auto"},
+                "index_to_category": {"type": ["object", "null"], "default": None},
+                "alert_config": {"type": ["object", "null"], "default": None}
+            },
+            "required": ["confidence_threshold", "top_k_colors"],
+            "additionalProperties": False
+        }
+        
+    def create_default_config(self, **overrides) -> ColorDetectionConfig:
+        """Create default configuration with optional overrides."""
+        defaults = {
+            "category": self.category,
+            "usecase": self.name,
+            "confidence_threshold": 0.5,
+            "top_k_colors": 3,
+            "frame_skip": 1,
+            "target_categories": [
+                "car", "bicycle", "bus", "motorcycle"
+            ],
+            "fps": None,
+            "bbox_format": "auto",
+            "index_to_category": None,
+            "alert_config": None
+        }
+        defaults.update(overrides)
+        return ColorDetectionConfig(**defaults)
+    
+    def _update_color_tracking_state(self, detections: List[Dict]):
+        """Track unique track_ids per category and color for total count."""
+        # Ensure storage is a defaultdict(set) to allow safe .add()
+        existing_store = getattr(self, '_color_total_track_ids', None)
+        if not isinstance(existing_store, defaultdict):
+            existing_store = {} if existing_store is None else dict(existing_store)
+            self._color_total_track_ids = defaultdict(set, existing_store)
+        else:
+            self._color_total_track_ids = existing_store
+        self._color_current_frame_track_ids = defaultdict(set)
+        for det in detections:
+            cat = det.get('category')
+            color = det.get('main_color')
+            track_id = det.get('track_id')
+            if cat and track_id is not None:
+                key = f"{cat}:{color}" if color else cat
+                self._color_total_track_ids[key].add(track_id)
+                self._color_current_frame_track_ids[key].add(track_id)
+
+    def get_total_color_counts(self):
+        """Return total unique track_id count per color (across all categories)."""
+        store = getattr(self, '_color_total_track_ids', {})
+        if not isinstance(store, dict):
+            return {}
+        color_to_ids = defaultdict(set)
+        for key, id_set in store.items():
+            if isinstance(key, str) and ':' in key:
+                _, color = key.split(':', 1)
+            else:
+                color = None
+            # Support both set and iterable
+            ids = id_set if isinstance(id_set, set) else set(id_set or [])
+            if color:
+                color_to_ids[color].update(ids)
+        return {color: len(ids) for color, ids in color_to_ids.items()}
+
+    def get_total_category_counts(self):
+        """Return total unique track_id count per category (across all colors)."""
+        store = getattr(self, '_color_total_track_ids', {})
+        if not isinstance(store, dict):
+            return {}
+        category_to_ids = defaultdict(set)
+        for key, id_set in store.items():
+            if isinstance(key, str) and ':' in key:
+                cat, _ = key.split(':', 1)
+            else:
+                cat = key
+            ids = id_set if isinstance(id_set, set) else set(id_set or [])
+            category_to_ids[cat].update(ids)
+        return {cat: len(ids) for cat, ids in category_to_ids.items()}
+
+    def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
+        """Get detailed information about track IDs for color detections (per frame)."""
+        frame_track_ids = set(det.get('track_id') for det in detections if det.get('track_id') is not None)
+        total_track_ids = set()
+        for s in getattr(self, '_color_total_track_ids', {}).values():
+            total_track_ids.update(s)
+        return {
+            "total_count": len(total_track_ids),
+            "current_frame_count": len(frame_track_ids),
+            "total_unique_track_ids": len(total_track_ids),
+            "current_frame_track_ids": list(frame_track_ids),
+            "last_update_time": time.time(),
+            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
+        }
 
     def _attach_masks_to_detections(
             self,

@@ -22,6 +22,7 @@ from testing_support.validators.validate_transaction_metrics import validate_tra
 
 from framework_graphql.test_application_async import error_middleware_async, example_middleware_async
 from newrelic.api.background_task import background_task
+from newrelic.api.transaction import current_transaction
 from newrelic.common.object_names import callable_name
 from newrelic.common.package_version_utils import get_package_version
 
@@ -106,6 +107,29 @@ def test_basic(target_application):
     def _test():
         response = target_application("{ hello }")
         assert response["hello"] == "Hello!"
+
+    _test()
+
+
+def test_transaction_empty_settings(target_application):
+    framework, version, target_application, is_bg, schema_type, extra_spans = target_application
+
+    @validate_transaction_metrics(
+        "query/<anonymous>/hello",
+        "GraphQL",
+        rollup_metrics=_graphql_base_rollup_metrics(framework, version, True),
+        background_task=True,
+    )
+    @background_task()
+    def _test():
+        transaction = current_transaction()
+        settings = transaction._settings
+        transaction._settings = None
+
+        response = target_application("{ hello }")
+        assert response["hello"] == "Hello!"
+
+        transaction._settings = settings
 
     _test()
 
@@ -240,7 +264,8 @@ def test_exception_in_middleware(target_application, middleware):
         ("Errors/all", 1),
         (f"Errors/all{'Other' if is_bg else 'Web'}", 1),
         (f"Errors/{'Other' if is_bg else 'Web'}Transaction/GraphQL/{name}", 1),
-    ] + _test_exception_scoped_metrics
+        *_test_exception_scoped_metrics,
+    ]
 
     # Attributes
     _expected_exception_resolver_attributes = {
@@ -289,7 +314,8 @@ def test_exception_in_resolver(target_application, field):
         ("Errors/all", 1),
         (f"Errors/all{'Other' if is_bg else 'Web'}", 1),
         (f"Errors/{'Other' if is_bg else 'Web'}Transaction/GraphQL/{txn_name}", 1),
-    ] + _test_exception_scoped_metrics
+        *_test_exception_scoped_metrics,
+    ]
 
     # Attributes
     _expected_exception_resolver_attributes = {
@@ -347,7 +373,8 @@ def test_exception_in_validation(target_application, query, exc_class):
         ("Errors/all", 1),
         (f"Errors/all{'Other' if is_bg else 'Web'}", 1),
         (f"Errors/{'Other' if is_bg else 'Web'}Transaction/GraphQL/{txn_name}", 1),
-    ] + _test_exception_scoped_metrics
+        *_test_exception_scoped_metrics,
+    ]
 
     # Attributes
     _expected_exception_operation_attributes = {

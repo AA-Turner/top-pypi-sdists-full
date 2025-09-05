@@ -121,6 +121,7 @@ class SusActivityConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
+    usecase:str = "suspicious_activity_detection"
     model_url:str = "https://s3.us-west-2.amazonaws.com/testing.resources/datasets/suspicous_detection_xgb-model_weights.json"
 
     #confidence thresholds
@@ -256,7 +257,7 @@ class SusActivityUseCase(BaseProcessor):
         # print(processed_data)
 
         if self.target_categories:
-            processed_data = [d for d in processed_data['detections'] if d.get('category') in self.target_categories]
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
             self.logger.debug(f"Applied category filtering")
 
         # Apply bbox smoothing if enabled

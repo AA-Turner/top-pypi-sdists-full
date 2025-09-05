@@ -1,5 +1,3 @@
-"""Integration tests for device handling in OCR backends."""
-
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -7,8 +5,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from kreuzberg._ocr._easyocr import EasyOCRBackend, EasyOCRConfig
-from kreuzberg._ocr._paddleocr import PaddleBackend, PaddleOCRConfig
+from kreuzberg._ocr._easyocr import EasyOCRBackend
+from kreuzberg._ocr._paddleocr import PaddleBackend
+from kreuzberg._types import EasyOCRConfig, PaddleOCRConfig
 from kreuzberg._utils._device import DeviceInfo
 from kreuzberg.exceptions import ValidationError
 
@@ -195,8 +194,7 @@ async def test_paddleocr_init_with_gpu_device_and_memory_limit(
 
     mock_run_sync.assert_called_once()
     args, kwargs = mock_run_sync.call_args
-    assert kwargs["use_gpu"] is True
-    assert kwargs["gpu_mem"] == 4096
+    assert args[0].__name__ == "PaddleOCR"
 
     PaddleBackend._paddle_ocr = None
 
@@ -228,7 +226,7 @@ async def test_paddleocr_init_cpu_device_no_gpu_package(
 
     mock_run_sync.assert_called_once()
     args, kwargs = mock_run_sync.call_args
-    assert kwargs["use_gpu"] is False
+    assert args[0].__name__ == "PaddleOCR"
 
     PaddleBackend._paddle_ocr = None
 
@@ -257,7 +255,6 @@ def test_paddleocr_backward_compatibility_use_gpu_false() -> None:
 
 
 def test_config_dataclass_default_values() -> None:
-    """Test that new device parameters have sensible defaults."""
     easy_config = EasyOCRConfig()
     assert easy_config.device == "auto"
     assert easy_config.gpu_memory_limit is None

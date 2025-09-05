@@ -1,6 +1,8 @@
 import re
 import sys
 import requests
+from cloudpathlib import CloudPath
+
 
 def clean_column_name(column_name):
     """
@@ -137,3 +139,33 @@ def get_fgs_to_feature_mappings(feature_group_kv):
             onfs_fg_to_ofs_feat_map[fg].append(onfs_feat_name[0])       
             
     return onfs_fg_to_onfs_feat_map, onfs_fg_to_ofs_feat_map
+
+
+def file_exists(path: str) -> bool:
+    """
+    Checks if a file exists in Google Cloud Storage (GCS).
+
+    Args:
+        path (str): The GCS path of the file.
+
+    Returns:
+        bool. True if the file exists, False otherwise.
+    """
+    cloud_path = CloudPath(path)
+    return cloud_path.is_file()
+
+
+def touch_cloud_path(path: str, file_name: str = '_SUCCESS') -> None:
+    """
+    Touch a file in Cloud Storage.
+
+    Args:
+        path (str): The base path of the file.
+        file_name (str): The name of the file.
+
+    Returns:
+        None.
+    """
+    gs_path = CloudPath(path)
+    joined_path = gs_path.joinpath(file_name)
+    joined_path.touch()

@@ -11,8 +11,4 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 from .log_filter_setup import setup_filters
-from .log_record_types import (
-    ASSETS_UPLOAD_THROTTLING_MSG_EXTRA,
-    GENERAL_THROTTLING_MSG_EXTRA,
-    METRICS_THROTTLING_MSG_EXTRA,
-)
+from .log_record_types import ASSETS_UPLOAD_THROTTLING_MSG_EXTRA

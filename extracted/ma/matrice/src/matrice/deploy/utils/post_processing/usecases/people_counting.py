@@ -128,13 +128,6 @@ class PeopleCountingUseCase(BaseProcessor):
             context.confidence_threshold = config.confidence_threshold
             
             is_multi_frame = self.detect_frame_structure(data)
-            print("--------------------------------------")
-            print("config.alert_config",config.alert_config)
-            print(config)
-            print("is_multi?",is_multi_frame)
-            print("--------------------------------------")
-            
-            #self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
             
             # Apply smoothing if enabled
             if config.enable_smoothing and input_format == ResultFormat.OBJECT_TRACKING:
@@ -235,20 +228,26 @@ class PeopleCountingUseCase(BaseProcessor):
         summary = summary_list[0] if summary_list else {}
         
         # Create single-frame agg_summary
-        agg_summary = self.create_agg_summary(
-            current_frame, incidents, tracking_stats, business_analytics, alerts, human_text=summary
-        )
-        
-        # Mark processing as completed
+        # agg_summary = self.create_agg_summary(
+        #     current_frame, incidents, tracking_stats, business_analytics, alerts, human_text=summary
+        # )
+        agg_summary = {str(current_frame): {
+            "incidents": incidents,
+            "tracking_stats": tracking_stats,
+            "business_analytics": business_analytics,
+            "alerts": alerts,
+            "human_text": summary
+        }}
+
         context.mark_completed()
-        
-        # Create result with standardized agg_summary
-        return self.create_result(
+        result = self.create_result(
             data={"agg_summary": agg_summary},
             usecase=self.name,
             category=self.category,
             context=context
         )
+
+        return result
     
         
     def _process_frame_detections(self, frame_data: Any, config: PeopleCountingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None) -> tuple:
@@ -272,6 +271,9 @@ class PeopleCountingUseCase(BaseProcessor):
         # Step 3: Filter to person categories
         if config.person_categories:
             frame_detections = [d for d in frame_detections if d.get("category") in config.person_categories]
+        if config.target_categories:
+            frame_detections = [d for d in frame_detections if d.get('category') in config.target_categories]
+            self.logger.debug("Applied category filtering")
         
         # Step 4: Create counting summary for this frame
         counting_summary = {
@@ -593,9 +595,9 @@ class PeopleCountingUseCase(BaseProcessor):
         human_text_lines.append(f"\t- People Detected: {total_people}")
 
         human_text_lines.append("")
-        if total_unique_count > 0:
-            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-            human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
+        #if total_unique_count > 0:
+        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+        human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
 
         if alerts:
             for alert in alerts:
@@ -1260,8 +1262,7 @@ class PeopleCountingUseCase(BaseProcessor):
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
-        print('STREAM INFO-------------------------------')
-        print(stream_info)
+        
         if not stream_info:
             return "00:00:00.00"
         if precision:
@@ -1303,9 +1304,7 @@ class PeopleCountingUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        print('STARTTT STREAM INFO-------------------------------')
-        print(stream_info)
-        
+                
         if precision:
             if self.start_timer is None:
                 self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
@@ -1583,6 +1582,12 @@ class PeopleCountingUseCase(BaseProcessor):
                     "default": ["person", "people"],
                     "description": "Category names that represent people"
                 },
+                "target_categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["person", "people"],
+                    "description": "Category names that represent people"
+                },
                 "enable_unique_counting": {
                     "type": "boolean",
                     "default": True,
@@ -1643,6 +1648,7 @@ class PeopleCountingUseCase(BaseProcessor):
             "enable_unique_counting": True,
             "time_window_minutes": 60,
             "person_categories": ["person", "people"],
+            "target_categories": ["person", "people", "human", "man", "woman", "male", "female"]
         }
         defaults.update(overrides)
         return PeopleCountingConfig(**defaults)

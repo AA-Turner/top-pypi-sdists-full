@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.5.22
+Version: 0.6.0
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: fsspec
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.0.0
-Requires-Dist: daft[aws,azure,gcp,ray,pandas,numpy,iceberg,deltalake,spark,sql,unity,clickhouse,huggingface] ; extra == 'all'
+Requires-Dist: daft[aws,azure,clickhouse,deltalake,gcp,hudi,huggingface,iceberg,lance,numpy,openai,pandas,ray,sentence-transformers,spark,sql,transformers,turbopuffer,unity] ; extra == 'all'
 Requires-Dist: boto3 ; extra == 'aws'
 Requires-Dist: clickhouse-connect ; extra == 'clickhouse'
 Requires-Dist: deltalake ; extra == 'deltalake'
@@ -16,10 +16,15 @@ Requires-Dist: pyiceberg>=0.7.0,<0.9.1 ; extra == 'iceberg'
 Requires-Dist: packaging ; extra == 'iceberg'
 Requires-Dist: pylance ; extra == 'lance'
 Requires-Dist: numpy ; extra == 'numpy'
+Requires-Dist: openai ; extra == 'openai'
 Requires-Dist: pandas ; extra == 'pandas'
 Requires-Dist: ray[data,client]>=2.0.0,<2.48.0 ; platform_system != 'Windows' and extra == 'ray'
 Requires-Dist: ray[data,client]>=2.10.0,<2.48.0 ; platform_system == 'Windows' and extra == 'ray'
 Requires-Dist: packaging ; extra == 'ray'
+Requires-Dist: sentence-transformers ; extra == 'sentence-transformers'
+Requires-Dist: transformers ; extra == 'transformers'
+Requires-Dist: torch ; extra == 'transformers'
+Requires-Dist: torchvision ; extra == 'transformers'
 Requires-Dist: googleapis-common-protos>=1.56.4 ; extra == 'spark'
 Requires-Dist: grpcio>=1.48 ; extra == 'spark'
 Requires-Dist: grpcio-status>=1.48 ; extra == 'spark'
@@ -30,6 +35,7 @@ Requires-Dist: pyspark==3.5.5 ; extra == 'spark'
 Requires-Dist: connectorx ; extra == 'sql'
 Requires-Dist: sqlalchemy ; extra == 'sql'
 Requires-Dist: sqlglot ; extra == 'sql'
+Requires-Dist: turbopuffer ; extra == 'turbopuffer'
 Requires-Dist: httpx<=0.27.2 ; extra == 'unity'
 Requires-Dist: unitycatalog ; extra == 'unity'
 Provides-Extra: all
@@ -43,10 +49,14 @@ Provides-Extra: huggingface
 Provides-Extra: iceberg
 Provides-Extra: lance
 Provides-Extra: numpy
+Provides-Extra: openai
 Provides-Extra: pandas
 Provides-Extra: ray
+Provides-Extra: sentence-transformers
+Provides-Extra: transformers
 Provides-Extra: spark
 Provides-Extra: sql
+Provides-Extra: turbopuffer
 Provides-Extra: unity
 Provides-Extra: viz
 License-File: LICENSE

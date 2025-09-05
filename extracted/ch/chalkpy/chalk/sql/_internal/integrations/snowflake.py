@@ -640,6 +640,111 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 features = columns_to_features(empty_batch_with_schema.schema.names)
                 yield self._postprocess_table(features, empty_batch_with_schema)
 
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> typing.Iterable[pa.RecordBatch]:
+        """Execute query efficiently for Snowflake and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+        import snowflake.connector
+        from sqlalchemy.sql import Select
+
+        if isinstance(finalized_query.query, Select):
+            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+
+        result_handles: queue.Queue[ResultHandle] = queue.Queue()
+        with (
+            self.get_engine().connect() if connection is None else contextlib.nullcontext(connection)
+        ) as sqlalchemy_cnx:
+            con = cast(
+                snowflake.connector.SnowflakeConnection,
+                sqlalchemy_cnx.connection.dbapi_connection,
+            )
+            sql, positional_params, named_params = self.compile_query(finalized_query)
+            assert len(positional_params) == 0, "using named param style"
+            with contextlib.ExitStack() as exit_stack:
+                for (
+                    _,
+                    temp_value,
+                    create_temp_table,
+                    temp_table,
+                    drop_temp_table,
+                ) in finalized_query.temp_tables.values():
+                    exit_stack.enter_context(
+                        self._create_temp_table(
+                            create_temp_table,
+                            temp_table,
+                            drop_temp_table,
+                            sqlalchemy_cnx,
+                            temp_value,
+                        )
+                    )
+                with con.cursor() as cursor:
+                    job_id = str(uuid.uuid4())
+                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                        sql = _rewrite_query_for_unload(
+                            sql=sql,
+                            unload_job_identifier=job_id,
+                            snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
+                        )
+
+                    cancellable_query = SnowflakeCancellableQuery()
+                    QUERY_REGISTRY.register_query(cancellable_query)
+                    res = cursor.execute(sql, named_params)
+                    QUERY_REGISTRY.unregister_query(cancellable_query)
+
+                    assert res is not None
+
+                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                        # Handle unloaded files
+                        prefix = _stage_prefix(
+                            job_id,
+                            query_execution_parameters.snowflake.snowflake_unload_stage,
+                        )
+                        stage_list_cursor = cursor.execute(f"LIST {prefix}")
+                        if stage_list_cursor is None:
+                            raise ValueError("Failed to enumerate unloaded files in Snowflake stage")
+                        stage_list = stage_list_cursor.fetchall()
+                        for row in stage_list:
+                            result_handles.put_nowait(
+                                UnloadedStorageFileResultHandle(uri=row[0], compressed_size=row[1])
+                            )
+                    else:
+                        for batch in cursor.get_result_batches() or []:
+                            result_handles.put_nowait(ResultBatchResultHandle(batch))
+
+        # Process result handles directly
+        while not result_handles.empty():
+            try:
+                result_handle = result_handles.get_nowait()
+                tbl = result_handle.to_arrow(con if "con" in locals() else None)
+
+                if len(tbl) == 0:
+                    continue
+
+                # Map columns to expected schema
+                arrays: list[pa.Array] = []
+                for field in expected_output_schema:
+                    if field.name in tbl.schema.names:
+                        col = tbl.column(field.name)
+                        # Cast to expected type if needed
+                        if col.type != field.type:
+                            col = pc.cast(col, field.type)
+                        if isinstance(col, pa.ChunkedArray):
+                            col = col.combine_chunks()
+                        arrays.append(col)
+                    else:
+                        # Column not found, create null array
+                        arrays.append(pa.nulls(len(tbl), field.type))
+
+                batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                yield batch
+            except queue.Empty:
+                break
+
     @classmethod
     def register_sqlalchemy_compiler_overrides(cls):
         try:

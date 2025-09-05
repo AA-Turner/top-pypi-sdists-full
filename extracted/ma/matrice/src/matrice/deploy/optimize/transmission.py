@@ -445,6 +445,7 @@ class ServerTransmissionHandler:
                 "input_order": input_stream.get("input_order"),
                 "original_fps": input_stream.get("original_fps"),
                 "stream_time": input_stream.get("stream_info", {}).get("stream_time",""), #This is needed for all Usecases, do not remove.
+                "stream_resolution": input_stream.get("stream_resolution",{}), #This is needed for all Usecases, do not remove.
             },
             "transmission_strategy": transmission_strategy,
             "similarity_score": similarity_score,

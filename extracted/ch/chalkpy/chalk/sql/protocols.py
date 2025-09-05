@@ -411,6 +411,30 @@ class ChalkQueryProtocol(Protocol):
 class BaseSQLSourceProtocol(Protocol):
     name: Optional[str]
 
+    def raw_query(self, query: str, output_arrow_schema: Optional[Any] = None) -> Any:
+        """Run a raw query and return the underlying result.
+
+        This is useful for running queries that do not map to features,
+        or for running queries that return a different schema on each
+        execution.
+
+        Parameters
+        ----------
+        query
+            The query that you'd like to run.
+        output_arrow_schema
+            Optionally, the expected output schema of the query as a `pyarrow.Schema`.
+            This is required for some SQL sources, like DuckDB, in order to
+            interpret the results correctly.
+
+        Returns
+        -------
+        Any
+            The raw result of executing the query. The type of this result
+            depends on the SQL source.
+        """
+        ...
+
     def query_string(
         self,
         query: str,

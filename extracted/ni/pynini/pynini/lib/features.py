@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 # pynini.opengrm.org.
 """Implementation of features mirroring functionality in Thrax."""
 
+from collections.abc import Iterable
 import operator
-
-from typing import Dict, Iterable, List, Optional
+from typing import Optional
 
 import pynini
 from pynini.lib import byte
@@ -88,7 +88,7 @@ class Feature:
     return self._name
 
   @property
-  def values(self) -> List[str]:
+  def values(self) -> list[str]:
     return self._values
 
   @property
@@ -202,7 +202,7 @@ class Category:
     return self.features < other.features
 
   @property
-  def features(self) -> List[Feature]:
+  def features(self) -> list[Feature]:
     return self._features
 
   @property
@@ -321,6 +321,6 @@ class FeatureVector:
     return self._category
 
   @property
-  def values(self) -> Dict[str, str]:
+  def values(self) -> dict[str, str]:
     return self._values
 

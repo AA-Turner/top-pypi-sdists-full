@@ -10,6 +10,7 @@
 #  Copyright (C) 2015-2025 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+import logging
 import platform
 import threading
 import warnings
@@ -23,6 +24,7 @@ from requests.adapters import HTTPAdapter
 from requests_toolbelt.adapters.socket_options import TCPKeepAliveAdapter
 from urllib3 import Retry
 
+from .. import semantic_version
 from ..authhook import aws_sagemaker
 from ..config import Config, get_config
 from ..utils import get_comet_version
@@ -35,6 +37,8 @@ STATUS_FORCELIST_FULL = [401, 403]
 STATUS_FORCELIST_FULL.extend(STATUS_FORCELIST_NO_AUTH_ERRORS)
 
 API_KEY_HEADER = "Authorization"
+
+LOGGER = logging.getLogger(__name__)
 
 
 def setup_http_session_authentication(session: Session) -> None:
@@ -212,6 +216,17 @@ def get_retry_strategy_for_get_or_add_run(
         None, "comet.get_or_add_experiment.retry_backoff_factor"
     )
     backoff_max = config.get_int(None, "comet.get_or_add_experiment.retry_backoff_max")
+
+    if semantic_version.SemanticVersion.parse(urllib3.__version__) < "1.26.8":
+        # urllib3 is already restricted in setup.py to be >=1.26.8, however, users
+        # often ignore dependency conflicts and use older version of urllib3
+        #
+        # This is a fallback mechanism allowing experiments to run but with a
+        # different retry strategy (no jittering, which was added in comet-ml==3.49.12).
+        LOGGER.warning(
+            "urllib3 version is older than 1.26.8, using fallback retry strategy for experiment creation. We recommend upgrading to urllib3>=1.26.8 to have the most stable experience."
+        )
+        return get_retry_strategy(status_forcelist=status_forcelist, config=config)
 
     return retry_with_full_jitter.RetryWithFullJitter(
         connect=connect_retries,

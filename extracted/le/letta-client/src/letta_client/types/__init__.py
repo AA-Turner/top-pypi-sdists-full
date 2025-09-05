@@ -109,6 +109,8 @@ from .custom_format_grammar import CustomFormatGrammar
 from .custom_format_grammar_grammar import CustomFormatGrammarGrammar
 from .custom_format_grammar_grammar_syntax import CustomFormatGrammarGrammarSyntax
 from .custom_format_text import CustomFormatText
+from .delete_deployment_response import DeleteDeploymentResponse
+from .deployment_entity import DeploymentEntity
 from .duplicate_file_handling import DuplicateFileHandling
 from .dynamic_manager import DynamicManager
 from .dynamic_manager_update import DynamicManagerUpdate
@@ -152,6 +154,12 @@ from .imported_agents_response import ImportedAgentsResponse
 from .init_tool_rule import InitToolRule
 from .input_audio import InputAudio
 from .input_audio_format import InputAudioFormat
+from .internal_template_agent_create import InternalTemplateAgentCreate
+from .internal_template_agent_create_response_format import InternalTemplateAgentCreateResponseFormat
+from .internal_template_agent_create_tool_rules_item import InternalTemplateAgentCreateToolRulesItem
+from .internal_template_block_create import InternalTemplateBlockCreate
+from .internal_template_group_create import InternalTemplateGroupCreate
+from .internal_template_group_create_manager_config import InternalTemplateGroupCreateManagerConfig
 from .job import Job
 from .job_status import JobStatus
 from .job_type import JobType
@@ -192,6 +200,7 @@ from .letta_streaming_request import LettaStreamingRequest
 from .letta_streaming_request_messages_item import LettaStreamingRequestMessagesItem
 from .letta_usage_statistics import LettaUsageStatistics
 from .letta_user_message_content_union import LettaUserMessageContentUnion
+from .list_deployment_entities_response import ListDeploymentEntitiesResponse
 from .llm_config import LlmConfig
 from .llm_config_compatibility_type import LlmConfigCompatibilityType
 from .llm_config_model_endpoint_type import LlmConfigModelEndpointType
@@ -450,6 +459,8 @@ __all__ = [
     "CustomFormatGrammarGrammar",
     "CustomFormatGrammarGrammarSyntax",
     "CustomFormatText",
+    "DeleteDeploymentResponse",
+    "DeploymentEntity",
     "DuplicateFileHandling",
     "DynamicManager",
     "DynamicManagerUpdate",
@@ -493,6 +504,12 @@ __all__ = [
     "InitToolRule",
     "InputAudio",
     "InputAudioFormat",
+    "InternalTemplateAgentCreate",
+    "InternalTemplateAgentCreateResponseFormat",
+    "InternalTemplateAgentCreateToolRulesItem",
+    "InternalTemplateBlockCreate",
+    "InternalTemplateGroupCreate",
+    "InternalTemplateGroupCreateManagerConfig",
     "Job",
     "JobStatus",
     "JobType",
@@ -525,6 +542,7 @@ __all__ = [
     "LettaStreamingRequestMessagesItem",
     "LettaUsageStatistics",
     "LettaUserMessageContentUnion",
+    "ListDeploymentEntitiesResponse",
     "LlmConfig",
     "LlmConfigCompatibilityType",
     "LlmConfigModelEndpointType",

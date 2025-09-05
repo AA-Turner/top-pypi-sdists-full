@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tuya-device-sharing-sdk
-Version: 0.2.3
+Version: 0.2.4
 Summary: A Python sdk for Tuya Open API, which provides IoT capabilities, maintained by Tuya official
 Home-page: https://github.com/tuya/tuya-device-sharing-sdk
 Author: Tuya Inc.
@@ -77,6 +77,7 @@ With diversified devices and industries, Tuya IoT Development Platform opens bas
 | 0.2.1   | add updated_status_properties to SharingDeviceListener |
 | 0.2.2   | add timestamp to SharingDeviceListener                 |
 | 0.2.3   | fix paho-mqtt dependency                               |
+| 0.2.4   | fix asbtract decorator                                 |
 
 ## Installation
 

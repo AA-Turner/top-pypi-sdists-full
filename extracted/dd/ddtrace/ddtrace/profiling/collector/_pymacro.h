@@ -1,0 +1,16 @@
+#ifndef _DDTRACE_MEMALLOC_PYMACRO
+#define _DDTRACE_MEMALLOC_PYMACRO
+
+#if PY_VERSION_HEX >= 0x03090000
+#define _PY39_AND_LATER
+#endif
+
+#if PY_VERSION_HEX >= 0x03080000
+#define _PY38_AND_LATER
+#endif
+
+#if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 8
+#define _PY38
+#endif
+
+#endif

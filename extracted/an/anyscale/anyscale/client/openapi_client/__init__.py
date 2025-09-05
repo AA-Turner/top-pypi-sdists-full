@@ -458,6 +458,7 @@ from openapi_client.models.partition_info import PartitionInfo
 from openapi_client.models.pause_schedule import PauseSchedule
 from openapi_client.models.permission_level import PermissionLevel
 from openapi_client.models.plan_status import PlanStatus
+from openapi_client.models.presigned_url_response import PresignedUrlResponse
 from openapi_client.models.production_job import ProductionJob
 from openapi_client.models.production_job_config import ProductionJobConfig
 from openapi_client.models.production_job_event import ProductionJobEvent

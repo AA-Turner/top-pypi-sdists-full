@@ -11,11 +11,13 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Mapping, Set, Tuple, Type, cast
 
 import attrs
+import google.protobuf.message
 import pyarrow as pa
 from typing_extensions import Annotated, TypeGuard, get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.http import HttpResponse, get_http_response_as_pyarrow
 from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
+from chalk.features._encoding.protobuf import convert_proto_message_type_to_pyarrow_type
 from chalk.features.feature_set import Features
 from chalk.utils.cached_type_hints import cached_get_type_hints
 from chalk.utils.collections import is_namedtuple, is_optional, unwrap_optional_and_annotated_if_needed
@@ -255,6 +257,8 @@ def rich_to_pyarrow(
         return pa.uint32()
     if issubclass(python_type, ipaddress.IPv6Address):
         return pa.large_utf8()
+    if issubclass(python_type, google.protobuf.message.Message):
+        return convert_proto_message_type_to_pyarrow_type(python_type.DESCRIPTOR)
 
     raise TypeError(
         (

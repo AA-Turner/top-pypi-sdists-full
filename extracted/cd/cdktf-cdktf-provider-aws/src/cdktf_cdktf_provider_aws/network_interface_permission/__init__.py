@@ -1,7 +1,7 @@
 r'''
 # `aws_network_interface_permission`
 
-Refer to the Terraform Registry for docs: [`aws_network_interface_permission`](https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission).
+Refer to the Terraform Registry for docs: [`aws_network_interface_permission`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkInterfacePermission(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkInterfacePermission.NetworkInterfacePermission",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission aws_network_interface_permission}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission aws_network_interface_permission}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class NetworkInterfacePermission(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission aws_network_interface_permission} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission aws_network_interface_permission} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class NetworkInterfacePermission(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkInterfacePermission to import.
-        :param import_from_id: The id of the existing NetworkInterfacePermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkInterfacePermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkInterfacePermission to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class NetworkInterfacePermission(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
         '''
         value = NetworkInterfacePermissionTimeouts(create=create, delete=delete)
 
@@ -291,11 +291,11 @@ class NetworkInterfacePermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -405,21 +405,21 @@ class NetworkInterfacePermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def aws_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#aws_account_id NetworkInterfacePermission#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         assert result is not None, "Required property 'aws_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def network_interface_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#network_interface_id NetworkInterfacePermission#network_interface_id}.'''
         result = self._values.get("network_interface_id")
         assert result is not None, "Required property 'network_interface_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def permission(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#permission NetworkInterfacePermission#permission}.'''
         result = self._values.get("permission")
         assert result is not None, "Required property 'permission' is missing"
         return typing.cast(builtins.str, result)
@@ -428,7 +428,7 @@ class NetworkInterfacePermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#region NetworkInterfacePermission#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -437,7 +437,7 @@ class NetworkInterfacePermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkInterfacePermissionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#timeouts NetworkInterfacePermission#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkInterfacePermissionTimeouts"], result)
@@ -467,8 +467,8 @@ class NetworkInterfacePermissionTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a63f6ef7e46a211f9c13e6744b847aec25b589c5e74bfdd4fa17e4aaf0838670)
@@ -484,7 +484,7 @@ class NetworkInterfacePermissionTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#create NetworkInterfacePermission#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -493,7 +493,7 @@ class NetworkInterfacePermissionTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.11.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/network_interface_permission#delete NetworkInterfacePermission#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)

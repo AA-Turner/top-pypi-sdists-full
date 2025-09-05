@@ -1,7 +1,7 @@
 r'''
 # `newrelic_pipeline_cloud_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_pipeline_cloud_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule).
+Refer to the Terraform Registry for docs: [`newrelic_pipeline_cloud_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PipelineCloudRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.pipelineCloudRule.PipelineCloudRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule newrelic_pipeline_cloud_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule newrelic_pipeline_cloud_rule}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class PipelineCloudRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule newrelic_pipeline_cloud_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule newrelic_pipeline_cloud_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
-        :param nrql: The NRQL query that defines which data will be processed by this pipeline cloud rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
-        :param account_id: The account ID where the Pipeline Cloud rule will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
+        :param nrql: The NRQL query that defines which data will be processed by this pipeline cloud rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
+        :param account_id: The account ID where the Pipeline Cloud rule will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class PipelineCloudRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PipelineCloudRule to import.
-        :param import_from_id: The id of the existing PipelineCloudRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PipelineCloudRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PipelineCloudRule to import is found.
         '''
         if __debug__:
@@ -280,11 +280,11 @@ class PipelineCloudRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
-        :param nrql: The NRQL query that defines which data will be processed by this pipeline cloud rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
-        :param account_id: The account ID where the Pipeline Cloud rule will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the rule. This must be unique within an account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
+        :param nrql: The NRQL query that defines which data will be processed by this pipeline cloud rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
+        :param account_id: The account ID where the Pipeline Cloud rule will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -395,7 +395,7 @@ class PipelineCloudRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the rule. This must be unique within an account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#name PipelineCloudRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -405,7 +405,7 @@ class PipelineCloudRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nrql(self) -> builtins.str:
         '''The NRQL query that defines which data will be processed by this pipeline cloud rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#nrql PipelineCloudRule#nrql}
         '''
         result = self._values.get("nrql")
         assert result is not None, "Required property 'nrql' is missing"
@@ -415,7 +415,7 @@ class PipelineCloudRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account ID where the Pipeline Cloud rule will be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#account_id PipelineCloudRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -424,14 +424,14 @@ class PipelineCloudRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Provides additional information about the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#description PipelineCloudRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.67.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/pipeline_cloud_rule#id PipelineCloudRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

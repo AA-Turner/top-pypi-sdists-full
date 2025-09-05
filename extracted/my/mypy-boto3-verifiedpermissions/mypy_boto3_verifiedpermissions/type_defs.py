@@ -457,6 +457,8 @@ AttributeValueOutputTypeDef = TypedDict(
         "record": NotRequired[Dict[str, Dict[str, Any]]],
         "ipaddr": NotRequired[str],
         "decimal": NotRequired[str],
+        "datetime": NotRequired[str],
+        "duration": NotRequired[str],
     },
 )
 AttributeValueTypeDef = TypedDict(
@@ -470,6 +472,8 @@ AttributeValueTypeDef = TypedDict(
         "record": NotRequired[Mapping[str, Mapping[str, Any]]],
         "ipaddr": NotRequired[str],
         "decimal": NotRequired[str],
+        "datetime": NotRequired[str],
+        "duration": NotRequired[str],
     },
 )
 

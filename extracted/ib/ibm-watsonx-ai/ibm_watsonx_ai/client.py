@@ -22,6 +22,7 @@ from typing import Any, TypeAlias, cast
 from warnings import warn
 
 import httpx
+from requests.exceptions import ConnectionError as ConnectionErrorRequests
 
 import ibm_watsonx_ai.utils
 from ibm_watsonx_ai._wrappers.requests import (
@@ -355,16 +356,18 @@ class APIClient:
 
                 if self._internal:
                     self.PLATFORM_URL = self.credentials.url
-
+                elif self.credentials.platform_url:
+                    if not self.credentials.platform_url.startswith("https://"):
+                        raise WMLClientError(
+                            Messages.get_message(message_id="invalid_platform_url")
+                        )
+                    self.PLATFORM_URL = self.credentials.platform_url
+                elif self.credentials.url in self.PLATFORM_URLS_MAP:
+                    self.PLATFORM_URL = self.PLATFORM_URLS_MAP[self.credentials.url]
                 else:
-                    if self.credentials.platform_url:
-                        if not self.credentials.platform_url.startswith("https://"):
-                            raise WMLClientError(
-                                Messages.get_message(message_id="invalid_platform_url")
-                            )
-                        self.PLATFORM_URL = self.credentials.platform_url
-                    else:
-                        self.PLATFORM_URL = self.PLATFORM_URLS_MAP[self.credentials.url]
+                    raise WMLClientError(
+                        Messages.get_message(message_id="invalid_url_provided")
+                    )
 
                 if not self._is_IAM():
                     raise WMLClientError(
@@ -376,10 +379,17 @@ class APIClient:
                 os.environ["DEPLOYMENT_PLATFORM"] = "private"
 
                 # Validate the cpd version:
-                response_get_wml_services = self._session.get(
-                    f"{self.credentials.url}/ml/wml_services/version",
-                    headers={"User-Agent": get_user_agent_header()},
-                )
+                try:
+                    response_get_wml_services = self._session.get(
+                        f"{self.credentials.url}/ml/wml_services/version",
+                        headers={"User-Agent": get_user_agent_header()},
+                    )
+                except ConnectionErrorRequests as e:
+                    if type(e) is ConnectionErrorRequests:
+                        raise WMLClientError(
+                            Messages.get_message(message_id="invalid_url_provided")
+                        ) from e
+                    raise
                 if (
                     response_get_wml_services.status_code != 200
                 ):  # retry with endpoint for cpd 4.8 and higher
@@ -419,6 +429,9 @@ class APIClient:
                     self._logger.debug(
                         "GET /ml/wml_services/version failed with status code: %s.",
                         response_get_wml_services.status_code,
+                    )
+                    raise WMLClientError(
+                        Messages.get_message(message_id="invalid_url_provided")
                     )
 
                 # Condition for CAMS related changes to take effect (Might change)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.11.4
+Version: 3.13.2
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -31,15 +31,17 @@ Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10.0
 Requires-Dist: chardetng-py>=0.3.5
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
-Requires-Dist: html-to-markdown[lxml]>=1.9.0
+Requires-Dist: html-to-markdown[lxml]>=1.9.1
 Requires-Dist: mcp>=1.13.0
 Requires-Dist: msgspec>=0.18.0
+Requires-Dist: numpy>=1.24.0
 Requires-Dist: playa-pdf>=0.7.0
+Requires-Dist: polars>=1.33.0
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pypdfium2==4.30.0
-Requires-Dist: python-calamine>=0.3.2
+Requires-Dist: python-calamine>=0.5.2
 Requires-Dist: python-pptx>=1.0.2
-Requires-Dist: typing-extensions>=4.14.0; python_version < '3.12'
+Requires-Dist: typing-extensions>=4.15.0; python_version < '3.12'
 Provides-Extra: additional-extensions
 Requires-Dist: mailparse>=1.0.15; extra == 'additional-extensions'
 Requires-Dist: tomli>=2.0.0; (python_version < '3.11') and extra == 'additional-extensions'
@@ -54,7 +56,6 @@ Requires-Dist: litestar[opentelemetry,standard,structlog]>=2.17.0; extra == 'all
 Requires-Dist: mailparse>=1.0.15; extra == 'all'
 Requires-Dist: paddleocr>=3.2.0; extra == 'all'
 Requires-Dist: paddlepaddle>=3.1.1; extra == 'all'
-Requires-Dist: pandas>=2.3.2; extra == 'all'
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'all'
 Requires-Dist: rich>=14.1.0; extra == 'all'
 Requires-Dist: semantic-text-splitter>=0.27.0; extra == 'all'
@@ -73,7 +74,6 @@ Provides-Extra: crypto
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'crypto'
 Provides-Extra: document-classification
 Requires-Dist: deep-translator>=1.11.4; extra == 'document-classification'
-Requires-Dist: pandas>=2.3.2; extra == 'document-classification'
 Provides-Extra: easyocr
 Requires-Dist: easyocr>=1.7.2; extra == 'easyocr'
 Provides-Extra: entity-extraction
@@ -109,8 +109,7 @@ Description-Content-Type: text/markdown
 - **Text Extraction**: High-fidelity text extraction preserving document structure and formatting
 - **Metadata Extraction**: Comprehensive metadata including author, creation date, language, and document properties
 - **Format Support**: 18 document types including PDF, Microsoft Office, images, HTML, and structured data formats
-- **OCR Integration**: Multiple OCR engines (Tesseract, EasyOCR, PaddleOCR) with automatic fallback
-- **Table Detection**: Structured table extraction with cell-level precision via GMFT integration
+- **OCR Integration**: Tesseract OCR with markdown output (default) and table extraction from scanned documents
 - **Document Classification**: Automatic document type detection (contracts, forms, invoices, receipts, reports)
 
 ### Technical Architecture
@@ -138,8 +137,8 @@ Kreuzberg leverages established open source technologies:
 # Extract text from any file to text format
 uvx kreuzberg extract document.pdf > output.txt
 
-# With all features (OCR, table extraction, etc.)
-uvx --from "kreuzberg[all]" kreuzberg extract invoice.pdf --ocr-backend tesseract --output-format text
+# With all features (chunking, language detection, etc.)
+uvx kreuzberg extract invoice.pdf --ocr-backend tesseract --output-format text
 
 # Extract with rich metadata
 uvx kreuzberg extract report.pdf --show-metadata --output-format json
@@ -179,9 +178,14 @@ print(f"Keywords: {result.metadata.keywords}")
 
 ### Docker
 
+Two optimized images available:
+
 ```bash
-# Run the REST API
+# Base image (API + CLI + multilingual OCR)
 docker run -p 8000:8000 goldziher/kreuzberg
+
+# Core image (+ chunking + crypto + document classification + language detection)
+docker run -p 8000:8000 goldziher/kreuzberg-core:latest
 
 # Extract via API
 curl -X POST -F "file=@document.pdf" http://localhost:8000/extract
@@ -196,7 +200,7 @@ curl -X POST -F "file=@document.pdf" http://localhost:8000/extract
 **Add to Claude Desktop with one command:**
 
 ```bash
-claude mcp add kreuzberg uvx -- --from "kreuzberg[all]" kreuzberg-mcp
+claude mcp add kreuzberg uvx kreuzberg-mcp
 ```
 
 **Or configure manually in `claude_desktop_config.json`:**
@@ -206,7 +210,7 @@ claude mcp add kreuzberg uvx -- --from "kreuzberg[all]" kreuzberg-mcp
   "mcpServers": {
     "kreuzberg": {
       "command": "uvx",
-      "args": ["--from", "kreuzberg[all]", "kreuzberg-mcp"]
+      "args": ["kreuzberg-mcp"]
     }
   }
 }
@@ -215,8 +219,8 @@ claude mcp add kreuzberg uvx -- --from "kreuzberg[all]" kreuzberg-mcp
 **MCP capabilities:**
 
 - Extract text from PDFs, images, Office docs, and more
-- Full OCR support with multiple engines
-- Table extraction and metadata parsing
+- Multilingual OCR support with Tesseract
+- Metadata parsing and language detection
 
 📖 **[MCP Documentation](https://kreuzberg.dev/user-guide/mcp-server/)**
 

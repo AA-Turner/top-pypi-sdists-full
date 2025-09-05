@@ -6,6 +6,7 @@ import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import qwak.ecosystem.v0.azure_credentials_pb2
 import sys
 
 if sys.version_info >= (3, 8):
@@ -20,19 +21,23 @@ class CloudCredentials(google.protobuf.message.Message):
 
     AWS_TEMPORARY_CREDENTIALS_FIELD_NUMBER: builtins.int
     GCP_TEMPORARY_CREDENTIALS_FIELD_NUMBER: builtins.int
+    AZURE_TEMPORARY_CREDENTIALS_FIELD_NUMBER: builtins.int
     @property
     def aws_temporary_credentials(self) -> global___AwsTemporaryCredentials: ...
     @property
     def gcp_temporary_credentials(self) -> global___GcpTemporaryCredentials: ...
+    @property
+    def azure_temporary_credentials(self) -> qwak.ecosystem.v0.azure_credentials_pb2.AzureTemporaryCredentials: ...
     def __init__(
         self,
         *,
         aws_temporary_credentials: global___AwsTemporaryCredentials | None = ...,
         gcp_temporary_credentials: global___GcpTemporaryCredentials | None = ...,
+        azure_temporary_credentials: qwak.ecosystem.v0.azure_credentials_pb2.AzureTemporaryCredentials | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["aws_temporary_credentials", b"aws_temporary_credentials", "credentials", b"credentials", "gcp_temporary_credentials", b"gcp_temporary_credentials"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["aws_temporary_credentials", b"aws_temporary_credentials", "credentials", b"credentials", "gcp_temporary_credentials", b"gcp_temporary_credentials"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["credentials", b"credentials"]) -> typing_extensions.Literal["aws_temporary_credentials", "gcp_temporary_credentials"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["aws_temporary_credentials", b"aws_temporary_credentials", "azure_temporary_credentials", b"azure_temporary_credentials", "credentials", b"credentials", "gcp_temporary_credentials", b"gcp_temporary_credentials"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["aws_temporary_credentials", b"aws_temporary_credentials", "azure_temporary_credentials", b"azure_temporary_credentials", "credentials", b"credentials", "gcp_temporary_credentials", b"gcp_temporary_credentials"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["credentials", b"credentials"]) -> typing_extensions.Literal["aws_temporary_credentials", "gcp_temporary_credentials", "azure_temporary_credentials"] | None: ...
 
 global___CloudCredentials = CloudCredentials
 

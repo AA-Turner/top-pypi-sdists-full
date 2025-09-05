@@ -3625,7 +3625,7 @@ result in setting the value to 'Default Qty'+'Location Field'{Style.reset}
                     return tax,crv
                 elif crv in ['d',]:
                     crv=0
-                tax_rate=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Tax({default_taxrate}): ",helpText=f"What is the tax rate, default is {default_taxrate}.",data="float")
+                tax_rate=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Tax({default_taxrate}: ",helpText=f"What is the tax rate, default is {default_taxrate}.",data="float")
                 if tax_rate is None:
                     return tax,crv
                 elif tax_rate in ['d',]:

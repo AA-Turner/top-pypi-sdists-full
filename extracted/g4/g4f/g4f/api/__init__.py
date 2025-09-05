@@ -70,6 +70,7 @@ from g4f.cookies import read_cookie_files, get_cookies_dir
 from g4f.providers.types import ProviderType
 from g4f.providers.response import AudioResponse
 from g4f.providers.any_provider import AnyProvider
+from g4f.providers.any_model_map import model_map, vision_models, image_models, audio_models, video_models
 from g4f import Provider
 from g4f.gui import get_gui_app
 from .stubs import (
@@ -92,6 +93,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 1337
 DEFAULT_TIMEOUT = 600
+DEFAULT_STREAM_TIMEOUT = 15
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -99,6 +101,8 @@ async def lifespan(app: FastAPI):
     if not AppConfig.ignore_cookie_files:
         read_cookie_files()
     AppConfig.g4f_api_key = os.environ.get("G4F_API_KEY", AppConfig.g4f_api_key)
+    AppConfig.timeout = os.environ.get("G4F_TIMEOUT", AppConfig.timeout)
+    AppConfig.stream_timeout = os.environ.get("G4F_STREAM_TIMEOUT", AppConfig.stream_timeout)
     yield
     if has_nodriver:
         for browser in util.get_registered_instances():
@@ -133,7 +137,7 @@ def create_app():
     if AppConfig.gui:
         if not has_a2wsgi:
             raise MissingRequirementsError("a2wsgi is required for GUI. Install it with: pip install a2wsgi")
-        gui_app = WSGIMiddleware(get_gui_app(AppConfig.demo, AppConfig.timeout))
+        gui_app = WSGIMiddleware(get_gui_app(AppConfig.demo, AppConfig.timeout, AppConfig.stream_timeout))
         app.mount("/", gui_app)
 
     if AppConfig.ignored_providers:
@@ -185,6 +189,7 @@ class AppConfig:
     gui: bool = False
     demo: bool = False
     timeout: int = DEFAULT_TIMEOUT
+    stream_timeout: int = DEFAULT_STREAM_TIMEOUT
 
     @classmethod
     def set_config(cls, **data):
@@ -241,6 +246,11 @@ class Api:
                     user_g4f_api_key = await self.security(request)
                     if hasattr(user_g4f_api_key, "credentials"):
                         user_g4f_api_key = user_g4f_api_key.credentials
+                if AppConfig.demo and user is None:
+                    ip = request.headers.get("X-Forwarded-For", "")[:4].strip(":.")
+                    country = request.headers.get("Cf-Ipcountry", "")
+                    user = request.headers.get("x-user", ip)
+                    user = f"{country}:{user}" if country else user
                 if AppConfig.g4f_api_key is None or not user_g4f_api_key or not secrets.compare_digest(AppConfig.g4f_api_key, user_g4f_api_key):
                     if has_crypto and user_g4f_api_key:
                         try:
@@ -278,11 +288,6 @@ class Api:
                             user = await self.get_username(request)
                         except HTTPException as e:
                             return ErrorResponse.from_message(e.detail, e.status_code, e.headers)
-                if user is None:
-                    ip = request.headers.get("X-Forwarded-For", "")[:4].strip(":.")
-                    country = request.headers.get("Cf-Ipcountry", "")
-                    user = request.headers.get("x-user", ip)
-                    user = f"{country}:{user}" if country else user
                 request = update_headers(request, user)
             response = await call_next(request)
             return response
@@ -351,6 +356,21 @@ class Api:
         })
         async def models(provider: str, credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None):
             if provider not in Provider.__map__:
+                if provider in model_map:
+                    return {
+                        "object": "list",
+                        "data": [{
+                            "id": provider,
+                            "object": "model",
+                            "created": 0,
+                            "owned_by": provider,
+                            "image": provider in image_models,
+                            "vision": provider in vision_models,
+                            "audio": provider in audio_models,
+                            "video": provider in video_models,
+                            "type": "image" if provider in image_models else "chat",
+                        }]
+                    }
                 return ErrorResponse.from_message("The provider does not exist.", 404)
             provider: ProviderType = Provider.__map__[provider]
             if not hasattr(provider, "get_models"):
@@ -370,7 +390,7 @@ class Api:
                     "vision": model in getattr(provider, "vision_models", []),
                     "audio": model in getattr(provider, "audio_models", []),
                     "video": model in getattr(provider, "video_models", []),
-                    "type": "image" if model in getattr(provider, "image_models", []) else "text",
+                    "type": "image" if model in getattr(provider, "image_models", []) else "chat",
                 } for model in models]
             }
 
@@ -410,6 +430,12 @@ class Api:
             conversation_id: str = None,
             x_user: Annotated[str | None, Header()] = None
         ):
+            if provider is not None and provider not in Provider.__map__:
+                if provider in model_map:
+                    config.model = provider
+                    provider = None
+                else:
+                    return ErrorResponse.from_message("Invalid provider.", HTTP_404_NOT_FOUND)
             try:
                 if config.provider is None:
                     config.provider = AppConfig.provider if provider is None else provider
@@ -417,6 +443,8 @@ class Api:
                     config.conversation_id = conversation_id
                 if config.timeout is None:
                     config.timeout = AppConfig.timeout
+                if config.stream_timeout is None:
+                    config.stream_timeout = AppConfig.stream_timeout
                 if credentials is not None and credentials.credentials != "secret":
                     config.api_key = credentials.credentials
 
@@ -450,7 +478,7 @@ class Api:
                             "model": AppConfig.model,
                             "provider": AppConfig.provider,
                             "proxy": AppConfig.proxy,
-                            **config.dict(exclude_none=True),
+                            **(config.model_dump(exclude_none=True) if hasattr(config, "model_dump") else config.dict(exclude_none=True)),
                             **{
                                 "conversation_id": None,
                                 "conversation": conversation,
@@ -473,7 +501,7 @@ class Api:
                                         self.conversations[config.conversation_id] = {}
                                     self.conversations[config.conversation_id][config.provider] = chunk
                             else:
-                                yield f"data: {chunk.json()}\n\n"
+                                yield f"data: {chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}\n\n"
                     except GeneratorExit:
                         pass
                     except Exception as e:
@@ -494,58 +522,6 @@ class Api:
                 return ErrorResponse.from_exception(e, config, HTTP_500_INTERNAL_SERVER_ERROR)
 
         responses = {
-            HTTP_200_OK: {"model": ClientResponse},
-            HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
-            HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
-            HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorResponseModel},
-            HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
-        }
-        @self.app.post("/v1/responses", responses=responses)
-        async def v1_responses(
-            config: ResponsesConfig,
-            credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None,
-            provider: str = None
-        ):
-            try:
-                if config.provider is None:
-                    config.provider = AppConfig.provider if provider is None else provider
-                if config.api_key is None and credentials is not None and credentials.credentials != "secret":
-                    config.api_key = credentials.credentials
-
-                conversation = None
-                if config.conversation is not None:
-                    conversation = JsonConversation(**config.conversation)
-
-                return await self.client.responses.create(
-                    **filter_none(
-                        **{
-                            "model": AppConfig.model,
-                            "proxy": AppConfig.proxy,
-                            **config.dict(exclude_none=True),
-                            "conversation": conversation
-                        },
-                        ignored=AppConfig.ignored_providers
-                    ),
-                )
-            except (ModelNotFoundError, ProviderNotFoundError) as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
-            except (MissingAuthError, NoValidHarFileError) as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
-            except Exception as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_500_INTERNAL_SERVER_ERROR)
-
-        @self.app.post("/api/{provider}/responses", responses=responses)
-        async def provider_responses(
-            provider: str,
-            config: ChatCompletionsConfig,
-            credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None,
-        ):
-            return await v1_responses(config, credentials, provider)
-
-        responses = {
             HTTP_200_OK: {"model": ImagesResponse},
             HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
             HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
@@ -561,6 +537,11 @@ class Api:
             provider: str = None,
             credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None
         ):
+            if provider is not None and provider not in Provider.__map__:
+                if provider in model_map:
+                    config.model = provider
+                    provider = None
+                return ErrorResponse.from_message("", HTTP_404_NOT_FOUND)
             if config.provider is None:
                 config.provider = provider
             if config.provider is None:
@@ -639,6 +620,12 @@ class Api:
             prompt: Annotated[Optional[str], Form()] = "Transcribe this audio"
         ):
             provider = provider if path_provider is None else path_provider
+            if provider is not None and provider not in Provider.__map__:
+                if provider in model_map:
+                    model = provider
+                    provider = None
+                else:
+                    return ErrorResponse.from_message("Invalid provider.", HTTP_404_NOT_FOUND)
             kwargs = {"modalities": ["text"]}
             if provider == "MarkItDown":
                 kwargs = {
@@ -679,6 +666,12 @@ class Api:
             api_key = None
             if credentials is not None and credentials.credentials != "secret":
                 api_key = credentials.credentials
+            if provider is not None and provider not in Provider.__map__:
+                if provider in model_map:
+                    config.model = provider
+                    provider = None
+                else:
+                    return ErrorResponse.from_message("Invalid provider.", HTTP_404_NOT_FOUND)
             try:
                 audio = filter_none(voice=config.voice, format=config.response_format, language=config.language)
                 response = await self.client.chat.completions.create(
@@ -736,11 +729,6 @@ class Api:
                         file.file.close()
                 read_cookie_files()
             return response_data
-
-        @self.app.post("/json/{filename}")
-        async def get_json(filename, request: Request):
-            await asyncio.sleep(30)
-            return ""
 
         @self.app.get("/images/{filename}", responses={
             HTTP_200_OK: {"content": {"image/*": {}}},
@@ -847,7 +835,7 @@ class Api:
             return await get_media(filename, request, True)
 
 def format_exception(e: Union[Exception, str], config: Union[ChatCompletionsConfig, ImageGenerationConfig] = None, image: bool = False) -> str:
-    last_provider = {} if not image else g4f.get_last_provider(True)
+    last_provider = {}
     provider = (AppConfig.media_provider if image else AppConfig.provider)
     model = AppConfig.model
     if config is not None:
@@ -876,23 +864,23 @@ def run_api(
     **kwargs
 ) -> None:
     print(f'Starting server... [g4f v-{g4f.version.utils.current_version}]' + (" (debug)" if debug else ""))
-    
+
     if use_colors is None:
         use_colors = debug
-    
+
     if bind is not None:
         host, port = bind.split(":")
-    
+
     if port is None:
         port = DEFAULT_PORT
-    
+
     if AppConfig.demo and debug:
         method = "create_app_with_demo_and_debug"
     elif AppConfig.gui and debug:
         method = "create_app_with_gui_and_debug"
     else:
         method = "create_app_debug" if debug else "create_app"
-    
+
     uvicorn.run(
         f"g4f.api:{method}",
         host=host,

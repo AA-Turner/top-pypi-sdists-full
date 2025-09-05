@@ -32,6 +32,7 @@ from typing import (
     Union,
 )
 
+import pyarrow
 import pyarrow as pa
 import pyarrow.compute as pc
 
@@ -298,10 +299,11 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         query: str,
         fields: Optional[Mapping[str, Union[Feature, Any]]] = None,
         args: Optional[Mapping[str, object]] = None,
+        arrow_schema: Optional[pyarrow.Schema] = None,
     ) -> StringChalkQueryProtocol:
         fields = fields or {}
         fields = {f: unwrap_feature(v) if isinstance(v, FeatureWrapper) else v for (f, v) in fields.items()}
-        return StringChalkQuery(source=self, query=query, fields=fields, params=args or {})
+        return StringChalkQuery(source=self, query=query, fields=fields, params=args or {}, arrow_schema=arrow_schema)
 
     def warm_up(self) -> None:
         from sqlalchemy import text
@@ -658,6 +660,117 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         query_execution_parameters: QueryExecutionParameters,
     ) -> AsyncIterable[pa.RecordBatch]:
         raise NotImplementedError
+
+    def raw_query(self, query: str, output_arrow_schema: Optional[pa.Schema] = None) -> pa.Table:
+        """Run a raw query and return the result as a PyArrow Table.
+
+        This is useful for running queries that do not map to features,
+        or for running queries that return a different schema on each
+        execution.
+
+        Parameters
+        ----------
+        query : str
+            The SQL query to execute
+        output_arrow_schema : Optional[pa.Schema]
+            Optional schema to cast the result to
+
+        Returns
+        -------
+        pa.Table
+            The query results as a PyArrow Table
+        """
+        from sqlalchemy import text
+
+        from chalk.sql.finalized_query import FinalizedChalkQuery, Finalizer
+
+        # If no schema provided, we need to infer it
+        if output_arrow_schema is None:
+            # Execute a limited query first to get schema
+            with self.get_engine().connect() as cnx:
+                result = cnx.execute(text(query + " LIMIT 0"))
+                columns = [col[0] for col in result.cursor.description]
+                # Create a basic schema with string types (will be refined later)
+                output_arrow_schema = pa.schema([(col, pa.string()) for col in columns])
+
+        # Create a FinalizedChalkQuery directly with all required parameters
+        finalized_query = FinalizedChalkQuery(
+            query=text(query),
+            params={},
+            finalizer=Finalizer.ALL,
+            incremental_settings=None,
+            source=self,
+            fields={},  # No feature mapping for raw queries
+            temp_tables={},
+        )
+
+        batches = list(
+            self.execute_query_raw(
+                finalized_query, output_arrow_schema, connection=None, query_execution_parameters=None
+            )
+        )
+
+        if not batches:
+            return pa.table({}, schema=output_arrow_schema)
+
+        return pa.Table.from_batches(batches, schema=output_arrow_schema)
+
+    def execute_query_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection] = None,
+        query_execution_parameters: Optional[QueryExecutionParameters] = None,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute a query and return raw PyArrow RecordBatches mapped to the expected schema.
+
+        This is a simpler version of execute_query that assumes all sources implement
+        execute_query_efficient_raw and maps results directly to the expected schema.
+
+        Parameters
+        ----------
+        finalized_query
+            The finalized query to execute
+        expected_output_schema
+            The expected PyArrow schema for the output
+        connection
+            Optional database connection to use
+        query_execution_parameters
+            Query execution parameters
+
+        Yields
+        ------
+        pa.RecordBatch
+            Record batches with the expected schema
+        """
+        if query_execution_parameters is None:
+            query_execution_parameters = query_execution_parameters_from_env_vars()
+
+        if CHALK_QUERY_LOGGING:
+            log_dialect = None
+            try:
+                log_dialect = self.get_sqlalchemy_dialect(paramstyle="pyformat")
+            except Exception as e:
+                _logger.warning(f"Could not determine sqlalchemy dialect of source of type {self.kind}", exc_info=e)
+            _logger.info(f"Executing SQL query: {finalized_query.query.compile(dialect=log_dialect)}")
+
+        yield from self.execute_query_efficient_raw(
+            finalized_query, expected_output_schema, connection, query_execution_parameters
+        )
+
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Connection],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently and return raw PyArrow RecordBatches.
+
+        Subclasses must implement this method to provide efficient execution
+        that returns RecordBatches matching the expected schema.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement execute_query_efficient_raw")
 
     def get_sqlalchemy_dialect(self, paramstyle: Optional[str] = None) -> Dialect:
         return self.local_engine_url().get_dialect()(paramstyle=paramstyle)

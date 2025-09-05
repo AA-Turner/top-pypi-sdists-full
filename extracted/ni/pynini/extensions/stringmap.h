@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Google LLC
+// Copyright 2016-2025 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,10 @@
 #include <utility>
 #include <vector>
 
+#include <fst/arcsort.h>
 #include <fst/mutable-fst.h>
+#include <fst/push.h>
+#include <fst/rmepsilon.h>
 #include <fst/string.h>
 #include <fst/symbol-table.h>
 #include "prefix_tree.h"
@@ -34,6 +37,7 @@
 
 #include <fst/compat.h>
 #include <string_view>
+
 
 namespace fst {
 namespace internal {
@@ -182,7 +186,7 @@ bool StringMapCompile(internal::ColumnStringFile *csf, MutableFst<Arc> *fst,
     const auto log_line_compilation_error = [&csf, &line]() {
       LOG(ERROR) << "StringFileCompile: Ill-formed line " << csf->LineNumber()
                  << " in file " << csf->Filename() << ": `"
-                 << fst::StringJoin(line, "\t") << "`";
+                 << fst::StrJoin(line, "\t") << "`";
     };
     switch (line.size()) {
       case 1: {
@@ -227,7 +231,7 @@ bool StringMapCompile(const std::vector<std::vector<std::string>> &lines,
   for (const auto &line : lines) {
     const auto log_line_compilation_error = [&line]() {
       LOG(ERROR) << "StringMapCompile: Ill-formed line: `"
-                 << fst::StringJoin(line, "\t") << "`";
+                 << fst::StrJoin(line, "\t") << "`";
     };
     switch (line.size()) {
       case 1: {
@@ -298,9 +302,17 @@ bool StringMapCompileWithAcceptorCheck(
         container, fst, input_token_type, output_token_type, input_symbols,
         output_symbols);
   } else {
-    return internal::StringMapCompile<TransducerPrefixTree<Arc>>(
-        container, fst, input_token_type, output_token_type, input_symbols,
-        output_symbols);
+    if (!internal::StringMapCompile<TransducerPrefixTree<Arc>>(
+            container, fst, input_token_type, output_token_type, input_symbols,
+            output_symbols)) {
+      return false;
+    }
+    // Applies optimizations specific to transducer string maps.
+    Push<Arc, REWEIGHT_TO_INITIAL>(*fst, fst, kPushLabels);
+    RmEpsilon(fst);
+    static const ILabelCompare<Arc> icomp;
+    ArcSort(fst, icomp);
+    return true;
   }
 }
 

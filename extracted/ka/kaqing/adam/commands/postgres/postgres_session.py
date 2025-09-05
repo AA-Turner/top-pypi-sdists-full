@@ -93,23 +93,23 @@ class PostgresSession:
         #  template1                             | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +
         #                                        |          |          |             |             |            |                 | postgres=CTc/postgres
         # (48 rows)
-        r = self.run_sql('\l', show_out=False)
-        s = 0
-        for line in r.stdout.split('\n'):
-            line: str = line.strip(' \r')
-            if s == 0:
-                if 'List of databases' in line:
-                    s = 1
-            elif s == 1:
-                if 'Name' in line and 'Owner' in line and 'Encoding' in line:
-                    s = 2
-            elif s == 2:
-                if line.startswith('---------'):
-                    s = 3
-            elif s == 3:
-                groups = re.match(r'^\s*(\S*)\s*\|\s*(\S*)\s*\|.*', line)
-                if groups and groups[1] != '|':
-                    dbs.append({'name': groups[1], 'owner': groups[2]})
+        if r := self.run_sql('\l', show_out=False):
+            s = 0
+            for line in r.stdout.split('\n'):
+                line: str = line.strip(' \r')
+                if s == 0:
+                    if 'List of databases' in line:
+                        s = 1
+                elif s == 1:
+                    if 'Name' in line and 'Owner' in line and 'Encoding' in line:
+                        s = 2
+                elif s == 2:
+                    if line.startswith('---------'):
+                        s = 3
+                elif s == 3:
+                    groups = re.match(r'^\s*(\S*)\s*\|\s*(\S*)\s*\|.*', line)
+                    if groups and groups[1] != '|':
+                        dbs.append({'name': groups[1], 'owner': groups[2]})
 
         return dbs
 
@@ -120,23 +120,23 @@ class PostgresSession:
         # ----------+------------------------------------------------------------+-------+---------------
         #  postgres | c3_2_admin_aclpriv                                         | table | postgres
         #  postgres | c3_2_admin_aclpriv_a                                       | table | postgres
-        r = self.run_sql('\dt', show_out=False)
-        s = 0
-        for line in r.stdout.split('\n'):
-            line: str = line.strip(' \r')
-            if s == 0:
-                if 'List of relations' in line:
-                    s = 1
-            elif s == 1:
-                if 'Schema' in line and 'Name' in line and 'Type' in line:
-                    s = 2
-            elif s == 2:
-                if line.startswith('---------'):
-                    s = 3
-            elif s == 3:
-                groups = re.match(r'^\s*(\S*)\s*\|\s*(\S*)\s*\|.*', line)
-                if groups and groups[1] != '|':
-                    dbs.append({'schema': groups[1], 'name': groups[2]})
+        if r := self.run_sql('\dt', show_out=False):
+            s = 0
+            for line in r.stdout.split('\n'):
+                line: str = line.strip(' \r')
+                if s == 0:
+                    if 'List of relations' in line:
+                        s = 1
+                elif s == 1:
+                    if 'Schema' in line and 'Name' in line and 'Type' in line:
+                        s = 2
+                elif s == 2:
+                    if line.startswith('---------'):
+                        s = 3
+                elif s == 3:
+                    groups = re.match(r'^\s*(\S*)\s*\|\s*(\S*)\s*\|.*', line)
+                    if groups and groups[1] != '|':
+                        dbs.append({'schema': groups[1], 'name': groups[2]})
 
         return dbs
 
@@ -156,28 +156,35 @@ class PostgresSession:
             return r
         else:
             ns = self.namespace
-            image = Config().get('pg.agent.image', 'seanahnsf/kaqing')
-            pod_name = Config().get('pg.agent.name', 'kaqing-agent')
-            timeout = Config().get('pg.agent.timeout', 3600)
+            pod_name = Config().get('pg.agent.name', 'ops')
+
+            if Config().get('pg.agent.just-in-time', False):
+                image = Config().get('pg.agent.image', 'seanahnsf/kaqing')
+                timeout = Config().get('pg.agent.timeout', 3600)
+                try:
+                    Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
+                except Exception as e:
+                    if e.status == 409:
+                        if Pods.completed(ns, pod_name):
+                            try:
+                                Pods.delete(pod_name, ns)
+                                Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
+                            except Exception as e2:
+                                log2("Exception when calling BatchV1Api->create_pod: %s\n" % e2)
+
+                                return
+                    else:
+                        log2("Exception when calling BatchV1Api->create_pod: %s\n" % e)
+
+                        return
+
+                Pods.wait_for_running(ns, pod_name)
 
             try:
-                Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
-            except Exception as e:
-                if e.status == 409:
-                    if Pods.completed(ns, pod_name):
-                        try:
-                            Pods.delete(pod_name, ns)
-                            Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
-                        except Exception as e2:
-                            log2("Exception when calling BatchV1Api->create_pod: %s\n" % e2)
-
-                            return
-                else:
-                    log2("Exception when calling BatchV1Api->create_pod: %s\n" % e)
-
-                    return
-
-            Pods.wait_for_running(ns, pod_name)
+                Pods.get(ns, pod_name)
+            except:
+                log2(f"Could not locate {pod_name} pod.")
+                return None
 
             cmd = f'PGPASSWORD="{self.password()}" psql -h {self.endpoint()} -p {self.port()} -U {self.username()} {db} --pset pager=off -c "{sql}"'
 

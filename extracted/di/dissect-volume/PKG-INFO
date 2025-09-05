@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.volume
-Version: 3.15
+Version: 3.16
 Summary: A Dissect module implementing a parser for different disk volume and partition systems, for example LVM2, GPT and MBR
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3

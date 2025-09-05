@@ -21,6 +21,11 @@ class TraceSpanApiStatus(Enum):
     ERRORED = "ERRORED"
 
 
+class PromptApi(BaseModel):
+    alias: Optional[str] = None
+    version: Optional[str] = None
+
+
 class MetricData(BaseModel):
     name: str
     threshold: float
@@ -72,6 +77,7 @@ class BaseApiSpan(BaseModel):
 
     # llm
     model: Optional[str] = None
+    prompt: Optional[PromptApi] = None
     input_token_count: Optional[float] = Field(None, alias="inputTokenCount")
     output_token_count: Optional[float] = Field(None, alias="outputTokenCount")
     cost_per_input_token: Optional[float] = Field(
@@ -109,6 +115,7 @@ class TraceApi(BaseModel):
     user_id: Optional[str] = Field(None, alias="userId")
     input: Optional[Any] = Field(None)
     output: Optional[Any] = Field(None)
+    status: Optional[TraceSpanApiStatus] = Field(TraceSpanApiStatus.SUCCESS)
 
     # additional test case parameters
     retrieval_context: Optional[List[str]] = Field(
@@ -127,3 +134,7 @@ class TraceApi(BaseModel):
 
     # Don't serialize these
     confident_api_key: Optional[str] = Field(None, exclude=True)
+
+    class Config:
+        use_enum_values = True
+        validate_assignment = True

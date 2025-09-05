@@ -10,11 +10,12 @@
 #  Copyright (C) 2015-2024 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+from typing import Optional
 
 from comet_ml._typing import List
-from comet_ml.comet import Streamer
 from comet_ml.console import StdLogger
-from comet_ml.messages import BaseMessage
+from comet_ml.messages import BaseMessage, CloseMessage
+from comet_ml.streamer import OnlineStreamer
 
 
 class DummyStdLogger(StdLogger):
@@ -22,7 +23,7 @@ class DummyStdLogger(StdLogger):
         super(DummyStdLogger, self).__init__(*args, **kwargs)
 
 
-class DummyStreamer(Streamer):
+class DummyOnlineStreamer(OnlineStreamer):
     def __init__(self, api_key, run_id, project_id):
         self.messages: List[BaseMessage] = []
         self.closed = False
@@ -39,34 +40,37 @@ class DummyStreamer(Streamer):
         message.message_id = self._counter
         self.messages.append(message)
 
+    def _put_close_message_in_queue(self) -> None:
+        self.messages.append(CloseMessage())
+
     def get_last_msg(self) -> BaseMessage:
         return self.messages[-1]
 
-    def getn(self, n):
+    def getn(self, n) -> List[BaseMessage]:
         return self.messages[-n:]
 
-    def get_all(self):
+    def get_all(self) -> List[BaseMessage]:
         return self.messages
 
-    def get_one_before_last(self):
+    def get_one_before_last(self) -> BaseMessage:
         return self.getn(2)[0]
 
-    def has_connection_to_server(self):
+    def has_connection_to_server(self) -> bool:
         return True
 
-    def flush(self):
+    def flush(self, timeout: Optional[int] = None) -> bool:
         return True
 
-    def wait_for_finish(self, **kwargs):
+    def wait_for_finish(self, **kwargs) -> bool:
         return True
 
-    def has_upload_failed(self):
+    def has_upload_failed(self) -> bool:
         return False
 
     def clean(self):
         self.messages = []
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
     def _report_experiment_error(self, message: str, has_crashed: bool = False):
@@ -74,10 +78,10 @@ class DummyStreamer(Streamer):
         self.error_message = message
         self.has_crashed = has_crashed
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "DummyStreamer()"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "DummyStreamer()"
 
 

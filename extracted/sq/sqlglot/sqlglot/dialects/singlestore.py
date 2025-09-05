@@ -1,3 +1,5 @@
+import re
+
 from sqlglot import TokenType
 import typing as t
 
@@ -59,6 +61,8 @@ class SingleStore(MySQL):
             "BSON": TokenType.JSONB,
             "GEOGRAPHYPOINT": TokenType.GEOGRAPHYPOINT,
             "TIMESTAMP": TokenType.TIMESTAMP,
+            "UTC_DATE": TokenType.UTC_DATE,
+            "UTC_TIME": TokenType.UTC_TIME,
             ":>": TokenType.COLON_GT,
             "!:>": TokenType.NCOLON_GT,
             "::$": TokenType.DCOLONDOLLAR,
@@ -195,6 +199,12 @@ class SingleStore(MySQL):
             ),
         }
 
+        NO_PAREN_FUNCTIONS = {
+            **MySQL.Parser.NO_PAREN_FUNCTIONS,
+            TokenType.UTC_DATE: exp.UtcDate,
+            TokenType.UTC_TIME: exp.UtcTime,
+        }
+
         CAST_COLUMN_OPERATORS = {TokenType.COLON_GT, TokenType.NCOLON_GT}
 
         COLUMN_OPERATORS = {
@@ -226,6 +236,15 @@ class SingleStore(MySQL):
         COLUMN_OPERATORS.pop(TokenType.PLACEHOLDER)
 
     class Generator(MySQL.Generator):
+        SUPPORTS_UESCAPE = False
+
+        @staticmethod
+        def _unicode_substitute(m: re.Match[str]) -> str:
+            # Interpret the number as hex and convert it to the Unicode string
+            return chr(int(m.group(1), 16))
+
+        UNICODE_SUBSTITUTE: t.Optional[t.Callable[[re.Match[str]], str]] = _unicode_substitute
+
         SUPPORTED_JSON_PATH_PARTS = {
             exp.JSONPathKey,
             exp.JSONPathRoot,
@@ -263,6 +282,9 @@ class SingleStore(MySQL):
             ),
             exp.TryCast: unsupported_args("format", "action", "default")(
                 lambda self, e: f"{self.sql(e, 'this')} !:> {self.sql(e, 'to')}"
+            ),
+            exp.CastToStrType: lambda self, e: self.sql(
+                exp.cast(e.this, DataType.build(e.args["to"].name))
             ),
             exp.StrToUnix: unsupported_args("format")(rename_func("UNIX_TIMESTAMP")),
             exp.TimeToUnix: rename_func("UNIX_TIMESTAMP"),
@@ -313,6 +335,9 @@ class SingleStore(MySQL):
                 if e.unit is not None
                 else self.func("DATEDIFF", e.this, e.expression)
             ),
+            exp.TsOrDsDiff: lambda self, e: timestampdiff_sql(self, e)
+            if e.unit is not None
+            else self.func("DATEDIFF", e.this, e.expression),
             exp.TimestampTrunc: unsupported_args("zone")(timestamptrunc_sql()),
             exp.JSONExtract: unsupported_args(
                 "only_json_types",
@@ -347,6 +372,9 @@ class SingleStore(MySQL):
             exp.Variance: rename_func("VAR_SAMP"),
             exp.VariancePop: rename_func("VAR_POP"),
             exp.Xor: bool_xor_sql,
+            exp.Cbrt: lambda self, e: self.sql(
+                exp.Pow(this=e.this, expression=exp.Literal.number(1) / exp.Literal.number(3))
+            ),
             exp.RegexpLike: lambda self, e: self.binary(e, "RLIKE"),
             exp.Repeat: lambda self, e: self.func(
                 "LPAD",
@@ -382,6 +410,13 @@ class SingleStore(MySQL):
             exp.FromBase: lambda self, e: self.func(
                 "CONV", e.this, e.expression, exp.Literal.number(10)
             ),
+            exp.RegexpILike: lambda self, e: self.binary(
+                exp.RegexpLike(
+                    this=exp.Lower(this=e.this),
+                    expression=exp.Lower(this=e.expression),
+                ),
+                "RLIKE",
+            ),
             exp.Reduce: unsupported_args("finish")(
                 lambda self, e: self.func(
                     "REDUCE", e.args.get("initial"), e.this, e.args.get("merge")
@@ -389,6 +424,7 @@ class SingleStore(MySQL):
             ),
         }
         TRANSFORMS.pop(exp.JSONExtractScalar)
+        TRANSFORMS.pop(exp.CurrentDate)
 
         UNSUPPORTED_TYPES = {
             exp.DataType.Type.ARRAY,
@@ -1606,3 +1642,28 @@ class SingleStore(MySQL):
                     return f"DECIMAL({precision})"
 
             return super().datatype_sql(expression)
+
+        def collate_sql(self, expression: exp.Collate) -> str:
+            # SingleStore does not support setting a collation for column in the SELECT query,
+            # so we cast column to a LONGTEXT type with specific collation
+            return self.binary(expression, ":> LONGTEXT COLLATE")
+
+        def currentdate_sql(self, expression: exp.CurrentDate) -> str:
+            timezone = expression.this
+            if timezone:
+                if isinstance(timezone, exp.Literal) and timezone.name.lower() == "utc":
+                    return self.func("UTC_DATE")
+                self.unsupported("CurrentDate with timezone is not supported in SingleStore")
+
+            return self.func("CURRENT_DATE")
+
+        def currenttime_sql(self, expression: exp.CurrentTime) -> str:
+            arg = expression.this
+            if arg:
+                if isinstance(arg, exp.Literal) and arg.name.lower() == "utc":
+                    return self.func("UTC_TIME")
+                if isinstance(arg, exp.Literal) and arg.is_number:
+                    return self.func("CURRENT_TIME", arg)
+                self.unsupported("CurrentTime with timezone is not supported in SingleStore")
+
+            return self.func("CURRENT_TIME")

@@ -362,6 +362,8 @@ class _defs_sequencer_generic:
 class _defs_sequencer_select:
     box_preview: typing.Any
     box_timeline: typing.Any
+    circle_preview: typing.Any
+    circle_timeline: typing.Any
     select_preview: typing.Any
 
 class _defs_texture_paint:

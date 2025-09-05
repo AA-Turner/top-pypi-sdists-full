@@ -20,8 +20,10 @@ from .config_constants import (
     DEFAULT_OFFLINE_DATA_DIRECTORY,
     DEFAULT_POOL_RATIO,
     DEFAULT_REMOTE_MODEL_DOWNLOAD_TIMEOUT,
+    DEFAULT_STREAMER_BEAT_DURATION,
     DEFAULT_STREAMER_MSG_TIMEOUT,
     DEFAULT_SYSTEM_MONITORING_INTERVAL,
+    DEFAULT_WAIT_FOR_FINISH_SLEEP_INTERVAL,
     FALLBACK_STREAMER_CONNECTION_CHECK_INTERVAL_SECONDS,
     GET_OR_ADD_RUN_RETRY_BACKOFF_FACTOR,
     GET_OR_ADD_RUN_RETRY_BACKOFF_MAX,
@@ -88,7 +90,7 @@ CONFIG_MAP = {
     "comet.optimizer_timeout.http": {"type": int, "default": 30},
     "comet.timeout.api": {"type": int, "default": 10},
     "comet.timeout.file_upload": {
-        "type": int,
+        "type": float,
         "default": DEFAULT_FILE_UPLOAD_READ_TIMEOUT,
     },
     "comet.timeout.file_download": {"type": int, "default": 600},
@@ -99,6 +101,15 @@ CONFIG_MAP = {
     "comet.timeout.remote_model_download": {
         "type": int,
         "default": DEFAULT_REMOTE_MODEL_DOWNLOAD_TIMEOUT,
+    },
+    # Sleep intervals
+    "comet.internal.streamer_wait_sleep_interval": {
+        "type": int,
+        "default": DEFAULT_WAIT_FOR_FINISH_SLEEP_INTERVAL,
+    },
+    "comet.internal.streamer_beat_duration": {
+        "type": int,
+        "default": DEFAULT_STREAMER_BEAT_DURATION,
     },
     # HTTP Allow header
     "comet.allow_header.name": {"type": str},

@@ -88,6 +88,7 @@ __all__ = (
     "DeleteVpcEndpointResponseTypeDef",
     "EffectiveLifecyclePolicyDetailTypeDef",
     "EffectiveLifecyclePolicyErrorDetailTypeDef",
+    "FipsEndpointsTypeDef",
     "GetAccessPolicyRequestTypeDef",
     "GetAccessPolicyResponseTypeDef",
     "GetAccountSettingsResponseTypeDef",
@@ -191,25 +192,6 @@ class BatchGetCollectionRequestTypeDef(TypedDict):
     ids: NotRequired[Sequence[str]]
     names: NotRequired[Sequence[str]]
 
-CollectionDetailTypeDef = TypedDict(
-    "CollectionDetailTypeDef",
-    {
-        "id": NotRequired[str],
-        "name": NotRequired[str],
-        "status": NotRequired[CollectionStatusType],
-        "type": NotRequired[CollectionTypeType],
-        "description": NotRequired[str],
-        "arn": NotRequired[str],
-        "kmsKeyArn": NotRequired[str],
-        "standbyReplicas": NotRequired[StandbyReplicasType],
-        "createdDate": NotRequired[int],
-        "lastModifiedDate": NotRequired[int],
-        "collectionEndpoint": NotRequired[str],
-        "dashboardEndpoint": NotRequired[str],
-        "failureCode": NotRequired[str],
-        "failureMessage": NotRequired[str],
-    },
-)
 CollectionErrorDetailTypeDef = TypedDict(
     "CollectionErrorDetailTypeDef",
     {
@@ -308,6 +290,10 @@ VpcEndpointErrorDetailTypeDef = TypedDict(
         "errorCode": NotRequired[str],
     },
 )
+
+class FipsEndpointsTypeDef(TypedDict):
+    collectionEndpoint: NotRequired[str]
+    dashboardEndpoint: NotRequired[str]
 
 class CollectionFiltersTypeDef(TypedDict):
     name: NotRequired[str]
@@ -724,11 +710,6 @@ class AccountSettingsDetailTypeDef(TypedDict):
 class UpdateAccountSettingsRequestTypeDef(TypedDict):
     capacityLimits: NotRequired[CapacityLimitsTypeDef]
 
-class BatchGetCollectionResponseTypeDef(TypedDict):
-    collectionDetails: List[CollectionDetailTypeDef]
-    collectionErrorDetails: List[CollectionErrorDetailTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateAccessPolicyResponseTypeDef(TypedDict):
     accessPolicyDetail: AccessPolicyDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -778,6 +759,27 @@ class BatchGetVpcEndpointResponseTypeDef(TypedDict):
     vpcEndpointDetails: List[VpcEndpointDetailTypeDef]
     vpcEndpointErrorDetails: List[VpcEndpointErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+CollectionDetailTypeDef = TypedDict(
+    "CollectionDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "status": NotRequired[CollectionStatusType],
+        "type": NotRequired[CollectionTypeType],
+        "description": NotRequired[str],
+        "arn": NotRequired[str],
+        "kmsKeyArn": NotRequired[str],
+        "standbyReplicas": NotRequired[StandbyReplicasType],
+        "createdDate": NotRequired[int],
+        "lastModifiedDate": NotRequired[int],
+        "collectionEndpoint": NotRequired[str],
+        "dashboardEndpoint": NotRequired[str],
+        "fipsEndpoints": NotRequired[FipsEndpointsTypeDef],
+        "failureCode": NotRequired[str],
+        "failureMessage": NotRequired[str],
+    },
+)
 
 class ListCollectionsRequestTypeDef(TypedDict):
     collectionFilters: NotRequired[CollectionFiltersTypeDef]
@@ -925,6 +927,11 @@ class GetAccountSettingsResponseTypeDef(TypedDict):
 
 class UpdateAccountSettingsResponseTypeDef(TypedDict):
     accountSettingsDetail: AccountSettingsDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchGetCollectionResponseTypeDef(TypedDict):
+    collectionDetails: List[CollectionDetailTypeDef]
+    collectionErrorDetails: List[CollectionErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateSecurityConfigResponseTypeDef(TypedDict):

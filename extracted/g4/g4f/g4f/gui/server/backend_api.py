@@ -47,6 +47,8 @@ from ...image import is_allowed_extension, process_image, MEDIA_TYPE_MAP
 from ...cookies import get_cookies_dir
 from ...image.copy_images import secure_filename, get_source_url, get_media_dir, copy_media
 from ...client.service import get_model_and_provider
+from ...providers.any_model_map import model_map
+from ... import Provider
 from ... import models
 from .api import Api
 
@@ -102,12 +104,12 @@ class Backend_Api(Api):
                 try:
                     decrypted_secret = decrypt_data(sub_private_key, decrypt_data(private_key_obj, secret))
                     timediff = time.time() - int(decrypted_secret)
-                    return timediff <= 3 and timediff >= 0
+                    return timediff <= 10 and timediff >= 0
                 except Exception as e:
                     logger.error(f"Secret validation failed: {e}")
                     return False
 
-            @app.route('/backend-api/v2/public-key', methods=['GET'])
+            @app.route('/backend-api/v2/public-key', methods=['GET', 'POST'])
             def get_public_key():
                 if not has_crypto:
                     return jsonify({"error": {"message": "Crypto support is not available"}}), 501
@@ -120,7 +122,8 @@ class Backend_Api(Api):
                 # Send the public key to the client for encryption
                 return jsonify({
                     "public_key": public_key_pem.decode(),
-                    "data": encrypt_data(sub_public_key, str(int(time.time())))
+                    "data": encrypt_data(sub_public_key, str(int(time.time()))),
+                    "user": request.headers.get("x-user", "error")
                 })
 
         @app.route('/backend-api/v2/models', methods=['GET'])
@@ -196,6 +199,8 @@ class Backend_Api(Api):
                 json_data['media'] = media
             if app.timeout:
                 json_data['timeout'] = app.timeout
+            if app.stream_timeout:
+                json_data['stream_timeout'] = app.stream_timeout
             if app.demo and not json_data.get("provider"):
                 model = json_data.get("model")
                 if model != "default" and model in models.demo_models:
@@ -206,11 +211,19 @@ class Backend_Api(Api):
                 json_data["user"] = request.headers.get("x-user", "error")
                 json_data["referer"] = request.headers.get("referer", "")
                 json_data["user-agent"] = request.headers.get("user-agent", "")
+
             kwargs = self._prepare_conversation_kwargs(json_data)
+            provider = kwargs.pop("provider", None)
+            if provider and provider  not in Provider.__map__:
+                if provider in model_map:
+                    kwargs['model'] = provider
+                    provider = None
+                else:
+                    return jsonify({"error": {"message": "Provider not found"}}), 404
             return self.app.response_class(
                 safe_iter_generator(self._create_response_stream(
                     kwargs,
-                    json_data.get("provider"),
+                    provider,
                     json_data.get("download_media", True),
                     tempfiles
                 )),
@@ -247,38 +260,6 @@ class Backend_Api(Api):
                 f.write(f"{json.dumps(data)}\n")
             return {}
 
-        @app.route('/backend-api/v2/memory/<user_id>', methods=['POST'])
-        def add_memory(user_id: str):
-            api_key = request.headers.get("x_api_key")
-            json_data = request.json
-            from mem0 import MemoryClient
-            client = MemoryClient(api_key=api_key)
-            client.add(
-                [{"role": item["role"], "content": item["content"]} for item in json_data.get("items")],
-                user_id=user_id,
-                metadata={"conversation_id": json_data.get("id")}
-            )
-            return {"count": len(json_data.get("items"))}
-
-        @app.route('/backend-api/v2/memory/<user_id>', methods=['GET'])
-        def read_memory(user_id: str):
-            api_key = request.headers.get("x_api_key")
-            from mem0 import MemoryClient
-            client = MemoryClient(api_key=api_key)
-            if request.args.get("search"):
-                return client.search(
-                    request.args.get("search"),
-                    user_id=user_id,
-                    filters=json.loads(request.args.get("filters", "null")),
-                    metadata=json.loads(request.args.get("metadata", "null"))
-                )
-            return client.get_all(
-                user_id=user_id,
-                page=request.args.get("page", 1),
-                page_size=request.args.get("page_size", 100),
-                filters=json.loads(request.args.get("filters", "null")),
-            )
-
         self.routes = {
             '/backend-api/v2/synthesize/<provider>': {
                 'function': self.handle_synthesize,
@@ -307,18 +288,10 @@ class Backend_Api(Api):
         @app.route('/backend-api/v2/create', methods=['GET'])
         def create():
             try:
-                tool_calls = []
                 web_search = request.args.get("web_search")
                 if web_search:
                     is_true_web_search = web_search.lower() in ["true", "1"]
-                    web_search = None if is_true_web_search else web_search
-                    tool_calls.append({
-                        "function": {
-                            "name": "search_tool",
-                            "arguments": {"query": web_search, "instructions": "", "max_words": 1000} if web_search != "true" else {}
-                        },
-                        "type": "function"
-                    })
+                    web_search = True if is_true_web_search else web_search
                 do_filter = request.args.get("filter_markdown", request.args.get("json"))
                 cache_id = request.args.get('cache')
                 model, provider_handler = get_model_and_provider(
@@ -330,7 +303,7 @@ class Backend_Api(Api):
                     "model": model,
                     "messages": [{"role": "user", "content": request.args.get("prompt")}],
                     "stream": not do_filter and not cache_id,
-                    "tool_calls": tool_calls,
+                    "web_search": web_search,
                 }
                 if request.args.get("audio_provider") or request.args.get("audio"):
                     parameters["audio"] = {}
@@ -608,9 +581,9 @@ class Backend_Api(Api):
         return response
 
     def get_provider_models(self, provider: str):
-        api_key = request.headers.get("x_api_key")
-        api_base = request.headers.get("x_api_base")
-        ignored = request.headers.get("x_ignored", "").split()
+        api_key = request.headers.get("x-api-key")
+        api_base = request.headers.get("x-api-base")
+        ignored = request.headers.get("x-ignored", "").split()
         return super().get_provider_models(provider, api_key, api_base, ignored)
 
     def _format_json(self, response_type: str, content = None, **kwargs) -> str:

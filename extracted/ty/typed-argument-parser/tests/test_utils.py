@@ -1,7 +1,9 @@
 from argparse import ArgumentTypeError
+import inspect
 import json
 import os
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, List, Literal, Dict, Set, Tuple, Union
 import unittest
@@ -11,6 +13,7 @@ from tap.utils import (
     get_class_column,
     get_class_variables,
     GitInfo,
+    tokenize_source,
     type_to_str,
     get_literals,
     TupleTypeEnforcer,
@@ -108,6 +111,16 @@ class GitTests(TestCase):
         url = f"{true_url}/tree/"
         self.assertEqual(self.git_info.get_git_url(commit_hash=True)[: len(url)], url)
 
+    def test_get_git_url_no_remote(self) -> None:
+        subprocess.run(["git", "remote", "remove", "origin"])
+        self.assertEqual(self.git_info.get_git_url(), "")
+
+    def test_get_git_version(self) -> None:
+        git_version = self.git_info.get_git_version()
+        self.assertIsInstance(git_version, tuple)
+        for v in git_version:
+            self.assertIsInstance(v, int)
+
     def test_has_uncommitted_changes_false(self) -> None:
         self.assertFalse(self.git_info.has_uncommitted_changes())
 
@@ -133,7 +146,11 @@ class TypeToStrTests(TestCase):
         self.assertEqual(type_to_str(List[bool]), "List[bool]")
         self.assertEqual(type_to_str(Set[int]), "Set[int]")
         self.assertEqual(type_to_str(Dict[str, int]), "Dict[str, int]")
-        self.assertEqual(type_to_str(Union[List[int], Dict[float, bool]]), "Union[List[int], Dict[float, bool]]")
+
+        if sys.version_info >= (3, 14):
+            self.assertEqual(type_to_str(Union[List[int], Dict[float, bool]]), "List[int] | Dict[float, bool]")
+        else:
+            self.assertEqual(type_to_str(Union[List[int], Dict[float, bool]]), "Union[List[int], Dict[float, bool]]")
 
 
 def class_decorator(cls):
@@ -145,7 +162,8 @@ class ClassColumnTests(TestCase):
         class SimpleColumn:
             arg = 2
 
-        self.assertEqual(get_class_column(SimpleColumn), 12)
+        tokens = tokenize_source(inspect.getsource(SimpleColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
     def test_column_comment(self):
         class CommentColumn:
@@ -158,28 +176,32 @@ class ClassColumnTests(TestCase):
 
             arg = 2
 
-        self.assertEqual(get_class_column(CommentColumn), 12)
+        tokens = tokenize_source(inspect.getsource(CommentColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
     def test_column_space(self):
         class SpaceColumn:
 
             arg = 2
 
-        self.assertEqual(get_class_column(SpaceColumn), 12)
+        tokens = tokenize_source(inspect.getsource(SpaceColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
     def test_column_method(self):
         class FuncColumn:
             def func(self):
                 pass
 
-        self.assertEqual(get_class_column(FuncColumn), 12)
+        tokens = tokenize_source(inspect.getsource(FuncColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
     def test_dataclass(self):
         @class_decorator
         class DataclassColumn:
             arg: int = 5
 
-        self.assertEqual(get_class_column(DataclassColumn), 12)
+        tokens = tokenize_source(inspect.getsource(DataclassColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
     def test_dataclass_method(self):
         def wrapper(f):
@@ -191,7 +213,8 @@ class ClassColumnTests(TestCase):
             def func(self):
                 pass
 
-        self.assertEqual(get_class_column(DataclassColumn), 12)
+        tokens = tokenize_source(inspect.getsource(DataclassColumn))
+        self.assertEqual(get_class_column(tokens), 12)
 
 
 class ClassVariableTests(TestCase):
@@ -226,9 +249,7 @@ class ClassVariableTests(TestCase):
 
     def test_separated_variables(self):
         class SeparatedVariable:
-            """Comment
-
-            """
+            """Comment"""
 
             arg_1: str
 
@@ -244,9 +265,7 @@ class ClassVariableTests(TestCase):
 
     def test_commented_variables(self):
         class CommentedVariable:
-            """Comment
-
-            """
+            """Comment"""
 
             arg_1: str  # Arg 1 comment
 
@@ -267,10 +286,10 @@ class ClassVariableTests(TestCase):
 
     def test_bad_spacing_multiline(self):
         class TrickyMultiline:
-            """   This is really difficult
+            """This is really difficult
 
-        so
-            so very difficult
+            so
+                so very difficult
             """
 
             foo: str = "my"  # Header line
@@ -299,6 +318,39 @@ T
 
         class_variables = {"bar": {"comment": "biz baz"}, "hi": {"comment": "Hello there"}}
         self.assertEqual(get_class_variables(TripleQuoteMultiline), class_variables)
+
+    def test_comments_with_quotes(self):
+        class MultiquoteMultiline:
+            bar: int = 0
+            "''biz baz'"
+
+            hi: str
+            '"Hello there""'
+
+        class_variables = {}
+        class_variables["bar"] = {"comment": "''biz baz'"}
+        class_variables["hi"] = {"comment": '"Hello there""'}
+        self.assertEqual(get_class_variables(MultiquoteMultiline), class_variables)
+
+    def test_multiline_argument(self):
+        class MultilineArgument:
+            bar: str = "This is a multiline argument" " that should not be included in the docstring"
+            """biz baz"""
+
+        class_variables = {"bar": {"comment": "biz baz"}}
+        self.assertEqual(get_class_variables(MultilineArgument), class_variables)
+
+    def test_multiline_argument_with_final_hashtag_comment(self):
+        class MultilineArgumentWithHashTagComment:
+            bar: str = "This is a multiline argument" " that should not be included in the docstring"  # biz baz
+            barr: str = "This is a multiline argument" " that should not be included in the docstring"  # bar baz
+            barrr: str = (  # meow
+                "This is a multiline argument"  # blah
+                " that should not be included in the docstring"  # grrrr
+            )  # yay!
+
+        class_variables = {"bar": {"comment": "biz baz"}, "barr": {"comment": "bar baz"}, "barrr": {"comment": "yay!"}}
+        self.assertEqual(get_class_variables(MultilineArgumentWithHashTagComment), class_variables)
 
     def test_single_quote_multiline(self):
         class SingleQuoteMultiline:
@@ -503,7 +555,7 @@ class PythonObjectEncoderTests(TestCase):
 
     def test_python_object_encoder_unpicklable(self):
         class CannotPickleThis:
-            """Da na na na. Can't pickle this. """
+            """Da na na na. Can't pickle this."""
 
             def __init__(self):
                 self.x = 1

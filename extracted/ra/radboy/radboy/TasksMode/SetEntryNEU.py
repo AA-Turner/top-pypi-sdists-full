@@ -355,6 +355,7 @@ class NEUSetter:
                     tax_adjusted=False
                     for fname in fnames:
                         column=getattr(Entry,fname)
+                        oldprice=getattr(selected,'Price')
                         newValue=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"[{Fore.medium_violet_red}old{Fore.light_yellow}] {Fore.light_magenta}{fname} = {Fore.light_red}{getattr(selected,fname)}{Fore.orange_red_1} to: {Style.reset}",helpText="new value",data=str(column.type))
                         if newValue in [None,'d']:
                             continue
@@ -367,16 +368,25 @@ class NEUSetter:
                         if fname.lower() == 'price':
                             session.commit()
                             session.refresh(selected)
-                            adjust_tax=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Adjust Tax using Price({newValue}),CRV({selected.CRV}), and the Tax Rate",helpText="yes/no/boolean",data="boolean")
+                            adjust_tax=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Adjust Tax using Price({newValue}),CRV({selected.CRV}), and the Tax Rate.",helpText="yes/no/boolean",data="boolean")
                             if adjust_tax in ['d',True]:
                                 tax_adjusted=True
                                 ROUNDTO=int(db.detectGetOrSet("lsbld ROUNDTO default",3,setValue=False,literal=True))
                                 default_taxrate=round(float(db.detectGetOrSet("Tax Rate",0.0925,setValue=False,literal=True)),4)
-                                tax_rate=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Tax({default_taxrate}): ",helpText=f"What is the tax rate, default is {default_taxrate}.",data="float")
+                                
+                                try:
+                                    last_taxrate=float(decc(selected.Tax/(oldprice+selected.CRV),cf=4))
+                                except Exception as e:
+                                    print(e)
+                                    last_taxrate=0
+
+                                tax_rate=Prompt.__init2__(None,func=lambda text,data:FormBuilderMkText(text,data,passThru=['l','L','last'],PassThru=True),ptext=f"Tax(default={default_taxrate},{Fore.light_green}{['l','L','last']}{Fore.dark_goldenrod}last_tax_rate={Fore.light_red}{last_taxrate}{Fore.light_yellow}): ",helpText=f"What is the tax rate, default is {default_taxrate}; just hit enter.['l','L','last'] will use last taxrate {last_taxrate}.",data="float")
                                 if tax_rate in [None,]:
                                     return selected.Tax,selected.CRV
                                 elif tax_rate in ['d',]:
                                     tax_rate=default_taxrate
+                                elif tax_rate in ['l','L','last']:
+                                    tax_rate=last_taxrate
 
                                 tax=round(selected.Price+selected.CRV,ROUNDTO)*tax_rate
                                 tax=round(tax,ROUNDTO)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.5.6
+Version: 0.5.7
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Project-URL: Homepage, https://github.com/PyPSA/linopy
@@ -30,6 +30,8 @@ Requires-Dist: dask>=0.18.0
 Requires-Dist: polars
 Requires-Dist: tqdm
 Requires-Dist: deprecation
+Requires-Dist: google-cloud-storage
+Requires-Dist: requests
 Provides-Extra: docs
 Requires-Dist: ipython==8.26.0; extra == "docs"
 Requires-Dist: numpydoc==1.7.0; extra == "docs"
@@ -49,6 +51,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: netcdf4; extra == "dev"
 Requires-Dist: paramiko; extra == "dev"
 Requires-Dist: types-paramiko; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: gurobipy; extra == "dev"
 Requires-Dist: highspy; extra == "dev"
 Provides-Extra: solvers

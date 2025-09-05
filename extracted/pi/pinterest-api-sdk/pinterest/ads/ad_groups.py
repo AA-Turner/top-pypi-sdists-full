@@ -350,7 +350,7 @@ class AdGroup(PinterestBaseModel):
             client=cls._get_client(client)
         )
 
-    def update_fields(self, **kwargs) -> bool:
+    def update_fields(self, client: PinterestSDKClient = None, **kwargs) -> bool:
         """
         Update adgroup fields using any arguments
 
@@ -376,6 +376,7 @@ class AdGroup(PinterestBaseModel):
             },
             api=AdGroupsApi,
             update_fn=AdGroupsApi.ad_groups_update,
+            client=client,
             **kwargs
         )
 

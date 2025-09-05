@@ -987,7 +987,7 @@ class Projects:
         if create_deployment_config:
             body.update(create_deployment_config)
         headers = {"Content-Type": "application/json"}
-        path = f"/v1/deployment?projectId={self.project_id}"
+        path = f"/v1/deployment?projectId={self.project_id}" #Changed to deployment again
         resp = self.rpc.post(
             path=path,
             headers=headers,

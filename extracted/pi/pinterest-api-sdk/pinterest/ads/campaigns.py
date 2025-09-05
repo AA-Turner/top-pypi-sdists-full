@@ -485,7 +485,7 @@ class Campaign(PinterestBaseModel):
         """
         return self._change_status('ARCHIVED')
 
-    def update_fields(self, **kwargs) -> bool:
+    def update_fields(self, client: PinterestSDKClient = None, **kwargs) -> bool:
         """
         Update the campaign fields using any attributes.
 
@@ -508,6 +508,7 @@ class Campaign(PinterestBaseModel):
             },
             api=CampaignsApi,
             update_fn=CampaignsApi.campaigns_update,
+            client=client,
             **kwargs
         )
 

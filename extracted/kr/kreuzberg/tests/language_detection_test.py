@@ -1,5 +1,3 @@
-"""Tests for language detection functionality."""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -7,11 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from kreuzberg import MissingDependencyError
-from kreuzberg._language_detection import LanguageDetectionConfig, _create_fast_langdetect_config, detect_languages
+from kreuzberg._language_detection import _create_fast_langdetect_config, detect_languages
+from kreuzberg._types import LanguageDetectionConfig
 
 
 def test_language_detection_config_defaults() -> None:
-    """Test LanguageDetectionConfig default values."""
     config = LanguageDetectionConfig()
     assert config.low_memory is True
     assert config.top_k == 3
@@ -21,7 +19,6 @@ def test_language_detection_config_defaults() -> None:
 
 
 def test_language_detection_config_custom_values() -> None:
-    """Test LanguageDetectionConfig with custom values."""
     config = LanguageDetectionConfig(
         low_memory=False, top_k=5, multilingual=True, cache_dir="/tmp/cache", allow_fallback=False
     )
@@ -33,8 +30,6 @@ def test_language_detection_config_custom_values() -> None:
 
 
 def test_detect_languages_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with missing fast-langdetect dependency."""
-    # Mock the module import to simulate missing dependency
     import kreuzberg._language_detection as ld
 
     monkeypatch.setattr(ld, "HAS_FAST_LANGDETECT", False)
@@ -46,8 +41,6 @@ def test_detect_languages_missing_dependency(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_detect_languages_with_results(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with successful detection."""
-
     def mock_detect(text: str, low_memory: bool = True) -> dict[str, str | float]:
         return {"lang": "en", "confidence": 0.95}
 
@@ -62,10 +55,8 @@ def test_detect_languages_with_results(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_detect_languages_empty_input(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with empty input."""
-
     def mock_detect(text: str, low_memory: bool = True) -> dict[str, str | float] | None:
-        return None  # Empty input returns None
+        return None
 
     import kreuzberg._language_detection as ld
 
@@ -78,8 +69,6 @@ def test_detect_languages_empty_input(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_detect_languages_multilingual(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with multilingual detection."""
-
     def mock_detect_multilingual(text: str, low_memory: bool = True, k: int = 3) -> list[dict[str, str | float]]:
         return [
             {"lang": "en", "confidence": 0.8},
@@ -97,8 +86,6 @@ def test_detect_languages_multilingual(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_detect_languages_exception_handling(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with exception handling."""
-
     def mock_detect_error(text: str, low_memory: bool = True) -> None:
         raise RuntimeError("Detection failed")
 
@@ -109,12 +96,10 @@ def test_detect_languages_exception_handling(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(ld, "detect_multilingual", mock_detect_error)
 
     result = detect_languages("text", LanguageDetectionConfig())
-    assert result is None  # Should return None on exception
+    assert result is None
 
 
 def test_detect_languages_with_none_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test detect_languages with None config (uses defaults)."""
-
     def mock_detect(text: str, low_memory: bool = True) -> dict[str, str | float]:
         return {"lang": "de", "confidence": 0.9}
 
@@ -124,12 +109,11 @@ def test_detect_languages_with_none_config(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(ld, "detect", mock_detect)
     monkeypatch.setattr(ld, "detect_multilingual", mock_detect)
 
-    result = detect_languages("Hallo Welt")  # No config passed
+    result = detect_languages("Hallo Welt")
     assert result == ["de"]
 
 
 def test_create_fast_langdetect_config_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _create_fast_langdetect_config with missing dependency."""
     import kreuzberg._language_detection as ld
 
     monkeypatch.setattr(ld, "HAS_FAST_LANGDETECT", False)
@@ -141,7 +125,6 @@ def test_create_fast_langdetect_config_missing_dependency(monkeypatch: pytest.Mo
 
 
 def test_create_fast_langdetect_config_with_cache_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _create_fast_langdetect_config with cache directory."""
     mock_config_class = MagicMock()
 
     import kreuzberg._language_detection as ld
@@ -152,12 +135,10 @@ def test_create_fast_langdetect_config_with_cache_dir(monkeypatch: pytest.Monkey
     config = LanguageDetectionConfig(cache_dir="/tmp/test", allow_fallback=False)
     _create_fast_langdetect_config(config)
 
-    # Verify the mock was called with correct arguments
     mock_config_class.assert_called_once_with(allow_fallback=False, cache_dir="/tmp/test")
 
 
 def test_create_fast_langdetect_config_without_cache_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _create_fast_langdetect_config without cache directory."""
     mock_config_class = MagicMock()
 
     import kreuzberg._language_detection as ld
@@ -168,5 +149,4 @@ def test_create_fast_langdetect_config_without_cache_dir(monkeypatch: pytest.Mon
     config = LanguageDetectionConfig(cache_dir=None, allow_fallback=True)
     _create_fast_langdetect_config(config)
 
-    # Verify the mock was called with correct arguments (no cache_dir)
     mock_config_class.assert_called_once_with(allow_fallback=True)

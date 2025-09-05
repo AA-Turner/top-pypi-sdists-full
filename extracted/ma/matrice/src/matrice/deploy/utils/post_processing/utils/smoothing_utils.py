@@ -29,19 +29,61 @@ class BBoxSmoothingConfig:
     def __post_init__(self):
         """Validate configuration parameters."""
         if self.smoothing_algorithm not in ["window", "observability"]:
-            raise ValueError(f"Invalid smoothing_algorithm: {self.smoothing_algorithm}. Must be 'window' or 'observability'")
+            logging.error(f"Invalid smoothing_algorithm: {self.smoothing_algorithm}. Must be 'window' or 'observability'")
+            self.smoothing_algorithm = "observability"
+        
+        # Convert window_size to int if it's a string
+        if isinstance(self.window_size, str):
+            try:
+                self.window_size = int(self.window_size)
+            except ValueError:
+                logging.error(f"window_size must be a valid integer, got {self.window_size}")
+                self.window_size = 20
         
         if self.window_size <= 0:
-            raise ValueError(f"window_size must be positive, got {self.window_size}")
+            logging.error(f"window_size must be positive, got {self.window_size}")
+            self.window_size = 20
+        # Convert cooldown_frames to int if it's a string
+        if isinstance(self.cooldown_frames, str):
+            try:
+                self.cooldown_frames = int(self.cooldown_frames)
+            except ValueError:
+                logging.error(f"cooldown_frames must be a valid integer, got {self.cooldown_frames}")
+                self.cooldown_frames = 5
         
         if self.cooldown_frames < 0:
-            raise ValueError(f"cooldown_frames must be non-negative, got {self.cooldown_frames}")
-        
+            logging.error(f"cooldown_frames must be non-negative, got {self.cooldown_frames}")
+            self.cooldown_frames = 5
+        # Convert confidence_threshold to float if it's a string
+        if isinstance(self.confidence_threshold, str):
+            try:
+                self.confidence_threshold = float(self.confidence_threshold)
+            except ValueError:
+                logging.error(f"confidence_threshold must be a valid number, got {self.confidence_threshold}")
+                self.confidence_threshold = 0.5
         if not 0.0 <= self.confidence_threshold <= 1.0:
-            raise ValueError(f"confidence_threshold must be between 0.0 and 1.0, got {self.confidence_threshold}")
+            logging.error(f"confidence_threshold must be between 0.0 and 1.0, got {self.confidence_threshold}")
+            self.confidence_threshold = 0.5
+        
+        # Convert confidence_range_factor to float if it's a string
+        if isinstance(self.confidence_range_factor, str):
+            try:
+                self.confidence_range_factor = float(self.confidence_range_factor)
+            except ValueError:
+                logging.error(f"confidence_range_factor must be a valid number, got {self.confidence_range_factor}")
+                self.confidence_range_factor = 0.5
         
         if not 0.0 <= self.confidence_range_factor <= 1.0:
-            raise ValueError(f"confidence_range_factor must be between 0.0 and 1.0, got {self.confidence_range_factor}")
+            logging.error(f"confidence_range_factor must be between 0.0 and 1.0, got {self.confidence_range_factor}")
+            self.confidence_range_factor = 0.5
+        
+        # Convert centroid_quantization to int if it's a string
+        if isinstance(self.centroid_quantization, str):
+            try:
+                self.centroid_quantization = int(self.centroid_quantization)
+            except ValueError:
+                logging.error(f"centroid_quantization must be a valid integer, got {self.centroid_quantization}")
+                self.centroid_quantization = 10
 
 
 class BBoxSmoothingTracker:

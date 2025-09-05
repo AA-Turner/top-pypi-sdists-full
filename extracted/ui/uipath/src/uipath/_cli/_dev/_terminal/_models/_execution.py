@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+from rich.text import Text
 
 from ...._runtime._contracts import UiPathErrorContract
 from ._messages import LogMessage, TraceMessage
@@ -10,11 +12,12 @@ from ._messages import LogMessage, TraceMessage
 class ExecutionRun:
     """Represents a single execution run."""
 
-    def __init__(self, entrypoint: str, input_data: str):
+    def __init__(self, entrypoint: str, input_data: Dict[str, Any]):
         self.id = str(uuid4())[:8]
         self.entrypoint = entrypoint
         self.input_data = input_data
-        self.output_data: Optional[str] = None
+        self.resume_data: Optional[Dict[str, Any]] = None
+        self.output_data: Optional[Dict[str, Any]] = None
         self.start_time = datetime.now()
         self.end_time: Optional[datetime] = None
         self.status = "running"  # running, completed, failed
@@ -32,14 +35,32 @@ class ExecutionRun:
             return f"{delta.total_seconds():.1f}s"
 
     @property
-    def display_name(self) -> str:
-        status_icon = {"running": "⚙️", "completed": "✅", "failed": "❌"}.get(
-            self.status, "❓"
-        )
+    def display_name(self) -> Text:
+        status_colors = {
+            "running": "yellow",
+            "suspended": "cyan",
+            "completed": "green",
+            "failed": "red",
+        }
+
+        status_icon = {
+            "running": "▶",
+            "suspended": "⏸",
+            "completed": "✔",
+            "failed": "✖",
+        }.get(self.status, "?")
 
         script_name = (
             os.path.basename(self.entrypoint) if self.entrypoint else "untitled"
         )
+        truncated_script = script_name[:10]
         time_str = self.start_time.strftime("%H:%M:%S")
+        duration_str = self.duration[:6]
 
-        return f"{status_icon} {script_name} ({time_str}) [{self.duration}]"
+        text = Text()
+        text.append(f"{status_icon:<2} ", style=status_colors.get(self.status, "white"))
+        text.append(f"{truncated_script:<10} ")
+        text.append(f"({time_str:<8}) ")
+        text.append(f"[{duration_str:<6}]")
+
+        return text

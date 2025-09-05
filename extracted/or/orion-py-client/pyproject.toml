@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orion_py_client"
-version = "0.1.12"
+version = "0.1.13"
 authors = [
   { name="Jaya Kommuru", email="jaya.kommuru@meesho.com"}
 ]
@@ -14,7 +14,8 @@ license = { text = "Apache-2.0" }
 readme = "README.md"
 requires-python = ">=3.7"
 dependencies = [
-  "protobuf>=4.24.1"
+  "protobuf>=4.24.1",
+  "cloudpathlib>=0.17.0"
 ]
 
 classifiers = [

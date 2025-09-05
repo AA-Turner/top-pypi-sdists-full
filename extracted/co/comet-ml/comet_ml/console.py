@@ -219,9 +219,9 @@ class BaseStdWrapper(object):
 
 
 def start_tee_process(*args, **kwargs):
-    process = multiprocessing.Process(target=_tee_process, args=args, kwargs=kwargs)
-    # Python 2 don't accept daemon as an __init__ argument
-    process.daemon = True
+    process = multiprocessing.Process(
+        target=_tee_process, daemon=True, args=args, kwargs=kwargs
+    )
     process.start()
     return process
 
@@ -395,8 +395,13 @@ try:
 
             _setup_fd(pipe_out)
 
+            # pipe_out, control_pipe, real_out_fd, name, queue
             process = start_tee_process(
-                pipe_out, control_pipe, save_fd, name, self.queue
+                pipe_out=pipe_out,
+                control_pipe=control_pipe,
+                real_out_fd=save_fd,
+                name=name,
+                queue=self.queue,
             )
 
             return process
@@ -408,7 +413,7 @@ try:
             if self.stdout:
                 isatty = _isatty(sys.stdout)
                 self.stdout_process = self._prepare_fd_and_process(
-                    "stdout", self.stdout_control_out
+                    "stdout", control_pipe=self.stdout_control_out
                 )
                 # Patch Python stdout to force buffer flush
                 self.original_stdout = sys.stdout
@@ -417,15 +422,16 @@ try:
             if self.stderr:
                 isatty = _isatty(sys.stderr)
                 self.stderr_process = self._prepare_fd_and_process(
-                    "stderr", self.stderr_control_out
+                    "stderr", control_pipe=self.stderr_control_out
                 )
                 # Patch Python stderr to force buffer flush
                 self.original_stderr = sys.stderr
                 sys.stderr = Unbuffered(sys.stderr, isatty)
 
             # Setup and start the thread reading the queue
-            self.consumer_thread = threading.Thread(target=self.consume_queue)
-            self.consumer_thread.daemon = True
+            self.consumer_thread = threading.Thread(
+                target=self.consume_queue, daemon=True
+            )
             self.consumer_thread.start()
 
         @staticmethod

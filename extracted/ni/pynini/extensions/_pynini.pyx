@@ -1,5 +1,5 @@
 #cython: c_string_encoding=utf8, c_string_type=unicode, language_level=3, nonecheck=True
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1330,10 +1330,9 @@ cpdef Fst concat(fst1, fst2):
 
   Computes the concatenation (product) of two FSTs.
 
-  This operation destructively concatenates the FST with other FSTs. If A
-  transduces string x to y with weight a and B transduces string w to v with
-  weight b, then their concatenation transduces string xw to yv with weight
-  a \otimes b.
+  This operation concatenates two FSTs. If A transduces string x to y with
+  weight a and B transduces string w to v with weight b, then their
+  concatenation transduces string xw to yv with weight a \otimes b.
 
   Args:
     fst1: The first FST.

@@ -8,7 +8,7 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from fluidattacks_tracks.auth import TracksIAMAuth
+from fluidattacks_tracks.auth.base import TracksAuthInterface
 
 TRACKS_API_RATE_LIMIT = {"requests": 1000, "period_seconds": 1}
 TRACKS_API_URL = "https://tracks.fluidattacks.com/"
@@ -17,7 +17,7 @@ TRACKS_API_URL = "https://tracks.fluidattacks.com/"
 class TracksClientConfig(TypedDict):
     """Tracks client configuration."""
 
-    auth: TracksIAMAuth | None
+    auth: TracksAuthInterface | None
     concurrency_limit: int
     keepalive_timeout: int
     retry_attempts: int

@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 """Tests for the chatspeak model."""
 
 import os
-from typing import List
 
 from absl import flags
 
@@ -51,7 +50,7 @@ class ChatspeakTest(absltest.TestCase):
 
   def testDeduplicator(self):
 
-    def expand_string(s: str) -> List[str]:
+    def expand_string(s: str) -> list[str]:
       return rewrite.lattice_to_strings(self.deduplicator.expand(s))
 
     self.assertSameElements(expand_string("cooooool"), ["cool", "col"])
@@ -61,7 +60,7 @@ class ChatspeakTest(absltest.TestCase):
 
   def testDeabbreviator(self):
 
-    def expand_string(s: str) -> List[str]:
+    def expand_string(s: str) -> list[str]:
       return rewrite.lattice_to_strings(self.deabbreviator.expand(s))
 
     self.assertSameElements(expand_string("wrthg"), ["warthog"])
@@ -70,7 +69,7 @@ class ChatspeakTest(absltest.TestCase):
 
   def testRegexps(self):
 
-    def expand_string(s: str) -> List[str]:
+    def expand_string(s: str) -> list[str]:
       return rewrite.lattice_to_strings(self.regexps.expand(s))
 
     result = expand_string("delish")
@@ -82,7 +81,7 @@ class ChatspeakTest(absltest.TestCase):
 
   def testLexicon(self):
 
-    def expand_string(s: str) -> List[str]:
+    def expand_string(s: str) -> list[str]:
       return rewrite.lattice_to_strings(self.lexicon.expand(s))
 
     self.assertSameElements(expand_string("1nam"), ["one in a million"])

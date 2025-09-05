@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.72.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.73.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.72.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.73.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.72.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.73.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -172,6 +172,7 @@ __all__ = [
     "data_datadog_logs_indexes_order",
     "data_datadog_logs_pipelines",
     "data_datadog_logs_pipelines_order",
+    "data_datadog_metric_active_tags_and_aggregations",
     "data_datadog_metric_metadata",
     "data_datadog_metric_tags",
     "data_datadog_monitor",
@@ -338,6 +339,7 @@ from . import data_datadog_logs_indexes
 from . import data_datadog_logs_indexes_order
 from . import data_datadog_logs_pipelines
 from . import data_datadog_logs_pipelines_order
+from . import data_datadog_metric_active_tags_and_aggregations
 from . import data_datadog_metric_metadata
 from . import data_datadog_metric_tags
 from . import data_datadog_monitor

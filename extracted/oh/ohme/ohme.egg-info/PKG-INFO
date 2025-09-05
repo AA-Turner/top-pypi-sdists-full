@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ohme
-Version: 1.5.1
+Version: 1.5.2
 Summary: A Python wrapper for the Ohme API, used by the Home Assistant integration.
 Author-email: Dan Raper <git@danr.uk>
 License: MIT

@@ -1,0 +1,196 @@
+---
+components:
+  anthropic:
+    - ddtrace/contrib/internal/anthropic/*
+  google_generativeai:
+    - ddtrace/contrib/internal/google_generativeai/*
+  google_genai:
+    - ddtrace/contrib/internal/google_genai/*
+  vertexai:
+    - ddtrace/contrib/internal/vertexai/*
+  langchain:
+    - ddtrace/contrib/internal/langchain/*
+  litellm:
+    - ddtrace/contrib/internal/litellm/*
+  llmobs:
+    - ddtrace/llmobs/*
+  mcp:
+    - ddtrace/contrib/internal/mcp/*
+  openai:
+    - ddtrace/contrib/internal/openai/*
+  langgraph:
+    - ddtrace/contrib/internal/langgraph/*
+  crewai:
+    - ddtrace/contrib/internal/crewai/*
+  openai_agents:
+    - ddtrace/contrib/internal/openai_agents/*
+  pydantic_ai:
+    - ddtrace/contrib/internal/pydantic_ai/*
+suites:
+  anthropic:
+    parallelism: 2
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@anthropic'
+      - '@requests'
+      - '@llmobs'
+      - tests/contrib/anthropic/*
+      - tests/snapshots/tests.contrib.anthropic.*
+    runner: riot
+    snapshot: true
+  google_generativeai:
+    parallelism: 1
+    paths:
+    - '@bootstrap'
+    - '@core'
+    - '@tracing'
+    - '@contrib'
+    - '@google_generativeai'
+    - '@llmobs'
+    - tests/contrib/google_generativeai/*
+    - tests/snapshots/tests.contrib.google_generativeai.*
+    runner: riot
+    snapshot: true
+  google_genai:
+    parallelism: 1
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@google_genai'
+      - '@llmobs'
+      - tests/contrib/google_genai/*
+      - tests/snapshots/tests.contrib.google_genai.*
+    runner: riot
+    snapshot: true
+  vertexai:
+    parallelism: 2
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@vertexai'
+      - '@llmobs'
+      - tests/contrib/vertexai/*
+      - tests/snapshots/tests.contrib.vertexai.*
+    runner: riot
+    snapshot: true
+  langchain:
+    parallelism: 6
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@langchain'
+      - '@requests'
+      - '@llmobs'
+      - tests/contrib/langchain/*
+      - tests/snapshots/tests.contrib.langchain.*
+    runner: riot
+    snapshot: true
+  litellm:
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@litellm'
+      - '@llmobs'
+      - tests/contrib/litellm/*
+      - tests/snapshots/tests.contrib.litellm.*
+    runner: riot
+    snapshot: true
+  llmobs:
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@llmobs'
+      - tests/llmobs/*
+    runner: riot
+    snapshot: true
+  mcp:
+    parallelism: 1
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@mcp'
+      - '@llmobs'
+      - tests/contrib/mcp/*
+      - tests/snapshots/tests.contrib.mcp.*
+    runner: riot
+    snapshot: true
+  openai:
+    parallelism: 10
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@openai'
+      - '@requests'
+      - '@llmobs'
+      - tests/contrib/openai/*
+      - tests/snapshots/tests.contrib.openai.*
+    pattern: ^openai$
+    runner: riot
+    snapshot: true
+  langgraph:
+    parallelism: 2
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@langgraph'
+      - '@requests'
+      - '@llmobs'
+      - tests/contrib/langgraph/*
+    runner: riot
+    snapshot: true
+  crewai:
+    parallelism: 3
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@crewai'
+      - '@requests'
+      - '@llmobs'
+      - tests/contrib/crewai/*
+      - tests/snapshots/tests.contrib.crewai.*
+    runner: riot
+    snapshot: true
+  openai_agents:
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@openai_agents'
+      - '@llmobs'
+      - tests/contrib/openai_agents/*
+      - tests/snapshots/tests.contrib.openai_agents.*
+    runner: riot
+    snapshot: true
+  pydantic_ai:
+    paths:
+      - '@bootstrap'
+      - '@core'
+      - '@tracing'
+      - '@contrib'
+      - '@pydantic_ai'
+      - '@llmobs'
+      - tests/contrib/pydantic_ai/*
+      - tests/snapshots/tests.contrib.pydantic_ai.*
+    runner: riot
+    snapshot: true

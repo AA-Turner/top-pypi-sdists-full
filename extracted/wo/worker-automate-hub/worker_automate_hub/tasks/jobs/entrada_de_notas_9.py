@@ -1066,6 +1066,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     # Converte de volta para string no mesmo formato
                     data_vencimento = data_dt_venc.strftime("%d/%m/%Y")
                     # vencimento.set_edit_text(data_vencimento)
+                    vencimento.set_edit_text(data_vencimento)
                 else:
                     data_vencimento = nota.get("dataVencimento")
                 await worker_sleep(2)

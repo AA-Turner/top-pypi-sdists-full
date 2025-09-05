@@ -21,7 +21,7 @@ from comet_ml.connection import RestServerConnection
 from comet_ml.experiment import CometExperiment
 from comet_ml.feature_toggles import FeatureToggles
 
-from .dummy import DummyHeartBeatThread, DummyStreamer, make_dummy_overrides
+from .dummy import DummyHeartBeatThread, DummyOnlineStreamer, make_dummy_overrides
 
 FLUSH_INITIAL_DATA_LOGGER_TIMEOUT = 10
 SOME_API_KEY = "some api key"
@@ -41,7 +41,7 @@ def experiment_builder(
     log_git_metadata=False,
     log_git_patch=False,
     log_env_cpu=False,
-    **kwargs
+    **kwargs,
 ):
     class _TestingExperiment(cls):
         def __init__(self, *args, **kwargs):
@@ -54,7 +54,7 @@ def experiment_builder(
 
         def _setup_streamer(self, *args, **kwargs):
             if streamer is None:
-                self.streamer = DummyStreamer(
+                self.streamer = DummyOnlineStreamer(
                     api_key=SOME_API_KEY, run_id=SOME_RUN_ID, project_id=SOME_PROJECT_ID
                 )
             else:
@@ -112,7 +112,7 @@ def experiment_builder(
         log_git_metadata=log_git_metadata,
         log_git_patch=log_git_patch,
         log_env_cpu=log_env_cpu,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -122,9 +122,9 @@ def build_experiment(
     run_id=SOME_RUN_ID,
     project_id=SOME_PROJECT_ID,
     auto_output_logging=None,
-    **kwargs
+    **kwargs,
 ):
-    streamer = DummyStreamer(
+    streamer = DummyOnlineStreamer(
         api_key=api_key,
         run_id=run_id,
         project_id=project_id,
@@ -140,7 +140,7 @@ def build_experiment(
         api_key=api_key,
         streamer=streamer,
         auto_output_logging=auto_output_logging,
-        **kwargs
+        **kwargs,
     )
 
     # flush initial data logger thread
@@ -173,7 +173,7 @@ class TestExperiment:
             log_env_details=log_env_details,
             log_code=log_code,
             *args,
-            **kwargs
+            **kwargs,
         )
 
     def end(self):

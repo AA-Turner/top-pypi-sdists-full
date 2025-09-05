@@ -24,7 +24,7 @@ class AdAuthenticator(Authenticator):
 
         return cls.instance
 
-    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str) -> IdpLogin:
+    def authenticate(self, idp_uri: str, app_host: str, username: str, password: str, verify: bool) -> IdpLogin:
         parsed_url = urlparse(idp_uri)
         query_string = parsed_url.query
         params = parse_qs(query_string)
@@ -83,6 +83,9 @@ class AdAuthenticator(Authenticator):
         id_token = self.extract(r.text, r'.*name=\"id_token\" value=\"(.*?)\".*')
         if not id_token:
             raise AdException('Invalid username/password.')
+
+        if not verify:
+            return IdpLogin(redirect_url, id_token, state_token, username, idp_uri=idp_uri, id_token_obj=None, session=session)
 
         parsed = self.parse_id_token(id_token)
         roles = parsed.groups

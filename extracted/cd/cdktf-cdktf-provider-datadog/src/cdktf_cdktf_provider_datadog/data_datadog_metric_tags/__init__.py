@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_metric_tags`
 
-Refer to the Terraform Registry for docs: [`data_datadog_metric_tags`](https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags).
+Refer to the Terraform Registry for docs: [`data_datadog_metric_tags`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogMetricTags(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogMetricTags.DataDatadogMetricTags",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags datadog_metric_tags}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags datadog_metric_tags}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataDatadogMetricTags(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags datadog_metric_tags} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags datadog_metric_tags} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
+        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataDatadogMetricTags(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogMetricTags to import.
-        :param import_from_id: The id of the existing DataDatadogMetricTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogMetricTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogMetricTags to import is found.
         '''
         if __debug__:
@@ -190,7 +190,7 @@ class DataDatadogMetricTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
+        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -290,7 +290,7 @@ class DataDatadogMetricTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric(self) -> builtins.str:
         '''The metric for which to fetch tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_tags#metric DataDatadogMetricTags#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"

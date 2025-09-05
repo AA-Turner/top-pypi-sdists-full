@@ -104,6 +104,10 @@ class WeaponDetectionUseCase(BaseProcessor):
         # Detect input format and store in context
         input_format = match_results_structure(data)
         context.input_format = input_format
+
+        if isinstance(config.confidence_threshold, str):
+            config.confidence_threshold = float(config.confidence_threshold)
+
         context.confidence_threshold = config.confidence_threshold
         self.logger.info(f"Processing weapon detection with format: {input_format.value}")
 
@@ -319,9 +323,9 @@ class WeaponDetectionUseCase(BaseProcessor):
         detections = []
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
-            category = detection.get("category", "weapon")
+            category = "weapon" #detection.get("category", "weapon")
             segmentation = detection.get("masks", detection.get("segmentation", detection.get("mask", [])))
-            detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            detection_obj = self.create_detection_object(category, bbox, segmentation=None)
             detections.append(detection_obj)
 
         # Build alert_settings
@@ -345,6 +349,9 @@ class WeaponDetectionUseCase(BaseProcessor):
             for cat, count in per_category_count.items():
                 if cat in self.target_categories and count > 0:
                     human_text_lines.append(f"\t{count} Weapon[s] detected")
+        else:
+            human_text_lines.append(f"\tNo Weapon[s] detected")
+        human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
         for cat, count in total_counts_dict.items():
             if cat in self.target_categories and count > 0:
@@ -394,6 +401,8 @@ class WeaponDetectionUseCase(BaseProcessor):
 
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
             for category, threshold in config.alert_config.count_thresholds.items():
+                if isinstance(threshold, str):
+                    threshold = int(threshold)
                 if category == "all" and total_detections > threshold:
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
@@ -444,6 +453,8 @@ class WeaponDetectionUseCase(BaseProcessor):
 
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
+                if isinstance(threshold, str):
+                    threshold = int(threshold)
                 intensity = min(10.0, (total_detections / threshold) * 10)
                 if intensity >= 9:
                     level = "critical"
@@ -519,20 +530,24 @@ class WeaponDetectionUseCase(BaseProcessor):
         # Add business analytics logic here if needed
         return []
 
-    def _generate_summary(self, summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[Dict]:
-        """Generate a human-readable summary."""
-        lines = {}
-        lines["Application Name"] = self.CASE_TYPE
-        lines["Application Version"] = self.CASE_VERSION
+    def _generate_summary(self, summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = []
+        lines.append("Application Name: "+self.CASE_TYPE)
+        lines.append("Application Version: "+self.CASE_VERSION)
         if len(incidents) > 0:
-            lines["Incidents"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+            lines.append("Incidents: "+f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
         if len(tracking_stats) > 0:
-            lines["Tracking Statistics"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+            lines.append("Tracking Statistics: "+f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}")
         if len(business_analytics) > 0:
-            lines["Business Analytics"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+            lines.append("Business Analytics: "+f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}")
+
         if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
-            lines["Summary"] = "No Summary Data"
-        return [lines]
+            lines.append("Summary: "+"No Summary Data")
+
+        return ["\n".join(lines)]
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         """Get detailed information about track IDs."""

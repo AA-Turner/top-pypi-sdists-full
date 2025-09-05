@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioregistry
-Version: 0.12.36
+Version: 0.12.37
 Summary: Integrated registry of biological databases and nomenclatures
 Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
@@ -40,13 +40,12 @@ Classifier: Framework :: Pytest
 Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
@@ -110,10 +109,10 @@ Requires-Dist: curies[fastapi]; extra == "web"
 Requires-Dist: a2wsgi; extra == "web"
 Requires-Dist: api-analytics[fastapi]; extra == "web"
 Provides-Extra: paper-ranking
-Requires-Dist: indra; extra == "paper-ranking"
 Requires-Dist: pandas; extra == "paper-ranking"
 Requires-Dist: scikit-learn; extra == "paper-ranking"
 Requires-Dist: tabulate; extra == "paper-ranking"
+Requires-Dist: pubmed-downloader>=0.0.12; extra == "paper-ranking"
 Provides-Extra: mapping-checking
 Requires-Dist: pandas; extra == "mapping-checking"
 Requires-Dist: sentence_transformers; extra == "mapping-checking"

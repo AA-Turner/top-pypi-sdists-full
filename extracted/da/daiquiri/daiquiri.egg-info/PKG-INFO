@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: daiquiri
-Version: 3.3.0
+Version: 3.4.0
 Summary: Library to configure Python logging easily
 Author-email: Julien Danjou <julien@danjou.info>
 License: Apache 2.0
@@ -23,6 +23,7 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: systemd
 Requires-Dist: systemd-python>=234; extra == "systemd"
+Dynamic: license-file
 
 =======================================
 daiquiri -- Python logging setup helper

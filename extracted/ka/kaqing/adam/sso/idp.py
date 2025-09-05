@@ -28,7 +28,7 @@ class Idp:
 
         return cls.instance
 
-    def login(app_host: str, username: str = None, idp_uri: str = None, forced = False, use_token_from_env = True, use_cached_creds = True) -> IdpLogin:
+    def login(app_host: str, username: str = None, idp_uri: str = None, forced = False, use_token_from_env = True, use_cached_creds = True, verify = True) -> IdpLogin:
         session: IdpSession = IdpSession.create(username, app_host, app_host, idp_uri=idp_uri)
 
         if use_token_from_env:
@@ -95,13 +95,13 @@ class Idp:
 
             if username and password:
                 # if uploading kubeconfig file fails many times, you will be locked out
-                # kubeconfig file content has first char as tab and length of bigger than 128
+                # kubeconfig file content has first char as tab or length of bigger than 128
                 if password[0] == '\t' or len(password) > Config().get('app.login.password-max-length', 128):
                     if r := Idp.try_kubeconfig(username, password):
                         log(f"You're signed in as {username}")
                         return r
                 else:
-                    if r := session.authenticator.authenticate(session.idp_uri, app_host, username, password):
+                    if r := session.authenticator.authenticate(session.idp_uri, app_host, username, password, verify=verify):
                         log(f"You're signed in as {username}")
                     return r
         finally:

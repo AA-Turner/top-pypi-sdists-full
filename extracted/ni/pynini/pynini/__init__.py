@@ -4,4 +4,4 @@ from _pynini import *
 
 # Increment after every release.
 
-__version__ = "2.1.6.post1"
+__version__ = "2.1.7"

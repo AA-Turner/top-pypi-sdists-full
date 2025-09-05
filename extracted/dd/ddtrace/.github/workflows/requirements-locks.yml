@@ -1,0 +1,43 @@
+name: Test Requirements Lockfiles Check
+on:
+  push:
+    branches:
+      - main
+      - 'mq-working-branch**'
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  validate:
+    name: Check requirements lockfiles
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/datadog/dd-trace-py/testrunner:280be7679757b720503a284a69da36995b6ef48d@sha256:68865857c710d5703ddf9190ff33eb1ea47974e8332d04e2e115ef3b52513def
+      options: "--user 0"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Fixup git permissions
+        # https://github.com/actions/checkout/issues/766
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set python interpreters
+        run: pyenv global 3.10 3.8 3.9 3.11 3.12 3.13
+
+      - name: Install Dependencies
+        run: pip install --upgrade pip && pip install riot==0.20.1 && pip install toml==0.10.2
+
+      - name: Generate riot locks
+        run: scripts/compile-and-prune-test-requirements
+
+      - name: Check locks diff
+        run: scripts/check-diff '.riot/requirements/' 'Mismatches found between .riot/requirements/*.txt and riotfile.py. Run scripts/compile-and-prune-test-requirements and commit the result.'
+
+      - name: Generate tracer requirements csv
+        run: python scripts/requirements_to_csv.py
+
+      - name: Check tracer requirements csv diff
+        run: scripts/check-diff 'requirements.csv' 'Tracer dependency requirements in requirements.csv is out of date. Run `python scripts/requirements_to_csv.py` and commit the result.'

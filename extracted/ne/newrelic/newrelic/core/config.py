@@ -320,7 +320,19 @@ class SpanEventAttributesSettings(Settings):
     pass
 
 
+class InstrumentationMiddlewareSettings(Settings):
+    pass
+
+
+class InstrumentationDjangoMiddlewareSettings(Settings):
+    pass
+
+
 class DistributedTracingSettings(Settings):
+    pass
+
+
+class DistributedTracingSamplerSettings(Settings):
     pass
 
 
@@ -493,6 +505,7 @@ _settings.datastore_tracer.database_name_reporting = DatastoreTracerDatabaseName
 _settings.datastore_tracer.instance_reporting = DatastoreTracerInstanceReportingSettings()
 _settings.debug = DebugSettings()
 _settings.distributed_tracing = DistributedTracingSettings()
+_settings.distributed_tracing.sampler = DistributedTracingSamplerSettings()
 _settings.error_collector = ErrorCollectorSettings()
 _settings.error_collector.attributes = ErrorCollectorAttributesSettings()
 _settings.event_harvest_config = EventHarvestConfigSettings()
@@ -507,6 +520,8 @@ _settings.instrumentation.graphql = InstrumentationGraphQLSettings()
 _settings.instrumentation.kombu = InstrumentationKombuSettings()
 _settings.instrumentation.kombu.ignored_exchanges = InstrumentationKombuIgnoredExchangesSettings()
 _settings.instrumentation.kombu.consumer = InstrumentationKombuConsumerSettings()
+_settings.instrumentation.middleware = InstrumentationMiddlewareSettings()
+_settings.instrumentation.middleware.django = InstrumentationDjangoMiddlewareSettings()
 _settings.message_tracer = MessageTracerSettings()
 _settings.process_host = ProcessHostSettings()
 _settings.rum = RumSettings()
@@ -634,11 +649,15 @@ def _parse_status_codes(value, target):
     return target
 
 
-def _parse_attributes(s):
+# Called from newrelic.config.py to parse
+# attributes and django middleware lists
+def _parse_attributes(s, middleware=False):
     valid = []
     for item in s.split():
         if "*" not in item[:-1] and len(item.encode("utf-8")) < 256:
             valid.append(item)
+        elif middleware:
+            _logger.warning("Improperly formatted middleware: %r", item)
         else:
             _logger.warning("Improperly formatted attribute: %r", item)
     return valid
@@ -814,6 +833,12 @@ _settings.custom_insights_events.max_attribute_value = _environ_as_int(
 _settings.ml_insights_events.enabled = False
 
 _settings.distributed_tracing.enabled = _environ_as_bool("NEW_RELIC_DISTRIBUTED_TRACING_ENABLED", default=True)
+_settings.distributed_tracing.sampler.remote_parent_sampled = os.environ.get(
+    "NEW_RELIC_DISTRIBUTED_TRACING_SAMPLER_REMOTE_PARENT_SAMPLED", "default"
+)
+_settings.distributed_tracing.sampler.remote_parent_not_sampled = os.environ.get(
+    "NEW_RELIC_DISTRIBUTED_TRACING_SAMPLER_REMOTE_PARENT_NOT_SAMPLED", "default"
+)
 _settings.distributed_tracing.exclude_newrelic_header = False
 _settings.span_events.enabled = _environ_as_bool("NEW_RELIC_SPAN_EVENTS_ENABLED", default=True)
 _settings.span_events.attributes.enabled = True
@@ -903,6 +928,12 @@ _settings.instrumentation.kombu.ignored_exchanges = parse_space_separated_into_l
 _settings.instrumentation.kombu.consumer.enabled = _environ_as_bool(
     "NEW_RELIC_INSTRUMENTATION_KOMBU_CONSUMER_ENABLED", default=False
 )
+
+_settings.instrumentation.middleware.django.enabled = _environ_as_bool(
+    "NEW_RELIC_INSTRUMENTATION_DJANGO_MIDDLEWARE_ENABLED", default=True
+)
+_settings.instrumentation.middleware.django.exclude = []
+_settings.instrumentation.middleware.django.include = []
 
 _settings.event_harvest_config.harvest_limits.analytic_event_data = _environ_as_int(
     "NEW_RELIC_ANALYTICS_EVENTS_MAX_SAMPLES_STORED", DEFAULT_RESERVOIR_SIZE

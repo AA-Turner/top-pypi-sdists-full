@@ -44,8 +44,15 @@ __all__ = [
     'TransformerSampleDocumentKeys',
     'TransformerSampleDocuments',
     'TransformerX12AdvancedOptions',
+    'TransformerX12CodeListValidationRule',
     'TransformerX12Details',
+    'TransformerX12ElementLengthValidationRule',
+    'TransformerX12ElementRequirementValidationRule',
     'TransformerX12SplitOptions',
+    'TransformerX12ValidationOptions',
+    'TransformerX12ValidationRule0Properties',
+    'TransformerX12ValidationRule1Properties',
+    'TransformerX12ValidationRule2Properties',
 ]
 
 @pulumi.output_type
@@ -384,17 +391,31 @@ class PartnershipX12AcknowledgmentOptions(dict):
     def __init__(__self__, *,
                  functional_acknowledgment: 'PartnershipX12FunctionalAcknowledgment',
                  technical_acknowledgment: 'PartnershipX12TechnicalAcknowledgment'):
+        """
+        :param 'PartnershipX12FunctionalAcknowledgment' functional_acknowledgment: Specifies whether functional acknowledgments (997/999) should be generated for incoming X12 transactions. Valid values are `DO_NOT_GENERATE` , `GENERATE_ALL_SEGMENTS` and `GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP` .
+               
+               If you choose `GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP` , AWS B2B Data Interchange skips the AK2_Loop when generating an acknowledgment document.
+        :param 'PartnershipX12TechnicalAcknowledgment' technical_acknowledgment: Specifies whether technical acknowledgments (TA1) should be generated for incoming X12 interchanges. Valid values are `DO_NOT_GENERATE` and `GENERATE_ALL_SEGMENTS` and.
+        """
         pulumi.set(__self__, "functional_acknowledgment", functional_acknowledgment)
         pulumi.set(__self__, "technical_acknowledgment", technical_acknowledgment)
 
     @property
     @pulumi.getter(name="functionalAcknowledgment")
     def functional_acknowledgment(self) -> 'PartnershipX12FunctionalAcknowledgment':
+        """
+        Specifies whether functional acknowledgments (997/999) should be generated for incoming X12 transactions. Valid values are `DO_NOT_GENERATE` , `GENERATE_ALL_SEGMENTS` and `GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP` .
+
+        If you choose `GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP` , AWS B2B Data Interchange skips the AK2_Loop when generating an acknowledgment document.
+        """
         return pulumi.get(self, "functional_acknowledgment")
 
     @property
     @pulumi.getter(name="technicalAcknowledgment")
     def technical_acknowledgment(self) -> 'PartnershipX12TechnicalAcknowledgment':
+        """
+        Specifies whether technical acknowledgments (TA1) should be generated for incoming X12 interchanges. Valid values are `DO_NOT_GENERATE` and `GENERATE_ALL_SEGMENTS` and.
+        """
         return pulumi.get(self, "technical_acknowledgment")
 
 
@@ -794,12 +815,18 @@ class PartnershipX12OutboundEdiHeaders(dict):
 class TransformerAdvancedOptions(dict):
     def __init__(__self__, *,
                  x12: Optional['outputs.TransformerX12AdvancedOptions'] = None):
+        """
+        :param 'TransformerX12AdvancedOptions' x12: A structure that contains X12-specific advanced options, such as split options for processing X12 EDI files.
+        """
         if x12 is not None:
             pulumi.set(__self__, "x12", x12)
 
     @property
     @pulumi.getter
     def x12(self) -> Optional['outputs.TransformerX12AdvancedOptions']:
+        """
+        A structure that contains X12-specific advanced options, such as split options for processing X12 EDI files.
+        """
         return pulumi.get(self, "x12")
 
 
@@ -871,6 +898,11 @@ class TransformerInputConversion(dict):
                  from_format: 'TransformerFromFormat',
                  advanced_options: Optional['outputs.TransformerAdvancedOptions'] = None,
                  format_options: Optional['outputs.TransformerFormatOptionsProperties'] = None):
+        """
+        :param 'TransformerFromFormat' from_format: The format for the transformer input: currently on `X12` is supported.
+        :param 'TransformerAdvancedOptions' advanced_options: Specifies advanced options for the input conversion process. These options provide additional control over how EDI files are processed during transformation.
+        :param 'TransformerFormatOptionsProperties' format_options: A structure that contains the formatting options for an inbound transformer.
+        """
         pulumi.set(__self__, "from_format", from_format)
         if advanced_options is not None:
             pulumi.set(__self__, "advanced_options", advanced_options)
@@ -880,16 +912,25 @@ class TransformerInputConversion(dict):
     @property
     @pulumi.getter(name="fromFormat")
     def from_format(self) -> 'TransformerFromFormat':
+        """
+        The format for the transformer input: currently on `X12` is supported.
+        """
         return pulumi.get(self, "from_format")
 
     @property
     @pulumi.getter(name="advancedOptions")
     def advanced_options(self) -> Optional['outputs.TransformerAdvancedOptions']:
+        """
+        Specifies advanced options for the input conversion process. These options provide additional control over how EDI files are processed during transformation.
+        """
         return pulumi.get(self, "advanced_options")
 
     @property
     @pulumi.getter(name="formatOptions")
     def format_options(self) -> Optional['outputs.TransformerFormatOptionsProperties']:
+        """
+        A structure that contains the formatting options for an inbound transformer.
+        """
         return pulumi.get(self, "format_options")
 
 
@@ -915,6 +956,10 @@ class TransformerMapping(dict):
     def __init__(__self__, *,
                  template_language: 'TransformerMappingTemplateLanguage',
                  template: Optional[builtins.str] = None):
+        """
+        :param 'TransformerMappingTemplateLanguage' template_language: The transformation language for the template, either XSLT or JSONATA.
+        :param builtins.str template: A string that represents the mapping template, in the transformation language specified in `templateLanguage` .
+        """
         pulumi.set(__self__, "template_language", template_language)
         if template is not None:
             pulumi.set(__self__, "template", template)
@@ -922,11 +967,17 @@ class TransformerMapping(dict):
     @property
     @pulumi.getter(name="templateLanguage")
     def template_language(self) -> 'TransformerMappingTemplateLanguage':
+        """
+        The transformation language for the template, either XSLT or JSONATA.
+        """
         return pulumi.get(self, "template_language")
 
     @property
     @pulumi.getter
     def template(self) -> Optional[builtins.str]:
+        """
+        A string that represents the mapping template, in the transformation language specified in `templateLanguage` .
+        """
         return pulumi.get(self, "template")
 
 
@@ -937,6 +988,8 @@ class TransformerOutputConversion(dict):
         suggest = None
         if key == "toFormat":
             suggest = "to_format"
+        elif key == "advancedOptions":
+            suggest = "advanced_options"
         elif key == "formatOptions":
             suggest = "format_options"
 
@@ -953,19 +1006,37 @@ class TransformerOutputConversion(dict):
 
     def __init__(__self__, *,
                  to_format: 'TransformerToFormat',
+                 advanced_options: Optional['outputs.TransformerAdvancedOptions'] = None,
                  format_options: Optional['outputs.TransformerFormatOptionsProperties'] = None):
+        """
+        :param 'TransformerToFormat' to_format: The format for the output from an outbound transformer: only X12 is currently supported.
+        :param 'TransformerFormatOptionsProperties' format_options: A structure that contains the X12 transaction set and version for the transformer output.
+        """
         pulumi.set(__self__, "to_format", to_format)
+        if advanced_options is not None:
+            pulumi.set(__self__, "advanced_options", advanced_options)
         if format_options is not None:
             pulumi.set(__self__, "format_options", format_options)
 
     @property
     @pulumi.getter(name="toFormat")
     def to_format(self) -> 'TransformerToFormat':
+        """
+        The format for the output from an outbound transformer: only X12 is currently supported.
+        """
         return pulumi.get(self, "to_format")
+
+    @property
+    @pulumi.getter(name="advancedOptions")
+    def advanced_options(self) -> Optional['outputs.TransformerAdvancedOptions']:
+        return pulumi.get(self, "advanced_options")
 
     @property
     @pulumi.getter(name="formatOptions")
     def format_options(self) -> Optional['outputs.TransformerFormatOptionsProperties']:
+        """
+        A structure that contains the X12 transaction set and version for the transformer output.
+        """
         return pulumi.get(self, "format_options")
 
 
@@ -974,6 +1045,10 @@ class TransformerSampleDocumentKeys(dict):
     def __init__(__self__, *,
                  input: Optional[builtins.str] = None,
                  output: Optional[builtins.str] = None):
+        """
+        :param builtins.str input: An array of keys for your input sample documents.
+        :param builtins.str output: An array of keys for your output sample documents.
+        """
         if input is not None:
             pulumi.set(__self__, "input", input)
         if output is not None:
@@ -982,11 +1057,17 @@ class TransformerSampleDocumentKeys(dict):
     @property
     @pulumi.getter
     def input(self) -> Optional[builtins.str]:
+        """
+        An array of keys for your input sample documents.
+        """
         return pulumi.get(self, "input")
 
     @property
     @pulumi.getter
     def output(self) -> Optional[builtins.str]:
+        """
+        An array of keys for your output sample documents.
+        """
         return pulumi.get(self, "output")
 
 
@@ -1012,17 +1093,27 @@ class TransformerSampleDocuments(dict):
     def __init__(__self__, *,
                  bucket_name: builtins.str,
                  keys: Sequence['outputs.TransformerSampleDocumentKeys']):
+        """
+        :param builtins.str bucket_name: Contains the Amazon S3 bucket that is used to hold your sample documents.
+        :param Sequence['TransformerSampleDocumentKeys'] keys: Contains an array of the Amazon S3 keys used to identify the location for your sample documents.
+        """
         pulumi.set(__self__, "bucket_name", bucket_name)
         pulumi.set(__self__, "keys", keys)
 
     @property
     @pulumi.getter(name="bucketName")
     def bucket_name(self) -> builtins.str:
+        """
+        Contains the Amazon S3 bucket that is used to hold your sample documents.
+        """
         return pulumi.get(self, "bucket_name")
 
     @property
     @pulumi.getter
     def keys(self) -> Sequence['outputs.TransformerSampleDocumentKeys']:
+        """
+        Contains an array of the Amazon S3 keys used to identify the location for your sample documents.
+        """
         return pulumi.get(self, "keys")
 
 
@@ -1033,6 +1124,8 @@ class TransformerX12AdvancedOptions(dict):
         suggest = None
         if key == "splitOptions":
             suggest = "split_options"
+        elif key == "validationOptions":
+            suggest = "validation_options"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in TransformerX12AdvancedOptions. Access the value via the '{suggest}' property getter instead.")
@@ -1046,14 +1139,81 @@ class TransformerX12AdvancedOptions(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 split_options: Optional['outputs.TransformerX12SplitOptions'] = None):
+                 split_options: Optional['outputs.TransformerX12SplitOptions'] = None,
+                 validation_options: Optional['outputs.TransformerX12ValidationOptions'] = None):
+        """
+        :param 'TransformerX12SplitOptions' split_options: Specifies options for splitting X12 EDI files. These options control how large X12 files are divided into smaller, more manageable units.
+        :param 'TransformerX12ValidationOptions' validation_options: Specifies validation options for X12 EDI processing. These options control how validation rules are applied during EDI document processing, including custom validation rules for element length constraints, code list validations, and element requirement checks.
+        """
         if split_options is not None:
             pulumi.set(__self__, "split_options", split_options)
+        if validation_options is not None:
+            pulumi.set(__self__, "validation_options", validation_options)
 
     @property
     @pulumi.getter(name="splitOptions")
     def split_options(self) -> Optional['outputs.TransformerX12SplitOptions']:
+        """
+        Specifies options for splitting X12 EDI files. These options control how large X12 files are divided into smaller, more manageable units.
+        """
         return pulumi.get(self, "split_options")
+
+    @property
+    @pulumi.getter(name="validationOptions")
+    def validation_options(self) -> Optional['outputs.TransformerX12ValidationOptions']:
+        """
+        Specifies validation options for X12 EDI processing. These options control how validation rules are applied during EDI document processing, including custom validation rules for element length constraints, code list validations, and element requirement checks.
+        """
+        return pulumi.get(self, "validation_options")
+
+
+@pulumi.output_type
+class TransformerX12CodeListValidationRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "elementId":
+            suggest = "element_id"
+        elif key == "codesToAdd":
+            suggest = "codes_to_add"
+        elif key == "codesToRemove":
+            suggest = "codes_to_remove"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12CodeListValidationRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12CodeListValidationRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12CodeListValidationRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 element_id: builtins.str,
+                 codes_to_add: Optional[Sequence[builtins.str]] = None,
+                 codes_to_remove: Optional[Sequence[builtins.str]] = None):
+        pulumi.set(__self__, "element_id", element_id)
+        if codes_to_add is not None:
+            pulumi.set(__self__, "codes_to_add", codes_to_add)
+        if codes_to_remove is not None:
+            pulumi.set(__self__, "codes_to_remove", codes_to_remove)
+
+    @property
+    @pulumi.getter(name="elementId")
+    def element_id(self) -> builtins.str:
+        return pulumi.get(self, "element_id")
+
+    @property
+    @pulumi.getter(name="codesToAdd")
+    def codes_to_add(self) -> Optional[Sequence[builtins.str]]:
+        return pulumi.get(self, "codes_to_add")
+
+    @property
+    @pulumi.getter(name="codesToRemove")
+    def codes_to_remove(self) -> Optional[Sequence[builtins.str]]:
+        return pulumi.get(self, "codes_to_remove")
 
 
 @pulumi.output_type
@@ -1095,6 +1255,89 @@ class TransformerX12Details(dict):
 
 
 @pulumi.output_type
+class TransformerX12ElementLengthValidationRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "elementId":
+            suggest = "element_id"
+        elif key == "maxLength":
+            suggest = "max_length"
+        elif key == "minLength":
+            suggest = "min_length"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ElementLengthValidationRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ElementLengthValidationRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ElementLengthValidationRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 element_id: builtins.str,
+                 max_length: builtins.float,
+                 min_length: builtins.float):
+        pulumi.set(__self__, "element_id", element_id)
+        pulumi.set(__self__, "max_length", max_length)
+        pulumi.set(__self__, "min_length", min_length)
+
+    @property
+    @pulumi.getter(name="elementId")
+    def element_id(self) -> builtins.str:
+        return pulumi.get(self, "element_id")
+
+    @property
+    @pulumi.getter(name="maxLength")
+    def max_length(self) -> builtins.float:
+        return pulumi.get(self, "max_length")
+
+    @property
+    @pulumi.getter(name="minLength")
+    def min_length(self) -> builtins.float:
+        return pulumi.get(self, "min_length")
+
+
+@pulumi.output_type
+class TransformerX12ElementRequirementValidationRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "elementPosition":
+            suggest = "element_position"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ElementRequirementValidationRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ElementRequirementValidationRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ElementRequirementValidationRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 element_position: builtins.str,
+                 requirement: 'TransformerElementRequirement'):
+        pulumi.set(__self__, "element_position", element_position)
+        pulumi.set(__self__, "requirement", requirement)
+
+    @property
+    @pulumi.getter(name="elementPosition")
+    def element_position(self) -> builtins.str:
+        return pulumi.get(self, "element_position")
+
+    @property
+    @pulumi.getter
+    def requirement(self) -> 'TransformerElementRequirement':
+        return pulumi.get(self, "requirement")
+
+
+@pulumi.output_type
 class TransformerX12SplitOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -1115,12 +1358,141 @@ class TransformerX12SplitOptions(dict):
 
     def __init__(__self__, *,
                  split_by: Optional['TransformerX12SplitBy'] = None):
+        """
+        :param 'TransformerX12SplitBy' split_by: Specifies the method used to split X12 EDI files. Valid values include `TRANSACTION` (split by individual transaction sets), or `NONE` (no splitting).
+        """
         if split_by is not None:
             pulumi.set(__self__, "split_by", split_by)
 
     @property
     @pulumi.getter(name="splitBy")
     def split_by(self) -> Optional['TransformerX12SplitBy']:
+        """
+        Specifies the method used to split X12 EDI files. Valid values include `TRANSACTION` (split by individual transaction sets), or `NONE` (no splitting).
+        """
         return pulumi.get(self, "split_by")
+
+
+@pulumi.output_type
+class TransformerX12ValidationOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "validationRules":
+            suggest = "validation_rules"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ValidationOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ValidationOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ValidationOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 validation_rules: Optional[Sequence[Any]] = None):
+        """
+        :param Sequence[Union['TransformerX12ValidationRule0Properties', 'TransformerX12ValidationRule1Properties', 'TransformerX12ValidationRule2Properties']] validation_rules: Specifies a list of validation rules to apply during EDI document processing. These rules can include code list modifications, element length constraints, and element requirement changes.
+        """
+        if validation_rules is not None:
+            pulumi.set(__self__, "validation_rules", validation_rules)
+
+    @property
+    @pulumi.getter(name="validationRules")
+    def validation_rules(self) -> Optional[Sequence[Any]]:
+        """
+        Specifies a list of validation rules to apply during EDI document processing. These rules can include code list modifications, element length constraints, and element requirement changes.
+        """
+        return pulumi.get(self, "validation_rules")
+
+
+@pulumi.output_type
+class TransformerX12ValidationRule0Properties(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "codeListValidationRule":
+            suggest = "code_list_validation_rule"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ValidationRule0Properties. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ValidationRule0Properties.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ValidationRule0Properties.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 code_list_validation_rule: 'outputs.TransformerX12CodeListValidationRule'):
+        pulumi.set(__self__, "code_list_validation_rule", code_list_validation_rule)
+
+    @property
+    @pulumi.getter(name="codeListValidationRule")
+    def code_list_validation_rule(self) -> 'outputs.TransformerX12CodeListValidationRule':
+        return pulumi.get(self, "code_list_validation_rule")
+
+
+@pulumi.output_type
+class TransformerX12ValidationRule1Properties(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "elementLengthValidationRule":
+            suggest = "element_length_validation_rule"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ValidationRule1Properties. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ValidationRule1Properties.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ValidationRule1Properties.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 element_length_validation_rule: 'outputs.TransformerX12ElementLengthValidationRule'):
+        pulumi.set(__self__, "element_length_validation_rule", element_length_validation_rule)
+
+    @property
+    @pulumi.getter(name="elementLengthValidationRule")
+    def element_length_validation_rule(self) -> 'outputs.TransformerX12ElementLengthValidationRule':
+        return pulumi.get(self, "element_length_validation_rule")
+
+
+@pulumi.output_type
+class TransformerX12ValidationRule2Properties(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "elementRequirementValidationRule":
+            suggest = "element_requirement_validation_rule"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TransformerX12ValidationRule2Properties. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TransformerX12ValidationRule2Properties.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TransformerX12ValidationRule2Properties.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 element_requirement_validation_rule: 'outputs.TransformerX12ElementRequirementValidationRule'):
+        pulumi.set(__self__, "element_requirement_validation_rule", element_requirement_validation_rule)
+
+    @property
+    @pulumi.getter(name="elementRequirementValidationRule")
+    def element_requirement_validation_rule(self) -> 'outputs.TransformerX12ElementRequirementValidationRule':
+        return pulumi.get(self, "element_requirement_validation_rule")
 
 

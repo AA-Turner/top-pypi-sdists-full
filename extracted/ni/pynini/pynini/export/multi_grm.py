@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ given designator. The generator main function should be have a:
 For an example, see multi_grm_example.py.
 """
 
-from typing import Callable, Mapping
+from collections.abc import Callable, Mapping
 
 from absl import app
 from absl import flags

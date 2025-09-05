@@ -381,7 +381,8 @@ PYBIND11_MODULE(pdf_parsers, m) {
 	 [](docling::docling_parser_v2 &self,
 	    const std::string &key,
 	    const std::string &page_boundary,
-	    bool do_sanitization) -> nlohmann::json {
+	    bool do_sanitization
+	    ) -> nlohmann::json {
 	   return self.parse_pdf_from_key(key, page_boundary, do_sanitization);
 	 },
 	 pybind11::arg("key"),
@@ -403,13 +404,31 @@ PYBIND11_MODULE(pdf_parsers, m) {
 	    const std::string &key,
 	    int page,
 	    const std::string &page_boundary,
-	    bool do_sanitization) -> nlohmann::json {
-	   return self.parse_pdf_from_key_on_page(key, page, page_boundary, do_sanitization);
+	    bool do_sanitization,
+	    bool keep_char_cells,
+	    bool keep_lines,
+	    bool keep_bitmaps,
+	    bool create_word_cells,
+	    bool create_line_cells) -> nlohmann::json {
+    return self.parse_pdf_from_key_on_page(key,
+					   page,
+					   page_boundary,
+					   do_sanitization,
+					   keep_char_cells,
+					   keep_lines,
+					   keep_bitmaps,
+					   create_word_cells,
+					   create_line_cells);
 	 },
-	 pybind11::arg("key"),
-	 pybind11::arg("page"),
-	 pybind11::arg("page_boundary") = "crop_box", // media_box
-	 pybind11::arg("do_sanitization") = true, // media_box
+    pybind11::arg("key"),
+    pybind11::arg("page"),
+    pybind11::arg("page_boundary") = "crop_box", // media_box
+    pybind11::arg("do_sanitization") = true,
+    pybind11::arg("keep_char_cells") = true,
+    pybind11::arg("keep_lines") = true,
+    pybind11::arg("keep_bitmaps") = true,
+    pybind11::arg("create_word_cells") = true,
+    pybind11::arg("create_line_cells") = true,
 	 R"(
     Parse a specific page of the PDF document identified by its unique key and return a JSON representation.
 
@@ -418,6 +437,11 @@ PYBIND11_MODULE(pdf_parsers, m) {
         page (int): The page number to parse.
         page_boundary (str): The page boundary specification for parsing [choices: crop_box, media_box].
         do_sanitization: Sanitize the chars into lines [default=true].
+        keep_char_cells: keep all the individual char's
+        keep_lines: keep all the lines
+        keep_bitmaps: keep all the bitmap resources
+        create_word_cells: create words from the char-cells
+        create_line_cells: create lines from the char-cells
 
     Returns:
         dict: A JSON representation of the parsed page.)")
@@ -560,14 +584,14 @@ Sanitize table cells with specified parameters and return the processed JSON.
 	 [](docling::docling_sanitizer &self,
 	    double horizontal_cell_tolerance,
 	    bool enforce_same_font,
-	    double space_width_factor_for_merge = 1.0) -> nlohmann::json {
+	    double space_width_factor_for_merge/* = 1.0*/) -> nlohmann::json {
 	   return self.create_word_cells(horizontal_cell_tolerance,
 					 enforce_same_font,
 					 space_width_factor_for_merge);
 	 },
-	 pybind11::arg("horizontal_cell_tolerance")=1.0,
-	 pybind11::arg("enforce_same_font")=true,
-	 pybind11::arg("space_width_factor_for_merge")=0.33,
+	 pybind11::arg("horizontal_cell_tolerance"), // =1.0,
+	 pybind11::arg("enforce_same_font"), //=true,
+	 pybind11::arg("space_width_factor_for_merge"), //=0.33,
 	 R"(
     Create word cells
 
@@ -583,17 +607,17 @@ Sanitize table cells with specified parameters and return the processed JSON.
 	 [](docling::docling_sanitizer &self,
 	    double horizontal_cell_tolerance,
 	    bool enforce_same_font,
-	    double space_width_factor_for_merge = 1.0,
-	    double space_width_factor_for_merge_with_space = 0.33) -> nlohmann::json {
+	    double space_width_factor_for_merge /*= 1.0*/,
+	    double space_width_factor_for_merge_with_space /*= 0.33*/) -> nlohmann::json {
 	   return self.create_line_cells(horizontal_cell_tolerance,
 					 enforce_same_font,
 					 space_width_factor_for_merge,
 					 space_width_factor_for_merge_with_space);
 	 },
-	 pybind11::arg("horizontal_cell_tolerance")=1.0,
-	 pybind11::arg("enforce_same_font")=true,
-	 pybind11::arg("space_width_factor_for_merge")=1.0,
-	 pybind11::arg("space_width_factor_for_merge_with_space")=0.33,
+	 pybind11::arg("horizontal_cell_tolerance"), //=1.0,
+	 pybind11::arg("enforce_same_font"), //=true,
+	 pybind11::arg("space_width_factor_for_merge"), //=1.0,
+	 pybind11::arg("space_width_factor_for_merge_with_space"), //=0.33,
 	 R"(
     Create line cells
 

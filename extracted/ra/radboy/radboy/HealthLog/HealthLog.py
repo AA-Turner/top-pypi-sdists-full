@@ -27,6 +27,7 @@ import pint_pandas
 import radboy.DB.ExerciseTracker as ET
 import zipfile
 from copy import copy
+from radboy.DB.OrderedAndRxd import *
 
 class HealthLogUi:
 	def edit_hlid(self):
@@ -916,6 +917,11 @@ class HealthLogUi:
 			'cmds':['export welsh','xpt welsh'],
 			'desc':'export data for diabete\'s dr.',
 			'exec':lambda self=self:self.export_log_field(fields=['BloodSugar','BloodSugarUnitName','LongActingInsulinName','LongActingInsulinTaken','LongActingInsulinUnitName','ShortActingInsulinName','ShortActingInsulinTaken','ShortActingInsulinUnitName','HeartRate','HeartRateUnitName','DrugConsumed','DrugQtyConsumed','DrugQtyConsumedUnitName','CarboHydrateIntake','CarboHydrateIntakeUnitName','Comments',],not_none=['Comments',])
+			},
+			str(uuid1()):{
+			'cmds':['ordered and recieved','oar','ordered and rxd','ordered & rxd','ordered & recieved','o&r'],
+			'desc':'ordered and recieved journal',
+			'exec':lambda self=self:OrderAndRxdUi()
 			},
 			'xpt consumed':{
 				'cmds':['xptfd','xpt fd','xpt food','xpt-fd','xpt fuel','xpt fl','xlfl'],

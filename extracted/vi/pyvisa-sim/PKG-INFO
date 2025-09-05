@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyVISA-sim
-Version: 0.7.0
+Version: 0.7.1
 Summary: Simulated backend for PyVISA implementing TCPIP, GPIB, RS232, and USB resources
 Author-email: "Hernan E. Grecco" <hernan.grecco@gmail.com>
 Maintainer-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>

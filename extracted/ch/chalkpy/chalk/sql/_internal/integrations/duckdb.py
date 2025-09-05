@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import os
 from os import PathLike
-from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, TypeVar, Union
 
 import duckdb
+import pyarrow as pa
 from sqlalchemy.engine import Engine
 
+from chalk.features import Feature
+from chalk.sql import FinalizedChalkQuery
+from chalk.sql._internal.query_execution_parameters import QueryExecutionParameters
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind, TableIngestMixIn
 from chalk.sql.protocols import SQLSourceWithTableIngestProtocol
+from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
-    import pyarrow as pa
     from sqlalchemy.engine.url import URL
 
 T = TypeVar("T")
@@ -52,15 +56,72 @@ class DuckDBSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
             self.connection.execute(f"create table {table} as select * from t")
 
     def get_engine(self) -> Engine:
-        raise NotImplementedError("DuckDB does not support async connections")
+        try:
+            from sqlalchemy import create_engine
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[duckdb]")
+        return create_engine(self.local_engine_url(), **self.engine_args)
 
     def local_engine_url(self) -> URL:
-        raise NotImplementedError("DuckDB does not support local_engine_url")
-        # try:
-        #     from sqlalchemy.engine.url import URL
-        # except ImportError:
-        #     raise missing_dependency_exception("chalkpy[duckdb]")
-        # return URL.create(drivername="duckdb", database=self.file, query={"check_same_thread": "true"})
+        try:
+            from sqlalchemy.engine.url import URL
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[duckdb]")
+        return URL.create(drivername="duckdb", database=str(self.filename) if self.filename else None)
+
+    def _execute_query_efficient(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        columns_to_features: Callable[[Sequence[str]], Mapping[str, Feature]],
+        connection: Optional[Any],  # sqlalchemy.ext.asyncio.AsyncConnection
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        reader = self.connection.query(self.compile_query(finalized_query)[0]).fetch_arrow_reader()
+
+        while True:
+            try:
+                batch = reader.read_next_batch()
+                yield batch
+            except StopIteration:
+                return
+
+    def execute_query_efficient_raw(
+        self,
+        finalized_query: FinalizedChalkQuery,
+        expected_output_schema: pa.Schema,
+        connection: Optional[Any],
+        query_execution_parameters: QueryExecutionParameters,
+    ) -> Iterable[pa.RecordBatch]:
+        """Execute query efficiently for DuckDB and return raw PyArrow RecordBatches."""
+        import pyarrow.compute as pc
+
+        query_str, _, _ = self.compile_query(finalized_query)
+        reader = self.connection.query(query_str).fetch_arrow_reader()
+
+        while True:
+            try:
+                batch = reader.read_next_batch()
+                # Map columns to expected schema
+                if batch.schema != expected_output_schema:
+                    # Create mapping from result columns to expected columns
+                    arrays: list[pa.Array] = []
+                    for field in expected_output_schema:
+                        if field.name in batch.schema.names:
+                            col = batch.column(field.name)
+                            # Cast to expected type if needed
+                            if col.type != field.type:
+                                col = pc.cast(col, field.type)
+                            arrays.append(col)
+                        else:
+                            # Column not found, create null array
+                            arrays.append(pa.nulls(len(batch), field.type))
+                    batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+                yield batch
+            except StopIteration:
+                return
+
+    def supports_inefficient_fallback(self) -> bool:
+        return False
 
     def async_local_engine_url(self) -> URL:
         raise NotImplementedError("DuckDB does not support async connections")

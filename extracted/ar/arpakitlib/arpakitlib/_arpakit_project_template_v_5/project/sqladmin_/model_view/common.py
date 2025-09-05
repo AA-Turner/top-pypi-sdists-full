@@ -12,27 +12,55 @@ from project.sqladmin_.util.etc import format_json_for_preview_, format_datetime
 from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
 
 
+def get_default_column_formatters() -> dict[Any, Any]:
+    return {
+        SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_for_preview_(m.detail_data),
+        SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
+    }
+
+def get_default_column_formatters_detail() -> dict[Any, Any]:
+    return {
+        SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_(m.detail_data),
+        SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_(m.extra_data),
+    }
+
+
+def get_default_column_default_sort() -> tuple[Any, Any]:
+    return SimpleDBM.ColumnNames.creation_dt, True
+
+
+def get_default_column_searchable_list() -> list[str]:
+    from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
+    return [SimpleDBM.ColumnNames.id, SimpleDBM.ColumnNames.long_id, SimpleDBM.ColumnNames.uuid]
+
+
+
 class SimpleMV(ModelView):
     can_create = True
     can_edit = True
     can_delete = True
     can_view_details = True
     can_export = True
-    page_size = 50
+    page_size = 100
     page_size_options = [50, 100, 200, 500, 750, 1000]
     save_as = True
     save_as_continue = True
     export_types = ["xlsx"]
     form_include_pk = True
+    column_default_sort = get_default_column_default_sort()
+    column_formatters = get_default_column_formatters()
+    column_formatters_detail = get_default_column_formatters_detail()
+    column_searchable_list = get_default_column_searchable_list()
 
-    column_default_sort = [
-        (SimpleDBM.ColumnNames.creation_dt, True)
-    ]
+    @classmethod
+    def get_default_column_default_sort(cls) -> tuple[Any, Any]:
+        return get_default_column_default_sort()
 
     @classmethod
     def get_default_column_searchable_list(cls) -> list[str]:
-        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
-        return [SimpleDBM.ColumnNames.id, SimpleDBM.ColumnNames.long_id, SimpleDBM.ColumnNames.uuid]
+        return get_default_column_searchable_list()
 
     @classmethod
     def get_default_column_list(cls) -> list[str]:
@@ -62,19 +90,11 @@ class SimpleMV(ModelView):
 
     @classmethod
     def get_default_column_formatters(cls) -> dict[Any, Any]:
-        return {
-            SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
-            SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_for_preview_(m.detail_data),
-            SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
-        }
+        return get_default_column_formatters()
 
     @classmethod
     def get_default_column_formatters_detail(cls) -> dict[Any, Any]:
-        return {
-            SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
-            SimpleDBM.ColumnNames.detail_data: lambda m, a: format_json_(m.detail_data),
-            SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_(m.extra_data),
-        }
+        return get_default_column_formatters_detail()
 
     async def export_data(
             self,

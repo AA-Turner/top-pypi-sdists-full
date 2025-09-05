@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 from orionis.support.entities.base import BaseEntity
 from orionis.foundation.config.testing.enums import ExecutionMode, PersistentDrivers, VerbosityMode
 from orionis.foundation.exceptions import OrionisIntegrityException
@@ -32,8 +31,6 @@ class Testing(BaseEntity):
         Filename pattern to identify test files (default: 'test_*.py').
     test_name_pattern : str or None, optional
         Pattern to match specific test names (default: None).
-    tags : list of str or None, optional
-        List of tags to filter tests (default: empty list).
     persistent : bool, optional
         If True, keep test results persistent (default: False).
     persistent_driver : str or PersistentDrivers, optional
@@ -115,14 +112,6 @@ class Testing(BaseEntity):
         metadata = {
             "description": "A pattern to match specific test names. Default is None.",
             "default": None
-        }
-    )
-
-    tags: List[str] | None = field(
-        default_factory = lambda: [],
-        metadata = {
-            "description": "A list of tags to filter tests. Default is an empty list.",
-            "default": []
         }
     )
 
@@ -254,18 +243,6 @@ class Testing(BaseEntity):
             raise OrionisIntegrityException(
                 f"Invalid type for 'test_name_pattern': {type(self.test_name_pattern).__name__}. It must be a string or None."
             )
-
-        # Validate tags attribute
-        if self.tags is not None:
-            if not isinstance(self.tags, list):
-                raise OrionisIntegrityException(
-                    f"Invalid type for 'tags': {type(self.tags).__name__}. It must be a list of strings or None."
-                )
-            for i, tag in enumerate(self.tags):
-                if not isinstance(tag, str):
-                    raise OrionisIntegrityException(
-                        f"Invalid type for tag at index {i} in 'tags': {type(tag).__name__}. Each tag must be a string."
-                    )
 
         # Validate persistent attribute
         if not isinstance(self.persistent, bool):

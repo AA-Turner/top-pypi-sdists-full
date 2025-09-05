@@ -51,7 +51,7 @@ def count_objects_by_category(results: Any) -> Dict[str, int]:
     return dict(counts)
 
 
-def count_objects_in_zones(results: Any, zones: Dict[str, List[List[float]]]) -> Dict[str, Dict[str, int]]:
+def count_objects_in_zones(results: Any, zones: Dict[str, List[List[float]]], stream_info:Optional[Any]=None) -> Dict[str, Dict[str, int]]:
     """
     Count objects in defined zones.
     
@@ -70,7 +70,7 @@ def count_objects_in_zones(results: Any, zones: Dict[str, List[List[float]]]) ->
         if isinstance(results, list):
             # Detection format
             for detection in results:
-                if _is_detection_in_zone(detection, zone_polygon):
+                if _is_detection_in_zone(detection, zone_polygon, stream_info):
                     category = detection.get("category", "unknown")
                     zone_counts[zone_name][category] += 1
         
@@ -81,7 +81,7 @@ def count_objects_in_zones(results: Any, zones: Dict[str, List[List[float]]]) ->
             for frame_id, detections in results.items():
                 if isinstance(detections, list):
                     for detection in detections:
-                        if _is_detection_in_zone(detection, zone_polygon):
+                        if _is_detection_in_zone(detection, zone_polygon, stream_info):
                             category = detection.get("category", "unknown")
                             track_id = detection.get("track_id")
                             
@@ -166,12 +166,17 @@ def calculate_counting_summary(results: Any, zones: Optional[Dict[str, List[List
     return summary
 
 
-def _is_detection_in_zone(detection: Dict[str, Any], zone_polygon: List[List[float]]) -> bool:
+def _is_detection_in_zone(detection: Dict[str, Any], zone_polygon: List[List[float]], stream_info:Optional[Any]=None) -> bool:
     """Check if a detection is within a zone polygon."""
     bbox = detection.get("bounding_box", detection.get("bbox"))
     if not bbox:
         return False
-    
+    if stream_info:  #This code ensures that if zone is bigger than the stream resolution, then whole frame is considered as in the zone.
+        for p in zone_polygon:
+            if p[0] > stream_info.get("stream_resolution",{}).get("width",0) and stream_info.get("stream_resolution",{}).get("width",0) != 0:
+                return True
+            if p[1] > stream_info.get("stream_resolution",{}).get("height",0) and stream_info.get("stream_resolution",{}).get("height",0) != 0:
+                return True
     #center = get_bbox_center(bbox)
     bottom25_center = get_bbox_bottom25_center(bbox)
     return point_in_polygon(bottom25_center, [(p[0], p[1]) for p in zone_polygon]) 

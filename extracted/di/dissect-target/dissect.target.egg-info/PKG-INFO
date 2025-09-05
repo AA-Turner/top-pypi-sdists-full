@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.target
-Version: 3.22
+Version: 3.23
 Summary: This module ties all other Dissect modules together, it provides a programming API and command line tools which allow easy access to various data sources inside disk images or file collections (a.k.a. targets)
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3
@@ -26,9 +26,10 @@ Requires-Dist: defusedxml
 Requires-Dist: dissect.cstruct<5,>=4
 Requires-Dist: dissect.eventlog<4,>=3
 Requires-Dist: dissect.evidence<4,>=3
-Requires-Dist: dissect.hypervisor<4,>=3
+Requires-Dist: dissect.hypervisor<4,>=3.19
 Requires-Dist: dissect.ntfs<4,>=3.4
 Requires-Dist: dissect.regf<4,>=3.13
+Requires-Dist: dissect.sql<4,>=3.12
 Requires-Dist: dissect.util<4,>=3
 Requires-Dist: dissect.volume<4,>=2
 Requires-Dist: flow.record~=3.19.0
@@ -47,19 +48,19 @@ Requires-Dist: dissect.ffs<4,>=3; extra == "full"
 Requires-Dist: dissect.fve<5,>=4.2; (platform_system != "Windows" or platform_python_implementation != "PyPy") and extra == "full"
 Requires-Dist: dissect.jffs<2,>=1.5; extra == "full"
 Requires-Dist: dissect.ole<4,>=3; extra == "full"
-Requires-Dist: dissect.qnxfs<2,>=1; extra == "full"
+Requires-Dist: dissect.qnxfs<2,>=1.1; extra == "full"
 Requires-Dist: dissect.shellitem<4,>=3; extra == "full"
 Requires-Dist: dissect.squashfs<2,>=1; extra == "full"
-Requires-Dist: dissect.sql<4,>=3; extra == "full"
 Requires-Dist: dissect.thumbcache<2,>=1; extra == "full"
-Requires-Dist: dissect.vmfs<4,>=3; extra == "full"
+Requires-Dist: dissect.vmfs<4,>=3.12; extra == "full"
 Requires-Dist: dissect.xfs<4,>=3; extra == "full"
 Requires-Dist: ipython; extra == "full"
 Requires-Dist: fusepy; extra == "full"
 Requires-Dist: pycryptodome; extra == "full"
 Requires-Dist: ruamel.yaml; extra == "full"
 Requires-Dist: tomli; python_version < "3.11" and extra == "full"
-Requires-Dist: zstandard; extra == "full"
+Requires-Dist: zstandard==0.23.0; (platform_python_implementation == "PyPy" and python_version == "3.9") and extra == "full"
+Requires-Dist: zstandard; (platform_python_implementation != "PyPy" and python_version != "3.9") and extra == "full"
 Provides-Extra: dev
 Requires-Dist: dissect.target[full,yara]; extra == "dev"
 Requires-Dist: dissect.archive[dev]<2.0.dev,>=1.0.dev; extra == "dev"
@@ -75,17 +76,17 @@ Requires-Dist: dissect.extfs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.fat[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.ffs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.fve[dev]<5.0.dev,>=4.2.dev; (platform_system != "Windows" or platform_python_implementation != "PyPy") and extra == "dev"
-Requires-Dist: dissect.hypervisor[dev]<4.0.dev,>=3.0.dev; extra == "dev"
+Requires-Dist: dissect.hypervisor[dev]<4.0.dev,>=3.19.dev; extra == "dev"
 Requires-Dist: dissect.jffs[dev]<2.0.dev,>=1.5.dev; extra == "dev"
 Requires-Dist: dissect.ntfs[dev]<4.0.dev,>=3.4.dev; extra == "dev"
-Requires-Dist: dissect.qnxfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
+Requires-Dist: dissect.qnxfs[dev]<2.0.dev,>=1.1.dev; extra == "dev"
 Requires-Dist: dissect.regf[dev]<4.0.dev,>=3.13.dev; extra == "dev"
 Requires-Dist: dissect.shellitem[dev]<4.0.dev,>=3.0.dev; extra == "dev"
-Requires-Dist: dissect.sql[dev]<4.0.dev,>=3.0.dev; extra == "dev"
+Requires-Dist: dissect.sql[dev]<4.0.dev,>=3.12.dev; extra == "dev"
 Requires-Dist: dissect.squashfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.thumbcache[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.util<4.0.dev,>=3.0.dev; extra == "dev"
-Requires-Dist: dissect.vmfs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
+Requires-Dist: dissect.vmfs[dev]<4.0.dev,>=3.12.dev; extra == "dev"
 Requires-Dist: dissect.volume[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.xfs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: pexpect; extra == "dev"
@@ -93,7 +94,7 @@ Requires-Dist: docutils; extra == "dev"
 Requires-Dist: typing_extensions; extra == "dev"
 Provides-Extra: yara
 Requires-Dist: dissect.target[full]; extra == "yara"
-Requires-Dist: yara-python; extra == "yara"
+Requires-Dist: yara-python>=4.3.0; extra == "yara"
 Provides-Extra: smb
 Requires-Dist: dissect.target[full]; extra == "smb"
 Requires-Dist: impacket==0.10.0; extra == "smb"

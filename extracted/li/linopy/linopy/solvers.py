@@ -13,6 +13,7 @@ import os
 import re
 import subprocess as sub
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Callable, Generator
@@ -100,10 +101,8 @@ with contextlib.suppress(ModuleNotFoundError):
     import mosek
 
     with contextlib.suppress(mosek.Error):
-        with mosek.Env() as m:
-            t = m.Task()
-            t.optimize()
-            m.checkinall()
+        t = mosek.Task()
+        t.optimize()
 
         available_solvers.append("mosek")
 
@@ -459,7 +458,12 @@ class CBC(Solver[None]):
         status.legacy_status = first_line
 
         # Use HiGHS to parse the problem file and find the set of variable names, needed to parse solution
+        if "highs" not in available_solvers:
+            raise ModuleNotFoundError(
+                f"highspy is not installed. Please install it to use {self.solver_name.name} solver."
+            )
         h = highspy.Highs()
+        h.silent()
         h.readModel(path_to_string(problem_fn))
         variables = {v.name for v in h.getVariables()}
 
@@ -755,11 +759,11 @@ class Highs(Solver[None]):
             )
 
         h = model.to_highspy(explicit_coordinate_names=explicit_coordinate_names)
+        self._set_solver_params(h, log_fn)
 
         return self._solve(
             h,
             solution_fn,
-            log_fn,
             warmstart_fn,
             basis_fn,
             model=model,
@@ -804,23 +808,35 @@ class Highs(Solver[None]):
 
         problem_fn_ = path_to_string(problem_fn)
         h = highspy.Highs()
+        self._set_solver_params(h, log_fn)
+
         h.readModel(problem_fn_)
 
         return self._solve(
             h,
             solution_fn,
-            log_fn,
             warmstart_fn,
             basis_fn,
             io_api=read_io_api_from_problem_file(problem_fn),
             sense=read_sense_from_problem_file(problem_fn),
         )
 
+    def _set_solver_params(
+        self,
+        highs_solver: highspy.Highs,
+        log_fn: Path | None = None,
+    ) -> None:
+        if log_fn is not None:
+            self.solver_options["log_file"] = path_to_string(log_fn)
+            logger.info(f"Log file at {self.solver_options['log_file']}")
+
+        for k, v in self.solver_options.items():
+            highs_solver.setOptionValue(k, v)
+
     def _solve(
         self,
         h: highspy.Highs,
         solution_fn: Path | None = None,
-        log_fn: Path | None = None,
         warmstart_fn: Path | None = None,
         basis_fn: Path | None = None,
         model: Model | None = None,
@@ -876,13 +892,6 @@ class Highs(Solver[None]):
             highspy.HighsModelStatus.kInterrupt: TerminationCondition.user_interrupt,
             highspy.HighsModelStatus.kUnknown: TerminationCondition.unknown,
         }
-
-        if log_fn is not None:
-            self.solver_options["log_file"] = path_to_string(log_fn)
-            logger.info(f"Log file at {self.solver_options['log_file']}")
-
-        for k, v in self.solver_options.items():
-            h.setOptionValue(k, v)
 
         if warmstart_fn is not None and warmstart_fn.suffix == ".sol":
             h.readSolution(path_to_string(warmstart_fn), 0)
@@ -1655,8 +1664,9 @@ class Mosek(Solver[None]):
             Path to the warmstart file.
         basis_fn : Path, optional
             Path to the basis file.
-        env : None, optional
-            Mosek environment for the solver
+        env : None, optional, deprecated
+            Deprecated. This parameter is ignored. MOSEK now uses the global
+            environment automatically. Will be removed in a future version.
         explicit_coordinate_names : bool, optional
             Transfer variable and constraint names to the solver (default: False)
 
@@ -1664,24 +1674,27 @@ class Mosek(Solver[None]):
         -------
         Result
         """
-        with contextlib.ExitStack() as stack:
-            if env is None:
-                env_ = stack.enter_context(mosek.Env())
 
-            with env_.Task() as m:
-                m = model.to_mosek(
-                    m, explicit_coordinate_names=explicit_coordinate_names
-                )
+        if env is not None:
+            warnings.warn(
+                "The 'env' parameter in solve_problem_from_model is deprecated and will be "
+                "removed in a future version. MOSEK now uses the global environment "
+                "automatically, avoiding unnecessary license checkouts.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        with mosek.Task() as m:
+            m = model.to_mosek(m, explicit_coordinate_names=explicit_coordinate_names)
 
-                return self._solve(
-                    m,
-                    solution_fn=solution_fn,
-                    log_fn=log_fn,
-                    warmstart_fn=warmstart_fn,
-                    basis_fn=basis_fn,
-                    io_api="direct",
-                    sense=model.sense,
-                )
+            return self._solve(
+                m,
+                solution_fn=solution_fn,
+                log_fn=log_fn,
+                warmstart_fn=warmstart_fn,
+                basis_fn=basis_fn,
+                io_api="direct",
+                sense=model.sense,
+            )
 
     def solve_problem_from_file(
         self,
@@ -1708,34 +1721,39 @@ class Mosek(Solver[None]):
             Path to the warmstart file.
         basis_fn : Path, optional
             Path to the basis file.
-        env : None, optional
-            Mosek environment for the solver
+        env : None, optional, deprecated
+            Deprecated. This parameter is ignored. MOSEK now uses the global
+            environment automatically. Will be removed in a future version.
 
         Returns
         -------
         Result
         """
-        with contextlib.ExitStack() as stack:
-            if env is None:
-                env_ = stack.enter_context(mosek.Env())
+        if env is not None:
+            warnings.warn(
+                "The 'env' parameter in solve_problem_from_file is deprecated and will be "
+                "removed in a future version. MOSEK now uses the global environment "
+                "automatically, avoiding unnecessary license checkouts.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        with mosek.Task() as m:
+            # read sense and io_api from problem file
+            sense = read_sense_from_problem_file(problem_fn)
+            io_api = read_io_api_from_problem_file(problem_fn)
+            # for Mosek solver, the path needs to be a string
+            problem_fn_ = path_to_string(problem_fn)
+            m.readdata(problem_fn_)
 
-            with env_.Task() as m:
-                # read sense and io_api from problem file
-                sense = read_sense_from_problem_file(problem_fn)
-                io_api = read_io_api_from_problem_file(problem_fn)
-                # for Mosek solver, the path needs to be a string
-                problem_fn_ = path_to_string(problem_fn)
-                m.readdata(problem_fn_)
-
-                return self._solve(
-                    m,
-                    solution_fn=solution_fn,
-                    log_fn=log_fn,
-                    warmstart_fn=warmstart_fn,
-                    basis_fn=basis_fn,
-                    io_api=io_api,
-                    sense=sense,
-                )
+            return self._solve(
+                m,
+                solution_fn=solution_fn,
+                log_fn=log_fn,
+                warmstart_fn=warmstart_fn,
+                basis_fn=basis_fn,
+                io_api=io_api,
+                sense=sense,
+            )
 
     def _solve(
         self,
@@ -2213,6 +2231,7 @@ class MindOpt(Solver[None]):
         solution = self.safe_get_solution(status=status, func=get_solver_solution)
         solution = maybe_adjust_objective_sign(solution, io_api, sense)
 
+        m.dispose()
         env_.dispose()
 
         return Result(status, solution, m)

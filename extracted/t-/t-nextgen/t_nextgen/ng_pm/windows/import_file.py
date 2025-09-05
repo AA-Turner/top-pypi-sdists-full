@@ -377,6 +377,7 @@ class ImportFileWindow(NextGenWindow):
                 auto_id="65535",
                 control_type="Text",
                 title="Some files/checks were identified as duplicate imports.  Continue?",
+                found_index=0,
             ).exists(timeout=3, retry_interval=0.001)
         return False
 
@@ -408,6 +409,7 @@ class ImportFileWindow(NextGenWindow):
                 auto_id="65535",
                 control_type="Text",
                 title="Please select either ERA files or Patient Pay files but not both.",
+                found_index=0,
             ).exists(timeout=3, retry_interval=0.001)
         return False
 

@@ -103,7 +103,7 @@ def main() -> None:
       description="Finite-state grammar compilation",
       long_description=long_description,
       long_description_content_type="text/markdown",
-      url="http://pynini.opengrm.org",
+      url="https://pynini.opengrm.org",
       keywords=[
           "computational linguistics",
           "natural language processing",
@@ -111,7 +111,6 @@ def main() -> None:
           "machine learning",
       ],
       classifiers=[
-          "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: 3.9",
           "Programming Language :: Python :: 3.10",
           "Programming Language :: Python :: 3.11",

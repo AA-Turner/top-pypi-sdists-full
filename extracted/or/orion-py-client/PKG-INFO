@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orion_py_client
-Version: 0.1.12
+Version: 0.1.13
 Summary: Python Client for Orion Feature Store to push/produce Model Features and get features' metadata
 Project-URL: Homepage, https://github.com/Meesho/orion/orion_py_client
 Project-URL: Bug Tracker, https://github.com/Meesho/orion/issues
@@ -11,6 +11,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.7
+Requires-Dist: cloudpathlib>=0.17.0
 Requires-Dist: protobuf>=4.24.1
 Description-Content-Type: text/markdown
 

@@ -31221,15 +31221,17 @@ class scout_chartdefinition_api_Threshold(ConjureBeanType):
         return {
             'value': ConjureFieldDefinition('value', float),
             'color': ConjureFieldDefinition('color', scout_api_HexColor),
-            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str])
+            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
+            'latch': ConjureFieldDefinition('latch', OptionalTypeWrapper[scout_chartdefinition_api_ThresholdLatch])
         }
 
-    __slots__: List[str] = ['_value', '_color', '_label']
+    __slots__: List[str] = ['_value', '_color', '_label', '_latch']
 
-    def __init__(self, color: str, value: float, label: Optional[str] = None) -> None:
+    def __init__(self, color: str, value: float, label: Optional[str] = None, latch: Optional["scout_chartdefinition_api_ThresholdLatch"] = None) -> None:
         self._value = value
         self._color = color
         self._label = label
+        self._latch = latch
 
     @builtins.property
     def value(self) -> float:
@@ -31248,6 +31250,13 @@ class scout_chartdefinition_api_Threshold(ConjureBeanType):
         """A name for this threshold to display while editing.
         """
         return self._label
+
+    @builtins.property
+    def latch(self) -> Optional["scout_chartdefinition_api_ThresholdLatch"]:
+        """Options for pinning an indicator that data was within the threshold range 
+while streaming.
+        """
+        return self._latch
 
 
 scout_chartdefinition_api_Threshold.__name__ = "Threshold"
@@ -31279,6 +31288,29 @@ This option indicates the duration below which disconnected values will always b
 scout_chartdefinition_api_ThresholdDisconnectedValues.__name__ = "ThresholdDisconnectedValues"
 scout_chartdefinition_api_ThresholdDisconnectedValues.__qualname__ = "ThresholdDisconnectedValues"
 scout_chartdefinition_api_ThresholdDisconnectedValues.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ThresholdLatch(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'enabled': ConjureFieldDefinition('enabled', bool)
+        }
+
+    __slots__: List[str] = ['_enabled']
+
+    def __init__(self, enabled: bool) -> None:
+        self._enabled = enabled
+
+    @builtins.property
+    def enabled(self) -> bool:
+        return self._enabled
+
+
+scout_chartdefinition_api_ThresholdLatch.__name__ = "ThresholdLatch"
+scout_chartdefinition_api_ThresholdLatch.__qualname__ = "ThresholdLatch"
+scout_chartdefinition_api_ThresholdLatch.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_ThresholdLineStyle(ConjureEnumType):
@@ -32005,18 +32037,24 @@ class scout_chartdefinition_api_ValueTableCell(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'variable_name': ConjureFieldDefinition('variableName', str),
+            'uuid': ConjureFieldDefinition('uuid', OptionalTypeWrapper[str]),
             'config': ConjureFieldDefinition('config', scout_chartdefinition_api_ValueTableCellConfig)
         }
 
-    __slots__: List[str] = ['_variable_name', '_config']
+    __slots__: List[str] = ['_variable_name', '_uuid', '_config']
 
-    def __init__(self, config: "scout_chartdefinition_api_ValueTableCellConfig", variable_name: str) -> None:
+    def __init__(self, config: "scout_chartdefinition_api_ValueTableCellConfig", variable_name: str, uuid: Optional[str] = None) -> None:
         self._variable_name = variable_name
+        self._uuid = uuid
         self._config = config
 
     @builtins.property
     def variable_name(self) -> str:
         return self._variable_name
+
+    @builtins.property
+    def uuid(self) -> Optional[str]:
+        return self._uuid
 
     @builtins.property
     def config(self) -> "scout_chartdefinition_api_ValueTableCellConfig":
@@ -45677,6 +45715,35 @@ scout_compute_api_EnumBucket.__qualname__ = "EnumBucket"
 scout_compute_api_EnumBucket.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EnumConstantResampleInterpolationConfiguration(ConjureBeanType):
+    """Fills all empty resample intervals with a single constant value.
+
+If a resampled time interval (bucket) contains no data points from the input, it will
+be assigned the specified 'constant' as a default value. This applies to gaps at the start of the 
+series, between data points, and at the end.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'constant': ConjureFieldDefinition('constant', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_constant']
+
+    def __init__(self, constant: "scout_compute_api_StringConstant") -> None:
+        self._constant = constant
+
+    @builtins.property
+    def constant(self) -> "scout_compute_api_StringConstant":
+        return self._constant
+
+
+scout_compute_api_EnumConstantResampleInterpolationConfiguration.__name__ = "EnumConstantResampleInterpolationConfiguration"
+scout_compute_api_EnumConstantResampleInterpolationConfiguration.__qualname__ = "EnumConstantResampleInterpolationConfiguration"
+scout_compute_api_EnumConstantResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EnumCountDuplicateSeries(ConjureBeanType):
     """Counts the number of points along each timestamp in the input series.
     """
@@ -45938,6 +46005,116 @@ scout_compute_api_EnumPoint.__qualname__ = "EnumPoint"
 scout_compute_api_EnumPoint.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EnumResampleConfiguration(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interval': ConjureFieldDefinition('interval', scout_compute_api_DurationConstant),
+            'interpolation': ConjureFieldDefinition('interpolation', OptionalTypeWrapper[scout_compute_api_EnumResampleInterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_interval', '_interpolation']
+
+    def __init__(self, interval: "scout_compute_api_DurationConstant", interpolation: Optional["scout_compute_api_EnumResampleInterpolationConfiguration"] = None) -> None:
+        self._interval = interval
+        self._interpolation = interpolation
+
+    @builtins.property
+    def interval(self) -> "scout_compute_api_DurationConstant":
+        """Interval between resampled points
+        """
+        return self._interval
+
+    @builtins.property
+    def interpolation(self) -> Optional["scout_compute_api_EnumResampleInterpolationConfiguration"]:
+        """Interpolation strategy to use (defaults to forward fill).
+        """
+        return self._interpolation
+
+
+scout_compute_api_EnumResampleConfiguration.__name__ = "EnumResampleConfiguration"
+scout_compute_api_EnumResampleConfiguration.__qualname__ = "EnumResampleConfiguration"
+scout_compute_api_EnumResampleConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EnumResampleInterpolationConfiguration(ConjureUnionType):
+    _forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None
+    _constant_resample_interpolation_configuration: Optional["scout_compute_api_EnumConstantResampleInterpolationConfiguration"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'forward_fill_resample_interpolation_configuration': ConjureFieldDefinition('forwardFillResampleInterpolationConfiguration', scout_compute_api_ForwardFillResampleInterpolationConfiguration),
+            'constant_resample_interpolation_configuration': ConjureFieldDefinition('constantResampleInterpolationConfiguration', scout_compute_api_EnumConstantResampleInterpolationConfiguration)
+        }
+
+    def __init__(
+            self,
+            forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None,
+            constant_resample_interpolation_configuration: Optional["scout_compute_api_EnumConstantResampleInterpolationConfiguration"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (forward_fill_resample_interpolation_configuration is not None) + (constant_resample_interpolation_configuration is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if forward_fill_resample_interpolation_configuration is not None:
+                self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
+                self._type = 'forwardFillResampleInterpolationConfiguration'
+            if constant_resample_interpolation_configuration is not None:
+                self._constant_resample_interpolation_configuration = constant_resample_interpolation_configuration
+                self._type = 'constantResampleInterpolationConfiguration'
+
+        elif type_of_union == 'forwardFillResampleInterpolationConfiguration':
+            if forward_fill_resample_interpolation_configuration is None:
+                raise ValueError('a union value must not be None')
+            self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
+            self._type = 'forwardFillResampleInterpolationConfiguration'
+        elif type_of_union == 'constantResampleInterpolationConfiguration':
+            if constant_resample_interpolation_configuration is None:
+                raise ValueError('a union value must not be None')
+            self._constant_resample_interpolation_configuration = constant_resample_interpolation_configuration
+            self._type = 'constantResampleInterpolationConfiguration'
+
+    @builtins.property
+    def forward_fill_resample_interpolation_configuration(self) -> Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"]:
+        return self._forward_fill_resample_interpolation_configuration
+
+    @builtins.property
+    def constant_resample_interpolation_configuration(self) -> Optional["scout_compute_api_EnumConstantResampleInterpolationConfiguration"]:
+        return self._constant_resample_interpolation_configuration
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_EnumResampleInterpolationConfigurationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_EnumResampleInterpolationConfigurationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'forwardFillResampleInterpolationConfiguration' and self.forward_fill_resample_interpolation_configuration is not None:
+            return visitor._forward_fill_resample_interpolation_configuration(self.forward_fill_resample_interpolation_configuration)
+        if self._type == 'constantResampleInterpolationConfiguration' and self.constant_resample_interpolation_configuration is not None:
+            return visitor._constant_resample_interpolation_configuration(self.constant_resample_interpolation_configuration)
+
+
+scout_compute_api_EnumResampleInterpolationConfiguration.__name__ = "EnumResampleInterpolationConfiguration"
+scout_compute_api_EnumResampleInterpolationConfiguration.__qualname__ = "EnumResampleInterpolationConfiguration"
+scout_compute_api_EnumResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EnumResampleInterpolationConfigurationVisitor:
+
+    @abstractmethod
+    def _forward_fill_resample_interpolation_configuration(self, forward_fill_resample_interpolation_configuration: "scout_compute_api_ForwardFillResampleInterpolationConfiguration") -> Any:
+        pass
+
+    @abstractmethod
+    def _constant_resample_interpolation_configuration(self, constant_resample_interpolation_configuration: "scout_compute_api_EnumConstantResampleInterpolationConfiguration") -> Any:
+        pass
+
+
+scout_compute_api_EnumResampleInterpolationConfigurationVisitor.__name__ = "EnumResampleInterpolationConfigurationVisitor"
+scout_compute_api_EnumResampleInterpolationConfigurationVisitor.__qualname__ = "EnumResampleInterpolationConfigurationVisitor"
+scout_compute_api_EnumResampleInterpolationConfigurationVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EnumResampleSeries(ConjureBeanType):
     """Resamples the input series to a new resolution using interpolation.
 Outputs data for timestamps corresponding to the defined frequency. Based on interpolation strategy,
@@ -45948,12 +46125,12 @@ determines range of timestamps to output data for and interpolates values where 
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_EnumSeries),
-            'resample_configuration': ConjureFieldDefinition('resampleConfiguration', scout_compute_api_ResampleConfiguration)
+            'resample_configuration': ConjureFieldDefinition('resampleConfiguration', scout_compute_api_EnumResampleConfiguration)
         }
 
     __slots__: List[str] = ['_input', '_resample_configuration']
 
-    def __init__(self, input: "scout_compute_api_EnumSeries", resample_configuration: "scout_compute_api_ResampleConfiguration") -> None:
+    def __init__(self, input: "scout_compute_api_EnumSeries", resample_configuration: "scout_compute_api_EnumResampleConfiguration") -> None:
         self._input = input
         self._resample_configuration = resample_configuration
 
@@ -45962,7 +46139,7 @@ determines range of timestamps to output data for and interpolates values where 
         return self._input
 
     @builtins.property
-    def resample_configuration(self) -> "scout_compute_api_ResampleConfiguration":
+    def resample_configuration(self) -> "scout_compute_api_EnumResampleConfiguration":
         """The interval at which to resample the series and interpolation strategy
         """
         return self._resample_configuration
@@ -49122,6 +49299,35 @@ scout_compute_api_NumericBucket.__qualname__ = "NumericBucket"
 scout_compute_api_NumericBucket.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_NumericConstantResampleInterpolationConfiguration(ConjureBeanType):
+    """Fills all empty resample intervals with a single constant value.
+
+If a resampled time interval (bucket) contains no data points from the input, it will
+be assigned the specified 'constant' as a default value. This applies to gaps at the start of the 
+series, between data points, and at the end.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'constant': ConjureFieldDefinition('constant', scout_compute_api_DoubleConstant)
+        }
+
+    __slots__: List[str] = ['_constant']
+
+    def __init__(self, constant: "scout_compute_api_DoubleConstant") -> None:
+        self._constant = constant
+
+    @builtins.property
+    def constant(self) -> "scout_compute_api_DoubleConstant":
+        return self._constant
+
+
+scout_compute_api_NumericConstantResampleInterpolationConfiguration.__name__ = "NumericConstantResampleInterpolationConfiguration"
+scout_compute_api_NumericConstantResampleInterpolationConfiguration.__qualname__ = "NumericConstantResampleInterpolationConfiguration"
+scout_compute_api_NumericConstantResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NumericFilterTransformationSeries(ConjureBeanType):
     """Outputs the values of the numeric plot value within the ranges specified by a ranges node
     """
@@ -49455,6 +49661,116 @@ scout_compute_api_NumericPoint.__qualname__ = "NumericPoint"
 scout_compute_api_NumericPoint.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_NumericResampleConfiguration(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interval': ConjureFieldDefinition('interval', scout_compute_api_DurationConstant),
+            'interpolation': ConjureFieldDefinition('interpolation', OptionalTypeWrapper[scout_compute_api_NumericResampleInterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_interval', '_interpolation']
+
+    def __init__(self, interval: "scout_compute_api_DurationConstant", interpolation: Optional["scout_compute_api_NumericResampleInterpolationConfiguration"] = None) -> None:
+        self._interval = interval
+        self._interpolation = interpolation
+
+    @builtins.property
+    def interval(self) -> "scout_compute_api_DurationConstant":
+        """Interval between resampled points
+        """
+        return self._interval
+
+    @builtins.property
+    def interpolation(self) -> Optional["scout_compute_api_NumericResampleInterpolationConfiguration"]:
+        """Interpolation strategy to use (defaults to forward fill).
+        """
+        return self._interpolation
+
+
+scout_compute_api_NumericResampleConfiguration.__name__ = "NumericResampleConfiguration"
+scout_compute_api_NumericResampleConfiguration.__qualname__ = "NumericResampleConfiguration"
+scout_compute_api_NumericResampleConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NumericResampleInterpolationConfiguration(ConjureUnionType):
+    _forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None
+    _constant_resample_interpolation_configuration: Optional["scout_compute_api_NumericConstantResampleInterpolationConfiguration"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'forward_fill_resample_interpolation_configuration': ConjureFieldDefinition('forwardFillResampleInterpolationConfiguration', scout_compute_api_ForwardFillResampleInterpolationConfiguration),
+            'constant_resample_interpolation_configuration': ConjureFieldDefinition('constantResampleInterpolationConfiguration', scout_compute_api_NumericConstantResampleInterpolationConfiguration)
+        }
+
+    def __init__(
+            self,
+            forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None,
+            constant_resample_interpolation_configuration: Optional["scout_compute_api_NumericConstantResampleInterpolationConfiguration"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (forward_fill_resample_interpolation_configuration is not None) + (constant_resample_interpolation_configuration is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if forward_fill_resample_interpolation_configuration is not None:
+                self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
+                self._type = 'forwardFillResampleInterpolationConfiguration'
+            if constant_resample_interpolation_configuration is not None:
+                self._constant_resample_interpolation_configuration = constant_resample_interpolation_configuration
+                self._type = 'constantResampleInterpolationConfiguration'
+
+        elif type_of_union == 'forwardFillResampleInterpolationConfiguration':
+            if forward_fill_resample_interpolation_configuration is None:
+                raise ValueError('a union value must not be None')
+            self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
+            self._type = 'forwardFillResampleInterpolationConfiguration'
+        elif type_of_union == 'constantResampleInterpolationConfiguration':
+            if constant_resample_interpolation_configuration is None:
+                raise ValueError('a union value must not be None')
+            self._constant_resample_interpolation_configuration = constant_resample_interpolation_configuration
+            self._type = 'constantResampleInterpolationConfiguration'
+
+    @builtins.property
+    def forward_fill_resample_interpolation_configuration(self) -> Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"]:
+        return self._forward_fill_resample_interpolation_configuration
+
+    @builtins.property
+    def constant_resample_interpolation_configuration(self) -> Optional["scout_compute_api_NumericConstantResampleInterpolationConfiguration"]:
+        return self._constant_resample_interpolation_configuration
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_NumericResampleInterpolationConfigurationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_NumericResampleInterpolationConfigurationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'forwardFillResampleInterpolationConfiguration' and self.forward_fill_resample_interpolation_configuration is not None:
+            return visitor._forward_fill_resample_interpolation_configuration(self.forward_fill_resample_interpolation_configuration)
+        if self._type == 'constantResampleInterpolationConfiguration' and self.constant_resample_interpolation_configuration is not None:
+            return visitor._constant_resample_interpolation_configuration(self.constant_resample_interpolation_configuration)
+
+
+scout_compute_api_NumericResampleInterpolationConfiguration.__name__ = "NumericResampleInterpolationConfiguration"
+scout_compute_api_NumericResampleInterpolationConfiguration.__qualname__ = "NumericResampleInterpolationConfiguration"
+scout_compute_api_NumericResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NumericResampleInterpolationConfigurationVisitor:
+
+    @abstractmethod
+    def _forward_fill_resample_interpolation_configuration(self, forward_fill_resample_interpolation_configuration: "scout_compute_api_ForwardFillResampleInterpolationConfiguration") -> Any:
+        pass
+
+    @abstractmethod
+    def _constant_resample_interpolation_configuration(self, constant_resample_interpolation_configuration: "scout_compute_api_NumericConstantResampleInterpolationConfiguration") -> Any:
+        pass
+
+
+scout_compute_api_NumericResampleInterpolationConfigurationVisitor.__name__ = "NumericResampleInterpolationConfigurationVisitor"
+scout_compute_api_NumericResampleInterpolationConfigurationVisitor.__qualname__ = "NumericResampleInterpolationConfigurationVisitor"
+scout_compute_api_NumericResampleInterpolationConfigurationVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NumericResampleSeries(ConjureBeanType):
     """Resamples the input series to a new resolution using interpolation.
 Outputs data for timestamps corresponding to the defined frequency. Based on interpolation strategy,
@@ -49465,12 +49781,12 @@ determines range of timestamps to output data for and interpolates values where 
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
-            'resample_configuration': ConjureFieldDefinition('resampleConfiguration', scout_compute_api_ResampleConfiguration)
+            'resample_configuration': ConjureFieldDefinition('resampleConfiguration', scout_compute_api_NumericResampleConfiguration)
         }
 
     __slots__: List[str] = ['_input', '_resample_configuration']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries", resample_configuration: "scout_compute_api_ResampleConfiguration") -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", resample_configuration: "scout_compute_api_NumericResampleConfiguration") -> None:
         self._input = input
         self._resample_configuration = resample_configuration
 
@@ -49479,7 +49795,7 @@ determines range of timestamps to output data for and interpolates values where 
         return self._input
 
     @builtins.property
-    def resample_configuration(self) -> "scout_compute_api_ResampleConfiguration":
+    def resample_configuration(self) -> "scout_compute_api_NumericResampleConfiguration":
         """The interpolation strategy and interval at which to resample the series
         """
         return self._resample_configuration
@@ -50493,6 +50809,8 @@ class scout_compute_api_OutputFormat(ConjureEnumType):
 
     ARROW_V2 = 'ARROW_V2'
     '''ARROW_V2'''
+    ARROW_V3 = 'ARROW_V3'
+    '''ARROW_V3'''
     LEGACY = 'LEGACY'
     '''LEGACY'''
     UNKNOWN = 'UNKNOWN'
@@ -52417,95 +52735,6 @@ class scout_compute_api_Reference(ConjureBeanType):
 scout_compute_api_Reference.__name__ = "Reference"
 scout_compute_api_Reference.__qualname__ = "Reference"
 scout_compute_api_Reference.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ResampleConfiguration(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'interval': ConjureFieldDefinition('interval', scout_compute_api_DurationConstant),
-            'interpolation': ConjureFieldDefinition('interpolation', OptionalTypeWrapper[scout_compute_api_ResampleInterpolationConfiguration])
-        }
-
-    __slots__: List[str] = ['_interval', '_interpolation']
-
-    def __init__(self, interval: "scout_compute_api_DurationConstant", interpolation: Optional["scout_compute_api_ResampleInterpolationConfiguration"] = None) -> None:
-        self._interval = interval
-        self._interpolation = interpolation
-
-    @builtins.property
-    def interval(self) -> "scout_compute_api_DurationConstant":
-        """Interval between resampled points
-        """
-        return self._interval
-
-    @builtins.property
-    def interpolation(self) -> Optional["scout_compute_api_ResampleInterpolationConfiguration"]:
-        """Interpolation strategy to use (defaults to forward fill).
-        """
-        return self._interpolation
-
-
-scout_compute_api_ResampleConfiguration.__name__ = "ResampleConfiguration"
-scout_compute_api_ResampleConfiguration.__qualname__ = "ResampleConfiguration"
-scout_compute_api_ResampleConfiguration.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ResampleInterpolationConfiguration(ConjureUnionType):
-    _forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'forward_fill_resample_interpolation_configuration': ConjureFieldDefinition('forwardFillResampleInterpolationConfiguration', scout_compute_api_ForwardFillResampleInterpolationConfiguration)
-        }
-
-    def __init__(
-            self,
-            forward_fill_resample_interpolation_configuration: Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (forward_fill_resample_interpolation_configuration is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if forward_fill_resample_interpolation_configuration is not None:
-                self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
-                self._type = 'forwardFillResampleInterpolationConfiguration'
-
-        elif type_of_union == 'forwardFillResampleInterpolationConfiguration':
-            if forward_fill_resample_interpolation_configuration is None:
-                raise ValueError('a union value must not be None')
-            self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
-            self._type = 'forwardFillResampleInterpolationConfiguration'
-
-    @builtins.property
-    def forward_fill_resample_interpolation_configuration(self) -> Optional["scout_compute_api_ForwardFillResampleInterpolationConfiguration"]:
-        return self._forward_fill_resample_interpolation_configuration
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_api_ResampleInterpolationConfigurationVisitor):
-            raise ValueError('{} is not an instance of scout_compute_api_ResampleInterpolationConfigurationVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'forwardFillResampleInterpolationConfiguration' and self.forward_fill_resample_interpolation_configuration is not None:
-            return visitor._forward_fill_resample_interpolation_configuration(self.forward_fill_resample_interpolation_configuration)
-
-
-scout_compute_api_ResampleInterpolationConfiguration.__name__ = "ResampleInterpolationConfiguration"
-scout_compute_api_ResampleInterpolationConfiguration.__qualname__ = "ResampleInterpolationConfiguration"
-scout_compute_api_ResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_ResampleInterpolationConfigurationVisitor:
-
-    @abstractmethod
-    def _forward_fill_resample_interpolation_configuration(self, forward_fill_resample_interpolation_configuration: "scout_compute_api_ForwardFillResampleInterpolationConfiguration") -> Any:
-        pass
-
-
-scout_compute_api_ResampleInterpolationConfigurationVisitor.__name__ = "ResampleInterpolationConfigurationVisitor"
-scout_compute_api_ResampleInterpolationConfigurationVisitor.__qualname__ = "ResampleInterpolationConfigurationVisitor"
-scout_compute_api_ResampleInterpolationConfigurationVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RollingOperationSeries(ConjureBeanType):
@@ -58339,6 +58568,29 @@ scout_compute_resolved_api_ClickHouseSeriesResolutionDetails.__qualname__ = "Cli
 scout_compute_resolved_api_ClickHouseSeriesResolutionDetails.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'constant': ConjureFieldDefinition('constant', scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue)
+        }
+
+    __slots__: List[str] = ['_constant']
+
+    def __init__(self, constant: "scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue") -> None:
+        self._constant = constant
+
+    @builtins.property
+    def constant(self) -> "scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue":
+        return self._constant
+
+
+scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration.__name__ = "ConstantDefaultValueResampleInterpolationConfiguration"
+scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration.__qualname__ = "ConstantDefaultValueResampleInterpolationConfiguration"
+scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_CumulativeSumSeriesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -62289,41 +62541,58 @@ scout_compute_resolved_api_ResampleConfiguration.__module__ = "nominal_api.scout
 
 class scout_compute_resolved_api_ResampleInterpolationConfiguration(ConjureUnionType):
     _forward_fill_resample_interpolation_configuration: Optional["scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration"] = None
+    _constant_default_value_resample_interpolation_configuration: Optional["scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'forward_fill_resample_interpolation_configuration': ConjureFieldDefinition('forwardFillResampleInterpolationConfiguration', scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration)
+            'forward_fill_resample_interpolation_configuration': ConjureFieldDefinition('forwardFillResampleInterpolationConfiguration', scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration),
+            'constant_default_value_resample_interpolation_configuration': ConjureFieldDefinition('constantDefaultValueResampleInterpolationConfiguration', scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration)
         }
 
     def __init__(
             self,
             forward_fill_resample_interpolation_configuration: Optional["scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration"] = None,
+            constant_default_value_resample_interpolation_configuration: Optional["scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (forward_fill_resample_interpolation_configuration is not None) != 1:
+            if (forward_fill_resample_interpolation_configuration is not None) + (constant_default_value_resample_interpolation_configuration is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if forward_fill_resample_interpolation_configuration is not None:
                 self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
                 self._type = 'forwardFillResampleInterpolationConfiguration'
+            if constant_default_value_resample_interpolation_configuration is not None:
+                self._constant_default_value_resample_interpolation_configuration = constant_default_value_resample_interpolation_configuration
+                self._type = 'constantDefaultValueResampleInterpolationConfiguration'
 
         elif type_of_union == 'forwardFillResampleInterpolationConfiguration':
             if forward_fill_resample_interpolation_configuration is None:
                 raise ValueError('a union value must not be None')
             self._forward_fill_resample_interpolation_configuration = forward_fill_resample_interpolation_configuration
             self._type = 'forwardFillResampleInterpolationConfiguration'
+        elif type_of_union == 'constantDefaultValueResampleInterpolationConfiguration':
+            if constant_default_value_resample_interpolation_configuration is None:
+                raise ValueError('a union value must not be None')
+            self._constant_default_value_resample_interpolation_configuration = constant_default_value_resample_interpolation_configuration
+            self._type = 'constantDefaultValueResampleInterpolationConfiguration'
 
     @builtins.property
     def forward_fill_resample_interpolation_configuration(self) -> Optional["scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration"]:
         return self._forward_fill_resample_interpolation_configuration
+
+    @builtins.property
+    def constant_default_value_resample_interpolation_configuration(self) -> Optional["scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration"]:
+        return self._constant_default_value_resample_interpolation_configuration
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor'.format(visitor.__class__.__name__))
         if self._type == 'forwardFillResampleInterpolationConfiguration' and self.forward_fill_resample_interpolation_configuration is not None:
             return visitor._forward_fill_resample_interpolation_configuration(self.forward_fill_resample_interpolation_configuration)
+        if self._type == 'constantDefaultValueResampleInterpolationConfiguration' and self.constant_default_value_resample_interpolation_configuration is not None:
+            return visitor._constant_default_value_resample_interpolation_configuration(self.constant_default_value_resample_interpolation_configuration)
 
 
 scout_compute_resolved_api_ResampleInterpolationConfiguration.__name__ = "ResampleInterpolationConfiguration"
@@ -62337,10 +62606,91 @@ class scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor:
     def _forward_fill_resample_interpolation_configuration(self, forward_fill_resample_interpolation_configuration: "scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration") -> Any:
         pass
 
+    @abstractmethod
+    def _constant_default_value_resample_interpolation_configuration(self, constant_default_value_resample_interpolation_configuration: "scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration") -> Any:
+        pass
+
 
 scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor.__name__ = "ResampleInterpolationConfigurationVisitor"
 scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor.__qualname__ = "ResampleInterpolationConfigurationVisitor"
 scout_compute_resolved_api_ResampleInterpolationConfigurationVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue(ConjureUnionType):
+    _numeric: Optional[float] = None
+    _enum: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric': ConjureFieldDefinition('numeric', float),
+            'enum': ConjureFieldDefinition('enum', str)
+        }
+
+    def __init__(
+            self,
+            numeric: Optional[float] = None,
+            enum: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric is not None) + (enum is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric is not None:
+                self._numeric = numeric
+                self._type = 'numeric'
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
+
+        elif type_of_union == 'numeric':
+            if numeric is None:
+                raise ValueError('a union value must not be None')
+            self._numeric = numeric
+            self._type = 'numeric'
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
+
+    @builtins.property
+    def numeric(self) -> Optional[float]:
+        return self._numeric
+
+    @builtins.property
+    def enum(self) -> Optional[str]:
+        return self._enum
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric' and self.numeric is not None:
+            return visitor._numeric(self.numeric)
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
+
+
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue.__name__ = "ResampleInterpolationConstantDefaultValue"
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue.__qualname__ = "ResampleInterpolationConstantDefaultValue"
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValue.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor:
+
+    @abstractmethod
+    def _numeric(self, numeric: float) -> Any:
+        pass
+
+    @abstractmethod
+    def _enum(self, enum: str) -> Any:
+        pass
+
+
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor.__name__ = "ResampleInterpolationConstantDefaultValueVisitor"
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor.__qualname__ = "ResampleInterpolationConstantDefaultValueVisitor"
+scout_compute_resolved_api_ResampleInterpolationConstantDefaultValueVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):

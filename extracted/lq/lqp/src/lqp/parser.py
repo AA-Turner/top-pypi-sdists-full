@@ -13,7 +13,8 @@ from datetime import date, datetime
 grammar = """
 start: transaction | fragment
 
-transaction: "(transaction" epoch* ")"
+transaction: "(transaction" configure? epoch* ")"
+configure: "(configure" config_dict ")"
 epoch: "(epoch" writes? reads? ")"
 writes: "(writes" write* ")"
 reads: "(reads" read* ")"
@@ -117,14 +118,14 @@ type_ : TYPE_NAME | "(" TYPE_NAME value* ")"
 TYPE_NAME: "STRING" | "INT" | "FLOAT" | "UINT128" | "INT128"
          | "DATE" | "DATETIME" | "MISSING" | "DECIMAL" | "BOOLEAN"
 
-SYMBOL: /[a-zA-Z_][a-zA-Z0-9_-]*/
+SYMBOL: /[a-zA-Z_][a-zA-Z0-9_.-]*/
 MISSING.1: "missing" // Set a higher priority so so it's MISSING instead of SYMBOL
 STRING: ESCAPED_STRING
 NUMBER: /[-]?\\d+/
 INT128: /[-]?\\d+i128/
 UINT128: /0x[0-9a-fA-F]+/
-FLOAT: /[-]?\\d+\\.\\d+/
-DECIMAL: /[-]?\\d+\\.\\d+d\\d+/
+FLOAT.1: /[-]?\\d+\\.\\d+/ | "inf" | "nan"
+DECIMAL.2: /[-]?\\d+\\.\\d+d\\d+/
 BOOLEAN.1: "true" | "false" // Set a higher priority so it's BOOLEAN instead of SYMBOL
 date: "(date" NUMBER NUMBER NUMBER ")"
 datetime: "(datetime" NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER? ")"
@@ -138,6 +139,27 @@ COMMENT: /;;.*/  // Matches ;; followed by any characters except newline
 %import common.ESCAPED_STRING -> ESCAPED_STRING
 """
 
+def construct_configure(config_dict, meta):
+    # Construct IVMConfig
+    maintenance_level_value = config_dict.get("ivm.maintenance_level")
+    if maintenance_level_value:
+        maintenance_level = getattr(ir.MaintenanceLevel, maintenance_level_value.value.upper())
+    else:
+        maintenance_level = ir.MaintenanceLevel.OFF
+    ivm_config = ir.IVMConfig(level=maintenance_level, meta=meta)
+
+    # Construct Configure
+    semantics_version_value = config_dict.get("semantics_version")
+    if semantics_version_value:
+        semantics_version = semantics_version_value.value
+    else:
+        semantics_version = 0
+
+    return ir.Configure(
+        semantics_version=semantics_version,
+        ivm_config=ivm_config,
+        meta=meta,
+    )
 
 def desugar_to_raw_primitive(name, terms):
     # Convert terms to relterms
@@ -165,7 +187,18 @@ class LQPTransformer(Transformer):
     # Transactions
     #
     def transaction(self, meta, items):
-        return ir.Transaction(epochs=items, meta=self.meta(meta))
+        if isinstance(items[0], ir.Configure):
+            configure = items[0]
+            epochs = items[1:]
+        else:
+            configure = construct_configure({}, self.meta(meta))
+            epochs = items
+            
+        return ir.Transaction(configure=configure, epochs=epochs, meta=self.meta(meta))
+
+    def configure(self, meta, items):
+        return construct_configure(items[0], self.meta(meta))
+
     def epoch(self, meta, items):
         kwargs = {k: v for k, v in items if v} # Filter out None values
         return ir.Epoch(**kwargs, meta=self.meta(meta))

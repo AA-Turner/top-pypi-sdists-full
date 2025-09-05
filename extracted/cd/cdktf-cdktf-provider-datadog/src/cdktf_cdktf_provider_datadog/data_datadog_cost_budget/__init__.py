@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_cost_budget`
 
-Refer to the Terraform Registry for docs: [`data_datadog_cost_budget`](https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget).
+Refer to the Terraform Registry for docs: [`data_datadog_cost_budget`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogCostBudget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogCostBudget.DataDatadogCostBudget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget datadog_cost_budget}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget datadog_cost_budget}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDatadogCostBudget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget datadog_cost_budget} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget datadog_cost_budget} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
+        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDatadogCostBudget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogCostBudget to import.
-        :param import_from_id: The id of the existing DataDatadogCostBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogCostBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogCostBudget to import is found.
         '''
         if __debug__:
@@ -239,8 +239,8 @@ class DataDatadogCostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
+        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -343,7 +343,7 @@ class DataDatadogCostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> builtins.str:
         '''The ID of the budget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#id DataDatadogCostBudget#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -358,7 +358,7 @@ class DataDatadogCostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogCostBudgetEntries"]]]:
         '''entries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#entries DataDatadogCostBudget#entries}
         '''
         result = self._values.get("entries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogCostBudgetEntries"]]], result)
@@ -387,7 +387,7 @@ class DataDatadogCostBudgetEntries:
         tag_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataDatadogCostBudgetEntriesTagFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#tag_filters DataDatadogCostBudget#tag_filters}
+        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#tag_filters DataDatadogCostBudget#tag_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32c267f21c9769b401bcbcfd3b77b93fd3026ab46a02b7628423a9675e3f7d66)
@@ -402,7 +402,7 @@ class DataDatadogCostBudgetEntries:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogCostBudgetEntriesTagFilters"]]]:
         '''tag_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/data-sources/cost_budget#tag_filters DataDatadogCostBudget#tag_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/cost_budget#tag_filters DataDatadogCostBudget#tag_filters}
         '''
         result = self._values.get("tag_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataDatadogCostBudgetEntriesTagFilters"]]], result)

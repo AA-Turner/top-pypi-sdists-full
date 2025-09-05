@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cumulusci
-Version: 4.5.0
+Version: 4.6.0
 Summary: Build and release tools for Salesforce developers
 Project-URL: Homepage, https://github.com/SFDO-Tooling/CumulusCI
 Project-URL: Changelog, https://cumulusci.readthedocs.io/en/stable/history.html
@@ -127,7 +127,7 @@ license](https://github.com/SFDO-Tooling/CumulusCI/blob/main/LICENSE)
 and is not covered by the Salesforce Master Subscription Agreement.
 
 <!-- Changelog -->
-## v4.5.0 (2025-08-06)
+## v4.6.0 (2025-09-04)
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -135,16 +135,6 @@ and is not covered by the Salesforce Master Subscription Agreement.
 
 ### Changes
 
--   Add output_dir option to retrieve_changes task by [@vsbharath](https://github.com/vsbharath) in [#3901](https://github.com/SFDO-Tooling/CumulusCI/pull/3901)
+-   fix: include --output-dir only when output_dir is provided by [@jstvz](https://github.com/jstvz) in [#3920](https://github.com/SFDO-Tooling/CumulusCI/pull/3920)
 
-### Issues Fixed
-
--   fix: Pin docutils<=0.21.2 to fix rst2ansi incompatibility by [@jstvz](https://github.com/jstvz) in [#3914](https://github.com/SFDO-Tooling/CumulusCI/pull/3914)
--   Pin Click to version 8.2.0 by [@jstvz](https://github.com/jstvz) in [#3915](https://github.com/SFDO-Tooling/CumulusCI/pull/3915)
--   migrate entrypoints handling to standard library importlib.metadata by [@rupeshjSFDC](https://github.com/rupeshjSFDC) in [#3904](https://github.com/SFDO-Tooling/CumulusCI/pull/3904)
-
-## New Contributors
-
--   @rupeshjSFDC made their first contribution in [#3904](https://github.com/SFDO-Tooling/CumulusCI/pull/3904)
-
-**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.4.0...v4.5.0
+**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.5.0...v4.6.0

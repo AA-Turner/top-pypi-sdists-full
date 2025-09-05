@@ -1,4 +1,4 @@
-# Copyright 2016-2024 Google LLC
+# Copyright 2016-2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ The following helper functions are also exposed:
 * `lattice_to_strings` returns a list of all output strings in a lattice.
 """
 
-from typing import List, Optional
+from typing import Optional
 
 import logging
 
@@ -168,8 +168,8 @@ def lattice_to_top_string(lattice: pynini.Fst,
 
 
 def lattice_to_strings(
-    lattice: pynini.Fst,
-    token_type: Optional[pynini.TokenType] = None) -> List[str]:
+    lattice: pynini.Fst, token_type: Optional[pynini.TokenType] = None
+) -> list[str]:
   """Returns tuple of output strings.
 
   Args:
@@ -241,11 +241,13 @@ def matches(istring: pynini.FstLike,
   return lattice.start() != pynini.NO_STATE_ID
 
 
-def rewrites(string: pynini.FstLike,
-             rule: pynini.Fst,
-             input_token_type: Optional[pynini.TokenType] = None,
-             output_token_type: Optional[pynini.TokenType] = None,
-             state_multiplier: int = 4) -> List[str]:
+def rewrites(
+    string: pynini.FstLike,
+    rule: pynini.Fst,
+    input_token_type: Optional[pynini.TokenType] = None,
+    output_token_type: Optional[pynini.TokenType] = None,
+    state_multiplier: int = 4,
+) -> list[str]:
   """Returns all rewrites.
 
   Args:
@@ -269,7 +271,8 @@ def top_rewrites(
     rule: pynini.Fst,
     nshortest: int,
     input_token_type: Optional[pynini.TokenType] = None,
-    output_token_type: Optional[pynini.TokenType] = None) -> List[str]:
+    output_token_type: Optional[pynini.TokenType] = None,
+) -> list[str]:
   """Returns the top n rewrites.
 
   Args:
@@ -329,11 +332,13 @@ def one_top_rewrite(string: str,
   return lattice_to_one_top_string(lattice, output_token_type)
 
 
-def optimal_rewrites(string: pynini.FstLike,
-                     rule: pynini.Fst,
-                     input_token_type: Optional[pynini.TokenType] = None,
-                     output_token_type: Optional[pynini.TokenType] = None,
-                     state_multiplier: int = 4) -> List[str]:
+def optimal_rewrites(
+    string: pynini.FstLike,
+    rule: pynini.Fst,
+    input_token_type: Optional[pynini.TokenType] = None,
+    output_token_type: Optional[pynini.TokenType] = None,
+    state_multiplier: int = 4,
+) -> list[str]:
   """Returns all optimal rewrites.
 
   Args:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTenable
-Version: 1.8.3
+Version: 1.8.4
 Summary: Python library to interface into Tenable's products and applications
 Author: Tenable, Inc.
 Author-email: Steve McGrath <smcgrath@tenable.com>

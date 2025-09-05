@@ -26,6 +26,16 @@ def make_slug_from_string(string: str) -> str:
     return string
 
 
+def _make_word_to_plural(word: str):
+    if word.endswith(("s", "x", "z", "ch", "sh")):
+        return word + "es"
+
+    if len(word) > 1 and word[-1] == "y" and word[-2].lower() not in "aeiou":
+        return word[:-1] + "ies"
+
+    return word + "s"
+
+
 class SimpleDBM(BaseDBM):
     __abstract__ = True
 
@@ -113,9 +123,21 @@ class SimpleDBM(BaseDBM):
     def id_and_long_id(self) -> str:
         return f"{self.id}--{self.long_id}"
 
+    @classmethod
+    def get_cls_entity_name(cls) -> str:
+        return cls.__name__.removesuffix("DBM")
+
+    @classmethod
+    def get_cls_entity_name_plural(cls):
+        return _make_word_to_plural(word=cls.get_cls_entity_name())
+
     @property
     def entity_name(self) -> str:
         return self.__class__.__name__.removesuffix("DBM")
+
+    @property
+    def entity_name_plural(self) -> str:
+        return _make_word_to_plural(word=self.entity_name)
 
     @property
     def uuid_as_str(self) -> str:

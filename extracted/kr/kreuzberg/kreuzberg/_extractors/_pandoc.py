@@ -84,8 +84,6 @@ NodeType = Literal[
 
 
 class PandocExtractor(Extractor):
-    """Extractor for documents supported by Pandoc."""
-
     _checked_version: bool = False
 
     MIMETYPE_TO_PANDOC_TYPE_MAPPING: ClassVar[Mapping[str, str]] = {
@@ -153,14 +151,6 @@ class PandocExtractor(Extractor):
     }
 
     async def extract_bytes_async(self, content: bytes) -> ExtractionResult:
-        """Extract text and metadata from bytes content using Pandoc.
-
-        Args:
-            content: The content bytes to process.
-
-        Returns:
-            ExtractionResult with the extracted text and metadata.
-        """
         extension = self._get_pandoc_type_from_mime_type(self.mime_type)
         input_file, unlink = await create_temp_file(f".{extension}")
 
@@ -171,17 +161,6 @@ class PandocExtractor(Extractor):
             await unlink()
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
-        """Extract text and metadata from a file using Pandoc.
-
-        Args:
-            path: The path to the file to process.
-
-        Raises:
-            ParsingError: If the file data could not be extracted.
-
-        Returns:
-            ExtractionResult with the extracted text and metadata.
-        """
         await self._validate_pandoc_version()
         self._get_pandoc_type_from_mime_type(self.mime_type)
 
@@ -198,14 +177,6 @@ class PandocExtractor(Extractor):
             raise ParsingError("Failed to process file", context={"file": str(path), "errors": eg.exceptions}) from eg
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
-        """Pure sync implementation of extract_bytes.
-
-        Args:
-            content: The content bytes to process.
-
-        Returns:
-            ExtractionResult with the extracted text and metadata.
-        """
         extension = self._get_pandoc_type_from_mime_type(self.mime_type)
         fd, temp_path = tempfile.mkstemp(suffix=f".{extension}")
 
@@ -219,17 +190,6 @@ class PandocExtractor(Extractor):
                 Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
-        """Pure sync implementation of extract_path.
-
-        Args:
-            path: The path to the file to process.
-
-        Returns:
-            ExtractionResult with the extracted text and metadata.
-
-        Raises:
-            ParsingError: When file processing fails.
-        """
         self._validate_pandoc_version_sync()
         self._get_pandoc_type_from_mime_type(self.mime_type)
 
@@ -244,18 +204,13 @@ class PandocExtractor(Extractor):
             raise ParsingError("Failed to process file", context={"file": str(path), "error": str(e)}) from e
 
     async def _validate_pandoc_version(self) -> None:
-        """Validate that the installed Pandoc version meets the minimum requirement.
-
-        Raises:
-            MissingDependencyError: If Pandoc is not installed or version is too low
-        """
         try:
             if self._checked_version:
                 return
 
             command = ["pandoc", "--version"]
             result = await run_process(command)
-            stdout = result.stdout.decode()
+            stdout = result.stdout.decode("utf-8")
 
             version_match = re.search(
                 r"pandoc(?:\.exe)?(?:\s+|\s+v|\s+version\s+)(\d+)\.(\d+)(?:\.(\d+))?", stdout, re.IGNORECASE
@@ -299,14 +254,6 @@ class PandocExtractor(Extractor):
 
     @staticmethod
     def _get_pandoc_key(key: str) -> str | None:
-        """Map Pandoc metadata keys to our standard metadata keys.
-
-        Args:
-            key: The key from Pandoc metadata
-
-        Returns:
-            The mapped key name for our system, or None if not mapped
-        """
         if key == "abstract":
             return "summary"
 
@@ -325,17 +272,6 @@ class PandocExtractor(Extractor):
         return key
 
     def _get_pandoc_type_from_mime_type(self, mime_type: str) -> str:
-        """Get Pandoc format type from MIME type.
-
-        Args:
-            mime_type: The MIME type to look up
-
-        Returns:
-            The corresponding Pandoc type
-
-        Raises:
-            ValidationError: If mime_type is not supported
-        """
         if pandoc_type := (self.MIMETYPE_TO_PANDOC_TYPE_MAPPING.get(mime_type, "")):
             return pandoc_type
 
@@ -349,17 +285,6 @@ class PandocExtractor(Extractor):
         raise ValidationError(f"Unsupported mime type: {mime_type}")
 
     async def _handle_extract_metadata(self, input_file: str | PathLike[str]) -> Metadata:
-        """Extract metadata from a file using Pandoc.
-
-        Args:
-            input_file: The file to extract metadata from
-
-        Returns:
-            The extracted metadata
-
-        Raises:
-            ParsingError: If metadata extraction fails
-        """
         pandoc_type = self._get_pandoc_type_from_mime_type(self.mime_type)
         metadata_file, unlink = await create_temp_file(".json")
         try:
@@ -389,17 +314,6 @@ class PandocExtractor(Extractor):
             await unlink()
 
     async def _handle_extract_file(self, input_file: str | PathLike[str]) -> str:
-        """Extract text content from a file using Pandoc.
-
-        Args:
-            input_file: The file to extract content from
-
-        Returns:
-            The extracted text content
-
-        Raises:
-            ParsingError: If content extraction fails
-        """
         pandoc_type = self._get_pandoc_type_from_mime_type(self.mime_type)
         output_path, unlink = await create_temp_file(".md")
         try:
@@ -431,14 +345,6 @@ class PandocExtractor(Extractor):
             await unlink()
 
     def _extract_metadata(self, raw_meta: dict[str, Any]) -> Metadata:
-        """Extract structured metadata from Pandoc JSON metadata.
-
-        Args:
-            raw_meta: The raw metadata from Pandoc
-
-        Returns:
-            Structured metadata
-        """
         meta: Metadata = {}
 
         if (
@@ -485,16 +391,6 @@ class PandocExtractor(Extractor):
         return meta
 
     def _extract_inline_text(self, node: dict[str, Any], type_field: str = "t", content_field: str = "c") -> str | None:
-        """Extract text from an inline node in a document structure.
-
-        Args:
-            node: The node to extract text from
-            type_field: The field name for the node type
-            content_field: The field name for the node content
-
-        Returns:
-            The extracted text or None if no text could be extracted
-        """
         if node_type := node.get(type_field):
             if node_type == "Str":
                 return node.get(content_field)
@@ -505,29 +401,11 @@ class PandocExtractor(Extractor):
         return None
 
     def _extract_inlines(self, nodes: list[dict[str, Any]]) -> str | None:
-        """Extract text from a list of inline nodes.
-
-        Args:
-            nodes: The list of nodes to extract text from
-
-        Returns:
-            The extracted text or None if no text could be extracted
-        """
         texts = [text for node in nodes if (text := self._extract_inline_text(node))]
         result = "".join(texts).strip()
         return result if result else None
 
     def _extract_meta_value(self, node: Any, type_field: str = "t", content_field: str = "c") -> str | list[str] | None:
-        """Extract a metadata value from a node.
-
-        Args:
-            node: The node to extract metadata from
-            type_field: The field name for the node type
-            content_field: The field name for the node content
-
-        Returns:
-            The extracted metadata value or None if no metadata could be extracted
-        """
         if not isinstance(node, dict) or type_field not in node:
             return None
 
@@ -577,12 +455,17 @@ class PandocExtractor(Extractor):
         return None
 
     def _validate_pandoc_version_sync(self) -> None:
-        """Synchronous version of _validate_pandoc_version."""
         try:
             if self._checked_version:
                 return
 
-            result = subprocess.run(["pandoc", "--version"], capture_output=True, text=True, check=False)  # noqa: S607
+            result = subprocess.run(
+                ["pandoc", "--version"],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=False,
+                encoding="utf-8",
+            )
 
             if result.returncode != 0:
                 raise MissingDependencyError(
@@ -621,7 +504,6 @@ class PandocExtractor(Extractor):
             ) from e
 
     def _extract_metadata_sync(self, path: Path) -> Metadata:
-        """Synchronous version of _handle_extract_metadata."""
         pandoc_type = self._get_pandoc_type_from_mime_type(self.mime_type)
         fd, metadata_file = tempfile.mkstemp(suffix=".json")
         os.close(fd)
@@ -638,7 +520,7 @@ class PandocExtractor(Extractor):
                 str(metadata_file),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
@@ -655,7 +537,6 @@ class PandocExtractor(Extractor):
                 Path(metadata_file).unlink()
 
     def _extract_file_sync(self, path: Path) -> str:
-        """Synchronous version of _handle_extract_file."""
         pandoc_type = self._get_pandoc_type_from_mime_type(self.mime_type)
         fd, output_path = tempfile.mkstemp(suffix=".md")
         os.close(fd)
@@ -673,7 +554,7 @@ class PandocExtractor(Extractor):
                 str(output_path),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
@@ -691,8 +572,6 @@ class PandocExtractor(Extractor):
 
 
 class MarkdownExtractor(PandocExtractor):
-    """Extractor for Markdown-based document formats."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "text/x-markdown",
         "text/x-commonmark",
@@ -704,8 +583,6 @@ class MarkdownExtractor(PandocExtractor):
 
 
 class OfficeDocumentExtractor(PandocExtractor):
-    """Extractor for Office document formats (Word, ODT)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.oasis.opendocument.text",
@@ -713,8 +590,6 @@ class OfficeDocumentExtractor(PandocExtractor):
 
 
 class EbookExtractor(PandocExtractor):
-    """Extractor for e-book formats (EPUB, FB2)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/epub+zip",
         "application/x-fictionbook+xml",
@@ -722,8 +597,6 @@ class EbookExtractor(PandocExtractor):
 
 
 class StructuredTextExtractor(PandocExtractor):
-    """Extractor for structured text formats (RST, Org, etc.)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "text/x-rst",
         "text/x-org",
@@ -733,8 +606,6 @@ class StructuredTextExtractor(PandocExtractor):
 
 
 class LaTeXExtractor(PandocExtractor):
-    """Extractor for LaTeX and Typst documents."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/x-latex",
         "application/x-typst",
@@ -742,8 +613,6 @@ class LaTeXExtractor(PandocExtractor):
 
 
 class BibliographyExtractor(PandocExtractor):
-    """Extractor for bibliography formats (BibTeX, CSL JSON, etc.)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/x-bibtex",
         "application/x-biblatex",
@@ -754,8 +623,6 @@ class BibliographyExtractor(PandocExtractor):
 
 
 class XMLBasedExtractor(PandocExtractor):
-    """Extractor for XML-based document formats (DocBook, JATS, OPML)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/docbook+xml",
         "application/x-jats+xml",
@@ -764,8 +631,6 @@ class XMLBasedExtractor(PandocExtractor):
 
 
 class TabularDataExtractor(PandocExtractor):
-    """Extractor for tabular data formats (CSV, TSV)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "text/csv",
         "text/tab-separated-values",
@@ -773,8 +638,6 @@ class TabularDataExtractor(PandocExtractor):
 
 
 class MiscFormatExtractor(PandocExtractor):
-    """Extractor for miscellaneous formats (RTF, man, Jupyter notebooks)."""
-
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
         "application/rtf",
         "text/troff",

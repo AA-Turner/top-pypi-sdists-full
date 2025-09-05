@@ -1,6 +1,6 @@
 [project]
 name = "ssb-datadoc-model"
-version = "7.0.2"
+version = "8.0.0"
 description = "Data Model for use in Statistics Norway's Metadata system"
 authors = [{ name = "Statistics Norway", email = "metadata@ssb.no" }]
 license = "MIT"

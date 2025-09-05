@@ -1,5 +1,3 @@
-"""General-purpose file-based caching layer for Kreuzberg."""
-
 from __future__ import annotations
 
 import hashlib
@@ -14,6 +12,7 @@ from typing import Any, Generic, TypeVar
 from anyio import Path as AsyncPath
 
 from kreuzberg._types import ExtractionResult
+from kreuzberg._utils._ref import Ref
 from kreuzberg._utils._serialization import deserialize, serialize
 from kreuzberg._utils._sync import run_sync
 
@@ -21,12 +20,6 @@ T = TypeVar("T")
 
 
 class KreuzbergCache(Generic[T]):
-    """File-based cache for Kreuzberg operations.
-
-    Provides both sync and async interfaces for caching extraction results,
-    OCR results, table data, and other expensive operations to disk.
-    """
-
     def __init__(
         self,
         cache_type: str,
@@ -34,14 +27,6 @@ class KreuzbergCache(Generic[T]):
         max_cache_size_mb: float = 500.0,
         max_age_days: int = 30,
     ) -> None:
-        """Initialize cache.
-
-        Args:
-            cache_type: Type of cache (e.g., 'ocr', 'tables', 'documents', 'mime')
-            cache_dir: Cache directory (defaults to .kreuzberg/{cache_type} in cwd)
-            max_cache_size_mb: Maximum cache size in MB (default: 500MB)
-            max_age_days: Maximum age of cached results in days (default: 30 days)
-        """
         if cache_dir is None:
             cache_dir = Path.cwd() / ".kreuzberg" / cache_type
 
@@ -57,22 +42,12 @@ class KreuzbergCache(Generic[T]):
         self._lock = threading.Lock()
 
     def _get_cache_key(self, **kwargs: Any) -> str:
-        """Generate cache key from kwargs.
-
-        Args:
-            **kwargs: Key-value pairs to generate cache key from
-
-        Returns:
-            Unique cache key string
-        """
         if not kwargs:
             return "empty"
 
-        # Build cache key using list + join (faster than StringIO)
         parts = []
         for key in sorted(kwargs):
             value = kwargs[key]
-            # Convert common types efficiently
             if isinstance(value, (str, int, float, bool)):
                 parts.append(f"{key}={value}")
             elif isinstance(value, bytes):
@@ -81,15 +56,12 @@ class KreuzbergCache(Generic[T]):
                 parts.append(f"{key}={type(value).__name__}:{value!s}")
 
         cache_str = "&".join(parts)
-        # SHA256 is secure and fast enough for cache keys
         return hashlib.sha256(cache_str.encode()).hexdigest()[:16]
 
     def _get_cache_path(self, cache_key: str) -> Path:
-        """Get cache file path for key."""
         return self.cache_dir / f"{cache_key}.msgpack"
 
     def _is_cache_valid(self, cache_path: Path) -> bool:
-        """Check if cached result is still valid."""
         try:
             if not cache_path.exists():
                 return False
@@ -102,18 +74,14 @@ class KreuzbergCache(Generic[T]):
             return False
 
     def _serialize_result(self, result: T) -> dict[str, Any]:
-        """Serialize result for caching with metadata."""
-        # Handle TableData objects that contain DataFrames
         if isinstance(result, list) and result and isinstance(result[0], dict) and "df" in result[0]:
             serialized_data = []
             for item in result:
                 if isinstance(item, dict) and "df" in item:
-                    # Build new dict without unnecessary copy
                     serialized_item = {k: v for k, v in item.items() if k != "df"}
                     if hasattr(item["df"], "to_csv"):
                         serialized_item["df_csv"] = item["df"].to_csv(index=False)
                     else:
-                        # Fallback for non-DataFrame objects
                         serialized_item["df_csv"] = str(item["df"])
                     serialized_data.append(serialized_item)
                 else:
@@ -123,7 +91,6 @@ class KreuzbergCache(Generic[T]):
         return {"type": type(result).__name__, "data": result, "cached_at": time.time()}
 
     def _deserialize_result(self, cached_data: dict[str, Any]) -> T:
-        """Deserialize cached result."""
         data = cached_data["data"]
 
         if cached_data.get("type") == "TableDataList" and isinstance(data, list):
@@ -132,7 +99,6 @@ class KreuzbergCache(Generic[T]):
             deserialized_data = []
             for item in data:
                 if isinstance(item, dict) and "df_csv" in item:
-                    # Build new dict without unnecessary copy
                     deserialized_item = {k: v for k, v in item.items() if k != "df_csv"}
                     deserialized_item["df"] = pd.read_csv(StringIO(item["df_csv"]))
                     deserialized_data.append(deserialized_item)
@@ -146,7 +112,6 @@ class KreuzbergCache(Generic[T]):
         return data  # type: ignore[no-any-return]
 
     def _cleanup_cache(self) -> None:
-        """Clean up old and oversized cache entries."""
         try:
             cache_files = list(self.cache_dir.glob("*.msgpack"))
 
@@ -180,14 +145,6 @@ class KreuzbergCache(Generic[T]):
             pass
 
     def get(self, **kwargs: Any) -> T | None:
-        """Get cached result (sync).
-
-        Args:
-            **kwargs: Key-value pairs to generate cache key from
-
-        Returns:
-            Cached result if available, None otherwise
-        """
         cache_key = self._get_cache_key(**kwargs)
         cache_path = self._get_cache_path(cache_key)
 
@@ -204,12 +161,6 @@ class KreuzbergCache(Generic[T]):
             return None
 
     def set(self, result: T, **kwargs: Any) -> None:
-        """Cache result (sync).
-
-        Args:
-            result: Result to cache
-            **kwargs: Key-value pairs to generate cache key from
-        """
         cache_key = self._get_cache_key(**kwargs)
         cache_path = self._get_cache_path(cache_key)
 
@@ -224,14 +175,6 @@ class KreuzbergCache(Generic[T]):
             pass
 
     async def aget(self, **kwargs: Any) -> T | None:
-        """Get cached result (async).
-
-        Args:
-            **kwargs: Key-value pairs to generate cache key from
-
-        Returns:
-            Cached result if available, None otherwise
-        """
         cache_key = self._get_cache_key(**kwargs)
         cache_path = AsyncPath(self._get_cache_path(cache_key))
 
@@ -248,12 +191,6 @@ class KreuzbergCache(Generic[T]):
             return None
 
     async def aset(self, result: T, **kwargs: Any) -> None:
-        """Cache result (async).
-
-        Args:
-            result: Result to cache
-            **kwargs: Key-value pairs to generate cache key from
-        """
         cache_key = self._get_cache_key(**kwargs)
         cache_path = AsyncPath(self._get_cache_path(cache_key))
 
@@ -268,13 +205,11 @@ class KreuzbergCache(Generic[T]):
             pass
 
     def is_processing(self, **kwargs: Any) -> bool:
-        """Check if operation is currently being processed."""
         cache_key = self._get_cache_key(**kwargs)
         with self._lock:
             return cache_key in self._processing
 
     def mark_processing(self, **kwargs: Any) -> threading.Event:
-        """Mark operation as being processed and return event to wait on."""
         cache_key = self._get_cache_key(**kwargs)
 
         with self._lock:
@@ -283,7 +218,6 @@ class KreuzbergCache(Generic[T]):
             return self._processing[cache_key]
 
     def mark_complete(self, **kwargs: Any) -> None:
-        """Mark operation processing as complete."""
         cache_key = self._get_cache_key(**kwargs)
 
         with self._lock:
@@ -292,7 +226,6 @@ class KreuzbergCache(Generic[T]):
                 event.set()
 
     def clear(self) -> None:
-        """Clear all cached results."""
         try:
             for cache_file in self.cache_dir.glob("*.msgpack"):
                 cache_file.unlink(missing_ok=True)
@@ -303,7 +236,6 @@ class KreuzbergCache(Generic[T]):
             pass
 
     def get_stats(self) -> dict[str, Any]:
-        """Get cache statistics."""
         try:
             cache_files = list(self.cache_dir.glob("*.msgpack"))
             total_size = sum(cache_file.stat().st_size for cache_file in cache_files if cache_file.exists())
@@ -331,87 +263,101 @@ class KreuzbergCache(Generic[T]):
             }
 
 
-_ocr_cache: KreuzbergCache[ExtractionResult] | None = None
-_document_cache: KreuzbergCache[ExtractionResult] | None = None
-_table_cache: KreuzbergCache[Any] | None = None
-_mime_cache: KreuzbergCache[str] | None = None
+def _create_ocr_cache() -> KreuzbergCache[ExtractionResult]:
+    cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+    cache_dir: Path | None = None
+    if cache_dir_str:
+        cache_dir = Path(cache_dir_str) / "ocr"
+
+    return KreuzbergCache[ExtractionResult](
+        cache_type="ocr",
+        cache_dir=cache_dir,
+        max_cache_size_mb=float(os.environ.get("KREUZBERG_OCR_CACHE_SIZE_MB", "500")),
+        max_age_days=int(os.environ.get("KREUZBERG_OCR_CACHE_AGE_DAYS", "30")),
+    )
+
+
+_ocr_cache_ref = Ref("ocr_cache", _create_ocr_cache)
 
 
 def get_ocr_cache() -> KreuzbergCache[ExtractionResult]:
-    """Get the global OCR cache instance."""
-    global _ocr_cache
-    if _ocr_cache is None:
-        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
-        cache_dir: Path | None = None
-        if cache_dir_str:
-            cache_dir = Path(cache_dir_str) / "ocr"
+    return _ocr_cache_ref.get()
 
-        _ocr_cache = KreuzbergCache[ExtractionResult](
-            cache_type="ocr",
-            cache_dir=cache_dir,
-            max_cache_size_mb=float(os.environ.get("KREUZBERG_OCR_CACHE_SIZE_MB", "500")),
-            max_age_days=int(os.environ.get("KREUZBERG_OCR_CACHE_AGE_DAYS", "30")),
-        )
-    return _ocr_cache
+
+def _create_document_cache() -> KreuzbergCache[ExtractionResult]:
+    cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+    cache_dir: Path | None = None
+    if cache_dir_str:
+        cache_dir = Path(cache_dir_str) / "documents"
+
+    return KreuzbergCache[ExtractionResult](
+        cache_type="documents",
+        cache_dir=cache_dir,
+        max_cache_size_mb=float(os.environ.get("KREUZBERG_DOCUMENT_CACHE_SIZE_MB", "1000")),
+        max_age_days=int(os.environ.get("KREUZBERG_DOCUMENT_CACHE_AGE_DAYS", "7")),
+    )
+
+
+_document_cache_ref = Ref("document_cache", _create_document_cache)
 
 
 def get_document_cache() -> KreuzbergCache[ExtractionResult]:
-    """Get the global document cache instance."""
-    global _document_cache
-    if _document_cache is None:
-        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
-        cache_dir: Path | None = None
-        if cache_dir_str:
-            cache_dir = Path(cache_dir_str) / "documents"
+    return _document_cache_ref.get()
 
-        _document_cache = KreuzbergCache[ExtractionResult](
-            cache_type="documents",
-            cache_dir=cache_dir,
-            max_cache_size_mb=float(os.environ.get("KREUZBERG_DOCUMENT_CACHE_SIZE_MB", "1000")),
-            max_age_days=int(os.environ.get("KREUZBERG_DOCUMENT_CACHE_AGE_DAYS", "7")),
-        )
-    return _document_cache
+
+def _create_table_cache() -> KreuzbergCache[Any]:
+    cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+    cache_dir: Path | None = None
+    if cache_dir_str:
+        cache_dir = Path(cache_dir_str) / "tables"
+
+    return KreuzbergCache[Any](
+        cache_type="tables",
+        cache_dir=cache_dir,
+        max_cache_size_mb=float(os.environ.get("KREUZBERG_TABLE_CACHE_SIZE_MB", "200")),
+        max_age_days=int(os.environ.get("KREUZBERG_TABLE_CACHE_AGE_DAYS", "30")),
+    )
+
+
+_table_cache_ref = Ref("table_cache", _create_table_cache)
 
 
 def get_table_cache() -> KreuzbergCache[Any]:
-    """Get the global table cache instance."""
-    global _table_cache
-    if _table_cache is None:
-        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
-        cache_dir: Path | None = None
-        if cache_dir_str:
-            cache_dir = Path(cache_dir_str) / "tables"
+    return _table_cache_ref.get()
 
-        _table_cache = KreuzbergCache[Any](
-            cache_type="tables",
-            cache_dir=cache_dir,
-            max_cache_size_mb=float(os.environ.get("KREUZBERG_TABLE_CACHE_SIZE_MB", "200")),
-            max_age_days=int(os.environ.get("KREUZBERG_TABLE_CACHE_AGE_DAYS", "30")),
-        )
-    return _table_cache
+
+def _create_mime_cache() -> KreuzbergCache[str]:
+    cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+    cache_dir: Path | None = None
+    if cache_dir_str:
+        cache_dir = Path(cache_dir_str) / "mime"
+
+    return KreuzbergCache[str](
+        cache_type="mime",
+        cache_dir=cache_dir,
+        max_cache_size_mb=float(os.environ.get("KREUZBERG_MIME_CACHE_SIZE_MB", "50")),
+        max_age_days=int(os.environ.get("KREUZBERG_MIME_CACHE_AGE_DAYS", "60")),
+    )
+
+
+_mime_cache_ref = Ref("mime_cache", _create_mime_cache)
 
 
 def get_mime_cache() -> KreuzbergCache[str]:
-    """Get the global MIME type cache instance."""
-    global _mime_cache
-    if _mime_cache is None:
-        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
-        cache_dir: Path | None = None
-        if cache_dir_str:
-            cache_dir = Path(cache_dir_str) / "mime"
-
-        _mime_cache = KreuzbergCache[str](
-            cache_type="mime",
-            cache_dir=cache_dir,
-            max_cache_size_mb=float(os.environ.get("KREUZBERG_MIME_CACHE_SIZE_MB", "50")),
-            max_age_days=int(os.environ.get("KREUZBERG_MIME_CACHE_AGE_DAYS", "60")),
-        )
-    return _mime_cache
+    return _mime_cache_ref.get()
 
 
 def clear_all_caches() -> None:
-    """Clear all caches."""
-    get_ocr_cache().clear()
-    get_document_cache().clear()
-    get_table_cache().clear()
-    get_mime_cache().clear()
+    if _ocr_cache_ref.is_initialized():
+        get_ocr_cache().clear()
+    if _document_cache_ref.is_initialized():
+        get_document_cache().clear()
+    if _table_cache_ref.is_initialized():
+        get_table_cache().clear()
+    if _mime_cache_ref.is_initialized():
+        get_mime_cache().clear()
+
+    _ocr_cache_ref.clear()
+    _document_cache_ref.clear()
+    _table_cache_ref.clear()
+    _mime_cache_ref.clear()

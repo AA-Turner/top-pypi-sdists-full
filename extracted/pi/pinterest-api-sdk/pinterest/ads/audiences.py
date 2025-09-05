@@ -250,7 +250,7 @@ class Audience(PinterestBaseModel):
             **kwargs
         )
 
-    def update_fields(self, **kwargs):
+    def update_fields(self, client: PinterestSDKClient = None, **kwargs):
         """
         Update audience fields
 
@@ -271,5 +271,6 @@ class Audience(PinterestBaseModel):
             },
             api=AudiencesApi,
             update_fn=AudiencesApi.audiences_update,
+            client=client,
             **kwargs
         )

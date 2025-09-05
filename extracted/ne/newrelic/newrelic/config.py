@@ -50,7 +50,7 @@ from newrelic.core.agent_control_health import (
 )
 from newrelic.core.config import Settings, apply_config_setting, default_host, fetch_config_setting
 
-__all__ = ["initialize", "filter_app_factory"]
+__all__ = ["filter_app_factory", "initialize"]
 
 _logger = logging.getLogger(__name__)
 
@@ -213,6 +213,10 @@ def _map_strip_exception_messages_allowlist(s):
 
 def _map_inc_excl_attributes(s):
     return newrelic.core.config._parse_attributes(s)
+
+
+def _map_inc_excl_middleware(s):
+    return newrelic.core.config._parse_attributes(s, middleware=True)
 
 
 def _map_case_insensitive_excl_labels(s):
@@ -400,6 +404,8 @@ def _process_configuration(section):
     _process_setting(section, "ml_insights_events.enabled", "getboolean", None)
     _process_setting(section, "distributed_tracing.enabled", "getboolean", None)
     _process_setting(section, "distributed_tracing.exclude_newrelic_header", "getboolean", None)
+    _process_setting(section, "distributed_tracing.sampler.remote_parent_sampled", "get", None)
+    _process_setting(section, "distributed_tracing.sampler.remote_parent_not_sampled", "get", None)
     _process_setting(section, "span_events.enabled", "getboolean", None)
     _process_setting(section, "span_events.max_samples_stored", "getint", None)
     _process_setting(section, "span_events.attributes.enabled", "getboolean", None)
@@ -510,6 +516,9 @@ def _process_configuration(section):
         section, "instrumentation.kombu.ignored_exchanges", "get", newrelic.core.config.parse_space_separated_into_list
     )
     _process_setting(section, "instrumentation.kombu.consumer.enabled", "getboolean", None)
+    _process_setting(section, "instrumentation.middleware.django.enabled", "getboolean", None)
+    _process_setting(section, "instrumentation.middleware.django.exclude", "get", _map_inc_excl_middleware)
+    _process_setting(section, "instrumentation.middleware.django.include", "get", _map_inc_excl_middleware)
 
 
 # Loading of configuration from specified file and for specified
@@ -2700,6 +2709,10 @@ def _process_module_builtin_defaults():
         "graphene.types.schema", "newrelic.hooks.framework_graphene", "instrument_graphene_types_schema"
     )
 
+    _process_module_definition(
+        "graphene_django.views", "newrelic.hooks.component_graphenedjango", "instrument_graphene_django_views"
+    )
+
     _process_module_definition("graphql.graphql", "newrelic.hooks.framework_graphql", "instrument_graphql")
     _process_module_definition(
         "graphql.execution.execute", "newrelic.hooks.framework_graphql", "instrument_graphql_execute"
@@ -4010,18 +4023,13 @@ def _process_module_builtin_defaults():
         "instrument_rest_framework_decorators",
     )
 
-    _process_module_definition("celery.task.base", "newrelic.hooks.application_celery", "instrument_celery_app_task")
-    _process_module_definition("celery.app.task", "newrelic.hooks.application_celery", "instrument_celery_app_task")
+    _process_module_definition("celery.local", "newrelic.hooks.application_celery", "instrument_celery_local")
     _process_module_definition("celery.app.trace", "newrelic.hooks.application_celery", "instrument_celery_app_trace")
     _process_module_definition("celery.worker", "newrelic.hooks.application_celery", "instrument_celery_worker")
-    _process_module_definition(
-        "celery.concurrency.processes", "newrelic.hooks.application_celery", "instrument_celery_worker"
-    )
     _process_module_definition(
         "celery.concurrency.prefork", "newrelic.hooks.application_celery", "instrument_celery_worker"
     )
 
-    _process_module_definition("celery.app.base", "newrelic.hooks.application_celery", "instrument_celery_app_base")
     _process_module_definition("billiard.pool", "newrelic.hooks.application_celery", "instrument_billiard_pool")
 
     _process_module_definition("flup.server.cgi", "newrelic.hooks.adapter_flup", "instrument_flup_server_cgi")

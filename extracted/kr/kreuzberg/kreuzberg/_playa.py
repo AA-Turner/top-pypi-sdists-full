@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
 from playa import asobj, parse
@@ -25,18 +25,6 @@ BOM_CHAR = "\ufeff"
 
 
 async def extract_pdf_metadata(pdf_content: bytes, password: str = "") -> Metadata:
-    """Extract metadata from a PDF document.
-
-    Args:
-        pdf_content: The bytes of the PDF document.
-        password: Password for encrypted PDF files.
-
-    Raises:
-        ParsingError: If the PDF metadata could not be extracted.
-
-    Returns:
-        A dictionary of metadata extracted from the PDF.
-    """
     try:
         document = parse(pdf_content, max_workers=1, password=password)
         metadata: Metadata = {}
@@ -115,7 +103,6 @@ def _extract_keyword_metadata(pdf_info: dict[str, Any], result: Metadata) -> Non
     if keywords := pdf_info.get("keywords"):
         if isinstance(keywords, (str, bytes)):
             kw_str = decode_text(keywords)
-            # Combine multiple operations into a single comprehension
             result["keywords"] = [k.strip() for part in kw_str.replace(";", ",").split(",") if (k := part.strip())]
         elif isinstance(keywords, list):
             result["keywords"] = [decode_text(k) for k in keywords]
@@ -144,8 +131,10 @@ def _parse_date_string(date_str: str) -> str:
             second = date_str[12:14]
             time_part = f"T{hour}:{minute}:{second}"
         if time_part:
-            return datetime.strptime(f"{year}-{month}-{day}{time_part}", "%Y-%m-%dT%H:%M:%S").isoformat()  # noqa: DTZ007
-        return datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").isoformat()  # noqa: DTZ007
+            dt = datetime.strptime(f"{year}-{month}-{day}{time_part}", "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        dt = datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return dt.isoformat()
     return date_str
 
 
@@ -246,7 +235,6 @@ def _collect_document_permissions(document: Document) -> list[str]:
 
 
 def _extract_structure_information(document: Document, result: Metadata) -> None:
-    """Extract language and subtitle from document structure."""
     if document.structure:
         languages = set()
         subtitle = None
@@ -279,20 +267,6 @@ def _extract_structure_information(document: Document, result: Metadata) -> None
 
 
 def extract_pdf_metadata_sync(pdf_content: bytes, password: str = "") -> Metadata:
-    """Synchronous version of extract_pdf_metadata.
-
-    Extract metadata from a PDF document without using async/await.
-
-    Args:
-        pdf_content: The bytes of the PDF document.
-        password: Password for encrypted PDF files.
-
-    Raises:
-        ParsingError: If the PDF metadata could not be extracted.
-
-    Returns:
-        A dictionary of metadata extracted from the PDF.
-    """
     try:
         document = parse(pdf_content, max_workers=1, password=password)
         metadata: Metadata = {}

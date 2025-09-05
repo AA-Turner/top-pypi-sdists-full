@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import re
-import sys
 import tempfile
 import time
 from collections.abc import Awaitable, Callable
@@ -24,7 +23,7 @@ from browser_use.agent.cloud_events import (
 )
 from browser_use.agent.message_manager.utils import save_conversation
 from browser_use.llm.base import BaseChatModel
-from browser_use.llm.messages import BaseMessage, UserMessage
+from browser_use.llm.messages import BaseMessage, ContentPartImageParam, ContentPartTextParam, UserMessage
 from browser_use.llm.openai.chat import ChatOpenAI
 from browser_use.tokens.service import TokenCost
 
@@ -128,7 +127,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 	def __init__(
 		self,
 		task: str,
-		llm: BaseChatModel = ChatOpenAI(model='gpt-4.1-mini'),
+		llm: BaseChatModel | None = None,
 		# Optional parameters
 		browser_profile: BrowserProfile | None = None,
 		browser_session: BrowserSession | None = None,
@@ -179,8 +178,27 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		step_timeout: int = 120,
 		directly_open_url: bool = True,
 		include_recent_events: bool = False,
+		sample_images: list[ContentPartTextParam | ContentPartImageParam] | None = None,
+		final_response_after_failure: bool = True,
 		**kwargs,
 	):
+		if llm is None:
+			default_llm_name = CONFIG.DEFAULT_LLM
+			if default_llm_name:
+				try:
+					from browser_use.llm.models import get_llm_by_name
+
+					llm = get_llm_by_name(default_llm_name)
+				except (ImportError, ValueError) as e:
+					# Use the logger that's already imported at the top of the module
+					logger.warning(
+						f'Failed to create default LLM "{default_llm_name}": {e}. Falling back to ChatOpenAI(model="gpt-4.1-mini")'
+					)
+					llm = ChatOpenAI(model='gpt-4.1-mini')
+			else:
+				# No default LLM specified, use the original default
+				llm = ChatOpenAI(model='gpt-4.1-mini')
+
 		if page_extraction_llm is None:
 			page_extraction_llm = llm
 		if available_file_paths is None:
@@ -224,6 +242,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 		self.sensitive_data = sensitive_data
 
+		self.sample_images = sample_images
+
 		self.settings = AgentSettings(
 			use_vision=use_vision,
 			vision_detail_level=vision_detail_level,
@@ -243,6 +263,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			include_tool_call_examples=include_tool_call_examples,
 			llm_timeout=llm_timeout,
 			step_timeout=step_timeout,
+			final_response_after_failure=final_response_after_failure,
 		)
 
 		# Token cost service
@@ -297,7 +318,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			self.logger.warning('⚠️ XAI models do not support use_vision=True yet. Setting use_vision=False for now...')
 			self.settings.use_vision = False
 
-		self.logger.info(f'🧠 Starting a browser-use version {self.version} with model={self.llm.model}')
 		logger.debug(
 			f'{" +vision" if self.settings.use_vision else ""}'
 			f' extraction_model={self.settings.page_extraction_llm.model if self.settings.page_extraction_llm else "Unknown"}'
@@ -330,6 +350,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			vision_detail_level=self.settings.vision_detail_level,
 			include_tool_call_examples=self.settings.include_tool_call_examples,
 			include_recent_events=self.include_recent_events,
+			sample_images=self.sample_images,
 		)
 
 		if self.sensitive_data:
@@ -339,23 +360,9 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			# If no allowed_domains are configured, show a security warning
 			if not self.browser_profile.allowed_domains:
 				self.logger.error(
-					'⚠️⚠️⚠️ Agent(sensitive_data=••••••••) was provided but BrowserSession(allowed_domains=[...]) is not locked down! ⚠️⚠️⚠️\n'
+					'⚠️ Agent(sensitive_data=••••••••) was provided but Browser(allowed_domains=[...]) is not locked down! ⚠️\n'
 					'          ☠️ If the agent visits a malicious website and encounters a prompt-injection attack, your sensitive_data may be exposed!\n\n'
-					'             https://docs.browser-use.com/customize/browser-settings#restrict-urls\n'
-					'Waiting 10 seconds before continuing... Press [Ctrl+C] to abort.'
-				)
-				if sys.stdin.isatty():
-					try:
-						time.sleep(10)
-					except KeyboardInterrupt:
-						print(
-							'\n\n 🛑 Exiting now... set BrowserSession(allowed_domains=["example.com", "example.org"]) to only domains you trust to see your sensitive_data.'
-						)
-						sys.exit(0)
-				else:
-					pass  # no point waiting if we're not in an interactive shell
-				self.logger.warning(
-					'‼️ Continuing with insecure settings for now... but this will become a hard error in the future!'
+					'   \n'
 				)
 
 			# If we're using domain-specific credentials, validate domain patterns
@@ -615,6 +622,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 	async def step(self, step_info: AgentStepInfo | None = None) -> None:
 		"""Execute one step of the task"""
 		# Initialize timing first, before any exceptions can occur
+
 		self.step_start_time = time.time()
 
 		browser_state_summary = None
@@ -682,7 +690,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			available_file_paths=self.available_file_paths,  # Always pass current available_file_paths
 		)
 
-		await self._handle_final_step(step_info)
+		await self._force_done_after_last_step(step_info)
+		await self._force_done_after_failure()
 		return browser_state_summary
 
 	@observe_debug(ignore_input=True, name='get_next_action')
@@ -753,10 +762,10 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			success = self.state.last_result[-1].success
 			if success:
 				# Green color for success
-				self.logger.info(f'📄 \033[32m Result:\033[0m \n{self.state.last_result[-1].extracted_content}\n\n')
+				self.logger.info(f'\n📄 \033[32m Final Result:\033[0m \n{self.state.last_result[-1].extracted_content}\n\n')
 			else:
 				# Red color for failure
-				self.logger.info(f'📄 \033[31m Result:\033[0m \n{self.state.last_result[-1].extracted_content}\n\n')
+				self.logger.info(f'\n📄 \033[31m Final Result:\033[0m \n{self.state.last_result[-1].extracted_content}\n\n')
 			if self.state.last_result[-1].attachments:
 				total_attachments = len(self.state.last_result[-1].attachments)
 				for i, file_path in enumerate(self.state.last_result[-1].attachments):
@@ -768,7 +777,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		# Handle all other exceptions
 		include_trace = self.logger.isEnabledFor(logging.DEBUG)
 		error_msg = AgentError.format_error(error, include_trace=include_trace)
-		prefix = f'❌ Result failed {self.state.consecutive_failures + 1}/{self.settings.max_failures} times:\n '
+		prefix = f'❌ Result failed {self.state.consecutive_failures + 1}/{self.settings.max_failures + int(self.settings.final_response_after_failure)} times:\n '
 		self.state.consecutive_failures += 1
 
 		# Handle InterruptedError specially
@@ -833,7 +842,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		# Increment step counter after step is fully completed
 		self.state.n_steps += 1
 
-	async def _handle_final_step(self, step_info: AgentStepInfo | None = None) -> None:
+	async def _force_done_after_last_step(self, step_info: AgentStepInfo | None = None) -> None:
 		"""Handle special processing for the last step"""
 		if step_info and step_info.is_last_step():
 			# Add last step warning if needed
@@ -842,6 +851,19 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			msg += '\nIf the task is fully finished, set success in "done" to true.'
 			msg += '\nInclude everything you found out for the ultimate task in the done text.'
 			self.logger.debug('Last step finishing up')
+			self._message_manager._add_context_message(UserMessage(content=msg))
+			self.AgentOutput = self.DoneAgentOutput
+
+	async def _force_done_after_failure(self) -> None:
+		"""Force done after failure"""
+		# Create recovery message
+		if self.state.consecutive_failures >= self.settings.max_failures and self.settings.final_response_after_failure:
+			msg = f'You have failed {self.settings.max_failures} consecutive times. This is your final step to complete the task or provide what you found. '
+			msg += 'Use only the "done" action now. No other actions - so here your action sequence must have length 1.'
+			msg += '\nIf the task could not be completed due to the failures, set success in "done" to false!'
+			msg += '\nInclude everything you found out for the task in the done text.'
+
+			self.logger.debug('Force done action, because we reached max_failures.')
 			self._message_manager._add_context_message(UserMessage(content=msg))
 			self.AgentOutput = self.DoneAgentOutput
 
@@ -994,6 +1016,11 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 		self.logger.debug(f'🤖 Browser-Use Library Version {self.version} ({self.source})')
 
+	def _log_first_step_startup(self) -> None:
+		"""Log startup message only on the first step"""
+		if len(self.history.history) == 0:
+			self.logger.info(f'🧠 Starting a browser-use version {self.version} with model={self.llm.model}')
+
 	def _log_step_context(self, browser_state_summary: BrowserStateSummary) -> None:
 		"""Log step context information"""
 		url = browser_state_summary.url if browser_state_summary else ''
@@ -1122,6 +1149,11 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		Returns:
 		        Tuple[bool, bool]: (is_done, is_valid)
 		"""
+		if len(self.history.history) == 0:
+			# First step
+			self._log_first_step_startup()
+			await self._execute_initial_actions()
+
 		await self.step(step_info)
 
 		if self.history.is_done():
@@ -1250,6 +1282,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				self.logger.warning('⚠️ No browser focus established, may cause navigation issues')
 
 			await self._execute_initial_actions()
+			# Log startup message on first step (only if we haven't already done steps)
+			self._log_first_step_startup()
 
 			self.logger.debug(f'🔄 Starting main execution loop with max {max_steps} steps...')
 			for step in range(max_steps):
@@ -1259,8 +1293,10 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					await self.wait_until_resumed()
 					signal_handler.reset()
 
-				# Check if we should stop due to too many failures
-				if self.state.consecutive_failures >= self.settings.max_failures:
+				# Check if we should stop due to too many failures, if final_response_after_failure is True, we try one last time
+				if (self.state.consecutive_failures) >= self.settings.max_failures + int(
+					self.settings.final_response_after_failure
+				):
 					self.logger.error(f'❌ Stopping due to {self.settings.max_failures} consecutive failures')
 					agent_run_error = f'Stopped due to {self.settings.max_failures} consecutive failures'
 					break
@@ -1272,7 +1308,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					break
 
 				while self.state.paused:
-					await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
+					await asyncio.sleep(0.5)  # Small delay to prevent CPU spinning
 					if self.state.stopped:  # Allow stopping while paused
 						agent_run_error = 'Agent stopped programmatically while paused'
 						break
@@ -1476,7 +1512,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				if orig_target_hash != new_target_hash:
 					# Get names of remaining actions that won't be executed
 					remaining_actions_str = get_remaining_actions_str(actions, i)
-					msg = f'Page changed after action {i} / {total_actions}: actions {remaining_actions_str} were not executed'
+					msg = f'Page changed after action: actions {remaining_actions_str} are not yet executed'
 					logger.info(msg)
 					results.append(
 						ActionResult(
