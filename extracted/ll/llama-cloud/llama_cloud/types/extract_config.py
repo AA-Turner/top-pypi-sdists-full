@@ -7,7 +7,9 @@ from ..core.datetime_utils import serialize_datetime
 from .document_chunk_mode import DocumentChunkMode
 from .extract_config_priority import ExtractConfigPriority
 from .extract_mode import ExtractMode
+from .extract_models import ExtractModels
 from .extract_target import ExtractTarget
+from .public_model_name import PublicModelName
 
 try:
     import pydantic
@@ -25,9 +27,13 @@ class ExtractConfig(pydantic.BaseModel):
 
     priority: typing.Optional[ExtractConfigPriority]
     extraction_target: typing.Optional[ExtractTarget] = pydantic.Field(description="The extraction target specified.")
-    extraction_mode: typing.Optional[ExtractMode] = pydantic.Field(description="The extraction mode specified.")
+    extraction_mode: typing.Optional[ExtractMode] = pydantic.Field(
+        description="The extraction mode specified (FAST, BALANCED, MULTIMODAL, PREMIUM)."
+    )
+    parse_model: typing.Optional[PublicModelName]
+    extract_model: typing.Optional[ExtractModels]
     multimodal_fast_mode: typing.Optional[bool] = pydantic.Field(
-        description="Whether to use fast mode for multimodal extraction."
+        description="DEPRECATED: Whether to use fast mode for multimodal extraction."
     )
     system_prompt: typing.Optional[str]
     use_reasoning: typing.Optional[bool] = pydantic.Field(description="Whether to use reasoning for the extraction.")

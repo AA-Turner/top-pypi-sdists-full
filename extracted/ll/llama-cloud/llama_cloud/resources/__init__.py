@@ -18,7 +18,6 @@ from . import (
     parsing,
     pipelines,
     projects,
-    reports,
     retrievers,
     users,
 )
@@ -60,7 +59,6 @@ from .pipelines import (
     PipelineUpdateTransformConfig,
     RetrievalParamsSearchFiltersInferenceSchemaValue,
 )
-from .reports import UpdateReportPlanApiV1ReportsReportIdPlanPatchRequestAction
 
 __all__ = [
     "DataSinkUpdateComponent",
@@ -96,7 +94,6 @@ __all__ = [
     "PipelineUpdateEmbeddingConfig_VertexaiEmbedding",
     "PipelineUpdateTransformConfig",
     "RetrievalParamsSearchFiltersInferenceSchemaValue",
-    "UpdateReportPlanApiV1ReportsReportIdPlanPatchRequestAction",
     "admin",
     "agent_deployments",
     "alpha",
@@ -114,7 +111,6 @@ __all__ = [
     "parsing",
     "pipelines",
     "projects",
-    "reports",
     "retrievers",
     "users",
 ]

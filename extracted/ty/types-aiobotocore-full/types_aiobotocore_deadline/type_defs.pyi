@@ -667,6 +667,7 @@ class CreateMonitorRequestTypeDef(TypedDict):
     subdomain: str
     roleArn: str
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class CreateQueueEnvironmentRequestTypeDef(TypedDict):
     farmId: str
@@ -2809,6 +2810,7 @@ class FleetSummaryTypeDef(TypedDict):
     configuration: FleetConfigurationOutputTypeDef
     createdAt: datetime
     createdBy: str
+    statusMessage: NotRequired[str]
     autoScalingStatus: NotRequired[AutoScalingStatusType]
     targetWorkerCount: NotRequired[int]
     updatedAt: NotRequired[datetime]
@@ -2820,6 +2822,7 @@ class GetFleetResponseTypeDef(TypedDict):
     displayName: str
     description: str
     status: FleetStatusType
+    statusMessage: str
     autoScalingStatus: AutoScalingStatusType
     targetWorkerCount: int
     workerCount: int

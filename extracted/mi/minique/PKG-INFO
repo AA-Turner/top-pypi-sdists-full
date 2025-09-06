@@ -1,27 +1,24 @@
 Metadata-Version: 2.4
 Name: minique
-Version: 0.10.0
+Version: 0.11.0
 Summary: Minimal Redis job runner
 Project-URL: Homepage, https://github.com/valohai/minique
 Author-email: Valohai <hait@valohai.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Requires-Dist: redis>=2.10.0
 Provides-Extra: sentry
-Requires-Dist: sentry-sdk~=1.10; extra == 'sentry'
-Provides-Extra: test
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: sentry-sdk~=2.36; extra == 'sentry'
 Description-Content-Type: text/markdown
 
 # minique /miniːk/
 
-A minimal Redis 4.0+ job queue for Python 3.7 and above.
+A minimal Redis 4.0+ job queue for Python 3.9 and above.
 
 ## Requirements
 
-* Python 3.7+
+* Python 3.9+
 * Redis 4.0+
 
 ## Usage

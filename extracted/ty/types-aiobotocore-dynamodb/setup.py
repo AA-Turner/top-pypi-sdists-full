@@ -13,13 +13,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aiobotocore-dynamodb",
-    version="2.24.1",
+    version="2.24.2",
     packages=["types_aiobotocore_dynamodb"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for aiobotocore DynamoDB 2.24.1 service generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for aiobotocore DynamoDB 2.24.2 service generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

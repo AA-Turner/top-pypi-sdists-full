@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyexasol
-Version: 1.0.1
+Version: 1.1.0
 Summary: Exasol python driver with extra features
 License: MIT
 Keywords: exasol,sql,database,performance,websocket,import,export

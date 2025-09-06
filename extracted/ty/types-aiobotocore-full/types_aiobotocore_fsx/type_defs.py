@@ -46,6 +46,7 @@ from .literals import (
     LustreDeploymentTypeType,
     LustreReadCacheSizingModeType,
     MetadataConfigurationModeType,
+    NetworkTypeType,
     OntapDeploymentTypeType,
     OntapVolumeTypeType,
     OpenZFSCopyStrategyType,
@@ -981,8 +982,10 @@ class OpenZFSFileSystemConfigurationTypeDef(TypedDict):
     RootVolumeId: NotRequired[str]
     PreferredSubnetId: NotRequired[str]
     EndpointIpAddressRange: NotRequired[str]
+    EndpointIpv6AddressRange: NotRequired[str]
     RouteTableIds: NotRequired[List[str]]
     EndpointIpAddress: NotRequired[str]
+    EndpointIpv6Address: NotRequired[str]
     ReadCacheConfiguration: NotRequired[OpenZFSReadCacheConfigurationTypeDef]
 
 
@@ -997,6 +1000,7 @@ class UpdateFileSystemOpenZFSConfigurationTypeDef(TypedDict):
     AddRouteTableIds: NotRequired[Sequence[str]]
     RemoveRouteTableIds: NotRequired[Sequence[str]]
     ReadCacheConfiguration: NotRequired[OpenZFSReadCacheConfigurationTypeDef]
+    EndpointIpv6AddressRange: NotRequired[str]
 
 
 class CreateSvmActiveDirectoryConfigurationTypeDef(TypedDict):
@@ -1671,6 +1675,7 @@ class UpdateFileSystemRequestTypeDef(TypedDict):
     OpenZFSConfiguration: NotRequired[UpdateFileSystemOpenZFSConfigurationTypeDef]
     StorageType: NotRequired[StorageTypeType]
     FileSystemTypeVersion: NotRequired[str]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 OpenZFSNfsExportUnionTypeDef = Union[OpenZFSNfsExportTypeDef, OpenZFSNfsExportOutputTypeDef]
@@ -1869,6 +1874,7 @@ class CreateFileSystemOpenZFSConfigurationTypeDef(TypedDict):
     RootVolumeConfiguration: NotRequired[OpenZFSCreateRootVolumeConfigurationTypeDef]
     PreferredSubnetId: NotRequired[str]
     EndpointIpAddressRange: NotRequired[str]
+    EndpointIpv6AddressRange: NotRequired[str]
     RouteTableIds: NotRequired[Sequence[str]]
     ReadCacheConfiguration: NotRequired[OpenZFSReadCacheConfigurationTypeDef]
 
@@ -1906,6 +1912,7 @@ class AdministrativeActionPaginatorTypeDef(TypedDict):
     TargetSnapshotValues: NotRequired[SnapshotPaginatorTypeDef]
     TotalTransferBytes: NotRequired[int]
     RemainingTransferBytes: NotRequired[int]
+    Message: NotRequired[str]
 
 
 class DescribeVolumesResponsePaginatorTypeDef(TypedDict):
@@ -1925,6 +1932,7 @@ class AdministrativeActionTypeDef(TypedDict):
     TargetSnapshotValues: NotRequired[SnapshotTypeDef]
     TotalTransferBytes: NotRequired[int]
     RemainingTransferBytes: NotRequired[int]
+    Message: NotRequired[str]
 
 
 class CreateVolumeFromBackupResponseTypeDef(TypedDict):
@@ -1961,6 +1969,7 @@ class CreateFileSystemFromBackupRequestTypeDef(TypedDict):
     FileSystemTypeVersion: NotRequired[str]
     OpenZFSConfiguration: NotRequired[CreateFileSystemOpenZFSConfigurationTypeDef]
     StorageCapacity: NotRequired[int]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class CreateFileSystemRequestTypeDef(TypedDict):
@@ -1977,6 +1986,7 @@ class CreateFileSystemRequestTypeDef(TypedDict):
     OntapConfiguration: NotRequired[CreateFileSystemOntapConfigurationTypeDef]
     FileSystemTypeVersion: NotRequired[str]
     OpenZFSConfiguration: NotRequired[CreateFileSystemOpenZFSConfigurationTypeDef]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class FileSystemPaginatorTypeDef(TypedDict):
@@ -2001,6 +2011,7 @@ class FileSystemPaginatorTypeDef(TypedDict):
     OntapConfiguration: NotRequired[OntapFileSystemConfigurationTypeDef]
     FileSystemTypeVersion: NotRequired[str]
     OpenZFSConfiguration: NotRequired[OpenZFSFileSystemConfigurationTypeDef]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class CopySnapshotAndUpdateVolumeResponseTypeDef(TypedDict):
@@ -2032,6 +2043,7 @@ class FileSystemTypeDef(TypedDict):
     OntapConfiguration: NotRequired[OntapFileSystemConfigurationTypeDef]
     FileSystemTypeVersion: NotRequired[str]
     OpenZFSConfiguration: NotRequired[OpenZFSFileSystemConfigurationTypeDef]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class RestoreVolumeFromSnapshotResponseTypeDef(TypedDict):

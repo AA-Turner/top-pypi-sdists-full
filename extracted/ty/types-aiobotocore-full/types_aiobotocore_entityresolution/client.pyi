@@ -218,8 +218,8 @@ class EntityResolutionClient(AioBaseClient):
         self, **kwargs: Unpack[CreateMatchingWorkflowInputTypeDef]
     ) -> CreateMatchingWorkflowOutputTypeDef:
         """
-        Creates a <code>MatchingWorkflow</code> object which stores the configuration
-        of the data processing job to be run.
+        Creates a matching workflow that defines the configuration for a data
+        processing job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/entityresolution/client/create_matching_workflow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_entityresolution/client/#create_matching_workflow)
@@ -541,7 +541,7 @@ class EntityResolutionClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateMatchingWorkflowInputTypeDef]
     ) -> UpdateMatchingWorkflowOutputTypeDef:
         """
-        Updates an existing <code>MatchingWorkflow</code>.
+        Updates an existing matching workflow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/entityresolution/client/update_matching_workflow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_entityresolution/client/#update_matching_workflow)

@@ -24,31 +24,8 @@ from typing import List, Optional
 
 import pyrogram
 from pyrogram import filters, handlers, raw, types
-from pyrogram.session import Session
-from pyrogram.session.auth import Auth
 
 log = logging.getLogger(__name__)
-
-
-async def get_session(client: "pyrogram.Client", dc_id: int) -> Session:
-    if dc_id == client.session.dc_id:
-        return client.session
-
-    async with client.sessions_lock:
-        if client.sessions.get(dc_id):
-            return client.sessions[dc_id]
-
-        session = client.sessions[dc_id] = Session(
-            client,
-            dc_id,
-            await Auth(client, dc_id, await client.storage.test_mode()).create(),
-            await client.storage.test_mode(),
-            is_media=False,
-        )
-
-        await session.start()
-
-        return session
 
 
 class QRLogin:
@@ -100,7 +77,7 @@ class QRLogin:
 
         if isinstance(r, raw.types.auth.LoginTokenMigrateTo):
             await self.client.storage.dc_id(r.dc_id)
-            self.client.session = await get_session(self.client, r.dc_id)
+            self.client.session = await self.client.get_session(r.dc_id, export_authorization=False)
 
             r = await self.client.invoke(
                 raw.functions.auth.ImportLoginToken(token=r.token)

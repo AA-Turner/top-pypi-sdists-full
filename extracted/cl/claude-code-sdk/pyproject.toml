@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "claude-code-sdk"
-version = "0.0.20"
+version = "0.0.21"
 description = "Python SDK for Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,6 +27,7 @@ keywords = ["claude", "ai", "sdk", "anthropic"]
 dependencies = [
     "anyio>=4.0.0",
     "typing_extensions>=4.0.0; python_version<'3.11'",
+    "mcp>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +61,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = [
     "--import-mode=importlib",
+    "-p", "asyncio",
 ]
 
 [tool.pytest-asyncio]

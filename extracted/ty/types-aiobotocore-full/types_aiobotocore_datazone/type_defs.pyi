@@ -116,10 +116,20 @@ __all__ = (
     "AcceptSubscriptionRequestInputTypeDef",
     "AcceptSubscriptionRequestOutputTypeDef",
     "AcceptedAssetScopeTypeDef",
+    "AccountInfoOutputTypeDef",
+    "AccountInfoTypeDef",
+    "AccountPoolSummaryTypeDef",
+    "AccountSourceOutputTypeDef",
+    "AccountSourceTypeDef",
+    "AccountSourceUnionTypeDef",
     "ActionParametersTypeDef",
     "AddEntityOwnerInputTypeDef",
     "AddPolicyGrantInputTypeDef",
+    "AddPolicyGrantOutputTypeDef",
     "AddToProjectMemberPoolPolicyGrantDetailTypeDef",
+    "AggregationListItemTypeDef",
+    "AggregationOutputItemTypeDef",
+    "AggregationOutputTypeDef",
     "AssetFilterConfigurationOutputTypeDef",
     "AssetFilterConfigurationTypeDef",
     "AssetFilterConfigurationUnionTypeDef",
@@ -138,6 +148,7 @@ __all__ = (
     "AssetTypesForRuleOutputTypeDef",
     "AssetTypesForRuleTypeDef",
     "AssociateEnvironmentRoleInputTypeDef",
+    "AssociateGovernedTermsInputTypeDef",
     "AthenaPropertiesInputTypeDef",
     "AthenaPropertiesOutputTypeDef",
     "AthenaPropertiesPatchTypeDef",
@@ -164,6 +175,8 @@ __all__ = (
     "ConnectionPropertiesOutputTypeDef",
     "ConnectionPropertiesPatchTypeDef",
     "ConnectionSummaryTypeDef",
+    "CreateAccountPoolInputTypeDef",
+    "CreateAccountPoolOutputTypeDef",
     "CreateAssetFilterInputTypeDef",
     "CreateAssetFilterOutputTypeDef",
     "CreateAssetInputTypeDef",
@@ -223,7 +236,9 @@ __all__ = (
     "CreateSubscriptionTargetOutputTypeDef",
     "CreateUserProfileInputTypeDef",
     "CreateUserProfileOutputTypeDef",
+    "CustomAccountPoolHandlerTypeDef",
     "CustomParameterTypeDef",
+    "DataProductItemAdditionalAttributesTypeDef",
     "DataProductItemOutputTypeDef",
     "DataProductItemTypeDef",
     "DataProductItemUnionTypeDef",
@@ -239,6 +254,7 @@ __all__ = (
     "DataSourceRunLineageSummaryTypeDef",
     "DataSourceRunSummaryTypeDef",
     "DataSourceSummaryTypeDef",
+    "DeleteAccountPoolInputTypeDef",
     "DeleteAssetFilterInputTypeDef",
     "DeleteAssetInputTypeDef",
     "DeleteAssetTypeInputTypeDef",
@@ -271,6 +287,7 @@ __all__ = (
     "DeploymentTypeDef",
     "DetailedGlossaryTermTypeDef",
     "DisassociateEnvironmentRoleInputTypeDef",
+    "DisassociateGovernedTermsInputTypeDef",
     "DomainSummaryTypeDef",
     "DomainUnitFilterForProjectTypeDef",
     "DomainUnitGrantFilterOutputTypeDef",
@@ -302,6 +319,7 @@ __all__ = (
     "EnvironmentErrorTypeDef",
     "EnvironmentParameterTypeDef",
     "EnvironmentProfileSummaryTypeDef",
+    "EnvironmentResolvedAccountTypeDef",
     "EnvironmentSummaryTypeDef",
     "EqualToExpressionTypeDef",
     "EventSummaryTypeDef",
@@ -315,6 +333,8 @@ __all__ = (
     "FormInputTypeDef",
     "FormOutputTypeDef",
     "FormTypeDataTypeDef",
+    "GetAccountPoolInputTypeDef",
+    "GetAccountPoolOutputTypeDef",
     "GetAssetFilterInputTypeDef",
     "GetAssetFilterOutputTypeDef",
     "GetAssetInputTypeDef",
@@ -383,7 +403,9 @@ __all__ = (
     "GetTimeSeriesDataPointOutputTypeDef",
     "GetUserProfileInputTypeDef",
     "GetUserProfileOutputTypeDef",
+    "GlossaryItemAdditionalAttributesTypeDef",
     "GlossaryItemTypeDef",
+    "GlossaryTermItemAdditionalAttributesTypeDef",
     "GlossaryTermItemTypeDef",
     "GlueConnectionInputTypeDef",
     "GlueConnectionPatchTypeDef",
@@ -430,6 +452,12 @@ __all__ = (
     "LineageRunDetailsTypeDef",
     "LineageSqlQueryRunDetailsTypeDef",
     "LineageSyncScheduleTypeDef",
+    "ListAccountPoolsInputPaginateTypeDef",
+    "ListAccountPoolsInputTypeDef",
+    "ListAccountPoolsOutputTypeDef",
+    "ListAccountsInAccountPoolInputPaginateTypeDef",
+    "ListAccountsInAccountPoolInputTypeDef",
+    "ListAccountsInAccountPoolOutputTypeDef",
     "ListAssetFiltersInputPaginateTypeDef",
     "ListAssetFiltersInputTypeDef",
     "ListAssetFiltersOutputTypeDef",
@@ -527,6 +555,8 @@ __all__ = (
     "ListingRevisionTypeDef",
     "ListingSummaryItemTypeDef",
     "ListingSummaryTypeDef",
+    "MatchOffsetTypeDef",
+    "MatchRationaleItemTypeDef",
     "MemberDetailsTypeDef",
     "MemberTypeDef",
     "MetadataFormEnforcementDetailOutputTypeDef",
@@ -692,12 +722,15 @@ __all__ = (
     "TermRelationsOutputTypeDef",
     "TermRelationsTypeDef",
     "TermRelationsUnionTypeDef",
+    "TextMatchItemTypeDef",
     "TimeSeriesDataPointFormInputTypeDef",
     "TimeSeriesDataPointFormOutputTypeDef",
     "TimeSeriesDataPointSummaryFormOutputTypeDef",
     "TimestampTypeDef",
     "TopicTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAccountPoolInputTypeDef",
+    "UpdateAccountPoolOutputTypeDef",
     "UpdateAssetFilterInputTypeDef",
     "UpdateAssetFilterOutputTypeDef",
     "UpdateConnectionInputTypeDef",
@@ -769,11 +802,47 @@ class FormOutputTypeDef(TypedDict):
     typeName: NotRequired[str]
     typeRevision: NotRequired[str]
 
+class AccountInfoOutputTypeDef(TypedDict):
+    awsAccountId: str
+    supportedRegions: List[str]
+    awsAccountName: NotRequired[str]
+
+class AccountInfoTypeDef(TypedDict):
+    awsAccountId: str
+    supportedRegions: Sequence[str]
+    awsAccountName: NotRequired[str]
+
+AccountPoolSummaryTypeDef = TypedDict(
+    "AccountPoolSummaryTypeDef",
+    {
+        "createdBy": NotRequired[str],
+        "domainId": NotRequired[str],
+        "domainUnitId": NotRequired[str],
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "resolutionStrategy": NotRequired[Literal["MANUAL"]],
+        "updatedBy": NotRequired[str],
+    },
+)
+
+class CustomAccountPoolHandlerTypeDef(TypedDict):
+    lambdaFunctionArn: str
+    lambdaExecutionRoleArn: NotRequired[str]
+
 class AwsConsoleLinkParametersTypeDef(TypedDict):
     uri: NotRequired[str]
 
 class AddToProjectMemberPoolPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
+
+class AggregationListItemTypeDef(TypedDict):
+    attribute: str
+    displayValue: NotRequired[str]
+
+class AggregationOutputItemTypeDef(TypedDict):
+    count: NotRequired[int]
+    displayValue: NotRequired[str]
+    value: NotRequired[str]
 
 class ColumnFilterConfigurationOutputTypeDef(TypedDict):
     includedColumnNames: NotRequired[List[str]]
@@ -860,6 +929,12 @@ class AssociateEnvironmentRoleInputTypeDef(TypedDict):
     domainIdentifier: str
     environmentIdentifier: str
     environmentRoleArn: str
+
+class AssociateGovernedTermsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    entityIdentifier: str
+    entityType: Literal["ASSET"]
+    governedGlossaryTerms: Sequence[str]
 
 class AthenaPropertiesInputTypeDef(TypedDict):
     workgroupName: NotRequired[str]
@@ -1060,6 +1135,7 @@ class CreateGlossaryInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     status: NotRequired[GlossaryStatusType]
+    usageRestrictions: NotRequired[Sequence[Literal["ASSET_GOVERNED_TERMS"]]]
 
 class CreateGlossaryPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
@@ -1119,24 +1195,6 @@ class DataProductItemTypeDef(TypedDict):
     glossaryTerms: NotRequired[Sequence[str]]
     revision: NotRequired[str]
 
-class DataProductListingItemAdditionalAttributesTypeDef(TypedDict):
-    forms: NotRequired[str]
-
-DataProductResultItemTypeDef = TypedDict(
-    "DataProductResultItemTypeDef",
-    {
-        "domainId": str,
-        "id": str,
-        "name": str,
-        "owningProjectId": str,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "description": NotRequired[str],
-        "firstRevisionCreatedAt": NotRequired[datetime],
-        "firstRevisionCreatedBy": NotRequired[str],
-        "glossaryTerms": NotRequired[List[str]],
-    },
-)
 DataProductRevisionTypeDef = TypedDict(
     "DataProductRevisionTypeDef",
     {
@@ -1170,6 +1228,10 @@ class RunStatisticsForAssetsTypeDef(TypedDict):
     skipped: NotRequired[int]
     unchanged: NotRequired[int]
     updated: NotRequired[int]
+
+class DeleteAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
 
 class DeleteAssetFilterInputTypeDef(TypedDict):
     assetIdentifier: str
@@ -1282,6 +1344,12 @@ class DisassociateEnvironmentRoleInputTypeDef(TypedDict):
     environmentIdentifier: str
     environmentRoleArn: str
 
+class DisassociateGovernedTermsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    entityIdentifier: str
+    entityType: Literal["ASSET"]
+    governedGlossaryTerms: Sequence[str]
+
 DomainSummaryTypeDef = TypedDict(
     "DomainSummaryTypeDef",
     {
@@ -1334,6 +1402,11 @@ class EnvironmentConfigurationParameterTypeDef(TypedDict):
     isEditable: NotRequired[bool]
     name: NotRequired[str]
     value: NotRequired[str]
+
+class EnvironmentResolvedAccountTypeDef(TypedDict):
+    awsAccountId: str
+    regionName: str
+    sourceAccountPoolId: NotRequired[str]
 
 EnvironmentProfileSummaryTypeDef = TypedDict(
     "EnvironmentProfileSummaryTypeDef",
@@ -1393,6 +1466,10 @@ FilterExpressionTypeDef = TypedDict(
 class ImportTypeDef(TypedDict):
     name: str
     revision: str
+
+class GetAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
 
 class GetAssetFilterInputTypeDef(TypedDict):
     assetIdentifier: str
@@ -1573,21 +1650,6 @@ GetUserProfileInputTypeDef = TypedDict(
         "type": NotRequired[UserProfileTypeType],
     },
 )
-GlossaryItemTypeDef = TypedDict(
-    "GlossaryItemTypeDef",
-    {
-        "domainId": str,
-        "id": str,
-        "name": str,
-        "owningProjectId": str,
-        "status": GlossaryStatusType,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "description": NotRequired[str],
-        "updatedAt": NotRequired[datetime],
-        "updatedBy": NotRequired[str],
-    },
-)
 
 class PhysicalConnectionRequirementsOutputTypeDef(TypedDict):
     availabilityZone: NotRequired[str]
@@ -1712,6 +1774,20 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListAccountPoolsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    maxResults: NotRequired[int]
+    name: NotRequired[str]
+    nextToken: NotRequired[str]
+    sortBy: NotRequired[Literal["NAME"]]
+    sortOrder: NotRequired[SortOrderType]
+
+class ListAccountsInAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListAssetFiltersInputTypeDef(TypedDict):
     assetIdentifier: str
@@ -1960,6 +2036,10 @@ class ListSubscriptionsInputTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class MatchOffsetTypeDef(TypedDict):
+    endOffset: NotRequired[int]
+    startOffset: NotRequired[int]
+
 class UserDetailsTypeDef(TypedDict):
     userId: str
 
@@ -2188,6 +2268,10 @@ class AcceptPredictionsOutputTypeDef(TypedDict):
     revision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AddPolicyGrantOutputTypeDef(TypedDict):
+    grantId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateFormTypeOutputTypeDef(TypedDict):
     description: str
     domainId: str
@@ -2207,6 +2291,7 @@ CreateGlossaryOutputTypeDef = TypedDict(
         "name": str,
         "owningProjectId": str,
         "status": GlossaryStatusType,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2258,6 +2343,7 @@ GetGlossaryOutputTypeDef = TypedDict(
         "status": GlossaryStatusType,
         "updatedAt": datetime,
         "updatedBy": str,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2332,6 +2418,7 @@ UpdateGlossaryOutputTypeDef = TypedDict(
         "name": str,
         "owningProjectId": str,
         "status": GlossaryStatusType,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2352,24 +2439,36 @@ class AcceptSubscriptionRequestInputTypeDef(TypedDict):
     assetScopes: NotRequired[Sequence[AcceptedAssetScopeTypeDef]]
     decisionComment: NotRequired[str]
 
+class ListAccountsInAccountPoolOutputTypeDef(TypedDict):
+    items: List[AccountInfoOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAccountPoolsOutputTypeDef(TypedDict):
+    items: List[AccountPoolSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class AccountSourceOutputTypeDef(TypedDict):
+    accounts: NotRequired[List[AccountInfoOutputTypeDef]]
+    customAccountPoolHandler: NotRequired[CustomAccountPoolHandlerTypeDef]
+
+class AccountSourceTypeDef(TypedDict):
+    accounts: NotRequired[Sequence[AccountInfoTypeDef]]
+    customAccountPoolHandler: NotRequired[CustomAccountPoolHandlerTypeDef]
+
 class ActionParametersTypeDef(TypedDict):
     awsConsoleLink: NotRequired[AwsConsoleLinkParametersTypeDef]
+
+class AggregationOutputTypeDef(TypedDict):
+    attribute: NotRequired[str]
+    displayValue: NotRequired[str]
+    items: NotRequired[List[AggregationOutputItemTypeDef]]
 
 class ListAssetFiltersOutputTypeDef(TypedDict):
     items: List[AssetFilterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class AssetItemAdditionalAttributesTypeDef(TypedDict):
-    formsOutput: NotRequired[List[FormOutputTypeDef]]
-    latestTimeSeriesDataPointFormsOutput: NotRequired[
-        List[TimeSeriesDataPointSummaryFormOutputTypeDef]
-    ]
-    readOnlyFormsOutput: NotRequired[List[FormOutputTypeDef]]
-
-class AssetListingItemAdditionalAttributesTypeDef(TypedDict):
-    forms: NotRequired[str]
-    latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
 
 class ListTimeSeriesDataPointsOutputTypeDef(TypedDict):
     items: List[TimeSeriesDataPointSummaryFormOutputTypeDef]
@@ -2388,6 +2487,7 @@ GetAssetOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -2408,6 +2508,7 @@ class AssetListingTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     forms: NotRequired[str]
     glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    governedGlossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
     latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
     owningProjectId: NotRequired[str]
 
@@ -2710,16 +2811,6 @@ class CreateEnvironmentProfileInputTypeDef(TypedDict):
     description: NotRequired[str]
     userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
 
-class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
-    environmentConfigurationName: NotRequired[str]
-    environmentId: NotRequired[str]
-    environmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
-
-class EnvironmentConfigurationUserParameterTypeDef(TypedDict):
-    environmentConfigurationName: NotRequired[str]
-    environmentId: NotRequired[str]
-    environmentParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
 class UpdateEnvironmentInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
@@ -2812,6 +2903,7 @@ CreateGlossaryTermOutputTypeDef = TypedDict(
         "shortDescription": str,
         "status": GlossaryTermStatusType,
         "termRelations": TermRelationsOutputTypeDef,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2830,24 +2922,8 @@ GetGlossaryTermOutputTypeDef = TypedDict(
         "termRelations": TermRelationsOutputTypeDef,
         "updatedAt": datetime,
         "updatedBy": str,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GlossaryTermItemTypeDef = TypedDict(
-    "GlossaryTermItemTypeDef",
-    {
-        "domainId": str,
-        "glossaryId": str,
-        "id": str,
-        "name": str,
-        "status": GlossaryTermStatusType,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "longDescription": NotRequired[str],
-        "shortDescription": NotRequired[str],
-        "termRelations": NotRequired[TermRelationsOutputTypeDef],
-        "updatedAt": NotRequired[datetime],
-        "updatedBy": NotRequired[str],
     },
 )
 UpdateGlossaryTermOutputTypeDef = TypedDict(
@@ -2861,6 +2937,7 @@ UpdateGlossaryTermOutputTypeDef = TypedDict(
         "shortDescription": str,
         "status": GlossaryTermStatusType,
         "termRelations": TermRelationsOutputTypeDef,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3134,6 +3211,18 @@ class EnvironmentConfigurationParametersDetailsTypeDef(TypedDict):
     resolvedParameters: NotRequired[Sequence[EnvironmentConfigurationParameterTypeDef]]
     ssmPath: NotRequired[str]
 
+class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
+    environmentConfigurationName: NotRequired[str]
+    environmentId: NotRequired[str]
+    environmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
+    environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
+
+class EnvironmentConfigurationUserParameterTypeDef(TypedDict):
+    environmentConfigurationName: NotRequired[str]
+    environmentId: NotRequired[str]
+    environmentParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+    environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
+
 class ListEnvironmentProfilesOutputTypeDef(TypedDict):
     items: List[EnvironmentProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3401,6 +3490,18 @@ class RedshiftLineageSyncConfigurationOutputTypeDef(TypedDict):
     lineageJobId: NotRequired[str]
     schedule: NotRequired[LineageSyncScheduleTypeDef]
 
+class ListAccountPoolsInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    name: NotRequired[str]
+    sortBy: NotRequired[Literal["NAME"]]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAccountsInAccountPoolInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAssetFiltersInputPaginateTypeDef(TypedDict):
     assetIdentifier: str
     domainIdentifier: str
@@ -3659,6 +3760,11 @@ class ListProjectProfilesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class TextMatchItemTypeDef(TypedDict):
+    attribute: NotRequired[str]
+    matchOffsets: NotRequired[List[MatchOffsetTypeDef]]
+    text: NotRequired[str]
+
 class MemberDetailsTypeDef(TypedDict):
     group: NotRequired[GroupDetailsTypeDef]
     user: NotRequired[UserDetailsTypeDef]
@@ -3850,6 +3956,58 @@ class SubscribedPrincipalTypeDef(TypedDict):
     project: NotRequired[SubscribedProjectTypeDef]
 
 TermRelationsUnionTypeDef = Union[TermRelationsTypeDef, TermRelationsOutputTypeDef]
+CreateAccountPoolOutputTypeDef = TypedDict(
+    "CreateAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetAccountPoolOutputTypeDef = TypedDict(
+    "GetAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateAccountPoolOutputTypeDef = TypedDict(
+    "UpdateAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+AccountSourceUnionTypeDef = Union[AccountSourceTypeDef, AccountSourceOutputTypeDef]
 
 class CreateEnvironmentActionInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -3915,52 +4073,6 @@ UpdateEnvironmentActionOutputTypeDef = TypedDict(
     },
 )
 
-class AssetItemTypeDef(TypedDict):
-    domainId: str
-    identifier: str
-    name: str
-    owningProjectId: str
-    typeIdentifier: str
-    typeRevision: str
-    additionalAttributes: NotRequired[AssetItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    createdBy: NotRequired[str]
-    description: NotRequired[str]
-    externalIdentifier: NotRequired[str]
-    firstRevisionCreatedAt: NotRequired[datetime]
-    firstRevisionCreatedBy: NotRequired[str]
-    glossaryTerms: NotRequired[List[str]]
-
-class AssetListingItemTypeDef(TypedDict):
-    additionalAttributes: NotRequired[AssetListingItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    description: NotRequired[str]
-    entityId: NotRequired[str]
-    entityRevision: NotRequired[str]
-    entityType: NotRequired[str]
-    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
-    listingCreatedBy: NotRequired[str]
-    listingId: NotRequired[str]
-    listingRevision: NotRequired[str]
-    listingUpdatedBy: NotRequired[str]
-    name: NotRequired[str]
-    owningProjectId: NotRequired[str]
-
-class DataProductListingItemTypeDef(TypedDict):
-    additionalAttributes: NotRequired[DataProductListingItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    description: NotRequired[str]
-    entityId: NotRequired[str]
-    entityRevision: NotRequired[str]
-    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
-    items: NotRequired[List[ListingSummaryItemTypeDef]]
-    listingCreatedBy: NotRequired[str]
-    listingId: NotRequired[str]
-    listingRevision: NotRequired[str]
-    listingUpdatedBy: NotRequired[str]
-    name: NotRequired[str]
-    owningProjectId: NotRequired[str]
-
 class DataProductListingTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     dataProductId: NotRequired[str]
@@ -4004,6 +4116,7 @@ CreateAssetOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -4041,6 +4154,7 @@ CreateAssetRevisionOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -4087,10 +4201,6 @@ class ListDataSourcesOutputTypeDef(TypedDict):
     items: List[DataSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-EnvironmentConfigurationUserParameterUnionTypeDef = Union[
-    EnvironmentConfigurationUserParameterTypeDef, EnvironmentConfigurationUserParameterOutputTypeDef
-]
 
 class ListProjectsOutputTypeDef(TypedDict):
     items: List[ProjectSummaryTypeDef]
@@ -4216,6 +4326,83 @@ UpdateEnvironmentOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+EnvironmentDeploymentDetailsUnionTypeDef = Union[
+    EnvironmentDeploymentDetailsTypeDef, EnvironmentDeploymentDetailsOutputTypeDef
+]
+
+class ProjectPolicyGrantPrincipalTypeDef(TypedDict):
+    projectDesignation: ProjectDesignationType
+    projectGrantFilter: NotRequired[ProjectGrantFilterTypeDef]
+    projectIdentifier: NotRequired[str]
+
+CreateDomainUnitOutputTypeDef = TypedDict(
+    "CreateDomainUnitOutputTypeDef",
+    {
+        "ancestorDomainUnitIds": List[str],
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "owners": List[DomainUnitOwnerPropertiesTypeDef],
+        "parentDomainUnitId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetDomainUnitOutputTypeDef = TypedDict(
+    "GetDomainUnitOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "lastUpdatedBy": str,
+        "name": str,
+        "owners": List[DomainUnitOwnerPropertiesTypeDef],
+        "parentDomainUnitId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateDomainUnitOutputTypeDef = TypedDict(
+    "UpdateDomainUnitOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "lastUpdatedBy": str,
+        "name": str,
+        "owners": List[DomainUnitOwnerPropertiesTypeDef],
+        "parentDomainUnitId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+EnvironmentConfigurationOutputTypeDef = TypedDict(
+    "EnvironmentConfigurationOutputTypeDef",
+    {
+        "environmentBlueprintId": str,
+        "name": str,
+        "accountPools": NotRequired[List[str]],
+        "awsAccount": NotRequired[AwsAccountTypeDef],
+        "awsRegion": NotRequired[RegionTypeDef],
+        "configurationParameters": NotRequired[
+            EnvironmentConfigurationParametersDetailsOutputTypeDef
+        ],
+        "deploymentMode": NotRequired[DeploymentModeType],
+        "deploymentOrder": NotRequired[int],
+        "description": NotRequired[str],
+        "id": NotRequired[str],
+    },
+)
+EnvironmentConfigurationParametersDetailsUnionTypeDef = Union[
+    EnvironmentConfigurationParametersDetailsTypeDef,
+    EnvironmentConfigurationParametersDetailsOutputTypeDef,
+]
 CreateProjectOutputTypeDef = TypedDict(
     "CreateProjectOutputTypeDef",
     {
@@ -4276,81 +4463,8 @@ UpdateProjectOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-EnvironmentDeploymentDetailsUnionTypeDef = Union[
-    EnvironmentDeploymentDetailsTypeDef, EnvironmentDeploymentDetailsOutputTypeDef
-]
-
-class ProjectPolicyGrantPrincipalTypeDef(TypedDict):
-    projectDesignation: ProjectDesignationType
-    projectGrantFilter: NotRequired[ProjectGrantFilterTypeDef]
-    projectIdentifier: NotRequired[str]
-
-CreateDomainUnitOutputTypeDef = TypedDict(
-    "CreateDomainUnitOutputTypeDef",
-    {
-        "ancestorDomainUnitIds": List[str],
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "id": str,
-        "name": str,
-        "owners": List[DomainUnitOwnerPropertiesTypeDef],
-        "parentDomainUnitId": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetDomainUnitOutputTypeDef = TypedDict(
-    "GetDomainUnitOutputTypeDef",
-    {
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "lastUpdatedBy": str,
-        "name": str,
-        "owners": List[DomainUnitOwnerPropertiesTypeDef],
-        "parentDomainUnitId": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-UpdateDomainUnitOutputTypeDef = TypedDict(
-    "UpdateDomainUnitOutputTypeDef",
-    {
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "lastUpdatedBy": str,
-        "name": str,
-        "owners": List[DomainUnitOwnerPropertiesTypeDef],
-        "parentDomainUnitId": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-EnvironmentConfigurationOutputTypeDef = TypedDict(
-    "EnvironmentConfigurationOutputTypeDef",
-    {
-        "awsAccount": AwsAccountTypeDef,
-        "awsRegion": RegionTypeDef,
-        "environmentBlueprintId": str,
-        "name": str,
-        "configurationParameters": NotRequired[
-            EnvironmentConfigurationParametersDetailsOutputTypeDef
-        ],
-        "deploymentMode": NotRequired[DeploymentModeType],
-        "deploymentOrder": NotRequired[int],
-        "description": NotRequired[str],
-        "id": NotRequired[str],
-    },
-)
-EnvironmentConfigurationParametersDetailsUnionTypeDef = Union[
-    EnvironmentConfigurationParametersDetailsTypeDef,
-    EnvironmentConfigurationParametersDetailsOutputTypeDef,
+EnvironmentConfigurationUserParameterUnionTypeDef = Union[
+    EnvironmentConfigurationUserParameterTypeDef, EnvironmentConfigurationUserParameterOutputTypeDef
 ]
 
 class SearchInputPaginateTypeDef(TypedDict):
@@ -4367,6 +4481,7 @@ class SearchInputPaginateTypeDef(TypedDict):
 class SearchListingsInputPaginateTypeDef(TypedDict):
     domainIdentifier: str
     additionalAttributes: NotRequired[Sequence[SearchOutputAdditionalAttributeType]]
+    aggregations: NotRequired[Sequence[AggregationListItemTypeDef]]
     filters: NotRequired[FilterClausePaginatorTypeDef]
     searchIn: NotRequired[Sequence[SearchInItemTypeDef]]
     searchText: NotRequired[str]
@@ -4398,6 +4513,7 @@ class SearchInputTypeDef(TypedDict):
 class SearchListingsInputTypeDef(TypedDict):
     domainIdentifier: str
     additionalAttributes: NotRequired[Sequence[SearchOutputAdditionalAttributeType]]
+    aggregations: NotRequired[Sequence[AggregationListItemTypeDef]]
     filters: NotRequired[FilterClauseTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -4590,6 +4706,9 @@ class ProvisioningConfigurationTypeDef(TypedDict):
 
 class JobRunDetailsTypeDef(TypedDict):
     lineageRunDetails: NotRequired[LineageRunDetailsTypeDef]
+
+class MatchRationaleItemTypeDef(TypedDict):
+    textMatches: NotRequired[List[TextMatchItemTypeDef]]
 
 class ProjectMemberTypeDef(TypedDict):
     designation: UserDesignationType
@@ -4786,20 +4905,25 @@ class UpdateGlossaryTermInputTypeDef(TypedDict):
     status: NotRequired[GlossaryTermStatusType]
     termRelations: NotRequired[TermRelationsUnionTypeDef]
 
+class CreateAccountPoolInputTypeDef(TypedDict):
+    accountSource: AccountSourceUnionTypeDef
+    domainIdentifier: str
+    name: str
+    resolutionStrategy: Literal["MANUAL"]
+    description: NotRequired[str]
+
+class UpdateAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    accountSource: NotRequired[AccountSourceUnionTypeDef]
+    description: NotRequired[str]
+    name: NotRequired[str]
+    resolutionStrategy: NotRequired[Literal["MANUAL"]]
+
 class ListEnvironmentActionsOutputTypeDef(TypedDict):
     items: List[EnvironmentActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class SearchInventoryResultItemTypeDef(TypedDict):
-    assetItem: NotRequired[AssetItemTypeDef]
-    dataProductItem: NotRequired[DataProductResultItemTypeDef]
-    glossaryItem: NotRequired[GlossaryItemTypeDef]
-    glossaryTermItem: NotRequired[GlossaryTermItemTypeDef]
-
-class SearchResultItemTypeDef(TypedDict):
-    assetListing: NotRequired[AssetListingItemTypeDef]
-    dataProductListing: NotRequired[DataProductListingItemTypeDef]
 
 class ListingItemTypeDef(TypedDict):
     assetListing: NotRequired[AssetListingTypeDef]
@@ -4825,26 +4949,6 @@ class ListEnvironmentBlueprintsOutputTypeDef(TypedDict):
     items: List[EnvironmentBlueprintSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class CreateProjectInputTypeDef(TypedDict):
-    domainIdentifier: str
-    name: str
-    description: NotRequired[str]
-    domainUnitId: NotRequired[str]
-    glossaryTerms: NotRequired[Sequence[str]]
-    projectProfileId: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
-
-class UpdateProjectInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    description: NotRequired[str]
-    domainUnitId: NotRequired[str]
-    environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
-    glossaryTerms: NotRequired[Sequence[str]]
-    name: NotRequired[str]
-    projectProfileVersion: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
 
 class PolicyGrantPrincipalOutputTypeDef(TypedDict):
     domainUnit: NotRequired[DomainUnitPolicyGrantPrincipalOutputTypeDef]
@@ -4909,10 +5013,11 @@ UpdateProjectProfileOutputTypeDef = TypedDict(
 EnvironmentConfigurationTypeDef = TypedDict(
     "EnvironmentConfigurationTypeDef",
     {
-        "awsAccount": AwsAccountTypeDef,
-        "awsRegion": RegionTypeDef,
         "environmentBlueprintId": str,
         "name": str,
+        "accountPools": NotRequired[Sequence[str]],
+        "awsAccount": NotRequired[AwsAccountTypeDef],
+        "awsRegion": NotRequired[RegionTypeDef],
         "configurationParameters": NotRequired[
             EnvironmentConfigurationParametersDetailsUnionTypeDef
         ],
@@ -4922,6 +5027,26 @@ EnvironmentConfigurationTypeDef = TypedDict(
         "id": NotRequired[str],
     },
 )
+
+class CreateProjectInputTypeDef(TypedDict):
+    domainIdentifier: str
+    name: str
+    description: NotRequired[str]
+    domainUnitId: NotRequired[str]
+    glossaryTerms: NotRequired[Sequence[str]]
+    projectProfileId: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
+
+class UpdateProjectInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    description: NotRequired[str]
+    domainUnitId: NotRequired[str]
+    environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
+    glossaryTerms: NotRequired[Sequence[str]]
+    name: NotRequired[str]
+    projectProfileVersion: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
 
 class GlueRunConfigurationInputTypeDef(TypedDict):
     relationalFilterConfigurations: Sequence[RelationalFilterConfigurationUnionTypeDef]
@@ -4972,6 +5097,32 @@ GetJobRunOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class AssetItemAdditionalAttributesTypeDef(TypedDict):
+    formsOutput: NotRequired[List[FormOutputTypeDef]]
+    latestTimeSeriesDataPointFormsOutput: NotRequired[
+        List[TimeSeriesDataPointSummaryFormOutputTypeDef]
+    ]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+    readOnlyFormsOutput: NotRequired[List[FormOutputTypeDef]]
+
+class AssetListingItemAdditionalAttributesTypeDef(TypedDict):
+    forms: NotRequired[str]
+    latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class DataProductItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class DataProductListingItemAdditionalAttributesTypeDef(TypedDict):
+    forms: NotRequired[str]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class GlossaryItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class GlossaryTermItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
 
 class ListProjectMembershipsOutputTypeDef(TypedDict):
     members: List[ProjectMemberTypeDef]
@@ -5102,18 +5253,6 @@ class DataSourceConfigurationOutputTypeDef(TypedDict):
 
 class SearchUserProfilesOutputTypeDef(TypedDict):
     items: List[UserProfileSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class SearchOutputTypeDef(TypedDict):
-    items: List[SearchInventoryResultItemTypeDef]
-    totalMatchCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class SearchListingsOutputTypeDef(TypedDict):
-    items: List[SearchResultItemTypeDef]
-    totalMatchCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -5333,6 +5472,7 @@ class PolicyGrantMemberTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     createdBy: NotRequired[str]
     detail: NotRequired[PolicyGrantDetailOutputTypeDef]
+    grantId: NotRequired[str]
     principal: NotRequired[PolicyGrantPrincipalOutputTypeDef]
 
 PolicyGrantPrincipalUnionTypeDef = Union[
@@ -5356,6 +5496,108 @@ class PutEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     provisioningConfigurations: NotRequired[Sequence[ProvisioningConfigurationUnionTypeDef]]
     provisioningRoleArn: NotRequired[str]
     regionalParameters: NotRequired[Mapping[str, Mapping[str, str]]]
+
+class AssetItemTypeDef(TypedDict):
+    domainId: str
+    identifier: str
+    name: str
+    owningProjectId: str
+    typeIdentifier: str
+    typeRevision: str
+    additionalAttributes: NotRequired[AssetItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    description: NotRequired[str]
+    externalIdentifier: NotRequired[str]
+    firstRevisionCreatedAt: NotRequired[datetime]
+    firstRevisionCreatedBy: NotRequired[str]
+    glossaryTerms: NotRequired[List[str]]
+    governedGlossaryTerms: NotRequired[List[str]]
+
+class AssetListingItemTypeDef(TypedDict):
+    additionalAttributes: NotRequired[AssetListingItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    entityId: NotRequired[str]
+    entityRevision: NotRequired[str]
+    entityType: NotRequired[str]
+    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    governedGlossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    listingCreatedBy: NotRequired[str]
+    listingId: NotRequired[str]
+    listingRevision: NotRequired[str]
+    listingUpdatedBy: NotRequired[str]
+    name: NotRequired[str]
+    owningProjectId: NotRequired[str]
+
+DataProductResultItemTypeDef = TypedDict(
+    "DataProductResultItemTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "additionalAttributes": NotRequired[DataProductItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "description": NotRequired[str],
+        "firstRevisionCreatedAt": NotRequired[datetime],
+        "firstRevisionCreatedBy": NotRequired[str],
+        "glossaryTerms": NotRequired[List[str]],
+    },
+)
+
+class DataProductListingItemTypeDef(TypedDict):
+    additionalAttributes: NotRequired[DataProductListingItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    entityId: NotRequired[str]
+    entityRevision: NotRequired[str]
+    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    items: NotRequired[List[ListingSummaryItemTypeDef]]
+    listingCreatedBy: NotRequired[str]
+    listingId: NotRequired[str]
+    listingRevision: NotRequired[str]
+    listingUpdatedBy: NotRequired[str]
+    name: NotRequired[str]
+    owningProjectId: NotRequired[str]
+
+GlossaryItemTypeDef = TypedDict(
+    "GlossaryItemTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "status": GlossaryStatusType,
+        "additionalAttributes": NotRequired[GlossaryItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "description": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+        "usageRestrictions": NotRequired[List[Literal["ASSET_GOVERNED_TERMS"]]],
+    },
+)
+GlossaryTermItemTypeDef = TypedDict(
+    "GlossaryTermItemTypeDef",
+    {
+        "domainId": str,
+        "glossaryId": str,
+        "id": str,
+        "name": str,
+        "status": GlossaryTermStatusType,
+        "additionalAttributes": NotRequired[GlossaryTermItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "longDescription": NotRequired[str],
+        "shortDescription": NotRequired[str],
+        "termRelations": NotRequired[TermRelationsOutputTypeDef],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+        "usageRestrictions": NotRequired[List[Literal["ASSET_GOVERNED_TERMS"]]],
+    },
+)
 
 class CreateRuleInputTypeDef(TypedDict):
     action: RuleActionType
@@ -5564,6 +5806,7 @@ class RemovePolicyGrantInputTypeDef(TypedDict):
     policyType: ManagedPolicyTypeType
     principal: PolicyGrantPrincipalUnionTypeDef
     clientToken: NotRequired[str]
+    grantIdentifier: NotRequired[str]
 
 class CreateProjectProfileInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -5614,6 +5857,16 @@ class UpdateDataSourceInputTypeDef(TypedDict):
     recommendation: NotRequired[RecommendationConfigurationTypeDef]
     retainPermissionsOnRevokeFailure: NotRequired[bool]
     schedule: NotRequired[ScheduleConfigurationTypeDef]
+
+class SearchResultItemTypeDef(TypedDict):
+    assetListing: NotRequired[AssetListingItemTypeDef]
+    dataProductListing: NotRequired[DataProductListingItemTypeDef]
+
+class SearchInventoryResultItemTypeDef(TypedDict):
+    assetItem: NotRequired[AssetItemTypeDef]
+    dataProductItem: NotRequired[DataProductResultItemTypeDef]
+    glossaryItem: NotRequired[GlossaryItemTypeDef]
+    glossaryTermItem: NotRequired[GlossaryTermItemTypeDef]
 
 CreateAssetFilterOutputTypeDef = TypedDict(
     "CreateAssetFilterOutputTypeDef",
@@ -5736,6 +5989,19 @@ UpdateConnectionOutputTypeDef = TypedDict(
 
 class GluePropertiesInputTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionInputTypeDef]
+
+class SearchListingsOutputTypeDef(TypedDict):
+    aggregates: List[AggregationOutputTypeDef]
+    items: List[SearchResultItemTypeDef]
+    totalMatchCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class SearchOutputTypeDef(TypedDict):
+    items: List[SearchInventoryResultItemTypeDef]
+    totalMatchCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CreateAssetFilterInputTypeDef(TypedDict):
     assetIdentifier: str

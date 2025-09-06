@@ -57,6 +57,7 @@ from .literals import (
     MessageUsefulnessType,
     NumberAttributeBoostingTypeType,
     OrchestrationControlType,
+    OutputFormatType,
     PersonalizationControlModeType,
     PluginBuildStatusType,
     PluginStateType,
@@ -264,6 +265,8 @@ __all__ = (
     "GetDataAccessorResponseTypeDef",
     "GetDataSourceRequestTypeDef",
     "GetDataSourceResponseTypeDef",
+    "GetDocumentContentRequestTypeDef",
+    "GetDocumentContentResponseTypeDef",
     "GetGroupRequestTypeDef",
     "GetGroupResponseTypeDef",
     "GetIndexRequestTypeDef",
@@ -832,6 +835,13 @@ class GetDataSourceRequestTypeDef(TypedDict):
     indexId: str
     dataSourceId: str
 
+class GetDocumentContentRequestTypeDef(TypedDict):
+    applicationId: str
+    indexId: str
+    documentId: str
+    dataSourceId: NotRequired[str]
+    outputFormat: NotRequired[OutputFormatType]
+
 class GetGroupRequestTypeDef(TypedDict):
     applicationId: str
     indexId: str
@@ -1234,6 +1244,11 @@ class CreateWebExperienceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDocumentContentResponseTypeDef(TypedDict):
+    presignedUrl: str
+    mimeType: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMediaResponseTypeDef(TypedDict):
@@ -2130,6 +2145,9 @@ class SourceAttributionTypeDef(TypedDict):
     citationNumber: NotRequired[int]
     updatedAt: NotRequired[datetime]
     textMessageSegments: NotRequired[List[TextSegmentTypeDef]]
+    documentId: NotRequired[str]
+    indexId: NotRequired[str]
+    datasourceId: NotRequired[str]
 
 class TopicConfigurationOutputTypeDef(TypedDict):
     name: str

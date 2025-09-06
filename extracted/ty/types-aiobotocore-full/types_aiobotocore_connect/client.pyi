@@ -285,6 +285,8 @@ from .type_defs import (
     GetAttachedFileResponseTypeDef,
     GetContactAttributesRequestTypeDef,
     GetContactAttributesResponseTypeDef,
+    GetContactMetricsRequestTypeDef,
+    GetContactMetricsResponseTypeDef,
     GetCurrentMetricDataRequestTypeDef,
     GetCurrentMetricDataResponseTypeDef,
     GetCurrentUserDataRequestTypeDef,
@@ -727,7 +729,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateQueueQuickConnectsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Associates a set of quick connects with a queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_queue_quick_connects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_queue_quick_connects)
@@ -853,7 +855,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateAgentStatusRequestTypeDef]
     ) -> CreateAgentStatusResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Creates an agent status for the specified Amazon Connect instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_agent_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_agent_status)
@@ -923,7 +925,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateHoursOfOperationRequestTypeDef]
     ) -> CreateHoursOfOperationResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Creates hours of operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_hours_of_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_hours_of_operation)
@@ -965,7 +967,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateParticipantRequestTypeDef]
     ) -> CreateParticipantResponseTypeDef:
         """
-        Adds a new participant into an on-going chat contact.
+        Adds a new participant into an on-going chat contact or webRTC call.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_participant.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_participant)
@@ -1228,7 +1230,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Deletes an hours of operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_hours_of_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_hours_of_operation)
@@ -1428,7 +1430,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeAgentStatusRequestTypeDef]
     ) -> DescribeAgentStatusResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Describes an agent status.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_agent_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_agent_status)
@@ -1508,7 +1510,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeHoursOfOperationRequestTypeDef]
     ) -> DescribeHoursOfOperationResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Describes the hours of operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_hours_of_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_hours_of_operation)
@@ -1589,7 +1591,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeQueueRequestTypeDef]
     ) -> DescribeQueueResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Describes the specified queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_queue.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_queue)
@@ -1781,7 +1783,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateQueueQuickConnectsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Disassociates a set of quick connects from a queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_queue_quick_connects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_queue_quick_connects)
@@ -1856,6 +1858,16 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_contact_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_contact_attributes)
+        """
+
+    async def get_contact_metrics(
+        self, **kwargs: Unpack[GetContactMetricsRequestTypeDef]
+    ) -> GetContactMetricsResponseTypeDef:
+        """
+        Gets the real-time metrics of the specified contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_contact_metrics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_contact_metrics)
         """
 
     async def get_current_metric_data(
@@ -1975,7 +1987,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListAgentStatusRequestTypeDef]
     ) -> ListAgentStatusResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Lists agent statuses.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_agent_statuses.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_agent_statuses)
@@ -2263,7 +2275,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListQueueQuickConnectsRequestTypeDef]
     ) -> ListQueueQuickConnectsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Lists the quick connects associated with a queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_queue_quick_connects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_queue_quick_connects)
@@ -2978,7 +2990,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAgentStatusRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates agent status.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_agent_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_agent_status)
@@ -3120,7 +3132,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the hours of operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_hours_of_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_hours_of_operation)
@@ -3223,7 +3235,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateQueueHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the hours of operation for the specified queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_queue_hours_of_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_queue_hours_of_operation)
@@ -3233,7 +3245,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateQueueMaxContactsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the maximum number of contacts allowed in a queue before it is
+        considered full.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_queue_max_contacts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_queue_max_contacts)
@@ -3243,7 +3256,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateQueueNameRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the name and description of a queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_queue_name.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_queue_name)
@@ -3253,7 +3266,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateQueueOutboundCallerConfigRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the outbound caller ID name, number, and outbound whisper flow for a
+        specified queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_queue_outbound_caller_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_queue_outbound_caller_config)
@@ -3273,7 +3287,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateQueueStatusRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        Updates the status of the queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_queue_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_queue_status)

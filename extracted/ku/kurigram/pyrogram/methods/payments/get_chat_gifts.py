@@ -93,7 +93,7 @@ class GetChatGifts:
                     exclude_unsaved=exclude_unsaved,
                     exclude_saved=exclude_saved,
                     exclude_unlimited=exclude_unlimited,
-                    exclude_limited=exclude_limited,
+                    # exclude_limited=exclude_limited,
                     exclude_unique=exclude_upgraded,
                     sort_by_value=sort_by_price
                 ),

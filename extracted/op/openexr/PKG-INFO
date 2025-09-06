@@ -1,15 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: OpenEXR
-Version: 3.3.5
+Version: 3.4.0
 Summary: Python bindings for the OpenEXR image file format
 Author-Email: Contributors to the OpenEXR project <info@openexr.com>
 Project-URL: Homepage, https://openexr.com
 Project-URL: Source, https://github.com/AcademySoftwareFoundation/OpenEXR
-Project-URL: Bug tracker, https://github.com/AcademySoftwareFoundation/OpenEXR/issues
+Project-URL: Bug Tracker, https://github.com/AcademySoftwareFoundation/OpenEXR/issues
 Requires-Python: >=3.7
 Requires-Dist: numpy>=1.7.0
-Requires-Dist: pytest; extra == "test"
 Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
 Description-Content-Type: text/markdown
 
 <!-- SPDX-License-Identifier: BSD-3-Clause -->

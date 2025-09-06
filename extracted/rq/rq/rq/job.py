@@ -42,6 +42,7 @@ from .utils import (
     import_attribute,
     now,
     parse_timeout,
+    resolve_function_reference,
     str_to_date,
     utcformat,
 )
@@ -167,7 +168,7 @@ class Job:
         self.connection = connection
         self._id = id
         self.created_at = now()
-        self._data = UNEVALUATED
+        self._data: Union[bytes, 'UnevaluatedType'] = UNEVALUATED
         self._func_name: Union[str, UnevaluatedType] = UNEVALUATED
         self._instance: Optional[Union[object, UnevaluatedType]] = UNEVALUATED
         self._args: Union[tuple, list, UnevaluatedType] = UNEVALUATED
@@ -295,11 +296,6 @@ class Job:
         if kwargs is None:
             kwargs = {}
 
-        if not isinstance(args, (tuple, list)):
-            raise TypeError(f'{args!r} is not a valid args list')
-        if not isinstance(kwargs, dict):
-            raise TypeError(f'{kwargs!r} is not a valid kwargs dict')
-
         job = cls(connection=connection, serializer=serializer)
         if id is not None:
             job.set_id(id)
@@ -308,19 +304,7 @@ class Job:
             job.origin = origin
 
         # Set the core job tuple properties
-        job._instance = None
-        if inspect.ismethod(func):
-            job._instance = func.__self__
-            job._func_name = func.__name__
-        elif inspect.isfunction(func) or inspect.isbuiltin(func):
-            job._func_name = f'{func.__module__}.{func.__qualname__}'
-        elif isinstance(func, str):
-            job._func_name = as_text(func)
-        elif not inspect.isclass(func) and hasattr(func, '__call__'):  # a callable class instance
-            job._instance = func
-            job._func_name = '__call__'
-        else:
-            raise TypeError(f'Expected a callable or a string, but got: {func}')
+        job._instance, job._func_name = resolve_function_reference(func)
         job._args = args
         job._kwargs = kwargs
 
@@ -363,21 +347,9 @@ class Job:
         job.meta = meta or {}
         job.group_id = group_id
 
-        # dependency could be job instance or id, or iterable thereof
+        # Process job dependencies
         if depends_on is not None:
-            depends_on_list: list[Union['Job', str]] = []
-            for depends_on_item in ensure_job_list(depends_on):
-                if isinstance(depends_on_item, Dependency):
-                    # If a Dependency has enqueue_at_front or allow_failure set to True, these behaviors are used for
-                    # all dependencies.
-                    job.enqueue_at_front = job.enqueue_at_front or depends_on_item.enqueue_at_front
-                    job.allow_dependency_failures = job.allow_dependency_failures or depends_on_item.allow_failure
-                    depends_on_list.extend(list(depends_on_item.dependencies))
-                else:
-                    # After checking for Dependency, depends_on_item should be Job or str
-                    # Use type cast to inform mypy of the narrowed type
-                    depends_on_list.append(depends_on_item)  # type: ignore[arg-type]
-            job._dependency_ids = [dep.id if isinstance(dep, Job) else dep for dep in depends_on_list]
+            job.process_dependencies(depends_on)
 
         # Set status: explicit status takes precedence, otherwise DEFERRED if has dependencies, CREATED if not
         if status is not None:
@@ -580,7 +552,7 @@ class Job:
             raise DeserializationError() from e
 
     @property
-    def data(self):
+    def data(self) -> bytes:
         if self._data is UNEVALUATED:
             if self._func_name is UNEVALUATED:
                 raise ValueError('Cannot build the job data')
@@ -596,7 +568,7 @@ class Job:
 
             job_tuple = self._func_name, self._instance, self._args, self._kwargs
             self._data = self.serializer.dumps(job_tuple)
-        return self._data
+        return cast(bytes, self._data)
 
     @data.setter
     def data(self, value):
@@ -773,16 +745,16 @@ class Job:
     id = property(get_id, set_id)
 
     @classmethod
-    def key_for(cls, job_id: str) -> bytes:
+    def key_for(cls, job_id: str) -> str:
         """The Redis key that is used to store job hash under.
 
         Args:
             job_id (str): The Job ID
 
         Returns:
-            redis_job_key (bytes): The Redis fully qualified key for the job
+            redis_job_key (str): The Redis fully qualified key for the job
         """
-        return (cls.redis_job_namespace_prefix + job_id).encode('utf-8')
+        return cls.redis_job_namespace_prefix + job_id
 
     @classmethod
     def dependents_key_for(cls, job_id: str) -> str:
@@ -956,14 +928,16 @@ class Job:
             # Fallback to uncompressed string
             self.data = raw_data
 
-        self.created_at = str_to_date(obj.get('created_at'))  # type: ignore[assignment]
+        self.created_at = str_to_date(v) if (v := obj.get('created_at')) else now()
         self.origin = as_text(obj['origin']) if obj.get('origin') else ''
         self.worker_name = obj['worker_name'].decode() if obj.get('worker_name') else None
         self.description = as_text(obj['description']) if obj.get('description') else None
-        self.enqueued_at = str_to_date(obj.get('enqueued_at'))
-        self.started_at = str_to_date(obj.get('started_at'))
-        self.ended_at = str_to_date(obj.get('ended_at'))
-        self.last_heartbeat = str_to_date(obj.get('last_heartbeat'))
+
+        self.enqueued_at = str_to_date(v) if (v := obj.get('enqueued_at')) else None
+        self.started_at = str_to_date(v) if (v := obj.get('started_at')) else None
+        self.ended_at = str_to_date(v) if (v := obj.get('ended_at')) else None
+
+        self.last_heartbeat = str_to_date(v) if (v := obj.get('last_heartbeat')) else None
         self.group_id = as_text(obj['group_id']) if obj.get('group_id') else None
         result = obj.get('result')
         if result:
@@ -1346,7 +1320,29 @@ class Job:
             assert self is _job_stack.pop()
         return self._result
 
-    def prepare_for_execution(self, worker_name: str, pipeline: 'Pipeline'):
+    def process_dependencies(self, depends_on: JobDependencyType) -> None:
+        """Process job dependencies and set dependency-related attributes.
+
+        Args:
+            depends_on: Job dependencies - can be a Dependency, Job, string ID,
+                       or iterable of these types.
+        """
+
+        depends_on_list: list[Union['Job', str]] = []
+        for depends_on_item in ensure_job_list(depends_on):
+            if isinstance(depends_on_item, Dependency):
+                # If a Dependency has enqueue_at_front or allow_failure set to True, these behaviors are used for
+                # all dependencies.
+                self.enqueue_at_front = self.enqueue_at_front or depends_on_item.enqueue_at_front
+                self.allow_dependency_failures = self.allow_dependency_failures or depends_on_item.allow_failure
+                depends_on_list.extend(list(depends_on_item.dependencies))
+            else:
+                # After checking for Dependency, depends_on_item should be Job or str
+                # Use type cast to inform mypy of the narrowed type
+                depends_on_list.append(depends_on_item)  # type: ignore[arg-type]
+        self._dependency_ids = [dep.id if isinstance(dep, Job) else dep for dep in depends_on_list]
+
+    def prepare_for_execution(self, worker_name: str, pipeline: 'Pipeline') -> None:
         """Prepares the job for execution, setting the worker name,
         heartbeat information, status and other metadata before execution begins.
 
@@ -1375,6 +1371,8 @@ class Job:
         Returns:
             result (Any): The function result
         """
+        if not self.func:
+            raise ValueError('Cannot execute job: function is None')
         result = self.func(*self.args, **self.kwargs)
         if asyncio.iscoroutine(result):
             loop = asyncio.new_event_loop()
@@ -1627,9 +1625,9 @@ class Job:
             connection.sadd(self.dependencies_key, dependency_id)
 
     @property
-    def dependency_ids(self) -> list[bytes]:
+    def dependency_ids(self) -> list[str]:
         dependencies = self.connection.smembers(self.dependencies_key)
-        return [Job.key_for(_id.decode()) for _id in dependencies]
+        return [_id.decode() for _id in dependencies]
 
     def dependencies_are_met(
         self,
@@ -1777,4 +1775,5 @@ class Callback:
     def name(self) -> str:
         if isinstance(self.func, str):
             return self.func
-        return f'{self.func.__module__}.{self.func.__qualname__}'
+        _, func_name = resolve_function_reference(self.func)
+        return func_name

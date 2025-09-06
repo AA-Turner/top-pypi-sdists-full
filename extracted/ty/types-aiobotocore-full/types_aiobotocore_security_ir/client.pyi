@@ -141,7 +141,8 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[BatchGetMemberAccountDetailsRequestTypeDef]
     ) -> BatchGetMemberAccountDetailsResponseTypeDef:
         """
-        Grants permission to view an existing membership.
+        Provides information on whether the supplied account IDs are associated with a
+        membership.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/batch_get_member_account_details.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#batch_get_member_account_details)
@@ -151,7 +152,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[CancelMembershipRequestTypeDef]
     ) -> CancelMembershipResponseTypeDef:
         """
-        Grants permissions to cancel an existing membership.
+        Cancels an existing membership.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/cancel_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#cancel_membership)
@@ -161,7 +162,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[CloseCaseRequestTypeDef]
     ) -> CloseCaseResponseTypeDef:
         """
-        Grants permission to close an existing case.
+        Closes an existing case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/close_case.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#close_case)
@@ -171,7 +172,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[CreateCaseRequestTypeDef]
     ) -> CreateCaseResponseTypeDef:
         """
-        Grants permission to create a new case.
+        Creates a new case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/create_case.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#create_case)
@@ -181,7 +182,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[CreateCaseCommentRequestTypeDef]
     ) -> CreateCaseCommentResponseTypeDef:
         """
-        Grants permission to add a comment to an existing case.
+        Adds a comment to an existing case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/create_case_comment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#create_case_comment)
@@ -191,7 +192,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[CreateMembershipRequestTypeDef]
     ) -> CreateMembershipResponseTypeDef:
         """
-        Grants permissions to create a new membership.
+        Creates a new membership.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/create_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#create_membership)
@@ -199,7 +200,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
 
     async def get_case(self, **kwargs: Unpack[GetCaseRequestTypeDef]) -> GetCaseResponseTypeDef:
         """
-        Grant permission to view a designated case.
+        Returns the attributes of a case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_case.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_case)
@@ -209,8 +210,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[GetCaseAttachmentDownloadUrlRequestTypeDef]
     ) -> GetCaseAttachmentDownloadUrlResponseTypeDef:
         """
-        Grants permission to obtain an Amazon S3 presigned URL to download an
-        attachment.
+        Returns a Pre-Signed URL for uploading attachments into a case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_case_attachment_download_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_case_attachment_download_url)
@@ -220,7 +220,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[GetCaseAttachmentUploadUrlRequestTypeDef]
     ) -> GetCaseAttachmentUploadUrlResponseTypeDef:
         """
-        Grants permission to upload an attachment to a case.
+        Uploads an attachment to a case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_case_attachment_upload_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_case_attachment_upload_url)
@@ -230,7 +230,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[GetMembershipRequestTypeDef]
     ) -> GetMembershipResponseTypeDef:
         """
-        Grants permission to get details of a designated service membership.
+        Returns the attributes of a membership.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_membership)
@@ -240,7 +240,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[ListCaseEditsRequestTypeDef]
     ) -> ListCaseEditsResponseTypeDef:
         """
-        Grants permissions to view the aidt log for edits made to a designated case.
+        Views the case history for edits made to a designated case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_case_edits.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#list_case_edits)
@@ -250,7 +250,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[ListCasesRequestTypeDef]
     ) -> ListCasesResponseTypeDef:
         """
-        Grants permission to list all cases the requester has access to.
+        Lists all cases the requester has access to.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_cases.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#list_cases)
@@ -260,7 +260,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[ListCommentsRequestTypeDef]
     ) -> ListCommentsResponseTypeDef:
         """
-        Grants permissions to list and view comments for a designated case.
+        Returns comments for a designated case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_comments.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#list_comments)
@@ -270,7 +270,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[ListMembershipsRequestTypeDef]
     ) -> ListMembershipsResponseTypeDef:
         """
-        Grants permission to query the memberships a principal has access to.
+        Returns the memberships that the calling principal can access.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_memberships.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#list_memberships)
@@ -280,7 +280,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
     ) -> ListTagsForResourceOutputTypeDef:
         """
-        Grants permission to view currently configured tags on a resource.
+        Returns currently configured tags on a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#list_tags_for_resource)
@@ -288,7 +288,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
         """
-        Grants permission to add a tag(s) to a designated resource.
+        Adds a tag(s) to a designated resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#tag_resource)
@@ -296,7 +296,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
         """
-        Grants permission to remove a tag(s) from a designate resource.
+        Removes a tag(s) from a designate resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#untag_resource)
@@ -304,7 +304,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
 
     async def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> Dict[str, Any]:
         """
-        Grants permission to update an existing case.
+        Updates an existing case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/update_case.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#update_case)
@@ -314,7 +314,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateCaseCommentRequestTypeDef]
     ) -> UpdateCaseCommentResponseTypeDef:
         """
-        Grants permission to update an existing case comment.
+        Updates an existing case comment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/update_case_comment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#update_case_comment)
@@ -324,7 +324,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateCaseStatusRequestTypeDef]
     ) -> UpdateCaseStatusResponseTypeDef:
         """
-        Grants permission to update the status for a designated cases.
+        Updates the state transitions for a designated cases.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/update_case_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#update_case_status)
@@ -334,7 +334,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateMembershipRequestTypeDef]
     ) -> Dict[str, Any]:
         """
-        Grants access to UpdateMembership to change membership configuration.
+        Updates membership configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/update_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#update_membership)
@@ -344,7 +344,7 @@ class SecurityIncidentResponseClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateResolverTypeRequestTypeDef]
     ) -> UpdateResolverTypeResponseTypeDef:
         """
-        Grants permission to update the resolver type for a case.
+        Updates the resolver type for a case.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/update_resolver_type.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#update_resolver_type)

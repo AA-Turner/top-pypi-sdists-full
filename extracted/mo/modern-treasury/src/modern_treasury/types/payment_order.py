@@ -11,7 +11,6 @@ from .._models import BaseModel
 from .shared.currency import Currency
 from .virtual_account import VirtualAccount
 from .internal_account import InternalAccount
-from .shared.accounting import Accounting
 from .payment_order_type import PaymentOrderType
 from .payment_order_subtype import PaymentOrderSubtype
 from .shared.foreign_exchange_rate import ForeignExchangeRate
@@ -42,6 +41,7 @@ class ReferenceNumber(BaseModel):
         "bankprov_payment_id",
         "bnk_dev_prenotification_id",
         "bnk_dev_transfer_id",
+        "bny_mellon_transaction_reference_number",
         "bofa_end_to_end_id",
         "bofa_transaction_id",
         "brale_transfer_id",
@@ -141,17 +141,8 @@ UltimateOriginatingAccount: TypeAlias = Union[VirtualAccount, InternalAccount, N
 class PaymentOrder(BaseModel):
     id: str
 
-    accounting: Accounting
-
     accounting_category_id: Optional[str] = None
     """The ID of one of your accounting categories.
-
-    Note that these will only be accessible if your accounting system has been
-    connected.
-    """
-
-    accounting_ledger_class_id: Optional[str] = None
-    """The ID of one of your accounting ledger classes.
 
     Note that these will only be accessible if your accounting system has been
     connected.

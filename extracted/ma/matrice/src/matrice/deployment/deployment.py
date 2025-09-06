@@ -959,7 +959,7 @@ class Deployment:
             data["extraParams"] = json.dumps(extra_params)
         
         if self.deployment_id:
-            url = f"/v1/model_prediction/inference/{self.deployment_id}/predict"
+            url = f"/v1/model_prediction/deployment/{self.deployment_id}/predict"
         elif self.deployment_name:
             url = f"/v1/model_prediction/deployment_name/{self.deployment_name}/predict"
         else:

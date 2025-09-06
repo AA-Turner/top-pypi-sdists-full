@@ -2271,6 +2271,24 @@ def strip_modifier_move(
         :type direction: typing.Literal['UP','DOWN'] | None
     """
 
+def strip_modifier_move_to_index(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    modifier: str = "",
+    index: int | None = 0,
+) -> None:
+    """Change the strip modifiers index in the stack so it evaluates after the set number of others
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param modifier: Modifier, Name of the modifier to edit
+    :type modifier: str
+    :param index: Index, The index to move the modifier to
+    :type index: int | None
+    """
+
 def strip_modifier_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -2284,6 +2302,21 @@ def strip_modifier_remove(
     :type undo: bool | None
     :param name: Name, Name of modifier to remove
     :type name: str
+    """
+
+def strip_modifier_set_active(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    modifier: str = "",
+) -> None:
+    """Activate the strip modifier to use as the context
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param modifier: Modifier, Name of the strip modifier to edit
+    :type modifier: str
     """
 
 def strip_transform_clear(

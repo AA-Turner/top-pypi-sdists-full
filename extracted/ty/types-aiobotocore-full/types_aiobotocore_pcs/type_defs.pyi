@@ -24,6 +24,7 @@ from .literals import (
     ClusterStatusType,
     ComputeNodeGroupStatusType,
     EndpointTypeType,
+    NetworkTypeType,
     PurchaseOptionType,
     QueueStatusType,
     SizeType,
@@ -142,6 +143,7 @@ EndpointTypeDef = TypedDict(
         "privateIpAddress": str,
         "port": str,
         "publicIpAddress": NotRequired[str],
+        "ipv6Address": NotRequired[str],
     },
 )
 
@@ -152,6 +154,7 @@ class ErrorInfoTypeDef(TypedDict):
 class NetworkingTypeDef(TypedDict):
     subnetIds: NotRequired[List[str]]
     securityGroupIds: NotRequired[List[str]]
+    networkType: NotRequired[NetworkTypeType]
 
 SchedulerTypeDef = TypedDict(
     "SchedulerTypeDef",
@@ -197,6 +200,7 @@ class SpotOptionsTypeDef(TypedDict):
 class NetworkingRequestTypeDef(TypedDict):
     subnetIds: NotRequired[Sequence[str]]
     securityGroupIds: NotRequired[Sequence[str]]
+    networkType: NotRequired[NetworkTypeType]
 
 SchedulerRequestTypeDef = TypedDict(
     "SchedulerRequestTypeDef",

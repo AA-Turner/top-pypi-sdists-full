@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.list_gcp_triggers_response_200_item_retry_exponential import (
         ListGcpTriggersResponse200ItemRetryExponential,
     )
+    from ..models.list_gcp_triggers_response_200_item_retry_retry_if import ListGcpTriggersResponse200ItemRetryRetryIf
 
 
 T = TypeVar("T", bound="ListGcpTriggersResponse200ItemRetry")
@@ -21,10 +22,12 @@ class ListGcpTriggersResponse200ItemRetry:
     Attributes:
         constant (Union[Unset, ListGcpTriggersResponse200ItemRetryConstant]):
         exponential (Union[Unset, ListGcpTriggersResponse200ItemRetryExponential]):
+        retry_if (Union[Unset, ListGcpTriggersResponse200ItemRetryRetryIf]):
     """
 
     constant: Union[Unset, "ListGcpTriggersResponse200ItemRetryConstant"] = UNSET
     exponential: Union[Unset, "ListGcpTriggersResponse200ItemRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ListGcpTriggersResponse200ItemRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +39,10 @@ class ListGcpTriggersResponse200ItemRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -43,6 +50,8 @@ class ListGcpTriggersResponse200ItemRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -53,6 +62,9 @@ class ListGcpTriggersResponse200ItemRetry:
         )
         from ..models.list_gcp_triggers_response_200_item_retry_exponential import (
             ListGcpTriggersResponse200ItemRetryExponential,
+        )
+        from ..models.list_gcp_triggers_response_200_item_retry_retry_if import (
+            ListGcpTriggersResponse200ItemRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -70,9 +82,17 @@ class ListGcpTriggersResponse200ItemRetry:
         else:
             exponential = ListGcpTriggersResponse200ItemRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ListGcpTriggersResponse200ItemRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ListGcpTriggersResponse200ItemRetryRetryIf.from_dict(_retry_if)
+
         list_gcp_triggers_response_200_item_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         list_gcp_triggers_response_200_item_retry.additional_properties = d

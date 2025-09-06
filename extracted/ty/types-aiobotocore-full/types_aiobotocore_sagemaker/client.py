@@ -39,6 +39,7 @@ from .paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListClusterEventsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -105,6 +106,7 @@ from .paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -117,6 +119,10 @@ from .type_defs import (
     AddTagsOutputTypeDef,
     AssociateTrialComponentRequestTypeDef,
     AssociateTrialComponentResponseTypeDef,
+    AttachClusterNodeVolumeRequestTypeDef,
+    AttachClusterNodeVolumeResponseTypeDef,
+    BatchAddClusterNodesRequestTypeDef,
+    BatchAddClusterNodesResponseTypeDef,
     BatchDeleteClusterNodesRequestTypeDef,
     BatchDeleteClusterNodesResponseTypeDef,
     BatchDescribeModelPackageInputTypeDef,
@@ -333,6 +339,8 @@ from .type_defs import (
     DescribeAutoMLJobResponseTypeDef,
     DescribeAutoMLJobV2RequestTypeDef,
     DescribeAutoMLJobV2ResponseTypeDef,
+    DescribeClusterEventRequestTypeDef,
+    DescribeClusterEventResponseTypeDef,
     DescribeClusterNodeRequestTypeDef,
     DescribeClusterNodeResponseTypeDef,
     DescribeClusterRequestTypeDef,
@@ -431,6 +439,8 @@ from .type_defs import (
     DescribeProcessingJobResponseTypeDef,
     DescribeProjectInputTypeDef,
     DescribeProjectOutputTypeDef,
+    DescribeReservedCapacityRequestTypeDef,
+    DescribeReservedCapacityResponseTypeDef,
     DescribeSpaceRequestTypeDef,
     DescribeSpaceResponseTypeDef,
     DescribeStudioLifecycleConfigRequestTypeDef,
@@ -453,6 +463,8 @@ from .type_defs import (
     DescribeWorkforceResponseTypeDef,
     DescribeWorkteamRequestTypeDef,
     DescribeWorkteamResponseTypeDef,
+    DetachClusterNodeVolumeRequestTypeDef,
+    DetachClusterNodeVolumeResponseTypeDef,
     DisassociateTrialComponentRequestTypeDef,
     DisassociateTrialComponentResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -487,6 +499,8 @@ from .type_defs import (
     ListAutoMLJobsResponseTypeDef,
     ListCandidatesForAutoMLJobRequestTypeDef,
     ListCandidatesForAutoMLJobResponseTypeDef,
+    ListClusterEventsRequestTypeDef,
+    ListClusterEventsResponseTypeDef,
     ListClusterNodesRequestTypeDef,
     ListClusterNodesResponseTypeDef,
     ListClusterSchedulerConfigsRequestTypeDef,
@@ -627,6 +641,8 @@ from .type_defs import (
     ListTrialComponentsResponseTypeDef,
     ListTrialsRequestTypeDef,
     ListTrialsResponseTypeDef,
+    ListUltraServersByReservedCapacityRequestTypeDef,
+    ListUltraServersByReservedCapacityResponseTypeDef,
     ListUserProfilesRequestTypeDef,
     ListUserProfilesResponseTypeDef,
     ListWorkforcesRequestTypeDef,
@@ -864,6 +880,28 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/associate_trial_component.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#associate_trial_component)
+        """
+
+    async def attach_cluster_node_volume(
+        self, **kwargs: Unpack[AttachClusterNodeVolumeRequestTypeDef]
+    ) -> AttachClusterNodeVolumeResponseTypeDef:
+        """
+        Attaches your Amazon Elastic Block Store (Amazon EBS) volume to a node in your
+        EKS orchestrated HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/attach_cluster_node_volume.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#attach_cluster_node_volume)
+        """
+
+    async def batch_add_cluster_nodes(
+        self, **kwargs: Unpack[BatchAddClusterNodesRequestTypeDef]
+    ) -> BatchAddClusterNodesResponseTypeDef:
+        """
+        Adds nodes to a HyperPod cluster by incrementing the target count for one or
+        more instance groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/batch_add_cluster_nodes.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#batch_add_cluster_nodes)
         """
 
     async def batch_delete_cluster_nodes(
@@ -2204,6 +2242,17 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_cluster)
         """
 
+    async def describe_cluster_event(
+        self, **kwargs: Unpack[DescribeClusterEventRequestTypeDef]
+    ) -> DescribeClusterEventResponseTypeDef:
+        """
+        Retrieves detailed information about a specific event for a given HyperPod
+        cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_cluster_event.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_cluster_event)
+        """
+
     async def describe_cluster_node(
         self, **kwargs: Unpack[DescribeClusterNodeRequestTypeDef]
     ) -> DescribeClusterNodeResponseTypeDef:
@@ -2690,6 +2739,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_project)
         """
 
+    async def describe_reserved_capacity(
+        self, **kwargs: Unpack[DescribeReservedCapacityRequestTypeDef]
+    ) -> DescribeReservedCapacityResponseTypeDef:
+        """
+        Retrieves details about a reserved capacity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_reserved_capacity.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_reserved_capacity)
+        """
+
     async def describe_space(
         self, **kwargs: Unpack[DescribeSpaceRequestTypeDef]
     ) -> DescribeSpaceResponseTypeDef:
@@ -2800,6 +2859,17 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_workteam.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_workteam)
+        """
+
+    async def detach_cluster_node_volume(
+        self, **kwargs: Unpack[DetachClusterNodeVolumeRequestTypeDef]
+    ) -> DetachClusterNodeVolumeResponseTypeDef:
+        """
+        Detaches your Amazon Elastic Block Store (Amazon EBS) volume from a node in
+        your EKS orchestrated SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/detach_cluster_node_volume.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#detach_cluster_node_volume)
         """
 
     async def disable_sagemaker_servicecatalog_portfolio(self) -> Dict[str, Any]:
@@ -2984,6 +3054,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_candidates_for_auto_ml_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_candidates_for_auto_ml_job)
+        """
+
+    async def list_cluster_events(
+        self, **kwargs: Unpack[ListClusterEventsRequestTypeDef]
+    ) -> ListClusterEventsResponseTypeDef:
+        """
+        Retrieves a list of event summaries for a specified HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_cluster_events)
         """
 
     async def list_cluster_nodes(
@@ -3693,6 +3773,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_trials.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_trials)
+        """
+
+    async def list_ultra_servers_by_reserved_capacity(
+        self, **kwargs: Unpack[ListUltraServersByReservedCapacityRequestTypeDef]
+    ) -> ListUltraServersByReservedCapacityResponseTypeDef:
+        """
+        Lists all UltraServers that are part of a specified reserved capacity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_ultra_servers_by_reserved_capacity.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_ultra_servers_by_reserved_capacity)
         """
 
     async def list_user_profiles(
@@ -4612,6 +4702,17 @@ class SageMakerClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_events"]
+    ) -> ListClusterEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cluster_nodes"]
     ) -> ListClusterNodesPaginator:
         """
@@ -5329,6 +5430,17 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_trials"]
     ) -> ListTrialsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ultra_servers_by_reserved_capacity"]
+    ) -> ListUltraServersByReservedCapacityPaginator:
         """
         Create a paginator for an operation.
 

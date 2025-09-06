@@ -242,6 +242,9 @@ __all__ = (
     "ContactFlowSummaryTypeDef",
     "ContactFlowTypeDef",
     "ContactFlowVersionSummaryTypeDef",
+    "ContactMetricInfoTypeDef",
+    "ContactMetricResultTypeDef",
+    "ContactMetricValueTypeDef",
     "ContactSearchSummaryAgentInfoTypeDef",
     "ContactSearchSummaryQueueInfoTypeDef",
     "ContactSearchSummarySegmentAttributeValueTypeDef",
@@ -498,6 +501,8 @@ __all__ = (
     "GetAttachedFileResponseTypeDef",
     "GetContactAttributesRequestTypeDef",
     "GetContactAttributesResponseTypeDef",
+    "GetContactMetricsRequestTypeDef",
+    "GetContactMetricsResponseTypeDef",
     "GetCurrentMetricDataRequestTypeDef",
     "GetCurrentMetricDataResponseTypeDef",
     "GetCurrentUserDataRequestTypeDef",
@@ -1526,6 +1531,12 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
     VersionDescription: NotRequired[str]
     Version: NotRequired[int]
 
+class ContactMetricInfoTypeDef(TypedDict):
+    Name: Literal["POSITION_IN_QUEUE"]
+
+class ContactMetricValueTypeDef(TypedDict):
+    Number: NotRequired[float]
+
 class ContactSearchSummaryAgentInfoTypeDef(TypedDict):
     Id: NotRequired[str]
     ConnectedToAgentTimestamp: NotRequired[datetime]
@@ -1649,10 +1660,6 @@ class CreateIntegrationAssociationRequestTypeDef(TypedDict):
     SourceApplicationName: NotRequired[str]
     SourceType: NotRequired[SourceTypeType]
     Tags: NotRequired[Mapping[str, str]]
-
-class ParticipantDetailsToAddTypeDef(TypedDict):
-    ParticipantRole: NotRequired[ParticipantRoleType]
-    DisplayName: NotRequired[str]
 
 class ParticipantTokenCredentialsTypeDef(TypedDict):
     ParticipantToken: NotRequired[str]
@@ -3602,6 +3609,11 @@ class CustomerTypeDef(TypedDict):
     DeviceInfo: NotRequired[DeviceInfoTypeDef]
     Capabilities: NotRequired[ParticipantCapabilitiesTypeDef]
 
+class ParticipantDetailsToAddTypeDef(TypedDict):
+    ParticipantRole: NotRequired[ParticipantRoleType]
+    DisplayName: NotRequired[str]
+    ParticipantCapabilities: NotRequired[ParticipantCapabilitiesTypeDef]
+
 class AgentQualityMetricsTypeDef(TypedDict):
     Audio: NotRequired[AudioQualityMetricsInfoTypeDef]
 
@@ -4008,6 +4020,15 @@ class ListContactFlowVersionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetContactMetricsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    Metrics: Sequence[ContactMetricInfoTypeDef]
+
+class ContactMetricResultTypeDef(TypedDict):
+    Name: Literal["POSITION_IN_QUEUE"]
+    Value: ContactMetricValueTypeDef
+
 class ContactSearchSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     Id: NotRequired[str]
@@ -4072,12 +4093,6 @@ class TaskActionDefinitionTypeDef(TypedDict):
     ContactFlowId: str
     Description: NotRequired[str]
     References: NotRequired[Mapping[str, ReferenceTypeDef]]
-
-class CreateParticipantRequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactId: str
-    ParticipantDetails: ParticipantDetailsToAddTypeDef
-    ClientToken: NotRequired[str]
 
 class CreateParticipantResponseTypeDef(TypedDict):
     ParticipantCredentials: ParticipantTokenCredentialsTypeDef
@@ -4995,6 +5010,12 @@ class StartWebRTCContactRequestTypeDef(TypedDict):
     References: NotRequired[Mapping[str, ReferenceTypeDef]]
     Description: NotRequired[str]
 
+class CreateParticipantRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    ParticipantDetails: ParticipantDetailsToAddTypeDef
+    ClientToken: NotRequired[str]
+
 class QualityMetricsTypeDef(TypedDict):
     Agent: NotRequired[AgentQualityMetricsTypeDef]
     Customer: NotRequired[CustomerQualityMetricsTypeDef]
@@ -5127,6 +5148,12 @@ class GetCurrentUserDataRequestTypeDef(TypedDict):
     Filters: UserDataFiltersTypeDef
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class GetContactMetricsResponseTypeDef(TypedDict):
+    MetricResults: List[ContactMetricResultTypeDef]
+    Id: str
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchContactsResponseTypeDef(TypedDict):
     Contacts: List[ContactSearchSummaryTypeDef]

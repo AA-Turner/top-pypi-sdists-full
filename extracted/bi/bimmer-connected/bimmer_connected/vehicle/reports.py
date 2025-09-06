@@ -33,9 +33,9 @@ class ConditionBasedService:
     @classmethod
     def from_api_entry(
         cls,
-        type: str,
+        type: str,  # noqa: A002, pylint: disable=redefined-builtin
         status: str,
-        dateTime: Optional[str] = None,
+        dateTime: Optional[str] = None,  # noqa: N803
         mileage: Optional[int] = None,
         **kwargs,
     ):
@@ -55,6 +55,12 @@ class ConditionBasedServiceReport(VehicleDataBase):
     is_service_required: bool = False
     """Indicate if a service is required."""
 
+    next_service_by_distance: Optional[ConditionBasedService] = None
+    """Next service by distance."""
+
+    next_service_by_time: Optional[ConditionBasedService] = None
+    """Next service by due date."""
+
     @classmethod
     def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
         """Parse doors and windows."""
@@ -63,6 +69,26 @@ class ConditionBasedServiceReport(VehicleDataBase):
         if ATTR_STATE in vehicle_data and (messages := vehicle_data[ATTR_STATE].get("requiredServices")):
             retval["messages"] = [ConditionBasedService.from_api_entry(**m) for m in messages]
             retval["is_service_required"] = any((m.state != ConditionBasedServiceStatus.OK) for m in retval["messages"])
+
+            retval["next_service_by_distance"] = next(
+                iter(
+                    sorted(
+                        [m for m in retval["messages"] if m.due_distance.value is not None],
+                        key=lambda x: f"{x.due_distance.value:010}-{x.service_type}",
+                    )
+                ),
+                None,
+            )
+
+            retval["next_service_by_time"] = next(
+                iter(
+                    sorted(
+                        [m for m in retval["messages"] if m.due_date is not None],
+                        key=lambda x: f"{x.due_date!s}-{x.service_type}",
+                    )
+                ),
+                None,
+            )
 
         return retval
 
@@ -87,7 +113,13 @@ class CheckControlMessage:
     state: CheckControlStatus
 
     @classmethod
-    def from_api_entry(cls, type: str, severity: str, longDescription: Optional[str] = None, **kwargs):
+    def from_api_entry(
+        cls,
+        type: str,  # noqa: A002, pylint: disable=redefined-builtin
+        severity: str,
+        longDescription: Optional[str] = None,  # noqa: N803
+        **kwargs,
+    ):
         """Parse a check control entry from the API format to `CheckControlMessage`."""
         return cls(type, longDescription, CheckControlStatus(severity))
 
@@ -102,6 +134,8 @@ class CheckControlMessageReport(VehicleDataBase):
     has_check_control_messages: bool = False
     """Indicate if check control messages are present."""
 
+    urgent_check_control_messages: Optional[str] = None
+
     @classmethod
     def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
         """Parse doors and windows."""
@@ -110,6 +144,11 @@ class CheckControlMessageReport(VehicleDataBase):
         if ATTR_STATE in vehicle_data and (messages := vehicle_data[ATTR_STATE].get("checkControlMessages")):
             retval["messages"] = [CheckControlMessage.from_api_entry(**m) for m in messages if m["severity"] != "OK"]
             retval["has_check_control_messages"] = len([m for m in retval["messages"] if m.state != "LOW"]) > 0
+            retval["urgent_check_control_messages"] = (
+                ", ".join([m.description_short for m in retval["messages"] if m.state != "LOW"])
+                if retval["has_check_control_messages"]
+                else None
+            )
 
         return retval
 

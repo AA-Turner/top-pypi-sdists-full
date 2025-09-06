@@ -111,7 +111,9 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -124,6 +126,8 @@ class LlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -359,7 +363,9 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -372,6 +378,8 @@ class LlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -472,7 +480,9 @@ class LlamaExtractClient:
             ExtractJobCreate,
             ExtractJobCreatePriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -488,6 +498,8 @@ class LlamaExtractClient:
                     priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
+                    parse_model=PublicModelName.OPENAI_GPT_4_O,
+                    extract_model=ExtractModels.OPENAI_GPT_4_1,
                     chunk_mode=DocumentChunkMode.PAGE,
                 ),
             ),
@@ -564,6 +576,7 @@ class LlamaExtractClient:
             ExtractJobCreate,
             ExtractJobCreatePriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
             FailPageMode,
             LlamaExtractSettings,
@@ -571,6 +584,7 @@ class LlamaExtractClient:
             LlamaParseParametersPriority,
             MultimodalParseResolution,
             ParsingMode,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -586,6 +600,8 @@ class LlamaExtractClient:
                     priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
+                    parse_model=PublicModelName.OPENAI_GPT_4_O,
+                    extract_model=ExtractModels.OPENAI_GPT_4_1,
                     chunk_mode=DocumentChunkMode.PAGE,
                 ),
             ),
@@ -693,7 +709,9 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -707,6 +725,8 @@ class LlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -988,8 +1008,10 @@ class LlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
             FileData,
+            PublicModelName,
         )
         from llama_cloud.client import LlamaCloud
 
@@ -1001,6 +1023,8 @@ class LlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
             file=FileData(
@@ -1108,7 +1132,9 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1121,6 +1147,8 @@ class AsyncLlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -1356,7 +1384,9 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1369,6 +1399,8 @@ class AsyncLlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -1469,7 +1501,9 @@ class AsyncLlamaExtractClient:
             ExtractJobCreate,
             ExtractJobCreatePriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1485,6 +1519,8 @@ class AsyncLlamaExtractClient:
                     priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
+                    parse_model=PublicModelName.OPENAI_GPT_4_O,
+                    extract_model=ExtractModels.OPENAI_GPT_4_1,
                     chunk_mode=DocumentChunkMode.PAGE,
                 ),
             ),
@@ -1561,6 +1597,7 @@ class AsyncLlamaExtractClient:
             ExtractJobCreate,
             ExtractJobCreatePriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
             FailPageMode,
             LlamaExtractSettings,
@@ -1568,6 +1605,7 @@ class AsyncLlamaExtractClient:
             LlamaParseParametersPriority,
             MultimodalParseResolution,
             ParsingMode,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1583,6 +1621,8 @@ class AsyncLlamaExtractClient:
                     priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
+                    parse_model=PublicModelName.OPENAI_GPT_4_O,
+                    extract_model=ExtractModels.OPENAI_GPT_4_1,
                     chunk_mode=DocumentChunkMode.PAGE,
                 ),
             ),
@@ -1690,7 +1730,9 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1704,6 +1746,8 @@ class AsyncLlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
         )
@@ -1985,8 +2029,10 @@ class AsyncLlamaExtractClient:
             ExtractConfig,
             ExtractConfigPriority,
             ExtractMode,
+            ExtractModels,
             ExtractTarget,
             FileData,
+            PublicModelName,
         )
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -1998,6 +2044,8 @@ class AsyncLlamaExtractClient:
                 priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
+                parse_model=PublicModelName.OPENAI_GPT_4_O,
+                extract_model=ExtractModels.OPENAI_GPT_4_1,
                 chunk_mode=DocumentChunkMode.PAGE,
             ),
             file=FileData(

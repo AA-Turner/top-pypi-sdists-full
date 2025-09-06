@@ -196,9 +196,10 @@ class CodeStarNotificationsClient(AioBaseClient):
 
     async def subscribe(self, **kwargs: Unpack[SubscribeRequestTypeDef]) -> SubscribeResultTypeDef:
         """
-        Creates an association between a notification rule and an Chatbot topic or
-        Chatbot client so that the associated target can receive notifications when the
-        events described in the rule are triggered.
+        Creates an association between a notification rule and an Amazon Q Developer in
+        chat applications topic or Amazon Q Developer in chat applications client so
+        that the associated target can receive notifications when the events described
+        in the rule are triggered.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codestar-notifications/client/subscribe.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codestar_notifications/client/#subscribe)
@@ -218,9 +219,9 @@ class CodeStarNotificationsClient(AioBaseClient):
         self, **kwargs: Unpack[UnsubscribeRequestTypeDef]
     ) -> UnsubscribeResultTypeDef:
         """
-        Removes an association between a notification rule and an Chatbot topic so that
-        subscribers to that topic stop receiving notifications when the events
-        described in the rule are triggered.
+        Removes an association between a notification rule and an Amazon Q Developer in
+        chat applications topic so that subscribers to that topic stop receiving
+        notifications when the events described in the rule are triggered.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codestar-notifications/client/unsubscribe.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codestar_notifications/client/#unsubscribe)

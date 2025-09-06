@@ -1,20 +1,19 @@
 Metadata-Version: 2.4
 Name: django-tenants
-Version: 3.8.0
+Version: 3.9.0
 Summary: Tenant support for Django using PostgreSQL schemas.
-Home-page: https://github.com/django-tenants/django-tenants
-Author: Thomas Turner
-Author-email: tom@twt.me.uk
-License: MIT
+Author-email: Thomas Turner <tom@twt.me.uk>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/django-tenants/django-tenants
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -22,17 +21,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django<6.0,>=2.1
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: django<6,>=2.1
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: gunicorn==23; extra == "dev"
+Requires-Dist: psycopg<3.3,>=3.2.1; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 django-tenants
 ==============

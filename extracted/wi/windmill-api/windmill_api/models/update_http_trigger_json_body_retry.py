@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.update_http_trigger_json_body_retry_constant import UpdateHttpTriggerJsonBodyRetryConstant
     from ..models.update_http_trigger_json_body_retry_exponential import UpdateHttpTriggerJsonBodyRetryExponential
+    from ..models.update_http_trigger_json_body_retry_retry_if import UpdateHttpTriggerJsonBodyRetryRetryIf
 
 
 T = TypeVar("T", bound="UpdateHttpTriggerJsonBodyRetry")
@@ -19,10 +20,12 @@ class UpdateHttpTriggerJsonBodyRetry:
     Attributes:
         constant (Union[Unset, UpdateHttpTriggerJsonBodyRetryConstant]):
         exponential (Union[Unset, UpdateHttpTriggerJsonBodyRetryExponential]):
+        retry_if (Union[Unset, UpdateHttpTriggerJsonBodyRetryRetryIf]):
     """
 
     constant: Union[Unset, "UpdateHttpTriggerJsonBodyRetryConstant"] = UNSET
     exponential: Union[Unset, "UpdateHttpTriggerJsonBodyRetryExponential"] = UNSET
+    retry_if: Union[Unset, "UpdateHttpTriggerJsonBodyRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class UpdateHttpTriggerJsonBodyRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class UpdateHttpTriggerJsonBodyRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class UpdateHttpTriggerJsonBodyRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.update_http_trigger_json_body_retry_constant import UpdateHttpTriggerJsonBodyRetryConstant
         from ..models.update_http_trigger_json_body_retry_exponential import UpdateHttpTriggerJsonBodyRetryExponential
+        from ..models.update_http_trigger_json_body_retry_retry_if import UpdateHttpTriggerJsonBodyRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class UpdateHttpTriggerJsonBodyRetry:
         else:
             exponential = UpdateHttpTriggerJsonBodyRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, UpdateHttpTriggerJsonBodyRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = UpdateHttpTriggerJsonBodyRetryRetryIf.from_dict(_retry_if)
+
         update_http_trigger_json_body_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         update_http_trigger_json_body_retry.additional_properties = d

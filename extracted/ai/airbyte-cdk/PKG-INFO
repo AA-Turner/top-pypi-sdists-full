@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 6.61.6
+Version: 7.0.1
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT

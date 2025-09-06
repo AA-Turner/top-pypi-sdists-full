@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import threading
 import time
+import yaml
 import signal
 import urllib.request
 from matrice.compute_manager.instance_utils import (
@@ -68,6 +69,7 @@ class ActionInstance:
             "image_build": image_build_execute,
             "resource_clone": resource_clone_execute,
             "kafka_setup": kafka_setup_execute,
+            "facial_recognition_docker_compose": facial_recognition_docker_compose,
             "inference_aggregator": deploy_aggregator_execute,
             "redis_setup": redis_setup_execute,
         }
@@ -393,6 +395,54 @@ class ActionInstance:
         else:
             internal_api_key = resp["internal_api_key"]
         return internal_api_key
+    
+    @log_errors(default_return="", raise_exception=False)
+    def build_docker_commands(self, images):
+        """Return an array of docker command strings for each image.
+
+        Each command sets up the network and runs the container, with logging.
+        """
+        commands = []
+        # Always create the network first
+        logging.info("Creating docker network: appnet")
+        commands.append("docker network create appnet || true")
+
+        if not images:
+            logging.warning("No images provided for docker compose.")
+            return commands
+
+        for img in images:
+            name = img.get("name")
+            image = img.get("image")
+            type_ = img.get("type", "")
+            if not name or not image:
+                logging.warning("Skipping image with missing name or image: %s", img)
+                continue
+
+            cmd_parts = [
+            "docker run -d",
+            f"--name {name}",
+            ]
+
+            if type_ == "database":
+                cmd_parts.append("-v db_data:/data/db")
+
+            if type_ == "backend":
+                cmd_parts.extend([
+                    "-p 8080:8080",
+                    "-e DB_HOST=database-deploy",
+                    "-e DB_PORT=27017",
+                ])
+
+            cmd_parts.append("--network appnet")
+            cmd_parts.append(image)
+
+            command = " ".join(cmd_parts)
+            logging.info("Prepared docker command for image '%s': %s", name, command)
+            commands.append(command)
+
+        return commands
+
 
     @log_errors(raise_exception=True)
     def setup_action_requirements(
@@ -869,6 +919,41 @@ def augmentation_server_creation_execute(
     cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/aug_server.py {self.action_record_id} {external_port} "'
     logging.info("cmd: %s", cmd)
     self.start(cmd, "augmentation_setup")
+
+@log_errors(raise_exception=False)
+def facial_recognition_docker_compose(self: ActionInstance):
+    """
+    Creates and starts a Facial Recognition container using Docker.
+    """
+    action_details = self.get_action_details()
+    if not action_details:
+        return
+    images = action_details["actionDetails"].get("images")
+
+    # login to docker hub
+    creds, error, message = self.scaling.get_docker_hub_credentials()
+    if error:
+        raise Exception(f"Failed to get Docker credentials: {message}")
+    username = creds["username"]
+    password = creds["password"]
+    login_cmd = f"docker login -u {shlex.quote(username)} -p {shlex.quote(password)}"
+    subprocess.run(login_cmd, shell=True, check=True)
+
+    # Run docker compose up
+    commands = self.build_docker_commands(images=images)
+    print("Docker commands to execute:", commands)
+    
+    for command in commands:
+        try:
+            if isinstance(command, str):
+                logging.info("Executing command: %s", command)
+                # Use shell=True for commands that contain shell operators like ||
+                subprocess.run(command, shell=True, check=False)
+            elif isinstance(command, list):
+                logging.info("Executing command list: %s", " ".join(command))
+                subprocess.run(command, check=False)
+        except Exception as e:
+            logging.error("Error executing command '%s': %s", command, str(e))
 
 @log_errors(raise_exception=False)
 def synthetic_dataset_generation_execute(

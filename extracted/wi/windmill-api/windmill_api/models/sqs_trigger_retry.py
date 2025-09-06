@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.sqs_trigger_retry_constant import SqsTriggerRetryConstant
     from ..models.sqs_trigger_retry_exponential import SqsTriggerRetryExponential
+    from ..models.sqs_trigger_retry_retry_if import SqsTriggerRetryRetryIf
 
 
 T = TypeVar("T", bound="SqsTriggerRetry")
@@ -19,10 +20,12 @@ class SqsTriggerRetry:
     Attributes:
         constant (Union[Unset, SqsTriggerRetryConstant]):
         exponential (Union[Unset, SqsTriggerRetryExponential]):
+        retry_if (Union[Unset, SqsTriggerRetryRetryIf]):
     """
 
     constant: Union[Unset, "SqsTriggerRetryConstant"] = UNSET
     exponential: Union[Unset, "SqsTriggerRetryExponential"] = UNSET
+    retry_if: Union[Unset, "SqsTriggerRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class SqsTriggerRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class SqsTriggerRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class SqsTriggerRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.sqs_trigger_retry_constant import SqsTriggerRetryConstant
         from ..models.sqs_trigger_retry_exponential import SqsTriggerRetryExponential
+        from ..models.sqs_trigger_retry_retry_if import SqsTriggerRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class SqsTriggerRetry:
         else:
             exponential = SqsTriggerRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, SqsTriggerRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = SqsTriggerRetryRetryIf.from_dict(_retry_if)
+
         sqs_trigger_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         sqs_trigger_retry.additional_properties = d

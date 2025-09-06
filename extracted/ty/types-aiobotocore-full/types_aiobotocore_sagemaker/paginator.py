@@ -22,6 +22,7 @@ Usage::
         ListAssociationsPaginator,
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
+        ListClusterEventsPaginator,
         ListClusterNodesPaginator,
         ListClusterSchedulerConfigsPaginator,
         ListClustersPaginator,
@@ -88,6 +89,7 @@ Usage::
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
+        ListUltraServersByReservedCapacityPaginator,
         ListUserProfilesPaginator,
         ListWorkforcesPaginator,
         ListWorkteamsPaginator,
@@ -108,6 +110,7 @@ Usage::
         list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
         list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
         list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
+        list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
         list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
         list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = client.get_paginator("list_cluster_scheduler_configs")
         list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
@@ -174,6 +177,7 @@ Usage::
         list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
         list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
         list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+        list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = client.get_paginator("list_ultra_servers_by_reserved_capacity")
         list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator("list_user_profiles")
         list_workforces_paginator: ListWorkforcesPaginator = client.get_paginator("list_workforces")
         list_workteams_paginator: ListWorkteamsPaginator = client.get_paginator("list_workteams")
@@ -209,6 +213,8 @@ from .type_defs import (
     ListAutoMLJobsResponseTypeDef,
     ListCandidatesForAutoMLJobRequestPaginateTypeDef,
     ListCandidatesForAutoMLJobResponseTypeDef,
+    ListClusterEventsRequestPaginateTypeDef,
+    ListClusterEventsResponseTypeDef,
     ListClusterNodesRequestPaginateTypeDef,
     ListClusterNodesResponseTypeDef,
     ListClusterSchedulerConfigsRequestPaginateTypeDef,
@@ -341,6 +347,8 @@ from .type_defs import (
     ListTrialComponentsResponseTypeDef,
     ListTrialsRequestPaginateTypeDef,
     ListTrialsResponseTypeDef,
+    ListUltraServersByReservedCapacityRequestPaginateTypeDef,
+    ListUltraServersByReservedCapacityResponseTypeDef,
     ListUserProfilesRequestPaginateTypeDef,
     ListUserProfilesResponseTypeDef,
     ListWorkforcesRequestPaginateTypeDef,
@@ -368,6 +376,7 @@ __all__ = (
     "ListAssociationsPaginator",
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
+    "ListClusterEventsPaginator",
     "ListClusterNodesPaginator",
     "ListClusterSchedulerConfigsPaginator",
     "ListClustersPaginator",
@@ -434,6 +443,7 @@ __all__ = (
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",
+    "ListUltraServersByReservedCapacityPaginator",
     "ListUserProfilesPaginator",
     "ListWorkforcesPaginator",
     "ListWorkteamsPaginator",
@@ -652,6 +662,27 @@ class ListCandidatesForAutoMLJobPaginator(_ListCandidatesForAutoMLJobPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListCandidatesForAutoMLJob.html#SageMaker.Paginator.ListCandidatesForAutoMLJob.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listcandidatesforautomljobpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListClusterEventsPaginatorBase = AioPaginator[ListClusterEventsResponseTypeDef]
+else:
+    _ListClusterEventsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListClusterEventsPaginator(_ListClusterEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListClusterEvents.html#SageMaker.Paginator.ListClusterEvents)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listclustereventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListClusterEventsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListClusterEventsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListClusterEvents.html#SageMaker.Paginator.ListClusterEvents.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listclustereventspaginator)
         """
 
 
@@ -2076,6 +2107,29 @@ class ListTrialsPaginator(_ListTrialsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListTrials.html#SageMaker.Paginator.ListTrials.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listtrialspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListUltraServersByReservedCapacityPaginatorBase = AioPaginator[
+        ListUltraServersByReservedCapacityResponseTypeDef
+    ]
+else:
+    _ListUltraServersByReservedCapacityPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListUltraServersByReservedCapacityPaginator(_ListUltraServersByReservedCapacityPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListUltraServersByReservedCapacity.html#SageMaker.Paginator.ListUltraServersByReservedCapacity)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listultraserversbyreservedcapacitypaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListUltraServersByReservedCapacityRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListUltraServersByReservedCapacityResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListUltraServersByReservedCapacity.html#SageMaker.Paginator.ListUltraServersByReservedCapacity.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listultraserversbyreservedcapacitypaginator)
         """
 
 

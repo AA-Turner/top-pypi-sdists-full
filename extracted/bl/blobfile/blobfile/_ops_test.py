@@ -1,32 +1,29 @@
-# https://github.com/tensorflow/tensorflow/issues/27023
-import datetime
-import warnings
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-
-import random
-import string
-import tempfile
-import os
 import contextlib
-import json
-import urllib.request
+import datetime
 import hashlib
-import time
-import subprocess as sp
+import json
 import multiprocessing as mp
-import platform
+import os
 import pickle
-import zipfile
+import platform
+import random
 import re
+import string
+import subprocess as sp
+import tempfile
+import time
 import unittest.mock
+import urllib.request
+import warnings
+import zipfile
 
-import pytest
 import numpy as np
+import pytest
 
 import blobfile as bf
-from blobfile import _ops as ops, _azure as azure, _common as common
+from blobfile import _azure as azure
+from blobfile import _common as common
+from blobfile import _ops as ops
 
 GCS_TEST_BUCKET = os.getenv("GCS_TEST_BUCKET", "csh-test-3")
 AS_TEST_ACCOUNT = os.getenv("AS_TEST_ACCOUNT", "cshteststorage2")
@@ -326,6 +323,8 @@ def test_join():
         ),
         ("gs://test/a/b", "c:d", "gs://test/a/b/c:d"),
         ("gs://test/a/b", "c:d;", "gs://test/a/b/c:d;"),
+        ("az://a", "c", "https://a.blob.core.windows.net/c/"),
+        ("az://a", "c/b", "https://a.blob.core.windows.net/c/b"),
     ]
     for input_a, input_b, desired_output in testcases:
         actual_output = b.join(input_a, input_b)
@@ -1673,3 +1672,19 @@ def test_read_with_size(ctx):
         with bf.BlobFile(path, "rb", file_size=1) as r:
             assert r.read() == contents[:1]
             assert r.tell() == 1
+
+
+def test_use_blind_writes_skips_uncommited_blocks_check():
+    ctx = bf.create_context(use_blind_writes=True)
+    path = f"https://{AS_TEST_ACCOUNT}.blob.core.windows.net/{AS_TEST_CONTAINER}/file"
+    with unittest.mock.patch("blobfile._azure.execute_api_request") as mock_exec:
+        azure.StreamingWriteFile(ctx._conf, path, None)
+        for call in mock_exec.call_args_list:
+            assert call.args[1].method in ("PUT", "POST")
+
+
+def test_use_blind_writes_skips_can_access_container():
+    ctx = bf.create_context(use_blind_writes=True)
+    with unittest.mock.patch("blobfile._azure.common.execute_request") as mock_exec:
+        assert azure._can_access_container(ctx._conf, "acc", "container", (azure.ANONYMOUS, ""), [])
+        mock_exec.assert_not_called()

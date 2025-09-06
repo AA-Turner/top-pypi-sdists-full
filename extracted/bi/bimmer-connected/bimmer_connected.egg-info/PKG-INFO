@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bimmer_connected
-Version: 0.17.2
+Version: 0.17.3
 Summary: Library to read data from the BMW Connected Drive portal
 Home-page: https://github.com/bimmerconnected/bimmer_connected
 Author: gerard33, rikroe
@@ -28,6 +28,18 @@ Requires-Dist: pyjwt>=2.1.0
 Requires-Dist: Pillow
 Provides-Extra: china
 Requires-Dist: Pillow; extra == "china"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 bimmer_connected
 ================
@@ -179,7 +191,7 @@ let us know in advance.
 Code Contributions
 ==================
 Contributions are welcome! Please make sure that your code passes the checks in :code:`.github/workflows/test.yml`.
-We currently test against :code:`flake8`, :code:`pylint` and our own :code:`pytest` suite.
+We currently test with :code:`ruff`, :code:`mypy` (for both see, :code:`pyproject.toml`) and our own :code:`pytest` suite.
 And please add tests where it makes sense. The more the better.
 
 See the `contributing guidelines <https://github.com/bimmerconnected/bimmer_connected/blob/master/CONTRIBUTING.md>`_ for more details.

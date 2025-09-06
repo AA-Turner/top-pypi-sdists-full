@@ -346,6 +346,7 @@ def _masked_scatter_merge_dims(
     merged_dim_map: Dict[Dim, Dim],
 ) -> T:
     if isinstance(s, Dim):
+        assert isinstance(backup, Dim)
         # This is slightly more complex than in the _masked_select case:
         # We need to merge the s and backup depending on the mask.
         if s in reverse_dim_map:
@@ -353,7 +354,10 @@ def _masked_scatter_merge_dims(
         if s == backup:
             return s
         if s in merged_dim_map:
+            # If this assert fails, see e.g. https://github.com/rwth-i6/returnn/pull/1759 for an example.
+            assert backup in merged_dim_map, f"nested masked_scatter: mismatch of s {s} vs backup {backup}"
             return merged_dim_map[s]
+        assert backup not in merged_dim_map, f"nested masked_scatter: mismatch of s {s} vs backup {backup}"
         # Note: s/backup might even be static dims.
         new_size = _masked_scatter(
             s.get_size_tensor(),

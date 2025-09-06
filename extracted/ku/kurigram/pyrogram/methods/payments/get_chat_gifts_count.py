@@ -77,7 +77,7 @@ class GetChatGiftsCount:
                 exclude_unsaved=exclude_unsaved,
                 exclude_saved=exclude_saved,
                 exclude_unlimited=exclude_unlimited,
-                exclude_limited=exclude_limited,
+                # exclude_limited=exclude_limited,
                 exclude_unique=exclude_upgraded,
                 limit=1
             )

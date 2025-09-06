@@ -10,6 +10,10 @@ description = "Griffe extension for PEP 727 – Documentation Metadata in Typing
 authors = [
     { name = "Timothée Mazzucotelli", email = "pawamoy@pm.me" },
 ]
+license = "ISC"
+license-files = [
+    "LICENSE",
+]
 readme = "README.md"
 requires-python = ">=3.9"
 keywords = []
@@ -33,13 +37,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "griffe>=0.49",
+    "griffe>=1.14",
     "typing-extensions>=4.7",
 ]
-version = "0.2.8"
-
-[project.license]
-text = "ISC"
+version = "0.2.9"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/griffe-typingdoc"
@@ -58,6 +59,7 @@ getter = "scripts.get_version:get_version"
 [tool.pdm.build]
 excludes = [
     "**/.pytest_cache",
+    "**/.mypy_cache",
 ]
 source-includes = [
     "config",
@@ -76,12 +78,22 @@ data = [
     { path = "share/**/*", relative-to = "." },
 ]
 
+[tool.uv]
+default-groups = [
+    "maintain",
+    "ci",
+    "docs",
+]
+
 [dependency-groups]
-dev = [
+maintain = [
     "build>=1.2",
     "git-changelog>=2.5",
     "twine>=5.1",
-    "duty>=1.4",
+    "yore>=0.3.3",
+]
+ci = [
+    "duty>=1.6",
     "ruff>=0.4",
     "pytest>=8.2",
     "pytest-cov>=5.0",
@@ -90,16 +102,17 @@ dev = [
     "mypy>=1.10",
     "types-markdown>=3.6",
     "types-pyyaml>=6.0",
-    "black>=24.4",
+]
+docs = [
     "markdown-callouts>=0.4",
     "markdown-exec>=1.8",
     "mkdocs>=1.6",
     "mkdocs-coverage>=1.0",
-    "mkdocs-gen-files>=0.5",
     "mkdocs-git-revision-date-localized-plugin>=1.2",
-    "mkdocs-literate-nav>=0.6",
+    "mkdocs-llmstxt>=0.2",
     "mkdocs-material>=9.5",
     "mkdocs-minify-plugin>=0.8",
-    "mkdocstrings[python]>=0.25",
+    "mkdocs-section-index>=0.3",
+    "mkdocstrings[python]>=0.29",
     "tomli>=2.0; python_version < '3.11'",
 ]

@@ -236,7 +236,7 @@ class ParallelComputingServiceClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Returns a list of all tags on an Amazon Web Services PCS resource.
+        Returns a list of all tags on an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pcs/client/#list_tags_for_resource)
@@ -256,7 +256,7 @@ class ParallelComputingServiceClient(BaseClient):
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Adds or edits tags on an Amazon Web Services PCS resource.
+        Adds or edits tags on an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pcs/client/#tag_resource)
@@ -266,7 +266,7 @@ class ParallelComputingServiceClient(BaseClient):
         self, **kwargs: Unpack[UntagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes tags from an Amazon Web Services PCS resource.
+        Deletes tags from an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pcs/client/#untag_resource)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250904
+Version: 1.0.0.dev20250905
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -145,48 +145,48 @@ Requires-Dist: grpcio>=1.63.0; extra == "server"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "server"
 Requires-Dist: aiosqlite; extra == "server"
 Provides-Extra: all
-Requires-Dist: azure-cli>=2.65.0; extra == "all"
-Requires-Dist: pydo>=0.3.0; extra == "all"
-Requires-Dist: aiohttp; extra == "all"
-Requires-Dist: oci; extra == "all"
-Requires-Dist: anyio; extra == "all"
-Requires-Dist: azure-common; extra == "all"
-Requires-Dist: docker; extra == "all"
-Requires-Dist: passlib; extra == "all"
-Requires-Dist: websockets; extra == "all"
-Requires-Dist: ibm-cloud-sdk-core; extra == "all"
-Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
-Requires-Dist: nebius>=0.2.47; extra == "all"
-Requires-Dist: casbin; extra == "all"
-Requires-Dist: botocore>=1.29.10; extra == "all"
-Requires-Dist: ibm-cos-sdk; extra == "all"
-Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
-Requires-Dist: msgraph-sdk; extra == "all"
-Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
-Requires-Dist: azure-core>=1.24.0; extra == "all"
-Requires-Dist: pyjwt; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
-Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
-Requires-Dist: aiosqlite; extra == "all"
-Requires-Dist: ibm-vpc; extra == "all"
-Requires-Dist: boto3>=1.26.1; extra == "all"
-Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
-Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
-Requires-Dist: runpod>=1.6.1; extra == "all"
-Requires-Dist: grpcio>=1.63.0; extra == "all"
-Requires-Dist: msrestazure; extra == "all"
-Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
-Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
-Requires-Dist: sqlalchemy_adapter; extra == "all"
-Requires-Dist: awscli>=1.27.10; extra == "all"
-Requires-Dist: colorama<0.4.5; extra == "all"
-Requires-Dist: azure-identity>=1.19.0; extra == "all"
-Requires-Dist: cudo-compute>=0.1.10; extra == "all"
 Requires-Dist: azure-core>=1.31.0; extra == "all"
-Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
-Requires-Dist: google-cloud-storage; extra == "all"
-Requires-Dist: python-dateutil; extra == "all"
+Requires-Dist: websockets; extra == "all"
+Requires-Dist: grpcio>=1.63.0; extra == "all"
 Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
+Requires-Dist: aiohttp; extra == "all"
+Requires-Dist: runpod>=1.6.1; extra == "all"
+Requires-Dist: ibm-vpc; extra == "all"
+Requires-Dist: awscli>=1.27.10; extra == "all"
+Requires-Dist: azure-cli>=2.65.0; extra == "all"
+Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
+Requires-Dist: casbin; extra == "all"
+Requires-Dist: colorama<0.4.5; extra == "all"
+Requires-Dist: azure-core>=1.24.0; extra == "all"
+Requires-Dist: msgraph-sdk; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: cudo-compute>=0.1.10; extra == "all"
+Requires-Dist: pyjwt; extra == "all"
+Requires-Dist: sqlalchemy_adapter; extra == "all"
+Requires-Dist: nebius>=0.2.47; extra == "all"
+Requires-Dist: aiosqlite; extra == "all"
+Requires-Dist: azure-identity>=1.19.0; extra == "all"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
+Requires-Dist: boto3>=1.26.1; extra == "all"
+Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
+Requires-Dist: oci; extra == "all"
+Requires-Dist: ibm-cos-sdk; extra == "all"
+Requires-Dist: anyio; extra == "all"
+Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
+Requires-Dist: docker; extra == "all"
+Requires-Dist: azure-common; extra == "all"
+Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
+Requires-Dist: ibm-cloud-sdk-core; extra == "all"
+Requires-Dist: pydo>=0.3.0; extra == "all"
+Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
+Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
+Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
+Requires-Dist: msrestazure; extra == "all"
+Requires-Dist: python-dateutil; extra == "all"
+Requires-Dist: botocore>=1.29.10; extra == "all"
+Requires-Dist: passlib; extra == "all"
+Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -284,21 +284,21 @@ SkyPilot supports your existing GPU, TPU, and CPU workloads, with no code change
 Install with pip:
 ```bash
 # Choose your clouds:
-pip install -U "skypilot[kubernetes,aws,gcp,azure,oci,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,nebius]"
+pip install -U "skypilot[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp]"
 ```
 To get the latest features and fixes, use the nightly build or [install from source](https://docs.skypilot.co/en/latest/getting-started/installation.html):
 ```bash
 # Choose your clouds:
-pip install "skypilot-nightly[kubernetes,aws,gcp,azure,oci,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,nebius]"
+pip install "skypilot-nightly[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp]"
 ```
 
 <p align="center">
   <img src="docs/source/_static/intro.gif" alt="SkyPilot">
 </p>
 
-Current supported infra: Kubernetes, AWS, GCP, Azure, OCI, Lambda Cloud, Fluidstack,
-RunPod, Cudo, Digital Ocean, Paperspace, Cloudflare, Samsung, IBM, Vast.ai,
-VMware vSphere, Nebius.
+Current supported infra: Kubernetes, AWS, GCP, Azure, OCI, Nebius, Lambda Cloud, RunPod, Fluidstack,
+Cudo, Digital Ocean, Paperspace, Cloudflare, Samsung, IBM, Vast.ai,
+VMware vSphere.
 <p align="center">
   <img alt="SkyPilot" src="https://raw.githubusercontent.com/skypilot-org/skypilot/master/docs/source/images/cloud-logos-light.png" width=85%>
 </p>

@@ -1132,6 +1132,8 @@ class ToProtoConverter:
             partitioned_by=(x.root_fqn for x in r.partitioned_by) if r.partitioned_by is not None else (),
             static_operation=static_operation,
             sql_settings=ToProtoConverter.convert_sql_settings(r.sql_settings) if r.sql_settings else None,
+            output_row_order=r.output_row_order,
+            venv=r.venv,
         )
 
     @staticmethod

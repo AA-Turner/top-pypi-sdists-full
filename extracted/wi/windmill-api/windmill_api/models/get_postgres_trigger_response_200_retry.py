@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.get_postgres_trigger_response_200_retry_exponential import (
         GetPostgresTriggerResponse200RetryExponential,
     )
+    from ..models.get_postgres_trigger_response_200_retry_retry_if import GetPostgresTriggerResponse200RetryRetryIf
 
 
 T = TypeVar("T", bound="GetPostgresTriggerResponse200Retry")
@@ -21,10 +22,12 @@ class GetPostgresTriggerResponse200Retry:
     Attributes:
         constant (Union[Unset, GetPostgresTriggerResponse200RetryConstant]):
         exponential (Union[Unset, GetPostgresTriggerResponse200RetryExponential]):
+        retry_if (Union[Unset, GetPostgresTriggerResponse200RetryRetryIf]):
     """
 
     constant: Union[Unset, "GetPostgresTriggerResponse200RetryConstant"] = UNSET
     exponential: Union[Unset, "GetPostgresTriggerResponse200RetryExponential"] = UNSET
+    retry_if: Union[Unset, "GetPostgresTriggerResponse200RetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +39,10 @@ class GetPostgresTriggerResponse200Retry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -43,6 +50,8 @@ class GetPostgresTriggerResponse200Retry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -52,6 +61,7 @@ class GetPostgresTriggerResponse200Retry:
         from ..models.get_postgres_trigger_response_200_retry_exponential import (
             GetPostgresTriggerResponse200RetryExponential,
         )
+        from ..models.get_postgres_trigger_response_200_retry_retry_if import GetPostgresTriggerResponse200RetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -68,9 +78,17 @@ class GetPostgresTriggerResponse200Retry:
         else:
             exponential = GetPostgresTriggerResponse200RetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, GetPostgresTriggerResponse200RetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = GetPostgresTriggerResponse200RetryRetryIf.from_dict(_retry_if)
+
         get_postgres_trigger_response_200_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         get_postgres_trigger_response_200_retry.additional_properties = d

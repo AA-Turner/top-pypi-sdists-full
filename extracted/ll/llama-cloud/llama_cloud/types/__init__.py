@@ -19,7 +19,6 @@ from .agent_data import AgentData
 from .agent_deployment_list import AgentDeploymentList
 from .agent_deployment_summary import AgentDeploymentSummary
 from .aggregate_group import AggregateGroup
-from .audio_block import AudioBlock
 from .auto_transform_config import AutoTransformConfig
 from .azure_open_ai_embedding import AzureOpenAiEmbedding
 from .azure_open_ai_embedding_config import AzureOpenAiEmbeddingConfig
@@ -39,6 +38,7 @@ from .character_chunking_config import CharacterChunkingConfig
 from .chat_app import ChatApp
 from .chat_app_response import ChatAppResponse
 from .chat_data import ChatData
+from .chat_message import ChatMessage
 from .chunk_mode import ChunkMode
 from .classification_result import ClassificationResult
 from .classifier_rule import ClassifierRule
@@ -88,11 +88,8 @@ from .data_source_reader_version_metadata import DataSourceReaderVersionMetadata
 from .data_source_reader_version_metadata_reader_version import DataSourceReaderVersionMetadataReaderVersion
 from .data_source_update_dispatcher_config import DataSourceUpdateDispatcherConfig
 from .delete_params import DeleteParams
-from .document_block import DocumentBlock
 from .document_chunk_mode import DocumentChunkMode
 from .document_ingestion_job_params import DocumentIngestionJobParams
-from .edit_suggestion import EditSuggestion
-from .edit_suggestion_blocks_item import EditSuggestionBlocksItem
 from .element_segmentation_config import ElementSegmentationConfig
 from .embedding_model_config import EmbeddingModelConfig
 from .embedding_model_config_embedding_config import (
@@ -178,7 +175,6 @@ from .http_validation_error import HttpValidationError
 from .hugging_face_inference_api_embedding import HuggingFaceInferenceApiEmbedding
 from .hugging_face_inference_api_embedding_config import HuggingFaceInferenceApiEmbeddingConfig
 from .hugging_face_inference_api_embedding_token import HuggingFaceInferenceApiEmbeddingToken
-from .image_block import ImageBlock
 from .ingestion_error_response import IngestionErrorResponse
 from .input_message import InputMessage
 from .job_name_mapping import JobNameMapping
@@ -204,14 +200,6 @@ from .llama_extract_feature_availability import LlamaExtractFeatureAvailability
 from .llama_extract_mode_availability import LlamaExtractModeAvailability
 from .llama_extract_mode_availability_status import LlamaExtractModeAvailabilityStatus
 from .llama_extract_settings import LlamaExtractSettings
-from .llama_index_core_base_llms_types_chat_message import LlamaIndexCoreBaseLlmsTypesChatMessage
-from .llama_index_core_base_llms_types_chat_message_blocks_item import (
-    LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem,
-    LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Audio,
-    LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Document,
-    LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image,
-    LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text,
-)
 from .llama_parse_parameters import LlamaParseParameters
 from .llama_parse_parameters_priority import LlamaParseParametersPriority
 from .llama_parse_supported_file_extensions import LlamaParseSupportedFileExtensions
@@ -246,11 +234,14 @@ from .paginated_extract_runs_response import PaginatedExtractRunsResponse
 from .paginated_jobs_history_with_metrics import PaginatedJobsHistoryWithMetrics
 from .paginated_list_cloud_documents_response import PaginatedListCloudDocumentsResponse
 from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesResponse
-from .paginated_report_response import PaginatedReportResponse
 from .paginated_response_agent_data import PaginatedResponseAgentData
 from .paginated_response_aggregate_group import PaginatedResponseAggregateGroup
 from .paginated_response_classify_job import PaginatedResponseClassifyJob
 from .paginated_response_quota_configuration import PaginatedResponseQuotaConfiguration
+from .parse_configuration import ParseConfiguration
+from .parse_configuration_create import ParseConfigurationCreate
+from .parse_configuration_filter import ParseConfigurationFilter
+from .parse_configuration_query_response import ParseConfigurationQueryResponse
 from .parse_job_config import ParseJobConfig
 from .parse_job_config_priority import ParseJobConfigPriority
 from .parse_plan_level import ParsePlanLevel
@@ -326,11 +317,10 @@ from .preset_retrieval_params_search_filters_inference_schema_value import (
     PresetRetrievalParamsSearchFiltersInferenceSchemaValue,
 )
 from .presigned_url import PresignedUrl
-from .progress_event import ProgressEvent
-from .progress_event_status import ProgressEventStatus
 from .project import Project
 from .project_create import ProjectCreate
 from .prompt_conf import PromptConf
+from .public_model_name import PublicModelName
 from .quota_configuration import QuotaConfiguration
 from .quota_configuration_configuration_type import QuotaConfigurationConfigurationType
 from .quota_configuration_status import QuotaConfigurationStatus
@@ -341,26 +331,6 @@ from .re_ranker_type import ReRankerType
 from .recurring_credit_grant import RecurringCreditGrant
 from .related_node_info import RelatedNodeInfo
 from .related_node_info_node_type import RelatedNodeInfoNodeType
-from .report import Report
-from .report_block import ReportBlock
-from .report_block_dependency import ReportBlockDependency
-from .report_create_response import ReportCreateResponse
-from .report_event_item import ReportEventItem
-from .report_event_item_event_data import (
-    ReportEventItemEventData,
-    ReportEventItemEventData_Progress,
-    ReportEventItemEventData_ReportBlockUpdate,
-    ReportEventItemEventData_ReportStateUpdate,
-)
-from .report_event_type import ReportEventType
-from .report_metadata import ReportMetadata
-from .report_plan import ReportPlan
-from .report_plan_block import ReportPlanBlock
-from .report_query import ReportQuery
-from .report_response import ReportResponse
-from .report_state import ReportState
-from .report_state_event import ReportStateEvent
-from .report_update_event import ReportUpdateEvent
 from .retrieval_mode import RetrievalMode
 from .retrieve_results import RetrieveResults
 from .retriever import Retriever
@@ -374,13 +344,11 @@ from .semantic_chunking_config import SemanticChunkingConfig
 from .sentence_chunking_config import SentenceChunkingConfig
 from .sparse_model_config import SparseModelConfig
 from .sparse_model_type import SparseModelType
-from .src_app_schema_chat_chat_message import SrcAppSchemaChatChatMessage
 from .status_enum import StatusEnum
 from .struct_mode import StructMode
 from .struct_parse_conf import StructParseConf
 from .supported_llm_model import SupportedLlmModel
 from .supported_llm_model_names import SupportedLlmModelNames
-from .text_block import TextBlock
 from .text_node import TextNode
 from .text_node_relationships_value import TextNodeRelationshipsValue
 from .text_node_with_score import TextNodeWithScore
@@ -420,7 +388,6 @@ __all__ = [
     "AgentDeploymentList",
     "AgentDeploymentSummary",
     "AggregateGroup",
-    "AudioBlock",
     "AutoTransformConfig",
     "AzureOpenAiEmbedding",
     "AzureOpenAiEmbeddingConfig",
@@ -440,6 +407,7 @@ __all__ = [
     "ChatApp",
     "ChatAppResponse",
     "ChatData",
+    "ChatMessage",
     "ChunkMode",
     "ClassificationResult",
     "ClassifierRule",
@@ -489,11 +457,8 @@ __all__ = [
     "DataSourceReaderVersionMetadataReaderVersion",
     "DataSourceUpdateDispatcherConfig",
     "DeleteParams",
-    "DocumentBlock",
     "DocumentChunkMode",
     "DocumentIngestionJobParams",
-    "EditSuggestion",
-    "EditSuggestionBlocksItem",
     "ElementSegmentationConfig",
     "EmbeddingModelConfig",
     "EmbeddingModelConfigEmbeddingConfig",
@@ -575,7 +540,6 @@ __all__ = [
     "HuggingFaceInferenceApiEmbedding",
     "HuggingFaceInferenceApiEmbeddingConfig",
     "HuggingFaceInferenceApiEmbeddingToken",
-    "ImageBlock",
     "IngestionErrorResponse",
     "InputMessage",
     "JobNameMapping",
@@ -599,12 +563,6 @@ __all__ = [
     "LlamaExtractModeAvailability",
     "LlamaExtractModeAvailabilityStatus",
     "LlamaExtractSettings",
-    "LlamaIndexCoreBaseLlmsTypesChatMessage",
-    "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem",
-    "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Audio",
-    "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Document",
-    "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image",
-    "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text",
     "LlamaParseParameters",
     "LlamaParseParametersPriority",
     "LlamaParseSupportedFileExtensions",
@@ -639,11 +597,14 @@ __all__ = [
     "PaginatedJobsHistoryWithMetrics",
     "PaginatedListCloudDocumentsResponse",
     "PaginatedListPipelineFilesResponse",
-    "PaginatedReportResponse",
     "PaginatedResponseAgentData",
     "PaginatedResponseAggregateGroup",
     "PaginatedResponseClassifyJob",
     "PaginatedResponseQuotaConfiguration",
+    "ParseConfiguration",
+    "ParseConfigurationCreate",
+    "ParseConfigurationFilter",
+    "ParseConfigurationQueryResponse",
     "ParseJobConfig",
     "ParseJobConfigPriority",
     "ParsePlanLevel",
@@ -711,11 +672,10 @@ __all__ = [
     "PresetRetrievalParams",
     "PresetRetrievalParamsSearchFiltersInferenceSchemaValue",
     "PresignedUrl",
-    "ProgressEvent",
-    "ProgressEventStatus",
     "Project",
     "ProjectCreate",
     "PromptConf",
+    "PublicModelName",
     "QuotaConfiguration",
     "QuotaConfigurationConfigurationType",
     "QuotaConfigurationStatus",
@@ -726,24 +686,6 @@ __all__ = [
     "RecurringCreditGrant",
     "RelatedNodeInfo",
     "RelatedNodeInfoNodeType",
-    "Report",
-    "ReportBlock",
-    "ReportBlockDependency",
-    "ReportCreateResponse",
-    "ReportEventItem",
-    "ReportEventItemEventData",
-    "ReportEventItemEventData_Progress",
-    "ReportEventItemEventData_ReportBlockUpdate",
-    "ReportEventItemEventData_ReportStateUpdate",
-    "ReportEventType",
-    "ReportMetadata",
-    "ReportPlan",
-    "ReportPlanBlock",
-    "ReportQuery",
-    "ReportResponse",
-    "ReportState",
-    "ReportStateEvent",
-    "ReportUpdateEvent",
     "RetrievalMode",
     "RetrieveResults",
     "Retriever",
@@ -757,13 +699,11 @@ __all__ = [
     "SentenceChunkingConfig",
     "SparseModelConfig",
     "SparseModelType",
-    "SrcAppSchemaChatChatMessage",
     "StatusEnum",
     "StructMode",
     "StructParseConf",
     "SupportedLlmModel",
     "SupportedLlmModelNames",
-    "TextBlock",
     "TextNode",
     "TextNodeRelationshipsValue",
     "TextNodeWithScore",

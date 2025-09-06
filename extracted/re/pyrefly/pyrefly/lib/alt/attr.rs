@@ -429,37 +429,51 @@ impl AttributeBase1 {
 
 #[derive(Clone, Debug)]
 pub enum ClassBase {
-    ClassDef(Class),
+    ClassDef(ClassType),
     ClassType(ClassType),
     Quantified(Quantified, ClassType),
     SelfType(ClassType),
+    Protocol(ClassType, Type),
 }
 
 impl ClassBase {
     pub fn class_object(&self) -> &Class {
         match self {
-            ClassBase::ClassDef(c) => c,
+            ClassBase::ClassDef(c) => c.class_object(),
             ClassBase::ClassType(c) => c.class_object(),
             ClassBase::Quantified(_, c) => c.class_object(),
             ClassBase::SelfType(c) => c.class_object(),
+            ClassBase::Protocol(c, _) => c.class_object(),
         }
     }
 
     pub fn targs(&self) -> Option<&TArgs> {
         match self {
             ClassBase::ClassDef(..) => None,
-            ClassBase::ClassType(c) | ClassBase::Quantified(_, c) | ClassBase::SelfType(c) => {
-                Some(c.targs())
-            }
+            ClassBase::ClassType(c)
+            | ClassBase::Quantified(_, c)
+            | ClassBase::SelfType(c)
+            | ClassBase::Protocol(c, _) => Some(c.targs()),
         }
     }
 
     pub fn to_type(self) -> Type {
         match self {
-            ClassBase::ClassDef(c) => Type::ClassDef(c),
+            ClassBase::ClassDef(c) => Type::ClassDef(c.into_class_object()),
             ClassBase::ClassType(c) => Type::Type(Box::new(c.to_type())),
             ClassBase::Quantified(q, _) => Type::type_form(q.to_type()),
             ClassBase::SelfType(c) => Type::type_form(Type::SelfType(c)),
+            ClassBase::Protocol(_, self_type) => Type::type_form(self_type),
+        }
+    }
+
+    pub fn to_self_type(self) -> Type {
+        match self {
+            ClassBase::ClassDef(c) => c.to_type(),
+            ClassBase::ClassType(c) => c.to_type(),
+            ClassBase::Quantified(q, _) => q.to_type(),
+            ClassBase::SelfType(c) => Type::SelfType(c),
+            ClassBase::Protocol(_, self_type) => self_type,
         }
     }
 }
@@ -496,9 +510,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for err in error {
             error_messages.push(err.to_error_msg(attr_name, todo_ctx))
         }
+
+        // Both types and error messages can be duplicated if elements in `attr_base` gets duplicated (can happen with
+        // if base type contain vars). Make sure that dedup logic applies to both branches.
         if error_messages.is_empty() {
             self.unions(types)
         } else {
+            error_messages.sort();
+            error_messages.dedup();
             self.error(
                 errors,
                 range,
@@ -932,7 +951,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
         {
             if (!got_attrs.is_empty())
-                && let Some(want) = self.get_instance_attribute(protocol, name)
+                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), name)
             {
                 got_attrs.iter().all(|(got_attr, _)| {
                     self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
@@ -1120,10 +1139,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(class.class_object());
                         let instance_attr = match metadata.metaclass() {
-                            Some(meta) => self.get_instance_attribute(meta, attr_name),
-                            None => {
-                                self.get_instance_attribute(self.stdlib.builtins_type(), attr_name)
-                            }
+                            Some(meta) => self.get_metaclass_attribute(class, meta, attr_name),
+                            None => self.get_metaclass_attribute(
+                                class,
+                                self.stdlib.builtins_type(),
+                                attr_name,
+                            ),
                         };
                         match instance_attr {
                             Some(attr) => acc.found_class_attribute(attr, base),
@@ -1238,7 +1259,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ));
                     return;
                 }
-                match self.get_instance_attribute(metaclass, dunder_name) {
+                match self.get_metaclass_attribute(class, metaclass, dunder_name) {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None => acc.not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
@@ -1396,7 +1417,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn as_attribute_base1(&self, ty: Type, acc: &mut Vec<AttributeBase1>) {
         match ty {
             Type::ClassType(class_type) => acc.push(AttributeBase1::ClassInstance(class_type)),
-            Type::ClassDef(cls) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(cls))),
+            Type::ClassDef(cls) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
+                self.as_class_type_unchecked(&cls),
+            ))),
             Type::SelfType(class_type) => acc.push(AttributeBase1::SelfType(class_type)),
             Type::Type(box Type::SelfType(class_type)) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::SelfType(class_type)))
@@ -1490,7 +1513,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )) => acc.push(AttributeBase1::TypeAny(AnyStyle::Implicit)),
             Type::Type(box Type::SpecialForm(SpecialForm::Type)) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
-                    self.stdlib.builtins_type().class_object().dupe(),
+                    self.stdlib.builtins_type().clone(),
                 )))
             }
             Type::Module(module) => acc.push(AttributeBase1::Module(module)),

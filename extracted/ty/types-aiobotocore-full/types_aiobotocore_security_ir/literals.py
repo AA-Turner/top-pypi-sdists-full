@@ -50,6 +50,7 @@ __all__ = (
 AwsRegionType = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",
@@ -100,8 +101,8 @@ ListCaseEditsPaginatorName = Literal["list_case_edits"]
 ListCasesPaginatorName = Literal["list_cases"]
 ListCommentsPaginatorName = Literal["list_comments"]
 ListMembershipsPaginatorName = Literal["list_memberships"]
-MembershipAccountRelationshipStatusType = Literal["Associated", "Disassociated"]
-MembershipAccountRelationshipTypeType = Literal["Organization"]
+MembershipAccountRelationshipStatusType = Literal["Associated", "Disassociated", "Unassociated"]
+MembershipAccountRelationshipTypeType = Literal["Organization", "Unrelated"]
 MembershipStatusType = Literal["Active", "Cancelled", "Terminated"]
 OptInFeatureNameType = Literal["Triage"]
 PendingActionType = Literal["Customer", "None"]
@@ -140,6 +141,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -151,8 +153,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

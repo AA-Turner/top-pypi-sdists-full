@@ -2,30 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from datetime import date, datetime
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 from .shared_params.identification_create_request import IdentificationCreateRequest
 from .shared_params.legal_entity_compliance_detail import LegalEntityComplianceDetail
 from .shared_params.legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .shared_params.legal_entity_industry_classification import LegalEntityIndustryClassification
 
-__all__ = [
-    "LegalEntityUpdateParams",
-    "UnnamedTypeWithNoPropertyInfoOrParent2",
-    "PhoneNumbers",
-    "PhoneNumber",
-    "UnnamedTypeWithNoPropertyInfoOrParent3",
-]
+__all__ = ["LegalEntityUpdateParams", "BankSettings", "PhoneNumbers", "PhoneNumber", "WealthAndEmploymentDetails"]
 
 
 class LegalEntityUpdateParams(TypedDict, total=False):
     addresses: Iterable[LegalEntityAddressCreateRequest]
     """A list of addresses for the entity."""
 
-    bank_settings: Optional[UnnamedTypeWithNoPropertyInfoOrParent2]
+    bank_settings: Optional[BankSettings]
 
     business_name: Optional[str]
     """The business's legal business name."""
@@ -41,7 +36,7 @@ class LegalEntityUpdateParams(TypedDict, total=False):
     date_of_birth: Annotated[Union[str, date, None], PropertyInfo(format="iso8601")]
     """An individual's date of birth (YYYY-MM-DD)."""
 
-    doing_business_as_names: List[str]
+    doing_business_as_names: SequenceNotStr[str]
 
     email: Optional[str]
     """The entity's primary email."""
@@ -89,13 +84,13 @@ class LegalEntityUpdateParams(TypedDict, total=False):
     suffix: Optional[str]
     """An individual's suffix."""
 
-    wealth_and_employment_details: Optional[UnnamedTypeWithNoPropertyInfoOrParent3]
+    wealth_and_employment_details: Optional[WealthAndEmploymentDetails]
 
     website: Optional[str]
     """The entity's primary website URL."""
 
 
-class UnnamedTypeWithNoPropertyInfoOrParent2(TypedDict, total=False):
+class BankSettings(TypedDict, total=False):
     id: Required[str]
 
     backup_withholding_percentage: Required[Optional[int]]
@@ -145,7 +140,7 @@ Please use PhoneNumber instead.
 """
 
 
-class UnnamedTypeWithNoPropertyInfoOrParent3(TypedDict, total=False):
+class WealthAndEmploymentDetails(TypedDict, total=False):
     id: Required[str]
 
     annual_income: Required[Optional[int]]

@@ -249,6 +249,8 @@ __all__ = (
     "GetUpgradeHistoryResponseTypeDef",
     "GetUpgradeStatusRequestTypeDef",
     "GetUpgradeStatusResponseTypeDef",
+    "IAMFederationOptionsInputTypeDef",
+    "IAMFederationOptionsOutputTypeDef",
     "IPAddressTypeStatusTypeDef",
     "IamIdentityCenterOptionsInputTypeDef",
     "IamIdentityCenterOptionsTypeDef",
@@ -422,6 +424,11 @@ class AdditionalLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
     LimitValues: NotRequired[List[str]]
 
+class IAMFederationOptionsInputTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    SubjectKey: NotRequired[str]
+    RolesKey: NotRequired[str]
+
 class JWTOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     SubjectKey: NotRequired[str]
@@ -432,6 +439,11 @@ class MasterUserOptionsTypeDef(TypedDict):
     MasterUserARN: NotRequired[str]
     MasterUserName: NotRequired[str]
     MasterUserPassword: NotRequired[str]
+
+class IAMFederationOptionsOutputTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    SubjectKey: NotRequired[str]
+    RolesKey: NotRequired[str]
 
 class JWTOptionsOutputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -1733,6 +1745,7 @@ class AdvancedSecurityOptionsInputTypeDef(TypedDict):
     MasterUserOptions: NotRequired[MasterUserOptionsTypeDef]
     SAMLOptions: NotRequired[SAMLOptionsInputTypeDef]
     JWTOptions: NotRequired[JWTOptionsInputTypeDef]
+    IAMFederationOptions: NotRequired[IAMFederationOptionsInputTypeDef]
     AnonymousAuthEnabled: NotRequired[bool]
 
 class AdvancedSecurityOptionsTypeDef(TypedDict):
@@ -1740,6 +1753,7 @@ class AdvancedSecurityOptionsTypeDef(TypedDict):
     InternalUserDatabaseEnabled: NotRequired[bool]
     SAMLOptions: NotRequired[SAMLOptionsOutputTypeDef]
     JWTOptions: NotRequired[JWTOptionsOutputTypeDef]
+    IAMFederationOptions: NotRequired[IAMFederationOptionsOutputTypeDef]
     AnonymousAuthDisableDate: NotRequired[datetime]
     AnonymousAuthEnabled: NotRequired[bool]
 

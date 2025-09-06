@@ -25,6 +25,10 @@ from ...types.llama_parse_parameters import LlamaParseParameters
 from ...types.paginated_response_agent_data import PaginatedResponseAgentData
 from ...types.paginated_response_aggregate_group import PaginatedResponseAggregateGroup
 from ...types.paginated_response_quota_configuration import PaginatedResponseQuotaConfiguration
+from ...types.parse_configuration import ParseConfiguration
+from ...types.parse_configuration_create import ParseConfigurationCreate
+from ...types.parse_configuration_filter import ParseConfigurationFilter
+from ...types.parse_configuration_query_response import ParseConfigurationQueryResponse
 
 try:
     import pydantic
@@ -842,6 +846,512 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def list_parse_configurations(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        creator: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ParseConfigurationQueryResponse:
+        """
+        List parse configurations for the current project.
+
+        Args:
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+        page_size: Number of items per page
+        page_token: Token for pagination
+        name: Filter by configuration name
+        creator: Filter by creator
+        version: Filter by version
+
+        Returns:
+        Paginated response with parse configurations
+
+        Parameters:
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - name: typing.Optional[str].
+
+            - creator: typing.Optional[str].
+
+            - version: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.list_parse_configurations()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict(
+                {
+                    "page_size": page_size,
+                    "page_token": page_token,
+                    "name": name,
+                    "creator": creator,
+                    "version": version,
+                    "project_id": project_id,
+                    "organization_id": organization_id,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfigurationQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create_parse_configuration(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: ParseConfigurationCreate,
+    ) -> ParseConfiguration:
+        """
+        Create a new parse configuration.
+
+        Args:
+        config_create: Parse configuration creation data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created parse configuration
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: ParseConfigurationCreate.
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParseConfigurationCreate,
+            ParsingMode,
+        )
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.create_parse_configuration(
+            request=ParseConfigurationCreate(
+                name="string",
+                version="string",
+                parameters=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
+                    parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                    replace_failed_page_mode=FailPageMode.RAW_TEXT,
+                ),
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def upsert_parse_configuration(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: ParseConfigurationCreate,
+    ) -> ParseConfiguration:
+        """
+        Create or update a parse configuration by name.
+
+        Args:
+        config_create: Parse configuration creation data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created or updated parse configuration
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: ParseConfigurationCreate.
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParseConfigurationCreate,
+            ParsingMode,
+        )
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.upsert_parse_configuration(
+            request=ParseConfigurationCreate(
+                name="string",
+                version="string",
+                parameters=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
+                    parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                    replace_failed_page_mode=FailPageMode.RAW_TEXT,
+                ),
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_parse_configuration(
+        self, config_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> ParseConfiguration:
+        """
+        Get a parse configuration by ID.
+
+        Args:
+        config_id: The ID of the parse configuration
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The parse configuration
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.get_parse_configuration(
+            config_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def update_parse_configuration(
+        self,
+        config_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        parameters: typing.Optional[LlamaParseParameters] = OMIT,
+    ) -> ParseConfiguration:
+        """
+        Update a parse configuration.
+
+        Args:
+        config_id: The ID of the parse configuration to update
+        config_update: Update data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The updated parse configuration
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - parameters: typing.Optional[LlamaParseParameters].
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParsingMode,
+        )
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.update_parse_configuration(
+            config_id="string",
+            parameters=LlamaParseParameters(
+                priority=LlamaParseParametersPriority.LOW,
+                parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                replace_failed_page_mode=FailPageMode.RAW_TEXT,
+            ),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if parameters is not OMIT:
+            _request["parameters"] = parameters
+        _response = self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_parse_configuration(
+        self, config_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> None:
+        """
+        Delete a parse configuration.
+
+        Args:
+        config_id: The ID of the parse configuration to delete
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.delete_parse_configuration(
+            config_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def query_parse_configurations(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = OMIT,
+        page_token: typing.Optional[str] = OMIT,
+        filter: typing.Optional[ParseConfigurationFilter] = OMIT,
+        order_by: typing.Optional[str] = OMIT,
+    ) -> ParseConfigurationQueryResponse:
+        """
+        Query parse configurations with filtering and pagination.
+
+        Args:
+        query_request: Query request with filters and pagination
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        Paginated response with parse configurations
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - filter: typing.Optional[ParseConfigurationFilter].
+
+            - order_by: typing.Optional[str].
+        ---
+        from llama_cloud import ParseConfigurationFilter
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.query_parse_configurations(
+            filter=ParseConfigurationFilter(),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if page_size is not OMIT:
+            _request["page_size"] = page_size
+        if page_token is not OMIT:
+            _request["page_token"] = page_token
+        if filter is not OMIT:
+            _request["filter"] = filter
+        if order_by is not OMIT:
+            _request["order_by"] = order_by
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations/query"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfigurationQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_latest_parse_configuration(
+        self,
+        *,
+        creator: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> typing.Optional[ParseConfiguration]:
+        """
+        Get the latest parse configuration for the current project.
+
+        Args:
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+        creator: Optional creator filter
+
+        Returns:
+        The latest parse configuration or None if not found
+
+        Parameters:
+            - creator: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.get_latest_parse_configuration()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations/latest"),
+            params=remove_none_from_dict(
+                {"creator": creator, "project_id": project_id, "organization_id": organization_id}
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(typing.Optional[ParseConfiguration], _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncBetaClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1639,6 +2149,512 @@ class AsyncBetaClient:
         )
         if 200 <= _response.status_code < 300:
             return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def list_parse_configurations(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        creator: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ParseConfigurationQueryResponse:
+        """
+        List parse configurations for the current project.
+
+        Args:
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+        page_size: Number of items per page
+        page_token: Token for pagination
+        name: Filter by configuration name
+        creator: Filter by creator
+        version: Filter by version
+
+        Returns:
+        Paginated response with parse configurations
+
+        Parameters:
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - name: typing.Optional[str].
+
+            - creator: typing.Optional[str].
+
+            - version: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.list_parse_configurations()
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict(
+                {
+                    "page_size": page_size,
+                    "page_token": page_token,
+                    "name": name,
+                    "creator": creator,
+                    "version": version,
+                    "project_id": project_id,
+                    "organization_id": organization_id,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfigurationQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_parse_configuration(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: ParseConfigurationCreate,
+    ) -> ParseConfiguration:
+        """
+        Create a new parse configuration.
+
+        Args:
+        config_create: Parse configuration creation data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created parse configuration
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: ParseConfigurationCreate.
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParseConfigurationCreate,
+            ParsingMode,
+        )
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.create_parse_configuration(
+            request=ParseConfigurationCreate(
+                name="string",
+                version="string",
+                parameters=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
+                    parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                    replace_failed_page_mode=FailPageMode.RAW_TEXT,
+                ),
+            ),
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def upsert_parse_configuration(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: ParseConfigurationCreate,
+    ) -> ParseConfiguration:
+        """
+        Create or update a parse configuration by name.
+
+        Args:
+        config_create: Parse configuration creation data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created or updated parse configuration
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: ParseConfigurationCreate.
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParseConfigurationCreate,
+            ParsingMode,
+        )
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.upsert_parse_configuration(
+            request=ParseConfigurationCreate(
+                name="string",
+                version="string",
+                parameters=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
+                    parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                    replace_failed_page_mode=FailPageMode.RAW_TEXT,
+                ),
+            ),
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_parse_configuration(
+        self, config_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> ParseConfiguration:
+        """
+        Get a parse configuration by ID.
+
+        Args:
+        config_id: The ID of the parse configuration
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The parse configuration
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.get_parse_configuration(
+            config_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def update_parse_configuration(
+        self,
+        config_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        parameters: typing.Optional[LlamaParseParameters] = OMIT,
+    ) -> ParseConfiguration:
+        """
+        Update a parse configuration.
+
+        Args:
+        config_id: The ID of the parse configuration to update
+        config_update: Update data
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        The updated parse configuration
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - parameters: typing.Optional[LlamaParseParameters].
+        ---
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParsingMode,
+        )
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.update_parse_configuration(
+            config_id="string",
+            parameters=LlamaParseParameters(
+                priority=LlamaParseParametersPriority.LOW,
+                parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
+                replace_failed_page_mode=FailPageMode.RAW_TEXT,
+            ),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if parameters is not OMIT:
+            _request["parameters"] = parameters
+        _response = await self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_parse_configuration(
+        self, config_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> None:
+        """
+        Delete a parse configuration.
+
+        Args:
+        config_id: The ID of the parse configuration to delete
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Parameters:
+            - config_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.delete_parse_configuration(
+            config_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/parse-configurations/{config_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def query_parse_configurations(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = OMIT,
+        page_token: typing.Optional[str] = OMIT,
+        filter: typing.Optional[ParseConfigurationFilter] = OMIT,
+        order_by: typing.Optional[str] = OMIT,
+    ) -> ParseConfigurationQueryResponse:
+        """
+        Query parse configurations with filtering and pagination.
+
+        Args:
+        query_request: Query request with filters and pagination
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+
+        Returns:
+        Paginated response with parse configurations
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - filter: typing.Optional[ParseConfigurationFilter].
+
+            - order_by: typing.Optional[str].
+        ---
+        from llama_cloud import ParseConfigurationFilter
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.query_parse_configurations(
+            filter=ParseConfigurationFilter(),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if page_size is not OMIT:
+            _request["page_size"] = page_size
+        if page_token is not OMIT:
+            _request["page_token"] = page_token
+        if filter is not OMIT:
+            _request["filter"] = filter
+        if order_by is not OMIT:
+            _request["order_by"] = order_by
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations/query"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ParseConfigurationQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_latest_parse_configuration(
+        self,
+        *,
+        creator: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> typing.Optional[ParseConfiguration]:
+        """
+        Get the latest parse configuration for the current project.
+
+        Args:
+        project: Validated project from dependency
+        user: Current user
+        db: Database session
+        creator: Optional creator filter
+
+        Returns:
+        The latest parse configuration or None if not found
+
+        Parameters:
+            - creator: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.get_latest_parse_configuration()
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/parse-configurations/latest"),
+            params=remove_none_from_dict(
+                {"creator": creator, "project_id": project_id, "organization_id": organization_id}
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(typing.Optional[ParseConfiguration], _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

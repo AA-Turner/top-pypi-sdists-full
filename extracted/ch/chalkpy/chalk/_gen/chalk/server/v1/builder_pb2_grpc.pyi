@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateEnvironmentCloudResourcesResponse,
     CreateKafkaTopicsRequest,
     CreateKafkaTopicsResponse,
+    CreateTelemetryDeploymentRequest,
+    CreateTelemetryDeploymentResponse,
     DeleteClusterTimescaleDBRequest,
     DeleteClusterTimescaleDBResponse,
     DeleteEnvironmentCloudResourcesRequest,
@@ -64,6 +66,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetSearchConfigResponse,
     GetTagWeightsRequest,
     GetTagWeightsResponse,
+    GetTelemetryDeploymentRequest,
+    GetTelemetryDeploymentResponse,
     IndexDeploymentRequest,
     IndexDeploymentResponse,
     LintSourceRequest,
@@ -260,6 +264,14 @@ class BuilderServiceStub:
     CreateDeployment: UnaryUnaryMultiCallable[
         CreateDeploymentRequest,
         CreateDeploymentResponse,
+    ]
+    GetTelemetryDeployment: UnaryUnaryMultiCallable[
+        GetTelemetryDeploymentRequest,
+        GetTelemetryDeploymentResponse,
+    ]
+    CreateTelemetryDeployment: UnaryUnaryMultiCallable[
+        CreateTelemetryDeploymentRequest,
+        CreateTelemetryDeploymentResponse,
     ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
@@ -502,6 +514,18 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: CreateDeploymentRequest,
         context: ServicerContext,
     ) -> CreateDeploymentResponse: ...
+    @abstractmethod
+    def GetTelemetryDeployment(
+        self,
+        request: GetTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> GetTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def CreateTelemetryDeployment(
+        self,
+        request: CreateTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> CreateTelemetryDeploymentResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

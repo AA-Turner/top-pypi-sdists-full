@@ -348,8 +348,7 @@ class KinesisAnalyticsV2Client(AioBaseClient):
         self, **kwargs: Unpack[DescribeApplicationOperationRequestTypeDef]
     ) -> DescribeApplicationOperationResponseTypeDef:
         """
-        Returns information about a specific operation performed on a Managed Service
-        for Apache Flink application.
+        Provides a detailed description of a specified application operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/describe_application_operation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesisanalyticsv2/client/#describe_application_operation)
@@ -391,8 +390,8 @@ class KinesisAnalyticsV2Client(AioBaseClient):
         self, **kwargs: Unpack[ListApplicationOperationsRequestTypeDef]
     ) -> ListApplicationOperationsResponseTypeDef:
         """
-        Lists information about operations performed on a Managed Service for Apache
-        Flink application.
+        Lists all the operations performed for the specified application such as
+        UpdateApplication, StartApplication etc.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/list_application_operations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesisanalyticsv2/client/#list_application_operations)

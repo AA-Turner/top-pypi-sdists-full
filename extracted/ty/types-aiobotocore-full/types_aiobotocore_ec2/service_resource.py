@@ -673,7 +673,12 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
         """
 
     async def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -682,7 +687,9 @@ class ServiceResourceInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    async def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    async def terminate(
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1949,7 +1956,12 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
         """
 
     async def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -1958,7 +1970,9 @@ class PlacementGroupInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#placementgroupinstances)
         """
 
-    async def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    async def terminate(
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2085,7 +2099,12 @@ class SubnetInstancesCollection(AIOResourceCollection):
         """
 
     async def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -2094,7 +2113,9 @@ class SubnetInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#subnetinstances)
         """
 
-    async def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    async def terminate(
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2451,7 +2472,12 @@ class VpcInstancesCollection(AIOResourceCollection):
         """
 
     async def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -2460,7 +2486,9 @@ class VpcInstancesCollection(AIOResourceCollection):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#vpcinstances)
         """
 
-    async def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    async def terminate(
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -4245,6 +4273,7 @@ class Route(AIOBoto3ServiceResource):
     vpc_peering_connection_id: Awaitable[str]
     core_network_arn: Awaitable[str]
     odb_network_arn: Awaitable[str]
+    ip_address: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4380,6 +4409,7 @@ class RouteTableAssociation(AIOBoto3ServiceResource):
     route_table_id: Awaitable[str]
     subnet_id: Awaitable[str]
     gateway_id: Awaitable[str]
+    public_ipv4_pool: Awaitable[str]
     association_state: Awaitable[RouteTableAssociationStateTypeDef]
     meta: EC2ResourceMeta  # type: ignore[override]
 
@@ -4794,6 +4824,7 @@ class Volume(AIOBoto3ServiceResource):
 
     id: str
     snapshots: VolumeSnapshotsCollection
+    availability_zone_id: Awaitable[str]
     outpost_arn: Awaitable[str]
     iops: Awaitable[int]
     tags: Awaitable[List[TagTypeDef]]

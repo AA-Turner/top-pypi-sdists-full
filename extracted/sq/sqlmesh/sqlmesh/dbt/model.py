@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import typing as t
+import logging
 
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
@@ -26,13 +27,18 @@ from sqlmesh.core.model import (
 )
 from sqlmesh.core.model.kind import SCDType2ByTimeKind, OnDestructiveChange, OnAdditiveChange
 from sqlmesh.dbt.basemodel import BaseModelConfig, Materialization, SnapshotStrategy
-from sqlmesh.dbt.common import SqlStr, extract_jinja_config, sql_str_validator
+from sqlmesh.dbt.common import SqlStr, sql_str_validator
 from sqlmesh.utils.errors import ConfigError
 from sqlmesh.utils.pydantic import field_validator
 
 if t.TYPE_CHECKING:
     from sqlmesh.core.audit.definition import ModelAudit
     from sqlmesh.dbt.context import DbtContext
+
+logger = logging.getLogger(__name__)
+
+
+logger = logging.getLogger(__name__)
 
 
 INCREMENTAL_BY_TIME_STRATEGIES = set(["delete+insert", "insert_overwrite", "microbatch"])
@@ -77,7 +83,7 @@ class ModelConfig(BaseModelConfig):
     batch_concurrency: t.Optional[int] = None
     forward_only: bool = True
     disable_restatement: t.Optional[bool] = None
-    allow_partials: t.Optional[bool] = None
+    allow_partials: bool = True
     physical_version: t.Optional[str] = None
     auto_restatement_cron: t.Optional[str] = None
     auto_restatement_intervals: t.Optional[int] = None
@@ -131,10 +137,6 @@ class ModelConfig(BaseModelConfig):
     query_settings: t.Optional[t.Dict[str, t.Any]] = None
     inserts_only: t.Optional[bool] = None
     incremental_predicates: t.Optional[t.List[str]] = None
-
-    # Private fields
-    _sql_embedded_config: t.Optional[SqlStr] = None
-    _sql_no_config: t.Optional[SqlStr] = None
 
     _sql_validator = sql_str_validator
 
@@ -331,15 +333,8 @@ class ModelConfig(BaseModelConfig):
                         raise ConfigError(
                             f"{self.canonical_name(context)}: 'event_time' is required for microbatch incremental strategy."
                         )
-                    concurrent_batches = self._get_field_value("concurrent_batches")
-                    if concurrent_batches is True:
-                        if incremental_by_kind_kwargs.get("batch_size"):
-                            get_console().log_warning(
-                                f"'concurrent_batches' is set to True and 'batch_size' are defined in '{self.canonical_name(context)}'. The batch size will be set to the value of `batch_size`."
-                            )
-                        incremental_by_kind_kwargs["batch_size"] = incremental_by_kind_kwargs.get(
-                            "batch_size", 1
-                        )
+                    # dbt microbatch always processes batches in a size of 1
+                    incremental_by_kind_kwargs["batch_size"] = 1
                 else:
                     if not self.time_column:
                         raise ConfigError(
@@ -426,25 +421,6 @@ class ModelConfig(BaseModelConfig):
 
         raise ConfigError(f"{materialization.value} materialization not supported.")
 
-    @property
-    def sql_no_config(self) -> SqlStr:
-        if self._sql_no_config is None:
-            self._sql_no_config = SqlStr("")
-            self._extract_sql_config()
-        return self._sql_no_config
-
-    @property
-    def sql_embedded_config(self) -> SqlStr:
-        if self._sql_embedded_config is None:
-            self._sql_embedded_config = SqlStr("")
-            self._extract_sql_config()
-        return self._sql_embedded_config
-
-    def _extract_sql_config(self) -> None:
-        no_config, embedded_config = extract_jinja_config(self.sql)
-        self._sql_no_config = SqlStr(no_config)
-        self._sql_embedded_config = SqlStr(embedded_config)
-
     def _big_query_partition_by_expr(self, context: DbtContext) -> exp.Expression:
         assert isinstance(self.partition_by, dict)
         data_type = self.partition_by["data_type"].lower()
@@ -502,7 +478,8 @@ class ModelConfig(BaseModelConfig):
     ) -> Model:
         """Converts the dbt model into a SQLMesh model."""
         model_dialect = self.dialect(context)
-        query = d.jinja_query(self.sql_no_config)
+        query = d.jinja_query(self.sql)
+        kind = self.model_kind(context)
 
         optional_kwargs: t.Dict[str, t.Any] = {}
         physical_properties: t.Dict[str, t.Any] = {}
@@ -517,20 +494,35 @@ class ModelConfig(BaseModelConfig):
                         raise ConfigError(
                             f"Failed to parse model '{self.canonical_name(context)}' partition_by field '{p}' in '{self.path}': {e}"
                         ) from e
-            else:
-                partitioned_by.append(self._big_query_partition_by_expr(context))
-            optional_kwargs["partitioned_by"] = partitioned_by
+            elif isinstance(self.partition_by, dict):
+                if context.target.dialect == "bigquery":
+                    partitioned_by.append(self._big_query_partition_by_expr(context))
+                else:
+                    logger.warning(
+                        "Ignoring partition_by config for model '%s' targeting %s. The format of the config field is only supported for BigQuery.",
+                        self.name,
+                        context.target.dialect,
+                    )
+
+            if partitioned_by:
+                optional_kwargs["partitioned_by"] = partitioned_by
 
         if self.cluster_by:
-            clustered_by = []
-            for c in self.cluster_by:
-                try:
-                    clustered_by.append(d.parse_one(c, dialect=model_dialect))
-                except SqlglotError as e:
-                    raise ConfigError(
-                        f"Failed to parse model '{self.canonical_name(context)}' cluster_by field '{c}' in '{self.path}': {e}"
-                    ) from e
-            optional_kwargs["clustered_by"] = clustered_by
+            if isinstance(kind, ViewKind):
+                logger.warning(
+                    "Ignoring cluster_by config for model '%s'; cluster_by is not supported for views.",
+                    self.name,
+                )
+            else:
+                clustered_by = []
+                for c in self.cluster_by:
+                    try:
+                        clustered_by.append(d.parse_one(c, dialect=model_dialect))
+                    except SqlglotError as e:
+                        raise ConfigError(
+                            f"Failed to parse model '{self.canonical_name(context)}' cluster_by field '{c}' in '{self.path}': {e}"
+                        ) from e
+                optional_kwargs["clustered_by"] = clustered_by
 
         model_kwargs = self.sqlmesh_model_kwargs(context)
         if self.sql_header:
@@ -627,13 +619,8 @@ class ModelConfig(BaseModelConfig):
             if physical_properties:
                 model_kwargs["physical_properties"] = physical_properties
 
-        kind = self.model_kind(context)
         allow_partials = model_kwargs.pop("allow_partials", None)
-        if (
-            allow_partials is None
-            and kind.is_materialized
-            and not kind.is_incremental_by_time_range
-        ):
+        if allow_partials is None:
             # Set allow_partials to True for dbt models to preserve the original semantics.
             allow_partials = True
 
@@ -653,6 +640,11 @@ class ModelConfig(BaseModelConfig):
                     )
                 else:
                     model_kwargs["start"] = begin
+            # If user explicitly disables concurrent batches then we want to set depends on past to true which we
+            # will do by including the model in the depends_on
+            if self.concurrent_batches is not None and self.concurrent_batches is False:
+                depends_on = model_kwargs.get("depends_on", set())
+                depends_on.add(self.canonical_name(context))
 
         model_kwargs["start"] = model_kwargs.get(
             "start", context.sqlmesh_config.model_defaults.start

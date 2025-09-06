@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config_code_completion_model import (
         GetSettingsResponse200AiConfigCodeCompletionModel,
     )
+    from ..models.get_settings_response_200_ai_config_custom_prompts import GetSettingsResponse200AiConfigCustomPrompts
     from ..models.get_settings_response_200_ai_config_default_model import GetSettingsResponse200AiConfigDefaultModel
     from ..models.get_settings_response_200_ai_config_providers import GetSettingsResponse200AiConfigProviders
 
@@ -23,11 +24,13 @@ class GetSettingsResponse200AiConfig:
         providers (Union[Unset, GetSettingsResponse200AiConfigProviders]):
         default_model (Union[Unset, GetSettingsResponse200AiConfigDefaultModel]):
         code_completion_model (Union[Unset, GetSettingsResponse200AiConfigCodeCompletionModel]):
+        custom_prompts (Union[Unset, GetSettingsResponse200AiConfigCustomPrompts]):
     """
 
     providers: Union[Unset, "GetSettingsResponse200AiConfigProviders"] = UNSET
     default_model: Union[Unset, "GetSettingsResponse200AiConfigDefaultModel"] = UNSET
     code_completion_model: Union[Unset, "GetSettingsResponse200AiConfigCodeCompletionModel"] = UNSET
+    custom_prompts: Union[Unset, "GetSettingsResponse200AiConfigCustomPrompts"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +46,10 @@ class GetSettingsResponse200AiConfig:
         if not isinstance(self.code_completion_model, Unset):
             code_completion_model = self.code_completion_model.to_dict()
 
+        custom_prompts: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.custom_prompts, Unset):
+            custom_prompts = self.custom_prompts.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -52,6 +59,8 @@ class GetSettingsResponse200AiConfig:
             field_dict["default_model"] = default_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
+        if custom_prompts is not UNSET:
+            field_dict["custom_prompts"] = custom_prompts
 
         return field_dict
 
@@ -59,6 +68,9 @@ class GetSettingsResponse200AiConfig:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_settings_response_200_ai_config_code_completion_model import (
             GetSettingsResponse200AiConfigCodeCompletionModel,
+        )
+        from ..models.get_settings_response_200_ai_config_custom_prompts import (
+            GetSettingsResponse200AiConfigCustomPrompts,
         )
         from ..models.get_settings_response_200_ai_config_default_model import (
             GetSettingsResponse200AiConfigDefaultModel,
@@ -87,10 +99,18 @@ class GetSettingsResponse200AiConfig:
         else:
             code_completion_model = GetSettingsResponse200AiConfigCodeCompletionModel.from_dict(_code_completion_model)
 
+        _custom_prompts = d.pop("custom_prompts", UNSET)
+        custom_prompts: Union[Unset, GetSettingsResponse200AiConfigCustomPrompts]
+        if isinstance(_custom_prompts, Unset):
+            custom_prompts = UNSET
+        else:
+            custom_prompts = GetSettingsResponse200AiConfigCustomPrompts.from_dict(_custom_prompts)
+
         get_settings_response_200_ai_config = cls(
             providers=providers,
             default_model=default_model,
             code_completion_model=code_completion_model,
+            custom_prompts=custom_prompts,
         )
 
         get_settings_response_200_ai_config.additional_properties = d

@@ -74,6 +74,7 @@ __all__ = ("EVSClient",)
 class Exceptions(BaseClientExceptions):
     ClientError: Type[BotocoreClientError]
     ResourceNotFoundException: Type[BotocoreClientError]
+    ServiceQuotaExceededException: Type[BotocoreClientError]
     TagPolicyException: Type[BotocoreClientError]
     ThrottlingException: Type[BotocoreClientError]
     TooManyTagsException: Type[BotocoreClientError]

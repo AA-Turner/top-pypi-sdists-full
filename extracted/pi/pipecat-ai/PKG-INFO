@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.83
+Version: 0.0.84
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/pipecat
@@ -53,7 +53,7 @@ Requires-Dist: websockets<15.0,>=13.1; extra == "cartesia"
 Provides-Extra: cerebras
 Provides-Extra: deepseek
 Provides-Extra: daily
-Requires-Dist: daily-python~=0.19.8; extra == "daily"
+Requires-Dist: daily-python~=0.19.9; extra == "daily"
 Provides-Extra: deepgram
 Requires-Dist: deepgram-sdk~=4.7.0; extra == "deepgram"
 Provides-Extra: elevenlabs

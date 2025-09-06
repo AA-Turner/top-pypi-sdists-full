@@ -1,19 +1,26 @@
 import importlib.util
 import logging
 import os
+import signal
+import socket
 import sys
 import time
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from croniter import croniter
 from redis import Redis
+from redis.client import Pipeline
 
+from . import cron_scheduler_registry
 from .defaults import DEFAULT_LOGGING_DATE_FORMAT, DEFAULT_LOGGING_FORMAT
+from .exceptions import SchedulerNotFound, StopRequested
 from .job import Job
 from .logutils import setup_loghandlers
 from .queue import Queue
-from .utils import now
+from .serializers import resolve_serializer
+from .utils import decode_redis_hash, normalize_config_path, now, str_to_date, utcformat, validate_absolute_path
 
 
 class CronJob:
@@ -21,8 +28,9 @@ class CronJob:
 
     def __init__(
         self,
-        func: Callable,
         queue_name: str,
+        func: Optional[Callable] = None,
+        func_name: Optional[str] = None,
         args: Optional[Tuple] = None,
         kwargs: Optional[Dict] = None,
         interval: Optional[int] = None,
@@ -38,7 +46,15 @@ class CronJob:
         if not interval and not cron:
             raise ValueError('Must specify either interval or cron parameter')
 
-        self.func: Callable = func
+        if func:
+            self.func: Optional[Callable] = func
+            self.func_name: str = f'{func.__module__}.{func.__name__}'
+        elif func_name:
+            self.func = None
+            self.func_name = func_name
+        else:
+            raise ValueError('Either func or func_name must be provided')
+
         self.args: Tuple = args or ()
         self.kwargs: Dict = kwargs or {}
         self.interval: Optional[int] = interval
@@ -63,6 +79,9 @@ class CronJob:
 
     def enqueue(self, connection: Redis) -> Job:
         """Enqueue this job to its queue and update the next run time"""
+        if not self.func:
+            raise ValueError('CronJob has no function to enqueue. It may have been created for monitoring purposes.')
+
         queue = Queue(self.queue_name, connection=connection)
         job = queue.enqueue(self.func, *self.args, **self.kwargs, **self.job_options)
         logging.getLogger(__name__).info(f'Enqueued job {self.func.__name__} to queue {self.queue_name}')
@@ -102,6 +121,27 @@ class CronJob:
         if self.interval is not None or self.cron is not None:
             self.next_run_time = self.get_next_run_time()
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert CronJob instance to a dictionary for monitoring purposes"""
+        obj = {
+            'func_name': self.func_name,
+            'queue_name': self.queue_name,
+            'interval': self.interval,
+            'cron': self.cron,
+        }
+        # Add job options, filtering out None values
+        obj.update({k: v for k, v in self.job_options.items() if v is not None})
+        return obj
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CronJob':
+        """Create a CronJob instance from dictionary data for monitoring purposes.
+
+        Note: The returned CronJob will not have a func attribute and cannot be executed,
+        but contains all the metadata for monitoring.
+        """
+        return cls(**data)
+
 
 class CronScheduler:
     """Simple interval-based job scheduler for RQ"""
@@ -110,9 +150,16 @@ class CronScheduler:
         self,
         connection: Redis,
         logging_level: Union[str, int] = logging.INFO,
+        name: str = '',
     ):
         self.connection: Redis = connection
         self._cron_jobs: List[CronJob] = []
+        self.hostname: str = socket.gethostname()
+        self.pid: int = os.getpid()
+        self.name: str = name or f'{self.hostname}:{self.pid}:{uuid.uuid4().hex[:6]}'
+        self.config_file: str = ''
+        self.created_at: datetime = now()
+        self.serializer = resolve_serializer()
 
         self.log: logging.Logger = logging.getLogger(__name__)
         if not self.log.hasHandlers():
@@ -123,6 +170,16 @@ class CronScheduler:
                 date_format=DEFAULT_LOGGING_DATE_FORMAT,
             )
             self.log.propagate = False
+
+    def __eq__(self, other) -> bool:
+        """Equality does not take the database/connection into account"""
+        if not isinstance(other, self.__class__):
+            return False
+        return self.name == other.name
+
+    def __hash__(self) -> int:
+        """The hash does not take the database/connection into account"""
+        return hash(self.name)
 
     def register(
         self,
@@ -140,8 +197,8 @@ class CronScheduler:
     ) -> CronJob:
         """Register a function to be run at regular intervals"""
         cron_job = CronJob(
-            func=func,
             queue_name=queue_name,
+            func=func,
             args=args,
             kwargs=kwargs,
             interval=interval,
@@ -205,15 +262,40 @@ class CronScheduler:
         # Cap maximum sleep time at 60 seconds
         return min(seconds_until_next, 60)
 
+    def _install_signal_handlers(self):
+        """Install signal handlers for graceful shutdown."""
+        signal.signal(signal.SIGINT, self._request_stop)
+        signal.signal(signal.SIGTERM, self._request_stop)
+
+    def _request_stop(self, signum, frame):
+        """Handle shutdown signals gracefully."""
+        self.log.info('CronScheduler %s: received shutdown signal %s', self.name, signum)
+        raise StopRequested()
+
     def start(self):
         """Start the cron scheduler"""
-        self.log.info('Starting cron scheduler...')
-        while True:
-            self.enqueue_jobs()
-            sleep_time = self.calculate_sleep_interval()
-            if sleep_time > 0:
-                self.log.debug(f'Sleeping for {sleep_time} seconds...')
-                time.sleep(sleep_time)
+        self.log.info('CronScheduler %s: starting...', self.name)
+
+        # Register birth and install signal handlers
+        self._install_signal_handlers()
+        self.register_birth()
+
+        try:
+            while True:
+                self.enqueue_jobs()
+                self.heartbeat()
+                sleep_time = self.calculate_sleep_interval()
+                if sleep_time > 0:
+                    self.log.debug(f'Sleeping for {sleep_time} seconds...')
+                    time.sleep(sleep_time)
+        except KeyboardInterrupt:
+            self.log.info('CronScheduler %s: received KeyboardInterrupt', self.name)
+        except StopRequested:
+            self.log.info('CronScheduler %s: stop requested', self.name)
+        finally:
+            # Register death before shutting down
+            self.register_death()
+            self.log.info('CronScheduler %s: shutdown complete', self.name)
 
     def load_config_from_file(self, config_path: str):
         """
@@ -228,62 +310,56 @@ class CronScheduler:
         Args:
             config_path: Path to the cron_config.py file or module path.
         """
+        self.config_file = config_path
         self.log.info(f'Loading cron configuration from {config_path}')
 
         global _job_data_registry
         _job_data_registry = []  # Clear global registry before loading module
 
-        is_file_path = os.path.sep in config_path or config_path.endswith('.py')
+        if os.path.isabs(config_path):
+            # Absolute paths must be loaded by file path (cannot be converted to valid module paths)
+            self.log.debug(f'Loading absolute file path: {config_path}')
 
-        if is_file_path:
-            # --- Handle as a file path ---
-            abs_path = os.path.abspath(config_path)
-            self.log.debug(f'Attempting to load as file path: {abs_path}')
-
-            # Immediately check if file exists
-            if not os.path.exists(abs_path):
-                error_msg = f"Configuration file not found at '{abs_path}'"
-                self.log.error(error_msg)
-                raise FileNotFoundError(error_msg)
-
-            # Check if it's actually a file and not a directory
-            if not os.path.isfile(abs_path):
-                error_msg = f"Configuration path points to a directory, not a file: '{abs_path}'"
-                self.log.error(error_msg)
-                raise IsADirectoryError(error_msg)
+            # Validate the file path
+            validate_absolute_path(config_path)
 
             # Load the file as a module
             module_name = f'rq_cron_config_{os.path.basename(config_path).replace(".", "_")}'
             try:
-                spec = importlib.util.spec_from_file_location(module_name, abs_path)
+                spec = importlib.util.spec_from_file_location(module_name, config_path)
                 if spec is None or spec.loader is None:
-                    error_msg = f'Could not create module spec for {abs_path}'
+                    error_msg = f'Could not create module spec for {config_path}'
                     self.log.error(error_msg)
                     raise ImportError(error_msg)
 
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[module_name] = module
                 spec.loader.exec_module(module)
-                self.log.debug(f'Successfully loaded config from file: {abs_path}')
+                self.log.debug(f'Successfully loaded config from file: {config_path}')
             except Exception as e:
                 if module_name in sys.modules:
                     del sys.modules[module_name]
-                error_msg = f"Failed to load configuration file '{abs_path}': {e}"
+                error_msg = f"Failed to load configuration file '{config_path}': {e}"
                 self.log.error(error_msg)
                 raise ImportError(error_msg) from e
-
         else:
-            # --- Handle as a module path ---
-            self.log.debug(f'Attempting to load as module path: {config_path}')
+            # Relative paths and dotted paths - normalize to dotted module format
+            normalized_path = normalize_config_path(config_path)
+            self.log.debug(f'Normalized path: {normalized_path}')
+
+            # Import the module using the normalized dotted path
             try:
-                importlib.import_module(config_path)
-                self.log.debug(f'Successfully loaded config from module: {config_path}')
+                if normalized_path in sys.modules:
+                    importlib.reload(sys.modules[normalized_path])
+                else:
+                    importlib.import_module(normalized_path)
+                self.log.debug(f'Successfully loaded config from module: {normalized_path}')
             except ImportError as e:
-                error_msg = f"Failed to import configuration module '{config_path}': {e}"
+                error_msg = f"Failed to import configuration module '{normalized_path}' (from '{config_path}'): {e}"
                 self.log.error(error_msg)
                 raise ImportError(error_msg) from e
             except Exception as e:
-                error_msg = f"An error occurred while importing configuration module '{config_path}': {e}"
+                error_msg = f"An error occurred while importing '{normalized_path}' (from '{config_path}'): {e}"
                 self.log.error(error_msg)
                 raise Exception(error_msg) from e
 
@@ -305,6 +381,122 @@ class CronScheduler:
         _job_data_registry = []  # type: ignore
         self.log.info(f"Successfully registered {job_count} cron jobs from '{config_path}'")
         # Method modifies the instance, no need to return self unless chaining is desired
+
+    @property
+    def key(self) -> str:
+        """Redis key for this CronScheduler instance"""
+        return f'rq:cron_scheduler:{self.name}'
+
+    def to_dict(self) -> Dict:
+        """Convert CronScheduler instance to a dictionary for Redis storage"""
+        obj = {
+            'hostname': self.hostname,
+            'pid': str(self.pid),
+            'name': self.name,
+            'created_at': utcformat(self.created_at),
+            'config_file': self.config_file or '',
+        }
+        return obj
+
+    def save(self, pipeline: Optional[Pipeline] = None) -> None:
+        """Save CronScheduler instance to Redis hash with TTL"""
+        connection = pipeline if pipeline is not None else self.connection
+        connection.hset(self.key, mapping=self.to_dict())
+        connection.expire(self.key, 60)
+
+    def restore(self, raw_data: Dict) -> None:
+        """Restore CronScheduler instance from Redis hash data"""
+        obj = decode_redis_hash(raw_data, decode_values=True)
+
+        self.hostname = obj['hostname']
+        self.pid = int(obj.get('pid', 0))
+        self.name = obj['name']
+        self.created_at = str_to_date(obj['created_at'])
+        self.config_file = obj['config_file']
+
+    @classmethod
+    def fetch(cls, name: str, connection: Redis) -> 'CronScheduler':
+        """Fetch a CronScheduler instance from Redis by name"""
+        key = f'rq:cron_scheduler:{name}'
+        raw_data = connection.hgetall(key)
+
+        if not raw_data:
+            raise SchedulerNotFound(f"CronScheduler with name '{name}' not found")
+
+        scheduler = cls(connection=connection, name=name)
+        scheduler.restore(raw_data)
+        return scheduler
+
+    @classmethod
+    def all(cls, connection: Redis, cleanup: bool = True) -> List['CronScheduler']:
+        """Returns all CronScheduler instances from the registry
+
+        Args:
+            connection: Redis connection to use
+            cleanup: If True, removes stale entries from registry before fetching schedulers
+
+        Returns:
+            List of CronScheduler instances
+        """
+        from contextlib import suppress
+
+        if cleanup:
+            cron_scheduler_registry.cleanup(connection)
+
+        scheduler_names = cron_scheduler_registry.get_keys(connection)
+        schedulers = []
+
+        for name in scheduler_names:
+            with suppress(SchedulerNotFound):
+                scheduler = cls.fetch(name, connection)
+                schedulers.append(scheduler)
+
+        return schedulers
+
+    def register_birth(self) -> None:
+        """Register this scheduler's birth in the scheduler registry and save data to Redis hash"""
+        self.log.info(f'CronScheduler {self.name}: registering birth...')
+
+        with self.connection.pipeline() as pipeline:
+            cron_scheduler_registry.register(self, pipeline)
+            self.save(pipeline)
+            pipeline.execute()
+
+    def register_death(self, pipeline: Optional[Pipeline] = None) -> None:
+        """Register this scheduler's death by removing it from the scheduler registry"""
+        self.log.info(f'CronScheduler {self.name}: registering death...')
+        cron_scheduler_registry.unregister(self, pipeline)
+
+    def heartbeat(self, pipeline: Optional[Pipeline] = None) -> None:
+        """Send a heartbeat to update this scheduler's last seen timestamp in the registry
+
+        Args:
+            pipeline: Redis pipeline to use. If None, uses self.connection
+        """
+        connection = pipeline if pipeline is not None else self.connection
+
+        # Use current timestamp as score to track when scheduler was last seen
+        # Use ch=True to get count of changed elements (includes score updates)
+        result = connection.zadd(cron_scheduler_registry.get_registry_key(), {self.name: time.time()}, xx=True, ch=True)
+        if result:
+            self.log.debug(f'CronScheduler {self.name}: heartbeat sent successfully')
+        else:
+            self.log.warning(f'CronScheduler {self.name}: heartbeat failed - scheduler not found in registry')
+
+    @property
+    def last_heartbeat(self) -> Optional[datetime]:
+        """Return the UTC datetime of the last heartbeat, or None if no heartbeat recorded
+
+        Returns:
+            datetime: UTC datetime of the last heartbeat, or None if scheduler not found in registry
+        """
+        score = self.connection.zscore(cron_scheduler_registry.get_registry_key(), self.name)
+
+        if score is None:
+            return None
+
+        # Convert Unix timestamp to UTC datetime
+        return datetime.fromtimestamp(score, tz=timezone.utc)
 
 
 # Global registry to store job data before Cron instance is created

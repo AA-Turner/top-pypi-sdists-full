@@ -1,3 +1,4 @@
+import os
 import re
 import time
 import traceback
@@ -22,6 +23,10 @@ from adam.apps import Apps
 from . import __version__
 
 def enter_repl(state: ReplState):
+    if os.getenv('QING_DROPPED', 'false') == 'true':
+        log2('You have dropped to bash from another qing instance. Please enter "exit" to go back to qing.')
+        return
+
     cmd_list: list[Command] = ReplCommands.repl_cmd_list() + [Help()]
     # head with the Chain of Responsibility pattern
     cmds: Command = Command.chain(cmd_list)

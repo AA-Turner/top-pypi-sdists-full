@@ -1159,6 +1159,7 @@ __all__ = (
     "ImageSourceTypeDef",
     "ImageStaticFileTypeDef",
     "ImageTypeDef",
+    "ImpalaParametersTypeDef",
     "IncrementalRefreshTypeDef",
     "IngestionTypeDef",
     "InnerFilterOutputTypeDef",
@@ -2948,6 +2949,12 @@ class DatabricksParametersTypeDef(TypedDict):
 class ExasolParametersTypeDef(TypedDict):
     Host: str
     Port: int
+
+class ImpalaParametersTypeDef(TypedDict):
+    Host: str
+    Port: int
+    SqlEndpointPath: str
+    Database: NotRequired[str]
 
 class JiraParametersTypeDef(TypedDict):
     SiteBaseUrl: str
@@ -8105,6 +8112,7 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     StarburstParameters: NotRequired[StarburstParametersTypeDef]
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
+    ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
 
 class DestinationParameterValueConfigurationTypeDef(TypedDict):
     CustomValuesConfiguration: NotRequired[CustomValuesConfigurationTypeDef]
@@ -9305,6 +9313,7 @@ class DataSourceParametersTypeDef(TypedDict):
     StarburstParameters: NotRequired[StarburstParametersTypeDef]
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
+    ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
 
 class CreateRefreshScheduleRequestTypeDef(TypedDict):
     DataSetId: str
@@ -11469,7 +11478,9 @@ class GeospatialMapConfigurationTypeDef(TypedDict):
 class HeatMapConfigurationOutputTypeDef(TypedDict):
     FieldWells: NotRequired[HeatMapFieldWellsOutputTypeDef]
     SortConfiguration: NotRequired[HeatMapSortConfigurationOutputTypeDef]
+    RowAxisDisplayOptions: NotRequired[AxisDisplayOptionsOutputTypeDef]
     RowLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
+    ColumnAxisDisplayOptions: NotRequired[AxisDisplayOptionsOutputTypeDef]
     ColumnLabelOptions: NotRequired[ChartAxisLabelOptionsOutputTypeDef]
     ColorScale: NotRequired[ColorScaleOutputTypeDef]
     Legend: NotRequired[LegendOptionsTypeDef]
@@ -11480,7 +11491,9 @@ class HeatMapConfigurationOutputTypeDef(TypedDict):
 class HeatMapConfigurationTypeDef(TypedDict):
     FieldWells: NotRequired[HeatMapFieldWellsTypeDef]
     SortConfiguration: NotRequired[HeatMapSortConfigurationTypeDef]
+    RowAxisDisplayOptions: NotRequired[AxisDisplayOptionsTypeDef]
     RowLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
+    ColumnAxisDisplayOptions: NotRequired[AxisDisplayOptionsTypeDef]
     ColumnLabelOptions: NotRequired[ChartAxisLabelOptionsTypeDef]
     ColorScale: NotRequired[ColorScaleTypeDef]
     Legend: NotRequired[LegendOptionsTypeDef]
@@ -11785,6 +11798,7 @@ class PluginVisualOutputTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[PluginVisualConfigurationOutputTypeDef]
+    Actions: NotRequired[List[VisualCustomActionOutputTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 class PluginVisualTypeDef(TypedDict):
@@ -11793,6 +11807,7 @@ class PluginVisualTypeDef(TypedDict):
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[PluginVisualConfigurationTypeDef]
+    Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
     VisualContentAltText: NotRequired[str]
 
 class TableConfigurationOutputTypeDef(TypedDict):

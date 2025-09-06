@@ -14,8 +14,7 @@ from logging import Logger
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -97,18 +96,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         pass  # pragma: nocover
 
-    def estimate_early_stopping_savings(
-        self, experiment: Experiment, map_key: str | None = None
-    ) -> float:
+    def estimate_early_stopping_savings(self, experiment: Experiment) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
         on the EarlyStoppingConfig as a proxy for resource usage.
 
         Args:
             experiment: The experiment containing the trials and metrics used
                 to estimate early stopping savings.
-            map_key: The name of the map_key by which to estimate early stopping
-                savings, usually steps. If none is specified use some arbitrary map_key
-                in the experiment's MapData.
 
         Returns:
             The estimated resource savings as a fraction of total resource usage (i.e.
@@ -118,16 +112,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         if experiment.default_data_constructor is not MapData:
             return 0
 
-        if map_key is None:
-            if self.metric_names:
-                first_metric_name = next(iter(self.metric_names))
-                first_metric = experiment.metrics[first_metric_name]
-                map_key = assert_is_instance(first_metric, MapMetric).map_key_info.key
-
-        return estimate_early_stopping_savings(
-            experiment=experiment,
-            map_key=map_key,
-        )
+        return estimate_early_stopping_savings(experiment=experiment)
 
     def _check_validity_and_get_data(
         self, experiment: Experiment, metric_names: list[str]
@@ -160,26 +145,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             return None
 
         data = assert_is_instance(data, MapData)
-        map_keys = data.map_keys
-        if len(list(map_keys)) > 1:
-            logger.info(
-                f"{self.__class__.__name__} expects MapData with a single "
-                "map key, but the data attached to the experiment has multiple: "
-                f"{data.map_keys}. Not stopping any trials."
-            )
-            return None
         map_df = data.map_df
         # keep only relevant metrics
         map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()
         if self.normalize_progressions:
-            for map_key in map_keys:
-                values = map_df[map_key].astype(float)
-                map_df[map_key] = values / values.abs().max()
-        return MapData(
-            df=map_df,
-            map_key_infos=data.map_key_infos,
-            description=data.description,
-        )
+            values = map_df[MAP_KEY].astype(float)
+            map_df[MAP_KEY] = values / values.abs().max()
+        return MapData(df=map_df)
 
     @staticmethod
     def _log_and_return_trial_ignored(
@@ -230,7 +202,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_indices: set[int],
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: str | None = None,
     ) -> bool:
         """Perform a series of default checks for a set of trials `trial_indices` and
         determine if at least one of them is eligible for further stopping logic:
@@ -261,8 +232,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         # check that at least one trial has reached `self.min_progression`
         df_trials = df[df["trial_index"].isin(trial_indices)].dropna(subset=["mean"])
         any_last_prog = 0
-        if not df_trials[map_key].empty:
-            any_last_prog = df_trials[map_key].max()
+        if not df_trials[MAP_KEY].empty:
+            any_last_prog = df_trials[MAP_KEY].max()
 
         if self.min_progression is not None and any_last_prog < self.min_progression:
             # No trials have reached `self.min_progression`, not stopping any trials
@@ -275,7 +246,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_index: int,
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: str,
     ) -> tuple[bool, str | None]:
         """Perform a series of default checks for a specific trial `trial_index` and
         determines whether it is eligible for further stopping logic:
@@ -297,7 +267,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 otherwise return False even though the trial is eligible, if there are
                 secondary tracking metrics that are in `df` but shouldn't be considered
                 in the early stopping decision.
-            map_key: The name of the column containing the progression (e.g. time).
 
         Returns:
             A tuple of two elements: a boolean indicating if the trial is eligible and
@@ -323,7 +292,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 )
 
             # check for min/max progression
-            trial_last_prog = df_trial[map_key].max()
+            trial_last_prog = df_trial[MAP_KEY].max()
             if (
                 self.min_progression is not None
                 and trial_last_prog < self.min_progression
@@ -352,8 +321,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return next(iter(objectives_to_directions.items()))
 
     def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
-        """Returns a dict containing the metric names and corresponding directions for
-        each objective in the experiment or in `self.metric_names`, if specified.
+        """A dictionary mapping metric names to corresponding directions, i.e.
+        a Boolean indicating whether the objective is minimized, for each objective in
+        the experiment or in `self.metric_names`, if specified.
+
+        Args:
+            experiment: The experiment containing the optimization config.
+
+        Returns: A dictionary mapping metric names to a Boolean indicating whether
+            the objective is being minimized.
         """
         if self.metric_names is None:
             logger.debug(
@@ -445,14 +421,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
         if map_data is not None and self.min_progression_modeling is not None:
             map_df = map_data.map_df
-            map_df = map_df[
-                map_df[map_data.map_keys[0]] >= self.min_progression_modeling
-            ]
-            map_data = MapData(
-                df=map_df,
-                map_key_infos=map_data.map_key_infos,
-                description=map_data.description,
-            )
+            map_df = map_df[map_df[MAP_KEY] >= self.min_progression_modeling]
+            map_data = MapData(df=map_df)
         return map_data
 
     def get_training_data(
@@ -463,6 +433,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,
     ) -> None:
+        # Deprecated in Ax 1.1.0, so should be removed in Ax 1.2.0+.
         raise DeprecationWarning(
             "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
             "Subclasses should either extract the training data manually, "

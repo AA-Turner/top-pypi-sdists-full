@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.list_completed_jobs_response_200_item_raw_flow_failure_module_retry_exponential import (
         ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryExponential,
     )
+    from ..models.list_completed_jobs_response_200_item_raw_flow_failure_module_retry_retry_if import (
+        ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf,
+    )
 
 
 T = TypeVar("T", bound="ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry")
@@ -23,10 +26,12 @@ class ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry:
     Attributes:
         constant (Union[Unset, ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryConstant]):
         exponential (Union[Unset, ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryExponential]):
+        retry_if (Union[Unset, ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,10 @@ class ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +54,8 @@ class ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +66,9 @@ class ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry:
         )
         from ..models.list_completed_jobs_response_200_item_raw_flow_failure_module_retry_exponential import (
             ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryExponential,
+        )
+        from ..models.list_completed_jobs_response_200_item_raw_flow_failure_module_retry_retry_if import (
+            ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +86,17 @@ class ListCompletedJobsResponse200ItemRawFlowFailureModuleRetry:
         else:
             exponential = ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ListCompletedJobsResponse200ItemRawFlowFailureModuleRetryRetryIf.from_dict(_retry_if)
+
         list_completed_jobs_response_200_item_raw_flow_failure_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         list_completed_jobs_response_200_item_raw_flow_failure_module_retry.additional_properties = d

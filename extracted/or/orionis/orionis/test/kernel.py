@@ -69,10 +69,11 @@ class TestKernel(ITestKernel):
         """
 
         # Run the unit test suite and collect the output summary
-        output = self.__unit_test.run()
+        output = self.__app.call(self.__unit_test, 'run')
 
         # Only log detailed report if output is available
-        if output is not None:
+        if output is not None and isinstance(output, dict):
+
             # Extract report details from output dictionary
             total_tests = output.get("total_tests", 0)
             passed = output.get("passed", 0)

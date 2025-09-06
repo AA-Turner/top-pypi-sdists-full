@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-ray
-Version: 0.0.23
+Version: 0.1.0
 Summary: Dagster integration library for Ray
 Project-URL: repository, https://github.com/danielgafni/dagster-ray
 Author-email: Daniel Gafni <danielgafni16@gmail.com>
@@ -45,17 +45,19 @@ Description-Content-Type: text/markdown
 
 [Ray](https://github.com/ray-project/ray) integration for [Dagster](https://github.com/dagster-io/dagster).
 
-`dagster-ray` allows orchestrating distributed Ray compute from Dagster pipelines. It includes:
+`dagster-ray` orchestrates distributed Ray compute from Dagster pipelines. It includes:
 
 - `RayRunLauncher` - a `RunLauncher` which submits Dagster runs as isolated Ray jobs (in cluster mode) to a Ray cluster.
 
 - `ray_executor` - an `Executor` which submits individual Dagster steps as isolated Ray jobs (in cluster mode) to a Ray cluster.
 
-- `RayIOManager` - an `IOManager` which stores intermediate values in Ray's object store. Ideal in conjunction with `RayRunLauncher` and `ray_executor`.
-
 - `PipesRayjobClient`, a [Dagster Pipes](https://docs.dagster.io/concepts/dagster-pipes) client for launching and monitoring Ray jobs on remote clusters. Typically used with external Pythons scripts. Allows receiving rich logs, events and metadata from the job. Doesn't handle cluster management, can be used with any Ray cluster.
 
 - `PipesKubeRayJobClient`, a [Dagster Pipes](https://docs.dagster.io/concepts/dagster-pipes) client for launching and monitoring [KubeRay](https://github.com/ray-project/kuberay)'s `RayJob` CR on Kubernetes. Typically used with external Pythons scripts. Allows receiving rich logs, events and metadata from the job.
+
+- `KubeRayInteractiveJob` - a Dagster resource that utilizes `RayJob`'s `InteractiveMode` to seamlessly run Ray jobs on Kubernetes in client (interactive) mode without the need to write and call external Python scripts.
+
+- `RayIOManager` - an `IOManager` which stores intermediate values in Ray's object store. Ideal in conjunction with `RayRunLauncher` and `ray_executor`.
 
 - `RayResource`, a resource representing a Ray cluster. Interactions with Ray are performed in **client mode** (requires stable persistent connection), so it's most suitable for relatively short-lived jobs. It has implementations for `KubeRay` and local (mostly for testing) backends. `dagster_ray.RayResource` defines the common interface shared by all backends and can be used for backend-agnostic type annotations.
 
@@ -66,21 +68,24 @@ Description-Content-Type: text/markdown
 Documentation can be found below.
 
 > [!NOTE]
-> This project is in early development. APIs are unstable and can change at any time. Contributions are very welcome! See the [Development](#development) section below.
+> This project is ready for production use, but some APIs may change between minor releases.
+
+# Contributing
+
+Contributions are very welcome! See the [Development](#development) section below to get started with the codebase locally.
 
 # Feature Matrix
 
 There are different options available for running Dagster code on Ray. The following table summarizes the features of each option:
 
-| Feature | `RayRunLauncher` | `ray_executor` | `PipesRayJobClient` | `PipesKubeRayJobClient` | `KubeRayCluster` |
-| --- | --- | --- | --- | --- | --- |
-| Creates Ray cluster | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Submits jobs in cluster mode | ✅ | ✅ | ✅ | ✅ | ❌ |
-| For long-running jobs | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Enabled per-asset  | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Configurable per-asset | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Doesn't need an external script | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Ray cluster doesn't need access to Dagster's metadata DB and logs storage | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Feature | `RayRunLauncher` | `ray_executor` | `PipesRayJobClient` | `PipesKubeRayJobClient` | `KubeRayCluster` | `KubeRayInteractiveJob` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Manages the Ray cluster | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Submits jobs in cluster mode | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Enabled per-asset  | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Configurable per-asset | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Doesn't need an external script | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Ray cluster doesn't need access to Dagster's metadata DB and logs storage | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 
 # Examples
 
@@ -269,7 +274,7 @@ def downstream_unpartitioned(upstream: Dict[str, str]) -> None:
 
 ### `PipesRayJobClient`
 
-A general-purpose Ray job client that can be used to submit Ray jobs and receive logs and Dagster events from them. It doesn't manage the cluser lifecycle and can be used with any Ray cluster.
+A general-purpose Ray job client that can be used to submit Ray jobs and receive logs and Dagster events from them. It doesn't manage the cluster lifecycle and can be used with any Ray cluster.
 
 Examples:
 
@@ -388,8 +393,12 @@ This backend requires a Kubernetes cluster with `KubeRay Operator` installed.
 
 Integrates with [Dagster+](https://dagster.io/plus) by injecting environment variables such as `DAGSTER_CLOUD_DEPLOYMENT_NAME` and tags such as `dagster/user` into default configuration values and Kubernetes labels.
 
-To run `ray` code in client mode (from the Dagster Python process directly), use the `KubeRayClient` resource (see the [KubeRayCluster](#KubeRayCluster) section).
+To run `ray` code in client mode (from the Dagster Python process directly), use the `KubeRayInteractiveJob` resource (preferred, see the [KubeRayInteractiveJob](#KubeRayInteractiveJob) section) or the `KubeRayCluster` resource (see the [KubeRayCluster](#KubeRayCluster) section).
+
 To run `ray` code in job mode, use the `PipesKubeRayJobClient` with Dagster Pipes (see the [Pipes](#pipes) section).
+
+> [!NOTE]
+> While client mode is typically considered less reliable than job mode, in practice I (@danielgafni) did not encounter **any** stability issues with it over a few years of running Ray in production.
 
 The public objects can be imported from `dagster_ray.kuberay` module.
 
@@ -483,9 +492,13 @@ pipes_kube_rayjob_client = PipesKubeRayJobClient(..., port_forward=not in_k8s)
 `KubeRayCluster` can be used for running Ray computations on Kubernetes in client (interactive) mode. Requires stable persistent connection through the duration of the Dagster step.
 
 When added as resource dependency to an `@op/@asset`, the `KubeRayCluster`:
- - Starts a dedicated `RayCluster` for it
- - Connects  to the cluster in client mode with `ray.init()` (unless `skip_init` is set to `True`)
- - Tears down the cluster after the step is executed (unless `skip_cleanup` is set to `True`)
+ - Creates (controlled with `Lifecycle.create`) a dedicated `RayCluster` for the Dagster step
+ - Waits for it to become ready
+ - Connects to the cluster in client mode with `ray.init`
+ - Deletes the cluster after step execution (unless `cleanup` is set to `False`)
+
+> ![NOTE]
+> These actions happen automatically by default, but this is configurable. The user may proceed with them manually on-demand.
 
 `RayCluster` comes with minimal default configuration, matching `KubeRay` defaults.
 
@@ -515,23 +528,120 @@ definitions = Definitions(
 Larger cluster with auto-scaling enabled:
 
 ```python
-from dagster_ray.kuberay import KubeRayCluster, RayClusterConfig
+from dagster_ray.kuberay import KubeRayCluster, RayClusterConfig, KubeRaySpec
 
 ray_cluster = KubeRayCluster(
     ray_cluster=RayClusterConfig(
-        enable_in_tree_autoscaling=True,
-        worker_group_specs=[
-            {
-                "groupName": "workers",
-                "replicas": 2,
-                "minReplicas": 1,
-                "maxReplicas": 10,
-                # ...
-            }
-        ],
+        spec=KubeRaySpec(
+            enable_in_tree_autoscaling=True,
+            worker_group_specs=[
+                {
+                    "groupName": "workers",
+                    "replicas": 2,
+                    "minReplicas": 1,
+                    "maxReplicas": 10,
+                    # ...
+                }
+            ],
+        )
     )
 )
 ```
+
+Defer cluster creation:
+
+```python
+from dagster import asset, Definitions
+from dagster_ray import RayResource, Lifecycle
+from dagster_ray.kuberay import KubeRayCluster
+import ray
+
+
+@asset
+def my_asset(
+    ray_cluster: RayResource,
+):
+    if i_want_to_create_raycluster_now():
+        ray_cluster.create(context)
+        ray_cluster.wait(context)
+        ray.get(ray.put(42))  # interact with the Ray cluster!
+    else:
+        context.log.info("Skipping cluster creation")
+
+
+definitions = Definitions(
+    resources={"ray_cluster": KubeRayCluster(lifecycle=Lifecycle(create=False))},
+    assets=[my_asset],
+)
+```
+
+### `KubeRayInteractiveJob`
+
+`KubeRayInteractiveJob` creates a `RayJob` for running Ray computations on Kubernetes in client (interactive) mode. It utilizes the new `InteractiveMode` for `RayJob` introduced in KubeRay 1.3.0.
+
+This resource combines the benefits of `KubeRayCluster` with `RayJob` features:
+- Convenience of using Ray with the client (interactive) mode
+- Automatic cleanup via `ttlSecondsAfterFinished`
+- Timeouts via `activeDeadlineSeconds`
+
+When added as resource dependency to an `@op/@asset`, the `KubeRayInteractiveJob`:
+- Creates a "paused" `RayJob`
+- Waits for the underlying `RayCluster` to become ready
+- Connects to the cluster in client mode with `ray.init` and annotates the `RayJob` with the job submission ID. The normal `RayJob` lifecycle continues afterwards.
+
+> ![NOTE]
+> These actions happen automatically by default, but this is configurable. The user may proceed with them manually on-demand.
+
+Examples:
+
+Basic usage:
+
+```python
+from dagster import asset, Definitions
+from dagster_ray import RayResource
+from dagster_ray.kuberay import KubeRayInteractiveJob
+import ray
+
+
+@asset
+def my_asset(
+    ray_job: RayResource,  # RayResource is a backend-agnostic type annotation
+):
+    return ray.get(ray.put(42))  # interact with the Ray cluster!
+
+
+definitions = Definitions(
+    resources={"ray_job": KubeRayInteractiveJob()}, assets=[my_asset]
+)
+```
+
+With custom configuration:
+
+```python
+from dagster_ray.kuberay import KubeRayInteractiveJob, RayJobConfig, RayJobSpec
+
+ray_job = KubeRayInteractiveJob(
+    ray_job=InteractiveRayJobConfig(
+        spec=InteractiveRayJobSpec(
+            active_deadline_seconds=3600,  # 1 hour timeout
+            ttl_seconds_after_finished=300,  # cleanup after 5 minutes
+            ray_cluster_spec=RayClusterSpec(
+                worker_group_specs=[
+                    {
+                        "groupName": "workers",
+                        "replicas": 2,
+                        # ...
+                    }
+                ],
+            ),
+        )
+    )
+)
+```
+
+> [!NOTE]
+> Requires KubeRay 1.3.0 or later for `InteractiveMode` support.
+
 ### `KubeRayClient`
 
 This resource can be used to interact with the Kubernetes API Server.

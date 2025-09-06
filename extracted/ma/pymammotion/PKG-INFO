@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pymammotion
-Version: 0.5.28
+Version: 0.5.30
 Summary: 
 License: GPL-3.0
 Author: Michael Arthur
@@ -21,6 +21,7 @@ Requires-Dist: bleak (>=0.21.0)
 Requires-Dist: bleak-retry-connector (>=3.5.0)
 Requires-Dist: crcmod (>=1.7,<2.0)
 Requires-Dist: cryptography (>=43.0.1)
+Requires-Dist: grpclib (>=0.4.8,<0.5.0)
 Requires-Dist: jsonic (>=1.0.0,<2.0.0)
 Requires-Dist: mashumaro (>=3.13,<4.0)
 Requires-Dist: numpy (>=1.26.0)

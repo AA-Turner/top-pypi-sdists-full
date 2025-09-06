@@ -27,6 +27,7 @@ __all__ = (
     "AttributeMatchingModelType",
     "ComparisonOperatorType",
     "ConflictResolvingModelType",
+    "ContactTypeType",
     "CustomerProfilesServiceName",
     "DataFormatType",
     "DataPullModeType",
@@ -59,6 +60,8 @@ __all__ = (
     "PaginatorName",
     "PartyTypeType",
     "PeriodUnitType",
+    "ProfileTypeDimensionTypeType",
+    "ProfileTypeType",
     "QueryResultType",
     "RangeUnitType",
     "ReadinessStatusType",
@@ -122,6 +125,15 @@ ComparisonOperatorType = Literal[
     "ON",
 ]
 ConflictResolvingModelType = Literal["RECENCY", "SOURCE"]
+ContactTypeType = Literal[
+    "BusinessEmailAddress",
+    "BusinessPhoneNumber",
+    "EmailAddress",
+    "HomePhoneNumber",
+    "MobilePhoneNumber",
+    "PersonalEmailAddress",
+    "PhoneNumber",
+]
 DataFormatType = Literal["CSV", "JSONL", "ORC"]
 DataPullModeType = Literal["Complete", "Incremental"]
 DateDimensionTypeType = Literal["AFTER", "BEFORE", "BETWEEN", "NOT_BETWEEN", "ON"]
@@ -204,6 +216,8 @@ OperatorPropertiesKeysType = Literal[
 OperatorType = Literal["EQUAL_TO", "GREATER_THAN", "LESS_THAN", "NOT_EQUAL_TO"]
 PartyTypeType = Literal["BUSINESS", "INDIVIDUAL", "OTHER"]
 PeriodUnitType = Literal["DAYS", "HOURS", "MONTHS", "WEEKS"]
+ProfileTypeDimensionTypeType = Literal["EXCLUSIVE", "INCLUSIVE"]
+ProfileTypeType = Literal["ACCOUNT_PROFILE", "PROFILE"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
 RangeUnitType = Literal["DAYS"]
 ReadinessStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PREPARING"]
@@ -365,6 +379,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -376,8 +391,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

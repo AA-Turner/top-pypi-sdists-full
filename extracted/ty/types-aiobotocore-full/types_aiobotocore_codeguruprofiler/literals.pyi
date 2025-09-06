@@ -34,6 +34,7 @@ __all__ = (
     "MetricTypeType",
     "OrderByType",
     "PaginatorName",
+    "RegionName",
     "ResourceServiceName",
     "ServiceName",
 )
@@ -92,6 +93,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -103,8 +105,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -492,3 +496,15 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal["list_profile_times"]
+RegionName = Literal[
+    "ap-northeast-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "us-east-1",
+    "us-east-2",
+    "us-west-2",
+]

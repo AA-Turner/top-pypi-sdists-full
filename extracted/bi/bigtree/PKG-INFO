@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigtree
-Version: 0.29.2
+Version: 0.30.0
 Summary: Tree Implementation and Methods for Python, integrated with list, dictionary, pandas and polars DataFrame.
 Project-URL: Documentation, https://bigtree.readthedocs.io
 Project-URL: Issues, https://github.com/kayjan/bigtree/issues
@@ -191,6 +191,8 @@ Examples of extra packages include:
 - `matplotlib`: for plotting trees
 - `pandas`: for pandas methods
 - `polars`: for polars methods
+- `query` for tree query methods
+- `vis`: for pyvis visualisation
 
 For `image` extra dependency, you may need to install more plugins.
 

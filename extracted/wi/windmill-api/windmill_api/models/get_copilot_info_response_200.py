@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.get_copilot_info_response_200_code_completion_model import (
         GetCopilotInfoResponse200CodeCompletionModel,
     )
+    from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
     from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
     from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
@@ -23,11 +24,13 @@ class GetCopilotInfoResponse200:
         providers (Union[Unset, GetCopilotInfoResponse200Providers]):
         default_model (Union[Unset, GetCopilotInfoResponse200DefaultModel]):
         code_completion_model (Union[Unset, GetCopilotInfoResponse200CodeCompletionModel]):
+        custom_prompts (Union[Unset, GetCopilotInfoResponse200CustomPrompts]):
     """
 
     providers: Union[Unset, "GetCopilotInfoResponse200Providers"] = UNSET
     default_model: Union[Unset, "GetCopilotInfoResponse200DefaultModel"] = UNSET
     code_completion_model: Union[Unset, "GetCopilotInfoResponse200CodeCompletionModel"] = UNSET
+    custom_prompts: Union[Unset, "GetCopilotInfoResponse200CustomPrompts"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +46,10 @@ class GetCopilotInfoResponse200:
         if not isinstance(self.code_completion_model, Unset):
             code_completion_model = self.code_completion_model.to_dict()
 
+        custom_prompts: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.custom_prompts, Unset):
+            custom_prompts = self.custom_prompts.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -52,6 +59,8 @@ class GetCopilotInfoResponse200:
             field_dict["default_model"] = default_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
+        if custom_prompts is not UNSET:
+            field_dict["custom_prompts"] = custom_prompts
 
         return field_dict
 
@@ -60,6 +69,7 @@ class GetCopilotInfoResponse200:
         from ..models.get_copilot_info_response_200_code_completion_model import (
             GetCopilotInfoResponse200CodeCompletionModel,
         )
+        from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
         from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
         from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
@@ -85,10 +95,18 @@ class GetCopilotInfoResponse200:
         else:
             code_completion_model = GetCopilotInfoResponse200CodeCompletionModel.from_dict(_code_completion_model)
 
+        _custom_prompts = d.pop("custom_prompts", UNSET)
+        custom_prompts: Union[Unset, GetCopilotInfoResponse200CustomPrompts]
+        if isinstance(_custom_prompts, Unset):
+            custom_prompts = UNSET
+        else:
+            custom_prompts = GetCopilotInfoResponse200CustomPrompts.from_dict(_custom_prompts)
+
         get_copilot_info_response_200 = cls(
             providers=providers,
             default_model=default_model,
             code_completion_model=code_completion_model,
+            custom_prompts=custom_prompts,
         )
 
         get_copilot_info_response_200.additional_properties = d

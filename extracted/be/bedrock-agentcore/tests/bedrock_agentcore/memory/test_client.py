@@ -1,5 +1,6 @@
 """Unit tests for Memory Client - no external connections."""
 
+import time
 import uuid
 import warnings
 from datetime import datetime
@@ -2124,6 +2125,394 @@ def test_get_conversation_tree_client_error():
             assert "ValidationException" in str(e)
 
 
+def test_get_event():
+    """Test get_event functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_gmdp.get_event.return_value = {
+            "event": {
+                "eventId": "123#abc123",
+                "memoryId": "mem-123",
+                "actorId": "user-123",
+                "sessionId": "session-456",
+                "eventTimestamp": datetime.now(),
+                "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello"}}}],
+            }
+        }
+
+        # Test get_event
+        response = client.get_event(
+            memoryId="mem-123",
+            actorId="user-123",
+            sessionId="session-456",
+            eventId="123#abc123",
+        )
+
+        assert response["event"]["eventId"] == "123#abc123"
+        assert response["event"]["memoryId"] == "mem-123"
+        assert response["event"]["actorId"] == "user-123"
+        assert response["event"]["sessionId"] == "session-456"
+        assert len(response["event"]["payload"]) == 1
+        assert response["event"]["payload"][0]["conversational"]["role"] == "USER"
+
+        # Verify API call
+        args, kwargs = mock_gmdp.get_event.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["actorId"] == "user-123"
+        assert kwargs["sessionId"] == "session-456"
+        assert kwargs["eventId"] == "123#abc123"
+
+
+def test_get_event_client_error():
+    """Test get_event with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock ClientError
+        error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Event not found"}}
+        mock_gmdp.get_event.side_effect = ClientError(error_response, "GetEvent")
+
+        try:
+            client.get_event(
+                memory_id="mem-123",
+                actor_id="user-123",
+                session_id="session-456",
+                event_id="invalid-event",
+            )
+            raise AssertionError("ClientError was not raised")
+        except ClientError as e:
+            assert "ResourceNotFoundException" in str(e)
+
+
+def test_delete_event():
+    """Test delete_event functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Test delete_event
+        client.delete_event(
+            memoryId="mem-123",
+            actorId="user-123",
+            sessionId="session-456",
+            eventId="123#abc123",
+        )
+
+        # Verify API call
+        args, kwargs = mock_gmdp.delete_event.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["actorId"] == "user-123"
+        assert kwargs["sessionId"] == "session-456"
+        assert kwargs["eventId"] == "123#abc123"
+
+
+def test_delete_event_client_error():
+    """Test delete_event with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock ClientError
+        error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Event not found"}}
+        mock_gmdp.delete_event.side_effect = ClientError(error_response, "DeleteEvent")
+
+        try:
+            client.delete_event(
+                memory_id="mem-123",
+                actor_id="user-123",
+                session_id="session-456",
+                event_id="invalid-event",
+            )
+            raise AssertionError("ClientError was not raised")
+        except ClientError as e:
+            assert "ResourceNotFoundException" in str(e)
+
+
+def test_get_memory_record():
+    """Test get_memory_record functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_gmdp.get_memory_record.return_value = {
+            "memoryRecord": {
+                "memoryRecordId": "rec-123",
+                "memoryStrategyId": "strat-456",
+                "content": {"text": "Memory record content"},
+                "createdAt": int(time.time()),
+                "namespaces": ["test/namespace"],
+            }
+        }
+
+        # Test get_memory_record
+        response = client.get_memory_record(
+            memoryId="mem-123",
+            memoryRecordId="rec-123",
+        )
+
+        assert response["memoryRecord"]["memoryRecordId"] == "rec-123"
+        assert response["memoryRecord"]["memoryStrategyId"] == "strat-456"
+        assert response["memoryRecord"]["content"]["text"] == "Memory record content"
+        assert "createdAt" in response["memoryRecord"]
+        assert response["memoryRecord"]["namespaces"] == ["test/namespace"]
+
+        # Verify API call
+        args, kwargs = mock_gmdp.get_memory_record.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["memoryRecordId"] == "rec-123"
+
+
+def test_get_memory_record_client_error():
+    """Test get_memory_record with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock ClientError
+        error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Memory record not found"}}
+        mock_gmdp.get_memory_record.side_effect = ClientError(error_response, "GetMemoryRecord")
+
+        try:
+            client.get_memory_record(
+                memory_id="mem-123",
+                memory_record_id="invalid-record",
+            )
+            raise AssertionError("ClientError was not raised")
+        except ClientError as e:
+            assert "ResourceNotFoundException" in str(e)
+
+
+def test_delete_memory_record():
+    """Test delete_memory_record functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_gmdp.delete_memory_record.return_value = {"memoryRecordId": "rec-123"}
+
+        # Test delete_memory_record
+        response = client.delete_memory_record(
+            memoryId="mem-123",
+            memoryRecordId="rec-123",
+        )
+
+        assert response == {"memoryRecordId": "rec-123"}
+
+        # Verify API call
+        args, kwargs = mock_gmdp.delete_memory_record.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["memoryRecordId"] == "rec-123"
+
+
+def test_delete_memory_record_client_error():
+    """Test delete_memory_record with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock ClientError
+        error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Memory record not found"}}
+        mock_gmdp.delete_memory_record.side_effect = ClientError(error_response, "DeleteMemoryRecord")
+
+        try:
+            client.delete_memory_record(
+                memory_id="mem-123",
+                memory_record_id="invalid-record",
+            )
+            raise AssertionError("ClientError was not raised")
+        except ClientError as e:
+            assert "ResourceNotFoundException" in str(e)
+
+
+def test_list_memory_records():
+    """Test list_memory_records functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_gmdp.list_memory_records.return_value = {
+            "memoryRecordSummaries": [
+                {
+                    "memoryRecordId": "rec-1",
+                    "memoryStrategyId": "strat-456",
+                    "content": {"text": "Memory record 1"},
+                    "createdAt": int(time.time()),
+                    "namespaces": ["test/namespace"],
+                    "score": 0.95,
+                },
+                {
+                    "memoryRecordId": "rec-2",
+                    "memoryStrategyId": "strat-456",
+                    "content": {"text": "Memory record 2"},
+                    "createdAt": int(time.time()),
+                    "namespaces": ["test/namespace"],
+                    "score": 0.85,
+                },
+            ],
+            "nextToken": "next-page-token",
+        }
+
+        # Test list_memory_records
+        response = client.list_memory_records(memoryId="mem-123", namespace="test/namespace", maxResults=10)
+
+        assert response["memoryRecordSummaries"]
+        assert len(response["memoryRecordSummaries"]) == 2
+        assert response["memoryRecordSummaries"][0]["memoryRecordId"] == "rec-1"
+        assert response["memoryRecordSummaries"][1]["memoryRecordId"] == "rec-2"
+        assert response["memoryRecordSummaries"][0]["score"] == 0.95
+        assert response["memoryRecordSummaries"][1]["score"] == 0.85
+        assert response["nextToken"] == "next-page-token"
+
+        # Verify API call
+        args, kwargs = mock_gmdp.list_memory_records.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["maxResults"] == 10
+
+
+def test_list_memory_records_with_strategy_filter():
+    """Test list_memory_records with strategy filter."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response
+        mock_gmdp.list_memory_records.return_value = {
+            "memoryRecordSummaries": [
+                {
+                    "memoryRecordId": "rec-1",
+                    "memoryStrategyId": "strat-123",
+                    "content": {"text": "Memory record 1"},
+                    "createdAt": int(time.time()),
+                    "namespaces": ["test/namespace"],
+                }
+            ],
+            "nextToken": None,
+        }
+
+        # Test list_memory_records with strategy filter
+        response = client.list_memory_records(
+            memoryId="mem-123", namespace="test/namespace", memoryStrategyId="strat-123", maxResults=10
+        )
+
+        assert response["memoryRecordSummaries"]
+        assert len(response["memoryRecordSummaries"]) == 1
+        assert response["memoryRecordSummaries"][0]["memoryRecordId"] == "rec-1"
+        assert response["memoryRecordSummaries"][0]["memoryStrategyId"] == "strat-123"
+        assert response["nextToken"] is None
+
+        # Verify API call
+        args, kwargs = mock_gmdp.list_memory_records.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["namespace"] == "test/namespace"
+        assert kwargs["memoryStrategyId"] == "strat-123"
+        assert kwargs["maxResults"] == 10
+
+
+def test_list_memory_records_pagination():
+    """Test list_memory_records pagination."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock response for first page
+        mock_gmdp.list_memory_records.side_effect = [
+            {"memoryRecordSummaries": [{"memoryRecordId": "rec-1"}], "nextToken": "page2-token"},
+            {"memoryRecordSummaries": [{"memoryRecordId": "rec-2"}], "nextToken": None},
+        ]
+
+        # Get first page
+        response1 = client.list_memory_records(memoryId="mem-123", namespace="test/namespace")
+
+        assert len(response1["memoryRecordSummaries"]) == 1
+        assert response1["memoryRecordSummaries"][0]["memoryRecordId"] == "rec-1"
+        assert response1["nextToken"] == "page2-token"
+
+        # Get second page
+        response2 = client.list_memory_records(
+            memoryId="mem-123", namespace="test/namespace", nextToken=response1["nextToken"]
+        )
+
+        assert len(response2["memoryRecordSummaries"]) == 1
+        assert response2["memoryRecordSummaries"][0]["memoryRecordId"] == "rec-2"
+        assert response2["nextToken"] is None
+
+        # Verify API calls
+        assert mock_gmdp.list_memory_records.call_count == 2
+        second_call = mock_gmdp.list_memory_records.call_args_list[1]
+        assert second_call[1]["nextToken"] == "page2-token"
+
+
+def test_list_memory_records_client_error():
+    """Test list_memory_records with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Test various error types
+        error_cases = [
+            {"code": "ResourceNotFoundException", "message": "Memory not found"},
+            {"code": "ValidationException", "message": "Invalid parameters"},
+            {"code": "ServiceException", "message": "Internal service error"},
+            {"code": "UnknownException", "message": "Unknown error"},
+        ]
+
+        for error in error_cases:
+            # Mock ClientError
+            error_response = {"Error": {"Code": error["code"], "Message": error["message"]}}
+            mock_gmdp.list_memory_records.side_effect = ClientError(error_response, "ListMemoryRecords")
+
+            # Test error handling
+            try:
+                client.list_memory_records(memoryId="mem-123", namespace="test/namespace")
+                raise AssertionError("ClientError was not raised")
+            except ClientError as e:
+                assert error["code"] in str(e)
+
+
 def test_get_last_k_turns_client_error():
     """Test get_last_k_turns with ClientError."""
     with patch("boto3.client"):
@@ -2317,3 +2706,202 @@ def test_save_conversation_invalid_role_error():
         except ValueError as e:
             assert "Invalid role 'INVALID_ROLE'" in str(e)
             assert "Must be one of:" in str(e)
+
+
+def test_create_blob_event():
+    """Test create_blob_event functionality."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response
+        mock_gmdp.create_event.return_value = {"event": {"eventId": "event-blob-123", "memoryId": "mem-123"}}
+
+        # Test create_blob_event
+        blob_data = {"file_content": "base64_encoded_data", "metadata": {"type": "image"}}
+        result = client.create_blob_event(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            blob_data=blob_data,
+        )
+
+        assert result["eventId"] == "event-blob-123"
+
+        # Verify create_event was called with correct parameters
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert kwargs["memoryId"] == "mem-123"
+        assert kwargs["actorId"] == "user-123"
+        assert kwargs["sessionId"] == "session-456"
+        assert len(kwargs["payload"]) == 1
+        assert "blob" in kwargs["payload"][0]
+        assert kwargs["payload"][0]["blob"] == blob_data
+
+
+def test_create_blob_event_with_branch():
+    """Test create_blob_event with branch parameter."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock create_event response
+        mock_gmdp.create_event.return_value = {"event": {"eventId": "event-blob-branch-123", "memoryId": "mem-123"}}
+
+        # Test create_blob_event with branch
+        blob_data = {"data": "test_data"}
+        branch = {"name": "test-branch", "rootEventId": "event-root-123"}
+        result = client.create_blob_event(
+            memory_id="mem-123",
+            actor_id="user-123",
+            session_id="session-456",
+            blob_data=blob_data,
+            branch=branch,
+        )
+
+        assert result["eventId"] == "event-blob-branch-123"
+
+        # Verify branch was passed correctly
+        args, kwargs = mock_gmdp.create_event.call_args
+        assert kwargs["branch"] == branch
+
+
+def test_create_blob_event_client_error():
+    """Test create_blob_event with ClientError."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the client
+        mock_gmdp = MagicMock()
+        client.gmdp_client = mock_gmdp
+
+        # Mock ClientError
+        error_response = {
+            "Error": {
+                "Code": "ValidationException",
+                "Message": "Invalid blob data",
+            }
+        }
+        mock_gmdp.create_event.side_effect = ClientError(error_response, "CreateEvent")
+
+        try:
+            client.create_blob_event(
+                memory_id="mem-123",
+                actor_id="user-123",
+                session_id="session-456",
+                blob_data={"invalid": "data"},
+            )
+            raise AssertionError("ClientError was not raised")
+        except ClientError as e:
+            assert "ValidationException" in str(e)
+
+
+def test_create_or_get_memory_creates_new():
+    """Test create_or_get_memory creates new memory when it doesn't exist."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock create_memory_and_wait to return successful result
+        with patch.object(client, "create_memory_and_wait") as mock_create_and_wait:
+            mock_create_and_wait.return_value = {"memoryId": "new-memory-123", "status": "ACTIVE"}
+
+            result = client.create_or_get_memory(
+                name="TestMemory",
+                strategies=[{StrategyType.SEMANTIC.value: {"name": "TestStrategy"}}],
+            )
+
+            assert result["memoryId"] == "new-memory-123"
+            assert mock_create_and_wait.called
+
+
+def test_create_or_get_memory_gets_existing():
+    """Test create_or_get_memory returns existing memory when it already exists."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the gmcp_client
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+
+        # Mock ValidationException for create_memory (memory already exists)
+        error_response = {
+            "Error": {
+                "Code": "ValidationException",
+                "Message": "Memory with name 'ExistingMemory' already exists",
+            }
+        }
+        mock_gmcp.create_memory.side_effect = ClientError(error_response, "CreateMemory")
+
+        # Mock list_memories response
+        mock_gmcp.list_memories.return_value = {
+            "memories": [{"id": "ExistingMemory-456", "name": "ExistingMemory", "status": "ACTIVE"}],
+            "nextToken": None,
+        }
+
+        with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+            result = client.create_or_get_memory(
+                name="ExistingMemory",
+                strategies=[{StrategyType.SEMANTIC.value: {"name": "TestStrategy"}}],
+            )
+
+            assert result["id"] == "ExistingMemory-456"
+            assert mock_gmcp.create_memory.called
+            assert mock_gmcp.list_memories.called
+
+
+def test_create_or_get_memory_other_client_error():
+    """Test create_or_get_memory raises other ClientErrors."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the gmcp_client
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+
+        # Mock different ClientError (not "already exists")
+        error_response = {
+            "Error": {
+                "Code": "ValidationException",
+                "Message": "Invalid parameters",
+            }
+        }
+        mock_gmcp.create_memory.side_effect = ClientError(error_response, "CreateMemory")
+
+        with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+            try:
+                client.create_or_get_memory(
+                    name="TestMemory",
+                    strategies=[{StrategyType.SEMANTIC.value: {"name": "TestStrategy"}}],
+                )
+                raise AssertionError("ClientError was not raised")
+            except ClientError as e:
+                assert "ValidationException" in str(e)
+                assert "Invalid parameters" in str(e)
+
+
+def test_create_or_get_memory_general_exception():
+    """Test create_or_get_memory raises general exceptions."""
+    with patch("boto3.client"):
+        client = MemoryClient()
+
+        # Mock the gmcp_client
+        mock_gmcp = MagicMock()
+        client.gmcp_client = mock_gmcp
+
+        # Mock general exception
+        mock_gmcp.create_memory.side_effect = Exception("Unexpected error")
+
+        with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
+            try:
+                client.create_or_get_memory(
+                    name="TestMemory",
+                    strategies=[{StrategyType.SEMANTIC.value: {"name": "TestStrategy"}}],
+                )
+                raise AssertionError("Exception was not raised")
+            except Exception as e:
+                assert "Unexpected error" in str(e)

@@ -698,9 +698,16 @@ class HookQuerySetMixin:
                             if key in existing_db_map:
                                 db_record = existing_db_map[key]
                                 # Copy all fields from the database record to ensure completeness
+                                # but exclude auto_now_add fields which should never be updated
                                 populated_fields = []
                                 for field in model_cls._meta.local_fields:
                                     if field.name != "id":  # Don't overwrite the ID
+                                        # Skip auto_now_add fields for existing records
+                                        if (
+                                            hasattr(field, "auto_now_add")
+                                            and field.auto_now_add
+                                        ):
+                                            continue
                                         db_value = getattr(db_record, field.name)
                                         if (
                                             db_value is not None
@@ -805,6 +812,16 @@ class HookQuerySetMixin:
                 "update_fields": update_fields,
                 "unique_fields": unique_fields,
             }
+
+            # If we have classified records from upsert logic, pass them to MTI method
+            if (
+                update_conflicts
+                and unique_fields
+                and hasattr(ctx, "upsert_existing_records")
+            ):
+                mti_kwargs["existing_records"] = ctx.upsert_existing_records
+                mti_kwargs["new_records"] = ctx.upsert_new_records
+
             # Remove custom hook kwargs if present in self.bulk_create signature
             result = self._mti_bulk_create(
                 objs,
@@ -1619,6 +1636,10 @@ class HookQuerySetMixin:
         then single bulk insert into childmost table.
         Sets auto_now_add/auto_now fields for each model in the chain.
         """
+        # Extract classified records if available (for upsert operations)
+        existing_records = kwargs.pop("existing_records", [])
+        new_records = kwargs.pop("new_records", [])
+
         # Remove custom hook kwargs before passing to Django internals
         django_kwargs = {
             k: v
@@ -1640,12 +1661,23 @@ class HookQuerySetMixin:
             for i in range(0, len(objs), batch_size):
                 batch = objs[i : i + batch_size]
                 batch_result = self._process_mti_bulk_create_batch(
-                    batch, inheritance_chain, **django_kwargs
+                    batch,
+                    inheritance_chain,
+                    existing_records,
+                    new_records,
+                    **django_kwargs,
                 )
                 created_objects.extend(batch_result)
         return created_objects
 
-    def _process_mti_bulk_create_batch(self, batch, inheritance_chain, **kwargs):
+    def _process_mti_bulk_create_batch(
+        self,
+        batch,
+        inheritance_chain,
+        existing_records=None,
+        new_records=None,
+        **kwargs,
+    ):
         """
         Process a single batch of objects through the inheritance chain.
         Implements Django's suggested workaround #2: O(n) normal inserts into parent
@@ -1660,56 +1692,128 @@ class HookQuerySetMixin:
         bypass_hooks = kwargs.get("bypass_hooks", False)
         bypass_validation = kwargs.get("bypass_validation", False)
 
+        # Create a list for lookup (since model instances without PKs are not hashable)
+        existing_records_list = existing_records if existing_records else []
+
         for obj in batch:
             parent_instances = {}
             current_parent = None
+            is_existing_record = obj in existing_records_list
+
             for model_class in inheritance_chain[:-1]:
                 parent_obj = self._create_parent_instance(
                     obj, model_class, current_parent
                 )
 
-                # Fire parent hooks if not bypassed
-                if not bypass_hooks:
-                    ctx = HookContext(model_class)
-                    if not bypass_validation:
-                        engine.run(model_class, VALIDATE_CREATE, [parent_obj], ctx=ctx)
-                    engine.run(model_class, BEFORE_CREATE, [parent_obj], ctx=ctx)
+                if is_existing_record:
+                    # For existing records, we need to update the parent object instead of creating
+                    # The parent_obj should already have the correct PK from the database lookup
+                    # Fire parent hooks for updates
+                    if not bypass_hooks:
+                        ctx = HookContext(model_class)
+                        if not bypass_validation:
+                            engine.run(
+                                model_class, VALIDATE_UPDATE, [parent_obj], ctx=ctx
+                            )
+                        engine.run(model_class, BEFORE_UPDATE, [parent_obj], ctx=ctx)
 
-                # Use Django's base manager to create the object and get PKs back
-                # This bypasses hooks and the MTI exception
-                field_values = {
-                    field.name: getattr(parent_obj, field.name)
-                    for field in model_class._meta.local_fields
-                    if hasattr(parent_obj, field.name)
-                    and getattr(parent_obj, field.name) is not None
-                }
-                created_obj = model_class._base_manager.using(self.db).create(
-                    **field_values
-                )
+                    # Update the existing parent object
+                    # Filter update_fields to only include fields that exist in the parent model
+                    parent_update_fields = kwargs.get("update_fields")
+                    if parent_update_fields:
+                        # Only include fields that exist in the parent model
+                        parent_model_fields = {
+                            field.name for field in model_class._meta.local_fields
+                        }
+                        filtered_update_fields = [
+                            field
+                            for field in parent_update_fields
+                            if field in parent_model_fields
+                        ]
+                        parent_obj.save(update_fields=filtered_update_fields)
+                    else:
+                        parent_obj.save()
 
-                # Update the parent_obj with the created object's PK
-                parent_obj.pk = created_obj.pk
-                parent_obj._state.adding = False
-                parent_obj._state.db = self.db
+                    # Fire AFTER_UPDATE hooks for parent
+                    if not bypass_hooks:
+                        engine.run(model_class, AFTER_UPDATE, [parent_obj], ctx=ctx)
+                else:
+                    # For new records, create the parent object as before
+                    # Fire parent hooks if not bypassed
+                    if not bypass_hooks:
+                        ctx = HookContext(model_class)
+                        if not bypass_validation:
+                            engine.run(
+                                model_class, VALIDATE_CREATE, [parent_obj], ctx=ctx
+                            )
+                        engine.run(model_class, BEFORE_CREATE, [parent_obj], ctx=ctx)
 
-                # Fire AFTER_CREATE hooks for parent
-                if not bypass_hooks:
-                    engine.run(model_class, AFTER_CREATE, [parent_obj], ctx=ctx)
+                    # Use Django's base manager to create the object and get PKs back
+                    # This bypasses hooks and the MTI exception
+                    field_values = {
+                        field.name: getattr(parent_obj, field.name)
+                        for field in model_class._meta.local_fields
+                        if hasattr(parent_obj, field.name)
+                        and getattr(parent_obj, field.name) is not None
+                    }
+                    created_obj = model_class._base_manager.using(self.db).create(
+                        **field_values
+                    )
+
+                    # Update the parent_obj with the created object's PK
+                    parent_obj.pk = created_obj.pk
+                    parent_obj._state.adding = False
+                    parent_obj._state.db = self.db
+
+                    # Fire AFTER_CREATE hooks for parent
+                    if not bypass_hooks:
+                        engine.run(model_class, AFTER_CREATE, [parent_obj], ctx=ctx)
 
                 parent_instances[model_class] = parent_obj
                 current_parent = parent_obj
             parent_objects_map[id(obj)] = parent_instances
 
-        # Step 2: Create all child objects and do single bulk insert into childmost table
+        # Step 2: Handle child objects - create new ones and update existing ones
         child_model = inheritance_chain[-1]
         all_child_objects = []
-        for obj in batch:
-            child_obj = self._create_child_instance(
-                obj, child_model, parent_objects_map.get(id(obj), {})
-            )
-            all_child_objects.append(child_obj)
+        existing_child_objects = []
 
-        # Step 2.5: Use Django's internal bulk_create infrastructure
+        for obj in batch:
+            is_existing_record = obj in existing_records_list
+
+            if is_existing_record:
+                # For existing records, update the child object
+                child_obj = self._create_child_instance(
+                    obj, child_model, parent_objects_map.get(id(obj), {})
+                )
+                existing_child_objects.append(child_obj)
+            else:
+                # For new records, create the child object
+                child_obj = self._create_child_instance(
+                    obj, child_model, parent_objects_map.get(id(obj), {})
+                )
+                all_child_objects.append(child_obj)
+
+        # Step 2.5: Update existing child objects
+        if existing_child_objects:
+            for child_obj in existing_child_objects:
+                # Filter update_fields to only include fields that exist in the child model
+                child_update_fields = kwargs.get("update_fields")
+                if child_update_fields:
+                    # Only include fields that exist in the child model
+                    child_model_fields = {
+                        field.name for field in child_model._meta.local_fields
+                    }
+                    filtered_child_update_fields = [
+                        field
+                        for field in child_update_fields
+                        if field in child_model_fields
+                    ]
+                    child_obj.save(update_fields=filtered_child_update_fields)
+                else:
+                    child_obj.save()
+
+        # Step 2.6: Use Django's internal bulk_create infrastructure for new child objects
         if all_child_objects:
             # Get the base manager's queryset
             base_qs = child_model._base_manager.using(self.db)
@@ -1771,11 +1875,20 @@ class HookQuerySetMixin:
 
         # Step 3: Update original objects with generated PKs and state
         pk_field_name = child_model._meta.pk.name
+
+        # Handle new objects
         for orig_obj, child_obj in zip(batch, all_child_objects):
             child_pk = getattr(child_obj, pk_field_name)
             setattr(orig_obj, pk_field_name, child_pk)
             orig_obj._state.adding = False
             orig_obj._state.db = self.db
+
+        # Handle existing objects (they already have PKs, just update state)
+        for orig_obj in batch:
+            is_existing_record = orig_obj in existing_records_list
+            if is_existing_record:
+                orig_obj._state.adding = False
+                orig_obj._state.db = self.db
 
         return batch
 
@@ -1786,7 +1899,22 @@ class HookQuerySetMixin:
             if hasattr(source_obj, field.name):
                 value = getattr(source_obj, field.name, None)
                 if value is not None:
-                    setattr(parent_obj, field.name, value)
+                    # Handle foreign key fields properly
+                    if (
+                        field.is_relation
+                        and not field.many_to_many
+                        and not field.one_to_many
+                    ):
+                        # For foreign key fields, extract the ID if we have a model instance
+                        if hasattr(value, "pk") and value.pk is not None:
+                            # Set the foreign key ID field (e.g., loan_account_id)
+                            setattr(parent_obj, field.attname, value.pk)
+                        else:
+                            # If it's already an ID or None, use it as-is
+                            setattr(parent_obj, field.attname, value)
+                    else:
+                        # For non-relation fields, copy the value directly
+                        setattr(parent_obj, field.name, value)
         if current_parent is not None:
             for field in parent_model._meta.local_fields:
                 if (
@@ -1819,7 +1947,22 @@ class HookQuerySetMixin:
             if hasattr(source_obj, field.name):
                 value = getattr(source_obj, field.name, None)
                 if value is not None:
-                    setattr(child_obj, field.name, value)
+                    # Handle foreign key fields properly
+                    if (
+                        field.is_relation
+                        and not field.many_to_many
+                        and not field.one_to_many
+                    ):
+                        # For foreign key fields, extract the ID if we have a model instance
+                        if hasattr(value, "pk") and value.pk is not None:
+                            # Set the foreign key ID field (e.g., loan_account_id)
+                            setattr(child_obj, field.attname, value.pk)
+                        else:
+                            # If it's already an ID or None, use it as-is
+                            setattr(child_obj, field.attname, value)
+                    else:
+                        # For non-relation fields, copy the value directly
+                        setattr(child_obj, field.name, value)
 
         # Set parent links for MTI
         for parent_model, parent_instance in parent_instances.items():

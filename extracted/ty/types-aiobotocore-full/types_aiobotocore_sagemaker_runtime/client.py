@@ -102,7 +102,7 @@ class SageMakerRuntimeClient(AioBaseClient):
         self, **kwargs: Unpack[InvokeEndpointInputTypeDef]
     ) -> InvokeEndpointOutputTypeDef:
         """
-        After you deploy a model into production using Amazon SageMaker hosting
+        After you deploy a model into production using Amazon SageMaker AI hosting
         services, your client applications use this API to get inferences from the
         model hosted at the specified endpoint.
 
@@ -114,7 +114,7 @@ class SageMakerRuntimeClient(AioBaseClient):
         self, **kwargs: Unpack[InvokeEndpointAsyncInputTypeDef]
     ) -> InvokeEndpointAsyncOutputTypeDef:
         """
-        After you deploy a model into production using Amazon SageMaker hosting
+        After you deploy a model into production using Amazon SageMaker AI hosting
         services, your client applications use this API to get inferences from the
         model hosted at the specified endpoint in an asynchronous manner.
 

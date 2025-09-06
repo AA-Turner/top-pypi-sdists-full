@@ -118,6 +118,8 @@ from .type_defs import (
     CreateDataQualityRulesetResponseTypeDef,
     CreateDevEndpointRequestTypeDef,
     CreateDevEndpointResponseTypeDef,
+    CreateGlueIdentityCenterConfigurationRequestTypeDef,
+    CreateGlueIdentityCenterConfigurationResponseTypeDef,
     CreateIntegrationRequestTypeDef,
     CreateIntegrationResourcePropertyRequestTypeDef,
     CreateIntegrationResourcePropertyResponseTypeDef,
@@ -262,6 +264,7 @@ from .type_defs import (
     GetDevEndpointsResponseTypeDef,
     GetEntityRecordsRequestTypeDef,
     GetEntityRecordsResponseTypeDef,
+    GetGlueIdentityCenterConfigurationResponseTypeDef,
     GetIntegrationResourcePropertyRequestTypeDef,
     GetIntegrationResourcePropertyResponseTypeDef,
     GetIntegrationTablePropertiesRequestTypeDef,
@@ -479,6 +482,7 @@ from .type_defs import (
     UpdateDataQualityRulesetRequestTypeDef,
     UpdateDataQualityRulesetResponseTypeDef,
     UpdateDevEndpointRequestTypeDef,
+    UpdateGlueIdentityCenterConfigurationRequestTypeDef,
     UpdateIntegrationResourcePropertyRequestTypeDef,
     UpdateIntegrationResourcePropertyResponseTypeDef,
     UpdateIntegrationTablePropertiesRequestTypeDef,
@@ -935,6 +939,18 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#create_dev_endpoint)
         """
 
+    async def create_glue_identity_center_configuration(
+        self, **kwargs: Unpack[CreateGlueIdentityCenterConfigurationRequestTypeDef]
+    ) -> CreateGlueIdentityCenterConfigurationResponseTypeDef:
+        """
+        Creates a new Glue Identity Center configuration to enable integration between
+        Glue and Amazon Web Services IAM Identity Center for authentication and
+        authorization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/create_glue_identity_center_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#create_glue_identity_center_configuration)
+        """
+
     async def create_integration(
         self, **kwargs: Unpack[CreateIntegrationRequestTypeDef]
     ) -> CreateIntegrationResponseTypeDef:
@@ -1232,6 +1248,15 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_dev_endpoint.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#delete_dev_endpoint)
+        """
+
+    async def delete_glue_identity_center_configuration(self) -> Dict[str, Any]:
+        """
+        Deletes the existing Glue Identity Center configuration, removing the
+        integration between Glue and Amazon Web Services IAM Identity Center.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_glue_identity_center_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#delete_glue_identity_center_configuration)
         """
 
     async def delete_integration(
@@ -1785,6 +1810,17 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_entity_records.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_entity_records)
+        """
+
+    async def get_glue_identity_center_configuration(
+        self,
+    ) -> GetGlueIdentityCenterConfigurationResponseTypeDef:
+        """
+        Retrieves the current Glue Identity Center configuration details, including the
+        associated Identity Center instance and application information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_glue_identity_center_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_glue_identity_center_configuration)
         """
 
     async def get_integration_resource_property(
@@ -2995,6 +3031,17 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_dev_endpoint.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#update_dev_endpoint)
+        """
+
+    async def update_glue_identity_center_configuration(
+        self, **kwargs: Unpack[UpdateGlueIdentityCenterConfigurationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates the existing Glue Identity Center configuration, allowing modification
+        of scopes and permissions for the integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_glue_identity_center_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#update_glue_identity_center_configuration)
         """
 
     async def update_integration_resource_property(

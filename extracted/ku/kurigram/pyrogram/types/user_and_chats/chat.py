@@ -980,7 +980,10 @@ class Chat(Object):
 
         parsed_chat.folder_id = user.folder_id
         parsed_chat.message_auto_delete_time = user.ttl_period
-        parsed_chat.theme_emoji = user.theme_emoticon
+
+        if isinstance(user.theme, raw.types.ChatTheme):
+            parsed_chat.theme_emoji = user.theme.emoticon
+
         parsed_chat.private_forward_name = user.private_forward_name
         parsed_chat.chat_admin_rights = types.ChatPrivileges._parse(user.bot_group_admin_rights)
         parsed_chat.channel_admin_rights = types.ChatPrivileges._parse(user.bot_broadcast_admin_rights)

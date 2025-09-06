@@ -2,7 +2,7 @@
 """
 setproctitle setup script.
 
-Copyright (c) 2009-2021 Daniele Varrazzo <daniele.varrazzo@gmail.com>
+Copyright (c) 2009 Daniele Varrazzo <daniele.varrazzo@gmail.com>
 """
 
 import re
@@ -76,6 +76,7 @@ Programming Language :: Python :: 3.10
 Programming Language :: Python :: 3.11
 Programming Language :: Python :: 3.12
 Programming Language :: Python :: 3.13
+Programming Language :: Python :: 3.14
 Operating System :: POSIX :: Linux
 Operating System :: POSIX :: BSD
 Operating System :: MacOS :: MacOS X

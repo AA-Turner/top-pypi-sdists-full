@@ -18,9 +18,7 @@ console = ConsoleLogger()
 @track
 def dev(interface: Optional[str]) -> None:
     """Launch interactive debugging interface."""
-    console.info("🚀 Starting UiPath Dev Terminal...")
-    console.info("Use 'q' to quit, 'n' for new run, 'r' to execute")
-
+    console.info("Launching UiPath debugging terminal ...")
     result = Middlewares.next(
         "dev",
         interface,

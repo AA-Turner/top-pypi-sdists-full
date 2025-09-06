@@ -1,23 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: boostedblob
-Version: 0.15.6
+Version: 0.16.0
 Summary: Command line tool and async library to perform basic file operations on local paths, Google Cloud Storage paths and Azure Blob Storage paths.
-License: MIT
-Author: Shantanu Jain
-Author-email: hauntsaninja@gmail.com
-Requires-Python: >=3.8
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: aiohttp (>=3.7.2)
-Requires-Dist: lxml (>=4.9.1)
-Requires-Dist: pycryptodomex (>=3.9)
-Requires-Dist: uvloop (>=0.16.0) ; sys_platform != "win32"
+Author-email: Shantanu Jain <hauntsaninja@gmail.com>
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-Expression: MIT
+Requires-Dist: aiohttp>=3.7.2
+Requires-Dist: lxml>=4.9.1
+Requires-Dist: pycryptodomex>=3.9
+Requires-Dist: uvloop>=0.16.0 ; sys_platform != 'win32'
 
 # boostedblob
 

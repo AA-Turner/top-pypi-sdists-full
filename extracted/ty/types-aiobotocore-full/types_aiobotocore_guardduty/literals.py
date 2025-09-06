@@ -61,7 +61,9 @@ __all__ = (
     "ListInvitationsPaginatorName",
     "ListMembersPaginatorName",
     "ListOrganizationAdminAccountsPaginatorName",
+    "ListThreatEntitySetsPaginatorName",
     "ListThreatIntelSetsPaginatorName",
+    "ListTrustedEntitySetsPaginatorName",
     "MalwareProtectionPlanStatusType",
     "MalwareProtectionPlanTaggingActionStatusType",
     "ManagementTypeType",
@@ -87,8 +89,12 @@ __all__ = (
     "ScanTypeType",
     "ServiceName",
     "SignalTypeType",
+    "ThreatEntitySetFormatType",
+    "ThreatEntitySetStatusType",
     "ThreatIntelSetFormatType",
     "ThreatIntelSetStatusType",
+    "TrustedEntitySetFormatType",
+    "TrustedEntitySetStatusType",
     "UsageFeatureType",
     "UsageStatisticTypeType",
 )
@@ -233,7 +239,9 @@ ListIPSetsPaginatorName = Literal["list_ip_sets"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
 ListMembersPaginatorName = Literal["list_members"]
 ListOrganizationAdminAccountsPaginatorName = Literal["list_organization_admin_accounts"]
+ListThreatEntitySetsPaginatorName = Literal["list_threat_entity_sets"]
 ListThreatIntelSetsPaginatorName = Literal["list_threat_intel_sets"]
+ListTrustedEntitySetsPaginatorName = Literal["list_trusted_entity_sets"]
 MalwareProtectionPlanStatusType = Literal["ACTIVE", "ERROR", "WARNING"]
 MalwareProtectionPlanTaggingActionStatusType = Literal["DISABLED", "ENABLED"]
 ManagementTypeType = Literal["AUTO_MANAGED", "DISABLED", "MANUAL"]
@@ -275,10 +283,22 @@ SignalTypeType = Literal[
     "RUNTIME_MONITORING",
     "S3_DATA_EVENTS",
 ]
+ThreatEntitySetFormatType = Literal[
+    "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
+]
+ThreatEntitySetStatusType = Literal[
+    "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
+]
 ThreatIntelSetFormatType = Literal[
     "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
 ]
 ThreatIntelSetStatusType = Literal[
+    "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
+]
+TrustedEntitySetFormatType = Literal[
+    "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
+]
+TrustedEntitySetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
 ]
 UsageFeatureType = Literal[
@@ -332,6 +352,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -343,8 +364,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -741,11 +764,14 @@ PaginatorName = Literal[
     "list_ip_sets",
     "list_members",
     "list_organization_admin_accounts",
+    "list_threat_entity_sets",
     "list_threat_intel_sets",
+    "list_trusted_entity_sets",
 ]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

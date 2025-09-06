@@ -4,9 +4,8 @@ import json
 import logging
 import os
 import shutil
-import tempfile
-from collections import deque
 from collections.abc import AsyncIterable, AsyncIterator
+from contextlib import suppress
 from pathlib import Path
 from subprocess import PIPE
 from typing import Any
@@ -33,7 +32,6 @@ class SubprocessCLITransport(Transport):
         prompt: str | AsyncIterable[dict[str, Any]],
         options: ClaudeCodeOptions,
         cli_path: str | Path | None = None,
-        close_stdin_after_prompt: bool = False,
     ):
         self._prompt = prompt
         self._is_streaming = not isinstance(prompt, str)
@@ -42,13 +40,9 @@ class SubprocessCLITransport(Transport):
         self._cwd = str(options.cwd) if options.cwd else None
         self._process: Process | None = None
         self._stdout_stream: TextReceiveStream | None = None
-        self._stderr_stream: TextReceiveStream | None = None
         self._stdin_stream: TextSendStream | None = None
-        self._pending_control_responses: dict[str, dict[str, Any]] = {}
-        self._request_counter = 0
-        self._close_stdin_after_prompt = close_stdin_after_prompt
-        self._task_group: anyio.abc.TaskGroup | None = None
-        self._stderr_file: Any = None  # tempfile.NamedTemporaryFile
+        self._ready = False
+        self._exit_error: Exception | None = None  # Track process exit errors
 
     def _find_cli(self) -> str:
         """Find Claude Code CLI binary."""
@@ -131,13 +125,21 @@ class SubprocessCLITransport(Transport):
 
         if self._options.mcp_servers:
             if isinstance(self._options.mcp_servers, dict):
-                # Dict format: serialize to JSON
-                cmd.extend(
-                    [
-                        "--mcp-config",
-                        json.dumps({"mcpServers": self._options.mcp_servers}),
-                    ]
-                )
+                # Filter out SDK servers - they're handled in-process
+                external_servers = {
+                    name: config
+                    for name, config in self._options.mcp_servers.items()
+                    if not (isinstance(config, dict) and config.get("type") == "sdk")
+                }
+
+                # Only pass external servers to CLI
+                if external_servers:
+                    cmd.extend(
+                        [
+                            "--mcp-config",
+                            json.dumps({"mcpServers": external_servers}),
+                        ]
+                    )
             else:
                 # String or Path format: pass directly as file path or JSON string
                 cmd.extend(["--mcp-config", str(self._options.mcp_servers)])
@@ -157,7 +159,7 @@ class SubprocessCLITransport(Transport):
             cmd.extend(["--input-format", "stream-json"])
         else:
             # String mode: use --print with the prompt
-            cmd.extend(["--print", str(self._prompt)])
+            cmd.extend(["--print", "--", str(self._prompt)])
 
         return cmd
 
@@ -168,142 +170,147 @@ class SubprocessCLITransport(Transport):
 
         cmd = self._build_command()
         try:
-            # Create a temp file for stderr to avoid pipe buffer deadlock
-            # We can't use context manager as we need it for the subprocess lifetime
-            self._stderr_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
-                mode="w+", prefix="claude_stderr_", suffix=".log", delete=False
+            # Merge environment variables: system -> user -> SDK required
+            process_env = {
+                **os.environ,
+                **self._options.env,  # User-provided env vars
+                "CLAUDE_CODE_ENTRYPOINT": "sdk-py",
+            }
+
+            if self._cwd:
+                process_env["PWD"] = self._cwd
+
+            # Only output stderr if customer explicitly requested debug output and provided a file object
+            stderr_dest = (
+                self._options.debug_stderr
+                if "debug-to-stderr" in self._options.extra_args
+                and self._options.debug_stderr
+                else None
             )
 
-            # Enable stdin pipe for both modes (but we'll close it for string mode)
             self._process = await anyio.open_process(
                 cmd,
                 stdin=PIPE,
                 stdout=PIPE,
-                stderr=self._stderr_file,
+                stderr=stderr_dest,
                 cwd=self._cwd,
-                env={**os.environ, "CLAUDE_CODE_ENTRYPOINT": "sdk-py"},
+                env=process_env,
             )
 
             if self._process.stdout:
                 self._stdout_stream = TextReceiveStream(self._process.stdout)
 
-            # Handle stdin based on mode
-            if self._is_streaming:
-                # Streaming mode: keep stdin open and start streaming task
-                if self._process.stdin:
-                    self._stdin_stream = TextSendStream(self._process.stdin)
-                    # Start streaming messages to stdin in background
-                    self._task_group = anyio.create_task_group()
-                    await self._task_group.__aenter__()
-                    self._task_group.start_soon(self._stream_to_stdin)
-            else:
-                # String mode: close stdin immediately (backward compatible)
-                if self._process.stdin:
-                    await self._process.stdin.aclose()
+            # Setup stdin for streaming mode
+            if self._is_streaming and self._process.stdin:
+                self._stdin_stream = TextSendStream(self._process.stdin)
+            elif not self._is_streaming and self._process.stdin:
+                # String mode: close stdin immediately
+                await self._process.stdin.aclose()
+
+            self._ready = True
 
         except FileNotFoundError as e:
             # Check if the error comes from the working directory or the CLI
             if self._cwd and not Path(self._cwd).exists():
-                raise CLIConnectionError(
+                error = CLIConnectionError(
                     f"Working directory does not exist: {self._cwd}"
-                ) from e
-            raise CLINotFoundError(f"Claude Code not found at: {self._cli_path}") from e
+                )
+                self._exit_error = error
+                raise error from e
+            error = CLINotFoundError(f"Claude Code not found at: {self._cli_path}")
+            self._exit_error = error
+            raise error from e
         except Exception as e:
-            raise CLIConnectionError(f"Failed to start Claude Code: {e}") from e
+            error = CLIConnectionError(f"Failed to start Claude Code: {e}")
+            self._exit_error = error
+            raise error from e
 
-    async def disconnect(self) -> None:
-        """Terminate subprocess."""
+    async def close(self) -> None:
+        """Close the transport and clean up resources."""
+        self._ready = False
+
         if not self._process:
             return
 
-        # Cancel task group if it exists
-        if self._task_group:
-            self._task_group.cancel_scope.cancel()
-            await self._task_group.__aexit__(None, None, None)
-            self._task_group = None
+        # Close streams
+        if self._stdin_stream:
+            with suppress(Exception):
+                await self._stdin_stream.aclose()
+            self._stdin_stream = None
 
+        if self._process.stdin:
+            with suppress(Exception):
+                await self._process.stdin.aclose()
+
+        # Terminate and wait for process
         if self._process.returncode is None:
-            try:
+            with suppress(ProcessLookupError):
                 self._process.terminate()
-                with anyio.fail_after(5.0):
+                # Wait for process to finish with timeout
+                with suppress(Exception):
+                    # Just try to wait, but don't block if it fails
                     await self._process.wait()
-            except TimeoutError:
-                self._process.kill()
-                await self._process.wait()
-            except ProcessLookupError:
-                pass
-
-        # Clean up temp file
-        if self._stderr_file:
-            try:
-                self._stderr_file.close()
-                Path(self._stderr_file.name).unlink()
-            except Exception:
-                pass
-            self._stderr_file = None
 
         self._process = None
         self._stdout_stream = None
-        self._stderr_stream = None
         self._stdin_stream = None
+        self._exit_error = None
 
-    async def send_request(self, messages: list[Any], options: dict[str, Any]) -> None:
-        """Send additional messages in streaming mode."""
-        if not self._is_streaming:
-            raise CLIConnectionError("send_request only works in streaming mode")
+    async def write(self, data: str) -> None:
+        """Write raw data to the transport."""
+        # Check if ready (like TypeScript)
+        if not self._ready or not self._stdin_stream:
+            raise CLIConnectionError("ProcessTransport is not ready for writing")
 
-        if not self._stdin_stream:
-            raise CLIConnectionError("stdin not available - stream may have ended")
+        # Check if process is still alive (like TypeScript)
+        if self._process and self._process.returncode is not None:
+            raise CLIConnectionError(
+                f"Cannot write to terminated process (exit code: {self._process.returncode})"
+            )
 
-        # Send each message as a user message
-        for message in messages:
-            # Ensure message has required structure
-            if not isinstance(message, dict):
-                message = {
-                    "type": "user",
-                    "message": {"role": "user", "content": str(message)},
-                    "parent_tool_use_id": None,
-                    "session_id": options.get("session_id", "default"),
-                }
-
-            await self._stdin_stream.send(json.dumps(message) + "\n")
-
-    async def _stream_to_stdin(self) -> None:
-        """Stream messages to stdin for streaming mode."""
-        if not self._stdin_stream or not isinstance(self._prompt, AsyncIterable):
-            return
+        # Check for exit errors (like TypeScript)
+        if self._exit_error:
+            raise CLIConnectionError(
+                f"Cannot write to process that exited with error: {self._exit_error}"
+            ) from self._exit_error
 
         try:
-            async for message in self._prompt:
-                if not self._stdin_stream:
-                    break
-                await self._stdin_stream.send(json.dumps(message) + "\n")
-
-            # Close stdin after prompt if requested (e.g., for query() one-shot mode)
-            if self._close_stdin_after_prompt and self._stdin_stream:
-                await self._stdin_stream.aclose()
-                self._stdin_stream = None
-            # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
+            await self._stdin_stream.send(data)
         except Exception as e:
-            logger.debug(f"Error streaming to stdin: {e}")
-            if self._stdin_stream:
-                await self._stdin_stream.aclose()
-                self._stdin_stream = None
+            self._ready = False  # Mark as not ready (like TypeScript)
+            self._exit_error = CLIConnectionError(
+                f"Failed to write to process stdin: {e}"
+            )
+            raise self._exit_error from e
 
-    async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
-        """Receive messages from CLI."""
+    async def end_input(self) -> None:
+        """End the input stream (close stdin)."""
+        if self._stdin_stream:
+            with suppress(Exception):
+                await self._stdin_stream.aclose()
+            self._stdin_stream = None
+
+    def read_messages(self) -> AsyncIterator[dict[str, Any]]:
+        """Read and parse messages from the transport."""
+        return self._read_messages_impl()
+
+    async def _read_messages_impl(self) -> AsyncIterator[dict[str, Any]]:
+        """Internal implementation of read_messages."""
         if not self._process or not self._stdout_stream:
             raise CLIConnectionError("Not connected")
 
         json_buffer = ""
 
-        # Process stdout messages first
+        # Process stdout messages
         try:
             async for line in self._stdout_stream:
                 line_str = line.strip()
                 if not line_str:
                     continue
 
+                # Accumulate partial JSON until we can parse it
+                # Note: TextReceiveStream can truncate long lines, so we need to buffer
+                # and speculatively parse until we get a complete JSON object
                 json_lines = line_str.split("\n")
 
                 for json_line in json_lines:
@@ -326,20 +333,7 @@ class SubprocessCLITransport(Transport):
                     try:
                         data = json.loads(json_buffer)
                         json_buffer = ""
-
-                        # Handle control responses separately
-                        if data.get("type") == "control_response":
-                            response = data.get("response", {})
-                            request_id = response.get("request_id")
-                            if request_id:
-                                # Store the response for the pending request
-                                self._pending_control_responses[request_id] = response
-                            continue
-
-                        try:
-                            yield data
-                        except GeneratorExit:
-                            return
+                        yield data
                     except json.JSONDecodeError:
                         # We are speculatively decoding the buffer until we get
                         # a full JSON object. If there is an actual issue, we
@@ -349,23 +343,8 @@ class SubprocessCLITransport(Transport):
         except anyio.ClosedResourceError:
             pass
         except GeneratorExit:
-            # Client disconnected - still need to clean up
+            # Client disconnected
             pass
-
-        # Read stderr from temp file (keep only last N lines for memory efficiency)
-        stderr_lines: deque[str] = deque(maxlen=100)  # Keep last 100 lines
-        if self._stderr_file:
-            try:
-                # Flush any pending writes
-                self._stderr_file.flush()
-                # Read from the beginning
-                self._stderr_file.seek(0)
-                for line in self._stderr_file:
-                    line_text = line.strip()
-                    if line_text:
-                        stderr_lines.append(line_text)
-            except Exception:
-                pass
 
         # Check process completion and handle errors
         try:
@@ -373,67 +352,15 @@ class SubprocessCLITransport(Transport):
         except Exception:
             returncode = -1
 
-        # Convert deque to string for error reporting
-        stderr_output = "\n".join(list(stderr_lines)) if stderr_lines else ""
-        if len(stderr_lines) == stderr_lines.maxlen:
-            stderr_output = (
-                f"[stderr truncated, showing last {stderr_lines.maxlen} lines]\n"
-                + stderr_output
-            )
-
-        # Use exit code for error detection, not string matching
+        # Use exit code for error detection
         if returncode is not None and returncode != 0:
-            raise ProcessError(
+            self._exit_error = ProcessError(
                 f"Command failed with exit code {returncode}",
                 exit_code=returncode,
-                stderr=stderr_output,
+                stderr="Check stderr output for details",
             )
-        elif stderr_output:
-            # Log stderr for debugging but don't fail on non-zero exit
-            logger.debug(f"Process stderr: {stderr_output}")
+            raise self._exit_error
 
-    def is_connected(self) -> bool:
-        """Check if subprocess is running."""
-        return self._process is not None and self._process.returncode is None
-
-    async def interrupt(self) -> None:
-        """Send interrupt control request (only works in streaming mode)."""
-        if not self._is_streaming:
-            raise CLIConnectionError(
-                "Interrupt requires streaming mode (AsyncIterable prompt)"
-            )
-
-        if not self._stdin_stream:
-            raise CLIConnectionError("Not connected or stdin not available")
-
-        await self._send_control_request({"subtype": "interrupt"})
-
-    async def _send_control_request(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Send a control request and wait for response."""
-        if not self._stdin_stream:
-            raise CLIConnectionError("Stdin not available")
-
-        # Generate unique request ID
-        self._request_counter += 1
-        request_id = f"req_{self._request_counter}_{os.urandom(4).hex()}"
-
-        # Build control request
-        control_request = {
-            "type": "control_request",
-            "request_id": request_id,
-            "request": request,
-        }
-
-        # Send request
-        await self._stdin_stream.send(json.dumps(control_request) + "\n")
-
-        # Wait for response
-        while request_id not in self._pending_control_responses:
-            await anyio.sleep(0.1)
-
-        response = self._pending_control_responses.pop(request_id)
-
-        if response.get("subtype") == "error":
-            raise CLIConnectionError(f"Control request failed: {response.get('error')}")
-
-        return response
+    def is_ready(self) -> bool:
+        """Check if transport is ready for communication."""
+        return self._ready

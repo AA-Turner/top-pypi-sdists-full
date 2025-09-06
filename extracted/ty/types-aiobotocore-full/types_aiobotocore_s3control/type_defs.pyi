@@ -25,6 +25,8 @@ from .literals import (
     BucketCannedACLType,
     BucketLocationConstraintType,
     BucketVersioningStatusType,
+    ComputeObjectChecksumAlgorithmType,
+    ComputeObjectChecksumTypeType,
     DeleteMarkerReplicationStatusType,
     ExistingObjectReplicationStatusType,
     ExpirationStatusType,
@@ -353,6 +355,7 @@ __all__ = (
     "S3AccessControlPolicyTypeDef",
     "S3BucketDestinationOutputTypeDef",
     "S3BucketDestinationTypeDef",
+    "S3ComputeObjectChecksumOperationTypeDef",
     "S3CopyObjectOperationOutputTypeDef",
     "S3CopyObjectOperationTypeDef",
     "S3GeneratedManifestDescriptorTypeDef",
@@ -509,6 +512,7 @@ class JobReportTypeDef(TypedDict):
     Format: NotRequired[Literal["Report_CSV_20180820"]]
     Prefix: NotRequired[str]
     ReportScope: NotRequired[JobReportScopeType]
+    ExpectedBucketOwner: NotRequired[str]
 
 class S3TagTypeDef(TypedDict):
     Key: str
@@ -805,6 +809,10 @@ class LambdaInvokeOperationOutputTypeDef(TypedDict):
     FunctionArn: NotRequired[str]
     InvocationSchemaVersion: NotRequired[str]
     UserArguments: NotRequired[Dict[str, str]]
+
+class S3ComputeObjectChecksumOperationTypeDef(TypedDict):
+    ChecksumAlgorithm: NotRequired[ComputeObjectChecksumAlgorithmType]
+    ChecksumType: NotRequired[ComputeObjectChecksumTypeType]
 
 class S3InitiateRestoreObjectOperationTypeDef(TypedDict):
     ExpirationInDays: NotRequired[int]
@@ -1865,6 +1873,7 @@ class CreateAccessPointRequestTypeDef(TypedDict):
     PublicAccessBlockConfiguration: NotRequired[PublicAccessBlockConfigurationTypeDef]
     BucketAccountId: NotRequired[str]
     Scope: NotRequired[ScopeUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class PutAccessPointScopeRequestTypeDef(TypedDict):
     AccountId: str
@@ -2123,6 +2132,7 @@ class JobOperationOutputTypeDef(TypedDict):
     S3PutObjectLegalHold: NotRequired[S3SetObjectLegalHoldOperationTypeDef]
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationOutputTypeDef]
     S3ReplicateObject: NotRequired[Dict[str, Any]]
+    S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
 
 class JobOperationTypeDef(TypedDict):
     LambdaInvoke: NotRequired[LambdaInvokeOperationTypeDef]
@@ -2134,6 +2144,7 @@ class JobOperationTypeDef(TypedDict):
     S3PutObjectLegalHold: NotRequired[S3SetObjectLegalHoldOperationTypeDef]
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationTypeDef]
     S3ReplicateObject: NotRequired[Mapping[str, Any]]
+    S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
 
 LifecycleRuleUnionTypeDef = Union[LifecycleRuleTypeDef, LifecycleRuleOutputTypeDef]
 

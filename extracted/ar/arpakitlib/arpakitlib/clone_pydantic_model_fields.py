@@ -1,4 +1,4 @@
-from typing import Any, Type
+from typing import Any, Type, Iterable
 
 from pydantic import BaseModel, create_model
 from pydantic_core import PydanticUndefined
@@ -7,7 +7,7 @@ from pydantic_core import PydanticUndefined
 def clone_pydantic_model_fields(
         *,
         model_cls: Type[BaseModel],
-        fields_to_remove: set[str] | None = None,
+        fields_to_remove: Iterable[str] | None = None,
         new_class_name: str | None = None,
 ) -> Type[BaseModel]:
     if fields_to_remove is None:

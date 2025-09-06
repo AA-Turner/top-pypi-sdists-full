@@ -78,13 +78,13 @@ This factor is a scaling factor for the velocity vectors in doppler calculation.
     """ The native sample format of the device."""
 
     listener_location: typing.Any
-    """ The listenerss location in 3D space, a 3D tuple of floats."""
+    """ The listeners's location in 3D space, a 3D tuple of floats."""
 
     listener_orientation: typing.Any
-    """ The listeners orientation in 3D space as quaternion, a 4 float tuple."""
+    """ The listener's orientation in 3D space as quaternion, a 4 float tuple."""
 
     listener_velocity: typing.Any
-    """ The listeners velocity in 3D space, a 3D tuple of floats."""
+    """ The listener's velocity in 3D space, a 3D tuple of floats."""
 
     rate: typing.Any
     """ The sampling rate of the device in Hz."""
@@ -233,7 +233,7 @@ class Handle:
     """ This factor is used for distance based attenuation of the source.:attr:`Device.distance_model`"""
 
     cone_angle_inner: typing.Any
-    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the sources `orientation`.
+    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the source's `orientation`.
 In the inner cone the volume is normal. Outside the outer cone the volume will be `cone_volume_outer` and in the area between the volume will be interpolated linearly."""
 
     cone_angle_outer: typing.Any
@@ -255,13 +255,13 @@ At this distance the volume will be exactly `volume`.:attr:`Device.distance_mode
 This can be used to seek the sound to some position and start playback again."""
 
     location: typing.Any
-    """ The sources location in 3D space, a 3D tuple of floats."""
+    """ The source's location in 3D space, a 3D tuple of floats."""
 
     loop_count: typing.Any
     """ The (remaining) loop count of the sound. A negative value indicates infinity."""
 
     orientation: typing.Any
-    """ The sources orientation in 3D space as quaternion, a 4 float tuple."""
+    """ The source's orientation in 3D space as quaternion, a 4 float tuple."""
 
     pitch: typing.Any
     """ The pitch of the sound."""
@@ -270,13 +270,13 @@ This can be used to seek the sound to some position and start playback again."""
     """ The playback position of the sound in seconds."""
 
     relative: typing.Any
-    """ Whether the sources location, velocity and orientation is relative or absolute to the listener."""
+    """ Whether the source's location, velocity and orientation is relative or absolute to the listener."""
 
     status: typing.Any
     """ Whether the sound is playing, paused or stopped (=invalid)."""
 
     velocity: typing.Any
-    """ The sources velocity in 3D space, a 3D tuple of floats."""
+    """ The source's velocity in 3D space, a 3D tuple of floats."""
 
     volume: typing.Any
     """ The volume of the sound."""
@@ -399,7 +399,7 @@ class Sequence:
 This factor is a scaling factor for the velocity vectors in doppler calculation. So a value bigger than 1 will exaggerate the effect as it raises the velocity."""
 
     fps: typing.Any
-    """ The listenerss location in 3D space, a 3D tuple of floats."""
+    """ The listeners's location in 3D space, a 3D tuple of floats."""
 
     muted: typing.Any
     """ Whether the whole sequence is muted."""
@@ -431,7 +431,7 @@ class SequenceEntry:
     """ This factor is used for distance based attenuation of the source.:attr:`Device.distance_model`"""
 
     cone_angle_inner: typing.Any
-    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the sources `orientation`.
+    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the source's `orientation`.
 In the inner cone the volume is normal. Outside the outer cone the volume will be `cone_volume_outer` and in the area between the volume will be interpolated linearly."""
 
     cone_angle_outer: typing.Any
@@ -452,7 +452,7 @@ At this distance the volume will be exactly `volume`.:attr:`Device.distance_mode
     """ Whether the entry is muted."""
 
     relative: typing.Any
-    """ Whether the sources location, velocity and orientation is relative or absolute to the listener."""
+    """ Whether the source's location, velocity and orientation is relative or absolute to the listener."""
 
     sound: typing.Any
     """ The sound the entry is representing and will be played in the sequence."""

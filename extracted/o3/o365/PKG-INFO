@@ -1,35 +1,27 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: o365
-Version: 2.1.5
+Version: 2.1.7
 Summary: O365 - Microsoft Graph and Office 365 API made easy
-Home-page: https://github.com/O365/python-o365
-Author: Alejcas, Roycem90, Narcolapser
+Author: Alejcas, Narcolapser, Roycem90
 Author-email: Alejcas <alejcas@users.noreply.github.com>, Narcolapser <narcolapser@users.noreply.github.com>, Roycem90 <roycem90@users.noreply.github.com>
-Maintainer: alejcas
-Maintainer-email: Alejcas <alejcas@users.noreply.github.com>
-License: Apache License 2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
 Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: msal>=1.31.1
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: requests>=2.32.3
 Requires-Dist: tzdata>=2024.2
 Requires-Dist: tzlocal>=5.2
-Dynamic: author
-Dynamic: home-page
-Dynamic: license
-Dynamic: maintainer
-Dynamic: requires-python
+Maintainer: Alejcas
+Maintainer-email: Alejcas <alejcas@users.noreply.github.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 
 [![Downloads](https://pepy.tech/badge/O365)](https://pepy.tech/project/O365)
 [![PyPI](https://img.shields.io/pypi/v/O365.svg)](https://pypi.python.org/pypi/O365)

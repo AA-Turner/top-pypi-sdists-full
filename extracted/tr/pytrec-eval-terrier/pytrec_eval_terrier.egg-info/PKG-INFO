@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrec_eval-terrier
-Version: 0.5.8
+Version: 0.5.9
 Summary: Provides Python bindings for popular Information Retrieval measures implemented within trec_eval.
 Home-page: https://github.com/terrierteam/pytrec_eval
 Download-URL: https://github.com/terrierteam/pytrec_eval/releases
@@ -16,6 +16,8 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Topic :: Text Processing :: General
 Requires-Python: >=3
 License-File: LICENSE
+Requires-Dist: numpy>=1.15.1
+Requires-Dist: scipy>=1.1.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -23,5 +25,6 @@ Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license-file
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

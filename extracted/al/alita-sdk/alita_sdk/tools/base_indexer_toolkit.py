@@ -110,13 +110,13 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
         connection_string = conn.get_secret_value() if isinstance(conn, SecretStr) else conn
         collection_name = kwargs.get('collection_name')
         
-        if not kwargs.get('embedding_model'):
-            kwargs['embedding_model'] = 'text-embedding-ada-002'
         if 'vectorstore_type' not in kwargs:
             kwargs['vectorstore_type'] = 'PGVector'
         vectorstore_type = kwargs.get('vectorstore_type')
-        kwargs['vectorstore_params'] = VectorStoreAdapterFactory.create_adapter(vectorstore_type).get_vectorstore_params(collection_name, connection_string)
-        kwargs['_embedding'] = kwargs.get('alita').get_embeddings(kwargs.get('embedding_model'))
+        if connection_string:
+            # Initialize vectorstore params only if connection string is provided
+            kwargs['vectorstore_params'] = VectorStoreAdapterFactory.create_adapter(vectorstore_type).get_vectorstore_params(collection_name, connection_string)
+            kwargs['_embedding'] = kwargs.get('alita').get_embeddings(kwargs.get('embedding_model'))
         super().__init__(**kwargs)
 
     def _index_tool_params(self, **kwargs) -> dict[str, tuple[type, Field]]:
@@ -175,7 +175,7 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
         self._clean_metadata(list_documents)
         self._log_tool_event(f"Documents are ready for indexing. Total documents to index: {len(list_documents)}")
         return self._save_index(list_documents, collection_suffix=collection_suffix, progress_step=progress_step)
-    
+
     def _apply_loaders_chunkers(self, documents: Generator[Document, None, None], chunking_tool: str=None, chunking_config=None) -> Generator[Document, None, None]:
         from ..tools.chunkers import __all__ as chunkers
 
@@ -183,7 +183,7 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
             chunking_config = {}
         chunking_config['embedding'] = self._embedding
         chunking_config['llm'] = self.llm
-        
+
         for document in documents:
             if content_type := document.metadata.get(IndexerKeywords.CONTENT_FILE_NAME.value, None):
                 # apply parsing based on content type and chunk if chunker was applied to parent doc

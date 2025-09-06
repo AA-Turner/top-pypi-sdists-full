@@ -23744,16 +23744,18 @@ class scout_catalog_AddFileToDataset(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'handle': ConjureFieldDefinition('handle', scout_catalog_Handle),
+            'file_size': ConjureFieldDefinition('fileSize', int),
             'timestamp_metadata': ConjureFieldDefinition('timestampMetadata', OptionalTypeWrapper[scout_catalog_TimestampMetadata]),
             'ingest_tag_metadata': ConjureFieldDefinition('ingestTagMetadata', OptionalTypeWrapper[scout_catalog_IngestTagMetadata]),
             'origin_file_handles': ConjureFieldDefinition('originFileHandles', OptionalTypeWrapper[List[scout_catalog_S3Handle]]),
             'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', OptionalTypeWrapper[ingest_api_IngestJobRid])
         }
 
-    __slots__: List[str] = ['_handle', '_timestamp_metadata', '_ingest_tag_metadata', '_origin_file_handles', '_ingest_job_rid']
+    __slots__: List[str] = ['_handle', '_file_size', '_timestamp_metadata', '_ingest_tag_metadata', '_origin_file_handles', '_ingest_job_rid']
 
-    def __init__(self, handle: "scout_catalog_Handle", ingest_job_rid: Optional[str] = None, ingest_tag_metadata: Optional["scout_catalog_IngestTagMetadata"] = None, origin_file_handles: Optional[List["scout_catalog_S3Handle"]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
+    def __init__(self, file_size: int, handle: "scout_catalog_Handle", ingest_job_rid: Optional[str] = None, ingest_tag_metadata: Optional["scout_catalog_IngestTagMetadata"] = None, origin_file_handles: Optional[List["scout_catalog_S3Handle"]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
         self._handle = handle
+        self._file_size = file_size
         self._timestamp_metadata = timestamp_metadata
         self._ingest_tag_metadata = ingest_tag_metadata
         self._origin_file_handles = origin_file_handles
@@ -23762,6 +23764,12 @@ class scout_catalog_AddFileToDataset(ConjureBeanType):
     @builtins.property
     def handle(self) -> "scout_catalog_Handle":
         return self._handle
+
+    @builtins.property
+    def file_size(self) -> int:
+        """The size of the file in bytes.
+        """
+        return self._file_size
 
     @builtins.property
     def timestamp_metadata(self) -> Optional["scout_catalog_TimestampMetadata"]:
@@ -84446,16 +84454,18 @@ class scout_video_api_CreateVideoFileRequest(ConjureBeanType):
             'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'origin_metadata': ConjureFieldDefinition('originMetadata', scout_video_api_VideoFileOriginMetadata),
-            'video_rid': ConjureFieldDefinition('videoRid', api_rids_VideoRid)
+            'video_rid': ConjureFieldDefinition('videoRid', api_rids_VideoRid),
+            'raw_file_size': ConjureFieldDefinition('rawFileSize', int)
         }
 
-    __slots__: List[str] = ['_title', '_description', '_origin_metadata', '_video_rid']
+    __slots__: List[str] = ['_title', '_description', '_origin_metadata', '_video_rid', '_raw_file_size']
 
-    def __init__(self, origin_metadata: "scout_video_api_VideoFileOriginMetadata", title: str, video_rid: str, description: Optional[str] = None) -> None:
+    def __init__(self, origin_metadata: "scout_video_api_VideoFileOriginMetadata", raw_file_size: int, title: str, video_rid: str, description: Optional[str] = None) -> None:
         self._title = title
         self._description = description
         self._origin_metadata = origin_metadata
         self._video_rid = video_rid
+        self._raw_file_size = raw_file_size
 
     @builtins.property
     def title(self) -> str:
@@ -84472,6 +84482,12 @@ class scout_video_api_CreateVideoFileRequest(ConjureBeanType):
     @builtins.property
     def video_rid(self) -> str:
         return self._video_rid
+
+    @builtins.property
+    def raw_file_size(self) -> int:
+        """The size of the pre-processed raw video file in bytes.
+        """
+        return self._raw_file_size
 
 
 scout_video_api_CreateVideoFileRequest.__name__ = "CreateVideoFileRequest"
@@ -85862,16 +85878,18 @@ class scout_video_api_UpdateVideoFileRequest(ConjureBeanType):
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'starting_timestamp': ConjureFieldDefinition('startingTimestamp', OptionalTypeWrapper[api_Timestamp]),
-            'scale_parameter': ConjureFieldDefinition('scaleParameter', OptionalTypeWrapper[scout_video_api_ScaleParameter])
+            'scale_parameter': ConjureFieldDefinition('scaleParameter', OptionalTypeWrapper[scout_video_api_ScaleParameter]),
+            'segmented_files_size': ConjureFieldDefinition('segmentedFilesSize', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_title', '_description', '_starting_timestamp', '_scale_parameter']
+    __slots__: List[str] = ['_title', '_description', '_starting_timestamp', '_scale_parameter', '_segmented_files_size']
 
-    def __init__(self, description: Optional[str] = None, scale_parameter: Optional["scout_video_api_ScaleParameter"] = None, starting_timestamp: Optional["api_Timestamp"] = None, title: Optional[str] = None) -> None:
+    def __init__(self, description: Optional[str] = None, scale_parameter: Optional["scout_video_api_ScaleParameter"] = None, segmented_files_size: Optional[int] = None, starting_timestamp: Optional["api_Timestamp"] = None, title: Optional[str] = None) -> None:
         self._title = title
         self._description = description
         self._starting_timestamp = starting_timestamp
         self._scale_parameter = scale_parameter
+        self._segmented_files_size = segmented_files_size
 
     @builtins.property
     def title(self) -> Optional[str]:
@@ -85888,6 +85906,12 @@ class scout_video_api_UpdateVideoFileRequest(ConjureBeanType):
     @builtins.property
     def scale_parameter(self) -> Optional["scout_video_api_ScaleParameter"]:
         return self._scale_parameter
+
+    @builtins.property
+    def segmented_files_size(self) -> Optional[int]:
+        """The total size of all the post-processed segments corresponding to this video file in bytes.
+        """
+        return self._segmented_files_size
 
 
 scout_video_api_UpdateVideoFileRequest.__name__ = "UpdateVideoFileRequest"

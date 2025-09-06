@@ -38,6 +38,7 @@ from types_aiobotocore_apprunner.client import AppRunnerClient
 from types_aiobotocore_appstream.client import AppStreamClient
 from types_aiobotocore_appsync.client import AppSyncClient
 from types_aiobotocore_apptest.client import MainframeModernizationApplicationTestingClient
+from types_aiobotocore_arc_region_switch.client import ARCRegionswitchClient
 from types_aiobotocore_arc_zonal_shift.client import ARCZonalShiftClient
 from types_aiobotocore_artifact.client import ArtifactClient
 from types_aiobotocore_athena.client import AthenaClient
@@ -49,9 +50,13 @@ from types_aiobotocore_backup.client import BackupClient
 from types_aiobotocore_backup_gateway.client import BackupGatewayClient
 from types_aiobotocore_backupsearch.client import BackupSearchClient
 from types_aiobotocore_batch.client import BatchClient
+from types_aiobotocore_bcm_dashboards.client import BillingandCostManagementDashboardsClient
 from types_aiobotocore_bcm_data_exports.client import BillingandCostManagementDataExportsClient
 from types_aiobotocore_bcm_pricing_calculator.client import (
     BillingandCostManagementPricingCalculatorClient,
+)
+from types_aiobotocore_bcm_recommended_actions.client import (
+    BillingandCostManagementRecommendedActionsClient,
 )
 from types_aiobotocore_bedrock.client import BedrockClient
 from types_aiobotocore_bedrock_agent.client import AgentsforBedrockClient
@@ -986,6 +991,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["arc-region-switch"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[ARCRegionswitchClient]:
+        """
+        Create client for ARCRegionswitch service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["arc-zonal-shift"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -1195,6 +1219,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["bcm-dashboards"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[BillingandCostManagementDashboardsClient]:
+        """
+        Create client for BillingandCostManagementDashboards service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["bcm-data-exports"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -1228,6 +1271,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[BillingandCostManagementPricingCalculatorClient]:
         """
         Create client for BillingandCostManagementPricingCalculator service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["bcm-recommended-actions"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[BillingandCostManagementRecommendedActionsClient]:
+        """
+        Create client for BillingandCostManagementRecommendedActions service.
         """
 
     @overload  # type: ignore[override]

@@ -53,6 +53,7 @@ __all__ = (
     "ComparisonOperatorType",
     "ConfidenceLevelType",
     "ConfigNameType",
+    "ConfigurationStatusType",
     "CustomMetricTypeType",
     "DayOfWeekType",
     "DetectMitigationActionExecutionStatusType",
@@ -66,6 +67,7 @@ __all__ = (
     "DomainTypeType",
     "DynamicGroupStatusType",
     "DynamoKeyTypeType",
+    "EncryptionTypeType",
     "EventTypeType",
     "FieldTypeType",
     "FleetMetricUnitType",
@@ -242,6 +244,7 @@ ComparisonOperatorType = Literal[
 ]
 ConfidenceLevelType = Literal["HIGH", "LOW", "MEDIUM"]
 ConfigNameType = Literal["CERT_AGE_THRESHOLD_IN_DAYS", "CERT_EXPIRATION_THRESHOLD_IN_DAYS"]
+ConfigurationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 CustomMetricTypeType = Literal["ip-address-list", "number", "number-list", "string-list"]
 DayOfWeekType = Literal["FRI", "MON", "SAT", "SUN", "THU", "TUE", "WED"]
 DetectMitigationActionExecutionStatusType = Literal[
@@ -272,6 +275,7 @@ DomainConfigurationStatusType = Literal["DISABLED", "ENABLED"]
 DomainTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED", "ENDPOINT"]
 DynamicGroupStatusType = Literal["ACTIVE", "BUILDING", "REBUILDING"]
 DynamoKeyTypeType = Literal["NUMBER", "STRING"]
+EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 EventTypeType = Literal[
     "CA_CERTIFICATE",
     "CERTIFICATE",
@@ -475,6 +479,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -486,8 +491,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -947,9 +954,11 @@ RegionName = Literal[
     "ap-south-1",
     "ap-southeast-1",
     "ap-southeast-2",
+    "ap-southeast-5",
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",

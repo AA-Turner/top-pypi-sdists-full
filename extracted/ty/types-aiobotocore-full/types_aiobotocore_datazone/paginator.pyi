@@ -12,6 +12,8 @@ Usage::
 
     from types_aiobotocore_datazone.client import DataZoneClient
     from types_aiobotocore_datazone.paginator import (
+        ListAccountPoolsPaginator,
+        ListAccountsInAccountPoolPaginator,
         ListAssetFiltersPaginator,
         ListAssetRevisionsPaginator,
         ListConnectionsPaginator,
@@ -53,6 +55,8 @@ Usage::
     with session.create_client("datazone") as client:
         client: DataZoneClient
 
+        list_account_pools_paginator: ListAccountPoolsPaginator = client.get_paginator("list_account_pools")
+        list_accounts_in_account_pool_paginator: ListAccountsInAccountPoolPaginator = client.get_paginator("list_accounts_in_account_pool")
         list_asset_filters_paginator: ListAssetFiltersPaginator = client.get_paginator("list_asset_filters")
         list_asset_revisions_paginator: ListAssetRevisionsPaginator = client.get_paginator("list_asset_revisions")
         list_connections_paginator: ListConnectionsPaginator = client.get_paginator("list_connections")
@@ -99,6 +103,10 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListAccountPoolsInputPaginateTypeDef,
+    ListAccountPoolsOutputTypeDef,
+    ListAccountsInAccountPoolInputPaginateTypeDef,
+    ListAccountsInAccountPoolOutputTypeDef,
     ListAssetFiltersInputPaginateTypeDef,
     ListAssetFiltersOutputTypeDef,
     ListAssetRevisionsInputPaginateTypeDef,
@@ -177,6 +185,8 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAccountPoolsPaginator",
+    "ListAccountsInAccountPoolPaginator",
     "ListAssetFiltersPaginator",
     "ListAssetRevisionsPaginator",
     "ListConnectionsPaginator",
@@ -213,6 +223,42 @@ __all__ = (
     "SearchTypesPaginator",
     "SearchUserProfilesPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAccountPoolsPaginatorBase = AioPaginator[ListAccountPoolsOutputTypeDef]
+else:
+    _ListAccountPoolsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAccountPoolsPaginator(_ListAccountPoolsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListAccountPools.html#DataZone.Paginator.ListAccountPools)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listaccountpoolspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAccountPoolsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListAccountPoolsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListAccountPools.html#DataZone.Paginator.ListAccountPools.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listaccountpoolspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAccountsInAccountPoolPaginatorBase = AioPaginator[ListAccountsInAccountPoolOutputTypeDef]
+else:
+    _ListAccountsInAccountPoolPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAccountsInAccountPoolPaginator(_ListAccountsInAccountPoolPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListAccountsInAccountPool.html#DataZone.Paginator.ListAccountsInAccountPool)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listaccountsinaccountpoolpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAccountsInAccountPoolInputPaginateTypeDef]
+    ) -> AioPageIterator[ListAccountsInAccountPoolOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListAccountsInAccountPool.html#DataZone.Paginator.ListAccountsInAccountPool.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listaccountsinaccountpoolpaginator)
+        """
 
 if TYPE_CHECKING:
     _ListAssetFiltersPaginatorBase = AioPaginator[ListAssetFiltersOutputTypeDef]

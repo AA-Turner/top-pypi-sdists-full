@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-dragonfly
-Version: 0.12.154
+Version: 0.12.155
 Summary: Collection of all Dragonfly core Python libraries
 Home-page: https://github.com/ladybug-tools/lbt-dragonfly
 Author: Ladybug Tools
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-energy==1.35.3
-Requires-Dist: dragonfly-radiance==0.4.65
+Requires-Dist: dragonfly-energy==1.35.4
+Requires-Dist: dragonfly-radiance==0.4.66
 Requires-Dist: dragonfly-doe2==0.12.10
 Requires-Dist: dragonfly-uwg==0.5.743
 Requires-Dist: dragonfly-display==0.3.6

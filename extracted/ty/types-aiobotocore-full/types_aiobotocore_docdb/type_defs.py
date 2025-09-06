@@ -181,6 +181,9 @@ __all__ = (
     "RestoreDBClusterFromSnapshotResultTypeDef",
     "RestoreDBClusterToPointInTimeMessageTypeDef",
     "RestoreDBClusterToPointInTimeResultTypeDef",
+    "ServerlessV2FeaturesSupportTypeDef",
+    "ServerlessV2ScalingConfigurationInfoTypeDef",
+    "ServerlessV2ScalingConfigurationTypeDef",
     "StartDBClusterMessageTypeDef",
     "StartDBClusterResultTypeDef",
     "StopDBClusterMessageTypeDef",
@@ -291,6 +294,11 @@ class DBClusterSnapshotTypeDef(TypedDict):
     StorageType: NotRequired[str]
 
 
+class ServerlessV2ScalingConfigurationTypeDef(TypedDict):
+    MinCapacity: NotRequired[float]
+    MaxCapacity: NotRequired[float]
+
+
 class CreateGlobalClusterMessageTypeDef(TypedDict):
     GlobalClusterIdentifier: str
     SourceDBClusterIdentifier: NotRequired[str]
@@ -331,9 +339,19 @@ class DBClusterSnapshotAttributeTypeDef(TypedDict):
     AttributeValues: NotRequired[List[str]]
 
 
+class ServerlessV2ScalingConfigurationInfoTypeDef(TypedDict):
+    MinCapacity: NotRequired[float]
+    MaxCapacity: NotRequired[float]
+
+
 class VpcSecurityGroupMembershipTypeDef(TypedDict):
     VpcSecurityGroupId: NotRequired[str]
     Status: NotRequired[str]
+
+
+class ServerlessV2FeaturesSupportTypeDef(TypedDict):
+    MinCapacity: NotRequired[float]
+    MaxCapacity: NotRequired[float]
 
 
 class UpgradeTargetTypeDef(TypedDict):
@@ -593,33 +611,6 @@ class CopyDBClusterSnapshotMessageTypeDef(TypedDict):
     SourceRegion: NotRequired[str]
 
 
-class CreateDBClusterMessageTypeDef(TypedDict):
-    DBClusterIdentifier: str
-    Engine: str
-    AvailabilityZones: NotRequired[Sequence[str]]
-    BackupRetentionPeriod: NotRequired[int]
-    DBClusterParameterGroupName: NotRequired[str]
-    VpcSecurityGroupIds: NotRequired[Sequence[str]]
-    DBSubnetGroupName: NotRequired[str]
-    EngineVersion: NotRequired[str]
-    Port: NotRequired[int]
-    MasterUsername: NotRequired[str]
-    MasterUserPassword: NotRequired[str]
-    PreferredBackupWindow: NotRequired[str]
-    PreferredMaintenanceWindow: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    StorageEncrypted: NotRequired[bool]
-    KmsKeyId: NotRequired[str]
-    PreSignedUrl: NotRequired[str]
-    EnableCloudwatchLogsExports: NotRequired[Sequence[str]]
-    DeletionProtection: NotRequired[bool]
-    GlobalClusterIdentifier: NotRequired[str]
-    StorageType: NotRequired[str]
-    ManageMasterUserPassword: NotRequired[bool]
-    MasterUserSecretKmsKeyId: NotRequired[str]
-    SourceRegion: NotRequired[str]
-
-
 class CreateDBClusterParameterGroupMessageTypeDef(TypedDict):
     DBClusterParameterGroupName: str
     DBParameterGroupFamily: str
@@ -666,23 +657,6 @@ class CreateEventSubscriptionMessageTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
-    DBClusterIdentifier: str
-    SnapshotIdentifier: str
-    Engine: str
-    AvailabilityZones: NotRequired[Sequence[str]]
-    EngineVersion: NotRequired[str]
-    Port: NotRequired[int]
-    DBSubnetGroupName: NotRequired[str]
-    VpcSecurityGroupIds: NotRequired[Sequence[str]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    KmsKeyId: NotRequired[str]
-    EnableCloudwatchLogsExports: NotRequired[Sequence[str]]
-    DeletionProtection: NotRequired[bool]
-    DBClusterParameterGroupName: NotRequired[str]
-    StorageType: NotRequired[str]
-
-
 class TagListMessageTypeDef(TypedDict):
     TagList: List[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -708,27 +682,6 @@ class CertificateMessageTypeDef(TypedDict):
     Certificates: List[CertificateTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ModifyDBClusterMessageTypeDef(TypedDict):
-    DBClusterIdentifier: str
-    NewDBClusterIdentifier: NotRequired[str]
-    ApplyImmediately: NotRequired[bool]
-    BackupRetentionPeriod: NotRequired[int]
-    DBClusterParameterGroupName: NotRequired[str]
-    VpcSecurityGroupIds: NotRequired[Sequence[str]]
-    Port: NotRequired[int]
-    MasterUserPassword: NotRequired[str]
-    PreferredBackupWindow: NotRequired[str]
-    PreferredMaintenanceWindow: NotRequired[str]
-    CloudwatchLogsExportConfiguration: NotRequired[CloudwatchLogsExportConfigurationTypeDef]
-    EngineVersion: NotRequired[str]
-    AllowMajorVersionUpgrade: NotRequired[bool]
-    DeletionProtection: NotRequired[bool]
-    StorageType: NotRequired[str]
-    ManageMasterUserPassword: NotRequired[bool]
-    MasterUserSecretKmsKeyId: NotRequired[str]
-    RotateMasterUserPassword: NotRequired[bool]
 
 
 class CopyDBClusterParameterGroupResultTypeDef(TypedDict):
@@ -766,6 +719,74 @@ class DBClusterSnapshotMessageTypeDef(TypedDict):
 class DeleteDBClusterSnapshotResultTypeDef(TypedDict):
     DBClusterSnapshot: DBClusterSnapshotTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDBClusterMessageTypeDef(TypedDict):
+    DBClusterIdentifier: str
+    Engine: str
+    AvailabilityZones: NotRequired[Sequence[str]]
+    BackupRetentionPeriod: NotRequired[int]
+    DBClusterParameterGroupName: NotRequired[str]
+    VpcSecurityGroupIds: NotRequired[Sequence[str]]
+    DBSubnetGroupName: NotRequired[str]
+    EngineVersion: NotRequired[str]
+    Port: NotRequired[int]
+    MasterUsername: NotRequired[str]
+    MasterUserPassword: NotRequired[str]
+    PreferredBackupWindow: NotRequired[str]
+    PreferredMaintenanceWindow: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    StorageEncrypted: NotRequired[bool]
+    KmsKeyId: NotRequired[str]
+    PreSignedUrl: NotRequired[str]
+    EnableCloudwatchLogsExports: NotRequired[Sequence[str]]
+    DeletionProtection: NotRequired[bool]
+    GlobalClusterIdentifier: NotRequired[str]
+    StorageType: NotRequired[str]
+    ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
+    ManageMasterUserPassword: NotRequired[bool]
+    MasterUserSecretKmsKeyId: NotRequired[str]
+    SourceRegion: NotRequired[str]
+
+
+class ModifyDBClusterMessageTypeDef(TypedDict):
+    DBClusterIdentifier: str
+    NewDBClusterIdentifier: NotRequired[str]
+    ApplyImmediately: NotRequired[bool]
+    BackupRetentionPeriod: NotRequired[int]
+    DBClusterParameterGroupName: NotRequired[str]
+    VpcSecurityGroupIds: NotRequired[Sequence[str]]
+    Port: NotRequired[int]
+    MasterUserPassword: NotRequired[str]
+    PreferredBackupWindow: NotRequired[str]
+    PreferredMaintenanceWindow: NotRequired[str]
+    CloudwatchLogsExportConfiguration: NotRequired[CloudwatchLogsExportConfigurationTypeDef]
+    EngineVersion: NotRequired[str]
+    AllowMajorVersionUpgrade: NotRequired[bool]
+    DeletionProtection: NotRequired[bool]
+    StorageType: NotRequired[str]
+    ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
+    ManageMasterUserPassword: NotRequired[bool]
+    MasterUserSecretKmsKeyId: NotRequired[str]
+    RotateMasterUserPassword: NotRequired[bool]
+
+
+class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
+    DBClusterIdentifier: str
+    SnapshotIdentifier: str
+    Engine: str
+    AvailabilityZones: NotRequired[Sequence[str]]
+    EngineVersion: NotRequired[str]
+    Port: NotRequired[int]
+    DBSubnetGroupName: NotRequired[str]
+    VpcSecurityGroupIds: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    KmsKeyId: NotRequired[str]
+    EnableCloudwatchLogsExports: NotRequired[Sequence[str]]
+    DeletionProtection: NotRequired[bool]
+    DBClusterParameterGroupName: NotRequired[str]
+    ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
+    StorageType: NotRequired[str]
 
 
 class DBClusterParameterGroupDetailsTypeDef(TypedDict):
@@ -830,6 +851,7 @@ class DBClusterTypeDef(TypedDict):
     EnabledCloudwatchLogsExports: NotRequired[List[str]]
     DeletionProtection: NotRequired[bool]
     StorageType: NotRequired[str]
+    ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationInfoTypeDef]
     MasterUserSecret: NotRequired[ClusterMasterUserSecretTypeDef]
 
 
@@ -844,6 +866,7 @@ class DBEngineVersionTypeDef(TypedDict):
     SupportsLogExportsToCloudwatchLogs: NotRequired[bool]
     SupportedCACertificateIdentifiers: NotRequired[List[str]]
     SupportsCertificateRotationWithoutRestart: NotRequired[bool]
+    ServerlessV2FeaturesSupport: NotRequired[ServerlessV2FeaturesSupportTypeDef]
 
 
 class DescribeCertificatesMessageTypeDef(TypedDict):
@@ -1099,6 +1122,7 @@ class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     EnableCloudwatchLogsExports: NotRequired[Sequence[str]]
     DeletionProtection: NotRequired[bool]
+    ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
 
 

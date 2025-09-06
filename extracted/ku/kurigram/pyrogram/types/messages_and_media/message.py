@@ -1686,7 +1686,7 @@ class Message(Object, Update):
 
                     if parsed_message.topic:
                         client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
-                except ChatAdminRequired:
+                except (ChannelPrivate, ChatAdminRequired):
                     pass
 
         if not parsed_message.poll:  # Do not cache poll messages

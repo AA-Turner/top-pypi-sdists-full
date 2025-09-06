@@ -62,6 +62,40 @@ class InstanceSizing(_message.Message):
     max_instances: int
     def __init__(self, min_instances: _Optional[int] = ..., max_instances: _Optional[int] = ...) -> None: ...
 
+class SourceImageSpec(_message.Message):
+    __slots__ = ("requirements", "dependencies_hash", "runtime", "python_version")
+    REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
+    DEPENDENCIES_HASH_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    PYTHON_VERSION_FIELD_NUMBER: _ClassVar[int]
+    requirements: str
+    dependencies_hash: str
+    runtime: str
+    python_version: str
+    def __init__(
+        self,
+        requirements: _Optional[str] = ...,
+        dependencies_hash: _Optional[str] = ...,
+        runtime: _Optional[str] = ...,
+        python_version: _Optional[str] = ...,
+    ) -> None: ...
+
+class SourceImageSpecs(_message.Message):
+    __slots__ = ("specs",)
+    class SpecsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: SourceImageSpec
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[SourceImageSpec, _Mapping]] = ...
+        ) -> None: ...
+
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    specs: _containers.MessageMap[str, SourceImageSpec]
+    def __init__(self, specs: _Optional[_Mapping[str, SourceImageSpec]] = ...) -> None: ...
+
 class Deployment(_message.Message):
     __slots__ = (
         "id",
@@ -92,6 +126,7 @@ class Deployment(_message.Message):
         "pinned_platform_version",
         "preview_deployment_tag",
         "profiling_mode",
+        "source_image_specs",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -121,6 +156,7 @@ class Deployment(_message.Message):
     PINNED_PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
     PREVIEW_DEPLOYMENT_TAG_FIELD_NUMBER: _ClassVar[int]
     PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_IMAGE_SPECS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -149,6 +185,7 @@ class Deployment(_message.Message):
     pinned_platform_version: str
     preview_deployment_tag: str
     profiling_mode: DeploymentProfilingMode
+    source_image_specs: bytes
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -179,4 +216,5 @@ class Deployment(_message.Message):
         pinned_platform_version: _Optional[str] = ...,
         preview_deployment_tag: _Optional[str] = ...,
         profiling_mode: _Optional[_Union[DeploymentProfilingMode, str]] = ...,
+        source_image_specs: _Optional[bytes] = ...,
     ) -> None: ...

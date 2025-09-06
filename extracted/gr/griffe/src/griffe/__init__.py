@@ -162,6 +162,9 @@ To test your Griffe extensions, or to load API data from code in memory, Griffe 
 
 from __future__ import annotations
 
+import warnings
+from typing import Any
+
 from griffe._internal.agents.inspector import Inspector, inspect
 from griffe._internal.agents.nodes.assignments import get_instance_names, get_name, get_names
 from griffe._internal.agents.nodes.ast import (
@@ -203,7 +206,7 @@ from griffe._internal.diff import (
     ReturnChangedTypeBreakage,
     find_breaking_changes,
 )
-from griffe._internal.docstrings.google import parse_google
+from griffe._internal.docstrings.google import GoogleOptions, parse_google
 from griffe._internal.docstrings.models import (
     DocstringAdmonition,
     DocstringAttribute,
@@ -240,16 +243,17 @@ from griffe._internal.docstrings.models import (
     DocstringWarn,
     DocstringYield,
 )
-from griffe._internal.docstrings.numpy import parse_numpy
+from griffe._internal.docstrings.numpy import NumpyOptions, parse_numpy
 from griffe._internal.docstrings.parsers import (
     DocstringDetectionMethod,
+    DocstringOptions,
     DocstringStyle,
     infer_docstring_style,
     parse,
     parse_auto,
     parsers,
 )
-from griffe._internal.docstrings.sphinx import parse_sphinx
+from griffe._internal.docstrings.sphinx import SphinxOptions, parse_sphinx
 from griffe._internal.docstrings.utils import docstring_warning, parse_docstring_annotation
 from griffe._internal.encoders import JSONEncoder, json_decoder
 from griffe._internal.enumerations import (
@@ -329,7 +333,7 @@ from griffe._internal.extensions.base import (
 )
 from griffe._internal.extensions.dataclasses import DataclassesExtension
 from griffe._internal.finder import ModuleFinder, NamePartsAndPathType, NamePartsType, NamespacePackage, Package
-from griffe._internal.git import assert_git_repo, get_latest_tag, get_repo_root, tmp_worktree
+from griffe._internal.git import GitInfo, KnownGitService
 from griffe._internal.importer import dynamic_import, sys_path
 from griffe._internal.loader import GriffeLoader, load, load_git, load_pypi
 from griffe._internal.logger import Logger, get_logger, logger, patch_loggers
@@ -370,9 +374,33 @@ from griffe._internal.tests import (
     vtree,
 )
 
+# YORE: Bump 2: Remove block.
+_deprecated_names = (
+    "assert_git_repo",
+    "get_latest_tag",
+    "get_repo_root",
+    "tmp_worktree",
+)
+
+
+# YORE: Bump 2: Remove block.
+def __getattr__(name: str) -> Any:
+    if name in _deprecated_names:
+        from griffe._internal import git  # noqa: PLC0415
+
+        warnings.warn(
+            f"The `{name}` function is deprecated and will become unavailable in the next major version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(git, f"_{name}")
+
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
 # Regenerate this list with the following Python snippet:
 # import griffe
-# names = sorted(n for n in dir(griffe) if not n.startswith("_") and n not in ("annotations", "lazy_importing"))
+# names = sorted(n for n in dir(griffe) if not n.startswith("_") and n not in ("Any", "annotations", "lazy_importing", "warnings"))
 # print('__all__ = [\n    "' + '",\n    "'.join(names) + '",\n]')
 __all__ = [
     "DEFAULT_LOG_LEVEL",
@@ -400,6 +428,7 @@ __all__ = [
     "DocstringFunction",
     "DocstringModule",
     "DocstringNamedElement",
+    "DocstringOptions",
     "DocstringParameter",
     "DocstringRaise",
     "DocstringReceive",
@@ -470,11 +499,14 @@ __all__ = [
     "Function",
     "GetMembersMixin",
     "GitError",
+    "GitInfo",
+    "GoogleOptions",
     "GriffeError",
     "GriffeLoader",
     "Inspector",
     "JSONEncoder",
     "Kind",
+    "KnownGitService",
     "LastNodeError",
     "LinesCollection",
     "LoadableExtensionType",
@@ -488,6 +520,7 @@ __all__ = [
     "NamePartsType",
     "NameResolutionError",
     "NamespacePackage",
+    "NumpyOptions",
     "Object",
     "ObjectAliasMixin",
     "ObjectChangedKindBreakage",
@@ -510,6 +543,7 @@ __all__ = [
     "RootNodeError",
     "SerializationMixin",
     "SetMembersMixin",
+    "SphinxOptions",
     "Stats",
     "TmpPackage",
     "TypeAlias",

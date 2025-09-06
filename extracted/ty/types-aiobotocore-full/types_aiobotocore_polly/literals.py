@@ -91,7 +91,7 @@ LanguageCodeType = Literal[
 ]
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
-OutputFormatType = Literal["json", "mp3", "ogg_vorbis", "pcm"]
+OutputFormatType = Literal["json", "mp3", "ogg_opus", "ogg_vorbis", "pcm"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
 TaskStatusType = Literal["completed", "failed", "inProgress", "scheduled"]
 TextTypeType = Literal["ssml", "text"]
@@ -225,6 +225,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -236,8 +237,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

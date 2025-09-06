@@ -128,7 +128,7 @@ def setup() -> None:
 
     Once dependencies are installed, try running `make` or `make help` again, to show additional tasks.
 
-    ```console exec="1" source="console"
+    ```console exec="1" source="console" id="make-help2"
     $ alias make="$PWD/scripts/make"  # markdown-exec: hide
     $ make
     ```
@@ -317,7 +317,7 @@ def main(args: list[str]) -> int:
             if not args:
                 print("make: run: missing command", file=sys.stderr)
                 return 1
-            run(cmd, *args)  # ty: ignore[missing-argument]
+            run3x(cmd, *args)  # ty: ignore[missing-argument]
             return 0
 
         opts = []

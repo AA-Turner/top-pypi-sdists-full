@@ -38,7 +38,6 @@ force_error(f(1, None))  # E: Argument `tuple[int, @_]` is not assignable to par
 );
 
 testcase!(
-    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`. Also, we should not leak the `Self` type when self-specialization fails.",
     test_self_type_subst,
     r#"
 from typing import assert_type, Self
@@ -47,13 +46,13 @@ class A:
 class B[T](A): ...
 class C[T]: ...
 assert_type(A.__new__(A), A)
-assert_type(A.__new__(B[int]), B[int])
-assert_type(A.__new__(C[int]), Self) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+assert_type(A.__new__(B[int]), A)
+assert_type(A.__new__(C[int]), A) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
 
 o = A()
 assert_type(o.__new__(A), A)
-assert_type(o.__new__(B[int]), B[int])
-assert_type(o.__new__(C[int]), Self) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+assert_type(o.__new__(B[int]), A)
+assert_type(o.__new__(C[int]), A) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
     "#,
 );
 
@@ -91,7 +90,20 @@ testcase!(
 from warnings import deprecated
 @deprecated("function is deprecated")
 def old_function() -> None: ...
-old_function()  # E: Call to deprecated function `old_function`
+old_function()  # E: `old_function` is deprecated
+    "#,
+);
+
+testcase!(
+    test_deprecated_function_reference,
+    r#"
+from typing import Callable
+from warnings import deprecated
+@deprecated("function is deprecated")
+def old_function() -> None: ...
+
+def take_callable(f: Callable) -> None: ...
+take_callable(old_function)  # E: `old_function` is deprecated
     "#,
 );
 
@@ -104,7 +116,7 @@ class C:
     def old_function(self) -> None: ...
 
 c = C()
-c.old_function()  # E: Call to deprecated function `C.old_function`
+c.old_function()  # E: `C.old_function` is deprecated
     "#,
 );
 
@@ -122,7 +134,7 @@ def f(x: str) -> str: ...
 def f(x: int | str) -> int | str:
     return x
 
-f(0)  # E: Call to deprecated function `f`
+f(0)  # E: `f` is deprecated
     "#,
 );
 

@@ -37,6 +37,8 @@ from pydantic_core import core_schema
 from pytrie import StringTrie
 from typing_extensions import Self
 
+from .utils import NoCURIEDelimiterError, _split
+
 if TYPE_CHECKING:  # pragma: no cover
     import pandas
     import rdflib
@@ -48,6 +50,7 @@ __all__ = [
     "DuplicateValueError",
     "NamableReference",
     "NamedReference",
+    "NoCURIEDelimiterError",
     "Prefix",
     "PrefixMap",
     "Record",
@@ -75,13 +78,6 @@ LocationOr = Union[str, Path, X]
 def _get_field_validator_values(values, key: str):  # type:ignore
     """Get the value for the key from a field validator object."""
     return values.data[key]
-
-
-def _split(curie: str, *, sep: str = ":") -> tuple[str, str]:
-    prefix, delimiter, identifier = curie.partition(sep)
-    if not delimiter:
-        raise NoCURIEDelimiterError(curie)
-    return prefix, identifier
 
 
 class ReferenceTuple(NamedTuple):
@@ -429,6 +425,10 @@ class Reference(BaseModel):
             and self.identifier == other.identifier
         )
 
+    def __composite_values__(self) -> tuple[str, str]:
+        """Return values appropriate for :func:`sqlalchemy.orm.composite`."""
+        return self.prefix, self.identifier
+
     @property
     def curie(self) -> str:
         """Get the reference as a CURIE string.
@@ -485,7 +485,7 @@ class NamableReference(Reference):
     model_config = ConfigDict(frozen=True)
 
     @classmethod
-    def from_curie(  # type:ignore
+    def from_curie(
         cls,
         curie: str,
         name: str | None = None,
@@ -663,17 +663,6 @@ class DuplicateSummary(NamedTuple):
     record_1: Record
     record_2: Record
     prefix: str
-
-
-class NoCURIEDelimiterError(ValueError):
-    """An error thrown on a string with no delimiter."""
-
-    def __init__(self, curie: str):
-        """Initialize the error."""
-        self.curie = curie
-
-    def __str__(self) -> str:
-        return f"{self.curie} does not appear to be a CURIE - missing a delimiter"
 
 
 class DuplicateValueError(ValueError):
@@ -2244,7 +2233,7 @@ class Converter:
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
         pre_func = self.compress_or_standardize if ambiguous else self.compress
-        func = partial(pre_func, strict=strict, passthrough=passthrough)  # type:ignore
+        func = partial(pre_func, strict=strict, passthrough=passthrough)
         df[column if target_column is None else target_column] = df[column].map(func)
 
     def pd_expand(
@@ -2267,7 +2256,7 @@ class Converter:
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
         pre_func = self.expand_or_standardize if ambiguous else self.expand
-        func = partial(pre_func, strict=strict, passthrough=passthrough)  # type:ignore
+        func = partial(pre_func, strict=strict, passthrough=passthrough)
         df[column if target_column is None else target_column] = df[column].map(func)
 
     def pd_standardize_prefix(
@@ -2370,7 +2359,7 @@ class Converter:
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
         pre_func = self.compress_or_standardize if ambiguous else self.compress
-        func = partial(pre_func, strict=strict, passthrough=passthrough)  # type:ignore
+        func = partial(pre_func, strict=strict, passthrough=passthrough)
         self._file_helper(func, path=path, column=column, sep=sep, header=header)
 
     def file_expand(
@@ -2396,7 +2385,7 @@ class Converter:
         :param ambiguous: If true, consider the column as containing either CURIEs or URIs.
         """
         pre_func = self.expand_or_standardize if ambiguous else self.expand
-        func = partial(pre_func, strict=strict, passthrough=passthrough)  # type:ignore
+        func = partial(pre_func, strict=strict, passthrough=passthrough)
         self._file_helper(func, path=path, column=column, sep=sep, header=header)
 
     @staticmethod

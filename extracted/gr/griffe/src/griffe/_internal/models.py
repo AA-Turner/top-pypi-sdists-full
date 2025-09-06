@@ -6,12 +6,13 @@ from __future__ import annotations
 import inspect
 from collections import defaultdict
 from contextlib import suppress
+from dataclasses import asdict
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Callable, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Union, cast
 
 from griffe._internal.c3linear import c3linear_merge
-from griffe._internal.docstrings.parsers import DocstringStyle, parse
+from griffe._internal.docstrings.parsers import DocstringOptions, DocstringStyle, parse
 from griffe._internal.enumerations import Kind, ParameterKind, Parser, TypeParameterKind
 from griffe._internal.exceptions import AliasResolutionError, BuiltinModuleError, CyclicAliasError, NameResolutionError
 from griffe._internal.expressions import ExprCall, ExprName, ExprTuple
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from griffe._internal.collections import LinesCollection, ModulesCollection
     from griffe._internal.docstrings.models import DocstringSection
     from griffe._internal.expressions import Expr
+    from griffe._internal.git import GitInfo
 
 
 from functools import cached_property
@@ -80,7 +82,7 @@ class Docstring:
         endlineno: int | None = None,
         parent: Object | None = None,
         parser: DocstringStyle | Parser | None = None,
-        parser_options: dict[str, Any] | None = None,
+        parser_options: DocstringOptions | None = None,
     ) -> None:
         """Initialize the docstring.
 
@@ -118,7 +120,7 @@ class Docstring:
         [`parse`][griffe.Docstring.parse].
         """
 
-        self.parser_options: dict[str, Any] = parser_options or {}
+        self.parser_options: DocstringOptions = parser_options or {}
         """The configured parsing options.
 
         See also: [`parser`][griffe.Docstring.parser],
@@ -136,6 +138,14 @@ class Docstring:
     @property
     def source(self) -> str:
         """The original, uncleaned value of the docstring as written in the source.
+
+        It is a simple concatenation of the source lines. These source lines will include
+        quotes (single/double/triple) and might include leading whitespace and indentation,
+        as well as trailing comments.
+
+        Raises:
+            ValueError: If the original docstring cannot be retrieved
+                (no parent, no line numbers, or attached to namespace package).
 
         See also: [`value`][griffe.Docstring.value].
         """
@@ -578,6 +588,8 @@ class Object(ObjectAliasMixin):
         parent: Module | Class | None = None,
         lines_collection: LinesCollection | None = None,
         modules_collection: ModulesCollection | None = None,
+        git_info: GitInfo | None = None,
+        analysis: Literal["static", "dynamic"] | None = None,
     ) -> None:
         """Initialize the object.
 
@@ -591,6 +603,9 @@ class Object(ObjectAliasMixin):
             parent: The object parent.
             lines_collection: A collection of source code lines.
             modules_collection: A collection of modules.
+            git_info: Git information.
+            analysis: The type of analysis used to load this object.
+                None means the object was created manually.
         """
         self.name: str = name
         """The object name."""
@@ -680,8 +695,16 @@ class Object(ObjectAliasMixin):
         self.deprecated: bool | str | None = None
         """Whether this object is deprecated (boolean or deprecation message)."""
 
+        self.analysis: Literal["static", "dynamic"] | None = analysis
+        """The type of analysis used to load this object.
+
+        None means the object was created manually.
+        """
+
         self._lines_collection: LinesCollection | None = lines_collection
         self._modules_collection: ModulesCollection | None = modules_collection
+        self._git_info: GitInfo | None = git_info
+        self._source_link: str | None = None
 
         # Attach the docstring to this object.
         if docstring:
@@ -698,6 +721,37 @@ class Object(ObjectAliasMixin):
     def __len__(self) -> int:
         """The number of members in this object, recursively."""
         return len(self.members) + sum(len(member) for member in self.members.values())
+
+    @property
+    def git_info(self) -> GitInfo | None:
+        """Git information for this object, if available."""
+        if self._git_info is not None or self.parent is None:
+            return self._git_info
+        return self.parent.git_info
+
+    @git_info.setter
+    def git_info(self, value: GitInfo | None) -> None:
+        """Set the Git information for this object."""
+        self._git_info = value
+
+    @property
+    def source_link(self) -> str | None:
+        """Source link for this object, if available."""
+        if self._source_link is not None:
+            return self._source_link
+        with suppress(BuiltinModuleError, ValueError):
+            if (git_info := self.git_info) and isinstance(self.filepath, Path):
+                # We don't use `self.relative_filepath` because it is computed
+                # relative to the current working directory, which isn't what we want.
+                filepath = self.filepath.relative_to(git_info.repository)
+                if self.lineno is not None and self.endlineno is not None:
+                    self._source_link = git_info.get_source_link(filepath, self.lineno, self.endlineno)
+        return self._source_link
+
+    @source_link.setter
+    def source_link(self, value: str | None) -> None:
+        """Set the source link for this object."""
+        self._source_link = value
 
     @property
     def has_docstring(self) -> bool:
@@ -1221,6 +1275,12 @@ class Object(ObjectAliasMixin):
             base["labels"] = self.labels
         if self.members:
             base["members"] = {name: member.as_dict(full=full, **kwargs) for name, member in self.members.items()}
+        if self.analysis:
+            base["analysis"] = self.analysis
+        if self._git_info is not None:
+            base["git_info"] = asdict(self._git_info)
+        if self._source_link is not None:
+            base["source_link"] = self._source_link
         # TODO: Include `self.extra`?
 
         if full:
@@ -1255,6 +1315,9 @@ class Object(ObjectAliasMixin):
                     # "has_docstrings": self.has_docstrings,
                 },
             )
+
+            if "source_link" not in base and (source_link := self.source_link) is not None:
+                base["source_link"] = source_link
 
         return base
 
@@ -1292,6 +1355,8 @@ class Alias(ObjectAliasMixin):
         runtime: bool = True,
         parent: Module | Class | Alias | None = None,
         inherited: bool = False,
+        wildcard_imported: bool = False,
+        analysis: Literal["static", "dynamic"] | None = None,
     ) -> None:
         """Initialize the alias.
 
@@ -1304,6 +1369,9 @@ class Alias(ObjectAliasMixin):
             runtime: Whether this alias is present at runtime or not.
             parent: The alias parent.
             inherited: Whether this alias wraps an inherited member.
+            wildcard_imported: Whether this alias was created using a wildcard import.
+            analysis: The type of analysis used to load this alias.
+                None means the alias was created manually.
         """
         self.name: str = name
         """The alias name."""
@@ -1320,11 +1388,20 @@ class Alias(ObjectAliasMixin):
         self.inherited: bool = inherited
         """Whether this alias represents an inherited member."""
 
+        self.wildcard_imported: bool = wildcard_imported
+        """Whether this alias was created using a wildcard import."""
+
         self.public: bool | None = None
         """Whether this alias is public."""
 
         self.deprecated: str | bool | None = None
         """Whether this alias is deprecated (boolean or deprecation message)."""
+
+        self.analysis: Literal["static", "dynamic"] | None = analysis
+        """The type of analysis used to load this alias.
+
+        None means the alias was created manually.
+        """
 
         self._parent: Module | Class | Alias | None = parent
         self._passed_through: bool = False
@@ -1480,6 +1557,26 @@ class Alias(ObjectAliasMixin):
     # The following methods and properties exist on the target(s).
     # We first try to reach the final target, triggering alias resolution errors
     # and cyclic aliases errors early. We avoid recursing in the alias chain.
+
+    @property
+    def git_info(self) -> GitInfo | None:
+        """Get the Git information for this object, if available."""
+        return self.final_target.git_info
+
+    @git_info.setter
+    def git_info(self, value: GitInfo | None) -> None:
+        """Set the Git information for this object."""
+        self.final_target.git_info = value
+
+    @property
+    def source_link(self) -> str | None:
+        """Get the source link for this object, if available."""
+        return self.final_target.source_link
+
+    @source_link.setter
+    def source_link(self, value: str | None) -> None:
+        """Set the source link for this object."""
+        self.final_target.source_link = value
 
     @property
     def extra(self) -> dict:
@@ -1829,10 +1926,7 @@ class Alias(ObjectAliasMixin):
 
     @property
     def is_init_method(self) -> bool:
-        """Whether this method is an `__init__` method.
-
-        See also: [`is_method`][griffe.Alias.is_method].
-        """
+        """Whether this method is an `__init__` method."""
         return cast("Function", self.final_target).is_init_method
 
     @property
@@ -2106,6 +2200,8 @@ class Alias(ObjectAliasMixin):
             base["lineno"] = self.alias_lineno
         if self.alias_endlineno:
             base["endlineno"] = self.alias_endlineno
+        if self.analysis:
+            base["analysis"] = self.analysis
 
         if full:
             base.update(

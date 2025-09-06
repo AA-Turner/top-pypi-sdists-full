@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: oqpy
-Version: 0.3.7
+Version: 0.3.8
 Summary: Generating OpenQASM 3 + OpenPulse in Python
-Home-page: https://github.com/openqasm/oqpy
 License: Apache-2.0
 Keywords: openqasm,quantum
 Author: OQpy Contributors
@@ -16,11 +15,13 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Requires-Dist: mypy-extensions (>=0.2.0)
-Requires-Dist: numpy (>=1.17.3) ; python_version >= "3.8" and python_version < "3.9"
-Requires-Dist: numpy (>=1.19.3) ; python_version >= "3.9" and python_version < "3.10"
-Requires-Dist: numpy (>=1.21.6) ; python_version >= "3.10" and python_version < "3.11"
+Requires-Dist: numpy (>=1.17.3) ; python_version == "3.8"
+Requires-Dist: numpy (>=1.19.3) ; python_version == "3.9"
+Requires-Dist: numpy (>=1.21.6) ; python_version == "3.10"
 Requires-Dist: numpy (>=1.22.0) ; python_version >= "3.11"
 Requires-Dist: openpulse (>=0.5.0)
 Project-URL: Repository, https://github.com/openqasm/oqpy

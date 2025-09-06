@@ -35,6 +35,7 @@ from .literals import (
     OutputLocationTypeType,
     ParticipantRoleType,
     PiiEntityTypeType,
+    PronounsType,
     RedactionOutputType,
     SentimentValueType,
     SubtitleFormatType,
@@ -137,9 +138,11 @@ __all__ = (
     "ListVocabularyFiltersResponseTypeDef",
     "MediaTypeDef",
     "MedicalScribeChannelDefinitionTypeDef",
+    "MedicalScribeContextTypeDef",
     "MedicalScribeJobSummaryTypeDef",
     "MedicalScribeJobTypeDef",
     "MedicalScribeOutputTypeDef",
+    "MedicalScribePatientContextTypeDef",
     "MedicalScribeSettingsTypeDef",
     "MedicalTranscriptTypeDef",
     "MedicalTranscriptionJobSummaryTypeDef",
@@ -462,6 +465,10 @@ class VocabularyFilterInfoTypeDef(TypedDict):
 class MedicalScribeChannelDefinitionTypeDef(TypedDict):
     ChannelId: int
     ParticipantRole: MedicalScribeParticipantRoleType
+
+
+class MedicalScribePatientContextTypeDef(TypedDict):
+    Pronouns: NotRequired[PronounsType]
 
 
 class MedicalScribeOutputTypeDef(TypedDict):
@@ -809,6 +816,10 @@ class ListVocabularyFiltersResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class MedicalScribeContextTypeDef(TypedDict):
+    PatientContext: NotRequired[MedicalScribePatientContextTypeDef]
+
+
 MedicalTranscriptionJobTypeDef = TypedDict(
     "MedicalTranscriptionJobTypeDef",
     {
@@ -950,19 +961,8 @@ class MedicalScribeJobTypeDef(TypedDict):
     Settings: NotRequired[MedicalScribeSettingsTypeDef]
     DataAccessRoleArn: NotRequired[str]
     ChannelDefinitions: NotRequired[List[MedicalScribeChannelDefinitionTypeDef]]
+    MedicalScribeContextProvided: NotRequired[bool]
     Tags: NotRequired[List[TagTypeDef]]
-
-
-class StartMedicalScribeJobRequestTypeDef(TypedDict):
-    MedicalScribeJobName: str
-    Media: MediaTypeDef
-    OutputBucketName: str
-    DataAccessRoleArn: str
-    Settings: MedicalScribeSettingsTypeDef
-    OutputEncryptionKMSKeyId: NotRequired[str]
-    KMSEncryptionContext: NotRequired[Mapping[str, str]]
-    ChannelDefinitions: NotRequired[Sequence[MedicalScribeChannelDefinitionTypeDef]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DescribeLanguageModelResponseTypeDef(TypedDict):
@@ -987,6 +987,19 @@ class RuleOutputTypeDef(TypedDict):
 
 
 TranscriptFilterUnionTypeDef = Union[TranscriptFilterTypeDef, TranscriptFilterOutputTypeDef]
+
+
+class StartMedicalScribeJobRequestTypeDef(TypedDict):
+    MedicalScribeJobName: str
+    Media: MediaTypeDef
+    OutputBucketName: str
+    DataAccessRoleArn: str
+    Settings: MedicalScribeSettingsTypeDef
+    OutputEncryptionKMSKeyId: NotRequired[str]
+    KMSEncryptionContext: NotRequired[Mapping[str, str]]
+    ChannelDefinitions: NotRequired[Sequence[MedicalScribeChannelDefinitionTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    MedicalScribeContext: NotRequired[MedicalScribeContextTypeDef]
 
 
 class GetMedicalTranscriptionJobResponseTypeDef(TypedDict):

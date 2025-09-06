@@ -148,6 +148,33 @@ Hover Result: `int`
 }
 
 #[test]
+fn merge_function_type() {
+    let code = r#"
+def f1(x: int) -> int: ...
+def f2(x: int) -> int: ...
+def f3(x: int) -> int: ...
+
+DICT = {
+#  ^
+    1: f1,
+    2: f2,
+    3: f3
+}
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+6 | DICT = {
+       ^
+Hover Result: `dict[int, ((x: int) -> int)]`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_test() {
     let code = r#"
 import typing
@@ -434,7 +461,7 @@ Hover Result: `(self: Foo, a: int, b: bool) -> str`
 
 17 | foo.overloaded_meth(False)
              ^
-Hover Result: `BoundMethod[Foo, Overload[(self: Self@Foo, a: str) -> bool, (self: Self@Foo, a: int, b: bool) -> str]]`
+Hover Result: `BoundMethod[Foo, Overload[(self: Foo, a: str) -> bool, (self: Foo, a: int, b: bool) -> str]]`
 "#
         .trim(),
         report.trim(),

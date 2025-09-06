@@ -77,6 +77,28 @@ del super(B, B()).a # E: Cannot delete field `a`
 );
 
 testcase!(
+    test_super_retain_self,
+    r#"
+from typing import Self
+class A:
+    def m(self) -> Self:
+        return self
+
+    @classmethod
+    def classm(cls) -> type[Self]:
+        return cls
+
+class B(A):
+    def m(self) -> Self:
+        return super().m()
+
+    @classmethod
+    def classm(cls) -> type[Self]:
+        return super().classm()
+    "#,
+);
+
+testcase!(
     test_self_attribute_assign_twice,
     r#"
 from typing import assert_type
@@ -210,7 +232,7 @@ class C3:
     def f(x: int, /) -> str:
         return ""
 def foo(x: Callable[[int], str], c: C, c2: C2, c3: C3):
-    C.f = x  # E: `(int) -> str` is not assignable to attribute `f` with type `(self: Self@C, x: int, /) -> str`
+    C.f = x  # E: `(int) -> str` is not assignable to attribute `f` with type `(self: C, x: int, /) -> str`
     c.f = x
     C2.f = x
     c2.f = x
@@ -490,7 +512,7 @@ class C:
     def __init__(self, y: str):
         self.x = 0
         self.y = y
-assert_type(C.x, Any)  # E: Instance-only attribute `x` of class `C` is not visible on the class
+assert_type(C.x, int)
 assert_type(C.y, Any)  # E: Instance-only attribute `y` of class `C` is not visible on the class
 c = C("y")
 assert_type(c.x, int)
@@ -509,10 +531,10 @@ def f1(c: Callable[[int], None]):
     pass
 def f2(c: Callable[[C, int], None]):
     pass
-f1(C.f)  # E: Argument `(self: Self@C, x: int) -> None` is not assignable to parameter `c` with type `(int) -> None`
+f1(C.f)  # E: Argument `(self: C, x: int) -> None` is not assignable to parameter `c` with type `(int) -> None`
 f1(C().f)
 f2(C.f)
-f2(C().f)  # E: Argument `BoundMethod[C, (self: Self@C, x: int) -> None]` is not assignable to parameter `c` with type `(C, int) -> None`
+f2(C().f)  # E: Argument `BoundMethod[C, (self: C, x: int) -> None]` is not assignable to parameter `c` with type `(C, int) -> None`
     "#,
 );
 
@@ -681,6 +703,21 @@ class C(metaclass=Meta):
     pass
 assert_type(C.x, int)
     "#,
+);
+
+testcase!(
+    test_metaclass_method_cls_typetype,
+    r#"
+from typing import assert_type
+
+class Meta(type):
+    def m[T](cls: type[T]) -> T: ...
+
+class C(metaclass=Meta):
+    pass
+
+assert_type(C.m(), C)
+"#,
 );
 
 fn env_with_stub() -> TestEnv {
@@ -1106,13 +1143,12 @@ ty(None).__bool__(None) # E: Expr::attr_infer_for_type attribute base undefined
 );
 
 testcase!(
-    bug = "Self@int should not be exposed by the call to bit_length",
     test_attribute_access_on_type_literal,
     r#"
 # handy hack to get a type[X] for any X
 def ty[T](x: T) -> type[T]: ...
 
-ty(0).bit_length(0) # TODO # E: `Literal[0]` is not assignable to parameter `self` with type `Self@int`
+ty(0).bit_length(0)
 "#,
 );
 
@@ -1267,9 +1303,10 @@ def test(x: type[int], y: type[int]) -> None:
 testcase!(
     test_access_method_using_class_param_on_class,
     r#"
-from typing import assert_type, Any
+from typing import assert_type, reveal_type, Any
 class A[T]:
     def f(self) -> T: ...
+reveal_type(A.f) # E: revealed type: [T](self: A[T]) -> T
 assert_type(A.f(A[int]()), int)
     "#,
 );
@@ -1277,9 +1314,10 @@ assert_type(A.f(A[int]()), int)
 testcase!(
     test_access_generic_method_using_class_param_on_class,
     r#"
-from typing import assert_type, Any
+from typing import assert_type, reveal_type, Any
 class A[T]:
     def f[S](self, x: S) -> tuple[S, T]: ...
+reveal_type(A.f) # E: revealed type: [T, S](self: A[T], x: S) -> tuple[S, T]
 assert_type(A.f(A[int](), ""), tuple[str, int]) # E: assert_type(tuple[str, Any], tuple[str, int])
     "#,
 );
@@ -1287,14 +1325,34 @@ assert_type(A.f(A[int](), ""), tuple[str, int]) # E: assert_type(tuple[str, Any]
 testcase!(
     test_access_overloaded_method_using_class_param_on_class,
     r#"
-from typing import assert_type, overload, Any
+from typing import assert_type, reveal_type, overload, Any
 class A[T]:
     @overload
     def f(self) -> T: ...
     @overload
     def f(self, x: T | None) -> T: ...
     def f(self, x=None) -> Any: ...
+reveal_type(A.f) # E: revealed type: Overload[[T](self: A[T]) -> T, [T](self: A[T], x: T | None) -> T]
 assert_type(A.f(A[int]()), int)
+    "#,
+);
+
+testcase!(
+    test_access_overloaded_staticmethod_using_class_param_on_class,
+    r#"
+from typing import assert_type, reveal_type, overload, Any
+class A[T]:
+    @overload
+    @staticmethod
+    def f(x: None = ...) -> None: ...
+    @overload
+    @staticmethod
+    def f(x: T) -> T: ...
+    @staticmethod
+    def f(x = None) -> Any: ...
+reveal_type(A.f) # E: revealed type: Overload[(x: None = ...) -> None, [T](x: T) -> T]
+assert_type(A.f(), None)
+assert_type(A.f(0), int)
     "#,
 );
 
@@ -1547,7 +1605,7 @@ def get_type_t[T]() -> type[T]:
     return cast(type[T], 0)
 def foo[T](x: type[T]):
     # mypy reveals the same thing we do (the type of `type.__new__`), while pyright reveals `Unknown`.
-    reveal_type(get_type_t().__new__)  # E: Overload[(cls: type[Self@type], o: object, /) -> type, (cls: type[TypeVar[Self]], name: str, bases: tuple[type, ...], namespace: dict[str, Any], /, **kwds: Any) -> TypeVar[Self]]
+    reveal_type(get_type_t().__new__)  # E: Overload[(cls: type[type], o: object, /) -> type, (cls: type[TypeVar[Self]], name: str, bases: tuple[type, ...], namespace: dict[str, Any], /, **kwds: Any) -> TypeVar[Self]]
     "#,
 );
 

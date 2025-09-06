@@ -223,6 +223,71 @@ class ExportTable:
 				#print(key,dictionary,dictionary[key],rep,alt.encode())
 		return dictionary
 
+	def import_x_from_excel(self):
+		print("Not Yet Ready; need to get mapped class for table by string, until then this is a dud!")
+		return
+		import_file=Control(func=FormBuilderMkText,ptext="Filename: ",helpText="file to import from",data="string")
+		if import_file is None:
+			return
+		if not Path(import_file).exists():
+			print(f"file: {import_file} does not exist!")
+			return
+
+		try:
+			dtype={
+			}
+			df=pd.read_excel(import_file,dtype=dtype)
+			if len(df) < 2:
+				print("There is nothing to import")
+				return
+			with Session(ENGINE) as session:
+				for row in df.itertuples():
+					skip=False
+					entryRow=row._asdict()
+			classes=[i for i in BASE.registry.metadata.tables.keys()]
+			htext=[]
+			ct=len(classes)
+			for num,i in enumerate(classes):
+				htext.append(std_colorize(i,num,ct))
+			htext='\n'.join(htext)
+			print(htext)
+			import_as=Control(func=FormBuilderMkText,ptext="import as index:",helpText=htext,data="integer")
+			if import_as is None:
+				return
+			elif import_as in ['d','']:
+				return
+			if import_as in [i for i in range(0,ct)]:
+				print(classes[import_as])
+				CLASS=globals().get(classes[import_as])
+				print(CLASS)
+			with Session(ENGINE) as session:
+				for row in df.itertuples():
+					skip=False
+					entryRow=row._asdict()
+					try:
+						if import_as in [i for i in range(0,ct)]:
+							#i need the class for the table
+							entry=CLASS()
+						else:
+							return
+						
+						for k in entryRow:
+							print(row)
+							entryRow[k]=self.alterDictionary(entryRow,k)[k]
+							
+							try:
+								setattr(entry,k,entryRow[k])
+							except Exception as ee:
+								print(ee)
+					except Exception as e:
+						print(e)
+					session.add(entry)
+					session.commit()
+			'''get classes'''
+		except Exception as e:
+			print(e)
+
+
 	def importExcel(self,update=False,duplicates=False,manual=False,ods=False):
 		import_file=self.importFile()
 		if ods:
@@ -368,6 +433,11 @@ enter goes to next entry row'''
 				'exec':self.lsTables,
 				'desc':'list tables in db',
 			},
+			f'{uuid1()}':{
+				'cmds':['import x from excel','ixfe'],
+				'exec':self.import_x_from_excel,
+				'desc':'import a class x from excel',
+			},
 			'export selected':{
 				'cmds':['export selected table','est','xpt slct tbl'],
 				'exec':self.exportSelected,
@@ -388,27 +458,27 @@ enter goes to next entry row'''
 			'exec':self.exportSelectedDaylogEntry,
 			'desc':'Export a specific DayLog Entry Set by search'
 			},
-			'import from excel no duplicates no update':{
+			'import Entry from excel no duplicates no update':{
 			'cmds':['ife_0d_0u','import from excel no duplicates no update'],
 			'exec':self.importExcel,
 			'desc':'import from excel no duplicates no update'
 			},
-			'import from excel yes duplicates yes update update':{
+			'import Entry from excel yes duplicates yes update update':{
 			'cmds':['ife_1d_1u','import from excel yes duplicates yes update'],
 			'exec':lambda self=self:self.importExcel(update=True,duplicates=True),
 			'desc':'import from excel no duplicates yes update'
 			},
-			'import from excel yes duplicates no update':{
+			'import Entry from excel yes duplicates no update':{
 			'cmds':['ife_1d_0u','import from excel yes duplicates no update'],
 			'exec':lambda self=self:self.importExcel(update=False,duplicates=True),
 			'desc':'import from excel yes duplicates no update'
 			},
-			'import from excel with manual Intevention':{
+			'import Entry from excel with manual Intevention':{
 			'cmds':['ifem','import from excel manual Intevention'],
 			'exec':lambda self=self:self.importExcel(manual=True,duplicates=True),
 			'desc':'import from excel with manual Intevention'
 			},
-			'export excel template':{
+			'export Entry excel template':{
 			'cmds':['export excel template','eet'],
 			'exec':self.exportTemplateExcel,
 			'desc':'export a blank template file'

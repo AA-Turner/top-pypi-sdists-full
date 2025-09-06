@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, create_model
 
 import requests
 
+from ...elitea_base import filter_missconfigured_index_tools
 from ....configurations.ado import AdoReposConfiguration
 from ....configurations.pgvector import PgVectorConfiguration
 from ...base.tool import BaseAction
@@ -26,6 +27,7 @@ def _get_toolkit(tool) -> BaseToolkit:
         embedding_model=tool['settings'].get('embedding_model'),
         collection_name=tool['toolkit_name'],
         alita=tool['settings'].get('alita', None),
+        llm=tool['settings'].get('llm', None),
     )
 
 def get_toolkit():
@@ -77,6 +79,7 @@ class AzureDevOpsReposToolkit(BaseToolkit):
         return m
 
     @classmethod
+    @filter_missconfigured_index_tools
     def get_toolkit(cls, selected_tools: list[str] | None = None, toolkit_name: Optional[str] = None, **kwargs):
         from os import environ
 

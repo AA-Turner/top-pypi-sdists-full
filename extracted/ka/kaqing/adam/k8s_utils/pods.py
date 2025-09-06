@@ -30,12 +30,12 @@ class Pods:
         except Exception as e:
             log2("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
-    def delete_with_selector(namespace: str, label_selector: str):
+    def delete_with_selector(namespace: str, label_selector: str, grace_period_seconds: int = None):
         v1 = client.CoreV1Api()
 
         ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
         for i in ret.items:
-            v1.delete_namespaced_pod(name=i.metadata.name, namespace=namespace)
+            v1.delete_namespaced_pod(name=i.metadata.name, namespace=namespace, grace_period_seconds=grace_period_seconds)
 
     def on_pods(pods: list[str],
                 namespace: str,

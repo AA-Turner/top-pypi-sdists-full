@@ -77,6 +77,7 @@ __all__ = (
     "ClusterAutoScalerTypeType",
     "ClusterAutoScalingModeType",
     "ClusterAutoScalingStatusType",
+    "ClusterConfigModeType",
     "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
@@ -144,6 +145,7 @@ __all__ = (
     "HyperParameterTuningJobStatusType",
     "HyperParameterTuningJobStrategyTypeType",
     "HyperParameterTuningJobWarmStartTypeType",
+    "IPAddressTypeType",
     "ImageCreatedWaiterName",
     "ImageDeletedWaiterName",
     "ImageSortByType",
@@ -824,6 +826,7 @@ ClarifyTextLanguageType = Literal[
 ClusterAutoScalerTypeType = Literal["Karpenter"]
 ClusterAutoScalingModeType = Literal["Disable", "Enable"]
 ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
+ClusterConfigModeType = Literal["Disable", "Enable"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
@@ -1050,6 +1053,7 @@ HyperParameterTuningJobStatusType = Literal[
 ]
 HyperParameterTuningJobStrategyTypeType = Literal["Bayesian", "Grid", "Hyperband", "Random"]
 HyperParameterTuningJobWarmStartTypeType = Literal["IdenticalDataAndAlgorithm", "TransferLearning"]
+IPAddressTypeType = Literal["dualstack", "ipv4"]
 ImageCreatedWaiterName = Literal["image_created"]
 ImageDeletedWaiterName = Literal["image_deleted"]
 ImageSortByType = Literal["CREATION_TIME", "IMAGE_NAME", "LAST_MODIFIED_TIME"]
@@ -1846,6 +1850,7 @@ ProductionVariantInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",

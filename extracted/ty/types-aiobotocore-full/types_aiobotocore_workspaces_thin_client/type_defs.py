@@ -140,6 +140,7 @@ DeviceSummaryTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
         "arn": NotRequired[str],
+        "lastUserId": NotRequired[str],
     },
 )
 DeviceTypeDef = TypedDict(
@@ -165,6 +166,7 @@ DeviceTypeDef = TypedDict(
         "updatedAt": NotRequired[datetime],
         "arn": NotRequired[str],
         "kmsKeyArn": NotRequired[str],
+        "lastUserId": NotRequired[str],
     },
 )
 MaintenanceWindowOutputTypeDef = TypedDict(

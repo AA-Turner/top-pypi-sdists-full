@@ -92,6 +92,8 @@ from .type_defs import (
     CreateManagedLoginBrandingResponseTypeDef,
     CreateResourceServerRequestTypeDef,
     CreateResourceServerResponseTypeDef,
+    CreateTermsRequestTypeDef,
+    CreateTermsResponseTypeDef,
     CreateUserImportJobRequestTypeDef,
     CreateUserImportJobResponseTypeDef,
     CreateUserPoolClientRequestTypeDef,
@@ -104,6 +106,7 @@ from .type_defs import (
     DeleteIdentityProviderRequestTypeDef,
     DeleteManagedLoginBrandingRequestTypeDef,
     DeleteResourceServerRequestTypeDef,
+    DeleteTermsRequestTypeDef,
     DeleteUserAttributesRequestTypeDef,
     DeleteUserPoolClientRequestTypeDef,
     DeleteUserPoolDomainRequestTypeDef,
@@ -120,6 +123,8 @@ from .type_defs import (
     DescribeResourceServerResponseTypeDef,
     DescribeRiskConfigurationRequestTypeDef,
     DescribeRiskConfigurationResponseTypeDef,
+    DescribeTermsRequestTypeDef,
+    DescribeTermsResponseTypeDef,
     DescribeUserImportJobRequestTypeDef,
     DescribeUserImportJobResponseTypeDef,
     DescribeUserPoolClientRequestTypeDef,
@@ -169,6 +174,8 @@ from .type_defs import (
     ListResourceServersResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTermsRequestTypeDef,
+    ListTermsResponseTypeDef,
     ListUserImportJobsRequestTypeDef,
     ListUserImportJobsResponseTypeDef,
     ListUserPoolClientsRequestTypeDef,
@@ -216,6 +223,8 @@ from .type_defs import (
     UpdateManagedLoginBrandingResponseTypeDef,
     UpdateResourceServerRequestTypeDef,
     UpdateResourceServerResponseTypeDef,
+    UpdateTermsRequestTypeDef,
+    UpdateTermsResponseTypeDef,
     UpdateUserAttributesRequestTypeDef,
     UpdateUserAttributesResponseTypeDef,
     UpdateUserPoolClientRequestTypeDef,
@@ -274,6 +283,7 @@ class Exceptions(BaseClientExceptions):
     ResourceNotFoundException: Type[BotocoreClientError]
     ScopeDoesNotExistException: Type[BotocoreClientError]
     SoftwareTokenMFANotFoundException: Type[BotocoreClientError]
+    TermsExistsException: Type[BotocoreClientError]
     TierChangeNotAllowedException: Type[BotocoreClientError]
     TooManyFailedAttemptsException: Type[BotocoreClientError]
     TooManyRequestsException: Type[BotocoreClientError]
@@ -523,7 +533,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
         self, **kwargs: Unpack[AdminResetUserPasswordRequestTypeDef]
     ) -> Dict[str, Any]:
         """
-        Resets the specified user's password in a user pool.
+        Begins the password reset process.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_reset_user_password.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#admin_reset_user_password)
@@ -722,6 +732,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#create_resource_server)
         """
 
+    async def create_terms(
+        self, **kwargs: Unpack[CreateTermsRequestTypeDef]
+    ) -> CreateTermsResponseTypeDef:
+        """
+        Creates terms documents for the requested app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/create_terms.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#create_terms)
+        """
+
     async def create_user_import_job(
         self, **kwargs: Unpack[CreateUserImportJobRequestTypeDef]
     ) -> CreateUserImportJobResponseTypeDef:
@@ -801,6 +821,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_resource_server.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_resource_server)
+        """
+
+    async def delete_terms(
+        self, **kwargs: Unpack[DeleteTermsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the terms documents with the requested ID from your app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_terms.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_terms)
         """
 
     async def delete_user(
@@ -918,6 +948,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#describe_risk_configuration)
         """
 
+    async def describe_terms(
+        self, **kwargs: Unpack[DescribeTermsRequestTypeDef]
+    ) -> DescribeTermsResponseTypeDef:
+        """
+        Returns details for the requested terms documents ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/describe_terms.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#describe_terms)
+        """
+
     async def describe_user_import_job(
         self, **kwargs: Unpack[DescribeUserImportJobRequestTypeDef]
     ) -> DescribeUserImportJobResponseTypeDef:
@@ -973,7 +1013,8 @@ class CognitoIdentityProviderClient(AioBaseClient):
         self, **kwargs: Unpack[ForgotPasswordRequestTypeDef]
     ) -> ForgotPasswordResponseTypeDef:
         """
-        Sends a password-reset confirmation code for the currently signed-in user.
+        Sends a password-reset confirmation code to the email address or phone number
+        of the requested username.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/forgot_password.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#forgot_password)
@@ -1175,6 +1216,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_tags_for_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_tags_for_resource)
+        """
+
+    async def list_terms(
+        self, **kwargs: Unpack[ListTermsRequestTypeDef]
+    ) -> ListTermsResponseTypeDef:
+        """
+        Returns details about all terms documents for the requested user pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_terms.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_terms)
         """
 
     async def list_user_import_jobs(
@@ -1455,6 +1506,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_resource_server.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_resource_server)
+        """
+
+    async def update_terms(
+        self, **kwargs: Unpack[UpdateTermsRequestTypeDef]
+    ) -> UpdateTermsResponseTypeDef:
+        """
+        Modifies existing terms documents for the requested app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_terms.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_terms)
         """
 
     async def update_user_attributes(

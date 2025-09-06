@@ -3438,7 +3438,7 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
     from worker_automate_hub.api.client import get_status_nf_emsys
 
     try:
-        max_attempts = 100
+        max_attempts = 10
         i = 0
 
         while i < max_attempts:
@@ -3447,7 +3447,7 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
                 break
             else:
                 console.print(f"Aguardando confirmação de nota incluida...\n")
-                await worker_sleep(8)
+                await worker_sleep(13)
                 i += 1
                 try:
                     status_nf_emsys = await get_status_nf_emsys(int(xml_nota))

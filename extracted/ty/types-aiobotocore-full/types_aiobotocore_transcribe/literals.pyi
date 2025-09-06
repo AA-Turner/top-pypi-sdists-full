@@ -39,6 +39,7 @@ __all__ = (
     "OutputLocationTypeType",
     "ParticipantRoleType",
     "PiiEntityTypeType",
+    "PronounsType",
     "RedactionOutputType",
     "RedactionTypeType",
     "RegionName",
@@ -196,6 +197,7 @@ PiiEntityTypeType = Literal[
     "PIN",
     "SSN",
 ]
+PronounsType = Literal["HE_HIM", "SHE_HER", "THEY_THEM"]
 RedactionOutputType = Literal["redacted", "redacted_and_unredacted"]
 RedactionTypeType = Literal["PII"]
 SentimentValueType = Literal["MIXED", "NEGATIVE", "NEUTRAL", "POSITIVE"]
@@ -235,6 +237,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -246,8 +249,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

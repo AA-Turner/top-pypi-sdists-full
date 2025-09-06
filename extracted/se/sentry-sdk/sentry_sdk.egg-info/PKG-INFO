@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-sdk
-Version: 2.36.0
+Version: 2.37.0
 Summary: Python client for Sentry (https://sentry.io)
 Home-page: https://github.com/getsentry/sentry-python
 Author: Sentry Team and Contributors
@@ -72,6 +72,8 @@ Provides-Extra: huggingface-hub
 Requires-Dist: huggingface_hub>=0.22; extra == "huggingface-hub"
 Provides-Extra: langchain
 Requires-Dist: langchain>=0.0.210; extra == "langchain"
+Provides-Extra: langgraph
+Requires-Dist: langgraph>=0.6.6; extra == "langgraph"
 Provides-Extra: launchdarkly
 Requires-Dist: launchdarkly-server-sdk>=9.8.0; extra == "launchdarkly"
 Provides-Extra: litestar

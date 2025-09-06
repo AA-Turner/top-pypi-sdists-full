@@ -49,6 +49,12 @@ def dataset_items_producer(
         processing_batch_size: Size of batches to add to pipeline queue
     """
     try:
+        logging.info(
+            "Starting to fetch items for dataset %s version %s",
+            dataset_id,
+            dataset_version,
+            request_batch_size
+        )
         number_of_dataset_pages = get_number_of_dataset_batches(
             rpc, dataset_id, dataset_version, request_batch_size
         )

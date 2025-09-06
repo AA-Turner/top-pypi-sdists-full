@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.get_hub_flow_by_id_response_200_flow_value_failure_module_retry_exponential import (
         GetHubFlowByIdResponse200FlowValueFailureModuleRetryExponential,
     )
+    from ..models.get_hub_flow_by_id_response_200_flow_value_failure_module_retry_retry_if import (
+        GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf,
+    )
 
 
 T = TypeVar("T", bound="GetHubFlowByIdResponse200FlowValueFailureModuleRetry")
@@ -23,10 +26,12 @@ class GetHubFlowByIdResponse200FlowValueFailureModuleRetry:
     Attributes:
         constant (Union[Unset, GetHubFlowByIdResponse200FlowValueFailureModuleRetryConstant]):
         exponential (Union[Unset, GetHubFlowByIdResponse200FlowValueFailureModuleRetryExponential]):
+        retry_if (Union[Unset, GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "GetHubFlowByIdResponse200FlowValueFailureModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "GetHubFlowByIdResponse200FlowValueFailureModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,10 @@ class GetHubFlowByIdResponse200FlowValueFailureModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +54,8 @@ class GetHubFlowByIdResponse200FlowValueFailureModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +66,9 @@ class GetHubFlowByIdResponse200FlowValueFailureModuleRetry:
         )
         from ..models.get_hub_flow_by_id_response_200_flow_value_failure_module_retry_exponential import (
             GetHubFlowByIdResponse200FlowValueFailureModuleRetryExponential,
+        )
+        from ..models.get_hub_flow_by_id_response_200_flow_value_failure_module_retry_retry_if import (
+            GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +86,17 @@ class GetHubFlowByIdResponse200FlowValueFailureModuleRetry:
         else:
             exponential = GetHubFlowByIdResponse200FlowValueFailureModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = GetHubFlowByIdResponse200FlowValueFailureModuleRetryRetryIf.from_dict(_retry_if)
+
         get_hub_flow_by_id_response_200_flow_value_failure_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         get_hub_flow_by_id_response_200_flow_value_failure_module_retry.additional_properties = d

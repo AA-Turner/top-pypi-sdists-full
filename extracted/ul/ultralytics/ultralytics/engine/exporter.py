@@ -587,7 +587,7 @@ class Exporter:
         """Export YOLO model to ONNX format."""
         requirements = ["onnx>=1.12.0"]
         if self.args.simplify:
-            requirements += ["onnxslim==0.1.65", "onnxruntime" + ("-gpu" if torch.cuda.is_available() else "")]
+            requirements += ["onnxslim>=0.1.67", "onnxruntime" + ("-gpu" if torch.cuda.is_available() else "")]
         check_requirements(requirements)
         import onnx  # noqa
 
@@ -955,17 +955,17 @@ class Exporter:
         try:
             import tensorflow as tf  # noqa
         except ImportError:
-            check_requirements("tensorflow>=2.0.0")
+            check_requirements("tensorflow>=2.0.0,<=2.19.0")
             import tensorflow as tf  # noqa
         check_requirements(
             (
-                "tf_keras",  # required by 'onnx2tf' package
+                "tf_keras<=2.19.0",  # required by 'onnx2tf' package
                 "sng4onnx>=1.0.1",  # required by 'onnx2tf' package
                 "onnx_graphsurgeon>=0.3.26",  # required by 'onnx2tf' package
                 "ai-edge-litert>=1.2.0,<1.4.0",  # required by 'onnx2tf' package
                 "onnx>=1.12.0",
                 "onnx2tf>=1.26.3",
-                "onnxslim==0.1.65",
+                "onnxslim>=0.1.67",
                 "onnxruntime-gpu" if cuda else "onnxruntime",
                 "protobuf>=5",
             ),

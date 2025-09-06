@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.branch_one_default_item_retry_constant import BranchOneDefaultItemRetryConstant
     from ..models.branch_one_default_item_retry_exponential import BranchOneDefaultItemRetryExponential
+    from ..models.branch_one_default_item_retry_retry_if import BranchOneDefaultItemRetryRetryIf
 
 
 T = TypeVar("T", bound="BranchOneDefaultItemRetry")
@@ -19,10 +20,12 @@ class BranchOneDefaultItemRetry:
     Attributes:
         constant (Union[Unset, BranchOneDefaultItemRetryConstant]):
         exponential (Union[Unset, BranchOneDefaultItemRetryExponential]):
+        retry_if (Union[Unset, BranchOneDefaultItemRetryRetryIf]):
     """
 
     constant: Union[Unset, "BranchOneDefaultItemRetryConstant"] = UNSET
     exponential: Union[Unset, "BranchOneDefaultItemRetryExponential"] = UNSET
+    retry_if: Union[Unset, "BranchOneDefaultItemRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class BranchOneDefaultItemRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class BranchOneDefaultItemRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class BranchOneDefaultItemRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.branch_one_default_item_retry_constant import BranchOneDefaultItemRetryConstant
         from ..models.branch_one_default_item_retry_exponential import BranchOneDefaultItemRetryExponential
+        from ..models.branch_one_default_item_retry_retry_if import BranchOneDefaultItemRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class BranchOneDefaultItemRetry:
         else:
             exponential = BranchOneDefaultItemRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, BranchOneDefaultItemRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = BranchOneDefaultItemRetryRetryIf.from_dict(_retry_if)
+
         branch_one_default_item_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         branch_one_default_item_retry.additional_properties = d

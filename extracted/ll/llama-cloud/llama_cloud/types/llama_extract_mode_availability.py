@@ -19,9 +19,10 @@ class LlamaExtractModeAvailability(pydantic.BaseModel):
     mode: str
     status: LlamaExtractModeAvailabilityStatus
     parse_mode: str
-    parse_models: typing.List[str]
-    extract_models: typing.List[str]
-    missing_models: typing.Optional[typing.List[str]]
+    available_parse_models: typing.Optional[typing.List[str]]
+    missing_parse_models: typing.Optional[typing.List[str]]
+    available_extract_models: typing.Optional[typing.List[str]]
+    missing_extract_models: typing.Optional[typing.List[str]]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -156,7 +156,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEventInputTypeDef]
     ) -> CreateEventOutputTypeDef:
         """
-        Creates an event in a memory store.
+        Creates an event in an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_event.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#create_event)
@@ -166,7 +166,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteEventInputTypeDef]
     ) -> DeleteEventOutputTypeDef:
         """
-        Deletes an event from a memory store.
+        Deletes an event from an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_event.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#delete_event)
@@ -176,7 +176,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteMemoryRecordInputTypeDef]
     ) -> DeleteMemoryRecordOutputTypeDef:
         """
-        Deletes a memory record from a memory store.
+        Deletes a memory record from an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_memory_record.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#delete_memory_record)
@@ -206,7 +206,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
 
     async def get_event(self, **kwargs: Unpack[GetEventInputTypeDef]) -> GetEventOutputTypeDef:
         """
-        Retrieves information about a specific event in a memory store.
+        Retrieves information about a specific event in an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_event.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#get_event)
@@ -216,7 +216,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[GetMemoryRecordInputTypeDef]
     ) -> GetMemoryRecordOutputTypeDef:
         """
-        Retrieves a specific memory record from a memory store.
+        Retrieves a specific memory record from an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_memory_record.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#get_memory_record)
@@ -236,7 +236,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[GetResourceOauth2TokenRequestTypeDef]
     ) -> GetResourceOauth2TokenResponseTypeDef:
         """
-        Reaturns the Oauth2Token of the provided resource.
+        Returns the OAuth 2.0 token of the provided resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_resource_oauth2_token.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#get_resource_oauth2_token)
@@ -279,8 +279,8 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[InvokeAgentRuntimeRequestTypeDef]
     ) -> InvokeAgentRuntimeResponseTypeDef:
         """
-        Sends a request to an agent runtime in Amazon Bedrock and receives responses in
-        real-time.
+        Sends a request to an agent or tool hosted in an Amazon Bedrock AgentCore
+        Runtime and receives responses in real-time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_agent_runtime.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#invoke_agent_runtime)
@@ -300,7 +300,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[ListActorsInputTypeDef]
     ) -> ListActorsOutputTypeDef:
         """
-        Lists all actors in a memory store.
+        Lists all actors in an AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_actors.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#list_actors)
@@ -332,7 +332,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[ListEventsInputTypeDef]
     ) -> ListEventsOutputTypeDef:
         """
-        Lists events in a memory store based on specified criteria.
+        Lists events in an AgentCore Memory resource based on specified criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_events.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#list_events)
@@ -342,7 +342,8 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[ListMemoryRecordsInputTypeDef]
     ) -> ListMemoryRecordsOutputTypeDef:
         """
-        Lists memory records in a memory store based on specified criteria.
+        Lists memory records in an AgentCore Memory resource based on specified
+        criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_memory_records.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#list_memory_records)
@@ -352,7 +353,7 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[ListSessionsInputTypeDef]
     ) -> ListSessionsOutputTypeDef:
         """
-        Lists sessions in a memory store based on specified criteria.
+        Lists sessions in an AgentCore Memory resource based on specified criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_sessions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#list_sessions)
@@ -362,8 +363,8 @@ class BedrockAgentCoreDataPlaneFrontingLayerClient(AioBaseClient):
         self, **kwargs: Unpack[RetrieveMemoryRecordsInputTypeDef]
     ) -> RetrieveMemoryRecordsOutputTypeDef:
         """
-        Searches for and retrieves memory records from a memory store based on
-        specified search criteria.
+        Searches for and retrieves memory records from an AgentCore Memory resource
+        based on specified search criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/retrieve_memory_records.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#retrieve_memory_records)

@@ -1888,6 +1888,7 @@ class SEQUENCER_PT_mask(SequencerButtonsPanel, _bpy_types.Panel):
 class SEQUENCER_PT_modifiers(SequencerButtonsPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
+    bl_options: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any

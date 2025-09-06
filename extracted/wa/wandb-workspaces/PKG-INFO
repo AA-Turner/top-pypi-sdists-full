@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: wandb-workspaces
-Version: 0.1.17
+Version: 0.1.18
 Summary: A library for programatically working with the Weights & Biases UI.
 License: Apache-2.0
 Author: Weights & Biases

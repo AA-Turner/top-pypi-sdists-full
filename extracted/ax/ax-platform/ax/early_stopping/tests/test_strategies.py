@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from ax.core import OptimizationConfig
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import (
@@ -180,7 +180,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
             )[0]
         )
 
@@ -192,7 +191,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             trial_index=trial_index,
             experiment=experiment,
             df=fake_df,
-            map_key=map_data.map_keys[0],
         )
         self.assertFalse(fake_es)
         self.assertEqual(
@@ -211,7 +209,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
             )[0]
         )
 
@@ -221,7 +218,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
             )[0]
         )
 
@@ -234,7 +230,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_indices={0},
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
             )
 
     def test_early_stopping_savings(self) -> None:
@@ -467,7 +462,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data = assert_is_instance(exp.fetch_data(), MapData)
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[data.map_df["metric_name"] == "branin_map", "timestamp"] = (
+        data.map_df.loc[data.map_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
         exp.attach_data(data=data)
@@ -511,7 +506,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data.map_df.reset_index(drop=True, inplace=True)
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[data.map_df["metric_name"] == "branin_map", "timestamp"] = (
+        data.map_df.loc[data.map_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
         # manually remove timestamps 1 and 2 for arm 3
@@ -520,7 +515,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             df.index[
                 (df["metric_name"] == "branin_map")
                 & (df["trial_index"] == 3)
-                & (df["timestamp"].isin([1.0, 2.0]))
+                & (df[MAP_KEY].isin([1.0, 2.0]))
             ],
             inplace=True,
         )  # TODO this wont work once we make map_df immutable (which we should)
@@ -568,11 +563,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             UnsupportedError,
             "Arm 0_0 has multiple tiral indices",
         ):
-            align_partial_results(
-                df=df_with_single_arm_name,
-                progr_key="timestamp",
-                metrics=["branin_map"],
-            )
+            align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
 
         df_with_single_trial_index = data.map_df.copy()
         df_with_single_trial_index["trial_index"] = 0
@@ -580,11 +571,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             UnsupportedError,
             "Trial 0 has multiple arm names",
         ):
-            align_partial_results(
-                df=df_with_single_trial_index,
-                progr_key="timestamp",
-                metrics=["branin_map"],
-            )
+            align_partial_results(df=df_with_single_trial_index, metrics=["branin_map"])
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
@@ -784,9 +771,7 @@ def _evaluate_early_stopping_with_df(
         early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
     metric_to_aligned_means, _ = align_partial_results(
-        df=data.map_df,
-        progr_key="timestamp",
-        metrics=[metric_name],
+        df=data.map_df, metrics=[metric_name]
     )
     aligned_means = metric_to_aligned_means[metric_name]
     decisions = {
@@ -795,7 +780,6 @@ def _evaluate_early_stopping_with_df(
             experiment=experiment,
             df=aligned_means,
             df_raw=data.map_df,
-            map_key="timestamp",
             minimize=cast(
                 OptimizationConfig, experiment.optimization_config
             ).objective.minimize,

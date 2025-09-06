@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.open_flow_value_failure_module_retry_constant import OpenFlowValueFailureModuleRetryConstant
     from ..models.open_flow_value_failure_module_retry_exponential import OpenFlowValueFailureModuleRetryExponential
+    from ..models.open_flow_value_failure_module_retry_retry_if import OpenFlowValueFailureModuleRetryRetryIf
 
 
 T = TypeVar("T", bound="OpenFlowValueFailureModuleRetry")
@@ -19,10 +20,12 @@ class OpenFlowValueFailureModuleRetry:
     Attributes:
         constant (Union[Unset, OpenFlowValueFailureModuleRetryConstant]):
         exponential (Union[Unset, OpenFlowValueFailureModuleRetryExponential]):
+        retry_if (Union[Unset, OpenFlowValueFailureModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "OpenFlowValueFailureModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "OpenFlowValueFailureModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "OpenFlowValueFailureModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class OpenFlowValueFailureModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class OpenFlowValueFailureModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class OpenFlowValueFailureModuleRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.open_flow_value_failure_module_retry_constant import OpenFlowValueFailureModuleRetryConstant
         from ..models.open_flow_value_failure_module_retry_exponential import OpenFlowValueFailureModuleRetryExponential
+        from ..models.open_flow_value_failure_module_retry_retry_if import OpenFlowValueFailureModuleRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class OpenFlowValueFailureModuleRetry:
         else:
             exponential = OpenFlowValueFailureModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, OpenFlowValueFailureModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = OpenFlowValueFailureModuleRetryRetryIf.from_dict(_retry_if)
+
         open_flow_value_failure_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         open_flow_value_failure_module_retry.additional_properties = d

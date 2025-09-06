@@ -857,20 +857,12 @@ class ActionTracker:
         try:
             self._remove_duplicate_results(list_of_result_dicts)
         except Exception as e:
-            self.log_error(
-                __file__,
-                "remove_duplicate_results",
-                str(e),
-            )
+            logging.error(f"Exception in remove_duplicate_results: {str(e)}", exc_info=True)
             print(f"Exception in remove_duplicate_results: {str(e)}")
         try:
             list_of_result_dicts = self._validate_eval_results(list_of_result_dicts)
         except Exception as e:
-            self.log_error(
-                __file__,
-                "validate_evaluation_results",
-                str(e),
-            )
+            logging.error(f"Exception in validate_evaluation_results: {str(e)}", exc_info=True)
             print(f"Exception in validate_evaluation_results: {str(e)}")
         try:
             url = "/v1/model/add_eval_results"
@@ -886,11 +878,7 @@ class ActionTracker:
             }
             self.rpc.post(path=url, payload=Payload)
         except Exception as e:
-            self.log_error(
-                __file__,
-                "save_evaluation_results",
-                str(e),
-            )
+            logging.error(f"Exception in save_evaluation_results: {str(e)}", exc_info=True)
             print(f"Exception in save_evaluation_results: {str(e)}")
             self.update_status(
                 "error",

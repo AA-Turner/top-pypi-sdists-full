@@ -888,6 +888,8 @@ class Resolver(_message.Message):
         "static_operation",
         "sql_settings",
         "resource_group",
+        "output_row_order",
+        "venv",
     )
     FQN_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
@@ -914,6 +916,8 @@ class Resolver(_message.Message):
     STATIC_OPERATION_FIELD_NUMBER: _ClassVar[int]
     SQL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_ROW_ORDER_FIELD_NUMBER: _ClassVar[int]
+    VENV_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     kind: ResolverKind
     inputs: _containers.RepeatedCompositeFieldContainer[ResolverInput]
@@ -939,6 +943,8 @@ class Resolver(_message.Message):
     static_operation: _expression_pb2.LogicalExprNode
     sql_settings: SQLResolverSettings
     resource_group: str
+    output_row_order: str
+    venv: str
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -966,6 +972,8 @@ class Resolver(_message.Message):
         static_operation: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         sql_settings: _Optional[_Union[SQLResolverSettings, _Mapping]] = ...,
         resource_group: _Optional[str] = ...,
+        output_row_order: _Optional[str] = ...,
+        venv: _Optional[str] = ...,
     ) -> None: ...
 
 class SinkResolver(_message.Message):

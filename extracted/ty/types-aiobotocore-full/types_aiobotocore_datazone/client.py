@@ -29,6 +29,8 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAccountPoolsPaginator,
+    ListAccountsInAccountPoolPaginator,
     ListAssetFiltersPaginator,
     ListAssetRevisionsPaginator,
     ListConnectionsPaginator,
@@ -72,10 +74,14 @@ from .type_defs import (
     AcceptSubscriptionRequestOutputTypeDef,
     AddEntityOwnerInputTypeDef,
     AddPolicyGrantInputTypeDef,
+    AddPolicyGrantOutputTypeDef,
     AssociateEnvironmentRoleInputTypeDef,
+    AssociateGovernedTermsInputTypeDef,
     CancelMetadataGenerationRunInputTypeDef,
     CancelSubscriptionInputTypeDef,
     CancelSubscriptionOutputTypeDef,
+    CreateAccountPoolInputTypeDef,
+    CreateAccountPoolOutputTypeDef,
     CreateAssetFilterInputTypeDef,
     CreateAssetFilterOutputTypeDef,
     CreateAssetInputTypeDef,
@@ -127,6 +133,7 @@ from .type_defs import (
     CreateSubscriptionTargetOutputTypeDef,
     CreateUserProfileInputTypeDef,
     CreateUserProfileOutputTypeDef,
+    DeleteAccountPoolInputTypeDef,
     DeleteAssetFilterInputTypeDef,
     DeleteAssetInputTypeDef,
     DeleteAssetTypeInputTypeDef,
@@ -156,7 +163,10 @@ from .type_defs import (
     DeleteSubscriptionTargetInputTypeDef,
     DeleteTimeSeriesDataPointsInputTypeDef,
     DisassociateEnvironmentRoleInputTypeDef,
+    DisassociateGovernedTermsInputTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetAccountPoolInputTypeDef,
+    GetAccountPoolOutputTypeDef,
     GetAssetFilterInputTypeDef,
     GetAssetFilterOutputTypeDef,
     GetAssetInputTypeDef,
@@ -225,6 +235,10 @@ from .type_defs import (
     GetTimeSeriesDataPointOutputTypeDef,
     GetUserProfileInputTypeDef,
     GetUserProfileOutputTypeDef,
+    ListAccountPoolsInputTypeDef,
+    ListAccountPoolsOutputTypeDef,
+    ListAccountsInAccountPoolInputTypeDef,
+    ListAccountsInAccountPoolOutputTypeDef,
     ListAssetFiltersInputTypeDef,
     ListAssetFiltersOutputTypeDef,
     ListAssetRevisionsInputTypeDef,
@@ -317,6 +331,8 @@ from .type_defs import (
     StartMetadataGenerationRunOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAccountPoolInputTypeDef,
+    UpdateAccountPoolOutputTypeDef,
     UpdateAssetFilterInputTypeDef,
     UpdateAssetFilterOutputTypeDef,
     UpdateConnectionInputTypeDef,
@@ -450,7 +466,7 @@ class DataZoneClient(AioBaseClient):
 
     async def add_policy_grant(
         self, **kwargs: Unpack[AddPolicyGrantInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> AddPolicyGrantOutputTypeDef:
         """
         Adds a policy grant (an authorization policy) to a specified entity, including
         domain units, environment blueprint configurations, or environment profiles.
@@ -467,6 +483,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/associate_environment_role.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#associate_environment_role)
+        """
+
+    async def associate_governed_terms(
+        self, **kwargs: Unpack[AssociateGovernedTermsInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Associates governed terms with an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/associate_governed_terms.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#associate_governed_terms)
         """
 
     async def cancel_metadata_generation_run(
@@ -487,6 +513,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/cancel_subscription.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#cancel_subscription)
+        """
+
+    async def create_account_pool(
+        self, **kwargs: Unpack[CreateAccountPoolInputTypeDef]
+    ) -> CreateAccountPoolOutputTypeDef:
+        """
+        Creates an account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_account_pool.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_account_pool)
         """
 
     async def create_asset(
@@ -751,6 +787,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_user_profile)
         """
 
+    async def delete_account_pool(
+        self, **kwargs: Unpack[DeleteAccountPoolInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes an account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_account_pool.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_account_pool)
+        """
+
     async def delete_asset(self, **kwargs: Unpack[DeleteAssetInputTypeDef]) -> Dict[str, Any]:
         """
         Deletes an asset in Amazon DataZone.
@@ -990,6 +1036,26 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/disassociate_environment_role.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#disassociate_environment_role)
+        """
+
+    async def disassociate_governed_terms(
+        self, **kwargs: Unpack[DisassociateGovernedTermsInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Disassociates restricted terms from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/disassociate_governed_terms.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#disassociate_governed_terms)
+        """
+
+    async def get_account_pool(
+        self, **kwargs: Unpack[GetAccountPoolInputTypeDef]
+    ) -> GetAccountPoolOutputTypeDef:
+        """
+        Gets the details of the account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_account_pool.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_account_pool)
         """
 
     async def get_asset(self, **kwargs: Unpack[GetAssetInputTypeDef]) -> GetAssetOutputTypeDef:
@@ -1322,6 +1388,26 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_user_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_user_profile)
+        """
+
+    async def list_account_pools(
+        self, **kwargs: Unpack[ListAccountPoolsInputTypeDef]
+    ) -> ListAccountPoolsOutputTypeDef:
+        """
+        Lists existing account pools.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_account_pools.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#list_account_pools)
+        """
+
+    async def list_accounts_in_account_pool(
+        self, **kwargs: Unpack[ListAccountsInAccountPoolInputTypeDef]
+    ) -> ListAccountsInAccountPoolOutputTypeDef:
+        """
+        Lists the accounts in the specified account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_accounts_in_account_pool.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#list_accounts_in_account_pool)
         """
 
     async def list_asset_filters(
@@ -1798,6 +1884,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#untag_resource)
         """
 
+    async def update_account_pool(
+        self, **kwargs: Unpack[UpdateAccountPoolInputTypeDef]
+    ) -> UpdateAccountPoolOutputTypeDef:
+        """
+        Updates the account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_account_pool.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_account_pool)
+        """
+
     async def update_asset_filter(
         self, **kwargs: Unpack[UpdateAssetFilterInputTypeDef]
     ) -> UpdateAssetFilterOutputTypeDef:
@@ -1977,6 +2073,28 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_user_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_user_profile)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_account_pools"]
+    ) -> ListAccountPoolsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_accounts_in_account_pool"]
+    ) -> ListAccountsInAccountPoolPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

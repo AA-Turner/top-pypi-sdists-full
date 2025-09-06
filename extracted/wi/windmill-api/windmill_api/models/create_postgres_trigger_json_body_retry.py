@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.create_postgres_trigger_json_body_retry_exponential import (
         CreatePostgresTriggerJsonBodyRetryExponential,
     )
+    from ..models.create_postgres_trigger_json_body_retry_retry_if import CreatePostgresTriggerJsonBodyRetryRetryIf
 
 
 T = TypeVar("T", bound="CreatePostgresTriggerJsonBodyRetry")
@@ -21,10 +22,12 @@ class CreatePostgresTriggerJsonBodyRetry:
     Attributes:
         constant (Union[Unset, CreatePostgresTriggerJsonBodyRetryConstant]):
         exponential (Union[Unset, CreatePostgresTriggerJsonBodyRetryExponential]):
+        retry_if (Union[Unset, CreatePostgresTriggerJsonBodyRetryRetryIf]):
     """
 
     constant: Union[Unset, "CreatePostgresTriggerJsonBodyRetryConstant"] = UNSET
     exponential: Union[Unset, "CreatePostgresTriggerJsonBodyRetryExponential"] = UNSET
+    retry_if: Union[Unset, "CreatePostgresTriggerJsonBodyRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +39,10 @@ class CreatePostgresTriggerJsonBodyRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -43,6 +50,8 @@ class CreatePostgresTriggerJsonBodyRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -52,6 +61,7 @@ class CreatePostgresTriggerJsonBodyRetry:
         from ..models.create_postgres_trigger_json_body_retry_exponential import (
             CreatePostgresTriggerJsonBodyRetryExponential,
         )
+        from ..models.create_postgres_trigger_json_body_retry_retry_if import CreatePostgresTriggerJsonBodyRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -68,9 +78,17 @@ class CreatePostgresTriggerJsonBodyRetry:
         else:
             exponential = CreatePostgresTriggerJsonBodyRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, CreatePostgresTriggerJsonBodyRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = CreatePostgresTriggerJsonBodyRetryRetryIf.from_dict(_retry_if)
+
         create_postgres_trigger_json_body_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         create_postgres_trigger_json_body_retry.additional_properties = d

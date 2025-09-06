@@ -250,8 +250,8 @@ class SSMContactsClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteContactChannelRequestTypeDef]
     ) -> Dict[str, Any]:
         """
-        To no longer receive engagements on a contact channel, you can delete the
-        channel from a contact.
+        To stop receiving engagements on a contact channel, you can delete the channel
+        from a contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-contacts/client/delete_contact_channel.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#delete_contact_channel)
@@ -463,7 +463,7 @@ class SSMContactsClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResultTypeDef:
         """
-        Lists the tags of an escalation plan or contact.
+        Lists the tags of a contact, escalation plan, rotation, or on-call schedule.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-contacts/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#list_tags_for_resource)

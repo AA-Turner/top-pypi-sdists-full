@@ -420,7 +420,9 @@ class MatriceDeployClient:
             apply_post_processing: Whether to apply post-processing
 
         Returns:
-            Prediction result from the model
+            Prediction result from the model. When apply_post_processing=True,
+            returns a dict with 'result', 'post_processing_result', 'post_processing_config',
+            and 'post_processing_applied' fields. Otherwise, returns just the raw result.
 
         Raises:
             ValueError: If no input is provided or auth key is missing
@@ -432,7 +434,7 @@ class MatriceDeployClient:
         # Refresh instances if needed
         self.refresh_instances_info()
 
-        return self.client_utils.inference(
+        response = self.client_utils.inference(
             input_path=input_path,
             input_bytes=input_bytes,
             input_url=input_url,
@@ -440,6 +442,18 @@ class MatriceDeployClient:
             auth_key=effective_auth_key,
             apply_post_processing=apply_post_processing,
         )
+        
+        # Handle backward compatibility - if response is just the result, return it directly
+        if isinstance(response, dict) and "result" in response:
+            # New response format with post-processing info
+            if apply_post_processing or "post_processing_applied" in response:
+                return response
+            else:
+                # Return just the result for backward compatibility
+                return response["result"]
+        else:
+            # Old response format or direct result
+            return response
 
     async def get_prediction_async(
         self,
@@ -461,7 +475,9 @@ class MatriceDeployClient:
             apply_post_processing: Whether to apply post-processing
 
         Returns:
-            Prediction result from the model
+            Prediction result from the model. When apply_post_processing=True,
+            returns a dict with 'result', 'post_processing_result', 'post_processing_config',
+            and 'post_processing_applied' fields. Otherwise, returns just the raw result.
 
         Raises:
             ValueError: If no input is provided or auth key is missing
@@ -473,7 +489,7 @@ class MatriceDeployClient:
         # Refresh instances if needed
         self.refresh_instances_info()
 
-        return await self.client_utils.async_inference(
+        response = await self.client_utils.async_inference(
             input_path=input_path,
             input_bytes=input_bytes,
             input_url=input_url,
@@ -481,6 +497,18 @@ class MatriceDeployClient:
             auth_key=effective_auth_key,
             apply_post_processing=apply_post_processing,
         )
+        
+        # Handle backward compatibility - if response is just the result, return it directly
+        if isinstance(response, dict) and "result" in response:
+            # New response format with post-processing info
+            if apply_post_processing or "post_processing_applied" in response:
+                return response
+            else:
+                # Return just the result for backward compatibility
+                return response["result"]
+        else:
+            # Old response format or direct result
+            return response
 
     def start_stream(
         self,

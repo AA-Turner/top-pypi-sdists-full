@@ -342,17 +342,8 @@ class TextureMaskPanel(BrushPanel):
         """
 
 def brush_basic__draw_color_selector(context, layout, brush, gp_settings) -> None: ...
-def brush_basic_gpencil_paint_settings(
-    layout, context, brush, *, compact=False
-) -> None: ...
-def brush_basic_gpencil_sculpt_settings(
-    layout, _context, brush, *, compact=False
-) -> None: ...
 def brush_basic_gpencil_vertex_settings(
     layout, context, brush, *, compact=False
-) -> None: ...
-def brush_basic_gpencil_weight_settings(
-    layout, _context, brush, *, compact=False
 ) -> None: ...
 def brush_basic_grease_pencil_paint_settings(
     layout, context, brush, props, *, compact=False

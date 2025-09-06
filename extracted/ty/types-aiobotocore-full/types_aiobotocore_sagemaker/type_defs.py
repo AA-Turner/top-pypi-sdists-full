@@ -55,18 +55,21 @@ from .literals import (
     AutoMLSortOrderType,
     AutoMountHomeEFSType,
     AwsManagedHumanLoopRequestSourceType,
+    BatchAddClusterNodesErrorCodeType,
     BatchDeleteClusterNodesErrorCodeType,
     BatchStrategyType,
     BooleanOperatorType,
     CandidateSortByType,
     CandidateStatusType,
     CandidateStepTypeType,
+    CapacityReservationTypeType,
     CapacitySizeTypeType,
     CaptureModeType,
     CaptureStatusType,
     ClarifyFeatureTypeType,
     ClarifyTextGranularityType,
     ClarifyTextLanguageType,
+    ClusterEventResourceTypeType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
     ClusterNodeRecoveryType,
@@ -233,6 +236,7 @@ from .literals import (
     RepositoryAccessModeType,
     ReservedCapacityInstanceTypeType,
     ReservedCapacityStatusType,
+    ReservedCapacityTypeType,
     ResourceCatalogSortOrderType,
     ResourceSharingStrategyType,
     ResourceTypeType,
@@ -303,11 +307,13 @@ from .literals import (
     TransformJobStatusType,
     TrialComponentPrimaryStatusType,
     TtlDurationUnitType,
+    UltraServerHealthStatusType,
     UserProfileSortKeyType,
     UserProfileStatusType,
     VariantPropertyTypeType,
     VariantStatusType,
     VendorGuidanceType,
+    VolumeAttachmentStatusType,
     WarmPoolResourceStatusType,
     WorkforceIpAddressTypeType,
     WorkforceStatusType,
@@ -330,8 +336,10 @@ __all__ = (
     "ActionSummaryTypeDef",
     "AddAssociationRequestTypeDef",
     "AddAssociationResponseTypeDef",
+    "AddClusterNodeSpecificationTypeDef",
     "AddTagsInputTypeDef",
     "AddTagsOutputTypeDef",
+    "AdditionalEnisTypeDef",
     "AdditionalInferenceSpecificationDefinitionOutputTypeDef",
     "AdditionalInferenceSpecificationDefinitionTypeDef",
     "AdditionalInferenceSpecificationDefinitionUnionTypeDef",
@@ -376,6 +384,8 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AttachClusterNodeVolumeRequestTypeDef",
+    "AttachClusterNodeVolumeResponseTypeDef",
     "AuthorizedUrlTypeDef",
     "AutoMLAlgorithmConfigOutputTypeDef",
     "AutoMLAlgorithmConfigTypeDef",
@@ -412,7 +422,11 @@ __all__ = (
     "AutoRollbackConfigOutputTypeDef",
     "AutoRollbackConfigTypeDef",
     "AutotuneTypeDef",
+    "BatchAddClusterNodesErrorTypeDef",
+    "BatchAddClusterNodesRequestTypeDef",
+    "BatchAddClusterNodesResponseTypeDef",
     "BatchDataCaptureConfigTypeDef",
+    "BatchDeleteClusterNodeLogicalIdsErrorTypeDef",
     "BatchDeleteClusterNodesErrorTypeDef",
     "BatchDeleteClusterNodesRequestTypeDef",
     "BatchDeleteClusterNodesResponseTypeDef",
@@ -433,6 +447,7 @@ __all__ = (
     "CandidatePropertiesTypeDef",
     "CanvasAppSettingsOutputTypeDef",
     "CanvasAppSettingsTypeDef",
+    "CapacityReservationTypeDef",
     "CapacitySizeConfigTypeDef",
     "CapacitySizeTypeDef",
     "CaptureContentTypeHeaderOutputTypeDef",
@@ -467,12 +482,15 @@ __all__ = (
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
     "ClusterEbsVolumeConfigTypeDef",
+    "ClusterEventDetailTypeDef",
+    "ClusterEventSummaryTypeDef",
     "ClusterInstanceGroupDetailsTypeDef",
     "ClusterInstanceGroupSpecificationTypeDef",
     "ClusterInstancePlacementTypeDef",
     "ClusterInstanceStatusDetailsTypeDef",
     "ClusterInstanceStorageConfigTypeDef",
     "ClusterLifeCycleConfigTypeDef",
+    "ClusterMetadataTypeDef",
     "ClusterNodeDetailsTypeDef",
     "ClusterNodeSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
@@ -770,6 +788,8 @@ __all__ = (
     "DescribeAutoMLJobResponseTypeDef",
     "DescribeAutoMLJobV2RequestTypeDef",
     "DescribeAutoMLJobV2ResponseTypeDef",
+    "DescribeClusterEventRequestTypeDef",
+    "DescribeClusterEventResponseTypeDef",
     "DescribeClusterNodeRequestTypeDef",
     "DescribeClusterNodeResponseTypeDef",
     "DescribeClusterRequestTypeDef",
@@ -879,6 +899,8 @@ __all__ = (
     "DescribeProcessingJobResponseTypeDef",
     "DescribeProjectInputTypeDef",
     "DescribeProjectOutputTypeDef",
+    "DescribeReservedCapacityRequestTypeDef",
+    "DescribeReservedCapacityResponseTypeDef",
     "DescribeSpaceRequestTypeDef",
     "DescribeSpaceResponseTypeDef",
     "DescribeStudioLifecycleConfigRequestTypeDef",
@@ -904,6 +926,8 @@ __all__ = (
     "DescribeWorkteamRequestTypeDef",
     "DescribeWorkteamResponseTypeDef",
     "DesiredWeightAndCapacityTypeDef",
+    "DetachClusterNodeVolumeRequestTypeDef",
+    "DetachClusterNodeVolumeResponseTypeDef",
     "DeviceDeploymentSummaryTypeDef",
     "DeviceFleetSummaryTypeDef",
     "DeviceSelectionConfigOutputTypeDef",
@@ -968,6 +992,8 @@ __all__ = (
     "EnvironmentParameterRangesTypeDef",
     "EnvironmentParameterTypeDef",
     "ErrorInfoTypeDef",
+    "EventDetailsTypeDef",
+    "EventMetadataTypeDef",
     "ExperimentConfigTypeDef",
     "ExperimentSourceTypeDef",
     "ExperimentSummaryTypeDef",
@@ -1093,8 +1119,14 @@ __all__ = (
     "InferenceSpecificationUnionTypeDef",
     "InfraCheckConfigTypeDef",
     "InputConfigTypeDef",
+    "InstanceGroupMetadataTypeDef",
+    "InstanceGroupScalingMetadataTypeDef",
     "InstanceGroupTypeDef",
     "InstanceMetadataServiceConfigurationTypeDef",
+    "InstanceMetadataTypeDef",
+    "InstancePlacementConfigOutputTypeDef",
+    "InstancePlacementConfigTypeDef",
+    "InstancePlacementConfigUnionTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
     "JupyterLabAppImageConfigOutputTypeDef",
@@ -1161,6 +1193,9 @@ __all__ = (
     "ListCandidatesForAutoMLJobRequestPaginateTypeDef",
     "ListCandidatesForAutoMLJobRequestTypeDef",
     "ListCandidatesForAutoMLJobResponseTypeDef",
+    "ListClusterEventsRequestPaginateTypeDef",
+    "ListClusterEventsRequestTypeDef",
+    "ListClusterEventsResponseTypeDef",
     "ListClusterNodesRequestPaginateTypeDef",
     "ListClusterNodesRequestTypeDef",
     "ListClusterNodesResponseTypeDef",
@@ -1367,6 +1402,9 @@ __all__ = (
     "ListTrialsRequestPaginateTypeDef",
     "ListTrialsRequestTypeDef",
     "ListTrialsResponseTypeDef",
+    "ListUltraServersByReservedCapacityRequestPaginateTypeDef",
+    "ListUltraServersByReservedCapacityRequestTypeDef",
+    "ListUltraServersByReservedCapacityResponseTypeDef",
     "ListUserProfilesRequestPaginateTypeDef",
     "ListUserProfilesRequestTypeDef",
     "ListUserProfilesResponseTypeDef",
@@ -1510,6 +1548,7 @@ __all__ = (
     "NetworkConfigOutputTypeDef",
     "NetworkConfigTypeDef",
     "NetworkConfigUnionTypeDef",
+    "NodeAdditionResultTypeDef",
     "NotebookInstanceLifecycleConfigSummaryTypeDef",
     "NotebookInstanceLifecycleHookTypeDef",
     "NotebookInstanceSummaryTypeDef",
@@ -1570,6 +1609,7 @@ __all__ = (
     "PipelineTypeDef",
     "PipelineVersionSummaryTypeDef",
     "PipelineVersionTypeDef",
+    "PlacementSpecificationTypeDef",
     "PredefinedMetricSpecificationTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
@@ -1839,6 +1879,7 @@ __all__ = (
     "TrialSourceTypeDef",
     "TrialSummaryTypeDef",
     "TrialTypeDef",
+    "TrustedIdentityPropagationSettingsTypeDef",
     "TtlDurationTypeDef",
     "TuningJobCompletionCriteriaTypeDef",
     "TuningJobStepMetaDataTypeDef",
@@ -1846,6 +1887,9 @@ __all__ = (
     "UiConfigTypeDef",
     "UiTemplateInfoTypeDef",
     "UiTemplateTypeDef",
+    "UltraServerInfoTypeDef",
+    "UltraServerSummaryTypeDef",
+    "UltraServerTypeDef",
     "UnifiedStudioSettingsTypeDef",
     "UpdateActionRequestTypeDef",
     "UpdateActionResponseTypeDef",
@@ -1975,9 +2019,18 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class AddClusterNodeSpecificationTypeDef(TypedDict):
+    InstanceGroupName: str
+    IncrementTargetCountBy: int
+
+
 class TagTypeDef(TypedDict):
     Key: str
     Value: str
+
+
+class AdditionalEnisTypeDef(TypedDict):
+    EfaEnis: NotRequired[List[str]]
 
 
 class AdditionalS3DataSourceTypeDef(TypedDict):
@@ -2092,6 +2145,12 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
 
 
+class AttachClusterNodeVolumeRequestTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+
+
 class AuthorizedUrlTypeDef(TypedDict):
     Url: NotRequired[str]
     LocalPath: NotRequired[str]
@@ -2196,10 +2255,29 @@ class AutotuneTypeDef(TypedDict):
     Mode: Literal["Enabled"]
 
 
+class BatchAddClusterNodesErrorTypeDef(TypedDict):
+    InstanceGroupName: str
+    ErrorCode: BatchAddClusterNodesErrorCodeType
+    FailedCount: int
+    Message: NotRequired[str]
+
+
+class NodeAdditionResultTypeDef(TypedDict):
+    NodeLogicalId: str
+    InstanceGroupName: str
+    Status: ClusterInstanceStatusType
+
+
 class BatchDataCaptureConfigTypeDef(TypedDict):
     DestinationS3Uri: str
     KmsKeyId: NotRequired[str]
     GenerateInferenceId: NotRequired[bool]
+
+
+class BatchDeleteClusterNodeLogicalIdsErrorTypeDef(TypedDict):
+    Code: BatchDeleteClusterNodesErrorCodeType
+    Message: str
+    NodeLogicalId: str
 
 
 class BatchDeleteClusterNodesErrorTypeDef(TypedDict):
@@ -2211,6 +2289,7 @@ class BatchDeleteClusterNodesErrorTypeDef(TypedDict):
 class BatchDeleteClusterNodesRequestTypeDef(TypedDict):
     ClusterName: str
     NodeIds: NotRequired[Sequence[str]]
+    NodeLogicalIds: NotRequired[Sequence[str]]
 
 
 class BatchDescribeModelPackageErrorTypeDef(TypedDict):
@@ -2296,6 +2375,13 @@ class WorkspaceSettingsTypeDef(TypedDict):
     S3KmsKeyId: NotRequired[str]
 
 
+CapacityReservationTypeDef = TypedDict(
+    "CapacityReservationTypeDef",
+    {
+        "Arn": NotRequired[str],
+        "Type": NotRequired[CapacityReservationTypeType],
+    },
+)
 CapacitySizeConfigTypeDef = TypedDict(
     "CapacitySizeConfigTypeDef",
     {
@@ -2454,6 +2540,19 @@ class ClarifyTextConfigTypeDef(TypedDict):
 
 class ClusterEbsVolumeConfigTypeDef(TypedDict):
     VolumeSizeInGB: NotRequired[int]
+    VolumeKmsKeyId: NotRequired[str]
+    RootVolume: NotRequired[bool]
+
+
+class ClusterEventSummaryTypeDef(TypedDict):
+    EventId: str
+    ClusterArn: str
+    ClusterName: str
+    ResourceType: ClusterEventResourceTypeType
+    EventTime: datetime
+    InstanceGroupName: NotRequired[str]
+    InstanceId: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class ClusterLifeCycleConfigTypeDef(TypedDict):
@@ -2469,6 +2568,16 @@ class ClusterInstancePlacementTypeDef(TypedDict):
 class ClusterInstanceStatusDetailsTypeDef(TypedDict):
     Status: ClusterInstanceStatusType
     Message: NotRequired[str]
+
+
+class ClusterMetadataTypeDef(TypedDict):
+    FailureMessage: NotRequired[str]
+    EksRoleAccessEntries: NotRequired[List[str]]
+    SlrAccessEntry: NotRequired[str]
+
+
+class UltraServerInfoTypeDef(TypedDict):
+    Id: NotRequired[str]
 
 
 class ClusterOrchestratorEksConfigTypeDef(TypedDict):
@@ -2570,6 +2679,9 @@ class CompilationJobSummaryTypeDef(TypedDict):
 class ComputeQuotaResourceConfigTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
     Count: NotRequired[int]
+    Accelerators: NotRequired[int]
+    VCpu: NotRequired[float]
+    MemoryInGiB: NotRequired[float]
 
 
 class ResourceSharingConfigTypeDef(TypedDict):
@@ -2919,8 +3031,8 @@ class FSxLustreFileSystemConfigTypeDef(TypedDict):
 
 
 class S3FileSystemConfigTypeDef(TypedDict):
+    S3Uri: str
     MountPath: NotRequired[str]
-    S3Uri: NotRequired[str]
 
 
 class EFSFileSystemTypeDef(TypedDict):
@@ -2932,7 +3044,7 @@ class FSxLustreFileSystemTypeDef(TypedDict):
 
 
 class S3FileSystemTypeDef(TypedDict):
-    S3Uri: NotRequired[str]
+    S3Uri: str
 
 
 class CustomPosixUserConfigTypeDef(TypedDict):
@@ -3367,9 +3479,15 @@ class DescribeAutoMLJobV2RequestTypeDef(TypedDict):
     AutoMLJobName: str
 
 
+class DescribeClusterEventRequestTypeDef(TypedDict):
+    EventId: str
+    ClusterName: str
+
+
 class DescribeClusterNodeRequestTypeDef(TypedDict):
     ClusterName: str
     NodeId: NotRequired[str]
+    NodeLogicalId: NotRequired[str]
 
 
 class DescribeClusterRequestTypeDef(TypedDict):
@@ -3772,6 +3890,18 @@ class ServiceCatalogProvisionedProductDetailsTypeDef(TypedDict):
     ProvisionedProductStatusMessage: NotRequired[str]
 
 
+class DescribeReservedCapacityRequestTypeDef(TypedDict):
+    ReservedCapacityArn: str
+
+
+class UltraServerSummaryTypeDef(TypedDict):
+    UltraServerType: str
+    InstanceType: ReservedCapacityInstanceTypeType
+    UltraServerCount: NotRequired[int]
+    AvailableSpareInstanceCount: NotRequired[int]
+    UnhealthyInstanceCount: NotRequired[int]
+
+
 class DescribeSpaceRequestTypeDef(TypedDict):
     DomainId: str
     SpaceName: str
@@ -3850,6 +3980,9 @@ class ReservedCapacitySummaryTypeDef(TypedDict):
     InstanceType: ReservedCapacityInstanceTypeType
     TotalInstanceCount: int
     Status: ReservedCapacityStatusType
+    ReservedCapacityType: NotRequired[ReservedCapacityTypeType]
+    UltraServerType: NotRequired[str]
+    UltraServerCount: NotRequired[int]
     AvailabilityZone: NotRequired[str]
     DurationHours: NotRequired[int]
     DurationMinutes: NotRequired[int]
@@ -3909,6 +4042,12 @@ class ProductionVariantServerlessUpdateConfigTypeDef(TypedDict):
     ProvisionedConcurrency: NotRequired[int]
 
 
+class DetachClusterNodeVolumeRequestTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+
+
 class DeviceDeploymentSummaryTypeDef(TypedDict):
     EdgeDeploymentPlanArn: str
     EdgeDeploymentPlanName: str
@@ -3961,11 +4100,13 @@ class DisassociateTrialComponentRequestTypeDef(TypedDict):
 class DockerSettingsOutputTypeDef(TypedDict):
     EnableDockerAccess: NotRequired[FeatureStatusType]
     VpcOnlyTrustedAccounts: NotRequired[List[str]]
+    RootlessDocker: NotRequired[FeatureStatusType]
 
 
 class DockerSettingsTypeDef(TypedDict):
     EnableDockerAccess: NotRequired[FeatureStatusType]
     VpcOnlyTrustedAccounts: NotRequired[Sequence[str]]
+    RootlessDocker: NotRequired[FeatureStatusType]
 
 
 class DomainDetailsTypeDef(TypedDict):
@@ -3976,6 +4117,10 @@ class DomainDetailsTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     Url: NotRequired[str]
+
+
+class TrustedIdentityPropagationSettingsTypeDef(TypedDict):
+    Status: FeatureStatusType
 
 
 class UnifiedStudioSettingsTypeDef(TypedDict):
@@ -4106,6 +4251,12 @@ class EnvironmentParameterTypeDef(TypedDict):
     Key: str
     ValueType: str
     Value: str
+
+
+class InstanceGroupScalingMetadataTypeDef(TypedDict):
+    InstanceCount: NotRequired[int]
+    TargetCount: NotRequired[int]
+    FailureMessage: NotRequired[str]
 
 
 class FailStepMetadataTypeDef(TypedDict):
@@ -4364,6 +4515,11 @@ class InstanceGroupTypeDef(TypedDict):
     InstanceType: TrainingInstanceTypeType
     InstanceCount: int
     InstanceGroupName: str
+
+
+class PlacementSpecificationTypeDef(TypedDict):
+    InstanceCount: int
+    UltraServerId: NotRequired[str]
 
 
 class IntegerParameterRangeSpecificationTypeDef(TypedDict):
@@ -4726,6 +4882,26 @@ class TransformJobSummaryTypeDef(TypedDict):
     TransformEndTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     FailureReason: NotRequired[str]
+
+
+class ListUltraServersByReservedCapacityRequestTypeDef(TypedDict):
+    ReservedCapacityArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class UltraServerTypeDef(TypedDict):
+    UltraServerId: str
+    UltraServerType: str
+    AvailabilityZone: str
+    InstanceType: ReservedCapacityInstanceTypeType
+    TotalInstanceCount: int
+    ConfiguredSpareInstanceCount: NotRequired[int]
+    AvailableInstanceCount: NotRequired[int]
+    InUseInstanceCount: NotRequired[int]
+    AvailableSpareInstanceCount: NotRequired[int]
+    UnhealthyInstanceCount: NotRequired[int]
+    HealthStatus: NotRequired[UltraServerHealthStatusType]
 
 
 class ListUserProfilesRequestTypeDef(TypedDict):
@@ -5186,6 +5362,9 @@ class RenderingErrorTypeDef(TypedDict):
 class ReservedCapacityOfferingTypeDef(TypedDict):
     InstanceType: ReservedCapacityInstanceTypeType
     InstanceCount: int
+    ReservedCapacityType: NotRequired[ReservedCapacityTypeType]
+    UltraServerType: NotRequired[str]
+    UltraServerCount: NotRequired[int]
     AvailabilityZone: NotRequired[str]
     DurationHours: NotRequired[int]
     DurationMinutes: NotRequired[int]
@@ -5520,6 +5699,16 @@ class AddAssociationResponseTypeDef(TypedDict):
 class AssociateTrialComponentResponseTypeDef(TypedDict):
     TrialComponentArn: str
     TrialArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AttachClusterNodeVolumeResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+    AttachTime: datetime
+    Status: VolumeAttachmentStatusType
+    DeviceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5954,6 +6143,16 @@ class DescribeStudioLifecycleConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DetachClusterNodeVolumeResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+    AttachTime: datetime
+    Status: VolumeAttachmentStatusType
+    DeviceName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DisassociateTrialComponentResponseTypeDef(TypedDict):
     TrialComponentArn: str
     TrialArn: str
@@ -6241,6 +6440,12 @@ class UpdateUserProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchAddClusterNodesRequestTypeDef(TypedDict):
+    ClusterName: str
+    NodesToAdd: Sequence[AddClusterNodeSpecificationTypeDef]
+    ClientToken: NotRequired[str]
+
+
 class AddTagsInputTypeDef(TypedDict):
     ResourceArn: str
     Tags: Sequence[TagTypeDef]
@@ -6301,6 +6506,7 @@ class CreateStudioLifecycleConfigRequestTypeDef(TypedDict):
 class CreateTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanName: str
     TrainingPlanOfferingId: str
+    SpareInstanceCountPerUltraServer: NotRequired[int]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -6388,6 +6594,7 @@ class DescribeAppResponseTypeDef(TypedDict):
     UserProfileName: str
     SpaceName: str
     Status: AppStatusType
+    EffectiveTrustedIdentityPropagationStatus: FeatureStatusType
     RecoveryMode: bool
     LastHealthCheckTimestamp: datetime
     LastUserActivityTimestamp: datetime
@@ -6561,9 +6768,17 @@ class NetworkConfigTypeDef(TypedDict):
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
 
+class BatchAddClusterNodesResponseTypeDef(TypedDict):
+    Successful: List[NodeAdditionResultTypeDef]
+    Failed: List[BatchAddClusterNodesErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class BatchDeleteClusterNodesResponseTypeDef(TypedDict):
     Failed: List[BatchDeleteClusterNodesErrorTypeDef]
     Successful: List[str]
+    FailedNodeLogicalIds: List[BatchDeleteClusterNodeLogicalIdsErrorTypeDef]
+    SuccessfulNodeLogicalIds: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6639,6 +6854,24 @@ class CanvasAppSettingsTypeDef(TypedDict):
     KendraSettings: NotRequired[KendraSettingsTypeDef]
     GenerativeAiSettings: NotRequired[GenerativeAiSettingsTypeDef]
     EmrServerlessSettings: NotRequired[EmrServerlessSettingsTypeDef]
+
+
+class InstanceGroupMetadataTypeDef(TypedDict):
+    FailureMessage: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    CapacityReservation: NotRequired[CapacityReservationTypeDef]
+    SubnetId: NotRequired[str]
+    SecurityGroupIds: NotRequired[List[str]]
+    AmiOverride: NotRequired[str]
+
+
+class InstanceMetadataTypeDef(TypedDict):
+    CustomerEni: NotRequired[str]
+    AdditionalEnis: NotRequired[AdditionalEnisTypeDef]
+    CapacityReservation: NotRequired[CapacityReservationTypeDef]
+    FailureMessage: NotRequired[str]
+    LcsExecutionState: NotRequired[str]
+    NodeLogicalId: NotRequired[str]
 
 
 class RollingDeploymentPolicyTypeDef(TypedDict):
@@ -6740,13 +6973,21 @@ class ClusterInstanceStorageConfigTypeDef(TypedDict):
     EbsVolumeConfig: NotRequired[ClusterEbsVolumeConfigTypeDef]
 
 
+class ListClusterEventsResponseTypeDef(TypedDict):
+    Events: List[ClusterEventSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ClusterNodeSummaryTypeDef(TypedDict):
     InstanceGroupName: str
     InstanceId: str
     InstanceType: ClusterInstanceTypeType
     LaunchTime: datetime
     InstanceStatus: ClusterInstanceStatusDetailsTypeDef
+    NodeLogicalId: NotRequired[str]
     LastSoftwareUpdateTime: NotRequired[datetime]
+    UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
 
 
 class ClusterOrchestratorTypeDef(TypedDict):
@@ -7047,6 +7288,11 @@ class ListTrainingJobsForHyperParameterTuningJobRequestPaginateTypeDef(TypedDict
     StatusEquals: NotRequired[TrainingJobStatusType]
     SortBy: NotRequired[TrainingJobSortByOptionsType]
     SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListUltraServersByReservedCapacityRequestPaginateTypeDef(TypedDict):
+    ReservedCapacityArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -7413,6 +7659,31 @@ class ListAutoMLJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListClusterEventsRequestPaginateTypeDef(TypedDict):
+    ClusterName: str
+    InstanceGroupName: NotRequired[str]
+    NodeId: NotRequired[str]
+    EventTimeAfter: NotRequired[TimestampTypeDef]
+    EventTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[Literal["EventTime"]]
+    SortOrder: NotRequired[SortOrderType]
+    ResourceType: NotRequired[ClusterEventResourceTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListClusterEventsRequestTypeDef(TypedDict):
+    ClusterName: str
+    InstanceGroupName: NotRequired[str]
+    NodeId: NotRequired[str]
+    EventTimeAfter: NotRequired[TimestampTypeDef]
+    EventTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[Literal["EventTime"]]
+    SortOrder: NotRequired[SortOrderType]
+    ResourceType: NotRequired[ClusterEventResourceTypeType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListClusterNodesRequestPaginateTypeDef(TypedDict):
     ClusterName: str
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -7420,6 +7691,7 @@ class ListClusterNodesRequestPaginateTypeDef(TypedDict):
     InstanceGroupNameContains: NotRequired[str]
     SortBy: NotRequired[ClusterSortByType]
     SortOrder: NotRequired[SortOrderType]
+    IncludeNodeLogicalIds: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -7432,6 +7704,7 @@ class ListClusterNodesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[ClusterSortByType]
     SortOrder: NotRequired[SortOrderType]
+    IncludeNodeLogicalIds: NotRequired[bool]
 
 
 class ListClusterSchedulerConfigsRequestPaginateTypeDef(TypedDict):
@@ -8692,6 +8965,8 @@ class SearchTrainingPlanOfferingsRequestTypeDef(TypedDict):
     TargetResources: Sequence[SageMakerResourceNameType]
     InstanceType: NotRequired[ReservedCapacityInstanceTypeType]
     InstanceCount: NotRequired[int]
+    UltraServerType: NotRequired[str]
+    UltraServerCount: NotRequired[int]
     StartTimeAfter: NotRequired[TimestampTypeDef]
     EndTimeBefore: NotRequired[TimestampTypeDef]
 
@@ -9052,6 +9327,23 @@ DescribePartnerAppResponseTypeDef = TypedDict(
 )
 
 
+class DescribeReservedCapacityResponseTypeDef(TypedDict):
+    ReservedCapacityArn: str
+    ReservedCapacityType: ReservedCapacityTypeType
+    Status: ReservedCapacityStatusType
+    AvailabilityZone: str
+    DurationHours: int
+    DurationMinutes: int
+    StartTime: datetime
+    EndTime: datetime
+    InstanceType: ReservedCapacityInstanceTypeType
+    TotalInstanceCount: int
+    AvailableInstanceCount: int
+    InUseInstanceCount: int
+    UltraServerSummary: UltraServerSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeSubscribedWorkteamResponseTypeDef(TypedDict):
     SubscribedWorkteam: SubscribedWorkteamTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9089,6 +9381,9 @@ class DescribeTrainingPlanResponseTypeDef(TypedDict):
     TotalInstanceCount: int
     AvailableInstanceCount: int
     InUseInstanceCount: int
+    UnhealthyInstanceCount: int
+    AvailableSpareInstanceCount: int
+    TotalUltraServerCount: int
     TargetResources: List[SageMakerResourceNameType]
     ReservedCapacitySummaries: List[ReservedCapacitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9108,6 +9403,7 @@ class TrainingPlanSummaryTypeDef(TypedDict):
     TotalInstanceCount: NotRequired[int]
     AvailableInstanceCount: NotRequired[int]
     InUseInstanceCount: NotRequired[int]
+    TotalUltraServerCount: NotRequired[int]
     TargetResources: NotRequired[List[SageMakerResourceNameType]]
     ReservedCapacitySummaries: NotRequired[List[ReservedCapacitySummaryTypeDef]]
 
@@ -9459,24 +9755,14 @@ class ListInferenceRecommendationsJobsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ResourceConfigOutputTypeDef(TypedDict):
-    VolumeSizeInGB: int
-    InstanceType: NotRequired[TrainingInstanceTypeType]
-    InstanceCount: NotRequired[int]
-    VolumeKmsKeyId: NotRequired[str]
-    KeepAlivePeriodInSeconds: NotRequired[int]
-    InstanceGroups: NotRequired[List[InstanceGroupTypeDef]]
-    TrainingPlanArn: NotRequired[str]
+class InstancePlacementConfigOutputTypeDef(TypedDict):
+    EnableMultipleJobs: NotRequired[bool]
+    PlacementSpecifications: NotRequired[List[PlacementSpecificationTypeDef]]
 
 
-class ResourceConfigTypeDef(TypedDict):
-    VolumeSizeInGB: int
-    InstanceType: NotRequired[TrainingInstanceTypeType]
-    InstanceCount: NotRequired[int]
-    VolumeKmsKeyId: NotRequired[str]
-    KeepAlivePeriodInSeconds: NotRequired[int]
-    InstanceGroups: NotRequired[Sequence[InstanceGroupTypeDef]]
-    TrainingPlanArn: NotRequired[str]
+class InstancePlacementConfigTypeDef(TypedDict):
+    EnableMultipleJobs: NotRequired[bool]
+    PlacementSpecifications: NotRequired[Sequence[PlacementSpecificationTypeDef]]
 
 
 class ParameterRangeOutputTypeDef(TypedDict):
@@ -9703,6 +9989,12 @@ class ListTrainingPlansRequestTypeDef(TypedDict):
 
 class ListTransformJobsResponseTypeDef(TypedDict):
     TransformJobSummaries: List[TransformJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListUltraServersByReservedCapacityResponseTypeDef(TypedDict):
+    UltraServers: List[UltraServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10139,6 +10431,7 @@ class DomainSettingsOutputTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[List[str]]
     RStudioServerProDomainSettings: NotRequired[RStudioServerProDomainSettingsTypeDef]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsOutputTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
@@ -10148,6 +10441,7 @@ class DomainSettingsTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
     RStudioServerProDomainSettings: NotRequired[RStudioServerProDomainSettingsTypeDef]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
@@ -10367,6 +10661,13 @@ class AutoMLCandidateTypeDef(TypedDict):
     ]
 
 
+class EventMetadataTypeDef(TypedDict):
+    Cluster: NotRequired[ClusterMetadataTypeDef]
+    InstanceGroup: NotRequired[InstanceGroupMetadataTypeDef]
+    InstanceGroupScaling: NotRequired[InstanceGroupScalingMetadataTypeDef]
+    Instance: NotRequired[InstanceMetadataTypeDef]
+
+
 class DeploymentConfigurationOutputTypeDef(TypedDict):
     RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
     WaitIntervalInSeconds: NotRequired[int]
@@ -10439,6 +10740,7 @@ class ClarifyExplainerConfigTypeDef(TypedDict):
 class ClusterNodeDetailsTypeDef(TypedDict):
     InstanceGroupName: NotRequired[str]
     InstanceId: NotRequired[str]
+    NodeLogicalId: NotRequired[str]
     InstanceStatus: NotRequired[ClusterInstanceStatusDetailsTypeDef]
     InstanceType: NotRequired[ClusterInstanceTypeType]
     LaunchTime: NotRequired[datetime]
@@ -10451,6 +10753,9 @@ class ClusterNodeDetailsTypeDef(TypedDict):
     PrivatePrimaryIpv6: NotRequired[str]
     PrivateDnsHostname: NotRequired[str]
     Placement: NotRequired[ClusterInstancePlacementTypeDef]
+    CurrentImageId: NotRequired[str]
+    DesiredImageId: NotRequired[str]
+    UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
 
 
 class ListClusterNodesResponseTypeDef(TypedDict):
@@ -10622,6 +10927,7 @@ class DomainSettingsForUpdateTypeDef(TypedDict):
     ]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsUnionTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
@@ -11044,7 +11350,20 @@ class CreateInferenceComponentInputTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
-ResourceConfigUnionTypeDef = Union[ResourceConfigTypeDef, ResourceConfigOutputTypeDef]
+class ResourceConfigOutputTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceType: NotRequired[TrainingInstanceTypeType]
+    InstanceCount: NotRequired[int]
+    VolumeKmsKeyId: NotRequired[str]
+    KeepAlivePeriodInSeconds: NotRequired[int]
+    InstanceGroups: NotRequired[List[InstanceGroupTypeDef]]
+    TrainingPlanArn: NotRequired[str]
+    InstancePlacementConfig: NotRequired[InstancePlacementConfigOutputTypeDef]
+
+
+InstancePlacementConfigUnionTypeDef = Union[
+    InstancePlacementConfigTypeDef, InstancePlacementConfigOutputTypeDef
+]
 HyperParameterSpecificationOutputTypeDef = TypedDict(
     "HyperParameterSpecificationOutputTypeDef",
     {
@@ -11703,6 +12022,10 @@ class ListCandidatesForAutoMLJobResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class EventDetailsTypeDef(TypedDict):
+    EventMetadata: NotRequired[EventMetadataTypeDef]
+
+
 class ScheduledUpdateConfigOutputTypeDef(TypedDict):
     ScheduleExpression: str
     DeploymentConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
@@ -12021,6 +12344,17 @@ class DescribeInferenceComponentOutputTypeDef(TypedDict):
 InferenceComponentDeploymentConfigUnionTypeDef = Union[
     InferenceComponentDeploymentConfigTypeDef, InferenceComponentDeploymentConfigOutputTypeDef
 ]
+
+
+class ResourceConfigTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceType: NotRequired[TrainingInstanceTypeType]
+    InstanceCount: NotRequired[int]
+    VolumeKmsKeyId: NotRequired[str]
+    KeepAlivePeriodInSeconds: NotRequired[int]
+    InstanceGroups: NotRequired[Sequence[InstanceGroupTypeDef]]
+    TrainingPlanArn: NotRequired[str]
+    InstancePlacementConfig: NotRequired[InstancePlacementConfigUnionTypeDef]
 
 
 class TrainingSpecificationOutputTypeDef(TypedDict):
@@ -12675,6 +13009,18 @@ class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ClusterEventDetailTypeDef(TypedDict):
+    EventId: str
+    ClusterArn: str
+    ClusterName: str
+    ResourceType: ClusterEventResourceTypeType
+    EventTime: datetime
+    InstanceGroupName: NotRequired[str]
+    InstanceId: NotRequired[str]
+    EventDetails: NotRequired[EventDetailsTypeDef]
+    Description: NotRequired[str]
+
+
 class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     CurrentCount: NotRequired[int]
     TargetCount: NotRequired[int]
@@ -12690,6 +13036,8 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     TrainingPlanStatus: NotRequired[str]
     OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+    CurrentImageId: NotRequired[str]
+    DesiredImageId: NotRequired[str]
 
 
 class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
@@ -12718,6 +13066,7 @@ class UpdateClusterSoftwareRequestTypeDef(TypedDict):
     ClusterName: str
     InstanceGroups: NotRequired[Sequence[UpdateClusterSoftwareInstanceGroupSpecificationTypeDef]]
     DeploymentConfig: NotRequired[DeploymentConfigurationUnionTypeDef]
+    ImageId: NotRequired[str]
 
 
 DeploymentConfigUnionTypeDef = Union[DeploymentConfigTypeDef, DeploymentConfigOutputTypeDef]
@@ -12821,6 +13170,7 @@ class UpdateInferenceComponentInputTypeDef(TypedDict):
     DeploymentConfig: NotRequired[InferenceComponentDeploymentConfigUnionTypeDef]
 
 
+ResourceConfigUnionTypeDef = Union[ResourceConfigTypeDef, ResourceConfigOutputTypeDef]
 TrainingSpecificationUnionTypeDef = Union[
     TrainingSpecificationTypeDef, TrainingSpecificationOutputTypeDef
 ]
@@ -13285,6 +13635,11 @@ class CreateAutoMLJobV2RequestTypeDef(TypedDict):
     AutoMLComputeConfig: NotRequired[AutoMLComputeConfigTypeDef]
 
 
+class DescribeClusterEventResponseTypeDef(TypedDict):
+    EventDetails: ClusterEventDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeClusterResponseTypeDef(TypedDict):
     ClusterArn: str
     ClusterName: str
@@ -13296,6 +13651,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
     NodeRecovery: ClusterNodeRecoveryType
+    NodeProvisioningMode: Literal["Continuous"]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13575,6 +13931,7 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     TrainingPlanArn: NotRequired[str]
     OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
+    ImageId: NotRequired[str]
 
 
 class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
@@ -13777,6 +14134,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
+    NodeProvisioningMode: NotRequired[Literal["Continuous"]]
 
 
 class UpdateClusterRequestTypeDef(TypedDict):

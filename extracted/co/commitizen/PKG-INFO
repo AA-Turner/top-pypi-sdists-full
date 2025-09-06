@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: commitizen
-Version: 4.8.3
+Version: 4.8.4
 Summary: Python commitizen client tool
 License: MIT License
          
@@ -47,10 +47,10 @@ Requires-Dist: argcomplete (>=1.12.1,<3.7)
 Requires-Dist: charset-normalizer (>=2.1.0,<4)
 Requires-Dist: colorama (>=0.4.1,<1.0)
 Requires-Dist: decli (>=0.6.0,<1.0)
-Requires-Dist: importlib-metadata (>=8.0.0,!=8.7.0,<9.0.0) ; python_version == "3.9"
-Requires-Dist: importlib-metadata (>=8.0.0,<9.0.0) ; python_version != "3.9"
+Requires-Dist: importlib-metadata (>=8.0.0,<8.7.0) ; python_version < "3.10"
 Requires-Dist: jinja2 (>=2.10.3)
 Requires-Dist: packaging (>=19)
+Requires-Dist: prompt_toolkit (!=3.0.52)
 Requires-Dist: pyyaml (>=3.08)
 Requires-Dist: questionary (>=2.0,<3.0)
 Requires-Dist: termcolor (>=1.1.0,<4.0.0)
@@ -128,6 +128,7 @@ Before installing Commitizen, ensure you have:
 #### Global Installation (Recommended)
 
 The recommended way to install Commitizen is using [`pipx`](https://pipx.pypa.io/) or [`uv`](https://docs.astral.sh/uv/), which ensures a clean, isolated installation:
+
 **Using pipx:**
 ```bash
 # Install Commitizen
@@ -176,7 +177,7 @@ poetry add commitizen --dev
 
 **Using uv:**
 ```bash
-uv add commitizen
+uv add --dev commitizen
 ```
 
 **Using pdm:**

@@ -40,12 +40,23 @@ class Connect:
         await self.load_session()
 
         self.session = Session(
-            self, await self.storage.dc_id(),
-            await self.storage.auth_key(), await self.storage.test_mode()
+            self,
+            await self.storage.dc_id(),
+            await self.storage.server_address(),
+            await self.storage.port(),
+            await self.storage.auth_key(),
+            await self.storage.test_mode()
         )
 
         await self.session.start()
 
         self.is_connected = True
+
+        is_ipv6_session = ":" in await self.storage.server_address()
+
+        if (self.ipv6 and not is_ipv6_session) or (
+            not self.ipv6 and is_ipv6_session
+        ):
+            await self.set_dc(dc_id=await self.storage.dc_id())
 
         return bool(await self.storage.user_id())

@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.retry_constant import RetryConstant
     from ..models.retry_exponential import RetryExponential
+    from ..models.retry_retry_if import RetryRetryIf
 
 
 T = TypeVar("T", bound="Retry")
@@ -19,10 +20,12 @@ class Retry:
     Attributes:
         constant (Union[Unset, RetryConstant]):
         exponential (Union[Unset, RetryExponential]):
+        retry_if (Union[Unset, RetryRetryIf]):
     """
 
     constant: Union[Unset, "RetryConstant"] = UNSET
     exponential: Union[Unset, "RetryExponential"] = UNSET
+    retry_if: Union[Unset, "RetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class Retry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class Retry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class Retry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.retry_constant import RetryConstant
         from ..models.retry_exponential import RetryExponential
+        from ..models.retry_retry_if import RetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class Retry:
         else:
             exponential = RetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, RetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = RetryRetryIf.from_dict(_retry_if)
+
         retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         retry.additional_properties = d

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..models.list_nats_triggers_response_200_item_retry_exponential import (
         ListNatsTriggersResponse200ItemRetryExponential,
     )
+    from ..models.list_nats_triggers_response_200_item_retry_retry_if import ListNatsTriggersResponse200ItemRetryRetryIf
 
 
 T = TypeVar("T", bound="ListNatsTriggersResponse200ItemRetry")
@@ -23,10 +24,12 @@ class ListNatsTriggersResponse200ItemRetry:
     Attributes:
         constant (Union[Unset, ListNatsTriggersResponse200ItemRetryConstant]):
         exponential (Union[Unset, ListNatsTriggersResponse200ItemRetryExponential]):
+        retry_if (Union[Unset, ListNatsTriggersResponse200ItemRetryRetryIf]):
     """
 
     constant: Union[Unset, "ListNatsTriggersResponse200ItemRetryConstant"] = UNSET
     exponential: Union[Unset, "ListNatsTriggersResponse200ItemRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ListNatsTriggersResponse200ItemRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +41,10 @@ class ListNatsTriggersResponse200ItemRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +52,8 @@ class ListNatsTriggersResponse200ItemRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +64,9 @@ class ListNatsTriggersResponse200ItemRetry:
         )
         from ..models.list_nats_triggers_response_200_item_retry_exponential import (
             ListNatsTriggersResponse200ItemRetryExponential,
+        )
+        from ..models.list_nats_triggers_response_200_item_retry_retry_if import (
+            ListNatsTriggersResponse200ItemRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +84,17 @@ class ListNatsTriggersResponse200ItemRetry:
         else:
             exponential = ListNatsTriggersResponse200ItemRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ListNatsTriggersResponse200ItemRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ListNatsTriggersResponse200ItemRetryRetryIf.from_dict(_retry_if)
+
         list_nats_triggers_response_200_item_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         list_nats_triggers_response_200_item_retry.additional_properties = d

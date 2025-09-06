@@ -281,23 +281,25 @@ def add_dataset_item_annotations(
             "category": "Unknown",
         }
         if project_type == "classification":
+            logging.info("Processing the predictions %s", prediction_result)
             if not isinstance(prediction_result, dict):
                 raise ValueError("Classification prediction_result must be a dictionary")
             dataset_item["annotations"] = [
                 {
                     **base_annotation,
-                    "confidence": float(prediction_result.get("confidence", 0.0)),
-                    "category": str(prediction_result.get("category", "Unknown")),
+                    "confidence": float(prediction_result.get("result")[0].get("confidence", 0.0)),
+                    "category": str(prediction_result.get("result")[0].get("category", "Unknown")),
                 }
             ]
         elif project_type in [
             "detection",
             "instance_segmentation",
         ]:
-            if not isinstance(prediction_result, (list, tuple)):
+            logging.info("Processing the predictions %s", prediction_result)
+            if not isinstance(prediction_result, (list, tuple, dict)):
                 raise ValueError(f"{project_type} prediction_result must be a list")
             dataset_item["annotations"] = []
-            for prediction in prediction_result:
+            for prediction in prediction_result['result']:
                 if not isinstance(prediction, dict):
                     continue
                 try:
@@ -519,7 +521,7 @@ class DataLabelling:
             self.project_id = self.action_doc["_idProject"]
             self.job_params = self.action_doc["jobParams"]
             self.dataset_id = self.job_params["dataset_id"]
-            self.dataset_version = self.job_params["version"]
+            self.dataset_version = self.job_params["target_version"]
             self.project_type = self.job_params["project_type"]
             self.candidate_classes = self.job_params["labels"]
             self.checkpoint_type = self.job_params["checkpointType"]

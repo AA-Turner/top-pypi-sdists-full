@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.create_sqs_trigger_json_body_retry_constant import CreateSqsTriggerJsonBodyRetryConstant
     from ..models.create_sqs_trigger_json_body_retry_exponential import CreateSqsTriggerJsonBodyRetryExponential
+    from ..models.create_sqs_trigger_json_body_retry_retry_if import CreateSqsTriggerJsonBodyRetryRetryIf
 
 
 T = TypeVar("T", bound="CreateSqsTriggerJsonBodyRetry")
@@ -19,10 +20,12 @@ class CreateSqsTriggerJsonBodyRetry:
     Attributes:
         constant (Union[Unset, CreateSqsTriggerJsonBodyRetryConstant]):
         exponential (Union[Unset, CreateSqsTriggerJsonBodyRetryExponential]):
+        retry_if (Union[Unset, CreateSqsTriggerJsonBodyRetryRetryIf]):
     """
 
     constant: Union[Unset, "CreateSqsTriggerJsonBodyRetryConstant"] = UNSET
     exponential: Union[Unset, "CreateSqsTriggerJsonBodyRetryExponential"] = UNSET
+    retry_if: Union[Unset, "CreateSqsTriggerJsonBodyRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class CreateSqsTriggerJsonBodyRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class CreateSqsTriggerJsonBodyRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class CreateSqsTriggerJsonBodyRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.create_sqs_trigger_json_body_retry_constant import CreateSqsTriggerJsonBodyRetryConstant
         from ..models.create_sqs_trigger_json_body_retry_exponential import CreateSqsTriggerJsonBodyRetryExponential
+        from ..models.create_sqs_trigger_json_body_retry_retry_if import CreateSqsTriggerJsonBodyRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class CreateSqsTriggerJsonBodyRetry:
         else:
             exponential = CreateSqsTriggerJsonBodyRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, CreateSqsTriggerJsonBodyRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = CreateSqsTriggerJsonBodyRetryRetryIf.from_dict(_retry_if)
+
         create_sqs_trigger_json_body_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         create_sqs_trigger_json_body_retry.additional_properties = d

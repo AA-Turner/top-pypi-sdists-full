@@ -28,6 +28,7 @@ Usage::
         ListAssociationsPaginator,
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
+        ListClusterEventsPaginator,
         ListClusterNodesPaginator,
         ListClusterSchedulerConfigsPaginator,
         ListClustersPaginator,
@@ -94,6 +95,7 @@ Usage::
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
+        ListUltraServersByReservedCapacityPaginator,
         ListUserProfilesPaginator,
         ListWorkforcesPaginator,
         ListWorkteamsPaginator,
@@ -137,6 +139,7 @@ Usage::
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
+    list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
     list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
     list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = client.get_paginator("list_cluster_scheduler_configs")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
@@ -203,6 +206,7 @@ Usage::
     list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
     list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+    list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = client.get_paginator("list_ultra_servers_by_reserved_capacity")
     list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator("list_user_profiles")
     list_workforces_paginator: ListWorkforcesPaginator = client.get_paginator("list_workforces")
     list_workteams_paginator: ListWorkteamsPaginator = client.get_paginator("list_workteams")
@@ -222,6 +226,7 @@ from .paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListClusterEventsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -288,6 +293,7 @@ from .paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -331,6 +337,7 @@ __all__ = (
     "ListAssociationsPaginator",
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
+    "ListClusterEventsPaginator",
     "ListClusterNodesPaginator",
     "ListClusterSchedulerConfigsPaginator",
     "ListClustersPaginator",
@@ -397,6 +404,7 @@ __all__ = (
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",
+    "ListUltraServersByReservedCapacityPaginator",
     "ListUserProfilesPaginator",
     "ListWorkforcesPaginator",
     "ListWorkteamsPaginator",

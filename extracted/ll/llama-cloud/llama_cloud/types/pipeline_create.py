@@ -32,6 +32,7 @@ class PipelineCreate(pydantic.BaseModel):
     transform_config: typing.Optional[PipelineCreateTransformConfig] = pydantic.Field(
         description="Configuration for the transformation."
     )
+    sparse_model_config: typing.Optional[SparseModelConfig]
     data_sink_id: typing.Optional[str]
     embedding_model_config_id: typing.Optional[str]
     data_sink: typing.Optional[DataSinkCreate]
@@ -41,7 +42,6 @@ class PipelineCreate(pydantic.BaseModel):
     eval_parameters: typing.Optional[EvalExecutionParams] = pydantic.Field(
         description="Eval parameters for the pipeline."
     )
-    sparse_model_config: typing.Optional[SparseModelConfig]
     llama_parse_parameters: typing.Optional[LlamaParseParameters]
     status: typing.Optional[str]
     metadata_config: typing.Optional[PipelineMetadataConfig]

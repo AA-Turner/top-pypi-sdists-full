@@ -11,7 +11,7 @@ import socket
 import sys
 import time
 import urllib.parse
-from typing import TYPE_CHECKING, Any, List, Mapping, Tuple
+from typing import TYPE_CHECKING, Any, Mapping
 
 if TYPE_CHECKING:
     from .path import GooglePath
@@ -49,7 +49,7 @@ def load_credentials() -> Mapping[str, Any]:
     )
 
 
-async def get_access_token(_: str) -> Tuple[Any, float]:
+async def get_access_token(_: str) -> tuple[Any, float]:
     from .request import Request
 
     now = time.time()
@@ -96,7 +96,7 @@ async def get_access_token(_: str) -> Tuple[Any, float]:
     return result["access_token"], now + float(result["expires_in"])
 
 
-def create_access_token_request(creds: Mapping[str, Any], scopes: List[str]) -> Request:
+def create_access_token_request(creds: Mapping[str, Any], scopes: list[str]) -> Request:
     if "private_key" in creds:
         # looks like GCS does not support the no-oauth flow
         # https://developers.google.com/identity/protocols/OAuth2ServiceAccount#jwt-auth
@@ -110,7 +110,7 @@ def create_access_token_request(creds: Mapping[str, Any], scopes: List[str]) -> 
     raise RuntimeError("Credentials not recognized")
 
 
-def create_token_request(client_email: str, private_key: str, scopes: List[str]) -> Request:
+def create_token_request(client_email: str, private_key: str, scopes: list[str]) -> Request:
     from .request import Request
 
     # https://developers.google.com/identity/protocols/OAuth2ServiceAccount
@@ -165,9 +165,9 @@ def _is_gce_instance() -> bool:
 
 
 def _sign(private_key: str, msg: bytes) -> bytes:
-    from Cryptodome.Hash import SHA256
-    from Cryptodome.PublicKey import RSA
-    from Cryptodome.Signature import pkcs1_15
+    from Cryptodome.Hash import SHA256  # type: ignore[import, unused-ignore]
+    from Cryptodome.PublicKey import RSA  # type: ignore[import, unused-ignore]
+    from Cryptodome.Signature import pkcs1_15  # type: ignore[import, unused-ignore]
 
     key = RSA.import_key(private_key)
     h = SHA256.new(msg)
@@ -183,7 +183,7 @@ def _create_jwt(private_key: str, data: Mapping[str, Any]) -> bytes:
     return header_b64 + b"." + body_b64 + b"." + signature_b64
 
 
-def generate_signed_url(path: GooglePath) -> Tuple[str, datetime.datetime]:
+def generate_signed_url(path: GooglePath) -> tuple[str, datetime.datetime]:
     # https://cloud.google.com/storage/docs/access-control/signing-urls-manually
     creds = load_credentials()
     if "private_key" not in creds:

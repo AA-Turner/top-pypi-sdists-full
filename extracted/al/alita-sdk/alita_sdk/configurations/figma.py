@@ -16,10 +16,6 @@ class FigmaConfiguration(BaseModel):
                             {
                                 "name": "Token",
                                 "fields": ["token"]
-                            },
-                            {
-                                "name": "Oath2",
-                                "fields": ["oauth2"]
                             }
                         ]
                     }
@@ -32,4 +28,3 @@ class FigmaConfiguration(BaseModel):
         }
     )
     token: Optional[SecretStr] = Field(description="Figma Token", json_schema_extra={"secret": True}, default=None)
-    oauth2: Optional[SecretStr] = Field(description="OAuth2 Token", json_schema_extra={"secret": True}, default=None)

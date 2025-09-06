@@ -6,6 +6,7 @@ from typing import Dict, List, Union, Iterable, Optional
 from datetime import date, datetime
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 from .shared_params.child_legal_entity_create import ChildLegalEntityCreate
 from .shared_params.identification_create_request import IdentificationCreateRequest
@@ -15,12 +16,12 @@ from .shared_params.legal_entity_industry_classification import LegalEntityIndus
 
 __all__ = [
     "LegalEntityCreateParams",
-    "UnnamedTypeWithNoPropertyInfoOrParent0",
+    "BankSettings",
     "LegalEntityAssociations",
     "LegalEntityAssociation",
     "PhoneNumbers",
     "PhoneNumber",
-    "UnnamedTypeWithNoPropertyInfoOrParent1",
+    "WealthAndEmploymentDetails",
 ]
 
 
@@ -31,7 +32,7 @@ class LegalEntityCreateParams(TypedDict, total=False):
     addresses: Iterable[LegalEntityAddressCreateRequest]
     """A list of addresses for the entity."""
 
-    bank_settings: Optional[UnnamedTypeWithNoPropertyInfoOrParent0]
+    bank_settings: Optional[BankSettings]
 
     business_name: Optional[str]
     """The business's legal business name."""
@@ -47,7 +48,7 @@ class LegalEntityCreateParams(TypedDict, total=False):
     date_of_birth: Annotated[Union[str, date, None], PropertyInfo(format="iso8601")]
     """An individual's date of birth (YYYY-MM-DD)."""
 
-    doing_business_as_names: List[str]
+    doing_business_as_names: SequenceNotStr[str]
 
     email: Optional[str]
     """The entity's primary email."""
@@ -98,13 +99,13 @@ class LegalEntityCreateParams(TypedDict, total=False):
     suffix: Optional[str]
     """An individual's suffix."""
 
-    wealth_and_employment_details: Optional[UnnamedTypeWithNoPropertyInfoOrParent1]
+    wealth_and_employment_details: Optional[WealthAndEmploymentDetails]
 
     website: Optional[str]
     """The entity's primary website URL."""
 
 
-class UnnamedTypeWithNoPropertyInfoOrParent0(TypedDict, total=False):
+class BankSettings(TypedDict, total=False):
     id: Required[str]
 
     backup_withholding_percentage: Required[Optional[int]]
@@ -177,7 +178,7 @@ Please use PhoneNumber instead.
 """
 
 
-class UnnamedTypeWithNoPropertyInfoOrParent1(TypedDict, total=False):
+class WealthAndEmploymentDetails(TypedDict, total=False):
     id: Required[str]
 
     annual_income: Required[Optional[int]]

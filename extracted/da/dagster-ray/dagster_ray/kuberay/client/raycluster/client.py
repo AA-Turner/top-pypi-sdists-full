@@ -112,8 +112,9 @@ class RayClusterClient(BaseKubeRayClient[RayClusterStatus]):
         self,
         name: str,
         namespace: str,
-        timeout: int,
+        timeout: float,
         image: str | None = None,
+        poll_interval: float = 5.0,
         log_cluster_conditions: bool = False,
     ) -> tuple[str, RayClusterEndpoints]:
         """
@@ -139,6 +140,9 @@ class RayClusterClient(BaseKubeRayClient[RayClusterStatus]):
             status = get_status_with_retry()
             state = status.get("state")
 
+            if not state:
+                continue
+
             # https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/observability.html#raycluster-status-conditions
             conditions = list(reversed(status.get("conditions", [])))
 
@@ -155,9 +159,11 @@ class RayClusterClient(BaseKubeRayClient[RayClusterStatus]):
             if state == "ready" and status.get("head") and status.get("endpoints", {}).get("dashboard"):
                 logger.debug(f"RayCluster {namespace}/{name} is ready!")
                 return status["head"]["serviceIP"], status["endpoints"]
+
+            time.sleep(poll_interval)
         else:
             raise TimeoutError(
-                f"Timed out ({timeout}s) waiting for RayCluster {namespace}/{name} to be ready. Status: {status}"
+                f"Timed out ({timeout:.1f}s) waiting for RayCluster {namespace}/{name} to be ready. Status: {status}"
             )
 
     @contextmanager
@@ -247,7 +253,7 @@ class RayClusterClient(BaseKubeRayClient[RayClusterStatus]):
 
     @contextmanager
     def job_submission_client(
-        self, name: str, namespace: str, port_forward: bool = False, timeout: int = 60
+        self, name: str, namespace: str, port_forward: bool = False, timeout: float = 60
     ) -> Iterator[JobSubmissionClient]:
         """
         Returns a JobSubmissionClient object that can be used to interact with Ray jobs running in the KubeRay cluster.

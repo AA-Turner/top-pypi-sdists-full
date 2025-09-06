@@ -429,6 +429,14 @@ class KubeResourceConfig(_message.Message):
         storage: _Optional[str] = ...,
     ) -> None: ...
 
+class KubePersistentVolumeClaim(_message.Message):
+    __slots__ = ("storage", "storage_class_name")
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
+    storage: str
+    storage_class_name: str
+    def __init__(self, storage: _Optional[str] = ..., storage_class_name: _Optional[str] = ...) -> None: ...
+
 class ClusterTimescaleSpecs(_message.Message):
     __slots__ = (
         "timescale_image",
@@ -959,8 +967,17 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         "instance_type",
         "nodepool",
         "node_selector",
+        "additional_env_vars",
     )
     class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -993,6 +1010,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    ADDITIONAL_ENV_VARS_FIELD_NUMBER: _ClassVar[int]
     name: str
     image_override: str
     hpa_specs: BackgroundPersistenceWriterHpaSpecs
@@ -1018,6 +1036,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     instance_type: str
     nodepool: str
     node_selector: _containers.ScalarMap[str, str]
+    additional_env_vars: _containers.ScalarMap[str, str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -1045,6 +1064,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         instance_type: _Optional[str] = ...,
         nodepool: _Optional[str] = ...,
         node_selector: _Optional[_Mapping[str, str]] = ...,
+        additional_env_vars: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):
@@ -1107,6 +1127,111 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class KubeNodeSelector(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class OtelCollectorSpec(_message.Message):
+    __slots__ = ("otel_collector_version", "request", "limit")
+    OTEL_COLLECTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    otel_collector_version: str
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    def __init__(
+        self,
+        otel_collector_version: _Optional[str] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class ClickHouseSpec(_message.Message):
+    __slots__ = ("click_house_version", "request", "limit", "storage")
+    CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
+    click_house_version: str
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    storage: KubePersistentVolumeClaim
+    def __init__(
+        self,
+        click_house_version: _Optional[str] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        storage: _Optional[_Union[KubePersistentVolumeClaim, _Mapping]] = ...,
+    ) -> None: ...
+
+class TelemetryDeploymentSpec(_message.Message):
+    __slots__ = ("namespace", "click_house", "otel", "node_selectors")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
+    OTEL_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTORS_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    click_house: ClickHouseSpec
+    otel: OtelCollectorSpec
+    node_selectors: _containers.RepeatedCompositeFieldContainer[KubeNodeSelector]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        click_house: _Optional[_Union[ClickHouseSpec, _Mapping]] = ...,
+        otel: _Optional[_Union[OtelCollectorSpec, _Mapping]] = ...,
+        node_selectors: _Optional[_Iterable[_Union[KubeNodeSelector, _Mapping]]] = ...,
+    ) -> None: ...
+
+class TelemetryDeployment(_message.Message):
+    __slots__ = ("id", "spec", "created_at", "updated_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    spec: TelemetryDeploymentSpec
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "namespace")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    namespace: str
+    def __init__(self, cluster_id: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
+
+class GetTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ("deployment",)
+    DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    deployment: TelemetryDeployment
+    def __init__(self, deployment: _Optional[_Union[TelemetryDeployment, _Mapping]] = ...) -> None: ...
+
+class CreateTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "spec")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    spec: TelemetryDeploymentSpec
+    def __init__(
+        self, cluster_id: _Optional[str] = ..., spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...
+    ) -> None: ...
+
+class CreateTelemetryDeploymentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

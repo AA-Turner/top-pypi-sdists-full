@@ -26,7 +26,7 @@
  *
  *  Intel Palm Cove was an irrelevant intermediate release extending Skylake with IFMA and VBMI.
  *  Intel Willow Cove was an irrelevant intermediate release extending Sunny Cove with VP2INTERSECT,
- *  that aren't supported by any other CPU built to date... and those are only available in Tiger Lake laptops.
+ *  which are not supported by other CPUs to date and are only available in Tiger Lake laptops.
  *  Intel Cooper Lake was the only intermediary platform, that supported BF16, but not FP16.
  *  It's mostly used in 4-socket and 8-socket high-memory configurations.
  *
@@ -80,7 +80,7 @@
  *    The N2 core is very similar to V2 and is used by Microsoft @b Cobalt.
  *    https://developer.arm.com/Processors/Neoverse%20N2
  *
- *  On Consumer side, Apple is the biggest player with mobile @b A chips and desktop @b M chips.
+ *  On the consumer side, Apple is the biggest player with mobile @b A chips and desktop @b M chips.
  *  The M1 implements Armv8.5-A, both M2 and M3 implement Armv8.6-A, and M4 is expected to have Armv9.1-A.
  */
 
@@ -89,7 +89,7 @@
 
 #define SIMSIMD_VERSION_MAJOR 6
 #define SIMSIMD_VERSION_MINOR 5
-#define SIMSIMD_VERSION_PATCH 1
+#define SIMSIMD_VERSION_PATCH 2
 
 /**
  *  @brief  Removes compile-time dispatching, and replaces it with runtime dispatching.

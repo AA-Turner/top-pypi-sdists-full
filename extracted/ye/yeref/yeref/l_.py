@@ -10564,7 +10564,7 @@ l_send_by_offer_id = {
     'ar': "👩🏽‍💻 المشاركة #<u>{0}</u> مرسلة بواسطة @{1} (المعرف={2})",
 }
 l_userbot_cmd_info_fun = {
-    'ru': "👩🏽‍💻 <b>Аккаунт:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}, цвет: {3}, тема: {4}, dc: {5}]\n<b>Био:</b> {6}",
+    'ru': "👩🏽‍💻 <b>Информация:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}, цвет: {3}, тема: {4}, dc: {5}]\n<b>Био:</b> {6}",
     'en': "👩🏽‍💻 <b>Account:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}, color: {3}, topic: {4}, dc: {5}]\n<b>Bio:</b> {6}",
     'es': "👩🏽‍💻 <b>Cuenta:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}, color: {3}, Tema: {4}, dc: {5}]\n<b>Biografía:</b> {6}",
     'fr': "👩🏽‍💻 <b>Compte :</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}, couleur : {3}, sujet : {4}, cc : {5}]\n<b>Bio :</b> {6}",

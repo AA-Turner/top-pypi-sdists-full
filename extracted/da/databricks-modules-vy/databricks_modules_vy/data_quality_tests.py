@@ -599,3 +599,65 @@ def test_documented_columns(df, comments, raise_exception=True):
         error_lp(error_message)
     else:
         success_lp("All comments match the columns of the df")
+
+def test_for_missing_elements_in_sequence(
+    df,
+    partition_cols,
+    stop_sequence_col,
+    start_sequence=None,
+    stop_sequence=None,
+    raise_exception=True,
+):
+    """
+    Checks if there are any missing elements in a sequence column.
+
+    Parameters:
+        df (pyspark.DataFrame):          The DataFrame to be tested.
+        partition_cols list):            The columns identifying the partition.
+        stop_sequence_col (str):         The column specifying the sequence.
+        start_sequence (int, optional):  Manual entry for first element in sequence.
+        stop_sequence (int, optional):   Manual entry for last element in sequence.
+        raise_exception (bool):          Whether an exception should be raised or not.
+    """
+
+    # Get the min and max of the sequence in the partition
+    df_partition_ranges = df.groupBy(partition_cols).agg(
+        min(stop_sequence_col).alias("min_seq"), max(stop_sequence_col).alias("max_seq")
+    )
+
+    if start_sequence is not None:
+        df_partition_ranges = df_partition_ranges.withColumn("min_seq", lit(start_sequence))
+
+    if stop_sequence is not None:
+        df_partition_ranges = df_partition_ranges.withColumn("max_seq", lit(stop_sequence))
+
+    # Generate the full sequence for each partition
+    df_expanded = df_partition_ranges.withColumn(
+        "expected_sequences", expr("sequence(min_seq, max_seq)")
+    )
+
+    # Explode to get each expected stop as a separate row, and join with the original data
+    df_expanded = df_expanded.select(
+        *partition_cols, explode("expected_sequences").alias(stop_sequence_col)
+    )
+
+    # Finds missing stops by keeping rows that have no match in the original data
+    df_joined = df_expanded.join(df, on=[*partition_cols, stop_sequence_col], how="left_anti")
+
+    # Count missing rows
+    missing_count = df_joined.count()
+
+    if missing_count > 0:
+        df_joined.show(truncate=False)
+        if raise_exception:
+            raise AssertionError(
+                f"Test failed: {missing_count} missing elements in the sequence for column '{stop_sequence_col}' in the partition defined by '{partition_cols}'"
+            )
+        else:
+            error_lp(
+                f"Test failed: {missing_count} missing elements in the sequence for column '{stop_sequence_col}' in the partition defined by '{partition_cols}'"
+            )
+    else:
+        success_lp(
+            f"All elements are present in the sequence for column '{stop_sequence_col}' for each partition defined by '{partition_cols}'"
+        )

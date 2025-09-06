@@ -33,6 +33,7 @@ from .literals import (
     ConditionalOperatorType,
     ContinuousBackupsStatusType,
     ContributorInsightsActionType,
+    ContributorInsightsModeType,
     ContributorInsightsStatusType,
     DestinationStatusType,
     ExportFormatType,
@@ -489,6 +490,7 @@ class ContributorInsightsSummaryTypeDef(TypedDict):
     TableName: NotRequired[str]
     IndexName: NotRequired[str]
     ContributorInsightsStatus: NotRequired[ContributorInsightsStatusType]
+    ContributorInsightsMode: NotRequired[ContributorInsightsModeType]
 
 
 class CreateBackupInputTypeDef(TypedDict):
@@ -840,6 +842,7 @@ class UpdateContributorInsightsInputTypeDef(TypedDict):
     TableName: str
     ContributorInsightsAction: ContributorInsightsActionType
     IndexName: NotRequired[str]
+    ContributorInsightsMode: NotRequired[ContributorInsightsModeType]
 
 
 class UpdateKinesisStreamingConfigurationTypeDef(TypedDict):
@@ -1027,6 +1030,7 @@ class UpdateContributorInsightsOutputTypeDef(TypedDict):
     TableName: str
     IndexName: str
     ContributorInsightsStatus: ContributorInsightsStatusType
+    ContributorInsightsMode: ContributorInsightsModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1123,6 +1127,7 @@ class DescribeContributorInsightsOutputTypeDef(TypedDict):
     ContributorInsightsStatus: ContributorInsightsStatusType
     LastUpdateDateTime: datetime
     FailureException: FailureExceptionTypeDef
+    ContributorInsightsMode: ContributorInsightsModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 

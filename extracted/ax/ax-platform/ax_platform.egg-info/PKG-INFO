@@ -1,19 +1,20 @@
 Metadata-Version: 2.4
 Name: ax-platform
-Version: 1.1.0
+Version: 1.1.1
 Summary: Adaptive Experimentation
-Home-page: https://github.com/facebook/Ax
-Author: Facebook, Inc.
-License: MIT
+Author: Meta Platforms, Inc.
+License-Expression: MIT
+Project-URL: Homepage, https://ax.dev/
+Project-URL: Repository, https://github.com/facebook/Ax
 Keywords: Experimentation,Optimization
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: botorch==0.15.1
+Requires-Dist: botorch[pymoo]>=0.15.1
 Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: scipy
@@ -32,99 +33,25 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
 Requires-Dist: sphinx_rtd_theme; extra == "dev"
-Requires-Dist: torchvision>=0.5.0; extra == "dev"
-Requires-Dist: nbconvert; extra == "dev"
-Requires-Dist: jupyter-client==6.1.12; extra == "dev"
 Requires-Dist: lxml; extra == "dev"
 Requires-Dist: mdformat-myst; extra == "dev"
-Requires-Dist: black==24.4.2; extra == "dev"
-Requires-Dist: ruff-api==0.1.0; extra == "dev"
-Requires-Dist: stdlibs==2024.1.28; extra == "dev"
-Requires-Dist: ufmt==2.8.0; extra == "dev"
-Requires-Dist: usort==1.0.8.post1; extra == "dev"
 Provides-Extra: mysql
 Requires-Dist: SQLAlchemy==1.4.17; extra == "mysql"
 Provides-Extra: notebook
 Requires-Dist: jupyter; extra == "notebook"
-Provides-Extra: unittest
-Requires-Dist: beautifulsoup4; extra == "unittest"
-Requires-Dist: Jinja2; extra == "unittest"
-Requires-Dist: pyfakefs; extra == "unittest"
-Requires-Dist: pytest>=4.6; extra == "unittest"
-Requires-Dist: pytest-cov; extra == "unittest"
-Requires-Dist: sphinx; extra == "unittest"
-Requires-Dist: sphinx-autodoc-typehints; extra == "unittest"
-Requires-Dist: sphinx_rtd_theme; extra == "unittest"
-Requires-Dist: torchvision>=0.5.0; extra == "unittest"
-Requires-Dist: nbconvert; extra == "unittest"
-Requires-Dist: jupyter-client==6.1.12; extra == "unittest"
-Requires-Dist: lxml; extra == "unittest"
-Requires-Dist: mdformat-myst; extra == "unittest"
-Requires-Dist: black==24.4.2; extra == "unittest"
-Requires-Dist: ruff-api==0.1.0; extra == "unittest"
-Requires-Dist: stdlibs==2024.1.28; extra == "unittest"
-Requires-Dist: ufmt==2.8.0; extra == "unittest"
-Requires-Dist: usort==1.0.8.post1; extra == "unittest"
-Requires-Dist: SQLAlchemy==1.4.17; extra == "unittest"
-Requires-Dist: jupyter; extra == "unittest"
-Requires-Dist: tensorboard>=2.18.0; extra == "unittest"
-Requires-Dist: torchvision; extra == "unittest"
-Requires-Dist: torchx; extra == "unittest"
-Requires-Dist: pyarrow; extra == "unittest"
-Requires-Dist: xgboost>=3.0.2; extra == "unittest"
 Provides-Extra: unittest-minimal
 Requires-Dist: tensorboard>=2.18.0; extra == "unittest-minimal"
-Requires-Dist: torchvision; extra == "unittest-minimal"
 Requires-Dist: torchx; extra == "unittest-minimal"
 Requires-Dist: pyarrow; extra == "unittest-minimal"
 Requires-Dist: xgboost>=3.0.2; extra == "unittest-minimal"
+Provides-Extra: unittest
+Requires-Dist: ax-platform[dev,mysql,notebook,unittest_minimal]; extra == "unittest"
 Provides-Extra: tutorial
-Requires-Dist: beautifulsoup4; extra == "tutorial"
-Requires-Dist: Jinja2; extra == "tutorial"
-Requires-Dist: pyfakefs; extra == "tutorial"
-Requires-Dist: pytest>=4.6; extra == "tutorial"
-Requires-Dist: pytest-cov; extra == "tutorial"
-Requires-Dist: sphinx; extra == "tutorial"
-Requires-Dist: sphinx-autodoc-typehints; extra == "tutorial"
-Requires-Dist: sphinx_rtd_theme; extra == "tutorial"
-Requires-Dist: torchvision>=0.5.0; extra == "tutorial"
-Requires-Dist: nbconvert; extra == "tutorial"
-Requires-Dist: jupyter-client==6.1.12; extra == "tutorial"
-Requires-Dist: lxml; extra == "tutorial"
-Requires-Dist: mdformat-myst; extra == "tutorial"
-Requires-Dist: black==24.4.2; extra == "tutorial"
-Requires-Dist: ruff-api==0.1.0; extra == "tutorial"
-Requires-Dist: stdlibs==2024.1.28; extra == "tutorial"
-Requires-Dist: ufmt==2.8.0; extra == "tutorial"
-Requires-Dist: usort==1.0.8.post1; extra == "tutorial"
-Requires-Dist: SQLAlchemy==1.4.17; extra == "tutorial"
-Requires-Dist: jupyter; extra == "tutorial"
-Requires-Dist: tensorboard>=2.18.0; extra == "tutorial"
-Requires-Dist: torchvision; extra == "tutorial"
-Requires-Dist: torchx; extra == "tutorial"
-Requires-Dist: pyarrow; extra == "tutorial"
-Requires-Dist: xgboost>=3.0.2; extra == "tutorial"
-Requires-Dist: ray; extra == "tutorial"
-Requires-Dist: tabulate; extra == "tutorial"
-Requires-Dist: tensorboardX; extra == "tutorial"
+Requires-Dist: ax-platform[unittest]; extra == "tutorial"
 Requires-Dist: matplotlib; extra == "tutorial"
-Requires-Dist: pyro-ppl; extra == "tutorial"
-Requires-Dist: pytorch-lightning; extra == "tutorial"
 Requires-Dist: papermill; extra == "tutorial"
-Requires-Dist: submitit; extra == "tutorial"
 Requires-Dist: mdformat; extra == "tutorial"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <img width="300" src="https://ax.dev/img/ax_logo_lockup.svg" alt="Ax Logo" />
 

@@ -3068,6 +3068,7 @@ class IntegrationKeyScope(sgqlc.types.Enum):
     * `DatabricksMetadata`None
     * `DatabricksWebhook`None
     * `DbtCloudWebhook`None
+    * `MCP`None
     * `S3PresignedUrl`None
     * `SCIM_v2`None
     * `Spark`None
@@ -3082,6 +3083,7 @@ class IntegrationKeyScope(sgqlc.types.Enum):
         "DatabricksMetadata",
         "DatabricksWebhook",
         "DbtCloudWebhook",
+        "MCP",
         "S3PresignedUrl",
         "SCIM_v2",
         "Spark",
@@ -9161,6 +9163,14 @@ class StringFilterInput(sgqlc.types.Input):
         sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="values"
     )
     """Values to filter by (combined via OR)"""
+
+
+class TableMonitorAlertConditionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("metric", "operator")
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
 
 
 class TableStatsRules(sgqlc.types.Input):
@@ -25421,6 +25431,14 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "alert_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertConditionInput)),
+                        graphql_name="alertConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "asset_selection",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(AssetSelectionInput),
@@ -25475,6 +25493,8 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_conditions` (`[TableMonitorAlertConditionInput!]`): Alert
+      conditions for the table monitor
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String!]`): The monitor notification audiences
     * `description` (`String!`): Description of rule
@@ -43188,6 +43208,7 @@ class Query(sgqlc.types.Type):
         "get_parsed_query",
         "get_agent_span_groups",
         "get_agent_span_sample",
+        "evaluate_agent_monitor_data_source",
         "get_job_execution_history_logs",
         "get_job_executions",
         "get_table_monitor",
@@ -49266,6 +49287,29 @@ class Query(sgqlc.types.Type):
       traces
     * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
       agent span fields (agent, workflow, task, span_name)
+    """
+
+    evaluate_agent_monitor_data_source = sgqlc.types.Field(
+        DataSourceEvaluationResult,
+        graphql_name="evaluateAgentMonitorDataSource",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get agent span schema from base trace table
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON to evaluate
+    * `connection_id` (`UUID`): Connection UUID
     """
 
     get_job_execution_history_logs = sgqlc.types.Field(
@@ -63118,6 +63162,14 @@ class TableMetricV2(sgqlc.types.Type):
     """UUID of the job execution that produced the measurement"""
 
 
+class TableMonitorAlertCondition(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("metric", "operator")
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
+
+    operator = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="operator")
+
+
 class TableMonitorConfiguration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -73648,6 +73700,7 @@ class TableMonitor(sgqlc.types.Type, Node):
         "asset_selection",
         "audiences",
         "failure_audiences",
+        "alert_conditions",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -73717,6 +73770,11 @@ class TableMonitor(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
     )
     """The monitor notification audiences for failures"""
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertCondition))),
+        graphql_name="alertConditions",
+    )
 
 
 class TablePartitionKeys(sgqlc.types.Type, Node):
@@ -75648,6 +75706,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "partition_keys",
         "total_downstream_nodes",
         "total_upstream_nodes",
+        "monitored_metrics",
     )
     table_id = sgqlc.types.Field(String, graphql_name="tableId")
 
@@ -76142,6 +76201,11 @@ class WarehouseTable(sgqlc.types.Type, Node):
 
     total_upstream_nodes = sgqlc.types.Field(Int, graphql_name="totalUpstreamNodes")
     """Upstream nodes count"""
+
+    monitored_metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="monitoredMetrics",
+    )
 
 
 class WarehouseTableHealth(sgqlc.types.Type, Node):

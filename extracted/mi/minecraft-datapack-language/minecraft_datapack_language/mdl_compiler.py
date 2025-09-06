@@ -63,13 +63,13 @@ class MDLCompiler:
             if ast.namespace:
                 self.current_namespace = ast.namespace.name
             
-            # Create namespace directory
+            # Create namespace directory (for default/current)
             namespace_dir = data_dir / self.current_namespace
             namespace_dir.mkdir(parents=True, exist_ok=True)
             
             # Compile all components
             self._compile_variables(ast.variables, namespace_dir)
-            self._compile_functions(ast.functions, namespace_dir)
+            self._compile_functions(ast.functions, data_dir)
             self._compile_hooks(ast.hooks, namespace_dir)
             self._compile_statements(ast.statements, namespace_dir)
             self._compile_tags(ast.tags, source_dir)
@@ -123,15 +123,17 @@ class MDLCompiler:
             self.variables[var.name] = objective_name
             print(f"Variable: {var.name} -> scoreboard objective '{objective_name}'")
     
-    def _compile_functions(self, functions: List[FunctionDeclaration], namespace_dir: Path):
+    def _compile_functions(self, functions: List[FunctionDeclaration], data_dir: Path):
         """Compile function declarations into .mcfunction files."""
-        if self.dir_map:
-            functions_dir = namespace_dir / self.dir_map.function
-        else:
-            functions_dir = namespace_dir / "functions"
-        functions_dir.mkdir(parents=True, exist_ok=True)
-        
         for func in functions:
+            # Ensure namespace directory per function
+            ns_dir = data_dir / func.namespace
+            ns_dir.mkdir(parents=True, exist_ok=True)
+            if self.dir_map:
+                functions_dir = ns_dir / self.dir_map.function
+            else:
+                functions_dir = ns_dir / "functions"
+            functions_dir.mkdir(parents=True, exist_ok=True)
             func_file = functions_dir / f"{func.name}.mcfunction"
             content = self._generate_function_content(func)
             
@@ -148,9 +150,9 @@ class MDLCompiler:
             lines.append(f"# Scope: {func.scope}")
         lines.append("")
         
-        # Reset temporary commands for this function
-        if hasattr(self, 'temp_commands'):
-            self.temp_commands = []
+        # Ensure a temp-command sink stack exists
+        if not hasattr(self, '_temp_sink_stack'):
+            self._temp_sink_stack = []
         
         # Set current function context and reset per-function counters
         self._current_function_name = func.name
@@ -158,18 +160,15 @@ class MDLCompiler:
         self.else_counter = 0
         self.while_counter = 0
         
+        # Route temp commands into this function's body by default
+        self._temp_sink_stack.append(lines)
         # Generate commands from function body
         for statement in func.body:
             cmd = self._statement_to_command(statement)
             if cmd:
                 lines.append(cmd)
-        
-        # Add any temporary commands that were generated during compilation
-        if hasattr(self, 'temp_commands') and self.temp_commands:
-            lines.append("")
-            lines.append("# Temporary variable operations:")
-            for temp_cmd in self.temp_commands:
-                lines.append(temp_cmd)
+        # Done routing temp commands for this function body
+        self._temp_sink_stack.pop()
         
         return "\n".join(lines)
     
@@ -203,13 +202,18 @@ class MDLCompiler:
                 tag_dir = self.output_dir / "data" / "minecraft" / self.dir_map.tags_item
             elif tag.tag_type == "structure":
                 tag_dir = self.output_dir / "data" / "minecraft" / self.dir_map.tags_item
+            elif tag.tag_type == "item":
+                # Namespace item tags (e.g., data/<ns>/tags/items/<name>.json)
+                ns_dir = self.output_dir / "data" / self.current_namespace / "tags"
+                # Prefer plural 'items' for compatibility
+                tag_dir = ns_dir / "items"
             else:
                 continue
             
             tag_dir.mkdir(parents=True, exist_ok=True)
             tag_file = tag_dir / f"{tag.name}.json"
             
-            if source_path:
+            if source_path and tag.tag_type != "item":
                 source_json = source_path / tag.file_path
                 if source_json.exists():
                     shutil.copy2(source_json, tag_file)
@@ -220,10 +224,16 @@ class MDLCompiler:
                         json.dump(tag_data, f, indent=2)
                     print(f"Tag {tag.tag_type}: {tag.name} -> {tag_file} (placeholder)")
             else:
-                tag_data = {"values": [f"{self.current_namespace}:{tag.name}"]}
+                # Write simple values list
+                # For item tags, the TagDeclaration.name may include namespace:name
+                # The output filename should be the local name (after ':') if present
+                name_for_file = tag.name.split(":", 1)[1] if ":" in tag.name else tag.name
+                tag_file = tag_dir / f"{name_for_file}.json"
+                values = [tag.name if ":" in tag.name else f"{self.current_namespace}:{tag.name}"]
+                tag_data = {"values": values}
                 with open(tag_file, 'w') as f:
                     json.dump(tag_data, f, indent=2)
-                print(f"Tag {tag.tag_type}: {tag.name} -> {tag_file} (placeholder)")
+                print(f"Tag {tag.tag_type}: {tag.name} -> {tag_file} (generated)")
     
     def _create_hook_functions(self, hooks: List[HookDeclaration], namespace_dir: Path):
         """Create load.mcfunction and tick.mcfunction for hooks."""
@@ -231,8 +241,11 @@ class MDLCompiler:
             functions_dir = namespace_dir / self.dir_map.function
         else:
             functions_dir = namespace_dir / "functions"
+        # Ensure functions dir exists
+        functions_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create load function
+        # Always create load function to initialize objectives; add tag only if on_load hooks exist
+        has_on_load = any(h.hook_type == "on_load" for h in hooks)
         load_content = self._generate_load_function(hooks)
         load_file = functions_dir / "load.mcfunction"
         with open(load_file, 'w') as f:
@@ -241,8 +254,12 @@ class MDLCompiler:
         tags_fn_dir = self.output_dir / "data" / "minecraft" / self.dir_map.tags_function
         tags_fn_dir.mkdir(parents=True, exist_ok=True)
         load_tag_file = tags_fn_dir / "load.json"
+        # If there are explicit on_load hooks, include them; otherwise reference namespace:load
+        values = [f"{self.current_namespace}:load"]
+        if has_on_load:
+            values = [f"{hook.namespace}:{hook.name}" for hook in hooks if hook.hook_type == "on_load"]
         with open(load_tag_file, 'w') as f:
-            json.dump({"values": [f"{self.current_namespace}:load"]}, f, indent=2)
+            json.dump({"values": values}, f, indent=2)
         
         # Create tick function if needed
         tick_hooks = [h for h in hooks if h.hook_type == "on_tick"]
@@ -302,6 +319,8 @@ class MDLCompiler:
         """Convert an AST statement to a Minecraft command."""
         if isinstance(statement, VariableAssignment):
             return self._variable_assignment_to_command(statement)
+        elif isinstance(statement, VariableDeclaration):
+            return self._variable_declaration_to_command(statement)
         elif isinstance(statement, SayCommand):
             return self._say_command_to_command(statement)
         elif isinstance(statement, RawBlock):
@@ -317,6 +336,9 @@ class MDLCompiler:
     
     def _variable_assignment_to_command(self, assignment: VariableAssignment) -> str:
         """Convert variable assignment to scoreboard command."""
+        # Auto-declare objective on first use
+        if assignment.name not in self.variables:
+            self.variables[assignment.name] = assignment.name
         objective = self.variables.get(assignment.name, assignment.name)
         scope = assignment.scope.strip("<>")
         
@@ -332,6 +354,24 @@ class MDLCompiler:
             # Simple value - use direct assignment
             value = self._expression_to_value(assignment.value)
             return f"scoreboard players set {scope} {objective} {value}"
+
+    def _variable_declaration_to_command(self, decl: VariableDeclaration) -> str:
+        """Handle var declarations appearing inside function bodies.
+        Ensure objective is registered and optionally set initial value.
+        """
+        objective = self.variables.get(decl.name, decl.name)
+        # Register objective so load function adds it
+        self.variables[decl.name] = objective
+        # If there is an initial value, set it in current context
+        scope = decl.scope.strip("<>")
+        init = None
+        try:
+            init = self._expression_to_value(decl.initial_value)
+        except Exception:
+            init = None
+        if init is not None:
+            return f"scoreboard players set {scope} {objective} {init}"
+        return f"# var {decl.name} declared"
     
     def _say_command_to_command(self, say: SayCommand) -> str:
         """Convert say command to tellraw command with JSON formatting."""
@@ -401,9 +441,16 @@ class MDLCompiler:
         
         # Generate the if body function content
         if_body_lines = [f"# Function: {self.current_namespace}:{if_function_name}"]
+        # Route temp commands to the if-body function content
+        if not hasattr(self, '_temp_sink_stack'):
+            self._temp_sink_stack = []
+        self._temp_sink_stack.append(if_body_lines)
         for stmt in if_stmt.then_body:
             if isinstance(stmt, VariableAssignment):
                 cmd = self._variable_assignment_to_command(stmt)
+                if_body_lines.append(cmd)
+            elif isinstance(stmt, VariableDeclaration):
+                cmd = self._variable_declaration_to_command(stmt)
                 if_body_lines.append(cmd)
             elif isinstance(stmt, SayCommand):
                 cmd = self._say_command_to_command(stmt)
@@ -419,6 +466,8 @@ class MDLCompiler:
             elif isinstance(stmt, FunctionCall):
                 cmd = self._function_call_to_command(stmt)
                 if_body_lines.append(cmd)
+        # Stop routing temp commands for if-body
+        self._temp_sink_stack.pop()
         
         # Handle else body if it exists
         if if_stmt.else_body:
@@ -443,9 +492,16 @@ class MDLCompiler:
                 else:
                     lines.append(f"execute unless {condition} run function {self.current_namespace}:{else_function_name}")
                 else_body_lines = [f"# Function: {self.current_namespace}:{else_function_name}"]
+                # Route temp commands into the else-body
+                if not hasattr(self, '_temp_sink_stack'):
+                    self._temp_sink_stack = []
+                self._temp_sink_stack.append(else_body_lines)
                 for stmt in if_stmt.else_body:
                     if isinstance(stmt, VariableAssignment):
                         cmd = self._variable_assignment_to_command(stmt)
+                        else_body_lines.append(cmd)
+                    elif isinstance(stmt, VariableDeclaration):
+                        cmd = self._variable_declaration_to_command(stmt)
                         else_body_lines.append(cmd)
                     elif isinstance(stmt, SayCommand):
                         cmd = self._say_command_to_command(stmt)
@@ -461,6 +517,8 @@ class MDLCompiler:
                     elif isinstance(stmt, FunctionCall):
                         cmd = self._function_call_to_command(stmt)
                         else_body_lines.append(cmd)
+                # Stop routing temp commands for else-body
+                self._temp_sink_stack.pop()
                 self._store_generated_function(else_function_name, else_body_lines)
         
         # Store the if function as its own file
@@ -483,9 +541,15 @@ class MDLCompiler:
         loop_body_lines = [f"# Function: {self.current_namespace}:{loop_function_name}"]
         
         # Add the loop body statements
+        if not hasattr(self, '_temp_sink_stack'):
+            self._temp_sink_stack = []
+        self._temp_sink_stack.append(loop_body_lines)
         for stmt in while_loop.body:
             if isinstance(stmt, VariableAssignment):
                 cmd = self._variable_assignment_to_command(stmt)
+                loop_body_lines.append(cmd)
+            elif isinstance(stmt, VariableDeclaration):
+                cmd = self._variable_declaration_to_command(stmt)
                 loop_body_lines.append(cmd)
             elif isinstance(stmt, SayCommand):
                 cmd = self._say_command_to_command(stmt)
@@ -505,6 +569,8 @@ class MDLCompiler:
         # Add the recursive call at the end to continue the loop
         cond_str, _inv = self._build_condition(while_loop.condition)
         loop_body_lines.append(f"execute if {cond_str} run function {self.current_namespace}:{loop_function_name}")
+        # Stop routing temp commands for while-body
+        self._temp_sink_stack.pop()
         
         # Store the loop function as its own file
         self._store_generated_function(loop_function_name, loop_body_lines)
@@ -680,10 +746,20 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
-            
-            if isinstance(expression.right, BinaryExpression):
-                self._store_temp_command(f"scoreboard players add @s {temp_var} {right_value}")
+                # Assign from left value (score or literal)
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                    parts = str(left_value).split()
+                    scope = parts[1]
+                    obj = parts[2]
+                    self._store_temp_command(f"scoreboard players operation @s {temp_var} = {scope} {obj}")
+                else:
+                    self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
+            # Add right value
+            if isinstance(expression.right, VariableSubstitution) or (isinstance(expression.right, str) and str(right_value).startswith("score ")):
+                parts = str(right_value).split()
+                scope = parts[1]
+                obj = parts[2]
+                self._store_temp_command(f"scoreboard players operation @s {temp_var} += {scope} {obj}")
             else:
                 self._store_temp_command(f"scoreboard players add @s {temp_var} {right_value}")
                 
@@ -691,10 +767,19 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
-            
-            if isinstance(expression.right, BinaryExpression):
-                self._store_temp_command(f"scoreboard players remove @s {temp_var} {right_value}")
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                    parts = str(left_value).split()
+                    scope = parts[1]
+                    obj = parts[2]
+                    self._store_temp_command(f"scoreboard players operation @s {temp_var} = {scope} {obj}")
+                else:
+                    self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
+            # Subtract right value
+            if isinstance(expression.right, VariableSubstitution) or (isinstance(expression.right, str) and str(right_value).startswith("score ")):
+                parts = str(right_value).split()
+                scope = parts[1]
+                obj = parts[2]
+                self._store_temp_command(f"scoreboard players operation @s {temp_var} -= {scope} {obj}")
             else:
                 self._store_temp_command(f"scoreboard players remove @s {temp_var} {right_value}")
                 
@@ -702,12 +787,18 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                    parts = str(left_value).split()
+                    scope = parts[1]
+                    obj = parts[2]
+                    self._store_temp_command(f"scoreboard players operation @s {temp_var} = {scope} {obj}")
+                else:
+                    self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
             
             if isinstance(expression.right, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} *= @s {right_temp}")
             else:
-                # For literal values, we need to use a different approach
+                # For literal values, keep explicit multiply command for compatibility
                 if isinstance(expression.right, LiteralExpression):
                     self._store_temp_command(f"scoreboard players multiply @s {temp_var} {expression.right.value}")
                 else:
@@ -717,12 +808,18 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                    parts = str(left_value).split()
+                    scope = parts[1]
+                    obj = parts[2]
+                    self._store_temp_command(f"scoreboard players operation @s {temp_var} = {scope} {obj}")
+                else:
+                    self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
             
             if isinstance(expression.right, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} /= @s {right_temp}")
             else:
-                # For literal values, we need to use a different approach
+                # For literal values, keep explicit divide command for compatibility
                 if isinstance(expression.right, LiteralExpression):
                     self._store_temp_command(f"scoreboard players divide @s {temp_var} {expression.right.value}")
                 else:
@@ -732,10 +829,12 @@ class MDLCompiler:
             self._store_temp_command(f"scoreboard players set @s {temp_var} 0")
     
     def _store_temp_command(self, command: str):
-        """Store a temporary command for later execution."""
-        if not hasattr(self, 'temp_commands'):
-            self.temp_commands = []
-        self.temp_commands.append(command)
+        """Append a temporary command into the current output sink (function/if/while body)."""
+        if hasattr(self, '_temp_sink_stack') and self._temp_sink_stack:
+            self._temp_sink_stack[-1].append(command)
+        else:
+            # Fallback: do nothing, but keep behavior predictable
+            pass
     
     def _generate_temp_variable_name(self) -> str:
         """Generate a unique temporary variable name."""

@@ -54,8 +54,10 @@ __all__ = (
     "FormTypeStatusType",
     "GlossaryStatusType",
     "GlossaryTermStatusType",
+    "GlossaryUsageRestrictionType",
     "GlueConnectionTypeType",
     "GovernanceTypeType",
+    "GovernedEntityTypeType",
     "GroupProfileStatusType",
     "GroupSearchTypeType",
     "HyperPodOrchestratorType",
@@ -65,6 +67,8 @@ __all__ = (
     "JobTypeType",
     "LineageEventProcessingStatusType",
     "LineageImportStatusType",
+    "ListAccountPoolsPaginatorName",
+    "ListAccountsInAccountPoolPaginatorName",
     "ListAssetFiltersPaginatorName",
     "ListAssetRevisionsPaginatorName",
     "ListConnectionsPaginatorName",
@@ -112,6 +116,7 @@ __all__ = (
     "ProtocolType",
     "RegionName",
     "RejectRuleBehaviorType",
+    "ResolutionStrategyType",
     "ResourceServiceName",
     "RuleActionType",
     "RuleScopeSelectionModeType",
@@ -125,6 +130,7 @@ __all__ = (
     "SearchUserProfilesPaginatorName",
     "SelfGrantStatusType",
     "ServiceName",
+    "SortFieldAccountPoolType",
     "SortFieldConnectionType",
     "SortFieldProjectType",
     "SortKeyType",
@@ -252,6 +258,7 @@ FilterStatusType = Literal["INVALID", "VALID"]
 FormTypeStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryTermStatusType = Literal["DISABLED", "ENABLED"]
+GlossaryUsageRestrictionType = Literal["ASSET_GOVERNED_TERMS"]
 GlueConnectionTypeType = Literal[
     "BIGQUERY",
     "DOCUMENTDB",
@@ -268,6 +275,7 @@ GlueConnectionTypeType = Literal[
     "VERTICA",
 ]
 GovernanceTypeType = Literal["AWS_MANAGED", "USER_MANAGED"]
+GovernedEntityTypeType = Literal["ASSET"]
 GroupProfileStatusType = Literal["ASSIGNED", "NOT_ASSIGNED"]
 GroupSearchTypeType = Literal["DATAZONE_SSO_GROUP", "SSO_GROUP"]
 HyperPodOrchestratorType = Literal["EKS", "SLURM"]
@@ -286,6 +294,8 @@ JobRunStatusType = Literal[
 JobTypeType = Literal["LINEAGE"]
 LineageEventProcessingStatusType = Literal["FAILED", "PROCESSING", "REQUESTED", "SUCCESS"]
 LineageImportStatusType = Literal["FAILED", "IN_PROGRESS", "PARTIALLY_SUCCEEDED", "SUCCESS"]
+ListAccountPoolsPaginatorName = Literal["list_account_pools"]
+ListAccountsInAccountPoolPaginatorName = Literal["list_accounts_in_account_pool"]
 ListAssetFiltersPaginatorName = Literal["list_asset_filters"]
 ListAssetRevisionsPaginatorName = Literal["list_asset_revisions"]
 ListConnectionsPaginatorName = Literal["list_connections"]
@@ -351,18 +361,23 @@ OverallDeploymentStatusType = Literal[
     "FAILED_DEPLOYMENT", "FAILED_VALIDATION", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"
 ]
 ProjectDesignationType = Literal["CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD"]
-ProjectStatusType = Literal["ACTIVE", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"]
+ProjectStatusType = Literal[
+    "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
+]
 ProtocolType = Literal[
     "ATHENA", "GLUE_INTERACTIVE_SESSION", "HTTPS", "JDBC", "LIVY", "ODBC", "PRISM"
 ]
 RejectRuleBehaviorType = Literal["ALL", "NONE"]
+ResolutionStrategyType = Literal["MANUAL"]
 RuleActionType = Literal["CREATE_LISTING_CHANGE_SET", "CREATE_SUBSCRIPTION_REQUEST"]
 RuleScopeSelectionModeType = Literal["ALL", "SPECIFIC"]
 RuleTargetTypeType = Literal["DOMAIN_UNIT"]
 RuleTypeType = Literal["METADATA_FORM_ENFORCEMENT"]
 SearchGroupProfilesPaginatorName = Literal["search_group_profiles"]
 SearchListingsPaginatorName = Literal["search_listings"]
-SearchOutputAdditionalAttributeType = Literal["FORMS", "TIME_SERIES_DATA_POINT_FORMS"]
+SearchOutputAdditionalAttributeType = Literal[
+    "FORMS", "TEXT_MATCH_RATIONALE", "TIME_SERIES_DATA_POINT_FORMS"
+]
 SearchPaginatorName = Literal["search"]
 SearchTypesPaginatorName = Literal["search_types"]
 SearchUserProfilesPaginatorName = Literal["search_user_profiles"]
@@ -375,6 +390,7 @@ SelfGrantStatusType = Literal[
     "REVOKE_IN_PROGRESS",
     "REVOKE_PENDING",
 ]
+SortFieldAccountPoolType = Literal["NAME"]
 SortFieldConnectionType = Literal["NAME"]
 SortFieldProjectType = Literal["NAME"]
 SortKeyType = Literal["CREATED_AT", "UPDATED_AT"]
@@ -513,6 +529,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -524,8 +541,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -913,6 +932,8 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_account_pools",
+    "list_accounts_in_account_pool",
     "list_asset_filters",
     "list_asset_revisions",
     "list_connections",

@@ -156,7 +156,7 @@ AggregationFindingTypeType = Literal[
     "CODE_VULNERABILITY", "NETWORK_REACHABILITY", "PACKAGE_VULNERABILITY"
 ]
 AggregationResourceTypeType = Literal[
-    "AWS_EC2_INSTANCE", "AWS_ECR_CONTAINER_IMAGE", "AWS_LAMBDA_FUNCTION"
+    "AWS_EC2_INSTANCE", "AWS_ECR_CONTAINER_IMAGE", "AWS_LAMBDA_FUNCTION", "CODE_REPOSITORY"
 ]
 AggregationTypeType = Literal[
     "ACCOUNT",
@@ -461,6 +461,7 @@ UsageTypeType = Literal[
     "CODE_REPOSITORY_IAC",
     "CODE_REPOSITORY_SAST",
     "CODE_REPOSITORY_SCA",
+    "EC2_AGENTLESS_INSTANCE_HOURS",
     "EC2_INSTANCE_HOURS",
     "ECR_INITIAL_SCAN",
     "ECR_RESCAN",
@@ -496,6 +497,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -507,8 +509,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

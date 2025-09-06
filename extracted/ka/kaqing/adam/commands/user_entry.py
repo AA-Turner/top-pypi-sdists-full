@@ -7,7 +7,6 @@ import signal
 import threading
 import traceback
 
-from adam import log
 from adam.commands.deploy.code_utils import get_available_port
 from adam.config import Config
 from adam.sso.idp import Idp

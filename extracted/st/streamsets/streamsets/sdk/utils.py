@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2025
 
 """Assorted utility functions."""
 
@@ -1058,3 +1060,22 @@ def validate_pipeline_stages(pipeline):
     for stage in pipeline.stages:
         if stage._data['library'] not in engine_libraries:
             raise ValueError("Stage {} does not exist within Engine Libraries".format(stage.instance_name))
+
+
+def convert_last_modified_on_field_for_saql(maybe_last_modified_on):
+    """Trims ``last_`` prefix from ``last_modified_on`` property.
+
+    Make ``last_modified_on`` property compliant with Advanced query language endpoints which
+    support only ``modified_on`` property.
+
+    Args:
+        maybe_last_modified_on (:py:obj:`str`): A property name for resource pipeline, job etc.
+
+    Returns:
+        A :py:obj:`str` with property name without prefix or original value if it is not ``last_modified_on``.
+    """
+    if re.match(r'^last_modified_on[+\-]?$', maybe_last_modified_on.lower()):
+        return maybe_last_modified_on.lower().replace('last_', '')
+    if re.match(r'^create_time[+\-]?$', maybe_last_modified_on.lower()):
+        return "created_on"
+    return maybe_last_modified_on

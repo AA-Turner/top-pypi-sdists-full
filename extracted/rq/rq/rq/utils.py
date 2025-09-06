@@ -8,8 +8,10 @@ terminal colorizing code, originally by Georg Brandl.
 import calendar
 import datetime
 import importlib
+import inspect
 import logging
 import numbers
+import os
 import warnings
 from collections.abc import Generator, Iterable, Sequence
 
@@ -44,6 +46,33 @@ ObjOrStr = Union[_O, str]
 logger = logging.getLogger(__name__)
 
 
+def resolve_function_reference(func) -> tuple[Any, str]:
+    """Resolve a function reference into instance and function name components.
+
+    Args:
+        func: The function reference to resolve - can be a method, function,
+             builtin, string path, or callable class instance.
+
+    Returns:
+        A tuple of (instance, func_name) where:
+        - instance: The object instance (for methods/callable instances) or None
+        - func_name: The string representation of the function name/path
+
+    Raises:
+        TypeError: If func is not a valid callable or string reference.
+    """
+    if inspect.ismethod(func):
+        return func.__self__, func.__name__
+    elif inspect.isfunction(func) or inspect.isbuiltin(func):
+        return None, f'{func.__module__}.{func.__qualname__}'
+    elif isinstance(func, str):
+        return None, as_text(func)
+    elif not inspect.isclass(func) and hasattr(func, '__call__'):  # a callable class instance
+        return func, '__call__'
+    else:
+        raise TypeError(f'Expected a callable or a string, but got: {func}')
+
+
 def compact(lst: Iterable[Optional[_T]]) -> list[_T]:
     """Excludes `None` values from a list-like object.
 
@@ -76,16 +105,20 @@ def as_text(v: Union[bytes, str]) -> str:
         raise ValueError('Unknown type %r' % type(v))
 
 
-def decode_redis_hash(h: dict[Union[bytes, str], _T]) -> dict[str, _T]:
+def decode_redis_hash(h: dict[Union[bytes, str], Any], *, decode_values: bool = False) -> dict[str, Any]:
     """Decodes the Redis hash, ensuring that keys are strings
     Most importantly, decodes bytes strings, ensuring the dict has str keys.
 
     Args:
         h (Dict[Any, Any]): The Redis hash
+        decode_values (bool): If True, also decode values to strings using as_text(). Defaults to False.
 
     Returns:
         Dict[str, Any]: The decoded Redis data (Dictionary)
+        When decode_values=True, returns Dict[str, str]
     """
+    if decode_values:
+        return dict((as_text(k), as_text(v)) for k, v in h.items())
     return dict((as_text(k), v) for k, v in h.items())
 
 
@@ -187,6 +220,76 @@ def import_queue_class(name: str) -> type['Queue']:
     return cls
 
 
+def normalize_config_path(config_path: str) -> str:
+    """Normalize configuration path to dotted module path format.
+
+    Converts file paths like 'directory/config_file.py' or 'directory.config_file'
+    to dotted module paths like 'directory.config_file' for use with importlib.import_module().
+
+    Args:
+        config_path: Either a file path (e.g., 'app/cron_config.py', 'app/cron_config')
+                    or a dotted module path (e.g., 'app.cron_config')
+
+    Returns:
+        A dotted module path suitable for importlib.import_module()
+
+    Examples:
+        normalize_config_path('app/cron_config.py') -> 'app.cron_config'
+        normalize_config_path('app/cron_config') -> 'app.cron_config'
+        normalize_config_path('app.cron_config') -> 'app.cron_config'
+        normalize_config_path('/abs/path/to/config.py') -> 'abs.path.to.config'
+    """
+    # Check if it's already a dotted path (no path separators and no .py extension)
+    is_file_path = os.path.sep in config_path or config_path.endswith('.py')
+
+    if not is_file_path:
+        # Already a dotted module path, return as-is
+        return config_path
+
+    # Convert file path to dotted module path
+    normalized = config_path
+
+    # Remove .py extension if present
+    if normalized.endswith('.py'):
+        normalized = normalized[:-3]
+
+    # Handle absolute paths by removing leading separator
+    if normalized.startswith(os.path.sep):
+        normalized = normalized[1:]
+
+    # Replace path separators with dots
+    normalized = normalized.replace(os.path.sep, '.')
+
+    return normalized
+
+
+def validate_absolute_path(file_path: str) -> str:
+    """Validate that an absolute file path exists and points to a file.
+
+    Args:
+        file_path: The absolute file path to validate
+
+    Returns:
+        The same file path if validation passes (for chaining)
+
+    Raises:
+        FileNotFoundError: If the file does not exist
+        IsADirectoryError: If the path points to a directory instead of a file
+
+    Examples:
+        validate_absolute_path('/path/to/config.py')  # Returns '/path/to/config.py'
+        validate_absolute_path('/path/to/missing.py')  # Raises FileNotFoundError
+        validate_absolute_path('/path/to/directory')   # Raises IsADirectoryError
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Configuration file not found at '{file_path}'")
+
+    if not os.path.isfile(file_path):
+        raise IsADirectoryError(f"Configuration path points to a directory, not a file: '{file_path}'")
+
+    return file_path
+
+
 def now() -> datetime.datetime:
     """Return now in UTC"""
     return datetime.datetime.now(datetime.timezone.utc)
@@ -275,11 +378,14 @@ def backend_class(holder, default_name, override=None) -> type:
         return override
 
 
-def str_to_date(date_str: Optional[bytes]) -> Optional[datetime.datetime]:
+def str_to_date(date_str: Union[bytes, str]) -> datetime.datetime:
     if not date_str:
-        return None
+        raise ValueError('Empty string or bytestring provided')
     else:
-        return utcparse(date_str.decode())
+        if isinstance(date_str, bytes):
+            return utcparse(date_str.decode())
+        else:
+            return utcparse(date_str)
 
 
 def parse_timeout(timeout: Optional[Union[int, float, str]]) -> Optional[int]:

@@ -84,220 +84,6 @@ def CountTo():
             print(final_msg)
             break
 MOOD_STRING='''
-How to read & rate on -10 to +10 mood & energy thermometer (+ 0 to +10 anger&anxiety):
-Less than half day Almost all day
-EXTREME 10
-(almost all day)
-EXTREME
-(less than half-day)
-9
-SEVERE
-8
-(almost all day) SEVERE
-(less than half-day)
-7
-MODERATE
-6
-(almost all day) MODERATE
-(less than half-day)
-5
-MILD
-4
-(almost all day) MILD
-(less than half-day)
-3
-SLIGHT
-2
-(almost all day) SLIGHT
-(less than half-day)
-1
-O (OKAY) (less than half-day)
-0
-0
-(almost all day)
-O (OKAY)
-MOOD & ENERGY THERMOMETER
-Please circle one or more of the below numbers FROM EACH COLUMN that reflects your mood & energy levels reflecting
-your day. You can circle more than one number if you mood/energy changes during the day.
-+10 SUPER ELEVATED
- Have constant excitement and feel super happy, and have no control over self & cannot
-be calmed down at all & cannot function at all & someone needs to be present to monitor
-safety.
-+10 SUPER ENERGETIC
- Have constant motor excitement, non-stop moving around, and cannot control self &
-cannot slow down at all & cannot function at all & someone needs to be present to monitor
-safety.
-+9 EXTREMELY ELEVATED
- Have extreme excitement and feel extremely happy, non-stop giggling & laughing, and
-cannot control self & cannot be calmed down & function poorly
-+9 EXTREMELY ENERGETIC
- Have motor excitement, non-stop moving around, and cannot control self & cannot slow
-down & function poorly.
-+8 SEVERELY ELEVATED-almost all day
- Feel very happy & giggling & laughing, and can control self only briefly & very difficult to
-calm down & don't function well.
-+8 SEVERELY ENERGETIC -almost all day
- Have excessive energy & constantly moving and pacing about, and can control energy
-only briefly & very difficult to slow down & don't function well.
-+7 SEVERELY ELEVATED- less than 50% of the day
- Feel very happy & giggling & laughing, and can control self only briefly & very difficult to
-calm down & don't function well.
-+7 SEVERELY ENERGETIC- less than 50% of the day
- Have excessive energy & constantly moving and pacing about, and can control energy
-only briefly & very difficult to slow down & don't function well.
-+6 MODERATELY ELEVATED-almost all day
- Feel cheerful/optimistic much more than usual/baseline (out of proportion) & some
-difficulty to control self & some difficulty to calm down & don't function as good as before.
-+6 MODERATELY ENERGETIC -almost all day
- Have excessive energy & constantly moving and pacing about, and can control energy
-only briefly & very difficult to slow down & don't function well.
-+5 MODERATELY ELEVATED- less than 50% of the day
- Feel cheerful/optimistic much more than usual/baseline (out of proportion) & some
-difficulty to control self & some difficulty to calm down & don't function as good as before.
-+5 MODERATELY ENERGETIC-less than 50% of the day
- Feel energetic and hyper much more than usual/baseline (out of proportion) &
-restless/pace & some difficulty to control energy & some difficulty to slow down & don't
-function as good as before.
-+4 MILDLY ELEVATED-almost all day
- Feel cheerful and optimistic more than usual/baseline & others may notice it, but can
-calm down & function ok.
-+4 MILDLY ENERGETIC-almost all day
- Feel energetic and hyper more than usual/baseline & others may notice it, but can easily
-slow down & function ok.
-+3 MILDLY ELEVATED-less than 50% of the day
- Feel cheerful and optimistic more than usual/baseline & others may notice it, but can
-calm down & function ok.
-+3 MILDLY ENERGETIC-less than 50% of the day
- Feel energetic and hyper more than usual/baseline & others may notice it, but can easily
-slow down & function ok.
-+2 SLIGHTLY ELEVATED-almost all day long
- Feel a little bit more cheerful and optimistic, but others don't notice & function ok
-+2 SLIGHTLY MORE ENERGY-almost all day long
- Feel a little bit more energetic than usual, but others don't notice a change & function ok.
-+1 SLIGHTLY ELEVATED- less than 50% of the day
- Feel a little bit more cheerful and optimistic, but others don't notice & function ok
-+1 SLIGHTLY MORE ENERGY-less than 50% of the day
- Feel a little bit more energetic than usual, but others don't notice a change & function ok.
--1 SLIGHTLY DOWN- less than 50% of the day
- Feel a little depressed and cheerless, but others don't notice a change & function ok
--1 SLIGHTLY TIRED- less than 50% of the day
- Feel a little bit tired, but others don't notice a change & function ok.
--2 SLIGHTLY DOWN-almost all day
- Feel a little depressed and cheerless, but others don't notice a change & function ok
--2 SLIGHTLY TIRED-almost all day
- Feel a little bit tired, but others don't notice a change & function ok.
--3 MILDLY DOWN - less than 50% of the day
- Feel depressed and cheerless more than usual & enjoying things and having fun is
-somewhat difficult & others may notice a change, but can brighten up & function ok.
--3 MILDLY TIRED-less than 50% of the day
- Feel more tired and less active than usual/baseline & others may notice it, but can be
-active during the day & function ok.
--4 MILDLY DOWN -almost all day
- Feel depressed and cheerless more than usual & enjoying things and having fun is
-somewhat difficult & others may notice a change, but can brighten up & function ok.
--4 MILDLY TIRED-almost all day
- Feel more tired and less active than usual/baseline & others may notice it, but can be
-active during the day & function ok.
--5 MODERATELY DOWN - less than 50% of the day
- Feel depressed and cheerless (out of proportion) much more than usual & enjoying things
-and having fun is more difficult & some difficulty to brighten up & don't function as good as
-before.
--5 MODERATELY TIRED-less than 50% of the day
- Feel more tired and less active than usual/baseline & others may notice it, but can be
-active during the day & function ok.
--6 MODERATELY DOWN -almost all day
- Feel depressed and cheerless (out of proportion) much more than usual & enjoying things
-and having fun is more difficult & some difficulty to brighten up & don't function as good as
-before.
--6 MODERATELY TIRED-almost all day
- Feel more tired and less active than usual/baseline & others may notice it, but can be
-active during the day & function ok.
--7 SEVERELY DOWN- less than 50% of the day
- Feel very depressed & cheerless & gloomy, and don’t enjoy things and don’t feel like
-having fun & very difficult to brighten up & don't function well.
--7 SEVERELY TIRED- less than 50% of the day
- Have excessive tiredness & very difficult to move around & spend very long time to rest
-& physical activity is limited to few & don't function well.
--8 SEVERELY DOWN -almost all day
- Feel very depressed & cheerless & gloomy, and don’t enjoy things and don’t feel like
-having fun & very difficult to brighten up & don't function well.
--8 SEVERELY TIRED-almost all day
- Have excessive tiredness & very difficult to move around & spend very long time to rest
-& physical activity is limited to few & don't function well.
--9 EXTREMELY DOWN (life is not worth living)
- Have extreme depression and feel very miserable, have psychic pain (“I cannot stand
-it”), and cannot control self & cannot be down & function poorly.
--9 EXTREMELY TIRED
- Feel like drained and worn out & almost no physical activity and cannot move around &
-function poorly.
--10 AT THE LOWEST POINT
- Have constant painful sadness and feel very numb & empty & don’t want to live & cannot
-function at all & someone needs to be present to monitor safety.
--10 NO ENERGY AT ALL
- Have constant motor retardation, and cannot move arms or legs & cannot function at all
-& someone needs to be present to monitor safety.
- Rasim Somer Diler, MD. Child and Adolescent Bipolar Spectrum Services (Cabs), Western Psychiatric Institute and Clinic of University of Pittsburgh Medical Center: “Mood and Energy Thermometer.” Revised in 2013.
-DEPRESSED/DOWNELEVATED/UP
-
-Please circle one or more of the below numbers FROM EACH COLUMN that reflects your anger & anxiety/worry levels
-reflecting your day. You can circle more than one number if you anger/anxiety changes during the day.
-+10 SUPER ANGRY
- Have constant anger, and have no control over self & cannot be calmed down
-at all & cannot function at all & someone needs to be present to monitor safety.
-+10 SUPER WORRIED/ANXIOUS
- Have constant worries/anxiety, and have no control over self & cannot be calmed down at all &
-cannot function at all & someone needs to be present to monitor safety.
-+9 EXTREMELY ANGRY
- Have extreme anger, cannot control self & cannot be calmed down & function
-poorly
-+9 EXTREMELY WORRIED/ANXIOUS
- Have extreme worries/anxiety, cannot control self & cannot be calmed down & function poorly
-+8 SEVERELY ANGRY-almost all day
- Feel very angry, and can control self only briefly & very difficult to calm down
-& don't function well.
-+8 SEVERELY WORRIED/ANXIOUS -almost all day
- Feel very worried/anxious, and can control self only briefly & very difficult to calm down & don't
-function well.
-+7 SEVERELY ANGRY- less than 50% of the day
- Feel very angry, and can control self only briefly & very difficult to calm down
-& don't function well.
-+7 SEVERELY WORRIED/ANXIOUS- less than 50% of the day
- Feel very worried/anxious, and can control self only briefly & very difficult to calm down & don't
-function well.
-+6 MODERATELY ANGRY-almost all day
- Feel more angry than usual/baseline (out of proportion) & some difficulty to
-control self & some difficulty to calm down & don't function as good as before.
-+6 MODERATELY WORRIED/ANXIOUS -almost all day
- Feel more worried/anxious than usual/baseline (out of proportion) & some difficulty to control self
-& some difficulty to calm down & don't function as good as before.
-+5 MODERATELY ANGRY- less than 50% of the day
- Feel more angry than usual/baseline (out of proportion) & some difficulty to
-control self & some difficulty to calm down & don't function as good as before.
-+5 MODERATELY WORRIED/ANXIOUS-less than 50% of the day
- Feel more worried/anxious than usual/baseline (out of proportion) & some difficulty to control self
-& some difficulty to calm down & don't function as good as before.
-+4 MILDLY ANGRY-almost all day
- Feel more angry than usual/baseline & others may notice it, but can calm
-down & function ok.
-+4 MILDLY WORRIED/ANXIOUS-almost all day
- Feel worried/anxious than usual/baseline & others may notice it, but can easily slow down &
-function ok.
-+3 MILDLY ANGRY-less than 50% of the day
- Feel more angry than usual/baseline & others may notice it, but can calm
-down & function ok.
-+3 MILDLY WORRIED/ANXIOUS-less than 50% of the day
- Feel worried/anxious than usual/baseline & others may notice it, but can easily slow down &
-function ok.
-+2 SLIGHTLY ANGRY-almost all day long
- Feel a little bit more angry, but others don't notice & function ok
-+2 SLIGHTLY WORRIED/ANXIOUS -almost all day long
- Feel a little bit more worried/anxious than usual, but others don't notice a change & function ok.
-+1 SLIGHTLY ANGRY- less than 50% of the day
- Feel a little bit more angry, but others don't notice & function ok
-+1 SLIGHTLY WORRIED/ANXIOUS -less than 50% of the day
- Feel a little bit more worried/anxious than usual, but others don't notice a change & function ok.
-Rasim Somer Diler, MD. Child and Adolescent Bipolar Spectrum Services (Cabs), Western Psychiatric Institute and Clinic of University of Pittsburgh Medical Center: “Anger and Anxiety Thermometer.” 2014.
-ANGRYWORRIED/ANXIOUS
 '''
 
 class OrderedAndRecieved(BASE,Template):
@@ -311,7 +97,7 @@ class OrderedAndRecieved(BASE,Template):
     Description=Column(String,default=None)
     oarid=Column(Integer,primary_key=True)
     dtoe=Column(DateTime,default=datetime.now())
-    
+
     order_dt=Column(DateTime,default=datetime.now())
     rx_dt=Column(DateTime,default=datetime.today()+timedelta(days=1))
 
@@ -391,19 +177,100 @@ class OrderedAndRecieved(BASE,Template):
     DT_to_lunch=Column(DateTime,default=None)
     DT_from_lunch=Column(DateTime,default=None)
     DT_punched_out=Column(DateTime,default=None)
+    DT_grocery_breakdown_finished=Column(DateTime,default=None)
+    DT_frozen_breakdown_finished=Column(DateTime,default=None)
+
+    clocked_in_early=Column(Boolean,default=False)
+    clocked_in_late=Column(Boolean,default=False)
+    clocked_out_early=Column(Boolean,default=False)
+    clocked_out_late=Column(Boolean,default=False)
+    lunch_out_early=Column(Boolean,default=False)
+    lunch_in_early=Column(Boolean,default=False)
+    lunch_out_late=Column(Boolean,default=False)
+    lunch_in_late=Column(Boolean,default=False)
 
     assisted_deli=Column(Boolean,default=False)
     assisted_deli_with=Column(String,default='')
 
-    rate_your_anger_neg1_to_pos10=Column(Integer,default=0)
-    rate_your_anxiety_neg1_to_pos10=Column(Integer,default=0)
-    rate_your_mood_neg1_to_pos10=Column(Integer,default=0)
-    rate_your_energy_neg1_to_pos10=Column(Integer,default=0)
-    rate_your_worriedness_neg1_to_pos10=Column(Integer,default=0)
+    rate_your_anger_0_to_10=Column(Integer,default=0)
+    rate_your_anxiety_0_to_10=Column(Integer,default=0)
+    rate_your_mood_0_to_10=Column(Integer,default=0)
+    rate_your_energy_0_to_10=Column(Integer,default=0)
+    rate_your_worriedness_0_to_10=Column(Integer,default=0)
     personal_comment_related_to_rating=Column(String,default=MOOD_STRING)
 
+    was_receiving_assisted=Column(Boolean,default=False)
+    recieving_comments=Column(Text,default=None)
+    reciever_name=Column(String,default='')
+    reciever_present_by_dt=Column(DateTime,default=None)
+    was_there_a_reciever=Column(Boolean,default=False)
 
+    was_gm_assisted=Column(Boolean,default=False)
+    gm_comments=Column(Text,default=None)
+    gm_manager_name=Column(String,default='')
+    gm_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_gm_manager=Column(Boolean,default=False)
 
+    was_liquor_assisted=Column(Boolean,default=False)
+    liquor_comments=Column(Text,default=None)
+    liquor_manager_name=Column(String,default='')
+    liquor_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_liquor_manager=Column(Boolean,default=False)
+
+    was_grocery_assisted=Column(Boolean,default=False)
+    grocery_comments=Column(Text,default=None)
+    grocery_manager_name=Column(String,default='')
+    grocery_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_grocery_manager=Column(Boolean,default=False)
+
+    was_dairy_assisted=Column(Boolean,default=False)
+    dairy_comments=Column(Text,default=None)
+    dairy_manager_name=Column(String,default='')
+    dairy_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_dairy_manager=Column(Boolean,default=False)
+
+    was_meat_department_assisted=Column(Boolean,default=False)
+    meat_department_comments=Column(Text,default=None)
+    meat_department_manager_name=Column(String,default='')
+    meat_department_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_meat_department_manager=Column(Boolean,default=False)
+
+    was_deli_assisted=Column(Boolean,default=False)
+    deli_comments=Column(Text,default=None)
+    deli_manager_name=Column(String,default='')
+    deli_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_deli_manager=Column(Boolean,default=False)
+
+    was_bakery_assisted=Column(Boolean,default=False)
+    bakery_comments=Column(Text,default=None)
+    bakery_manager_name=Column(String,default='')
+    #Column(String,default=None)
+    bakery_manager_present_by_dt=Column(DateTime,default=None)
+    was_there_a_bakery_manager=Column(Boolean,default=False)
+
+    did_you_deliver_general_merchadise=Column(String,default=None)
+    did_you_break_down_general_merchandise=Column(String,default=None)
+    did_throw_general_merchandise=Column(String,default=None)
+    did_you_face_general_merchandise=Column(String,default=None)
+    did_you_face_endcaps_frontend_displays=Column(String,default=None)
+    did_you_deliver_tote_pallets=Column(String,default=None)
+    did_you_deliver_bread_stacks=Column(String,default=None)
+    did_you_deliver_red_totes_to_icc=Column(String,default=None)
+    did_deliver_warehouse39=Column(String,default=None)
+    did_you_deliver_kehe=Column(String,default=None)
+    did_you_throw_kehe=Column(String,default=None)
+    did_you_break_down_kehe=Column(String,default=None)
+    did_you_break_down_warehouse39=Column(String,default=None)
+    did_you_throw_warehouse39=Column(String,default=None)
+    did_deliver_bakery_items=Column(String,default=None)
+    did_you_deliver_meat_items=Column(String,default=None)
+    did_you_deliver_deli_items=Column(String,default=None)
+    did_you_deliver_starbucks_items=Column(String,default=None)
+    did_you_deliver_anything_to_file_maintenance=Column(String,default=None)
+    did_you_deliver_anything_to_the_front_end_or_customer_service=Column(String,default=None)
+    did_you_condense_beverage=Column(String,default=None)
+    did_you_deliver_anything_for_anyother_department_other_than_assigned=Column(String,default=None)
+    your_assigned_department=Column(String,default=None)
 
 
     comment=Column(String,default='')
@@ -498,14 +365,23 @@ class OrderAndRxdUi():
             raise Exception(f"Not a registered as_('{as_}')")
         if fields is not None:
             fd=FormBuilder(data=fields)
+            if fd is None:
+                print("User Cancelled! OrderedAndRecieved_as(self,_exlcudes=[],as_=None,item=None)")
+                return
             return fd,fields
 
     def search(self,selector=False,menu=False):
-        terms,z=self.OrderedAndRecieved_as(as_=None)
+        nantucket=self.OrderedAndRecieved_as(as_=None)
+        if nantucket is None:
+            print("User cancelled! search(self,selector=False,menu=False)")
+            return
+        terms,z=nantucket
         terms=self.filter(terms)
         def selectortext(results,page=False,self=self):
             def edit(i,self=self):
                 edits=self.OrderedAndRecieved_as(as_="from_item",item=i)
+                if edits is None:
+                    return
                 with Session(ENGINE) as session:
                     e=session.query(OrderedAndRecieved).filter(OrderedAndRecieved.oarid==i.oarid).first()
                     if e is not None:
@@ -526,7 +402,7 @@ class OrderAndRxdUi():
                     while not ready:
                         menu=Control(func=FormBuilderMkText,ptext="edit/e or r/rm/del/delete/dlt",helpText="edit or delete",data="string")
                         if menu is None:
-                            continue
+                            return
                         elif menu in ['d',]:
                             print(std_colorize(i,num,ct))
                             continue
@@ -551,18 +427,23 @@ class OrderAndRxdUi():
                 if ct > 1:
                     plural="s"
                 print(f"{ct} result{plural}!")
-                if not selector:
-                    for num,i in enumerate(results):
-                        print(std_colorize(i,num,ct))
+                zebra=0
+                    
 
                 if selector:
                     #for returning a list of OrderedAndRecieved
                     selectortext(resuls)
+                    zebra+=1
                     pass
                 if menu:
                     #for paged edit/delete of OrderedAndRecieved and returns None
                     selectortext(results,page=True)
+                    zebra+=1
                     pass
+
+                if not(zebra > 0):
+                    for num,i in enumerate(results):
+                            print(std_colorize(i,num,ct))
 
 
     def __init__(self,*args,**kwargs):

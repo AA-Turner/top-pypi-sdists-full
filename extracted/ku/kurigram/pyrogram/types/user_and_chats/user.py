@@ -654,7 +654,10 @@ class User(Object, Update):
 
         parsed_user.folder_id = user.folder_id
         parsed_user.message_auto_delete_time = user.ttl_period
-        parsed_user.theme_emoji = user.theme_emoticon
+
+        if isinstance(user.theme, raw.types.ChatTheme):
+            parsed_user.theme_emoji = user.theme.emoticon
+
         parsed_user.private_forward_name = user.private_forward_name
         parsed_user.bot_group_admin_rights = types.ChatPrivileges._parse(user.bot_group_admin_rights)
         parsed_user.bot_broadcast_admin_rights = types.ChatPrivileges._parse(user.bot_broadcast_admin_rights)

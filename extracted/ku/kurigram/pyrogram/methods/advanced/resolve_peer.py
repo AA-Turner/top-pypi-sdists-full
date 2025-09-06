@@ -18,11 +18,10 @@
 
 import logging
 import re
-from typing import Union
+from typing import Optional, Union
 
 import pyrogram
-from pyrogram import raw
-from pyrogram import utils
+from pyrogram import raw, utils
 from pyrogram.errors import PeerIdInvalid
 
 log = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ class ResolvePeer:
     async def resolve_peer(
         self: "pyrogram.Client",
         peer_id: Union[int, str]
-    ) -> Union[raw.base.InputPeer, raw.base.InputUser, raw.base.InputChannel]:
+    ) -> Optional["raw.base.InputPeer"]:
         """Get the InputPeer of a known peer id. Useful whenever an InputPeer type is required.
 
         .. note::
@@ -63,6 +62,9 @@ class ResolvePeer:
         if peer_id in ("self", "me"):
             return raw.types.InputPeerSelf()
 
+        if peer_id == "empty":
+            return raw.types.InputPeerEmpty()
+
         try:
             return await self.storage.get_peer_by_id(peer_id)
         except KeyError:
@@ -89,17 +91,15 @@ class ResolvePeer:
                             )
                         )
 
-                        if isinstance(r.peer, raw.types.PeerUser):
-                            return await self.storage.get_peer_by_id(r.peer.user_id)
-                        elif isinstance(r.peer, raw.types.PeerChannel):
-                            return await self.storage.get_peer_by_id(utils.get_channel_id(r.peer.channel_id))
-
-                        return await self.storage.get_peer_by_username(peer_id)
+                        try:
+                            return await self.storage.get_peer_by_id(utils.get_peer_id(r.peer))
+                        except KeyError:
+                            return await self.storage.get_peer_by_username(peer_id)
                 else:
                     try:
                         return await self.storage.get_peer_by_phone_number(peer_id)
-                    except KeyError:
-                        raise PeerIdInvalid
+                    except KeyError as e:
+                        raise PeerIdInvalid from e
 
             peer_type = utils.get_peer_type(peer_id)
 
@@ -109,7 +109,7 @@ class ResolvePeer:
                         raw.functions.users.GetUsers(
                             id=[
                                 raw.types.InputUser(
-                                    user_id=peer_id,
+                                    user_id=utils.get_raw_peer_id(peer_id),
                                     access_hash=0
                                 )
                             ]
@@ -119,7 +119,7 @@ class ResolvePeer:
             elif peer_type == "chat":
                 await self.invoke(
                     raw.functions.messages.GetChats(
-                        id=[-peer_id]
+                        id=[utils.get_raw_peer_id(peer_id)]
                     )
                 )
             else:
@@ -127,13 +127,14 @@ class ResolvePeer:
                     raw.functions.channels.GetChannels(
                         id=[
                             raw.types.InputChannel(
-                                channel_id=utils.get_channel_id(peer_id),
+                                channel_id=utils.get_raw_peer_id(peer_id),
                                 access_hash=0
                             )
                         ]
                     )
                 )
+
             try:
                 return await self.storage.get_peer_by_id(peer_id)
-            except KeyError:
-                raise PeerIdInvalid
+            except KeyError as e:
+                raise PeerIdInvalid from e

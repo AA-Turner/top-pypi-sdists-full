@@ -70,10 +70,12 @@ class OrionPyClient:
                 Vector,
             )
 
-            feature_group_schema = [
-                FeatureGroupSchema(label=label, feature_labels=features)
-                for label, features in self.onfs_fg_to_onfs_feat_map.items()
-            ]
+            # Only consider derived_fp32 feature group
+            feature_group_schema = []
+            if "derived_fp32" in self.onfs_fg_to_onfs_feat_map:
+                feature_group_schema = [
+                    FeatureGroupSchema(label="derived_fp32", feature_labels=self.onfs_fg_to_onfs_feat_map["derived_fp32"])
+                ]
 
             current_batch = []
             batch_id = 0
@@ -136,10 +138,12 @@ class OrionPyClient:
                 Vector,
             )
 
-            feature_group_schema = [
-                FeatureGroupSchema(label=label, feature_labels=features)
-                for label, features in self.onfs_fg_to_onfs_feat_map.items()
-            ]
+            # Only consider derived_fp32 feature group
+            feature_group_schema = []
+            if "derived_fp32" in self.onfs_fg_to_onfs_feat_map:
+                feature_group_schema = [
+                    FeatureGroupSchema(label="derived_fp32", feature_labels=self.onfs_fg_to_onfs_feat_map["derived_fp32"])
+                ]
 
             current_batch = []
             batch_id = 0
@@ -208,7 +212,10 @@ class OrionPyClient:
         from .proto.persist.persist_pb2 import FeatureValues, Values, Vector
         
         feature_values = []
-        for fg_label, features in self.onfs_fg_to_ofs_feat_map.items():
+        # Only process derived_fp32 feature group
+        if "derived_fp32" in self.onfs_fg_to_ofs_feat_map:
+            fg_label = "derived_fp32"
+            features = self.onfs_fg_to_ofs_feat_map[fg_label]
             curr_datatype = self.fg_to_datatype_map[fg_label]
 
             values = Values()

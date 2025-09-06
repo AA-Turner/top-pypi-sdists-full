@@ -28,6 +28,7 @@ from .literals import (
     ConversationRoleType,
     DocumentFormatType,
     GuardrailActionType,
+    GuardrailAutomatedReasoningLogicWarningTypeType,
     GuardrailContentFilterConfidenceType,
     GuardrailContentFilterStrengthType,
     GuardrailContentFilterTypeType,
@@ -106,7 +107,11 @@ __all__ = (
     "ConverseStreamRequestTypeDef",
     "ConverseStreamResponseTypeDef",
     "ConverseStreamTraceTypeDef",
+    "ConverseTokensRequestTypeDef",
     "ConverseTraceTypeDef",
+    "CountTokensInputTypeDef",
+    "CountTokensRequestTypeDef",
+    "CountTokensResponseTypeDef",
     "DocumentBlockOutputTypeDef",
     "DocumentBlockTypeDef",
     "DocumentBlockUnionTypeDef",
@@ -120,6 +125,20 @@ __all__ = (
     "GetAsyncInvokeRequestTypeDef",
     "GetAsyncInvokeResponseTypeDef",
     "GuardrailAssessmentTypeDef",
+    "GuardrailAutomatedReasoningFindingTypeDef",
+    "GuardrailAutomatedReasoningImpossibleFindingTypeDef",
+    "GuardrailAutomatedReasoningInputTextReferenceTypeDef",
+    "GuardrailAutomatedReasoningInvalidFindingTypeDef",
+    "GuardrailAutomatedReasoningLogicWarningTypeDef",
+    "GuardrailAutomatedReasoningPolicyAssessmentTypeDef",
+    "GuardrailAutomatedReasoningRuleTypeDef",
+    "GuardrailAutomatedReasoningSatisfiableFindingTypeDef",
+    "GuardrailAutomatedReasoningScenarioTypeDef",
+    "GuardrailAutomatedReasoningStatementTypeDef",
+    "GuardrailAutomatedReasoningTranslationAmbiguousFindingTypeDef",
+    "GuardrailAutomatedReasoningTranslationOptionTypeDef",
+    "GuardrailAutomatedReasoningTranslationTypeDef",
+    "GuardrailAutomatedReasoningValidFindingTypeDef",
     "GuardrailConfigurationTypeDef",
     "GuardrailContentBlockTypeDef",
     "GuardrailContentFilterTypeDef",
@@ -167,6 +186,7 @@ __all__ = (
     "InternalServerExceptionTypeDef",
     "InvokeModelRequestTypeDef",
     "InvokeModelResponseTypeDef",
+    "InvokeModelTokensRequestTypeDef",
     "InvokeModelWithBidirectionalStreamInputTypeDef",
     "InvokeModelWithBidirectionalStreamOutputTypeDef",
     "InvokeModelWithBidirectionalStreamRequestTypeDef",
@@ -241,6 +261,8 @@ class GuardrailUsageTypeDef(TypedDict):
     sensitiveInformationPolicyFreeUnits: int
     contextualGroundingPolicyUnits: int
     contentPolicyImageUnits: NotRequired[int]
+    automatedReasoningPolicyUnits: NotRequired[int]
+    automatedReasoningPolicies: NotRequired[int]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -395,6 +417,17 @@ class S3LocationTypeDef(TypedDict):
 class GetAsyncInvokeRequestTypeDef(TypedDict):
     invocationArn: str
 
+class GuardrailAutomatedReasoningRuleTypeDef(TypedDict):
+    identifier: NotRequired[str]
+    policyVersionArn: NotRequired[str]
+
+class GuardrailAutomatedReasoningInputTextReferenceTypeDef(TypedDict):
+    text: NotRequired[str]
+
+class GuardrailAutomatedReasoningStatementTypeDef(TypedDict):
+    logic: NotRequired[str]
+    naturalLanguage: NotRequired[str]
+
 class GuardrailTextBlockTypeDef(TypedDict):
     text: str
     qualifiers: NotRequired[Sequence[GuardrailContentQualifierType]]
@@ -523,6 +556,10 @@ ToolUseBlockTypeDef = TypedDict(
     },
 )
 
+class CountTokensResponseTypeDef(TypedDict):
+    inputTokens: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class InvokeModelResponseTypeDef(TypedDict):
     body: StreamingBody
     contentType: str
@@ -564,6 +601,9 @@ class InvokeModelRequestTypeDef(TypedDict):
     guardrailIdentifier: NotRequired[str]
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
+
+class InvokeModelTokensRequestTypeDef(TypedDict):
+    body: BlobTypeDef
 
 class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
     modelId: str
@@ -629,6 +669,24 @@ VideoSourceTypeDef = TypedDict(
         "s3Location": NotRequired[S3LocationTypeDef],
     },
 )
+GuardrailAutomatedReasoningLogicWarningTypeDef = TypedDict(
+    "GuardrailAutomatedReasoningLogicWarningTypeDef",
+    {
+        "type": NotRequired[GuardrailAutomatedReasoningLogicWarningTypeType],
+        "premises": NotRequired[List[GuardrailAutomatedReasoningStatementTypeDef]],
+        "claims": NotRequired[List[GuardrailAutomatedReasoningStatementTypeDef]],
+    },
+)
+
+class GuardrailAutomatedReasoningScenarioTypeDef(TypedDict):
+    statements: NotRequired[List[GuardrailAutomatedReasoningStatementTypeDef]]
+
+class GuardrailAutomatedReasoningTranslationTypeDef(TypedDict):
+    premises: NotRequired[List[GuardrailAutomatedReasoningStatementTypeDef]]
+    claims: NotRequired[List[GuardrailAutomatedReasoningStatementTypeDef]]
+    untranslatedPremises: NotRequired[List[GuardrailAutomatedReasoningInputTextReferenceTypeDef]]
+    untranslatedClaims: NotRequired[List[GuardrailAutomatedReasoningInputTextReferenceTypeDef]]
+    confidence: NotRequired[float]
 
 class GuardrailContentPolicyAssessmentTypeDef(TypedDict):
     filters: List[GuardrailContentFilterTypeDef]
@@ -812,6 +870,31 @@ VideoBlockOutputTypeDef = TypedDict(
 )
 VideoSourceUnionTypeDef = Union[VideoSourceTypeDef, VideoSourceOutputTypeDef]
 
+class GuardrailAutomatedReasoningImpossibleFindingTypeDef(TypedDict):
+    translation: NotRequired[GuardrailAutomatedReasoningTranslationTypeDef]
+    contradictingRules: NotRequired[List[GuardrailAutomatedReasoningRuleTypeDef]]
+    logicWarning: NotRequired[GuardrailAutomatedReasoningLogicWarningTypeDef]
+
+class GuardrailAutomatedReasoningInvalidFindingTypeDef(TypedDict):
+    translation: NotRequired[GuardrailAutomatedReasoningTranslationTypeDef]
+    contradictingRules: NotRequired[List[GuardrailAutomatedReasoningRuleTypeDef]]
+    logicWarning: NotRequired[GuardrailAutomatedReasoningLogicWarningTypeDef]
+
+class GuardrailAutomatedReasoningSatisfiableFindingTypeDef(TypedDict):
+    translation: NotRequired[GuardrailAutomatedReasoningTranslationTypeDef]
+    claimsTrueScenario: NotRequired[GuardrailAutomatedReasoningScenarioTypeDef]
+    claimsFalseScenario: NotRequired[GuardrailAutomatedReasoningScenarioTypeDef]
+    logicWarning: NotRequired[GuardrailAutomatedReasoningLogicWarningTypeDef]
+
+class GuardrailAutomatedReasoningTranslationOptionTypeDef(TypedDict):
+    translations: NotRequired[List[GuardrailAutomatedReasoningTranslationTypeDef]]
+
+class GuardrailAutomatedReasoningValidFindingTypeDef(TypedDict):
+    translation: NotRequired[GuardrailAutomatedReasoningTranslationTypeDef]
+    claimsTrueScenario: NotRequired[GuardrailAutomatedReasoningScenarioTypeDef]
+    supportingRules: NotRequired[List[GuardrailAutomatedReasoningRuleTypeDef]]
+    logicWarning: NotRequired[GuardrailAutomatedReasoningLogicWarningTypeDef]
+
 class GuardrailConverseContentBlockOutputTypeDef(TypedDict):
     text: NotRequired[GuardrailConverseTextBlockOutputTypeDef]
     image: NotRequired[GuardrailConverseImageBlockOutputTypeDef]
@@ -905,13 +988,9 @@ VideoBlockTypeDef = TypedDict(
     },
 )
 
-class GuardrailAssessmentTypeDef(TypedDict):
-    topicPolicy: NotRequired[GuardrailTopicPolicyAssessmentTypeDef]
-    contentPolicy: NotRequired[GuardrailContentPolicyAssessmentTypeDef]
-    wordPolicy: NotRequired[GuardrailWordPolicyAssessmentTypeDef]
-    sensitiveInformationPolicy: NotRequired[GuardrailSensitiveInformationPolicyAssessmentTypeDef]
-    contextualGroundingPolicy: NotRequired[GuardrailContextualGroundingPolicyAssessmentTypeDef]
-    invocationMetrics: NotRequired[GuardrailInvocationMetricsTypeDef]
+class GuardrailAutomatedReasoningTranslationAmbiguousFindingTypeDef(TypedDict):
+    options: NotRequired[List[GuardrailAutomatedReasoningTranslationOptionTypeDef]]
+    differenceScenarios: NotRequired[List[GuardrailAutomatedReasoningScenarioTypeDef]]
 
 class ToolConfigurationTypeDef(TypedDict):
     tools: Sequence[ToolTypeDef]
@@ -946,20 +1025,14 @@ class ToolResultBlockOutputTypeDef(TypedDict):
 
 VideoBlockUnionTypeDef = Union[VideoBlockTypeDef, VideoBlockOutputTypeDef]
 
-class ApplyGuardrailResponseTypeDef(TypedDict):
-    usage: GuardrailUsageTypeDef
-    action: GuardrailActionType
-    actionReason: str
-    outputs: List[GuardrailOutputContentTypeDef]
-    assessments: List[GuardrailAssessmentTypeDef]
-    guardrailCoverage: GuardrailCoverageTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GuardrailTraceAssessmentTypeDef(TypedDict):
-    modelOutput: NotRequired[List[str]]
-    inputAssessment: NotRequired[Dict[str, GuardrailAssessmentTypeDef]]
-    outputAssessments: NotRequired[Dict[str, List[GuardrailAssessmentTypeDef]]]
-    actionReason: NotRequired[str]
+class GuardrailAutomatedReasoningFindingTypeDef(TypedDict):
+    valid: NotRequired[GuardrailAutomatedReasoningValidFindingTypeDef]
+    invalid: NotRequired[GuardrailAutomatedReasoningInvalidFindingTypeDef]
+    satisfiable: NotRequired[GuardrailAutomatedReasoningSatisfiableFindingTypeDef]
+    impossible: NotRequired[GuardrailAutomatedReasoningImpossibleFindingTypeDef]
+    translationAmbiguous: NotRequired[GuardrailAutomatedReasoningTranslationAmbiguousFindingTypeDef]
+    tooComplex: NotRequired[Dict[str, Any]]
+    noTranslations: NotRequired[Dict[str, Any]]
 
 class GuardrailConverseContentBlockTypeDef(TypedDict):
     text: NotRequired[GuardrailConverseTextBlockUnionTypeDef]
@@ -988,13 +1061,8 @@ class ToolResultContentBlockTypeDef(TypedDict):
     document: NotRequired[DocumentBlockUnionTypeDef]
     video: NotRequired[VideoBlockUnionTypeDef]
 
-class ConverseStreamTraceTypeDef(TypedDict):
-    guardrail: NotRequired[GuardrailTraceAssessmentTypeDef]
-    promptRouter: NotRequired[PromptRouterTraceTypeDef]
-
-class ConverseTraceTypeDef(TypedDict):
-    guardrail: NotRequired[GuardrailTraceAssessmentTypeDef]
-    promptRouter: NotRequired[PromptRouterTraceTypeDef]
+class GuardrailAutomatedReasoningPolicyAssessmentTypeDef(TypedDict):
+    findings: NotRequired[List[GuardrailAutomatedReasoningFindingTypeDef]]
 
 GuardrailConverseContentBlockUnionTypeDef = Union[
     GuardrailConverseContentBlockTypeDef, GuardrailConverseContentBlockOutputTypeDef
@@ -1008,11 +1076,14 @@ ToolResultContentBlockUnionTypeDef = Union[
     ToolResultContentBlockTypeDef, ToolResultContentBlockOutputTypeDef
 ]
 
-class ConverseStreamMetadataEventTypeDef(TypedDict):
-    usage: TokenUsageTypeDef
-    metrics: ConverseStreamMetricsTypeDef
-    trace: NotRequired[ConverseStreamTraceTypeDef]
-    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+class GuardrailAssessmentTypeDef(TypedDict):
+    topicPolicy: NotRequired[GuardrailTopicPolicyAssessmentTypeDef]
+    contentPolicy: NotRequired[GuardrailContentPolicyAssessmentTypeDef]
+    wordPolicy: NotRequired[GuardrailWordPolicyAssessmentTypeDef]
+    sensitiveInformationPolicy: NotRequired[GuardrailSensitiveInformationPolicyAssessmentTypeDef]
+    contextualGroundingPolicy: NotRequired[GuardrailContextualGroundingPolicyAssessmentTypeDef]
+    automatedReasoningPolicy: NotRequired[GuardrailAutomatedReasoningPolicyAssessmentTypeDef]
+    invocationMetrics: NotRequired[GuardrailInvocationMetricsTypeDef]
 
 class SystemContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -1027,34 +1098,30 @@ class ToolResultBlockTypeDef(TypedDict):
     content: Sequence[ToolResultContentBlockUnionTypeDef]
     status: NotRequired[ToolResultStatusType]
 
-class ConverseStreamOutputTypeDef(TypedDict):
-    messageStart: NotRequired[MessageStartEventTypeDef]
-    contentBlockStart: NotRequired[ContentBlockStartEventTypeDef]
-    contentBlockDelta: NotRequired[ContentBlockDeltaEventTypeDef]
-    contentBlockStop: NotRequired[ContentBlockStopEventTypeDef]
-    messageStop: NotRequired[MessageStopEventTypeDef]
-    metadata: NotRequired[ConverseStreamMetadataEventTypeDef]
-    internalServerException: NotRequired[InternalServerExceptionTypeDef]
-    modelStreamErrorException: NotRequired[ModelStreamErrorExceptionTypeDef]
-    validationException: NotRequired[ValidationExceptionTypeDef]
-    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
-    serviceUnavailableException: NotRequired[ServiceUnavailableExceptionTypeDef]
-
-class ConverseResponseTypeDef(TypedDict):
-    output: ConverseOutputTypeDef
-    stopReason: StopReasonType
-    usage: TokenUsageTypeDef
-    metrics: ConverseMetricsTypeDef
-    additionalModelResponseFields: Dict[str, Any]
-    trace: ConverseTraceTypeDef
-    performanceConfig: PerformanceConfigurationTypeDef
+class ApplyGuardrailResponseTypeDef(TypedDict):
+    usage: GuardrailUsageTypeDef
+    action: GuardrailActionType
+    actionReason: str
+    outputs: List[GuardrailOutputContentTypeDef]
+    assessments: List[GuardrailAssessmentTypeDef]
+    guardrailCoverage: GuardrailCoverageTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class GuardrailTraceAssessmentTypeDef(TypedDict):
+    modelOutput: NotRequired[List[str]]
+    inputAssessment: NotRequired[Dict[str, GuardrailAssessmentTypeDef]]
+    outputAssessments: NotRequired[Dict[str, List[GuardrailAssessmentTypeDef]]]
+    actionReason: NotRequired[str]
 
 ToolResultBlockUnionTypeDef = Union[ToolResultBlockTypeDef, ToolResultBlockOutputTypeDef]
 
-class ConverseStreamResponseTypeDef(TypedDict):
-    stream: AioEventStream[ConverseStreamOutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ConverseStreamTraceTypeDef(TypedDict):
+    guardrail: NotRequired[GuardrailTraceAssessmentTypeDef]
+    promptRouter: NotRequired[PromptRouterTraceTypeDef]
+
+class ConverseTraceTypeDef(TypedDict):
+    guardrail: NotRequired[GuardrailTraceAssessmentTypeDef]
+    promptRouter: NotRequired[PromptRouterTraceTypeDef]
 
 class ContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -1068,11 +1135,44 @@ class ContentBlockTypeDef(TypedDict):
     reasoningContent: NotRequired[ReasoningContentBlockUnionTypeDef]
     citationsContent: NotRequired[CitationsContentBlockUnionTypeDef]
 
+class ConverseStreamMetadataEventTypeDef(TypedDict):
+    usage: TokenUsageTypeDef
+    metrics: ConverseStreamMetricsTypeDef
+    trace: NotRequired[ConverseStreamTraceTypeDef]
+    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+class ConverseResponseTypeDef(TypedDict):
+    output: ConverseOutputTypeDef
+    stopReason: StopReasonType
+    usage: TokenUsageTypeDef
+    metrics: ConverseMetricsTypeDef
+    additionalModelResponseFields: Dict[str, Any]
+    trace: ConverseTraceTypeDef
+    performanceConfig: PerformanceConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 ContentBlockUnionTypeDef = Union[ContentBlockTypeDef, ContentBlockOutputTypeDef]
+
+class ConverseStreamOutputTypeDef(TypedDict):
+    messageStart: NotRequired[MessageStartEventTypeDef]
+    contentBlockStart: NotRequired[ContentBlockStartEventTypeDef]
+    contentBlockDelta: NotRequired[ContentBlockDeltaEventTypeDef]
+    contentBlockStop: NotRequired[ContentBlockStopEventTypeDef]
+    messageStop: NotRequired[MessageStopEventTypeDef]
+    metadata: NotRequired[ConverseStreamMetadataEventTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    modelStreamErrorException: NotRequired[ModelStreamErrorExceptionTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+    serviceUnavailableException: NotRequired[ServiceUnavailableExceptionTypeDef]
 
 class MessageTypeDef(TypedDict):
     role: ConversationRoleType
     content: Sequence[ContentBlockUnionTypeDef]
+
+class ConverseStreamResponseTypeDef(TypedDict):
+    stream: AioEventStream[ConverseStreamOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 MessageUnionTypeDef = Union[MessageTypeDef, MessageOutputTypeDef]
 
@@ -1101,3 +1201,19 @@ class ConverseStreamRequestTypeDef(TypedDict):
     additionalModelResponseFieldPaths: NotRequired[Sequence[str]]
     requestMetadata: NotRequired[Mapping[str, str]]
     performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+class ConverseTokensRequestTypeDef(TypedDict):
+    messages: NotRequired[Sequence[MessageUnionTypeDef]]
+    system: NotRequired[Sequence[SystemContentBlockTypeDef]]
+
+class CountTokensInputTypeDef(TypedDict):
+    invokeModel: NotRequired[InvokeModelTokensRequestTypeDef]
+    converse: NotRequired[ConverseTokensRequestTypeDef]
+
+CountTokensRequestTypeDef = TypedDict(
+    "CountTokensRequestTypeDef",
+    {
+        "modelId": str,
+        "input": CountTokensInputTypeDef,
+    },
+)

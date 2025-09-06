@@ -100,6 +100,18 @@ def test_jobs_len_works(sch, sample_jobs):
     assert len(sch.jobs) >= len(sample_jobs)
 
 
+def test_job_tag_supports_colons(sample_jobs):
+    def get_tag_names(job):
+        return [tag.tag for tag in job.tags]
+
+    tag_name = "test:colon"
+    job = sample_jobs[0]
+    job.add_tag(tag_name)
+    assert tag_name in get_tag_names(job)
+    job.remove_tag(tag_name)
+    assert tag_name not in get_tag_names(job)
+
+
 def test_jobs_getitem_works(sample_jobs):
     job = sample_jobs[0]
     assert isinstance(job, Job)

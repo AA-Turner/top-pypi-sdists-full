@@ -41,6 +41,7 @@ from .type_defs import (
     CreateAccessPolicyResponseTypeDef,
     CreateCollectionRequestTypeDef,
     CreateCollectionResponseTypeDef,
+    CreateIndexRequestTypeDef,
     CreateLifecyclePolicyRequestTypeDef,
     CreateLifecyclePolicyResponseTypeDef,
     CreateSecurityConfigRequestTypeDef,
@@ -52,6 +53,7 @@ from .type_defs import (
     DeleteAccessPolicyRequestTypeDef,
     DeleteCollectionRequestTypeDef,
     DeleteCollectionResponseTypeDef,
+    DeleteIndexRequestTypeDef,
     DeleteLifecyclePolicyRequestTypeDef,
     DeleteSecurityConfigRequestTypeDef,
     DeleteSecurityPolicyRequestTypeDef,
@@ -60,6 +62,8 @@ from .type_defs import (
     GetAccessPolicyRequestTypeDef,
     GetAccessPolicyResponseTypeDef,
     GetAccountSettingsResponseTypeDef,
+    GetIndexRequestTypeDef,
+    GetIndexResponseTypeDef,
     GetPoliciesStatsResponseTypeDef,
     GetSecurityConfigRequestTypeDef,
     GetSecurityConfigResponseTypeDef,
@@ -87,6 +91,7 @@ from .type_defs import (
     UpdateAccountSettingsResponseTypeDef,
     UpdateCollectionRequestTypeDef,
     UpdateCollectionResponseTypeDef,
+    UpdateIndexRequestTypeDef,
     UpdateLifecyclePolicyRequestTypeDef,
     UpdateLifecyclePolicyResponseTypeDef,
     UpdateSecurityConfigRequestTypeDef,
@@ -220,6 +225,14 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#create_collection)
         """
 
+    async def create_index(self, **kwargs: Unpack[CreateIndexRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Creates an index within an OpenSearch Serverless collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/create_index.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#create_index)
+        """
+
     async def create_lifecycle_policy(
         self, **kwargs: Unpack[CreateLifecyclePolicyRequestTypeDef]
     ) -> CreateLifecyclePolicyResponseTypeDef:
@@ -281,6 +294,14 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#delete_collection)
         """
 
+    async def delete_index(self, **kwargs: Unpack[DeleteIndexRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Deletes an index from an OpenSearch Serverless collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/delete_index.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#delete_index)
+        """
+
     async def delete_lifecycle_policy(
         self, **kwargs: Unpack[DeleteLifecyclePolicyRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -337,6 +358,15 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_account_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#get_account_settings)
+        """
+
+    async def get_index(self, **kwargs: Unpack[GetIndexRequestTypeDef]) -> GetIndexResponseTypeDef:
+        """
+        Retrieves information about an index in an OpenSearch Serverless collection,
+        including its schema definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_index.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#get_index)
         """
 
     async def get_policies_stats(self) -> GetPoliciesStatsResponseTypeDef:
@@ -485,6 +515,14 @@ class OpenSearchServiceServerlessClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/update_collection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#update_collection)
+        """
+
+    async def update_index(self, **kwargs: Unpack[UpdateIndexRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Updates an existing index in an OpenSearch Serverless collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/update_index.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearchserverless/client/#update_index)
         """
 
     async def update_lifecycle_policy(

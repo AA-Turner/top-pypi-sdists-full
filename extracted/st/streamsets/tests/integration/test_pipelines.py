@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2025
 
 # fmt: off
 import json
@@ -115,50 +117,42 @@ def test_pipelines_getitem_int_instance_type(sch, sample_pipelines):
     assert isinstance(sch.pipelines[total_number_of_pipelines - 1], Pipeline)
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_all(sch):
     total_number_of_pipelines = len(sch.pipelines)
     assert len(sch.pipelines[:]) == total_number_of_pipelines
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_stop(sch):
     assert len(sch.pipelines[:NUM_PIPELINES]) == NUM_PIPELINES
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_start_stop(sch):
     assert len(sch.pipelines[0:NUM_PIPELINES]) == NUM_PIPELINES
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_neg_start(sch):
     total_number_of_pipelines = len(sch.pipelines)
     assert len(sch.pipelines[-total_number_of_pipelines:]) == total_number_of_pipelines
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_neg_start_0_stop(sch):
     total_number_of_pipelines = len(sch.pipelines)
     # stop is 0 so, it should always return empty list
     assert len(sch.pipelines[-total_number_of_pipelines:0]) == 0
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_extra_neg_start(sch):
     total_number_of_pipelines = len(sch.pipelines)
     # eg. [1,2,3,4][-9:] = [1,2,3,4]
     assert len(sch.pipelines[-total_number_of_pipelines - 5 :]) == total_number_of_pipelines
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_step_size(sch):
     total_number_of_pipelines = len(sch.pipelines)
     # verify with step size for both the cases of total_number_of_pipelines being an odd or even number
     assert len(sch.pipelines[::2]) == total_number_of_pipelines // 2 + total_number_of_pipelines % 2
 
 
-@pytest.mark.skip("This test is flakey and will be skipped until TLKT-1052 is resolved")
 def test_pipelines_getitem_slice_neg_step_size(sch):
     # verify negative step size
     assert len(sch.pipelines[-1:-2:-1]) == 1

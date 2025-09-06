@@ -26,6 +26,7 @@ __all__ = (
     "ChatItemTypeType",
     "ConnectParticipantServiceName",
     "ConnectionTypeType",
+    "MeetingFeatureStatusType",
     "ParticipantRoleType",
     "RegionName",
     "ResourceServiceName",
@@ -49,7 +50,8 @@ ChatItemTypeType = Literal[
     "TRANSFER_SUCCEEDED",
     "TYPING",
 ]
-ConnectionTypeType = Literal["CONNECTION_CREDENTIALS", "WEBSOCKET"]
+ConnectionTypeType = Literal["CONNECTION_CREDENTIALS", "WEBRTC_CONNECTION", "WEBSOCKET"]
+MeetingFeatureStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
 ParticipantRoleType = Literal["AGENT", "CUSTOMER", "CUSTOM_BOT", "SUPERVISOR", "SYSTEM"]
 ScanDirectionType = Literal["BACKWARD", "FORWARD"]
 SortKeyType = Literal["ASCENDING", "DESCENDING"]
@@ -81,6 +83,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -92,8 +95,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

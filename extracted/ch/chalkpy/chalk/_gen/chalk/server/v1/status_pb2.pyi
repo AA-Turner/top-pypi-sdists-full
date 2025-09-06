@@ -20,10 +20,12 @@ class HealthCheckStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_STATUS_UNSPECIFIED: _ClassVar[HealthCheckStatus]
     HEALTH_CHECK_STATUS_OK: _ClassVar[HealthCheckStatus]
     HEALTH_CHECK_STATUS_FAILING: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_NOT_CONFIGURED: _ClassVar[HealthCheckStatus]
 
 HEALTH_CHECK_STATUS_UNSPECIFIED: HealthCheckStatus
 HEALTH_CHECK_STATUS_OK: HealthCheckStatus
 HEALTH_CHECK_STATUS_FAILING: HealthCheckStatus
+HEALTH_CHECK_STATUS_NOT_CONFIGURED: HealthCheckStatus
 
 class HealthCheck(_message.Message):
     __slots__ = ("name", "status", "message", "latency", "kube_data", "metadata")

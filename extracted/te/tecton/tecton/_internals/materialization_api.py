@@ -618,7 +618,7 @@ def _build_start_dataset_job_request(
         request.extra_config.update({k: str(v) for k, v in extra_config.items()})
 
     if job_retry_times:
-        request.job_retry_times.job_retry_times = job_retry_times
+        request.job_retry_times = job_retry_times
 
     return request
 

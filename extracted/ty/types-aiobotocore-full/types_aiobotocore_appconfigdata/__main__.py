@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for aiobotocore AppConfigData 2.24.1\n"
-        "Version:         2.24.1\n"
+        "Type annotations for aiobotocore AppConfigData 2.24.2\n"
+        "Version:         2.24.2\n"
         "Builder version: 8.11.0\n"
         "Docs:            https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfigdata//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfigdata.html#appconfigdata\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("2.24.1\n")
+    sys.stdout.write("2.24.2\n")
 
 
 def main() -> None:

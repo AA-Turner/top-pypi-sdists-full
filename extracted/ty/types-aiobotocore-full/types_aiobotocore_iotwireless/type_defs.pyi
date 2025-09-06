@@ -508,6 +508,10 @@ class LoRaWANServiceProfileTypeDef(TypedDict):
     DrMax: NotRequired[int]
     PrAllowed: NotRequired[bool]
     RaAllowed: NotRequired[bool]
+    TxPowerIndexMin: NotRequired[int]
+    TxPowerIndexMax: NotRequired[int]
+    NbTransMin: NotRequired[int]
+    NbTransMax: NotRequired[int]
 
 class SidewalkCreateWirelessDeviceTypeDef(TypedDict):
     DeviceProfileId: NotRequired[str]
@@ -757,6 +761,10 @@ class LoRaWANGetServiceProfileInfoTypeDef(TypedDict):
     NwkGeoLoc: NotRequired[bool]
     TargetPer: NotRequired[int]
     MinGwDiversity: NotRequired[int]
+    TxPowerIndexMin: NotRequired[int]
+    TxPowerIndexMax: NotRequired[int]
+    NbTransMin: NotRequired[int]
+    NbTransMax: NotRequired[int]
 
 class GetWirelessDeviceImportTaskRequestTypeDef(TypedDict):
     Id: str

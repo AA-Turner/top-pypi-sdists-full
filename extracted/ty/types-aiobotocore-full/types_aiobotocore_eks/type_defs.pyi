@@ -74,6 +74,8 @@ __all__ = (
     "AddonHealthTypeDef",
     "AddonInfoTypeDef",
     "AddonIssueTypeDef",
+    "AddonNamespaceConfigRequestTypeDef",
+    "AddonNamespaceConfigResponseTypeDef",
     "AddonPodIdentityAssociationsTypeDef",
     "AddonPodIdentityConfigurationTypeDef",
     "AddonTypeDef",
@@ -355,6 +357,12 @@ class AddonIssueTypeDef(TypedDict):
 class MarketplaceInformationTypeDef(TypedDict):
     productId: NotRequired[str]
     productUrl: NotRequired[str]
+
+class AddonNamespaceConfigRequestTypeDef(TypedDict):
+    namespace: NotRequired[str]
+
+class AddonNamespaceConfigResponseTypeDef(TypedDict):
+    namespace: NotRequired[str]
 
 class AddonPodIdentityAssociationsTypeDef(TypedDict):
     serviceAccount: str
@@ -914,6 +922,7 @@ class CreateAddonRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     configurationValues: NotRequired[str]
     podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
+    namespaceConfig: NotRequired[AddonNamespaceConfigRequestTypeDef]
 
 class UpdateAddonRequestTypeDef(TypedDict):
     clusterName: str
@@ -1354,6 +1363,7 @@ class AddonTypeDef(TypedDict):
     marketplaceInformation: NotRequired[MarketplaceInformationTypeDef]
     configurationValues: NotRequired[str]
     podIdentityAssociations: NotRequired[List[str]]
+    namespaceConfig: NotRequired[AddonNamespaceConfigResponseTypeDef]
 
 AddonInfoTypeDef = TypedDict(
     "AddonInfoTypeDef",
@@ -1364,6 +1374,7 @@ AddonInfoTypeDef = TypedDict(
         "publisher": NotRequired[str],
         "owner": NotRequired[str],
         "marketplaceInformation": NotRequired[MarketplaceInformationTypeDef],
+        "defaultNamespace": NotRequired[str],
     },
 )
 
@@ -1512,6 +1523,7 @@ ClusterTypeDef = TypedDict(
         "remoteNetworkConfig": NotRequired[RemoteNetworkConfigResponseTypeDef],
         "computeConfig": NotRequired[ComputeConfigResponseTypeDef],
         "storageConfig": NotRequired[StorageConfigResponseTypeDef],
+        "deletionProtection": NotRequired[bool],
     },
 )
 
@@ -1658,6 +1670,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     remoteNetworkConfig: NotRequired[RemoteNetworkConfigRequestTypeDef]
     computeConfig: NotRequired[ComputeConfigRequestTypeDef]
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
+    deletionProtection: NotRequired[bool]
 
 class UpdateClusterConfigRequestTypeDef(TypedDict):
     name: str
@@ -1671,6 +1684,7 @@ class UpdateClusterConfigRequestTypeDef(TypedDict):
     kubernetesNetworkConfig: NotRequired[KubernetesNetworkConfigRequestTypeDef]
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
     remoteNetworkConfig: NotRequired[RemoteNetworkConfigRequestTypeDef]
+    deletionProtection: NotRequired[bool]
 
 class DescribeInsightResponseTypeDef(TypedDict):
     insight: InsightTypeDef

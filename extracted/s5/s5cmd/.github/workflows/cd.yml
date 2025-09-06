@@ -18,7 +18,7 @@ jobs:
     name: Make SDist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -40,7 +40,7 @@ jobs:
         python: ["3.8", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         name: Install Python ${{ matrix.python }}
         with:
@@ -53,7 +53,7 @@ jobs:
           pip install yq
           tomlq -r '.project."optional-dependencies".test[]' pyproject.toml | xargs -d '\n' pip install
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: cibw-sdist
           path: dist
@@ -72,7 +72,7 @@ jobs:
     needs: [build_wheels, make_sdist, test_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: all
 
@@ -86,6 +86,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         arch: ["auto"]
+        exclude:
+          - arch: i686
         use_qemu: [false]
 
         include:
@@ -104,15 +106,15 @@ jobs:
             arch: "ppc64le"
             use_qemu: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.0.0
+        uses: docker/setup-qemu-action@v3.6.0
         if: matrix.use_qemu
 
-      - uses: pypa/cibuildwheel@v2.18.0
+      - uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_BUILD: "cp312-*"
           CIBW_ARCHS: "${{ matrix.arch }}"
@@ -133,7 +135,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: cibw-*
           path: dist

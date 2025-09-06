@@ -7169,15 +7169,6 @@ class _draw_tool_settings_context_mode:
         """
 
     @staticmethod
-    def WEIGHT_GPENCIL(context, layout, tool) -> None:
-        """
-
-        :param context:
-        :param layout:
-        :param tool:
-        """
-
-    @staticmethod
     def WEIGHT_GREASE_PENCIL(context, layout, tool) -> None:
         """
 

@@ -890,7 +890,8 @@ class EntryExtras:
     def __neg__(self):
         return -self.Price
 
-def std_colorize(m,n,c,start=f"[DB]{Back.grey_11}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Back.grey_11)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.grey_11}{Fore.light_red}{'-'*(os.get_terminal_size().columns-(len(Fore.light_red)+(len(Back.grey_11)*2)+len(Style.reset)))} Stop {Style.reset}"):
+def std_colorize(m,n,c,start='',end=''):
+    #start=f"[DB]{Back.grey_11}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Back.grey_11)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.grey_11}{Fore.light_red}{'-'*(os.get_terminal_size().columns-(len(Fore.light_red)+(len(Back.grey_11)*2)+len(Style.reset)))} Stop {Style.reset}"):
         if ((n % 2) != 0) and n > 0:
             msg=f'{start}{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m}{Style.reset}{end}'
         else:
@@ -941,20 +942,21 @@ class Template:
         0:Fore.green_yellow
         }
         settting=0
+        ct=len(fields)
         for num,i in enumerate(fields):
             if isinstance(getattr(self,i),time):
 
-                m.append(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i).strftime(f"{Fore.deep_pink_4a}%I:%M %p(12H)/{Fore.dark_red_1}%H:%M(24H)")}{nsc[settting]}'{Style.reset}{Back.black}")
+                m.append(std_colorize(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i).strftime(f"{Fore.deep_pink_4a}%I:%M %p(12H)/{Fore.dark_red_1}%H:%M(24H)")}{nsc[settting]}'{Style.reset}{Back.black}",num,ct))
             elif isinstance(getattr(self,i),datetime):
-                m.append(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i).strftime(f"""{Fore.deep_sky_blue_4a}%m/%d/%Y 
+                m.append(std_colorize(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i).strftime(f"""{Fore.deep_sky_blue_4a}%m/%d/%Y 
  %A(%d) of %B, 
  week[Business] %V of year %Y, 
  week[Sunday First] %U of year %Y, 
  week[Monday First] %W of year %Y) 
  @[12H] {Fore.deep_pink_4a}%I:%M %p
- @[24H] {Fore.dark_red_1}%H:%M""")}{nsc[settting]}'{Style.reset}{Back.black}")
+ @[24H] {Fore.dark_red_1}%H:%M""")}{nsc[settting]}'{Style.reset}{Back.black}",num,ct))
             else:
-                m.append(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i)}{nsc[settting]}'{Style.reset}{Back.black}")
+                m.append(std_colorize(f"{fc}{i}{nsc[settting]}[{ft[i]}]{fc}={vg}{Style.bold}{nsc[settting]}'{fc}{vc}{getattr(self,i)}{nsc[settting]}'{Style.reset}{Back.black}",num,ct))
         m.append(f") {Fore.dark_goldenrod}{nowStr.replace("\n","")}{Style.reset}")
         return '\n'.join(m)
 

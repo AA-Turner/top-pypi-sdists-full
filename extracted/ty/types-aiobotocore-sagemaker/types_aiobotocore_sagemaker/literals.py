@@ -59,6 +59,7 @@ __all__ = (
     "AutoMountHomeEFSType",
     "AutotuneModeType",
     "AwsManagedHumanLoopRequestSourceType",
+    "BatchAddClusterNodesErrorCodeType",
     "BatchDeleteClusterNodesErrorCodeType",
     "BatchStrategyType",
     "BooleanOperatorType",
@@ -66,14 +67,17 @@ __all__ = (
     "CandidateStatusType",
     "CandidateStepTypeType",
     "CapacityReservationPreferenceType",
+    "CapacityReservationTypeType",
     "CapacitySizeTypeType",
     "CaptureModeType",
     "CaptureStatusType",
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
+    "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
     "ClusterSortByType",
     "ClusterStatusType",
@@ -107,6 +111,7 @@ __all__ = (
     "EndpointInServiceWaiterName",
     "EndpointSortKeyType",
     "EndpointStatusType",
+    "EventSortByType",
     "ExecutionRoleIdentityConfigType",
     "ExecutionStatusType",
     "FailureHandlingPolicyType",
@@ -173,6 +178,7 @@ __all__ = (
     "ListAssociationsPaginatorName",
     "ListAutoMLJobsPaginatorName",
     "ListCandidatesForAutoMLJobPaginatorName",
+    "ListClusterEventsPaginatorName",
     "ListClusterNodesPaginatorName",
     "ListClusterSchedulerConfigsPaginatorName",
     "ListClustersPaginatorName",
@@ -246,6 +252,7 @@ __all__ = (
     "ListTransformJobsPaginatorName",
     "ListTrialComponentsPaginatorName",
     "ListTrialsPaginatorName",
+    "ListUltraServersByReservedCapacityPaginatorName",
     "ListUserProfilesPaginatorName",
     "ListWorkforcesPaginatorName",
     "ListWorkforcesSortByOptionsType",
@@ -340,6 +347,7 @@ __all__ = (
     "RepositoryAccessModeType",
     "ReservedCapacityInstanceTypeType",
     "ReservedCapacityStatusType",
+    "ReservedCapacityTypeType",
     "ResourceCatalogSortByType",
     "ResourceCatalogSortOrderType",
     "ResourceServiceName",
@@ -418,11 +426,13 @@ __all__ = (
     "TransformJobStatusType",
     "TrialComponentPrimaryStatusType",
     "TtlDurationUnitType",
+    "UltraServerHealthStatusType",
     "UserProfileSortKeyType",
     "UserProfileStatusType",
     "VariantPropertyTypeType",
     "VariantStatusType",
     "VendorGuidanceType",
+    "VolumeAttachmentStatusType",
     "WaiterName",
     "WarmPoolResourceStatusType",
     "WorkforceIpAddressTypeType",
@@ -730,6 +740,7 @@ AutotuneModeType = Literal["Enabled"]
 AwsManagedHumanLoopRequestSourceType = Literal[
     "AWS/Rekognition/DetectModerationLabels/Image/V3", "AWS/Textract/AnalyzeDocument/Forms/V1"
 ]
+BatchAddClusterNodesErrorCodeType = Literal["InstanceGroupNotFound", "InvalidInstanceGroupStatus"]
 BatchDeleteClusterNodesErrorCodeType = Literal["InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound"]
 BatchStrategyType = Literal["MultiRecord", "SingleRecord"]
 BooleanOperatorType = Literal["And", "Or"]
@@ -739,6 +750,7 @@ CandidateStepTypeType = Literal[
     "AWS::SageMaker::ProcessingJob", "AWS::SageMaker::TrainingJob", "AWS::SageMaker::TransformJob"
 ]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only"]
+CapacityReservationTypeType = Literal["CRG", "ODCR"]
 CapacitySizeTypeType = Literal["CAPACITY_PERCENT", "INSTANCE_COUNT"]
 CaptureModeType = Literal["Input", "InputAndOutput", "Output"]
 CaptureStatusType = Literal["Started", "Stopped"]
@@ -806,8 +818,15 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterInstanceStatusType = Literal[
-    "DeepHealthCheckInProgress", "Failure", "Pending", "Running", "ShuttingDown", "SystemUpdating"
+    "DeepHealthCheckInProgress",
+    "Failure",
+    "NotFound",
+    "Pending",
+    "Running",
+    "ShuttingDown",
+    "SystemUpdating",
 ]
 ClusterInstanceTypeType = Literal[
     "ml.c5.12xlarge",
@@ -897,6 +916,7 @@ ClusterInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6e-gb200.36xlarge",
     "ml.r6i.12xlarge",
     "ml.r6i.16xlarge",
     "ml.r6i.24xlarge",
@@ -923,6 +943,7 @@ ClusterInstanceTypeType = Literal[
     "ml.trn1n.32xlarge",
     "ml.trn2.48xlarge",
 ]
+ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
 ClusterStatusType = Literal[
@@ -976,6 +997,7 @@ EndpointStatusType = Literal[
     "UpdateRollbackFailed",
     "Updating",
 ]
+EventSortByType = Literal["EventTime"]
 ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
@@ -1177,6 +1199,7 @@ InstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p6-b200.48xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
     "ml.r5.24xlarge",
@@ -1242,6 +1265,7 @@ ListArtifactsPaginatorName = Literal["list_artifacts"]
 ListAssociationsPaginatorName = Literal["list_associations"]
 ListAutoMLJobsPaginatorName = Literal["list_auto_ml_jobs"]
 ListCandidatesForAutoMLJobPaginatorName = Literal["list_candidates_for_auto_ml_job"]
+ListClusterEventsPaginatorName = Literal["list_cluster_events"]
 ListClusterNodesPaginatorName = Literal["list_cluster_nodes"]
 ListClusterSchedulerConfigsPaginatorName = Literal["list_cluster_scheduler_configs"]
 ListClustersPaginatorName = Literal["list_clusters"]
@@ -1327,6 +1351,7 @@ ListTrainingPlansPaginatorName = Literal["list_training_plans"]
 ListTransformJobsPaginatorName = Literal["list_transform_jobs"]
 ListTrialComponentsPaginatorName = Literal["list_trial_components"]
 ListTrialsPaginatorName = Literal["list_trials"]
+ListUltraServersByReservedCapacityPaginatorName = Literal["list_ultra_servers_by_reserved_capacity"]
 ListUserProfilesPaginatorName = Literal["list_user_profiles"]
 ListWorkforcesPaginatorName = Literal["list_workforces"]
 ListWorkforcesSortByOptionsType = Literal["CreateDate", "Name"]
@@ -1572,6 +1597,7 @@ ProcessingInstanceTypeType = Literal[
     "ml.p3.16xlarge",
     "ml.p3.2xlarge",
     "ml.p3.8xlarge",
+    "ml.p5.4xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
     "ml.r5.24xlarge",
@@ -1922,13 +1948,16 @@ ReservedCapacityInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6e-gb200.36xlarge",
     "ml.trn1.32xlarge",
     "ml.trn2.48xlarge",
 ]
 ReservedCapacityStatusType = Literal["Active", "Expired", "Failed", "Pending", "Scheduled"]
+ReservedCapacityTypeType = Literal["Instance", "UltraServer"]
 ResourceCatalogSortByType = Literal["CreationTime"]
 ResourceCatalogSortOrderType = Literal["Ascending", "Descending"]
 ResourceSharingStrategyType = Literal["DontLend", "Lend", "LendAndBorrow"]
@@ -2215,9 +2244,11 @@ TrainingInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6e-gb200.36xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
     "ml.r5.24xlarge",
@@ -2371,6 +2402,7 @@ TrialComponentPrimaryStatusType = Literal[
     "Completed", "Failed", "InProgress", "Stopped", "Stopping"
 ]
 TtlDurationUnitType = Literal["Days", "Hours", "Minutes", "Seconds", "Weeks"]
+UltraServerHealthStatusType = Literal["Impaired", "Insufficient-Data", "OK"]
 UserProfileSortKeyType = Literal["CreationTime", "LastModifiedTime"]
 UserProfileStatusType = Literal[
     "Delete_Failed", "Deleting", "Failed", "InService", "Pending", "Update_Failed", "Updating"
@@ -2378,6 +2410,7 @@ UserProfileStatusType = Literal[
 VariantPropertyTypeType = Literal["DataCaptureConfig", "DesiredInstanceCount", "DesiredWeight"]
 VariantStatusType = Literal["ActivatingTraffic", "Baking", "Creating", "Deleting", "Updating"]
 VendorGuidanceType = Literal["ARCHIVED", "NOT_PROVIDED", "STABLE", "TO_BE_ARCHIVED"]
+VolumeAttachmentStatusType = Literal["attached", "attaching", "busy", "detached", "detaching"]
 WarmPoolResourceStatusType = Literal["Available", "InUse", "Reused", "Terminated"]
 WorkforceIpAddressTypeType = Literal["dualstack", "ipv4"]
 WorkforceStatusType = Literal["Active", "Deleting", "Failed", "Initializing", "Updating"]
@@ -2409,6 +2442,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -2420,8 +2454,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -2819,6 +2855,7 @@ PaginatorName = Literal[
     "list_associations",
     "list_auto_ml_jobs",
     "list_candidates_for_auto_ml_job",
+    "list_cluster_events",
     "list_cluster_nodes",
     "list_cluster_scheduler_configs",
     "list_clusters",
@@ -2885,6 +2922,7 @@ PaginatorName = Literal[
     "list_transform_jobs",
     "list_trial_components",
     "list_trials",
+    "list_ultra_servers_by_reserved_capacity",
     "list_user_profiles",
     "list_workforces",
     "list_workteams",

@@ -5,14 +5,21 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     path: str,
+    *,
+    allow_cache: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["allow_cache"] = allow_cache
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
@@ -20,6 +27,7 @@ def _get_kwargs(
             workspace=workspace,
             path=path,
         ),
+        "params": params,
     }
 
 
@@ -47,12 +55,14 @@ def sync_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    allow_cache: Union[Unset, None, bool] = UNSET,
 ) -> Response[str]:
     """get variable value
 
     Args:
         workspace (str):
         path (str):
+        allow_cache (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -65,6 +75,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        allow_cache=allow_cache,
     )
 
     response = client.get_httpx_client().request(
@@ -79,12 +90,14 @@ def sync(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    allow_cache: Union[Unset, None, bool] = UNSET,
 ) -> Optional[str]:
     """get variable value
 
     Args:
         workspace (str):
         path (str):
+        allow_cache (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -98,6 +111,7 @@ def sync(
         workspace=workspace,
         path=path,
         client=client,
+        allow_cache=allow_cache,
     ).parsed
 
 
@@ -106,12 +120,14 @@ async def asyncio_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    allow_cache: Union[Unset, None, bool] = UNSET,
 ) -> Response[str]:
     """get variable value
 
     Args:
         workspace (str):
         path (str):
+        allow_cache (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +140,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        allow_cache=allow_cache,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -136,12 +153,14 @@ async def asyncio(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    allow_cache: Union[Unset, None, bool] = UNSET,
 ) -> Optional[str]:
     """get variable value
 
     Args:
         workspace (str):
         path (str):
+        allow_cache (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,5 +175,6 @@ async def asyncio(
             workspace=workspace,
             path=path,
             client=client,
+            allow_cache=allow_cache,
         )
     ).parsed

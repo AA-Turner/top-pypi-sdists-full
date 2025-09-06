@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.update_kafka_trigger_json_body_retry_constant import UpdateKafkaTriggerJsonBodyRetryConstant
     from ..models.update_kafka_trigger_json_body_retry_exponential import UpdateKafkaTriggerJsonBodyRetryExponential
+    from ..models.update_kafka_trigger_json_body_retry_retry_if import UpdateKafkaTriggerJsonBodyRetryRetryIf
 
 
 T = TypeVar("T", bound="UpdateKafkaTriggerJsonBodyRetry")
@@ -19,10 +20,12 @@ class UpdateKafkaTriggerJsonBodyRetry:
     Attributes:
         constant (Union[Unset, UpdateKafkaTriggerJsonBodyRetryConstant]):
         exponential (Union[Unset, UpdateKafkaTriggerJsonBodyRetryExponential]):
+        retry_if (Union[Unset, UpdateKafkaTriggerJsonBodyRetryRetryIf]):
     """
 
     constant: Union[Unset, "UpdateKafkaTriggerJsonBodyRetryConstant"] = UNSET
     exponential: Union[Unset, "UpdateKafkaTriggerJsonBodyRetryExponential"] = UNSET
+    retry_if: Union[Unset, "UpdateKafkaTriggerJsonBodyRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class UpdateKafkaTriggerJsonBodyRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class UpdateKafkaTriggerJsonBodyRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class UpdateKafkaTriggerJsonBodyRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.update_kafka_trigger_json_body_retry_constant import UpdateKafkaTriggerJsonBodyRetryConstant
         from ..models.update_kafka_trigger_json_body_retry_exponential import UpdateKafkaTriggerJsonBodyRetryExponential
+        from ..models.update_kafka_trigger_json_body_retry_retry_if import UpdateKafkaTriggerJsonBodyRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class UpdateKafkaTriggerJsonBodyRetry:
         else:
             exponential = UpdateKafkaTriggerJsonBodyRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, UpdateKafkaTriggerJsonBodyRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = UpdateKafkaTriggerJsonBodyRetryRetryIf.from_dict(_retry_if)
+
         update_kafka_trigger_json_body_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         update_kafka_trigger_json_body_retry.additional_properties = d

@@ -254,14 +254,23 @@ impl TArgs {
         Substitution(self.substitution_map())
     }
 
-    pub fn substitute_into(&self, ty: Type) -> Type {
-        self.substitution().substitute_into(ty)
+    pub fn substitute_into_mut(&self, ty: &mut Type) {
+        self.substitution().substitute_into_mut(ty)
+    }
+
+    pub fn substitute_into(&self, mut ty: Type) -> Type {
+        self.substitute_into_mut(&mut ty);
+        ty
     }
 }
 
 pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 
 impl<'a> Substitution<'a> {
+    pub fn substitute_into_mut(&self, ty: &mut Type) {
+        ty.subst_mut(&self.0)
+    }
+
     pub fn substitute_into(&self, ty: Type) -> Type {
         ty.subst(&self.0)
     }
@@ -417,20 +426,13 @@ impl BoundMethodType {
         }
     }
 
-    pub fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    pub fn subst_self_type_mut(&mut self, replacement: &Type) {
         match self {
-            Self::Function(func) => func.signature.subst_self_type_mut(replacement, is_subset),
-            Self::Forall(forall) => forall
-                .body
-                .signature
-                .subst_self_type_mut(replacement, is_subset),
+            Self::Function(func) => func.signature.subst_self_type_mut(replacement),
+            Self::Forall(forall) => forall.body.signature.subst_self_type_mut(replacement),
             Self::Overload(overload) => {
                 for sig in overload.signatures.iter_mut() {
-                    sig.subst_self_type_mut(replacement, is_subset)
+                    sig.subst_self_type_mut(replacement)
                 }
             }
         }
@@ -495,17 +497,10 @@ impl OverloadType {
         }
     }
 
-    fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    fn subst_self_type_mut(&mut self, replacement: &Type) {
         match self {
-            Self::Function(f) => f.signature.subst_self_type_mut(replacement, is_subset),
-            Self::Forall(forall) => forall
-                .body
-                .signature
-                .subst_self_type_mut(replacement, is_subset),
+            Self::Function(f) => f.signature.subst_self_type_mut(replacement),
+            Self::Forall(forall) => forall.body.signature.subst_self_type_mut(replacement),
         }
     }
 
@@ -955,7 +950,7 @@ impl Type {
         }
     }
 
-    fn subst_mut_fn(&mut self, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
+    pub fn subst_mut_fn(&mut self, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
         fn f(ty: &mut Type, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
@@ -989,13 +984,9 @@ impl Type {
         });
     }
 
-    pub fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    pub fn subst_self_type_mut(&mut self, replacement: &Type) {
         self.transform_mut(&mut |t| {
-            if matches!(t, Type::SelfType(_)) && is_subset(replacement, t) {
+            if matches!(t, Type::SelfType(_)) {
                 *t = replacement.clone();
             }
         })

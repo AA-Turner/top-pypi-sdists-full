@@ -17,6 +17,7 @@ from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.instances.reflection import ReflectionInstance
+from orionis.support.performance.contracts.counter import IPerformanceCounter
 from orionis.test.contracts.test_result import IOrionisTestResult
 from orionis.test.contracts.unit_test import IUnitTest
 from orionis.test.entities.result import TestResult
@@ -384,7 +385,10 @@ class UnitTest(IUnitTest):
         - Provides detailed error messages for failed imports and missing tests.
         """
         try:
+
+            # Iterate through all imported test modules
             for test_module in self.__modules:
+
                 # Load all tests from the current module
                 module_suite = self.__loader.loadTestsFromModule(test_module)
 
@@ -454,7 +458,8 @@ class UnitTest(IUnitTest):
             )
 
     def run(
-        self
+        self,
+        performance_counter: IPerformanceCounter
     ) -> Dict[str, Any]:
         """
         Execute the test suite and return a summary of the results.
@@ -470,16 +475,15 @@ class UnitTest(IUnitTest):
             If the test suite execution fails and throw_exception is True.
         """
 
+        # Record the start time in seconds
+        performance_counter.start()
+
         # Length of all tests in the suite
         total_tests = len(list(self.__flattenTestSuite(self.__suite)))
 
         # If no tests are found, print a message and return early
         if total_tests == 0:
-            self.__printer.zeroTestsMessage()
-            return
-
-        # Record the start time in nanoseconds
-        start_time = time.time_ns()
+            return self.__printer.zeroTestsMessage()
 
         # Print the start message with test suite details
         self.__printer.startMessage(
@@ -499,7 +503,8 @@ class UnitTest(IUnitTest):
         self.__error_buffer = error_buffer.getvalue()
 
         # Calculate execution time in milliseconds
-        execution_time = (time.time_ns() - start_time) / 1_000_000_000
+        performance_counter.stop()
+        execution_time = performance_counter.getSeconds()
 
         # Generate a summary of the test results
         summary = self.__generateSummary(result, execution_time)

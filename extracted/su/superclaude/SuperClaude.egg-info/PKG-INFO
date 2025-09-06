@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SuperClaude
-Version: 4.0.8
+Version: 4.0.9
 Summary: SuperClaude Framework Management Hub - AI-enhanced development framework for Claude Code
 Author-email: NomenAK <anton.knoery@gmail.com>, Mithun Gowda B <mithungowda.b7411@gmail.com>
 License-Expression: MIT
@@ -46,20 +46,32 @@ Dynamic: license-file
 ### **Transform Claude Code into a Structured Development Platform**
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.8-blue?style=for-the-badge" alt="Version">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge" alt="PRs Welcome">
+  <img src="https://img.shields.io/badge/version-4.0.9-blue" alt="Version">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
 </p>
 
 <p align="center">
-  <a href="https://superclaude-org.github.io/SuperClaude_Website/">
-    <img src="https://img.shields.io/badge/🌐_Visit_Website-blue?style=for-the-badge" alt="Website">
+  <a href="https://superclaude.netlify.app/">
+    <img src="https://img.shields.io/badge/🌐_Visit_Website-blue" alt="Website">
   </a>
   <a href="https://pypi.org/project/SuperClaude/">
-    <img src="https://img.shields.io/pypi/v/SuperClaude.svg?style=for-the-badge&label=PyPI" alt="PyPI">
+    <img src="https://img.shields.io/pypi/v/SuperClaude.svg?" alt="PyPI">
   </a>
   <a href="https://www.npmjs.com/package/@bifrost_inc/superclaude">
-    <img src="https://img.shields.io/npm/v/@bifrost_inc/superclaude.svg?style=for-the-badge&label=npm" alt="npm">
+    <img src="https://img.shields.io/npm/v/@bifrost_inc/superclaude.svg" alt="npm">
+  </a>
+</p>
+
+<p align="center">
+  <a href="README.md">
+    <img src="https://img.shields.io/badge/🇺🇸_English-blue" alt="English">
+  </a>
+  <a href="README-zh.md">
+    <img src="https://img.shields.io/badge/🇨🇳_中文-red" alt="中文">
+  </a>
+  <a href="README-ja.md">
+    <img src="https://img.shields.io/badge/🇯🇵_日本語-green" alt="日本語">
   </a>
 </p>
 
@@ -81,7 +93,7 @@ Dynamic: license-file
 
 | **Commands** | **Agents** | **Modes** | **MCP Servers** |
 |:------------:|:----------:|:---------:|:---------------:|
-| **21** | **14** | **6** | **6** |
+| **22** | **14** | **6** | **6** |
 | Slash Commands | Specialized AI | Behavioral | Integrations |
 
 </div>
@@ -164,7 +176,7 @@ pip install --break-system-packages SuperClaude
 <td align="center" width="33%">
   
 ### ☕ **Ko-fi**
-[![Ko-fi](https://img.shields.io/badge/Support_on-Ko--fi-ff5e5b?style=for-the-badge&logo=ko-fi)](https://ko-fi.com/superclaude)
+[![Ko-fi](https://img.shields.io/badge/Support_on-Ko--fi-ff5e5b?logo=ko-fi)](https://ko-fi.com/superclaude)
 
 *One-time contributions*
 
@@ -172,7 +184,7 @@ pip install --break-system-packages SuperClaude
 <td align="center" width="33%">
 
 ### 🎯 **Patreon**
-[![Patreon](https://img.shields.io/badge/Become_a-Patron-f96854?style=for-the-badge&logo=patreon)](https://patreon.com/superclaude)
+[![Patreon](https://img.shields.io/badge/Become_a-Patron-f96854?logo=patreon)](https://patreon.com/superclaude)
 
 *Monthly support*
 
@@ -180,7 +192,7 @@ pip install --break-system-packages SuperClaude
 <td align="center" width="33%">
 
 ### 💜 **GitHub**
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-30363D?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/SuperClaude-Org)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-30363D?logo=github-sponsors)](https://github.com/sponsors/SuperClaude-Org)
 
 *Flexible tiers*
 
@@ -228,7 +240,7 @@ pip install --break-system-packages SuperClaude
 ### 📝 **Improved Namespace**
 **`/sc:` prefix** for all commands:
 - No conflicts with custom commands
-- 21 commands covering full lifecycle
+- 22 commands covering full lifecycle
 - From brainstorming to deployment
 - Clean, organized command structure
 
@@ -250,8 +262,9 @@ pip install --break-system-packages SuperClaude
 <td width="50%">
 
 ### 🎯 **Behavioral Modes**
-**5 adaptive modes** for different contexts:
+**6 adaptive modes** for different contexts:
 - **Brainstorming** → Asks right questions
+- **Business Panel** → Multi-expert strategic analysis
 - **Orchestration** → Efficient tool coordination
 - **Token-Efficiency** → 30-50% context savings
 - **Task Management** → Systematic organization
@@ -313,13 +326,13 @@ pip install --break-system-packages SuperClaude
 <td valign="top">
 
 - 🎯 [**Commands Reference**](Docs/User-Guide/commands.md)  
-  *All 21 slash commands*
+  *All 22 slash commands*
 
 - 🤖 [**Agents Guide**](Docs/User-Guide/agents.md)  
   *14 specialized agents*
 
 - 🎨 [**Behavioral Modes**](Docs/User-Guide/modes.md)  
-  *6 adaptive modes*
+  *5 adaptive modes*
 
 - 🚩 [**Flags Guide**](Docs/User-Guide/flags.md)  
   *Control behaviors*
@@ -380,10 +393,10 @@ We welcome contributions of all kinds! Here's how you can help:
 
 <p align="center">
   <a href="CONTRIBUTING.md">
-    <img src="https://img.shields.io/badge/📖_Read-Contributing_Guide-blue?style=for-the-badge" alt="Contributing Guide">
+    <img src="https://img.shields.io/badge/📖_Read-Contributing_Guide-blue" alt="Contributing Guide">
   </a>
   <a href="https://github.com/SuperClaude-Org/SuperClaude_Framework/graphs/contributors">
-    <img src="https://img.shields.io/badge/👥_View-All_Contributors-green?style=for-the-badge" alt="Contributors">
+    <img src="https://img.shields.io/badge/👥_View-All_Contributors-green" alt="Contributors">
   </a>
 </p>
 
@@ -398,7 +411,7 @@ We welcome contributions of all kinds! Here's how you can help:
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="MIT License">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?" alt="MIT License">
 </p>
 
 </div>
@@ -409,12 +422,12 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## ⭐ **Star History**
 
-<a href="https://www.star-history.com/#SuperClaude-Org/SuperClaude_Framework&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Date" />
-  </picture>
+<a href="https://www.star-history.com/#SuperClaude-Org/SuperClaude_Framework&Timeline">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Timeline" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SuperClaude-Org/SuperClaude_Framework&type=Timeline" />
+ </picture>
 </a>
 
 

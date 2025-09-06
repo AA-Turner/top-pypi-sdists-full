@@ -118,21 +118,58 @@ class ClientUtils:
             is_async: Whether this was an async request
 
         Returns:
-            Model prediction result
+            Model prediction result with post-processing info if available
 
         Raises:
             Exception: If inference request failed
         """
-        if "result" in resp_json:
-            logging.debug(
-                "Successfully got %sinference result",
-                "async " if is_async else "",
-            )
-            return resp_json["result"]
+        # Check for server errors first
+        if "status" in resp_json and resp_json["status"] != 1:
+            error_msg = f"{'Async ' if is_async else ''}Server returned error status: {resp_json.get('message', 'Unknown error')}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
         
-        error_msg = f"{'Async ' if is_async else ''}Inference failed, response: {resp_json}"
-        logging.error(error_msg)
-        raise Exception(error_msg)
+        # Check for HTTP errors or missing result
+        if "result" not in resp_json:
+            error_msg = f"{'Async ' if is_async else ''}Inference failed, no result in response: {resp_json}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
+        
+        logging.debug(
+            "Successfully got %sinference result",
+            "async " if is_async else "",
+        )
+        
+        # Build response with post-processing info if available
+        response = {
+            "result": resp_json["result"]
+        }
+        
+        # Include post-processing results and configuration if available
+        if "post_processing_applied" in resp_json:
+            response["post_processing_applied"] = resp_json["post_processing_applied"]
+            
+        if "post_processing_result" in resp_json:
+            response["post_processing_result"] = resp_json["post_processing_result"]
+            
+            # Extract post-processing configuration from the result
+            post_proc_result = resp_json["post_processing_result"]
+            if isinstance(post_proc_result, dict):
+                # Include configuration details
+                config_info = {}
+                if "usecase" in post_proc_result:
+                    config_info["usecase"] = post_proc_result["usecase"]
+                if "category" in post_proc_result:
+                    config_info["category"] = post_proc_result["category"]
+                if "status" in post_proc_result:
+                    config_info["status"] = post_proc_result["status"]
+                if "processing_time" in post_proc_result:
+                    config_info["processing_time"] = post_proc_result["processing_time"]
+                    
+                if config_info:
+                    response["post_processing_config"] = config_info
+        
+        return response
 
     def _make_inference_request(
         self,
@@ -149,6 +186,8 @@ class ClientUtils:
             return resp
         else:
             resp = client.post(url=url, files=files, data=data or None)
+            # Raise for HTTP status errors (4xx, 5xx)
+            resp.raise_for_status()
             return self._handle_response(resp.json())
 
     async def _make_async_inference_request(
@@ -160,6 +199,8 @@ class ClientUtils:
     ) -> Union[Dict, str]:
         """Make a single async inference request."""
         resp = await client.post(url=url, files=files, data=data or None)
+        # Raise for HTTP status errors (4xx, 5xx)
+        resp.raise_for_status()
         return self._handle_response(resp.json(), is_async=True)
 
     def _perform_inference_with_retries(
@@ -186,7 +227,7 @@ class ClientUtils:
                     self.http_client, client["url"], files, data, is_async
                 )
                 
-            except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as exc:
+            except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as exc:
                 last_exception = exc
                 if attempt < max_retries:
                     logging.warning(
@@ -235,7 +276,7 @@ class ClientUtils:
                     self.async_client, client["url"], files, data
                 )
                 
-            except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as exc:
+            except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as exc:
                 last_exception = exc
                 if attempt < max_retries:
                     logging.warning(

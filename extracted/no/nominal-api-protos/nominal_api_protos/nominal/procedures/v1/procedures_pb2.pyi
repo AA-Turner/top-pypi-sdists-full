@@ -6,6 +6,7 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from nominal.gen.v1 import alias_pb2 as _alias_pb2
 from nominal.gen.v1 import error_pb2 as _error_pb2
 from nominal.types import types_pb2 as _types_pb2
+from nominal.versioning.v1 import versioning_pb2 as _versioning_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -287,23 +288,15 @@ class Procedure(_message.Message):
     variables: _containers.MessageMap[str, ProcedureVariable]
     def __init__(self, rid: _Optional[str] = ..., commit: _Optional[str] = ..., metadata: _Optional[_Union[ProcedureMetadata, _Mapping]] = ..., graph: _Optional[_Union[ProcedureGraph, _Mapping]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ...) -> None: ...
 
-class BranchOrCommit(_message.Message):
-    __slots__ = ("branch", "commit")
-    BRANCH_FIELD_NUMBER: _ClassVar[int]
-    COMMIT_FIELD_NUMBER: _ClassVar[int]
-    branch: str
-    commit: str
-    def __init__(self, branch: _Optional[str] = ..., commit: _Optional[str] = ...) -> None: ...
-
 class GetProcedureRequest(_message.Message):
     __slots__ = ("rid", "branch_or_commit", "include_display_graph")
     RID_FIELD_NUMBER: _ClassVar[int]
     BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
     rid: str
-    branch_or_commit: BranchOrCommit
+    branch_or_commit: _versioning_pb2.BranchOrCommit
     include_display_graph: bool
-    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[BranchOrCommit, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
+    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
 
 class ProcedureDisplayGraph(_message.Message):
     __slots__ = ("top_level_nodes", "section_to_sorted_children")
@@ -556,8 +549,8 @@ class GetProcedureAsNestedRequest(_message.Message):
     RID_FIELD_NUMBER: _ClassVar[int]
     BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
     rid: str
-    branch_or_commit: BranchOrCommit
-    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[BranchOrCommit, _Mapping]] = ...) -> None: ...
+    branch_or_commit: _versioning_pb2.BranchOrCommit
+    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ...) -> None: ...
 
 class GetProcedureAsNestedResponse(_message.Message):
     __slots__ = ("nested_procedure",)

@@ -9,7 +9,7 @@ class IPerformanceCounter(ABC):
     """
 
     @abstractmethod
-    def start(self) -> float:
+    def start(self) -> 'IPerformanceCounter':
         """
         Start the performance counter.
 
@@ -18,13 +18,13 @@ class IPerformanceCounter(ABC):
 
         Returns
         -------
-        float
-            The timestamp (in fractional seconds) at which the counter was started.
+        IPerformanceCounter
+            The instance of the performance counter for method chaining.
         """
         pass
 
     @abstractmethod
-    def stop(self) -> float:
+    def stop(self) -> 'IPerformanceCounter':
         """
         Stop the performance counter and calculate the elapsed time.
 
@@ -34,7 +34,104 @@ class IPerformanceCounter(ABC):
 
         Returns
         -------
+        IPerformanceCounter
+            The instance of the performance counter for method chaining.
+        """
+        pass
+
+    @abstractmethod
+    def elapsedTime(self) -> float:
+        """
+        Get the elapsed time between the last start and stop calls.
+
+        This method returns the elapsed time calculated during the last
+        `stop()` call. If the counter has not been started and stopped,
+        it raises an exception.
+
+        Returns
+        -------
         float
-            The elapsed time in seconds (as a float) between when `start()` and `stop()` were called.
+            The elapsed time in seconds (as a float) between the last `start()` and `stop()` calls.
+
+        Raises
+        ------
+        ValueError
+            If the counter has not been started and stopped properly.
+        """
+        pass
+
+    @abstractmethod
+    def getMicroseconds(self) -> float:
+        """
+        Get the elapsed time in microseconds.
+
+        This method returns the elapsed time in microseconds by converting
+        the value obtained from `elapsedTime()`.
+
+        Returns
+        -------
+        float
+            The elapsed time in microseconds (as a float).
+        """
+        pass
+
+    @abstractmethod
+    def getMilliseconds(self) -> float:
+        """
+        Get the elapsed time in milliseconds.
+
+        This method returns the elapsed time in milliseconds by converting
+        the value obtained from `elapsedTime()`.
+
+        Returns
+        -------
+        float
+            The elapsed time in milliseconds (as a float).
+        """
+        pass
+
+    @abstractmethod
+    def getSeconds(self) -> float:
+        """
+        Get the elapsed time in seconds.
+
+        This method returns the elapsed time in seconds, which is the same
+        value as obtained from `elapsedTime()`.
+
+        Returns
+        -------
+        float
+            The elapsed time in seconds (as a float).
+        """
+        pass
+
+    @abstractmethod
+    def getMinutes(self) -> float:
+        """
+        Get the elapsed time in minutes.
+
+        This method returns the elapsed time in minutes by converting
+        the value obtained from `elapsedTime()`.
+
+        Returns
+        -------
+        float
+            The elapsed time in minutes (as a float).
+        """
+        pass
+
+    @abstractmethod
+    def restart(self) -> float:
+        """
+        Restart the performance counter.
+
+        This method resets the start and end times to None and starts the counter again.
+        It is useful for measuring a new interval without creating a new instance of
+        PerformanceCounter.
+
+        Returns
+        -------
+        float
+            The timestamp (in fractional seconds) at which the counter was restarted.
         """
         pass

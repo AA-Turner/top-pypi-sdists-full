@@ -44,7 +44,7 @@ class LlamaExtractSettings(pydantic.BaseModel):
         description="Whether to use experimental multimodal parsing."
     )
     use_pixel_extraction: typing.Optional[bool] = pydantic.Field(
-        description="Whether to use extraction over pixels for multimodal mode."
+        description="DEPRECATED: Whether to use extraction over pixels for multimodal mode."
     )
     llama_parse_params: typing.Optional[LlamaParseParameters] = pydantic.Field(
         description="LlamaParse related settings."

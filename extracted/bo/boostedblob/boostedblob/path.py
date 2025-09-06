@@ -8,7 +8,7 @@ import functools
 import os
 import urllib.parse
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Optional, Protocol, TypeVar, Union, runtime_checkable
+from typing import Any, Callable, Mapping, Protocol, TypeVar, runtime_checkable
 
 from .request import Request, azure_auth_req, google_auth_req, xml_page_iterator
 
@@ -22,13 +22,13 @@ T = TypeVar("T")
 class BasePath:
     @staticmethod
     def from_str(path: str) -> BasePath:
+        from .path_registry import try_get_cloud_path_type
+
         url = urllib.parse.urlparse(path)
-        if url.scheme == "gs":
-            return GooglePath.from_str(path)
-        if url.scheme == "az" or (
-            url.scheme == "https" and url.netloc.endswith(".blob.core.windows.net")
-        ):
-            return AzurePath.from_str(path)
+        cloud_path_type = try_get_cloud_path_type(url)
+        if cloud_path_type:
+            return cloud_path_type.from_str(path)
+
         if url.scheme:
             raise ValueError(f"Invalid path '{path}'")
         return LocalPath(path)
@@ -36,14 +36,14 @@ class BasePath:
     @property
     def name(self) -> str:
         """Returns the name of path, normalised to exclude any trailing slash."""
-        raise NotImplementedError
+        raise NotImplementedError(f"Name not implemented for {type(self)}")
 
     @property
     def parent(self: T) -> T:
-        raise NotImplementedError
+        raise NotImplementedError(f"Parent not implemented for {type(self)}")
 
     def relative_to(self: T, other: T) -> str:
-        raise NotImplementedError
+        raise NotImplementedError(f"relative_to not implemented for {type(self)}")
 
     def is_relative_to(self: T, other: T) -> bool:
         try:
@@ -53,13 +53,13 @@ class BasePath:
             return False
 
     def is_directory_like(self) -> bool:
-        raise NotImplementedError
+        raise NotImplementedError(f"is_directory_like not implemented for {type(self)}")
 
     def ensure_directory_like(self: T) -> T:
-        raise NotImplementedError
+        raise NotImplementedError(f"ensure_directory_like not implemented for {type(self)}")
 
     def __truediv__(self: T, relative_path: str) -> T:
-        raise NotImplementedError
+        raise NotImplementedError(f"__truediv__ not implemented for {type(self)}")
 
 
 @dataclass(frozen=True)
@@ -115,7 +115,12 @@ class LocalPath(BasePath):
 
 
 class CloudPath(BasePath):
-    pass
+    @staticmethod
+    def is_cloud_path(url: urllib.parse.ParseResult) -> bool:
+        """
+        Returns True if the URL is a cloud path for this cloud provider
+        """
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -123,6 +128,12 @@ class AzurePath(CloudPath):
     account: str
     container: str
     blob: str
+
+    @staticmethod
+    def is_cloud_path(url: urllib.parse.ParseResult) -> bool:
+        return url.scheme == "az" or (
+            url.scheme == "https" and url.netloc.endswith(".blob.core.windows.net")
+        )
 
     @staticmethod
     def from_str(url: str) -> AzurePath:
@@ -176,6 +187,9 @@ class AzurePath(CloudPath):
         )
 
     def __truediv__(self, relative_path: str) -> AzurePath:
+        if not self.container and not self.blob:
+            container, _, blob = relative_path.partition("/")
+            return AzurePath(self.account, container, blob)
         return AzurePath(self.account, self.container, os.path.join(self.blob, relative_path))
 
     def __str__(self) -> str:
@@ -195,6 +209,10 @@ class AzurePath(CloudPath):
 class GooglePath(CloudPath):
     bucket: str
     blob: str
+
+    @staticmethod
+    def is_cloud_path(url: urllib.parse.ParseResult) -> bool:
+        return url.scheme == "gs"
 
     @staticmethod
     def from_str(url: str) -> GooglePath:
@@ -283,8 +301,8 @@ class Stat:
     size: int
     mtime: float
     ctime: float
-    md5: Optional[str]
-    version: Optional[str]
+    md5: str | None
+    version: str | None
 
 
 class AzureStat(Stat):
@@ -305,11 +323,11 @@ class AzureStat(Stat):
         self._raw_ctime = (
             item["Creation-Time"] if "Creation-Time" in item else item["x-ms-creation-time"]
         )
-        self._ctime: Optional[float] = None
+        self._ctime: float | None = None
         self._raw_mtime = item["Last-Modified"]
-        self._mtime: Optional[float] = None
+        self._mtime: float | None = None
         self._raw_md5 = item.get("Content-MD5")
-        self._md5: Optional[str] = ""
+        self._md5: str | None = ""
 
     @property
     def ctime(self) -> float:  # type: ignore[override]
@@ -324,7 +342,7 @@ class AzureStat(Stat):
         return self._mtime
 
     @property
-    def md5(self) -> Optional[str]:  # type: ignore[override]
+    def md5(self) -> str | None:  # type: ignore[override]
         if self._md5 == "":
             self._md5 = _azure_get_md5(self._raw_md5)
         return self._md5
@@ -382,7 +400,7 @@ class LocalStat(Stat):
 
 
 @pathdispatch
-async def stat(path: Union[BasePath, BlobPath, str]) -> Stat:
+async def stat(path: BasePath | BlobPath | str) -> Stat:
     raise ValueError(f"Unsupported path: {path}")
 
 
@@ -426,7 +444,7 @@ async def _local_stat(path: LocalPath) -> LocalStat:
 
 
 @pathdispatch
-async def getsize(path: Union[BasePath, BlobPath, str]) -> int:
+async def getsize(path: BasePath | BlobPath | str) -> int:
     s = await stat(path)
     return s.size
 
@@ -437,7 +455,7 @@ async def getsize(path: Union[BasePath, BlobPath, str]) -> int:
 
 
 @pathdispatch
-async def isdir(path: Union[BasePath, BlobPath, str], raise_on_missing: bool = False) -> bool:
+async def isdir(path: BasePath | BlobPath | str, raise_on_missing: bool = False) -> bool:
     """Check whether ``path`` is a directory.
 
     :param path: The path that could be a directory.
@@ -533,7 +551,7 @@ async def _local_isdir(path: LocalPath) -> bool:
 
 
 @pathdispatch
-async def isfile(path: Union[BasePath, BlobPath, str]) -> bool:
+async def isfile(path: BasePath | BlobPath | str) -> bool:
     raise ValueError(f"Unsupported path: {path}")
 
 
@@ -557,12 +575,12 @@ async def _local_isfile(path: LocalPath) -> bool:
 
 
 @pathdispatch
-async def exists(path: Union[BasePath, BlobPath, str]) -> int:
+async def exists(path: BasePath | BlobPath | str) -> int:
     raise ValueError(f"Unsupported path: {path}")
 
 
 @exists.register  # type: ignore
-async def _cloud_exists(path: CloudPath) -> int:
+async def _cloud_exists(path: CloudPath) -> bool:
     # TODO: this is two network requests, make it one
     for fut in asyncio.as_completed([isfile(path), isdir(path)]):
         if await fut:
@@ -571,7 +589,7 @@ async def _cloud_exists(path: CloudPath) -> int:
 
 
 @exists.register  # type: ignore
-async def _local_exists(path: LocalPath) -> int:
+async def _local_exists(path: LocalPath) -> bool:
     return os.path.exists(path)
 
 
@@ -595,7 +613,7 @@ def _azure_parse_timestamp(text: str) -> float:
     return email.utils.parsedate_to_datetime(text).timestamp()
 
 
-def _azure_get_md5(content_md5: Optional[str]) -> Optional[str]:
+def _azure_get_md5(content_md5: str | None) -> str | None:
     if content_md5 is None:
         return None
     return base64.b64decode(content_md5).hex()
@@ -605,7 +623,7 @@ def _google_parse_timestamp(text: str) -> float:
     return datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
 
 
-def _google_get_md5(metadata: Mapping[str, Any]) -> Optional[str]:
+def _google_get_md5(metadata: Mapping[str, Any]) -> str | None:
     if "md5Hash" in metadata:
         return base64.b64decode(metadata["md5Hash"]).hex()
 

@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.nats_trigger_retry_constant import NatsTriggerRetryConstant
     from ..models.nats_trigger_retry_exponential import NatsTriggerRetryExponential
+    from ..models.nats_trigger_retry_retry_if import NatsTriggerRetryRetryIf
 
 
 T = TypeVar("T", bound="NatsTriggerRetry")
@@ -19,10 +20,12 @@ class NatsTriggerRetry:
     Attributes:
         constant (Union[Unset, NatsTriggerRetryConstant]):
         exponential (Union[Unset, NatsTriggerRetryExponential]):
+        retry_if (Union[Unset, NatsTriggerRetryRetryIf]):
     """
 
     constant: Union[Unset, "NatsTriggerRetryConstant"] = UNSET
     exponential: Union[Unset, "NatsTriggerRetryExponential"] = UNSET
+    retry_if: Union[Unset, "NatsTriggerRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class NatsTriggerRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class NatsTriggerRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class NatsTriggerRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.nats_trigger_retry_constant import NatsTriggerRetryConstant
         from ..models.nats_trigger_retry_exponential import NatsTriggerRetryExponential
+        from ..models.nats_trigger_retry_retry_if import NatsTriggerRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class NatsTriggerRetry:
         else:
             exponential = NatsTriggerRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, NatsTriggerRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = NatsTriggerRetryRetryIf.from_dict(_retry_if)
+
         nats_trigger_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         nats_trigger_retry.additional_properties = d

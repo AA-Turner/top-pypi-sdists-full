@@ -3,8 +3,13 @@
 from collections.abc import AsyncIterable, AsyncIterator
 from typing import Any
 
-from ..types import ClaudeCodeOptions, Message
+from ..types import (
+    ClaudeCodeOptions,
+    Message,
+)
 from .message_parser import parse_message
+from .query import Query
+from .transport import Transport
 from .transport.subprocess_cli import SubprocessCLITransport
 
 
@@ -14,20 +19,76 @@ class InternalClient:
     def __init__(self) -> None:
         """Initialize the internal client."""
 
-    async def process_query(
-        self, prompt: str | AsyncIterable[dict[str, Any]], options: ClaudeCodeOptions
-    ) -> AsyncIterator[Message]:
-        """Process a query through transport."""
+    def _convert_hooks_to_internal_format(
+        self, hooks: dict[str, list[Any]]
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Convert HookMatcher format to internal Query format."""
+        internal_hooks: dict[str, list[dict[str, Any]]] = {}
+        for event, matchers in hooks.items():
+            internal_hooks[event] = []
+            for matcher in matchers:
+                # Convert HookMatcher to internal dict format
+                internal_matcher = {
+                    "matcher": matcher.matcher if hasattr(matcher, "matcher") else None,
+                    "hooks": matcher.hooks if hasattr(matcher, "hooks") else [],
+                }
+                internal_hooks[event].append(internal_matcher)
+        return internal_hooks
 
-        transport = SubprocessCLITransport(
-            prompt=prompt, options=options, close_stdin_after_prompt=True
+    async def process_query(
+        self,
+        prompt: str | AsyncIterable[dict[str, Any]],
+        options: ClaudeCodeOptions,
+        transport: Transport | None = None,
+    ) -> AsyncIterator[Message]:
+        """Process a query through transport and Query."""
+
+        # Use provided transport or create subprocess transport
+        if transport is not None:
+            chosen_transport = transport
+        else:
+            chosen_transport = SubprocessCLITransport(prompt=prompt, options=options)
+
+        # Connect transport
+        await chosen_transport.connect()
+
+        # Extract SDK MCP servers from options
+        sdk_mcp_servers = {}
+        if options.mcp_servers and isinstance(options.mcp_servers, dict):
+            for name, config in options.mcp_servers.items():
+                if isinstance(config, dict) and config.get("type") == "sdk":
+                    sdk_mcp_servers[name] = config["instance"]  # type: ignore[typeddict-item]
+
+        # Create Query to handle control protocol
+        is_streaming = not isinstance(prompt, str)
+        query = Query(
+            transport=chosen_transport,
+            is_streaming_mode=is_streaming,
+            can_use_tool=options.can_use_tool,
+            hooks=self._convert_hooks_to_internal_format(options.hooks)
+            if options.hooks
+            else None,
+            sdk_mcp_servers=sdk_mcp_servers,
         )
 
         try:
-            await transport.connect()
+            # Start reading messages
+            await query.start()
 
-            async for data in transport.receive_messages():
+            # Initialize if streaming
+            if is_streaming:
+                await query.initialize()
+
+            # Stream input if it's an AsyncIterable
+            if isinstance(prompt, AsyncIterable) and query._tg:
+                # Start streaming in background
+                # Create a task that will run in the background
+                query._tg.start_soon(query.stream_input, prompt)
+            # For string prompts, the prompt is already passed via CLI args
+
+            # Yield parsed messages
+            async for data in query.receive_messages():
                 yield parse_message(data)
 
         finally:
-            await transport.disconnect()
+            await query.close()

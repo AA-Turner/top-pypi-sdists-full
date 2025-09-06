@@ -21,6 +21,7 @@ Usage::
         ExportTaskCompletedWaiter,
         ImageAvailableWaiter,
         ImageExistsWaiter,
+        ImageUsageReportAvailableWaiter,
         InstanceExistsWaiter,
         InstanceRunningWaiter,
         InstanceStatusOkWaiter,
@@ -65,6 +66,7 @@ Usage::
         export_task_completed_waiter: ExportTaskCompletedWaiter = client.get_waiter("export_task_completed")
         image_available_waiter: ImageAvailableWaiter = client.get_waiter("image_available")
         image_exists_waiter: ImageExistsWaiter = client.get_waiter("image_exists")
+        image_usage_report_available_waiter: ImageUsageReportAvailableWaiter = client.get_waiter("image_usage_report_available")
         instance_exists_waiter: InstanceExistsWaiter = client.get_waiter("instance_exists")
         instance_running_waiter: InstanceRunningWaiter = client.get_waiter("instance_running")
         instance_status_ok_waiter: InstanceStatusOkWaiter = client.get_waiter("instance_status_ok")
@@ -113,6 +115,7 @@ from .type_defs import (
     DescribeExportTasksRequestWaitTypeDef,
     DescribeImagesRequestWaitExtraTypeDef,
     DescribeImagesRequestWaitTypeDef,
+    DescribeImageUsageReportsRequestWaitTypeDef,
     DescribeImportSnapshotTasksRequestWaitTypeDef,
     DescribeInstancesRequestWaitExtraExtraExtraTypeDef,
     DescribeInstancesRequestWaitExtraExtraTypeDef,
@@ -159,6 +162,7 @@ __all__ = (
     "ExportTaskCompletedWaiter",
     "ImageAvailableWaiter",
     "ImageExistsWaiter",
+    "ImageUsageReportAvailableWaiter",
     "InstanceExistsWaiter",
     "InstanceRunningWaiter",
     "InstanceStatusOkWaiter",
@@ -305,6 +309,19 @@ class ImageExistsWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/ImageExists.html#EC2.Waiter.ImageExists.wait)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/waiters/#imageexistswaiter)
+        """
+
+class ImageUsageReportAvailableWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/ImageUsageReportAvailable.html#EC2.Waiter.ImageUsageReportAvailable)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/waiters/#imageusagereportavailablewaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeImageUsageReportsRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/ImageUsageReportAvailable.html#EC2.Waiter.ImageUsageReportAvailable.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/waiters/#imageusagereportavailablewaiter)
         """
 
 class InstanceExistsWaiter(AIOWaiter):

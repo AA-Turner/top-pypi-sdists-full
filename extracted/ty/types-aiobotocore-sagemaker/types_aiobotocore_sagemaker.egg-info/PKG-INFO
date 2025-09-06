@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-sagemaker
-Version: 2.24.1
-Summary: Type annotations for aiobotocore SageMaker 2.24.1 service generated with mypy-boto3-builder 8.11.0
+Version: 2.24.2
+Summary: Type annotations for aiobotocore SageMaker 2.24.2 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore SageMaker 2.24.1](https://pypi.org/project/aiobotocore/)
+[aiobotocore SageMaker 2.24.2](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.24.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.24.2' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -358,6 +358,7 @@ from types_aiobotocore_sagemaker.paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListClusterEventsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -424,6 +425,7 @@ from types_aiobotocore_sagemaker.paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -453,6 +455,9 @@ async with session.create_client("sagemaker") as client:
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = (
         client.get_paginator("list_candidates_for_auto_ml_job")
+    )
+    list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator(
+        "list_cluster_events"
     )
     list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator(
         "list_cluster_nodes"
@@ -626,6 +631,9 @@ async with session.create_client("sagemaker") as client:
         "list_trial_components"
     )
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+    list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = client.get_paginator(
+        "list_ultra_servers_by_reserved_capacity"
+    )
     list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator(
         "list_user_profiles"
     )

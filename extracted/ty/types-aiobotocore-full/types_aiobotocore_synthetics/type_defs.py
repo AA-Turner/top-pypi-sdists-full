@@ -23,6 +23,7 @@ from typing import IO, Any, Union
 from aiobotocore.response import StreamingBody
 
 from .literals import (
+    BrowserTypeType,
     CanaryRunStateReasonCodeType,
     CanaryRunStateType,
     CanaryRunTestResultType,
@@ -53,6 +54,7 @@ __all__ = (
     "BaseScreenshotTypeDef",
     "BaseScreenshotUnionTypeDef",
     "BlobTypeDef",
+    "BrowserConfigTypeDef",
     "CanaryCodeInputTypeDef",
     "CanaryCodeOutputTypeDef",
     "CanaryDryRunConfigOutputTypeDef",
@@ -82,6 +84,7 @@ __all__ = (
     "DescribeRuntimeVersionsResponseTypeDef",
     "DisassociateResourceRequestTypeDef",
     "DryRunConfigOutputTypeDef",
+    "EngineConfigTypeDef",
     "GetCanaryRequestTypeDef",
     "GetCanaryResponseTypeDef",
     "GetCanaryRunsRequestTypeDef",
@@ -138,6 +141,12 @@ class BaseScreenshotTypeDef(TypedDict):
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+
+class BrowserConfigTypeDef(TypedDict):
+    BrowserType: NotRequired[BrowserTypeType]
+
+
 DependencyTypeDef = TypedDict(
     "DependencyTypeDef",
     {
@@ -205,6 +214,11 @@ class DryRunConfigOutputTypeDef(TypedDict):
     LastDryRunExecutionStatus: NotRequired[str]
 
 
+class EngineConfigTypeDef(TypedDict):
+    EngineArn: NotRequired[str]
+    BrowserType: NotRequired[BrowserTypeType]
+
+
 class VpcConfigOutputTypeDef(TypedDict):
     VpcId: NotRequired[str]
     SubnetIds: NotRequired[List[str]]
@@ -253,6 +267,7 @@ class DescribeCanariesLastRunRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Names: NotRequired[Sequence[str]]
+    BrowserType: NotRequired[BrowserTypeType]
 
 
 class DescribeCanariesRequestTypeDef(TypedDict):
@@ -351,6 +366,7 @@ class ArtifactConfigOutputTypeDef(TypedDict):
 class VisualReferenceOutputTypeDef(TypedDict):
     BaseScreenshots: NotRequired[List[BaseScreenshotOutputTypeDef]]
     BaseCanaryRunId: NotRequired[str]
+    BrowserType: NotRequired[BrowserTypeType]
 
 
 BaseScreenshotUnionTypeDef = Union[BaseScreenshotTypeDef, BaseScreenshotOutputTypeDef]
@@ -380,6 +396,7 @@ class CanaryRunTypeDef(TypedDict):
     Timeline: NotRequired[CanaryRunTimelineTypeDef]
     ArtifactS3Location: NotRequired[str]
     DryRunConfig: NotRequired[CanaryDryRunConfigOutputTypeDef]
+    BrowserType: NotRequired[BrowserTypeType]
 
 
 class CanaryScheduleInputTypeDef(TypedDict):
@@ -441,6 +458,7 @@ class ListGroupsResponseTypeDef(TypedDict):
 class VisualReferenceInputTypeDef(TypedDict):
     BaseCanaryRunId: str
     BaseScreenshots: NotRequired[Sequence[BaseScreenshotUnionTypeDef]]
+    BrowserType: NotRequired[BrowserTypeType]
 
 
 class CanaryLastRunTypeDef(TypedDict):
@@ -467,6 +485,7 @@ class CreateCanaryRequestTypeDef(TypedDict):
     VpcConfig: NotRequired[VpcConfigInputTypeDef]
     ResourcesToReplicateTags: NotRequired[Sequence[Literal["lambda-function"]]]
     ProvisionedResourceCleanup: NotRequired[ProvisionedResourceCleanupSettingType]
+    BrowserConfigs: NotRequired[Sequence[BrowserConfigTypeDef]]
     Tags: NotRequired[Mapping[str, str]]
     ArtifactConfig: NotRequired[ArtifactConfigInputTypeDef]
 
@@ -488,6 +507,9 @@ class CanaryTypeDef(TypedDict):
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
     VisualReference: NotRequired[VisualReferenceOutputTypeDef]
     ProvisionedResourceCleanup: NotRequired[ProvisionedResourceCleanupSettingType]
+    BrowserConfigs: NotRequired[List[BrowserConfigTypeDef]]
+    EngineConfigs: NotRequired[List[EngineConfigTypeDef]]
+    VisualReferences: NotRequired[List[VisualReferenceOutputTypeDef]]
     Tags: NotRequired[Dict[str, str]]
     ArtifactConfig: NotRequired[ArtifactConfigOutputTypeDef]
     DryRunConfig: NotRequired[DryRunConfigOutputTypeDef]
@@ -506,6 +528,8 @@ class StartCanaryDryRunRequestTypeDef(TypedDict):
     ArtifactS3Location: NotRequired[str]
     ArtifactConfig: NotRequired[ArtifactConfigInputTypeDef]
     ProvisionedResourceCleanup: NotRequired[ProvisionedResourceCleanupSettingType]
+    BrowserConfigs: NotRequired[Sequence[BrowserConfigTypeDef]]
+    VisualReferences: NotRequired[Sequence[VisualReferenceInputTypeDef]]
 
 
 class UpdateCanaryRequestTypeDef(TypedDict):
@@ -523,6 +547,8 @@ class UpdateCanaryRequestTypeDef(TypedDict):
     ArtifactConfig: NotRequired[ArtifactConfigInputTypeDef]
     ProvisionedResourceCleanup: NotRequired[ProvisionedResourceCleanupSettingType]
     DryRunId: NotRequired[str]
+    VisualReferences: NotRequired[Sequence[VisualReferenceInputTypeDef]]
+    BrowserConfigs: NotRequired[Sequence[BrowserConfigTypeDef]]
 
 
 class DescribeCanariesLastRunResponseTypeDef(TypedDict):

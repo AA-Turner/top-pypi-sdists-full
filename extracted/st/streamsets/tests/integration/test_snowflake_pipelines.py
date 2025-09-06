@@ -198,8 +198,11 @@ def test_get_all_filter_by_organization_and_version(sch):
 
 @pytest.mark.snowflake
 def test_get_all_filter_by_text(sch, sample_pipelines):
+    expected_number_of_pipelines = len(
+        [pipeline for pipeline in sch.pipelines if "pipeline_snowflake_test_" in pipeline.name]
+    )
     pipelines = sch.pipelines.get_all(filter_text='pipeline_snowflake_test_')
-    assert len(pipelines) == NUM_PIPELINES
+    assert len(pipelines) == expected_number_of_pipelines
 
 
 # ACL tests

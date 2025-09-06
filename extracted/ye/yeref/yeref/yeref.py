@@ -142,6 +142,7 @@ ferey_logo_person = 'https://fereysitnerya.github.io/ferey/nft-logo-person.png'
 ferey_thumb = 'https://telegra.ph/file/bf7d8c073cdfa91b6d624.jpg'
 ferey_theme = 'https://t.me/addtheme/lzbKZktZjqv5VDdY'
 ferey_wp = 'https://t.me/bg/Mr2tXPkzQUoGAgAAv-ssUh01-P4'
+ferey_bg_img = 'https://fereysitnerya.github.io/ferey/ferey_theme.img'
 ferey_set = 'https://t.me/addstickers/ferey_sticker_by_FereyStickerBot'
 ferey_emoji = 'https://t.me/addemoji/ferey_emoji_by_FereyStickerBot'
 
@@ -15016,6 +15017,15 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
         ENT_TOKENTGPH = account_['access_token']
         ENT_PAGETGPH = page_1['url']
         # ENT_JSONTGPH = page_2['url']
+
+        PROJECT_TYPE = "BOT"
+        if PROJECT_TYPE.upper() == "USER":
+            PROJECT_TYPE = "UB"
+        elif PROJECT_TYPE.upper() == "CHANNEL":
+            PROJECT_TYPE = "CHANNEL"
+        elif PROJECT_TYPE.upper() == "GROUP":
+            PROJECT_TYPE = "GROUPP"
+
         sql = f"""
             UPDATE "{PROJECT_TYPE}" 
             SET {PROJECT_TYPE}_TOKENTGPH=$1, {PROJECT_TYPE}_PAGETGPH=$2, {PROJECT_TYPE}_JSONTGPH=$3 

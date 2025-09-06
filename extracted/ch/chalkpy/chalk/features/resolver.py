@@ -635,6 +635,8 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         data_lineage: Dict[str, Dict[str, Dict[str, List[str]]]] | None,
         sql_settings: SQLResolverSettings | None,
         resource_group: str | None = None,
+        output_row_order: Literal["one-to-one"] | None = None,
+        venv: str | None = None,
         name: None = None,  # deprecated
     ):
         self._function_definition = ... if function_definition is None else function_definition
@@ -669,6 +671,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self.name = fqn.split(".")[-1]
         self.resource_hint = resource_hint
         self.resource_group = resource_group
+        self.venv = venv
         self._parse = parse
         self.static = static
         self.total = total
@@ -677,6 +680,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._partitioned_by = partitioned_by
         self._data_lineage = data_lineage
         self._sql_settings = sql_settings
+        self.output_row_order = output_row_order
         super().__init__()
 
     @property
@@ -2161,6 +2165,8 @@ def online(
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
 ) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
     ...
 
@@ -2190,6 +2196,8 @@ def online(
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
 ) -> Union[Callable[[Callable[P, T]], ResolverProtocol[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create an online resolver.
 
@@ -2276,6 +2284,33 @@ def online(
         The resource group for the resolver: this is used to isolate execution of
         the resolver onto a separate pod (or set of nodes), allowing model inference
         to be run in a separate environment, such as on a GPU-enabled node.
+    output_row_order
+        If set to "one-to-one", signals the planner that this resolver is logically equivalent
+        to a batched scalar resolver. A resolver marked `output_row_order="one-to-one"` must adhere
+        to the following constraints:
+
+            - the resolver must take in one dataframe input and return a dataframe output
+            - both the input and the output must have the pkey column
+            - the operation must be logically one-to-one - ie all corresponding input rows have a corresponding output row
+            - the order of the rows must be preserved
+
+        Here is an example resolver that can be marked one-to-one to batch the account_ids lookup
+
+        >>> @online(output_row_order="one-to-one")
+        ... def my_one_to_one_df_resolver(
+        ...     input: DataFrame[User.id, User.account_info]
+        ... ) -> DataFrame[User.id, User.account_ids]:
+        ...     input_as_pydict = input.to_pyarrow().to_pydict()
+        ...     info_to_ids_map = get_batch_info_to_ids_map(input_as_pydict)
+        ...     return DataFrame({
+        ...         User.id: input_as_pydict[str(User.id)],
+        ...         User.account_info: [
+        ...             info_to_ids_map.get(info, []) for info in input_as_pydict[str(User.account_info)]
+        ...         ]
+        ...     })
+    venv
+        A virtual environment to use for the resolver. This is used to isolate the resolver
+        from the default requirements, allowing different versions of packages to be used.
 
     Returns
     -------
@@ -2354,6 +2389,8 @@ def online(
             data_lineage=None,
             sql_settings=None,
             resource_group=resource_group,
+            output_row_order=output_row_order,
+            venv=venv,
         )
 
         resolver.add_to_registry(override=False)
@@ -2378,6 +2415,8 @@ def offline(
     total: bool = False,
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
 ) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
     ...
 
@@ -2406,6 +2445,8 @@ def offline(
     total: bool = False,
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
 ) -> Union[Callable[[Callable[P, T]], Callable[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create an offline resolver.
 
@@ -2487,6 +2528,33 @@ def offline(
         This field indicates that this resolver executes its query against a data storage system that is
         partitioned by a particular set of columns.
         This is most common with data-warehouse sources like Snowflake, BigQuery or Databricks.
+    output_row_order
+        If set to "one-to-one", signals the planner that this resolver is logically equivalent
+        to a batched scalar resolver. A resolver marked `output_row_order="one-to-one"` must adhere
+        to the following constraints:
+
+            - the resolver must take in one dataframe input and return a dataframe output
+            - both the input and the output must have the pkey column
+            - the operation must be logically one-to-one - ie all corresponding input rows have a corresponding output row
+            - the order of the rows must be preserved
+
+        Here is an example resolver that can be marked one-to-one to batch the account_ids lookup
+
+        >>> @offline(output_row_order="one-to-one")
+        ... def my_one_to_one_df_resolver(
+        ...     input: DataFrame[User.id, User.account_info]
+        ... ) -> DataFrame[User.id, User.account_ids]:
+        ...     input_as_pydict = input.to_pyarrow().to_pydict()
+        ...     info_to_ids_map = get_batch_info_to_ids_map(input_as_pydict)
+        ...     return DataFrame({
+        ...         User.id: input_as_pydict[str(User.id)],
+        ...         User.account_info: [
+        ...             info_to_ids_map.get(info, []) for info in input_as_pydict[str(User.account_info)]
+        ...         ]
+        ...     })
+    venv
+        A virtual environment to use for the resolver. This is used to isolate the resolver
+        from the default requirements, allowing different versions of packages to be used.
 
     Returns
     -------
@@ -2556,6 +2624,8 @@ def offline(
             partitioned_by=None,
             data_lineage=None,
             sql_settings=None,
+            output_row_order=output_row_order,
+            venv=venv,
         )
         resolver.add_to_registry(override=False)
         return resolver

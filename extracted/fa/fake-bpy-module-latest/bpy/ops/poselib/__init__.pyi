@@ -142,7 +142,6 @@ def create_pose_asset(
     pose_name: str = "",
     asset_library_reference: str | None = "",
     catalog_path: str = "",
-    activate_new_action: bool | None = False,
 ) -> None:
     """Create a new asset from the selected bones in the scene
 
@@ -154,8 +153,6 @@ def create_pose_asset(
     :type asset_library_reference: str | None
     :param catalog_path: Catalog, Catalog to use for the new asset
     :type catalog_path: str
-    :param activate_new_action: Activate New Action, This property is deprecated and will be removed in the future
-    :type activate_new_action: bool | None
     """
 
 def paste_asset(

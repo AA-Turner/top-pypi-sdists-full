@@ -1,6 +1,6 @@
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.17.0"
+version = "1.18.0"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version",
@@ -215,6 +215,7 @@ pylint = [
     "-W1203",
     "-W1201",
     "-C0301",
+    "-R0917",
 ]
 mccabe = [
     "+*",
@@ -234,6 +235,12 @@ pyflakes = [
 ]
 
 [tool.flakeheaven.exceptions."tests/"]
+flake8-aaa = [
+    "-AAA01",
+    "-AAA03",
+    "-AAA04",
+    "-AAA05",
+]
 flake8-docstrings = [
     "-D205",
     "-D212",
@@ -242,13 +249,21 @@ flake8-docstrings = [
 ]
 flake8-annotations = [
     "-ANN001",
+    "-ANN201",
     "-ANN401",
+]
+flake8-pytest-style = [
+    "-PT023",
 ]
 pylint = [
     "-R0201",
     "-W0613",
+    "-W0621",
     "-R0904",
     "-C0302",
+]
+pycodestyle = [
+    "-E501",
 ]
 
 [tool.flakeheaven.exceptions."tests/factories.py"]
@@ -328,14 +343,13 @@ classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Topic :: Utilities",
     "Natural Language :: English",
 ]
-version = "1.17.0"
+version = "1.18.0"
 
 [project.license]
 text = "GPL-3.0-only"

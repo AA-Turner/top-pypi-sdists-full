@@ -451,6 +451,21 @@ def is_sm100a_supported(device: torch.device) -> bool:
     return major == 10 and version_at_least(torch.version.cuda, "12.8")
 
 
+def is_sm110a_supported(device: torch.device) -> bool:
+    major, _ = get_compute_capability(device)
+    return major == 11 and version_at_least(torch.version.cuda, "13.0")
+
+
+def is_sm120a_supported(device: torch.device) -> bool:
+    major, minor = get_compute_capability(device)
+    return major == 12 and minor == 0 and version_at_least(torch.version.cuda, "12.8")
+
+
+def is_sm121a_supported(device: torch.device) -> bool:
+    major, minor = get_compute_capability(device)
+    return major == 12 and minor == 1 and version_at_least(torch.version.cuda, "12.9")
+
+
 def determine_mla_backend(device: torch.device) -> str:
     return "fa3" if is_sm90a_supported(device) else "fa2"
 
@@ -476,7 +491,7 @@ def check_shape_dtype_device(
         )
 
 
-def get_logging_module():
+def gen_logging_module():
     return gen_jit_spec(
         "logging",
         [
@@ -486,7 +501,12 @@ def get_logging_module():
             jit_env.SPDLOG_INCLUDE_DIR,
             jit_env.FLASHINFER_INCLUDE_DIR,
         ],
-    ).build_and_load()
+    )
+
+
+@functools.cache
+def get_logging_module():
+    return gen_logging_module().build_and_load()
 
 
 class LogLevel(Enum):

@@ -78,6 +78,7 @@ __all__ = (
     "MessageUsefulnessType",
     "NumberAttributeBoostingTypeType",
     "OrchestrationControlType",
+    "OutputFormatType",
     "PaginatorName",
     "PermissionConditionOperatorType",
     "PersonalizationControlModeType",
@@ -219,6 +220,7 @@ MessageUsefulnessReasonType = Literal[
 MessageUsefulnessType = Literal["NOT_USEFUL", "USEFUL"]
 NumberAttributeBoostingTypeType = Literal["PRIORITIZE_LARGER_VALUES", "PRIORITIZE_SMALLER_VALUES"]
 OrchestrationControlType = Literal["DISABLED", "ENABLED"]
+OutputFormatType = Literal["EXTRACTED", "RAW"]
 PermissionConditionOperatorType = Literal["StringEquals"]
 PersonalizationControlModeType = Literal["DISABLED", "ENABLED"]
 PluginBuildStatusType = Literal[
@@ -304,6 +306,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -315,8 +318,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

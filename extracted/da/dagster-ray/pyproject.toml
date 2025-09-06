@@ -70,6 +70,7 @@ dev = [
     "dunamai>=1.22.0",
     "pip>=24.2",
     "ipython>=8.12.3",
+    "syrupy>=4.9.1",
 ]
 
 [tool.hatch.version]
@@ -120,6 +121,7 @@ banned-module-level-imports = ["ray", "kubernetes", "torch"]
 
 [tool.pyright]
 pythonVersion = "3.9"
+typeCheckingMode = "standard"
 failOnWarnings = false
 reportPropertyTypeMismatch = true
 reportImportCycles = true
@@ -129,6 +131,18 @@ reportUntypedClassDecorator = true
 reportAny = false
 reportExplicitAny = false
 reportUnusedCallResult = false
+reportAttributeAccessIssue = "error"
+reportGeneralTypeIssues = "error"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+reportUnknownLambdaType = "none"
+reportMissingTypeStubs = false
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportOverlappingOverload = true
+# reportPrivateUsage = "warning"
 
 include = [
     "dagster_ray",

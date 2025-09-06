@@ -21,19 +21,30 @@ from __future__ import annotations
 
 import sys
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListLinkedWhatsAppBusinessAccountsPaginator
+from .paginator import (
+    ListLinkedWhatsAppBusinessAccountsPaginator,
+    ListWhatsAppMessageTemplatesPaginator,
+    ListWhatsAppTemplateLibraryPaginator,
+)
 from .type_defs import (
     AssociateWhatsAppBusinessAccountInputTypeDef,
     AssociateWhatsAppBusinessAccountOutputTypeDef,
+    CreateWhatsAppMessageTemplateFromLibraryInputTypeDef,
+    CreateWhatsAppMessageTemplateFromLibraryOutputTypeDef,
+    CreateWhatsAppMessageTemplateInputTypeDef,
+    CreateWhatsAppMessageTemplateMediaInputTypeDef,
+    CreateWhatsAppMessageTemplateMediaOutputTypeDef,
+    CreateWhatsAppMessageTemplateOutputTypeDef,
     DeleteWhatsAppMessageMediaInputTypeDef,
     DeleteWhatsAppMessageMediaOutputTypeDef,
+    DeleteWhatsAppMessageTemplateInputTypeDef,
     DisassociateWhatsAppBusinessAccountInputTypeDef,
     GetLinkedWhatsAppBusinessAccountInputTypeDef,
     GetLinkedWhatsAppBusinessAccountOutputTypeDef,
@@ -41,10 +52,16 @@ from .type_defs import (
     GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
     GetWhatsAppMessageMediaInputTypeDef,
     GetWhatsAppMessageMediaOutputTypeDef,
+    GetWhatsAppMessageTemplateInputTypeDef,
+    GetWhatsAppMessageTemplateOutputTypeDef,
     ListLinkedWhatsAppBusinessAccountsInputTypeDef,
     ListLinkedWhatsAppBusinessAccountsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    ListWhatsAppMessageTemplatesInputTypeDef,
+    ListWhatsAppMessageTemplatesOutputTypeDef,
+    ListWhatsAppTemplateLibraryInputTypeDef,
+    ListWhatsAppTemplateLibraryOutputTypeDef,
     PostWhatsAppMessageMediaInputTypeDef,
     PostWhatsAppMessageMediaOutputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
@@ -54,6 +71,7 @@ from .type_defs import (
     TagResourceOutputTypeDef,
     UntagResourceInputTypeDef,
     UntagResourceOutputTypeDef,
+    UpdateWhatsAppMessageTemplateInputTypeDef,
 )
 
 if sys.version_info >= (3, 9):
@@ -76,6 +94,7 @@ class Exceptions(BaseClientExceptions):
     DependencyException: Type[BotocoreClientError]
     InternalServiceException: Type[BotocoreClientError]
     InvalidParametersException: Type[BotocoreClientError]
+    LimitExceededException: Type[BotocoreClientError]
     ResourceNotFoundException: Type[BotocoreClientError]
     ThrottledRequestException: Type[BotocoreClientError]
     ValidationException: Type[BotocoreClientError]
@@ -126,6 +145,37 @@ class EndUserMessagingSocialClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#associate_whatsapp_business_account)
         """
 
+    async def create_whatsapp_message_template(
+        self, **kwargs: Unpack[CreateWhatsAppMessageTemplateInputTypeDef]
+    ) -> CreateWhatsAppMessageTemplateOutputTypeDef:
+        """
+        Creates a new WhatsApp message template from a custom definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_message_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#create_whatsapp_message_template)
+        """
+
+    async def create_whatsapp_message_template_from_library(
+        self, **kwargs: Unpack[CreateWhatsAppMessageTemplateFromLibraryInputTypeDef]
+    ) -> CreateWhatsAppMessageTemplateFromLibraryOutputTypeDef:
+        """
+        Creates a new WhatsApp message template using a template from Meta's template
+        library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_message_template_from_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#create_whatsapp_message_template_from_library)
+        """
+
+    async def create_whatsapp_message_template_media(
+        self, **kwargs: Unpack[CreateWhatsAppMessageTemplateMediaInputTypeDef]
+    ) -> CreateWhatsAppMessageTemplateMediaOutputTypeDef:
+        """
+        Uploads media for use in a WhatsApp message template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_message_template_media.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#create_whatsapp_message_template_media)
+        """
+
     async def delete_whatsapp_message_media(
         self, **kwargs: Unpack[DeleteWhatsAppMessageMediaInputTypeDef]
     ) -> DeleteWhatsAppMessageMediaOutputTypeDef:
@@ -134,6 +184,16 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/delete_whatsapp_message_media.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#delete_whatsapp_message_media)
+        """
+
+    async def delete_whatsapp_message_template(
+        self, **kwargs: Unpack[DeleteWhatsAppMessageTemplateInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a WhatsApp message template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/delete_whatsapp_message_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#delete_whatsapp_message_template)
         """
 
     async def disassociate_whatsapp_business_account(
@@ -178,6 +238,16 @@ class EndUserMessagingSocialClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_whatsapp_message_media)
         """
 
+    async def get_whatsapp_message_template(
+        self, **kwargs: Unpack[GetWhatsAppMessageTemplateInputTypeDef]
+    ) -> GetWhatsAppMessageTemplateOutputTypeDef:
+        """
+        Retrieves a specific WhatsApp message template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_message_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_whatsapp_message_template)
+        """
+
     async def list_linked_whatsapp_business_accounts(
         self, **kwargs: Unpack[ListLinkedWhatsAppBusinessAccountsInputTypeDef]
     ) -> ListLinkedWhatsAppBusinessAccountsOutputTypeDef:
@@ -196,6 +266,26 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#list_tags_for_resource)
+        """
+
+    async def list_whatsapp_message_templates(
+        self, **kwargs: Unpack[ListWhatsAppMessageTemplatesInputTypeDef]
+    ) -> ListWhatsAppMessageTemplatesOutputTypeDef:
+        """
+        Lists WhatsApp message templates for a specific WhatsApp Business Account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/list_whatsapp_message_templates.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#list_whatsapp_message_templates)
+        """
+
+    async def list_whatsapp_template_library(
+        self, **kwargs: Unpack[ListWhatsAppTemplateLibraryInputTypeDef]
+    ) -> ListWhatsAppTemplateLibraryOutputTypeDef:
+        """
+        Lists templates available in Meta's template library for WhatsApp messaging.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/list_whatsapp_template_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#list_whatsapp_template_library)
         """
 
     async def post_whatsapp_message_media(
@@ -249,9 +339,42 @@ class EndUserMessagingSocialClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#untag_resource)
         """
 
+    async def update_whatsapp_message_template(
+        self, **kwargs: Unpack[UpdateWhatsAppMessageTemplateInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates an existing WhatsApp message template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/update_whatsapp_message_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#update_whatsapp_message_template)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_linked_whatsapp_business_accounts"]
     ) -> ListLinkedWhatsAppBusinessAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_whatsapp_message_templates"]
+    ) -> ListWhatsAppMessageTemplatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_whatsapp_template_library"]
+    ) -> ListWhatsAppTemplateLibraryPaginator:
         """
         Create a paginator for an operation.
 

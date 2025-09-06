@@ -20,8 +20,11 @@ use pyrefly_types::simplify::unions;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::types::TParams;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
+use pyrefly_util::visit::Visit;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::name::Name;
@@ -93,7 +96,7 @@ pub enum ClassAttribute {
     Property(Type, Option<Type>, Class),
     /// A descriptor is a user-defined type whose actions may dispatch to special method calls
     /// for the get and set actions.
-    Descriptor(Descriptor),
+    Descriptor(Descriptor, DescriptorBase),
 }
 
 impl ClassAttribute {
@@ -113,35 +116,28 @@ impl ClassAttribute {
         Self::Property(getter, setter, cls)
     }
 
-    pub fn descriptor(
-        ty: Type,
-        base: DescriptorBase,
-        getter: Option<Type>,
-        setter: Option<Type>,
-    ) -> Self {
-        Self::Descriptor(Descriptor {
-            descriptor_ty: ty,
-            base,
-            getter,
-            setter,
-        })
+    pub fn descriptor(descriptor: Descriptor, base: DescriptorBase) -> Self {
+        Self::Descriptor(descriptor, base)
     }
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self {
             Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
             Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
-            Self::Descriptor(Descriptor {
-                descriptor_ty,
+            Self::Descriptor(
+                Descriptor {
+                    range, cls, getter, ..
+                },
                 base,
-                getter,
-                ..
-            }) => Self::Descriptor(Descriptor {
+            ) => Self::Descriptor(
+                Descriptor {
+                    range,
+                    cls,
+                    getter,
+                    setter: false,
+                },
                 base,
-                descriptor_ty,
-                getter,
-                setter: None,
-            }),
+            ),
             attr @ (Self::NoAccess(..) | Self::ReadOnly(..)) => attr,
         }
     }
@@ -162,23 +158,20 @@ impl ClassAttribute {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 pub struct Descriptor {
-    /// This is the raw type of the descriptor, which is needed both for attribute subtyping
+    /// The location of the property where the descriptor is bound, where we should raise
+    /// errors attempting to access the getter/setter.
+    range: TextRange,
+    /// This is the descriptor class, which is needed both for attribute subtyping
     /// checks in structural types and in the case where there is no getter method.
-    descriptor_ty: Type,
-    /// Descriptor behavior depends on the base against which the attribute is resolved, so
-    /// we have to preserve information about whether it is a class instance or class def.
-    base: DescriptorBase,
-    /// If `__get__` exists on the descriptor, this is the type of `__get__`
-    /// method type (as resolved by accessing it on an instance of the
-    /// descriptor). It is typically a `BoundMethod` although it is possible for
-    /// a user to erroneously define a `__get__` with any type, including a
+    cls: ClassType,
+    /// Does `__get__` exists on the descriptor?  It is typically a `BoundMethod` although
+    /// it is possible for a user to erroneously define a `__get__` with any type, including a
     /// non-callable one.
-    getter: Option<Type>,
-    /// If `__set__` exists on the descriptor, this is the type of `__set__`. Similar considerations
-    /// to `getter` apply.
-    setter: Option<Type>,
+    getter: bool,
+    /// Does `__set__` exists on the descriptor? Similar considerations to `getter` apply.
+    setter: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -268,10 +261,8 @@ enum ClassFieldInner {
         initialization: ClassFieldInitialization,
         /// The reason this field is read-only. `None` indicates it is read-write.
         read_only_reason: Option<ReadOnlyReason>,
-        // Descriptor getter method, if there is one. `None` indicates no getter.
-        descriptor_getter: Option<Type>,
-        // Descriptor setter method, if there is one. `None` indicates no setter.
-        descriptor_setter: Option<Type>,
+        /// If this is a descriptor, data derived from `ty`.
+        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         name_might_exist_in_inherited: bool,
     },
@@ -293,8 +284,7 @@ impl ClassField {
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
         read_only_reason: Option<ReadOnlyReason>,
-        descriptor_getter: Option<Type>,
-        descriptor_setter: Option<Type>,
+        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         name_might_exist_in_inherited: bool,
     ) -> Self {
@@ -303,8 +293,7 @@ impl ClassField {
             annotation,
             initialization,
             read_only_reason,
-            descriptor_getter,
-            descriptor_setter,
+            descriptor,
             is_function_without_return_annotation,
             name_might_exist_in_inherited,
         })
@@ -324,8 +313,7 @@ impl ClassField {
             annotation: None,
             initialization: ClassFieldInitialization::ClassBody(None),
             read_only_reason: None,
-            descriptor_getter: None,
-            descriptor_setter: None,
+            descriptor: None,
             is_function_without_return_annotation: false,
             name_might_exist_in_inherited: true,
         })
@@ -337,8 +325,7 @@ impl ClassField {
             annotation: None,
             initialization: ClassFieldInitialization::recursive(),
             read_only_reason: None,
-            descriptor_getter: None,
-            descriptor_setter: None,
+            descriptor: None,
             is_function_without_return_annotation: false,
             name_might_exist_in_inherited: true,
         })
@@ -350,38 +337,141 @@ impl ClassField {
         }
     }
 
-    fn instantiate_helper(&self, f: &mut dyn FnMut(&Type) -> Type) -> Self {
+    fn instantiate_helper(&self, f: &mut dyn FnMut(&mut Type)) -> Self {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty,
                 annotation,
                 initialization,
                 read_only_reason,
-                descriptor_getter,
-                descriptor_setter,
+                descriptor,
                 is_function_without_return_annotation,
                 name_might_exist_in_inherited,
-            } => Self(ClassFieldInner::Simple {
-                ty: f(ty),
-                annotation: annotation.clone(),
-                initialization: initialization.clone(),
-                read_only_reason: read_only_reason.clone(),
-                descriptor_getter: descriptor_getter.as_ref().map(&mut *f),
-                descriptor_setter: descriptor_setter.as_ref().map(&mut *f),
-                is_function_without_return_annotation: *is_function_without_return_annotation,
-                name_might_exist_in_inherited: *name_might_exist_in_inherited,
-            }),
+            } => {
+                let mut ty = ty.clone();
+                f(&mut ty);
+                let descriptor = descriptor.as_ref().map(|x| {
+                    let mut x = x.clone();
+                    x.cls.visit_mut(f);
+                    x
+                });
+                Self(ClassFieldInner::Simple {
+                    ty,
+                    annotation: annotation.clone(),
+                    initialization: initialization.clone(),
+                    read_only_reason: read_only_reason.clone(),
+                    descriptor,
+                    is_function_without_return_annotation: *is_function_without_return_annotation,
+                    name_might_exist_in_inherited: *name_might_exist_in_inherited,
+                })
+            }
         }
     }
 
     fn instantiate_for(&self, instance: &Instance) -> Self {
-        self.instantiate_helper(&mut |ty| instance.instantiate_member(ty.clone()))
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&instance.to_type());
+            instance.instantiate_member(ty)
+        })
     }
 
-    fn instantiate_for_class(&self, cls: &ClassBase) -> Self {
-        self.instantiate_helper(&mut |ty| match cls.targs() {
-            Some(targs) => targs.substitute_into(ty.clone()),
-            None => ty.clone(), // TODO: transform to function depending on class param here
+    fn instantiate_for_class_targs(
+        &self,
+        targs: &TArgs,
+        self_type: Type,
+        ambiguous: &mut bool,
+    ) -> Self {
+        let mp = targs.substitution_map();
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&self_type);
+            match ty {
+                Type::Function(_)
+                | Type::Overload(_)
+                | Type::Forall(box Forall {
+                    body: Forallable::Function(_),
+                    ..
+                }) => ty.subst_mut_fn(&mut |q| mp.get(q).map(|ty| (*ty).clone())),
+                _ => {
+                    let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                    ty.collect_quantifieds(&mut qs);
+                    *ambiguous = targs.tparams().iter().any(|x| qs.contains(&x.quantified));
+                }
+            }
+        })
+    }
+
+    fn instantiate_for_class_tparams(
+        &self,
+        cls_tparams: Arc<TParams>,
+        self_type: Type,
+        ambiguous: &mut bool,
+    ) -> Self {
+        let prepend_class_tparams_if_used = |f: &Function, tparams_opt: Option<&TParams>| {
+            if cls_tparams.is_empty() {
+                return None;
+            }
+            let mut qs = SmallSet::new();
+            f.visit(&mut |ty| ty.collect_quantifieds(&mut qs));
+            if cls_tparams.iter().any(|tp| qs.contains(&tp.quantified)) {
+                match tparams_opt {
+                    None => Some(cls_tparams.dupe()),
+                    Some(tparams) => {
+                        let mut new_tparams = (*cls_tparams).clone();
+                        new_tparams.extend(tparams);
+                        Some(Arc::new(new_tparams))
+                    }
+                }
+            } else {
+                None
+            }
+        };
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&self_type);
+            match ty {
+                Type::Function(func) => {
+                    if let Some(tparams) = prepend_class_tparams_if_used(func, None) {
+                        *ty = Type::Forall(Box::new(Forall {
+                            tparams,
+                            body: Forallable::Function((**func).clone()),
+                        }));
+                    }
+                }
+                Type::Forall(forall) => {
+                    let Forall { tparams, body } = &mut **forall;
+                    if let Forallable::Function(func) = body
+                        && let Some(new_tparams) =
+                            prepend_class_tparams_if_used(func, Some(tparams))
+                    {
+                        *tparams = new_tparams;
+                    }
+                }
+                Type::Overload(Overload { signatures, .. }) => {
+                    signatures.iter_mut().for_each(|sig| match sig {
+                        OverloadType::Function(body)
+                            if let Some(tparams) = prepend_class_tparams_if_used(body, None) =>
+                        {
+                            *sig = OverloadType::Forall(Forall {
+                                tparams,
+                                body: body.clone(),
+                            })
+                        }
+                        OverloadType::Forall(Forall { tparams, body })
+                            if let Some(new_tparams) =
+                                prepend_class_tparams_if_used(body, Some(tparams)) =>
+                        {
+                            *tparams = new_tparams;
+                        }
+                        _ => {}
+                    });
+                }
+                ty => {
+                    if !cls_tparams.is_empty() {
+                        let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                        ty.collect_quantifieds(&mut qs);
+                        *ambiguous = cls_tparams.iter().any(|x| qs.contains(&x.quantified));
+                    }
+                }
+            }
         })
     }
 
@@ -399,39 +489,6 @@ impl ClassField {
             Type::any_implicit()
         } else {
             unions(values)
-        }
-    }
-
-    pub fn as_param(
-        &self,
-        name: &Name,
-        default: bool,
-        kw_only: bool,
-        strict: bool,
-        converter_param: Option<Type>,
-    ) -> Param {
-        let ClassField(ClassFieldInner::Simple {
-            ty,
-            descriptor_setter,
-            ..
-        }) = self;
-        let param_ty = if !strict {
-            Type::any_explicit()
-        } else if let Some(converter_param) = converter_param {
-            converter_param
-        } else if let Some(descriptor_setter) = descriptor_setter {
-            Self::get_descriptor_setter_value(descriptor_setter)
-        } else {
-            ty.clone()
-        };
-        let required = match default {
-            true => Required::Optional(None),
-            false => Required::Required,
-        };
-        if kw_only {
-            Param::KwOnly(name.clone(), param_ty, required)
-        } else {
-            Param::Pos(name.clone(), param_ty, required)
         }
     }
 
@@ -505,18 +562,6 @@ impl ClassField {
         }
     }
 
-    pub fn as_enum_member(self, enum_cls: &Class) -> Option<Lit> {
-        match self.0 {
-            ClassFieldInner::Simple {
-                ty: Type::Literal(lit),
-                ..
-            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) => {
-                Some(lit)
-            }
-            _ => None,
-        }
-    }
-
     fn is_dataclass_kwonly_marker(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => {
@@ -552,14 +597,6 @@ impl ClassField {
     pub fn is_override(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
-        }
-    }
-
-    pub fn read_only_reason(&self) -> &Option<ReadOnlyReason> {
-        match &self.0 {
-            ClassFieldInner::Simple {
-                read_only_reason, ..
-            } => read_only_reason,
         }
     }
 
@@ -621,12 +658,13 @@ impl ClassField {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
 enum InstanceKind {
     ClassType,
     TypedDict,
     TypeVar(Quantified),
     SelfType,
+    Protocol(Type),
+    Metaclass(ClassBase),
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
@@ -669,10 +707,26 @@ impl<'a> Instance<'a> {
         }
     }
 
+    fn of_protocol(cls: &'a ClassType, self_type: Type) -> Self {
+        Self {
+            kind: InstanceKind::Protocol(self_type),
+            class: cls.class_object(),
+            targs: cls.targs(),
+        }
+    }
+
+    fn of_metaclass(cls: ClassBase, metaclass: &'a ClassType) -> Self {
+        Self {
+            kind: InstanceKind::Metaclass(cls),
+            class: metaclass.class_object(),
+            targs: metaclass.targs(),
+        }
+    }
+
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
-    fn instantiate_member(&self, raw_member: Type) -> Type {
-        self.targs.substitute_into(raw_member)
+    fn instantiate_member(&self, raw_member: &mut Type) {
+        self.targs.substitute_into_mut(raw_member)
     }
 
     fn to_type(&self) -> Type {
@@ -687,16 +741,22 @@ impl<'a> Instance<'a> {
             InstanceKind::SelfType => {
                 Type::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
             }
+            InstanceKind::Protocol(self_type) => self_type.clone(),
+            InstanceKind::Metaclass(cls) => cls.clone().to_type(),
         }
     }
 
     /// Looking up a classmethod/staticmethod from an instance base has class-like
     /// lookup behavior. When this happens, we convert from an instance base to a class base.
     fn to_class_base(&self) -> ClassBase {
-        match self.kind {
+        match &self.kind {
             InstanceKind::SelfType => {
                 ClassBase::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
             }
+            InstanceKind::Protocol(self_type) => ClassBase::Protocol(
+                ClassType::new(self.class.dupe(), self.targs.clone()),
+                self_type.clone(),
+            ),
             _ => ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone())),
         }
     }
@@ -706,9 +766,14 @@ impl<'a> Instance<'a> {
             // There's no situation in which you can stick a usable descriptor in a TypedDict.
             // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
             InstanceKind::TypedDict => None,
-            InstanceKind::ClassType | InstanceKind::SelfType | InstanceKind::TypeVar(..) => Some(
-                DescriptorBase::Instance(ClassType::new(self.class.dupe(), self.targs.clone())),
-            ),
+            InstanceKind::ClassType
+            | InstanceKind::SelfType
+            | InstanceKind::Protocol(..)
+            | InstanceKind::Metaclass(..)
+            | InstanceKind::TypeVar(..) => Some(DescriptorBase::Instance(ClassType::new(
+                self.class.dupe(),
+                self.targs.clone(),
+            ))),
         }
     }
 }
@@ -716,11 +781,11 @@ impl<'a> Instance<'a> {
 fn bind_class_attribute(
     cls: &ClassBase,
     attr: Type,
-    read_only_reason: &Option<ReadOnlyReason>,
+    read_only_reason: Option<ReadOnlyReason>,
 ) -> ClassAttribute {
     let ty = make_bound_classmethod(cls, attr).into_inner();
     if let Some(reason) = read_only_reason {
-        ClassAttribute::read_only(ty, reason.clone())
+        ClassAttribute::read_only(ty, reason)
     } else {
         ClassAttribute::read_write(ty)
     }
@@ -1190,6 +1255,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
 
+        // Identify whether this is a descriptor
+        let mut descriptor = None;
+        match &ty {
+            // TODO(stroxler): This works for simple descriptors. There three known gaps, there may be others:
+            // - If the field is instance-only, descriptor dispatching won't occur, an instance-only attribute
+            //   that happens to be a descriptor just behaves like a normal instance-only attribute.
+            // - Gracefully handle instance-only `__get__`/`__set__`. Descriptors only seem to be detected
+            //   when the descriptor attribute is initialized on the class body of the descriptor.
+            // - Do we care about distributing descriptor behavior over unions? If so, what about the case when
+            //   the raw class field is a union of a descriptor and a non-descriptor? Do we want to allow this?
+            Type::ClassType(cls) => {
+                let getter = self
+                    .get_class_member(cls.class_object(), &dunder::GET)
+                    .is_some();
+                let setter = self
+                    .get_class_member(cls.class_object(), &dunder::SET)
+                    .is_some();
+                if getter || setter {
+                    descriptor = Some(Descriptor {
+                        range,
+                        cls: cls.clone(),
+                        getter,
+                        setter,
+                    })
+                }
+            }
+            _ => {}
+        };
+
         // Enum handling:
         // - Check whether the field is a member (which depends only on its type and name)
         // - Validate that a member should not have an annotation, and should respect any explicit annotation on `_value_`
@@ -1200,7 +1294,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         //
         // We currently skip the check for `_value_` if the class defines `__new__`, since that can
         // change the value of the enum member. https://docs.python.org/3/howto/enum.html#when-to-use-new-vs-init
-        let ty = if let Some(enum_) = metadata.enum_metadata()
+        let ty = if descriptor.is_none()
+            && let Some(enum_) = metadata.enum_metadata()
             && self.is_valid_enum_member(name, &ty, &initialization)
         {
             if direct_annotation.is_some() {
@@ -1226,29 +1321,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty
         };
 
-        // Identify whether this is a descriptor
-        let (mut descriptor_getter, mut descriptor_setter) = (None, None);
-        match &ty {
-            // TODO(stroxler): This works for simple descriptors. There three known gaps, there may be others:
-            // - If the field is instance-only, descriptor dispatching won't occur, an instance-only attribute
-            //   that happens to be a descriptor just behaves like a normal instance-only attribute.
-            // - Gracefully handle instance-only `__get__`/`__set__`. Descriptors only seem to be detected
-            //   when the descriptor attribute is initialized on the class body of the descriptor.
-            // - Do we care about distributing descriptor behavior over unions? If so, what about the case when
-            //   the raw class field is a union of a descriptor and a non-descriptor? Do we want to allow this?
-            Type::ClassType(c) => {
-                if self.get_instance_attribute(c, &dunder::GET).is_some() {
-                    descriptor_getter =
-                        Some(self.attr_infer_for_type(&ty, &dunder::GET, range, errors, None));
-                }
-                if self.get_instance_attribute(c, &dunder::SET).is_some() {
-                    descriptor_setter =
-                        Some(self.attr_infer_for_type(&ty, &dunder::SET, range, errors, None));
-                }
-            }
-            _ => {}
-        };
-
         // Pin any vars in the type: leaking a var in a class field is particularly
         // likely to lead to data races where downstream uses can pin inconsistently.
         //
@@ -1262,8 +1334,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             direct_annotation,
             initialization,
             read_only_reason,
-            descriptor_getter,
-            descriptor_setter,
+            descriptor,
             is_function_without_return_annotation,
             name_might_exist_in_inherited,
         );
@@ -1504,14 +1575,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
             ClassFieldInner::Simple {
-                ty,
-                descriptor_getter,
-                descriptor_setter,
+                descriptor: Some(descriptor),
                 ..
-            } if (descriptor_getter.is_some() || descriptor_setter.is_some())
-                && let Some(base) = instance.to_descriptor_base() =>
-            {
-                ClassAttribute::descriptor(ty, base, descriptor_getter, descriptor_setter)
+            } if let Some(base) = instance.to_descriptor_base() => {
+                ClassAttribute::descriptor(descriptor, base)
             }
             ClassFieldInner::Simple {
                 mut ty,
@@ -1548,116 +1615,91 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
-        match field.instantiate_for_class(cls).0 {
-            ClassFieldInner::Simple {
-                ty,
-                descriptor_getter,
-                descriptor_setter,
-                ..
-            } if descriptor_getter.is_some() || descriptor_setter.is_some() => {
-                ClassAttribute::descriptor(
-                    ty,
-                    DescriptorBase::ClassDef(cls.class_object().dupe()),
-                    descriptor_getter,
-                    descriptor_setter,
-                )
+        let self_type = cls.clone().to_self_type();
+        let mut ambiguous = false;
+        let field = match cls.targs() {
+            Some(targs) => field.instantiate_for_class_targs(targs, self_type, &mut ambiguous),
+            None => {
+                let tparams = self.get_class_tparams(cls.class_object());
+                field.instantiate_for_class_tparams(tparams, self_type, &mut ambiguous)
             }
+        };
+        match field.0 {
             ClassFieldInner::Simple {
-                initialization:
-                    ClassFieldInitialization::Method | ClassFieldInitialization::Uninitialized,
+                descriptor: Some(descriptor),
+                ..
+            } => ClassAttribute::descriptor(
+                descriptor,
+                DescriptorBase::ClassDef(cls.class_object().dupe()),
+            ),
+            ClassFieldInner::Simple {
+                initialization: ClassFieldInitialization::Method,
                 ..
             } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
                 cls.class_object().dupe(),
             )),
-            ClassFieldInner::Simple { mut ty, .. } => {
-                if self.depends_on_class_type_parameter(field, cls.class_object()) {
-                    self.get_function_depending_on_class_type_parameter(cls, &ty)
-                        .unwrap_or_else(|| {
-                            ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
-                                cls.class_object().dupe(),
-                            ))
-                        })
+            ClassFieldInner::Simple {
+                ty,
+                read_only_reason,
+                ..
+            } => {
+                if ambiguous {
+                    ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
+                        cls.class_object().dupe(),
+                    ))
                 } else {
-                    // TODO(samgoldman): We should always substitute self, but this is behavior preserving. Fix incoming.
-                    if let ClassBase::Quantified(q, _) = cls {
-                        ty.subst_self_type_mut(&q.clone().to_type(), &|a, b| {
-                            self.is_subset_eq(a, b)
-                        });
-                    }
-                    bind_class_attribute(cls, ty, field.read_only_reason())
+                    bind_class_attribute(cls, ty, read_only_reason)
                 }
             }
         }
     }
 
-    fn depends_on_class_type_parameter(&self, field: &ClassField, cls: &Class) -> bool {
-        let tparams = self.get_class_tparams(cls);
-        let mut qs = SmallSet::new();
-        match &field.0 {
-            ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
+    pub fn as_param(
+        &self,
+        field: &ClassField,
+        name: &Name,
+        default: bool,
+        kw_only: bool,
+        strict: bool,
+        converter_param: Option<Type>,
+        errors: &ErrorCollector,
+    ) -> Param {
+        let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }) = field;
+        let param_ty = if !strict {
+            Type::any_explicit()
+        } else if let Some(converter_param) = converter_param {
+            converter_param
+        } else if let Some(x) = descriptor
+            && let Some(setter) = self.resolve_descriptor_setter(x, errors)
+        {
+            ClassField::get_descriptor_setter_value(&setter)
+        } else {
+            ty.clone()
         };
-        tparams.quantifieds().any(|q| qs.contains(q))
+        let required = match default {
+            true => Required::Optional(None),
+            false => Required::Required,
+        };
+        if kw_only {
+            Param::KwOnly(name.clone(), param_ty, required)
+        } else {
+            Param::Pos(name.clone(), param_ty, required)
+        }
     }
 
-    fn get_function_depending_on_class_type_parameter(
-        &self,
-        cls: &ClassBase,
-        ty: &Type,
-    ) -> Option<ClassAttribute> {
-        let mut foralled = match ty {
-            Type::Function(func) => Type::Forall(Box::new(Forall {
-                tparams: self.get_class_tparams(cls.class_object()),
-                body: Forallable::Function((**func).clone()),
-            })),
-            Type::Forall(box Forall {
-                tparams,
-                body: body @ Forallable::Function(_),
-            }) => {
-                let mut new_tparams = tparams.as_ref().clone();
-                new_tparams.extend(&self.get_class_tparams(cls.class_object()));
-                Type::Forall(Box::new(Forall {
-                    tparams: Arc::new(new_tparams),
-                    body: body.clone(),
-                }))
+    pub fn as_enum_member(&self, field: ClassField, enum_cls: &Class) -> Option<Lit> {
+        match field.0 {
+            ClassFieldInner::Simple {
+                ty: Type::Literal(mut lit),
+                ..
+            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) =>
+            {
+                let replacement = self.instantiate(enum_cls);
+                lit.visit_mut(&mut |ty| ty.subst_self_type_mut(&replacement));
+                Some(lit)
             }
-            Type::Overload(Overload {
-                signatures,
-                metadata,
-            }) => {
-                let new_signatures = signatures.clone().mapped(|sig| match sig {
-                    OverloadType::Function(function) => OverloadType::Forall(Forall {
-                        tparams: self.get_class_tparams(cls.class_object()),
-                        body: Function {
-                            signature: function.signature,
-                            metadata: (**metadata).clone(),
-                        },
-                    }),
-                    OverloadType::Forall(Forall { tparams, body }) => {
-                        let mut new_tparams = tparams.as_ref().clone();
-                        new_tparams.extend(&self.get_class_tparams(cls.class_object()));
-                        OverloadType::Forall(Forall {
-                            tparams: Arc::new(new_tparams),
-                            body,
-                        })
-                    }
-                });
-                Type::Overload(Overload {
-                    signatures: new_signatures,
-                    metadata: metadata.clone(),
-                })
-            }
-            _ => {
-                return None;
-            }
-        };
-        let replacement = match cls {
-            ClassBase::ClassDef(c) => self.instantiate(c),
-            ClassBase::ClassType(c) => c.clone().to_type(),
-            ClassBase::Quantified(q, _) => q.clone().to_type(),
-            ClassBase::SelfType(c) => Type::SelfType(c.clone()),
-        };
-        foralled.subst_self_type_mut(&replacement, &|a, b| self.is_subset_eq(a, b));
-        Some(bind_class_attribute(cls, foralled, &None))
+            _ => None,
+        }
     }
 
     fn is_typed_dict_field(&self, metadata: &ClassMetadata, field_name: &Name) -> bool {
@@ -1848,7 +1890,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 get_field(ancestor.class_object(), name)
             }
             .map(|field| WithDefiningClass {
-                value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                value: Arc::new(
+                    field.instantiate_helper(&mut |ty| ancestor.targs().substitute_into_mut(ty)),
+                ),
                 defining_class: ancestor.class_object().dupe(),
             })
         })
@@ -1928,7 +1972,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         self.get_field_from_mro(cls, name, &|cls, name| {
-            self.get_non_synthesized_field_from_current_class_only(cls, name)
+            let field = self.get_non_synthesized_field_from_current_class_only(cls, name)?;
+            if field.initialization() == ClassFieldInitialization::Method {
+                // This parent happens to assign to the field in a method but doesn't define it.
+                None
+            } else {
+                Some(field)
+            }
         })
     }
 
@@ -1954,6 +2004,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_self_type(cls)))
+    }
+
+    pub fn get_protocol_attribute(
+        &self,
+        cls: &ClassType,
+        self_type: Type,
+        name: &Name,
+    ) -> Option<ClassAttribute> {
+        self.get_class_member(cls.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(&member.value, &Instance::of_protocol(cls, self_type))
+            })
+    }
+
+    pub fn get_metaclass_attribute(
+        &self,
+        cls: &ClassBase,
+        metaclass: &ClassType,
+        name: &Name,
+    ) -> Option<ClassAttribute> {
+        self.get_class_member(metaclass.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(
+                    &member.value,
+                    &Instance::of_metaclass(cls.clone(), metaclass),
+                )
+            })
     }
 
     pub fn get_bounded_quantified_attribute(
@@ -1995,17 +2072,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_typed_dict(td)))
     }
 
-    fn get_super_class_member(
+    pub fn get_super_class_member(
         &self,
         cls: &Class,
-        start_lookup_cls: &ClassType,
+        start_lookup_cls: Option<&ClassType>,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         // Skip ancestors in the MRO until we find the class we want to start at
         let metadata = self.get_mro_for_class(cls);
-        let ancestors = metadata
-            .ancestors(self.stdlib)
-            .skip_while(|ancestor| *ancestor != start_lookup_cls);
+        let ancestors = metadata.ancestors(self.stdlib).skip_while(|ancestor| {
+            if let Some(start_lookup_cls) = start_lookup_cls {
+                *ancestor != start_lookup_cls
+            } else {
+                false
+            }
+        });
         self.get_field_from_ancestors(cls, ancestors, name, &|cls, name| {
             self.get_field_from_current_class_only(cls, name)
                 .filter(|field| !field.is_init_var())
@@ -2021,12 +2102,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<ClassAttribute> {
         match super_obj {
             SuperObj::Instance(obj) => self
-                .get_super_class_member(obj.class_object(), start_lookup_cls, name)
-                .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(obj))),
-            SuperObj::Class(obj) => self
-                .get_super_class_member(obj.class_object(), start_lookup_cls, name)
+                .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| {
-                    self.as_class_attribute(&member.value, &ClassBase::ClassType(obj.clone()))
+                    self.as_instance_attribute(&member.value, &Instance::of_self_type(obj))
+                }),
+            SuperObj::Class(obj) => self
+                .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
+                .map(|member| {
+                    self.as_class_attribute(&member.value, &ClassBase::SelfType(obj.clone()))
                 }),
         }
     }
@@ -2126,7 +2209,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         } else {
             Arc::unwrap_or_clone(attr.value)
-                .as_raw_special_method_type(&Instance::of_class(metaclass))
+                .as_raw_special_method_type(&Instance::of_metaclass(
+                    ClassBase::ClassType(cls.clone()),
+                    metaclass,
+                ))
                 .and_then(|ty| make_bound_method(Type::type_form(cls.clone().to_type()), ty).ok())
         }
     }
@@ -2137,8 +2223,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInner::Simple {
                 ty,
                 read_only_reason: Some(_),
-                descriptor_getter: None,
-                descriptor_setter: None,
+                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
@@ -2160,8 +2245,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &field.0 {
             ClassFieldInner::Simple {
                 ty,
-                descriptor_getter: None,
-                descriptor_setter: None,
+                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty.clone()),
@@ -2234,15 +2318,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_property_setter(setter, got, range, errors, context);
                 *should_narrow = false;
             }
-            ClassAttribute::Descriptor(d) => {
-                match (d.base, d.setter) {
-                    (DescriptorBase::Instance(class_type), Some(setter)) => {
+            ClassAttribute::Descriptor(x, base) => {
+                match base {
+                    DescriptorBase::Instance(class_type)
+                        if let Some(setter) = self.resolve_descriptor_setter(&x, errors) =>
+                    {
                         let got = CallArg::arg(got);
                         self.call_descriptor_setter(
                             setter, class_type, got, range, errors, context,
                         );
                     }
-                    (DescriptorBase::Instance(class_type), None) => {
+                    DescriptorBase::Instance(class_type) => {
                         let e = NoAccessReason::SettingReadOnlyDescriptor(
                             class_type.class_object().dupe(),
                         );
@@ -2253,7 +2339,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             e.to_error_msg(attr_name),
                         );
                     }
-                    (DescriptorBase::ClassDef(class), _) => {
+                    DescriptorBase::ClassDef(class) => {
                         let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
                         self.error(
                             errors,
@@ -2439,27 +2525,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                ClassAttribute::Descriptor(
-                    Descriptor {
-                        descriptor_ty: got_ty,
-                        ..
-                    },
-                    ..,
-                ),
-                ClassAttribute::Descriptor(
-                    Descriptor {
-                        descriptor_ty: want_ty,
-                        ..
-                    },
-                    ..,
-                ),
+                ClassAttribute::Descriptor(Descriptor { cls: got_cls, .. }, ..),
+                ClassAttribute::Descriptor(Descriptor { cls: want_cls, .. }, ..),
             ) => {
-                if is_subset(got_ty, want_ty) {
+                let got_ty = got_cls.clone().to_type();
+                let want_ty = want_cls.clone().to_type();
+                if is_subset(&got_ty, &want_ty) {
                     Ok(())
                 } else {
                     Err(AttrSubsetError::Covariant {
-                        got: got_ty.clone(),
-                        want: want_ty.clone(),
+                        got: got_ty,
+                        want: want_ty,
                         got_is_property: false,
                         want_is_property: false,
                     })
@@ -2485,25 +2561,60 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
-            ClassAttribute::Descriptor(d, ..) => {
-                match d {
+            ClassAttribute::Descriptor(x, base) => {
+                if let Some(getter) = self.resolve_descriptor_getter(&x, errors) {
                     // Reading a descriptor with a getter resolves to a method call
                     //
                     // TODO(stroxler): Once we have more complex error traces, it would be good to pass
                     // context down so that errors inside the call can mention that it was a descriptor read.
-                    Descriptor {
-                        base,
-                        getter: Some(getter),
-                        ..
-                    } => Ok(self.call_descriptor_getter(getter, base, range, errors, context)),
+                    Ok(self.call_descriptor_getter(getter, base, range, errors, context))
+                } else {
                     // Reading descriptor with no getter resolves to the descriptor itself
-                    Descriptor {
-                        descriptor_ty,
-                        getter: None,
-                        ..
-                    } => Ok(descriptor_ty),
+                    Ok(x.cls.to_type())
                 }
             }
+        }
+    }
+
+    fn resolve_descriptor_getter(&self, x: &Descriptor, errors: &ErrorCollector) -> Option<Type> {
+        if x.getter
+            && let Some(getter) = self.get_class_member(x.cls.class_object(), &dunder::GET)
+        {
+            let attr = self.as_instance_attribute(&getter.value, &Instance::of_class(&x.cls));
+            Some(
+                self.resolve_get_class_attr(attr, x.range, errors, None)
+                    .unwrap_or_else(|e| {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::new(ErrorKind::NoAccess, None),
+                            e.to_error_msg(&dunder::GET),
+                        )
+                    }),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn resolve_descriptor_setter(&self, x: &Descriptor, errors: &ErrorCollector) -> Option<Type> {
+        if x.setter
+            && let Some(setter) = self.get_class_member(x.cls.class_object(), &dunder::SET)
+        {
+            let attr = self.as_instance_attribute(&setter.value, &Instance::of_class(&x.cls));
+            Some(
+                self.resolve_get_class_attr(attr, x.range, errors, None)
+                    .unwrap_or_else(|e| {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::new(ErrorKind::NoAccess, None),
+                            e.to_error_msg(&dunder::SET),
+                        )
+                    }),
+            )
+        } else {
+            None
         }
     }
 

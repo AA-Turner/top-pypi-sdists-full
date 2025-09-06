@@ -193,8 +193,8 @@ class GameLiftStreamsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateStreamSessionConnectionInputTypeDef]
     ) -> CreateStreamSessionConnectionOutputTypeDef:
         """
-        Allows clients to reconnect to a recently disconnected stream session without
-        losing any data from the last session.
+        Enables clients to reconnect to a stream session while preserving all session
+        state and data in the disconnected session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/create_stream_session_connection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#create_stream_session_connection)

@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.list_kafka_triggers_response_200_item_retry_exponential import (
         ListKafkaTriggersResponse200ItemRetryExponential,
     )
+    from ..models.list_kafka_triggers_response_200_item_retry_retry_if import (
+        ListKafkaTriggersResponse200ItemRetryRetryIf,
+    )
 
 
 T = TypeVar("T", bound="ListKafkaTriggersResponse200ItemRetry")
@@ -23,10 +26,12 @@ class ListKafkaTriggersResponse200ItemRetry:
     Attributes:
         constant (Union[Unset, ListKafkaTriggersResponse200ItemRetryConstant]):
         exponential (Union[Unset, ListKafkaTriggersResponse200ItemRetryExponential]):
+        retry_if (Union[Unset, ListKafkaTriggersResponse200ItemRetryRetryIf]):
     """
 
     constant: Union[Unset, "ListKafkaTriggersResponse200ItemRetryConstant"] = UNSET
     exponential: Union[Unset, "ListKafkaTriggersResponse200ItemRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ListKafkaTriggersResponse200ItemRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,10 @@ class ListKafkaTriggersResponse200ItemRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +54,8 @@ class ListKafkaTriggersResponse200ItemRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +66,9 @@ class ListKafkaTriggersResponse200ItemRetry:
         )
         from ..models.list_kafka_triggers_response_200_item_retry_exponential import (
             ListKafkaTriggersResponse200ItemRetryExponential,
+        )
+        from ..models.list_kafka_triggers_response_200_item_retry_retry_if import (
+            ListKafkaTriggersResponse200ItemRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +86,17 @@ class ListKafkaTriggersResponse200ItemRetry:
         else:
             exponential = ListKafkaTriggersResponse200ItemRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ListKafkaTriggersResponse200ItemRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ListKafkaTriggersResponse200ItemRetryRetryIf.from_dict(_retry_if)
+
         list_kafka_triggers_response_200_item_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         list_kafka_triggers_response_200_item_retry.additional_properties = d

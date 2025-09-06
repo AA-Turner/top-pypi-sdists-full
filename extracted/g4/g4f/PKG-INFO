@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 0.6.2.1
+Version: 0.6.2.3
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -121,28 +121,6 @@ Dynamic: summary
 </p>
 <div id="top"></div>
 
-> [!IMPORTANT]
-> **GPT4Free Manifesto**
-
-We live in a time where access to information and technology is increasingly restricted. Large corporations seek to monopolize control over their models, subjecting essential resources to strict terms of service and opaque practices. But we are here to stand against this tide.
-
-We declare:
-
-1. **Open Access:** Developing software and utilizing AI models is not illegal. It is a basic right that belongs to everyone. The notion that developing or using AI for purposes outside of what large companies dictate constitutes a legal violation is not only incorrect, but it is also an attack on creativity and innovation.
-
-2. **Collaboration Over Isolation:** Instead of monopolizing a platform through enclosure, we should connect various models together. Only through collaboration can we make the benefits of AI accessible to all and foster diversity and progress.
-
-3. **Against Privatization:** The privatization and isolation of models by large companies is not only dishonest but also unethical. It hinders progress and innovation while restricting developers' and users' opportunities. We rise against this form of market dominance.
-
-4. **For the Community:** Let’s build a community that promotes the free exchange of ideas and technologies. An effective and just system must reflect the diversity of voices and perspectives.
-
-5. **Unleashing Creativity:** We firmly believe that the true value of AI lies in its ability to solve problems, support, and inspire. Let us not be held back by restrictive practices. 
-
-In this spirit, we proclaim: The future of AI does not belong to a few giant corporations; it belongs to each and every one of us. Let’s work together to create a space where innovation can flourish, and where everyone has access to the tools they need to express themselves and grow.
-
-> 
-> Together, we will shape an open, inclusive, and more just digital world. 🤗
-
 > <sup><strong>Latest version:</strong></sup><br> [![PyPI version](https://img.shields.io/pypi/v/g4f?color=blue)](https://pypi.org/project/g4f) [![Docker version](https://img.shields.io/docker/v/hlohaus789/g4f?label=docker&color=blue)](https://hub.docker.com/r/hlohaus789/g4f)  
 > <sup><strong>Stats:</strong></sup><br> [![Downloads](https://static.pepy.tech/badge/g4f)](https://pepy.tech/project/g4f) [![Downloads](https://static.pepy.tech/badge/g4f/month)](https://pepy.tech/project/g4f)
 
@@ -153,6 +131,18 @@ pip install -U g4f[all]
 ```sh
 docker pull hlohaus789/g4f
 ```
+
+```sh
+npm install @gpt4free/g4f.dev
+```
+
+## 🚀 **Experience Live G4F**
+
+Want to see G4F in action? Explore a live demo now!
+
+[**Click here to explore the live G4F demo!**](https://github.com/user-attachments/assets/83519200-2f27-48c6-9fc3-bff0fcd96f41)
+
+Curious to see what G4F can do? Dive into a live demonstration and visit the [official g4f.dev homepage](https://g4f.dev/) for more.
 
 ## 🆕 What's New
 
@@ -170,18 +160,6 @@ docker pull hlohaus789/g4f
 
 - **Read our Documentation** 📖  
   Find detailed guidance and resources at [g4f.dev/docs](https://github.com/gpt4free/g4f.dev).
-
-## 🔻 Site Takedown
-
-Is your site on this repository and you want to take it down? Send an email to takedown@g4f.ai with proof it is yours and it will be removed as fast as possible. To prevent reproduction please secure your API. 😉
-
-## 🚀 **Experience Live G4F**
-
-Want to see G4F in action? Explore a live demo now!
-
-[**Click here to explore the live G4F demo!**](https://github.com/user-attachments/assets/83519200-2f27-48c6-9fc3-bff0fcd96f41)
-
-Curious to see what G4F can do? Dive into a live demonstration and visit the [official g4f.dev homepage](https://g4f.dev/) for more.
 
 ---
 
@@ -259,7 +237,7 @@ docker run \
 To ensure the seamless operation of our application, please follow the instructions below. These steps are designed to guide you through the installation process on Windows operating systems.
 
 **Installation Steps:**
-1. **Download the Application**: Visit our [releases page](https://github.com/xtekky/gpt4free/releases/tag/0.5.7.0) and download the most recent version of the application, named `g4f.exe.zip`.
+1. **Download the Application**: Visit our [releases page](https://github.com/xtekky/gpt4free/releases/latest) and download the most recent version of the application, named `g4f.exe.zip`.
 2. **File Placement**: After downloading, locate the `.zip` file in your Downloads folder. Unpack it to a directory of your choice on your system, then execute the `g4f.exe` file to run the app.
 3. **Open GUI**: The app starts a web server with the GUI. Open your favorite browser and navigate to [http://localhost:8080/chat/](http://localhost:8080/chat/) to access the application interface.
 4. **Firewall Configuration (Hotfix)**: Upon installation, it may be necessary to adjust your Windows Firewall settings to allow the application to operate correctly. To do this, access your Windows Firewall settings and allow the application.
@@ -324,6 +302,24 @@ response = client.images.generate(
 print(f"Generated image URL: {response.data[0].url}")
 ```
 [![Image with cat](https://g4f.dev/docs/images/cat.jpeg)](https://github.com/gpt4free/g4f.dev/blob/main/docs/client.md)
+
+### 🧙‍♂️ Using GPT4Free.js
+
+Use the **official JS client** right in the browser—no backend needed.
+
+For text generation:
+```html
+<script type="module">
+    import Client from 'https://g4f.dev/dist/js/client.js';
+
+    const client = new Client();
+    const result = await client.chat.completions.create({
+        model: 'gpt-4.1',  // Or "gpt-4o", "deepseek-v3"
+        messages: [{ role: 'user', content: 'Explain quantum computing' }]
+    });
+    console.log(result.choices[0].message.content);
+</script>
+```
 
 ### 🌐 Web Interface
 **Run the GUI using Python:**
@@ -519,7 +515,6 @@ A list of all contributors is available [here](https://github.com/xtekky/gpt4fre
 <img src="https://avatars.githubusercontent.com/u/81407603?v=4&s=45" width="45" title="dsdanielpark">
 <img src="https://avatars.githubusercontent.com/u/55200481?v=4&s=45" width="45" title="missuo">
 
-- The [`Vercel.py`](https://github.com/xtekky/gpt4free/blob/main/g4f/Provider/Vercel.py) file contains code from [vercel-llm-api](https://github.com/ading2210/vercel-llm-api) by [@ading2210](https://github.com/ading2210)
 - The [`har_file.py`](https://github.com/xtekky/gpt4free/blob/main/g4f/Provider/openai/har_file.py) has input from [xqdoo00o/ChatGPT-to-API](https://github.com/xqdoo00o/ChatGPT-to-API)
 - The [`PerplexityLabs.py`](https://github.com/xtekky/gpt4free/blob/main/g4f/Provider/PerplexityLabs.py) has input from [nathanrchn/perplexityai](https://github.com/nathanrchn/perplexityai)
 - The [`Gemini.py`](https://github.com/xtekky/gpt4free/blob/main/g4f/Provider/needs_auth/Gemini.py) has input from [dsdanielpark/Gemini-API](https://github.com/dsdanielpark/Gemini-API)
@@ -529,13 +524,42 @@ A list of all contributors is available [here](https://github.com/xtekky/gpt4fre
 
 _Having input implies that the AI's code generation utilized it as one of many sources._
 
+## ⭐ Star History
+
+![Star History Chart](https://api.star-history.com/svg?repos=xtekky/gpt4free&type=Date)
+
+> [!IMPORTANT]
+> **GPT4Free Manifesto**
+
+We live in a time where access to information and technology is increasingly restricted. Large corporations seek to monopolize control over their models, subjecting essential resources to strict terms of service and opaque practices. But we are here to stand against this tide.
+
+We declare:
+
+1. **Open Access:** Developing software and utilizing AI models is not illegal. It is a basic right that belongs to everyone. The notion that developing or using AI for purposes outside of what large companies dictate constitutes a legal violation is not only incorrect, but it is also an attack on creativity and innovation.
+
+2. **Collaboration Over Isolation:** Instead of monopolizing a platform through enclosure, we should connect various models together. Only through collaboration can we make the benefits of AI accessible to all and foster diversity and progress.
+
+3. **Against Privatization:** The privatization and isolation of models by large companies is not only dishonest but also unethical. It hinders progress and innovation while restricting developers' and users' opportunities. We rise against this form of market dominance.
+
+4. **For the Community:** Let’s build a community that promotes the free exchange of ideas and technologies. An effective and just system must reflect the diversity of voices and perspectives.
+
+5. **Unleashing Creativity:** We firmly believe that the true value of AI lies in its ability to solve problems, support, and inspire. Let us not be held back by restrictive practices. 
+
+In this spirit, we proclaim: The future of AI does not belong to a few giant corporations; it belongs to each and every one of us. Let’s work together to create a space where innovation can flourish, and where everyone has access to the tools they need to express themselves and grow.
+
+> 
+> Together, we will shape an open, inclusive, and more just digital world. 🤗
+
+## 🔻 Site Takedown
+
+Is your site on this repository and you want to take it down? Send an email to takedown@g4f.ai with proof it is yours and it will be removed as fast as possible. To prevent reproduction please secure your API. 😉
 
 ## ©️ Copyright
 
 This program is licensed under the [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.txt)
 
 ```
-xtekky/gpt4free: Copyright (C) 2023 xtekky
+xtekky/gpt4free: Copyright (C) 2025 xtekky
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -550,13 +574,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
-
-
-## ⭐ Star History
-
-<!--![Star History Chart](https://api.star-history.com/svg?repos=xtekky/gpt4free&type=Date)-->
-
-<img src="https://github.com/user-attachments/assets/1624121d-4ee1-4553-913e-00dbd937e61f" width="800" alt="Star History Chart">
 
 ## 📄 License
 

@@ -42,7 +42,7 @@ class UndeployPod(Command):
 
         label_selector = Config().get('pod.label-selector', 'run=ops')
         undeploy_frontend(state.namespace, label_selector)
-        Pods.delete_with_selector(state.namespace, label_selector)
+        Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
         ServiceAccounts.delete(state.namespace, label_selector=label_selector)
 
         return state

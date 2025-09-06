@@ -102,6 +102,8 @@ from .type_defs import (
     DescribeConnectionAliasesResultTypeDef,
     DescribeConnectionAliasPermissionsRequestTypeDef,
     DescribeConnectionAliasPermissionsResultTypeDef,
+    DescribeCustomWorkspaceImageImportRequestTypeDef,
+    DescribeCustomWorkspaceImageImportResultTypeDef,
     DescribeImageAssociationsRequestTypeDef,
     DescribeImageAssociationsResultTypeDef,
     DescribeIpGroupsRequestTypeDef,
@@ -136,6 +138,8 @@ from .type_defs import (
     GetAccountLinkResultTypeDef,
     ImportClientBrandingRequestTypeDef,
     ImportClientBrandingResultTypeDef,
+    ImportCustomWorkspaceImageRequestTypeDef,
+    ImportCustomWorkspaceImageResultTypeDef,
     ImportWorkspaceImageRequestTypeDef,
     ImportWorkspaceImageResultTypeDef,
     ListAccountLinksRequestTypeDef,
@@ -145,6 +149,7 @@ from .type_defs import (
     MigrateWorkspaceRequestTypeDef,
     MigrateWorkspaceResultTypeDef,
     ModifyAccountRequestTypeDef,
+    ModifyAccountResultTypeDef,
     ModifyCertificateBasedAuthPropertiesRequestTypeDef,
     ModifyClientPropertiesRequestTypeDef,
     ModifyEndpointEncryptionModeRequestTypeDef,
@@ -633,6 +638,17 @@ class WorkSpacesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#describe_connection_aliases)
         """
 
+    async def describe_custom_workspace_image_import(
+        self, **kwargs: Unpack[DescribeCustomWorkspaceImageImportRequestTypeDef]
+    ) -> DescribeCustomWorkspaceImageImportResultTypeDef:
+        """
+        Retrieves information about a WorkSpace BYOL image being imported via
+        ImportCustomWorkspaceImage.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/describe_custom_workspace_image_import.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#describe_custom_workspace_image_import)
+        """
+
     async def describe_image_associations(
         self, **kwargs: Unpack[DescribeImageAssociationsRequestTypeDef]
     ) -> DescribeImageAssociationsResultTypeDef:
@@ -816,6 +832,17 @@ class WorkSpacesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#import_client_branding)
         """
 
+    async def import_custom_workspace_image(
+        self, **kwargs: Unpack[ImportCustomWorkspaceImageRequestTypeDef]
+    ) -> ImportCustomWorkspaceImageResultTypeDef:
+        """
+        Imports the specified Windows 10 or 11 Bring Your Own License (BYOL) image into
+        Amazon WorkSpaces using EC2 Image Builder.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/import_custom_workspace_image.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#import_custom_workspace_image)
+        """
+
     async def import_workspace_image(
         self, **kwargs: Unpack[ImportWorkspaceImageRequestTypeDef]
     ) -> ImportWorkspaceImageResultTypeDef:
@@ -860,7 +887,9 @@ class WorkSpacesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#migrate_workspace)
         """
 
-    async def modify_account(self, **kwargs: Unpack[ModifyAccountRequestTypeDef]) -> Dict[str, Any]:
+    async def modify_account(
+        self, **kwargs: Unpack[ModifyAccountRequestTypeDef]
+    ) -> ModifyAccountResultTypeDef:
         """
         Modifies the configuration of Bring Your Own License (BYOL) for the specified
         account.

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Union, cast
 
+import dagster as dg
 from dagster import AssetExecutionContext, ConfigurableResource, InitResourceContext, OpExecutionContext
 from pydantic import Field, PrivateAttr
 
@@ -15,7 +15,7 @@ from typing_extensions import TypeAlias
 
 from dagster_ray._base.utils import get_dagster_tags
 from dagster_ray.config import RayDataExecutionOptions
-from dagster_ray.utils import _process_dagster_env_vars
+from dagster_ray.utils import _process_dagster_env_vars, get_current_job_id
 
 if TYPE_CHECKING:
     from ray._private.worker import BaseContext as RayBaseContext  # noqa
@@ -23,11 +23,31 @@ if TYPE_CHECKING:
 OpOrAssetExecutionContext: TypeAlias = Union[OpExecutionContext, AssetExecutionContext]
 
 
+class Lifecycle(dg.Config):
+    create: bool = Field(
+        default=True,
+        description="Whether to create the resource. If set to `False`, the user can manually call `.create` instead.",
+    )
+    wait: bool = Field(
+        default=True,
+        description="Whether to wait for the remote Ray cluster to become ready to accept connections. If set to `False`, the user can manually call `.wait` instead.",
+    )
+    connect: bool = Field(
+        default=True,
+        description="Whether to run `ray.init` against the remote Ray cluster. If set to `False`, the user can manually call `.connect` instead.",
+    )
+    cleanup: Literal["never", "except_failure", "always"] = Field(
+        default="always", description="Whether to delete the resource after Dagster step completion."
+    )
+
+
 class BaseRayResource(ConfigurableResource, ABC):
     """
     Base class for Ray Resources.
     Defines the common interface and some utility methods.
     """
+
+    lifecycle: Lifecycle = Field(default_factory=Lifecycle, description="Actions to perform during resource setup.")
 
     ray_init_options: dict[str, Any] = Field(
         default_factory=dict,
@@ -39,6 +59,9 @@ class BaseRayResource(ConfigurableResource, ABC):
     )
     dashboard_port: int = Field(
         default=8265, description="Dashboard port for connection. Make sure to match with the actual available port."
+    )
+    env_vars: dict[str, str] | None = Field(
+        default_factory=dict, description="Environment variables to pass to the Ray cluster."
     )
     enable_tracing: bool = Field(
         default=False,
@@ -54,12 +77,6 @@ class BaseRayResource(ConfigurableResource, ABC):
     )
 
     _context: RayBaseContext | None = PrivateAttr()
-
-    def setup_for_execution(self, context: InitResourceContext) -> None:
-        raise NotImplementedError(
-            "This is an abstract resource, it's not meant to be provided directly. "
-            "Use a backend-specific resource instead."
-        )
 
     @property
     def context(self) -> RayBaseContext:
@@ -85,12 +102,16 @@ class BaseRayResource(ConfigurableResource, ABC):
         Returns the Ray Job ID for the current job which was created with `ray.init()`.
         :return:
         """
-        import ray
+        return get_current_job_id()
 
-        return ray.get_runtime_context().get_job_id()
+    def create(self, context: InitResourceContext | OpOrAssetExecutionContext):
+        pass
+
+    def wait(self, context: InitResourceContext | OpOrAssetExecutionContext):
+        pass
 
     @retry(stop=stop_after_delay(120), retry=retry_if_exception_type(ConnectionError), reraise=True)
-    def init_ray(self, context: OpOrAssetExecutionContext | InitResourceContext) -> RayBaseContext:
+    def connect(self, context: OpOrAssetExecutionContext | InitResourceContext) -> RayBaseContext:
         assert context.log is not None
 
         import ray
@@ -114,20 +135,15 @@ class BaseRayResource(ConfigurableResource, ABC):
         )
         self.data_execution_options.apply()
         self.data_execution_options.apply_remote()
-        context.log.info("Initialized Ray!")
+        context.log.info("Initialized Ray in client mode!")
         return cast("RayBaseContext", self._context)
 
-    def get_dagster_tags(self, context: InitResourceContext) -> dict[str, str]:
+    def get_dagster_tags(self, context: InitResourceContext | OpOrAssetExecutionContext) -> dict[str, str]:
         tags = get_dagster_tags(context)
         return tags
 
-    def _get_step_key(self, context: InitResourceContext) -> str:
-        # just return a random string
-        # since we want a fresh cluster every time
-        return str(uuid.uuid4())
-
     def get_env_vars_to_inject(self) -> dict[str, str]:
-        vars: dict[str, str] = {}
+        vars: dict[str, str] = self.env_vars or {}
         if self.enable_debug_post_mortem:
             vars["RAY_DEBUG_POST_MORTEM"] = "1"
         if self.enable_tracing:

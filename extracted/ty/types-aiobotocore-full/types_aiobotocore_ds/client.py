@@ -38,6 +38,7 @@ from .paginator import (
     DescribeSnapshotsPaginator,
     DescribeTrustsPaginator,
     DescribeUpdateDirectoryPaginator,
+    ListADAssessmentsPaginator,
     ListCertificatesPaginator,
     ListIpRoutesPaginator,
     ListLogSubscriptionsPaginator,
@@ -60,6 +61,8 @@ from .type_defs import (
     CreateConditionalForwarderRequestTypeDef,
     CreateDirectoryRequestTypeDef,
     CreateDirectoryResultTypeDef,
+    CreateHybridADRequestTypeDef,
+    CreateHybridADResultTypeDef,
     CreateLogSubscriptionRequestTypeDef,
     CreateMicrosoftADRequestTypeDef,
     CreateMicrosoftADResultTypeDef,
@@ -67,6 +70,8 @@ from .type_defs import (
     CreateSnapshotResultTypeDef,
     CreateTrustRequestTypeDef,
     CreateTrustResultTypeDef,
+    DeleteADAssessmentRequestTypeDef,
+    DeleteADAssessmentResultTypeDef,
     DeleteConditionalForwarderRequestTypeDef,
     DeleteDirectoryRequestTypeDef,
     DeleteDirectoryResultTypeDef,
@@ -77,6 +82,8 @@ from .type_defs import (
     DeleteTrustResultTypeDef,
     DeregisterCertificateRequestTypeDef,
     DeregisterEventTopicRequestTypeDef,
+    DescribeADAssessmentRequestTypeDef,
+    DescribeADAssessmentResultTypeDef,
     DescribeCertificateRequestTypeDef,
     DescribeCertificateResultTypeDef,
     DescribeClientAuthenticationSettingsRequestTypeDef,
@@ -91,6 +98,8 @@ from .type_defs import (
     DescribeDomainControllersResultTypeDef,
     DescribeEventTopicsRequestTypeDef,
     DescribeEventTopicsResultTypeDef,
+    DescribeHybridADUpdateRequestTypeDef,
+    DescribeHybridADUpdateResultTypeDef,
     DescribeLDAPSSettingsRequestTypeDef,
     DescribeLDAPSSettingsResultTypeDef,
     DescribeRegionsRequestTypeDef,
@@ -118,6 +127,8 @@ from .type_defs import (
     GetDirectoryLimitsResultTypeDef,
     GetSnapshotLimitsRequestTypeDef,
     GetSnapshotLimitsResultTypeDef,
+    ListADAssessmentsRequestTypeDef,
+    ListADAssessmentsResultTypeDef,
     ListCertificatesRequestTypeDef,
     ListCertificatesResultTypeDef,
     ListIpRoutesRequestTypeDef,
@@ -140,12 +151,16 @@ from .type_defs import (
     RestoreFromSnapshotRequestTypeDef,
     ShareDirectoryRequestTypeDef,
     ShareDirectoryResultTypeDef,
+    StartADAssessmentRequestTypeDef,
+    StartADAssessmentResultTypeDef,
     StartSchemaExtensionRequestTypeDef,
     StartSchemaExtensionResultTypeDef,
     UnshareDirectoryRequestTypeDef,
     UnshareDirectoryResultTypeDef,
     UpdateConditionalForwarderRequestTypeDef,
     UpdateDirectorySetupRequestTypeDef,
+    UpdateHybridADRequestTypeDef,
+    UpdateHybridADResultTypeDef,
     UpdateNumberOfDomainControllersRequestTypeDef,
     UpdateRadiusRequestTypeDef,
     UpdateSettingsRequestTypeDef,
@@ -155,6 +170,7 @@ from .type_defs import (
     VerifyTrustRequestTypeDef,
     VerifyTrustResultTypeDef,
 )
+from .waiter import HybridADUpdatedWaiter
 
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
@@ -172,6 +188,7 @@ __all__ = ("DirectoryServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
+    ADAssessmentLimitExceededException: Type[BotocoreClientError]
     AccessDeniedException: Type[BotocoreClientError]
     AuthenticationFailedException: Type[BotocoreClientError]
     CertificateAlreadyExistsException: Type[BotocoreClientError]
@@ -347,6 +364,17 @@ class DirectoryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#create_directory)
         """
 
+    async def create_hybrid_ad(
+        self, **kwargs: Unpack[CreateHybridADRequestTypeDef]
+    ) -> CreateHybridADResultTypeDef:
+        """
+        Creates a hybrid directory that connects your self-managed Active Directory
+        (AD) infrastructure and Amazon Web Services.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/create_hybrid_ad.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#create_hybrid_ad)
+        """
+
     async def create_log_subscription(
         self, **kwargs: Unpack[CreateLogSubscriptionRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -389,6 +417,16 @@ class DirectoryServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/create_trust.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#create_trust)
+        """
+
+    async def delete_ad_assessment(
+        self, **kwargs: Unpack[DeleteADAssessmentRequestTypeDef]
+    ) -> DeleteADAssessmentResultTypeDef:
+        """
+        Deletes a directory assessment and all associated data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/delete_ad_assessment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#delete_ad_assessment)
         """
 
     async def delete_conditional_forwarder(
@@ -465,6 +503,17 @@ class DirectoryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#deregister_event_topic)
         """
 
+    async def describe_ad_assessment(
+        self, **kwargs: Unpack[DescribeADAssessmentRequestTypeDef]
+    ) -> DescribeADAssessmentResultTypeDef:
+        """
+        Retrieves detailed information about a directory assessment, including its
+        current status, validation results, and configuration details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/describe_ad_assessment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#describe_ad_assessment)
+        """
+
     async def describe_certificate(
         self, **kwargs: Unpack[DescribeCertificateRequestTypeDef]
     ) -> DescribeCertificateResultTypeDef:
@@ -537,6 +586,16 @@ class DirectoryServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/describe_event_topics.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#describe_event_topics)
+        """
+
+    async def describe_hybrid_ad_update(
+        self, **kwargs: Unpack[DescribeHybridADUpdateRequestTypeDef]
+    ) -> DescribeHybridADUpdateResultTypeDef:
+        """
+        Retrieves information about update activities for a hybrid directory.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/describe_hybrid_ad_update.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#describe_hybrid_ad_update)
         """
 
     async def describe_ldaps_settings(
@@ -721,6 +780,17 @@ class DirectoryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#get_snapshot_limits)
         """
 
+    async def list_ad_assessments(
+        self, **kwargs: Unpack[ListADAssessmentsRequestTypeDef]
+    ) -> ListADAssessmentsResultTypeDef:
+        """
+        Retrieves a list of directory assessments for the specified directory or all
+        assessments in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/list_ad_assessments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#list_ad_assessments)
+        """
+
     async def list_certificates(
         self, **kwargs: Unpack[ListCertificatesRequestTypeDef]
     ) -> ListCertificatesResultTypeDef:
@@ -865,6 +935,17 @@ class DirectoryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#share_directory)
         """
 
+    async def start_ad_assessment(
+        self, **kwargs: Unpack[StartADAssessmentRequestTypeDef]
+    ) -> StartADAssessmentResultTypeDef:
+        """
+        Initiates a directory assessment to validate your self-managed AD environment
+        for hybrid domain join.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/start_ad_assessment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#start_ad_assessment)
+        """
+
     async def start_schema_extension(
         self, **kwargs: Unpack[StartSchemaExtensionRequestTypeDef]
     ) -> StartSchemaExtensionResultTypeDef:
@@ -904,6 +985,16 @@ class DirectoryServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/update_directory_setup.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#update_directory_setup)
+        """
+
+    async def update_hybrid_ad(
+        self, **kwargs: Unpack[UpdateHybridADRequestTypeDef]
+    ) -> UpdateHybridADResultTypeDef:
+        """
+        Updates the configuration of an existing hybrid directory.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/update_hybrid_ad.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#update_hybrid_ad)
         """
 
     async def update_number_of_domain_controllers(
@@ -1058,6 +1149,17 @@ class DirectoryServiceClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ad_assessments"]
+    ) -> ListADAssessmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_certificates"]
     ) -> ListCertificatesPaginator:
         """
@@ -1109,6 +1211,16 @@ class DirectoryServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/get_paginator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["hybrid_ad_updated"]
+    ) -> HybridADUpdatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/client/#get_waiter)
         """
 
     async def __aenter__(self) -> Self:

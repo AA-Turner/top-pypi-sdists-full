@@ -32,7 +32,7 @@ from .jit import (
     get_batch_prefill_uri,
     get_single_decode_uri,
     setup_cubin_loader,
-    trtllm_gen_fmha_module,
+    gen_trtllm_gen_fmha_module,
 )
 from .page import get_seq_lens
 from .prefill import (
@@ -302,7 +302,7 @@ def get_batch_decode_module(*args):
 
 @functools.cache
 def get_trtllm_gen_fmha_module():
-    mod = trtllm_gen_fmha_module()
+    mod = gen_trtllm_gen_fmha_module()
     op = mod.build_and_load()
     setup_cubin_loader(mod.get_library_path())
     return op
@@ -1810,7 +1810,7 @@ class BatchDecodeMlaWithPagedKVCacheWrapper:
 class TrtllmGenDecodeModule:
     def __init__(self) -> None:
         self._sm_count: Optional[int] = None
-        self._mod = trtllm_gen_fmha_module()
+        self._mod = gen_trtllm_gen_fmha_module()
         self._op = self._mod.build_and_load()
         from flashinfer.jit.cubin_loader import setup_cubin_loader
 
@@ -1929,6 +1929,7 @@ def get_trtllm_gen_decode_module(*args):
         assert page_size is not None
         assert max_kv_len is not None
         assert enable_pdl is not None
+        assert workspace_size > 0, "workspace_size must be greater than 0"
         o = module._paged_run(
             q.contiguous(),  # NOTE(Siyuan): without contiguous, the result is incorrect
             paged_k_cache,

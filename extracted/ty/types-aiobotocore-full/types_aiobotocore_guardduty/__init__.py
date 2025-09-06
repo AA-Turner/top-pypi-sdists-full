@@ -21,7 +21,9 @@ Usage::
         ListInvitationsPaginator,
         ListMembersPaginator,
         ListOrganizationAdminAccountsPaginator,
+        ListThreatEntitySetsPaginator,
         ListThreatIntelSetsPaginator,
+        ListTrustedEntitySetsPaginator,
     )
 
     session = get_session()
@@ -39,7 +41,9 @@ Usage::
     list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
     list_organization_admin_accounts_paginator: ListOrganizationAdminAccountsPaginator = client.get_paginator("list_organization_admin_accounts")
+    list_threat_entity_sets_paginator: ListThreatEntitySetsPaginator = client.get_paginator("list_threat_entity_sets")
     list_threat_intel_sets_paginator: ListThreatIntelSetsPaginator = client.get_paginator("list_threat_intel_sets")
+    list_trusted_entity_sets_paginator: ListTrustedEntitySetsPaginator = client.get_paginator("list_trusted_entity_sets")
     ```
 """
 
@@ -54,7 +58,9 @@ from .paginator import (
     ListIPSetsPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
+    ListThreatEntitySetsPaginator,
     ListThreatIntelSetsPaginator,
+    ListTrustedEntitySetsPaginator,
 )
 
 Client = GuardDutyClient
@@ -72,5 +78,7 @@ __all__ = (
     "ListInvitationsPaginator",
     "ListMembersPaginator",
     "ListOrganizationAdminAccountsPaginator",
+    "ListThreatEntitySetsPaginator",
     "ListThreatIntelSetsPaginator",
+    "ListTrustedEntitySetsPaginator",
 )

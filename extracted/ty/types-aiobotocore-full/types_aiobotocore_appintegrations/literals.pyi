@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_appintegrations.literals import ExecutionModeType
+    from types_aiobotocore_appintegrations.literals import ContactHandlingScopeType
 
-    data: ExecutionModeType = "ON_DEMAND"
+    data: ContactHandlingScopeType = "CROSS_CONTACTS"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AppIntegrationsServiceServiceName",
+    "ContactHandlingScopeType",
     "ExecutionModeType",
     "ExecutionStatusType",
     "ListApplicationAssociationsPaginatorName",
@@ -37,6 +38,7 @@ __all__ = (
     "ServiceName",
 )
 
+ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ListApplicationAssociationsPaginatorName = Literal["list_application_associations"]
@@ -73,6 +75,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -84,8 +87,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

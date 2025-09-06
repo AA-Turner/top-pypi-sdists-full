@@ -17,6 +17,7 @@ from .app_auth_scheme_auth_mode import AppAuthSchemeAuthMode
 from .app_model import AppModel
 from .approval_create import ApprovalCreate
 from .approval_request_message import ApprovalRequestMessage
+from .approval_request_message_tool_call import ApprovalRequestMessageToolCall
 from .approval_response_message import ApprovalResponseMessage
 from .archival_memory_search_response import ArchivalMemorySearchResponse
 from .archival_memory_search_result import ArchivalMemorySearchResult
@@ -222,6 +223,7 @@ from .message_create import MessageCreate
 from .message_create_content import MessageCreateContent
 from .message_create_role import MessageCreateRole
 from .message_role import MessageRole
+from .message_search_result import MessageSearchResult
 from .message_type import MessageType
 from .modal_sandbox_config import ModalSandboxConfig
 from .modal_sandbox_config_language import ModalSandboxConfigLanguage
@@ -367,6 +369,7 @@ __all__ = [
     "AppModel",
     "ApprovalCreate",
     "ApprovalRequestMessage",
+    "ApprovalRequestMessageToolCall",
     "ApprovalResponseMessage",
     "ArchivalMemorySearchResponse",
     "ArchivalMemorySearchResult",
@@ -564,6 +567,7 @@ __all__ = [
     "MessageCreateContent",
     "MessageCreateRole",
     "MessageRole",
+    "MessageSearchResult",
     "MessageType",
     "ModalSandboxConfig",
     "ModalSandboxConfigLanguage",

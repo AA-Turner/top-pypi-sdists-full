@@ -30,6 +30,7 @@ class Doc(BaseDoc, Generic[T]):
         init: dict[str, T] = {},
         *,
         client_id: int | None = None,
+        skip_gc: bool | None = None,
         doc: _Doc | None = None,
         Model=None,
         allow_multithreading: bool = False,
@@ -38,10 +39,12 @@ class Doc(BaseDoc, Generic[T]):
         Args:
             init: The initial root types of the document.
             client_id: An optional client ID for the document.
+            skip_gc: Whether to skip garbage collection on deleted collections
+                on transaction commit.
             allow_multithreading: Whether to allow the document to be used in different threads.
         """
         super().__init__(
-            client_id=client_id, doc=doc, Model=Model, allow_multithreading=allow_multithreading
+            client_id=client_id, skip_gc=skip_gc, doc=doc, Model=Model, allow_multithreading=allow_multithreading
         )
         for k, v in init.items():
             self[k] = v

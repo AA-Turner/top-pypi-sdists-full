@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: streamsets
-Version: 6.6.1
+Version: 6.6.2
 Summary: A Python SDK for StreamSets
 Author: StreamSets Inc
 Classifier: Development Status :: 5 - Production/Stable

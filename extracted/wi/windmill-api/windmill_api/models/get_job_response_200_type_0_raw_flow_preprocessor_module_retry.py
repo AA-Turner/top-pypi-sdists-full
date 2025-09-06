@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.get_job_response_200_type_0_raw_flow_preprocessor_module_retry_exponential import (
         GetJobResponse200Type0RawFlowPreprocessorModuleRetryExponential,
     )
+    from ..models.get_job_response_200_type_0_raw_flow_preprocessor_module_retry_retry_if import (
+        GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf,
+    )
 
 
 T = TypeVar("T", bound="GetJobResponse200Type0RawFlowPreprocessorModuleRetry")
@@ -23,10 +26,12 @@ class GetJobResponse200Type0RawFlowPreprocessorModuleRetry:
     Attributes:
         constant (Union[Unset, GetJobResponse200Type0RawFlowPreprocessorModuleRetryConstant]):
         exponential (Union[Unset, GetJobResponse200Type0RawFlowPreprocessorModuleRetryExponential]):
+        retry_if (Union[Unset, GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "GetJobResponse200Type0RawFlowPreprocessorModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "GetJobResponse200Type0RawFlowPreprocessorModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,10 @@ class GetJobResponse200Type0RawFlowPreprocessorModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +54,8 @@ class GetJobResponse200Type0RawFlowPreprocessorModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +66,9 @@ class GetJobResponse200Type0RawFlowPreprocessorModuleRetry:
         )
         from ..models.get_job_response_200_type_0_raw_flow_preprocessor_module_retry_exponential import (
             GetJobResponse200Type0RawFlowPreprocessorModuleRetryExponential,
+        )
+        from ..models.get_job_response_200_type_0_raw_flow_preprocessor_module_retry_retry_if import (
+            GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +86,17 @@ class GetJobResponse200Type0RawFlowPreprocessorModuleRetry:
         else:
             exponential = GetJobResponse200Type0RawFlowPreprocessorModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = GetJobResponse200Type0RawFlowPreprocessorModuleRetryRetryIf.from_dict(_retry_if)
+
         get_job_response_200_type_0_raw_flow_preprocessor_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         get_job_response_200_type_0_raw_flow_preprocessor_module_retry.additional_properties = d

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.7.0
+Version: 1.7.1
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -46,13 +46,13 @@ Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
-Requires-Dist: litellm<2.0.0,>=1.73.1; extra == 'all'
+Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai>=1.8.2; extra == 'all'
 Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'all'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
-Requires-Dist: openai<1.100.0; extra == 'all'
+Requires-Dist: openai<1.102.0,>=1.68.0; extra == 'all'
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
 Requires-Dist: pre-commit<4.4.0,>=3.2.0; extra == 'all'
@@ -84,8 +84,8 @@ Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.73.1; extra == 'litellm'
-Requires-Dist: openai<1.100.0; extra == 'litellm'
+Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'litellm'
+Requires-Dist: openai<1.102.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: mistral

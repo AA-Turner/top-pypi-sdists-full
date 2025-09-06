@@ -12,6 +12,10 @@ Usage::
     from types_aiobotocore_bedrock import (
         BedrockClient,
         Client,
+        ListAutomatedReasoningPoliciesPaginator,
+        ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
+        ListAutomatedReasoningPolicyTestCasesPaginator,
+        ListAutomatedReasoningPolicyTestResultsPaginator,
         ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
         ListEvaluationJobsPaginator,
@@ -33,6 +37,10 @@ Usage::
         ...
 
 
+    list_automated_reasoning_policies_paginator: ListAutomatedReasoningPoliciesPaginator = client.get_paginator("list_automated_reasoning_policies")
+    list_automated_reasoning_policy_build_workflows_paginator: ListAutomatedReasoningPolicyBuildWorkflowsPaginator = client.get_paginator("list_automated_reasoning_policy_build_workflows")
+    list_automated_reasoning_policy_test_cases_paginator: ListAutomatedReasoningPolicyTestCasesPaginator = client.get_paginator("list_automated_reasoning_policy_test_cases")
+    list_automated_reasoning_policy_test_results_paginator: ListAutomatedReasoningPolicyTestResultsPaginator = client.get_paginator("list_automated_reasoning_policy_test_results")
     list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
     list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
     list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
@@ -51,6 +59,10 @@ Usage::
 
 from .client import BedrockClient
 from .paginator import (
+    ListAutomatedReasoningPoliciesPaginator,
+    ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
+    ListAutomatedReasoningPolicyTestCasesPaginator,
+    ListAutomatedReasoningPolicyTestResultsPaginator,
     ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
     ListEvaluationJobsPaginator,
@@ -71,6 +83,10 @@ Client = BedrockClient
 __all__ = (
     "BedrockClient",
     "Client",
+    "ListAutomatedReasoningPoliciesPaginator",
+    "ListAutomatedReasoningPolicyBuildWorkflowsPaginator",
+    "ListAutomatedReasoningPolicyTestCasesPaginator",
+    "ListAutomatedReasoningPolicyTestResultsPaginator",
     "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
     "ListEvaluationJobsPaginator",

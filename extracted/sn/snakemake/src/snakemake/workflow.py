@@ -10,6 +10,8 @@ import os
 import subprocess
 import sys
 import platform
+import dis
+import linecache
 from collections import OrderedDict, namedtuple
 from collections.abc import Iterator, Mapping
 from itertools import filterfalse, chain
@@ -35,6 +37,7 @@ from snakemake.settings.types import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GlobalReportSettings,
     SharedFSUsage,
 )
 from snakemake.settings.enums import Quietness
@@ -158,9 +161,11 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
+    global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
+    _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
 
@@ -176,7 +181,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self._rules = OrderedDict()
         self.default_target = None
-        self._workdir_init = os.path.abspath(os.curdir)
+        self._workdir_init = str(Path.cwd().absolute())
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
@@ -487,6 +492,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def sourcecache(self):
         return self._sourcecache
+
+    @property
+    def rundir(self):
+        return self._rundir
 
     @property
     def workdir_init(self):
@@ -891,14 +900,13 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        deploy = []
-        assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-            deploy.append("conda")
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
-            deploy.append("singularity")
         unit_tests.generate(
-            self.dag, path, deploy, configfiles=self.overwrite_configfiles
+            self.dag,
+            path,
+            self.deployment_settings.deployment_method,
+            snakefile=self.main_snakefile,
+            configfiles=self.configfiles,
+            rundir=self.rundir,
         )
 
     def cleanup_metadata(self, paths: List[Path]):
@@ -934,7 +942,7 @@ class Workflow(WorkflowExecutorInterface):
             logger.info("Unlocked working directory.")
         except IOError as e:
             raise WorkflowError(
-                f"Error: Unlocking the directory {os.getcwd()} failed. Maybe "
+                f"Error: Unlocking the directory {Path.cwd()} failed. Maybe "
                 "you don't have the permissions?",
                 e,
             )
@@ -1067,7 +1075,10 @@ class Workflow(WorkflowExecutorInterface):
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
     def create_report(
-        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+        self,
+        report_plugin: ReportPlugin,
+        report_settings: ReportSettingsBase,
+        global_report_settings: GlobalReportSettings,
     ):
         from snakemake.report import auto_report
 
@@ -1079,7 +1090,11 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        async_run(auto_report(self.dag, report_plugin, report_settings))
+        async_run(
+            auto_report(
+                self.dag, report_plugin, report_settings, global_report_settings
+            )
+        )
 
     def conda_list_envs(self):
         assert self.dag_settings is not None
@@ -1749,6 +1764,26 @@ class Workflow(WorkflowExecutorInterface):
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
+    def get_rule_source(self, func):
+        # This can't use `inspect` because the functions are compiled into intermediate python code
+        # in parser.py and that intermediate source is not available anymore (or desirable).
+        # Instead, we're using dis to retrieve the line numbers of the function in the intermediate
+        # code and then map it to the original file using `self.linemaps`.
+        sourcefile = func.__code__.co_filename
+        line_numbers = []
+        linemap = self.linemaps[sourcefile]
+        for func_offset, line in dis.findlinestarts(func.__code__):
+            # The first instruction in the compiled function is RESUME, which
+            # with snakemake is mapped to the 'rule: ' line and is not considered
+            # part of the rule source.
+            if func_offset == 0:
+                continue
+            if line in linemap:
+                line_numbers.append(linemap[line])
+        return "".join(
+            [linecache.getline(sourcefile, lineno) for lineno in sorted(line_numbers)]
+        )
+
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
         if name is None:
@@ -1967,6 +2002,8 @@ class Workflow(WorkflowExecutorInterface):
                 rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
+            if rule.run_func is not None and not rule.norun:
+                rule.run_func_src = self.get_rule_source(rule.run_func)
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook

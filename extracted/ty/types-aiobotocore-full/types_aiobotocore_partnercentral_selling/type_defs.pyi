@@ -238,43 +238,43 @@ class AccountReceiverTypeDef(TypedDict):
 
 class AddressSummaryTypeDef(TypedDict):
     City: NotRequired[str]
-    CountryCode: NotRequired[CountryCodeType]
     PostalCode: NotRequired[str]
     StateOrRegion: NotRequired[str]
+    CountryCode: NotRequired[CountryCodeType]
 
 class AddressTypeDef(TypedDict):
     City: NotRequired[str]
-    CountryCode: NotRequired[CountryCodeType]
     PostalCode: NotRequired[str]
     StateOrRegion: NotRequired[str]
+    CountryCode: NotRequired[CountryCodeType]
     StreetAddress: NotRequired[str]
 
 class AssigneeContactTypeDef(TypedDict):
-    BusinessTitle: str
     Email: str
     FirstName: str
     LastName: str
+    BusinessTitle: str
 
 class AssociateOpportunityRequestTypeDef(TypedDict):
     Catalog: str
     OpportunityIdentifier: str
-    RelatedEntityIdentifier: str
     RelatedEntityType: RelatedEntityTypeType
+    RelatedEntityIdentifier: str
 
 class ContactTypeDef(TypedDict):
-    BusinessTitle: NotRequired[str]
     Email: NotRequired[str]
     FirstName: NotRequired[str]
     LastName: NotRequired[str]
+    BusinessTitle: NotRequired[str]
     Phone: NotRequired[str]
 
 class AwsOpportunityInsightsTypeDef(TypedDict):
-    EngagementScore: NotRequired[EngagementScoreType]
     NextBestActions: NotRequired[str]
+    EngagementScore: NotRequired[EngagementScoreType]
 
 class ProfileNextStepsHistoryTypeDef(TypedDict):
-    Time: datetime
     Value: str
+    Time: datetime
 
 class ExpectedCustomerSpendTypeDef(TypedDict):
     Amount: str
@@ -292,10 +292,10 @@ class AwsSubmissionTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
 class AwsTeamMemberTypeDef(TypedDict):
-    BusinessTitle: NotRequired[AwsMemberBusinessTitleType]
     Email: NotRequired[str]
     FirstName: NotRequired[str]
     LastName: NotRequired[str]
+    BusinessTitle: NotRequired[AwsMemberBusinessTitleType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -310,22 +310,22 @@ class TagTypeDef(TypedDict):
 
 class CreateResourceSnapshotRequestTypeDef(TypedDict):
     Catalog: str
-    ClientToken: str
     EngagementIdentifier: str
+    ResourceType: Literal["Opportunity"]
     ResourceIdentifier: str
     ResourceSnapshotTemplateIdentifier: str
-    ResourceType: Literal["Opportunity"]
+    ClientToken: str
 
 class EngagementCustomerProjectDetailsTypeDef(TypedDict):
+    Title: str
     BusinessProblem: str
     TargetCompletionDate: str
-    Title: str
 
 class EngagementCustomerTypeDef(TypedDict):
-    CompanyName: str
-    CountryCode: CountryCodeType
     Industry: IndustryType
+    CompanyName: str
     WebsiteUrl: str
+    CountryCode: CountryCodeType
 
 class DeleteResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
@@ -334,36 +334,36 @@ class DeleteResourceSnapshotJobRequestTypeDef(TypedDict):
 class DisassociateOpportunityRequestTypeDef(TypedDict):
     Catalog: str
     OpportunityIdentifier: str
-    RelatedEntityIdentifier: str
     RelatedEntityType: RelatedEntityTypeType
+    RelatedEntityIdentifier: str
 
 class EngagementMemberSummaryTypeDef(TypedDict):
     CompanyName: NotRequired[str]
     WebsiteUrl: NotRequired[str]
 
 class EngagementMemberTypeDef(TypedDict):
-    AccountId: NotRequired[str]
     CompanyName: NotRequired[str]
     WebsiteUrl: NotRequired[str]
+    AccountId: NotRequired[str]
 
 class EngagementResourceAssociationSummaryTypeDef(TypedDict):
     Catalog: str
-    CreatedBy: NotRequired[str]
     EngagementId: NotRequired[str]
-    ResourceId: NotRequired[str]
     ResourceType: NotRequired[Literal["Opportunity"]]
+    ResourceId: NotRequired[str]
+    CreatedBy: NotRequired[str]
 
 class EngagementSortTypeDef(TypedDict):
-    SortBy: Literal["CreatedDate"]
     SortOrder: SortOrderType
+    SortBy: Literal["CreatedDate"]
 
 class EngagementSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
+    Id: NotRequired[str]
+    Title: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     CreatedBy: NotRequired[str]
-    Id: NotRequired[str]
     MemberCount: NotRequired[int]
-    Title: NotRequired[str]
 
 class GetAwsOpportunitySummaryRequestTypeDef(TypedDict):
     Catalog: str
@@ -382,16 +382,16 @@ class GetOpportunityRequestTypeDef(TypedDict):
     Identifier: str
 
 class MarketingOutputTypeDef(TypedDict):
-    AwsFundingUsed: NotRequired[AwsFundingUsedType]
     CampaignName: NotRequired[str]
-    Channels: NotRequired[List[ChannelType]]
     Source: NotRequired[MarketingSourceType]
     UseCases: NotRequired[List[str]]
+    Channels: NotRequired[List[ChannelType]]
+    AwsFundingUsed: NotRequired[AwsFundingUsedType]
 
 class RelatedEntityIdentifiersTypeDef(TypedDict):
     AwsMarketplaceOffers: NotRequired[List[str]]
-    AwsProducts: NotRequired[List[str]]
     Solutions: NotRequired[List[str]]
+    AwsProducts: NotRequired[List[str]]
 
 class GetResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
@@ -400,9 +400,9 @@ class GetResourceSnapshotJobRequestTypeDef(TypedDict):
 class GetResourceSnapshotRequestTypeDef(TypedDict):
     Catalog: str
     EngagementIdentifier: str
+    ResourceType: Literal["Opportunity"]
     ResourceIdentifier: str
     ResourceSnapshotTemplateIdentifier: str
-    ResourceType: Literal["Opportunity"]
     Revision: NotRequired[int]
 
 class GetSellingSystemSettingsRequestTypeDef(TypedDict):
@@ -411,38 +411,38 @@ class GetSellingSystemSettingsRequestTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 class LifeCycleForViewTypeDef(TypedDict):
-    NextSteps: NotRequired[str]
+    TargetCloseDate: NotRequired[str]
     ReviewStatus: NotRequired[ReviewStatusType]
     Stage: NotRequired[StageType]
-    TargetCloseDate: NotRequired[str]
+    NextSteps: NotRequired[str]
 
 class NextStepsHistoryOutputTypeDef(TypedDict):
-    Time: datetime
     Value: str
+    Time: datetime
 
 class LifeCycleSummaryTypeDef(TypedDict):
+    Stage: NotRequired[StageType]
     ClosedLostReason: NotRequired[ClosedLostReasonType]
     NextSteps: NotRequired[str]
-    ReviewComments: NotRequired[str]
-    ReviewStatus: NotRequired[ReviewStatusType]
-    ReviewStatusReason: NotRequired[str]
-    Stage: NotRequired[StageType]
     TargetCloseDate: NotRequired[str]
+    ReviewStatus: NotRequired[ReviewStatusType]
+    ReviewComments: NotRequired[str]
+    ReviewStatusReason: NotRequired[str]
 
 class ListEngagementByAcceptingInvitationTaskSummaryTypeDef(TypedDict):
-    EngagementInvitationId: NotRequired[str]
-    Message: NotRequired[str]
-    OpportunityId: NotRequired[str]
-    ReasonCode: NotRequired[ReasonCodeType]
-    ResourceSnapshotJobId: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    TaskArn: NotRequired[str]
     TaskId: NotRequired[str]
+    TaskArn: NotRequired[str]
+    StartTime: NotRequired[datetime]
     TaskStatus: NotRequired[TaskStatusType]
+    Message: NotRequired[str]
+    ReasonCode: NotRequired[ReasonCodeType]
+    OpportunityId: NotRequired[str]
+    ResourceSnapshotJobId: NotRequired[str]
+    EngagementInvitationId: NotRequired[str]
 
 class ListTasksSortBaseTypeDef(TypedDict):
-    SortBy: Literal["StartTime"]
     SortOrder: SortOrderType
+    SortBy: Literal["StartTime"]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -450,20 +450,20 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 class ListEngagementFromOpportunityTaskSummaryTypeDef(TypedDict):
+    TaskId: NotRequired[str]
+    TaskArn: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    TaskStatus: NotRequired[TaskStatusType]
+    Message: NotRequired[str]
+    ReasonCode: NotRequired[ReasonCodeType]
+    OpportunityId: NotRequired[str]
+    ResourceSnapshotJobId: NotRequired[str]
     EngagementId: NotRequired[str]
     EngagementInvitationId: NotRequired[str]
-    Message: NotRequired[str]
-    OpportunityId: NotRequired[str]
-    ReasonCode: NotRequired[ReasonCodeType]
-    ResourceSnapshotJobId: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    TaskArn: NotRequired[str]
-    TaskId: NotRequired[str]
-    TaskStatus: NotRequired[TaskStatusType]
 
 class OpportunityEngagementInvitationSortTypeDef(TypedDict):
-    SortBy: Literal["InvitationDate"]
     SortOrder: SortOrderType
+    SortBy: Literal["InvitationDate"]
 
 class ListEngagementMembersRequestTypeDef(TypedDict):
     Catalog: str
@@ -473,67 +473,67 @@ class ListEngagementMembersRequestTypeDef(TypedDict):
 
 class ListEngagementResourceAssociationsRequestTypeDef(TypedDict):
     Catalog: str
-    CreatedBy: NotRequired[str]
-    EngagementIdentifier: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    ResourceIdentifier: NotRequired[str]
+    EngagementIdentifier: NotRequired[str]
     ResourceType: NotRequired[Literal["Opportunity"]]
+    ResourceIdentifier: NotRequired[str]
+    CreatedBy: NotRequired[str]
 
 class OpportunitySortTypeDef(TypedDict):
-    SortBy: OpportunitySortNameType
     SortOrder: SortOrderType
+    SortBy: OpportunitySortNameType
 
 class SortObjectTypeDef(TypedDict):
     SortBy: NotRequired[Literal["CreatedDate"]]
     SortOrder: NotRequired[SortOrderType]
 
 class ResourceSnapshotJobSummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
     Arn: NotRequired[str]
     EngagementId: NotRequired[str]
-    Id: NotRequired[str]
     Status: NotRequired[ResourceSnapshotJobStatusType]
 
 class ListResourceSnapshotsRequestTypeDef(TypedDict):
     Catalog: str
     EngagementIdentifier: str
-    CreatedBy: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    ResourceType: NotRequired[Literal["Opportunity"]]
     ResourceIdentifier: NotRequired[str]
     ResourceSnapshotTemplateIdentifier: NotRequired[str]
-    ResourceType: NotRequired[Literal["Opportunity"]]
+    CreatedBy: NotRequired[str]
 
 class ResourceSnapshotSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
-    CreatedBy: NotRequired[str]
+    Revision: NotRequired[int]
+    ResourceType: NotRequired[Literal["Opportunity"]]
     ResourceId: NotRequired[str]
     ResourceSnapshotTemplateName: NotRequired[str]
-    ResourceType: NotRequired[Literal["Opportunity"]]
-    Revision: NotRequired[int]
+    CreatedBy: NotRequired[str]
 
 class SolutionSortTypeDef(TypedDict):
-    SortBy: SolutionSortNameType
     SortOrder: SortOrderType
+    SortBy: SolutionSortNameType
 
 class SolutionBaseTypeDef(TypedDict):
     Catalog: str
-    Category: str
-    CreatedDate: datetime
     Id: str
     Name: str
     Status: SolutionStatusType
+    Category: str
+    CreatedDate: datetime
     Arn: NotRequired[str]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
 class MarketingTypeDef(TypedDict):
-    AwsFundingUsed: NotRequired[AwsFundingUsedType]
     CampaignName: NotRequired[str]
-    Channels: NotRequired[Sequence[ChannelType]]
     Source: NotRequired[MarketingSourceType]
     UseCases: NotRequired[Sequence[str]]
+    Channels: NotRequired[Sequence[ChannelType]]
+    AwsFundingUsed: NotRequired[AwsFundingUsedType]
 
 class MonetaryValueTypeDef(TypedDict):
     Amount: str
@@ -541,9 +541,9 @@ class MonetaryValueTypeDef(TypedDict):
 
 class SenderContactTypeDef(TypedDict):
     Email: str
-    BusinessTitle: NotRequired[str]
     FirstName: NotRequired[str]
     LastName: NotRequired[str]
+    BusinessTitle: NotRequired[str]
     Phone: NotRequired[str]
 
 class PutSellingSystemSettingsRequestTypeDef(TypedDict):
@@ -578,108 +578,108 @@ class ReceiverTypeDef(TypedDict):
 
 class AccountSummaryTypeDef(TypedDict):
     CompanyName: str
-    Address: NotRequired[AddressSummaryTypeDef]
     Industry: NotRequired[IndustryType]
     OtherIndustry: NotRequired[str]
     WebsiteUrl: NotRequired[str]
+    Address: NotRequired[AddressSummaryTypeDef]
 
 class AccountTypeDef(TypedDict):
     CompanyName: str
-    Address: NotRequired[AddressTypeDef]
-    AwsAccountId: NotRequired[str]
-    Duns: NotRequired[str]
     Industry: NotRequired[IndustryType]
     OtherIndustry: NotRequired[str]
     WebsiteUrl: NotRequired[str]
+    AwsAccountId: NotRequired[str]
+    Address: NotRequired[AddressTypeDef]
+    Duns: NotRequired[str]
 
 class AssignOpportunityRequestTypeDef(TypedDict):
-    Assignee: AssigneeContactTypeDef
     Catalog: str
     Identifier: str
+    Assignee: AssigneeContactTypeDef
 
 class AwsOpportunityCustomerTypeDef(TypedDict):
     Contacts: NotRequired[List[ContactTypeDef]]
 
 class AwsOpportunityLifeCycleTypeDef(TypedDict):
+    TargetCloseDate: NotRequired[str]
     ClosedLostReason: NotRequired[AwsClosedLostReasonType]
+    Stage: NotRequired[AwsOpportunityStageType]
     NextSteps: NotRequired[str]
     NextStepsHistory: NotRequired[List[ProfileNextStepsHistoryTypeDef]]
-    Stage: NotRequired[AwsOpportunityStageType]
-    TargetCloseDate: NotRequired[str]
 
 class AwsOpportunityProjectTypeDef(TypedDict):
     ExpectedCustomerSpend: NotRequired[List[ExpectedCustomerSpendTypeDef]]
 
 class ProjectDetailsOutputTypeDef(TypedDict):
     BusinessProblem: str
-    ExpectedCustomerSpend: List[ExpectedCustomerSpendTypeDef]
-    TargetCompletionDate: str
     Title: str
+    TargetCompletionDate: str
+    ExpectedCustomerSpend: List[ExpectedCustomerSpendTypeDef]
 
 class ProjectDetailsTypeDef(TypedDict):
     BusinessProblem: str
-    ExpectedCustomerSpend: Sequence[ExpectedCustomerSpendTypeDef]
-    TargetCompletionDate: str
     Title: str
+    TargetCompletionDate: str
+    ExpectedCustomerSpend: Sequence[ExpectedCustomerSpendTypeDef]
 
 class ProjectOutputTypeDef(TypedDict):
-    AdditionalComments: NotRequired[str]
-    ApnPrograms: NotRequired[List[str]]
-    CompetitorName: NotRequired[CompetitorNameType]
-    CustomerBusinessProblem: NotRequired[str]
-    CustomerUseCase: NotRequired[str]
     DeliveryModels: NotRequired[List[DeliveryModelType]]
     ExpectedCustomerSpend: NotRequired[List[ExpectedCustomerSpendTypeDef]]
-    OtherCompetitorNames: NotRequired[str]
-    OtherSolutionDescription: NotRequired[str]
+    Title: NotRequired[str]
+    ApnPrograms: NotRequired[List[str]]
+    CustomerBusinessProblem: NotRequired[str]
+    CustomerUseCase: NotRequired[str]
     RelatedOpportunityIdentifier: NotRequired[str]
     SalesActivities: NotRequired[List[SalesActivityType]]
-    Title: NotRequired[str]
+    CompetitorName: NotRequired[CompetitorNameType]
+    OtherCompetitorNames: NotRequired[str]
+    OtherSolutionDescription: NotRequired[str]
+    AdditionalComments: NotRequired[str]
 
 class ProjectSummaryTypeDef(TypedDict):
     DeliveryModels: NotRequired[List[DeliveryModelType]]
     ExpectedCustomerSpend: NotRequired[List[ExpectedCustomerSpendTypeDef]]
 
 class ProjectTypeDef(TypedDict):
-    AdditionalComments: NotRequired[str]
-    ApnPrograms: NotRequired[Sequence[str]]
-    CompetitorName: NotRequired[CompetitorNameType]
-    CustomerBusinessProblem: NotRequired[str]
-    CustomerUseCase: NotRequired[str]
     DeliveryModels: NotRequired[Sequence[DeliveryModelType]]
     ExpectedCustomerSpend: NotRequired[Sequence[ExpectedCustomerSpendTypeDef]]
-    OtherCompetitorNames: NotRequired[str]
-    OtherSolutionDescription: NotRequired[str]
+    Title: NotRequired[str]
+    ApnPrograms: NotRequired[Sequence[str]]
+    CustomerBusinessProblem: NotRequired[str]
+    CustomerUseCase: NotRequired[str]
     RelatedOpportunityIdentifier: NotRequired[str]
     SalesActivities: NotRequired[Sequence[SalesActivityType]]
-    Title: NotRequired[str]
+    CompetitorName: NotRequired[CompetitorNameType]
+    OtherCompetitorNames: NotRequired[str]
+    OtherSolutionDescription: NotRequired[str]
+    AdditionalComments: NotRequired[str]
 
 class ProjectViewTypeDef(TypedDict):
-    CustomerUseCase: NotRequired[str]
     DeliveryModels: NotRequired[List[DeliveryModelType]]
     ExpectedCustomerSpend: NotRequired[List[ExpectedCustomerSpendTypeDef]]
-    OtherSolutionDescription: NotRequired[str]
+    CustomerUseCase: NotRequired[str]
     SalesActivities: NotRequired[List[SalesActivityType]]
+    OtherSolutionDescription: NotRequired[str]
 
 class CreateEngagementInvitationResponseTypeDef(TypedDict):
-    Arn: str
     Id: str
+    Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateEngagementResponseTypeDef(TypedDict):
-    Arn: str
     Id: str
+    Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateOpportunityResponseTypeDef(TypedDict):
     Id: str
-    LastModifiedDate: datetime
     PartnerOpportunityIdentifier: str
+    LastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateResourceSnapshotJobResponseTypeDef(TypedDict):
-    Arn: str
     Id: str
+    Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateResourceSnapshotResponseTypeDef(TypedDict):
@@ -691,18 +691,18 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourceSnapshotJobResponseTypeDef(TypedDict):
-    Arn: str
     Catalog: str
-    CreatedAt: datetime
-    EngagementId: str
     Id: str
-    LastFailure: str
-    LastSuccessfulExecutionDate: datetime
-    ResourceArn: str
-    ResourceId: str
-    ResourceSnapshotTemplateName: str
+    Arn: str
+    EngagementId: str
     ResourceType: Literal["Opportunity"]
+    ResourceId: str
+    ResourceArn: str
+    ResourceSnapshotTemplateName: str
+    CreatedAt: datetime
     Status: ResourceSnapshotJobStatusType
+    LastSuccessfulExecutionDate: datetime
+    LastFailure: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSellingSystemSettingsResponseTypeDef(TypedDict):
@@ -716,28 +716,28 @@ class PutSellingSystemSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartEngagementByAcceptingInvitationTaskResponseTypeDef(TypedDict):
-    EngagementInvitationId: str
-    Message: str
-    OpportunityId: str
-    ReasonCode: ReasonCodeType
-    ResourceSnapshotJobId: str
-    StartTime: datetime
-    TaskArn: str
     TaskId: str
+    TaskArn: str
+    StartTime: datetime
     TaskStatus: TaskStatusType
+    Message: str
+    ReasonCode: ReasonCodeType
+    OpportunityId: str
+    ResourceSnapshotJobId: str
+    EngagementInvitationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartEngagementFromOpportunityTaskResponseTypeDef(TypedDict):
+    TaskId: str
+    TaskArn: str
+    StartTime: datetime
+    TaskStatus: TaskStatusType
+    Message: str
+    ReasonCode: ReasonCodeType
+    OpportunityId: str
+    ResourceSnapshotJobId: str
     EngagementId: str
     EngagementInvitationId: str
-    Message: str
-    OpportunityId: str
-    ReasonCode: ReasonCodeType
-    ResourceSnapshotJobId: str
-    StartTime: datetime
-    TaskArn: str
-    TaskId: str
-    TaskStatus: TaskStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateOpportunityResponseTypeDef(TypedDict):
@@ -749,9 +749,9 @@ class CreateResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
     ClientToken: str
     EngagementIdentifier: str
+    ResourceType: Literal["Opportunity"]
     ResourceIdentifier: str
     ResourceSnapshotTemplateIdentifier: str
-    ResourceType: Literal["Opportunity"]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -765,10 +765,10 @@ class StartEngagementByAcceptingInvitationTaskRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class StartEngagementFromOpportunityTaskRequestTypeDef(TypedDict):
-    AwsSubmission: AwsSubmissionTypeDef
     Catalog: str
     ClientToken: str
     Identifier: str
+    AwsSubmission: AwsSubmissionTypeDef
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -792,11 +792,11 @@ class ListEngagementResourceAssociationsResponseTypeDef(TypedDict):
 class ListEngagementsRequestTypeDef(TypedDict):
     Catalog: str
     CreatedBy: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
     ExcludeCreatedBy: NotRequired[Sequence[str]]
+    Sort: NotRequired[EngagementSortTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    Sort: NotRequired[EngagementSortTypeDef]
+    EngagementIdentifier: NotRequired[Sequence[str]]
 
 class ListEngagementsResponseTypeDef(TypedDict):
     EngagementSummaryList: List[EngagementSummaryTypeDef]
@@ -808,18 +808,18 @@ class LastModifiedDateTypeDef(TypedDict):
     BeforeLastModifiedDate: NotRequired[TimestampTypeDef]
 
 class NextStepsHistoryTypeDef(TypedDict):
-    Time: TimestampTypeDef
     Value: str
+    Time: TimestampTypeDef
 
 class LifeCycleOutputTypeDef(TypedDict):
+    Stage: NotRequired[StageType]
     ClosedLostReason: NotRequired[ClosedLostReasonType]
     NextSteps: NotRequired[str]
-    NextStepsHistory: NotRequired[List[NextStepsHistoryOutputTypeDef]]
-    ReviewComments: NotRequired[str]
-    ReviewStatus: NotRequired[ReviewStatusType]
-    ReviewStatusReason: NotRequired[str]
-    Stage: NotRequired[StageType]
     TargetCloseDate: NotRequired[str]
+    ReviewStatus: NotRequired[ReviewStatusType]
+    ReviewComments: NotRequired[str]
+    ReviewStatusReason: NotRequired[str]
+    NextStepsHistory: NotRequired[List[NextStepsHistoryOutputTypeDef]]
 
 class ListEngagementByAcceptingInvitationTasksResponseTypeDef(TypedDict):
     TaskSummaries: List[ListEngagementByAcceptingInvitationTaskSummaryTypeDef]
@@ -828,40 +828,40 @@ class ListEngagementByAcceptingInvitationTasksResponseTypeDef(TypedDict):
 
 class ListEngagementByAcceptingInvitationTasksRequestTypeDef(TypedDict):
     Catalog: str
-    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
     Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskIdentifier: NotRequired[Sequence[str]]
     TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
+    TaskIdentifier: NotRequired[Sequence[str]]
 
 class ListEngagementFromOpportunityTasksRequestTypeDef(TypedDict):
     Catalog: str
-    EngagementIdentifier: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
     Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskIdentifier: NotRequired[Sequence[str]]
     TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
 
 class ListEngagementByAcceptingInvitationTasksRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
     Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskIdentifier: NotRequired[Sequence[str]]
     TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
+    TaskIdentifier: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEngagementFromOpportunityTasksRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    EngagementIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
     Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskIdentifier: NotRequired[Sequence[str]]
     TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEngagementMembersRequestPaginateTypeDef(TypedDict):
@@ -871,27 +871,27 @@ class ListEngagementMembersRequestPaginateTypeDef(TypedDict):
 
 class ListEngagementResourceAssociationsRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    CreatedBy: NotRequired[str]
     EngagementIdentifier: NotRequired[str]
-    ResourceIdentifier: NotRequired[str]
     ResourceType: NotRequired[Literal["Opportunity"]]
+    ResourceIdentifier: NotRequired[str]
+    CreatedBy: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEngagementsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     CreatedBy: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
     ExcludeCreatedBy: NotRequired[Sequence[str]]
     Sort: NotRequired[EngagementSortTypeDef]
+    EngagementIdentifier: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourceSnapshotsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     EngagementIdentifier: str
-    CreatedBy: NotRequired[str]
+    ResourceType: NotRequired[Literal["Opportunity"]]
     ResourceIdentifier: NotRequired[str]
     ResourceSnapshotTemplateIdentifier: NotRequired[str]
-    ResourceType: NotRequired[Literal["Opportunity"]]
+    CreatedBy: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEngagementFromOpportunityTasksResponseTypeDef(TypedDict):
@@ -902,38 +902,38 @@ class ListEngagementFromOpportunityTasksResponseTypeDef(TypedDict):
 class ListEngagementInvitationsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     ParticipantType: ParticipantTypeType
-    EngagementIdentifier: NotRequired[Sequence[str]]
-    PayloadType: NotRequired[Sequence[Literal["OpportunityInvitation"]]]
-    SenderAwsAccountId: NotRequired[Sequence[str]]
     Sort: NotRequired[OpportunityEngagementInvitationSortTypeDef]
+    PayloadType: NotRequired[Sequence[Literal["OpportunityInvitation"]]]
     Status: NotRequired[Sequence[InvitationStatusType]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+    SenderAwsAccountId: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEngagementInvitationsRequestTypeDef(TypedDict):
     Catalog: str
     ParticipantType: ParticipantTypeType
-    EngagementIdentifier: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    PayloadType: NotRequired[Sequence[Literal["OpportunityInvitation"]]]
-    SenderAwsAccountId: NotRequired[Sequence[str]]
     Sort: NotRequired[OpportunityEngagementInvitationSortTypeDef]
+    PayloadType: NotRequired[Sequence[Literal["OpportunityInvitation"]]]
     Status: NotRequired[Sequence[InvitationStatusType]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+    SenderAwsAccountId: NotRequired[Sequence[str]]
 
 class ListResourceSnapshotJobsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     EngagementIdentifier: NotRequired[str]
-    Sort: NotRequired[SortObjectTypeDef]
     Status: NotRequired[ResourceSnapshotJobStatusType]
+    Sort: NotRequired[SortObjectTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourceSnapshotJobsRequestTypeDef(TypedDict):
     Catalog: str
-    EngagementIdentifier: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    Sort: NotRequired[SortObjectTypeDef]
+    EngagementIdentifier: NotRequired[str]
     Status: NotRequired[ResourceSnapshotJobStatusType]
+    Sort: NotRequired[SortObjectTypeDef]
 
 class ListResourceSnapshotJobsResponseTypeDef(TypedDict):
     ResourceSnapshotJobSummaries: List[ResourceSnapshotJobSummaryTypeDef]
@@ -947,20 +947,20 @@ class ListResourceSnapshotsResponseTypeDef(TypedDict):
 
 class ListSolutionsRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    Category: NotRequired[Sequence[str]]
-    Identifier: NotRequired[Sequence[str]]
     Sort: NotRequired[SolutionSortTypeDef]
     Status: NotRequired[Sequence[SolutionStatusType]]
+    Identifier: NotRequired[Sequence[str]]
+    Category: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSolutionsRequestTypeDef(TypedDict):
     Catalog: str
-    Category: NotRequired[Sequence[str]]
-    Identifier: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Sort: NotRequired[SolutionSortTypeDef]
     Status: NotRequired[Sequence[SolutionStatusType]]
+    Identifier: NotRequired[Sequence[str]]
+    Category: NotRequired[Sequence[str]]
 
 class ListSolutionsResponseTypeDef(TypedDict):
     SolutionSummaries: List[SolutionBaseTypeDef]
@@ -971,24 +971,24 @@ MarketingUnionTypeDef = Union[MarketingTypeDef, MarketingOutputTypeDef]
 
 class SoftwareRevenueTypeDef(TypedDict):
     DeliveryModel: NotRequired[RevenueModelType]
+    Value: NotRequired[MonetaryValueTypeDef]
     EffectiveDate: NotRequired[str]
     ExpirationDate: NotRequired[str]
-    Value: NotRequired[MonetaryValueTypeDef]
 
 class EngagementInvitationSummaryTypeDef(TypedDict):
-    Catalog: str
     Id: str
+    Catalog: str
     Arn: NotRequired[str]
+    PayloadType: NotRequired[Literal["OpportunityInvitation"]]
     EngagementId: NotRequired[str]
     EngagementTitle: NotRequired[str]
-    ExpirationDate: NotRequired[datetime]
+    Status: NotRequired[InvitationStatusType]
     InvitationDate: NotRequired[datetime]
-    ParticipantType: NotRequired[ParticipantTypeType]
-    PayloadType: NotRequired[Literal["OpportunityInvitation"]]
-    Receiver: NotRequired[ReceiverTypeDef]
+    ExpirationDate: NotRequired[datetime]
     SenderAwsAccountId: NotRequired[str]
     SenderCompanyName: NotRequired[str]
-    Status: NotRequired[InvitationStatusType]
+    Receiver: NotRequired[ReceiverTypeDef]
+    ParticipantType: NotRequired[ParticipantTypeType]
 
 class CustomerSummaryTypeDef(TypedDict):
     Account: NotRequired[AccountSummaryTypeDef]
@@ -1003,23 +1003,23 @@ class CustomerTypeDef(TypedDict):
 
 class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     Catalog: str
-    Customer: AwsOpportunityCustomerTypeDef
-    Insights: AwsOpportunityInsightsTypeDef
+    RelatedOpportunityId: str
+    Origin: OpportunityOriginType
     InvolvementType: SalesInvolvementTypeType
-    InvolvementTypeChangeReason: InvolvementTypeChangeReasonType
+    Visibility: VisibilityType
     LifeCycle: AwsOpportunityLifeCycleTypeDef
     OpportunityTeam: List[AwsTeamMemberTypeDef]
-    Origin: OpportunityOriginType
-    Project: AwsOpportunityProjectTypeDef
+    Insights: AwsOpportunityInsightsTypeDef
+    InvolvementTypeChangeReason: InvolvementTypeChangeReasonType
     RelatedEntityIds: AwsOpportunityRelatedEntitiesTypeDef
-    RelatedOpportunityId: str
-    Visibility: VisibilityType
+    Customer: AwsOpportunityCustomerTypeDef
+    Project: AwsOpportunityProjectTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class OpportunityInvitationPayloadOutputTypeDef(TypedDict):
+    ReceiverResponsibilities: List[ReceiverResponsibilityType]
     Customer: EngagementCustomerTypeDef
     Project: ProjectDetailsOutputTypeDef
-    ReceiverResponsibilities: List[ReceiverResponsibilityType]
     SenderContacts: NotRequired[List[SenderContactTypeDef]]
 
 ProjectDetailsUnionTypeDef = Union[ProjectDetailsTypeDef, ProjectDetailsOutputTypeDef]
@@ -1030,34 +1030,34 @@ class EngagementContextPayloadTypeDef(TypedDict):
 
 class ListOpportunitiesRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    CustomerCompanyName: NotRequired[Sequence[str]]
-    Identifier: NotRequired[Sequence[str]]
-    LastModifiedDate: NotRequired[LastModifiedDateTypeDef]
-    LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
-    LifeCycleStage: NotRequired[Sequence[StageType]]
     Sort: NotRequired[OpportunitySortTypeDef]
+    LastModifiedDate: NotRequired[LastModifiedDateTypeDef]
+    Identifier: NotRequired[Sequence[str]]
+    LifeCycleStage: NotRequired[Sequence[StageType]]
+    LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
+    CustomerCompanyName: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListOpportunitiesRequestTypeDef(TypedDict):
     Catalog: str
-    CustomerCompanyName: NotRequired[Sequence[str]]
-    Identifier: NotRequired[Sequence[str]]
-    LastModifiedDate: NotRequired[LastModifiedDateTypeDef]
-    LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
-    LifeCycleStage: NotRequired[Sequence[StageType]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Sort: NotRequired[OpportunitySortTypeDef]
+    LastModifiedDate: NotRequired[LastModifiedDateTypeDef]
+    Identifier: NotRequired[Sequence[str]]
+    LifeCycleStage: NotRequired[Sequence[StageType]]
+    LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
+    CustomerCompanyName: NotRequired[Sequence[str]]
 
 class LifeCycleTypeDef(TypedDict):
+    Stage: NotRequired[StageType]
     ClosedLostReason: NotRequired[ClosedLostReasonType]
     NextSteps: NotRequired[str]
-    NextStepsHistory: NotRequired[Sequence[NextStepsHistoryTypeDef]]
-    ReviewComments: NotRequired[str]
-    ReviewStatus: NotRequired[ReviewStatusType]
-    ReviewStatusReason: NotRequired[str]
-    Stage: NotRequired[StageType]
     TargetCloseDate: NotRequired[str]
+    ReviewStatus: NotRequired[ReviewStatusType]
+    ReviewComments: NotRequired[str]
+    ReviewStatusReason: NotRequired[str]
+    NextStepsHistory: NotRequired[Sequence[NextStepsHistoryTypeDef]]
 
 class ListEngagementInvitationsResponseTypeDef(TypedDict):
     EngagementInvitationSummaries: List[EngagementInvitationSummaryTypeDef]
@@ -1066,41 +1066,41 @@ class ListEngagementInvitationsResponseTypeDef(TypedDict):
 
 class OpportunitySummaryTypeDef(TypedDict):
     Catalog: str
-    Arn: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    Customer: NotRequired[CustomerSummaryTypeDef]
     Id: NotRequired[str]
-    LastModifiedDate: NotRequired[datetime]
-    LifeCycle: NotRequired[LifeCycleSummaryTypeDef]
-    OpportunityType: NotRequired[OpportunityTypeType]
+    Arn: NotRequired[str]
     PartnerOpportunityIdentifier: NotRequired[str]
+    OpportunityType: NotRequired[OpportunityTypeType]
+    LastModifiedDate: NotRequired[datetime]
+    CreatedDate: NotRequired[datetime]
+    LifeCycle: NotRequired[LifeCycleSummaryTypeDef]
+    Customer: NotRequired[CustomerSummaryTypeDef]
     Project: NotRequired[ProjectSummaryTypeDef]
 
 class GetOpportunityResponseTypeDef(TypedDict):
-    Arn: str
     Catalog: str
-    CreatedDate: datetime
-    Customer: CustomerOutputTypeDef
-    Id: str
-    LastModifiedDate: datetime
-    LifeCycle: LifeCycleOutputTypeDef
-    Marketing: MarketingOutputTypeDef
-    NationalSecurity: NationalSecurityType
-    OpportunityTeam: List[ContactTypeDef]
-    OpportunityType: OpportunityTypeType
-    PartnerOpportunityIdentifier: str
     PrimaryNeedsFromAws: List[PrimaryNeedFromAwsType]
+    NationalSecurity: NationalSecurityType
+    PartnerOpportunityIdentifier: str
+    Customer: CustomerOutputTypeDef
     Project: ProjectOutputTypeDef
-    RelatedEntityIdentifiers: RelatedEntityIdentifiersTypeDef
+    OpportunityType: OpportunityTypeType
+    Marketing: MarketingOutputTypeDef
     SoftwareRevenue: SoftwareRevenueTypeDef
+    Id: str
+    Arn: str
+    LastModifiedDate: datetime
+    CreatedDate: datetime
+    RelatedEntityIdentifiers: RelatedEntityIdentifiersTypeDef
+    LifeCycle: LifeCycleOutputTypeDef
+    OpportunityTeam: List[ContactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class OpportunitySummaryViewTypeDef(TypedDict):
-    Customer: NotRequired[CustomerOutputTypeDef]
+    OpportunityType: NotRequired[OpportunityTypeType]
     Lifecycle: NotRequired[LifeCycleForViewTypeDef]
     OpportunityTeam: NotRequired[List[ContactTypeDef]]
-    OpportunityType: NotRequired[OpportunityTypeType]
     PrimaryNeedsFromAws: NotRequired[List[PrimaryNeedFromAwsType]]
+    Customer: NotRequired[CustomerOutputTypeDef]
     Project: NotRequired[ProjectViewTypeDef]
     RelatedEntityIdentifiers: NotRequired[RelatedEntityIdentifiersTypeDef]
 
@@ -1110,9 +1110,9 @@ class PayloadOutputTypeDef(TypedDict):
     OpportunityInvitation: NotRequired[OpportunityInvitationPayloadOutputTypeDef]
 
 class OpportunityInvitationPayloadTypeDef(TypedDict):
+    ReceiverResponsibilities: Sequence[ReceiverResponsibilityType]
     Customer: EngagementCustomerTypeDef
     Project: ProjectDetailsUnionTypeDef
-    ReceiverResponsibilities: Sequence[ReceiverResponsibilityType]
     SenderContacts: NotRequired[Sequence[SenderContactTypeDef]]
 
 EngagementContextDetailsTypeDef = TypedDict(
@@ -1134,22 +1134,22 @@ class ResourceSnapshotPayloadTypeDef(TypedDict):
 
 class GetEngagementInvitationResponseTypeDef(TypedDict):
     Arn: str
-    Catalog: str
-    EngagementDescription: str
+    PayloadType: Literal["OpportunityInvitation"]
+    Id: str
     EngagementId: str
     EngagementTitle: str
-    ExistingMembers: List[EngagementMemberSummaryTypeDef]
-    ExpirationDate: datetime
-    Id: str
+    Status: InvitationStatusType
     InvitationDate: datetime
-    InvitationMessage: str
-    Payload: PayloadOutputTypeDef
-    PayloadType: Literal["OpportunityInvitation"]
-    Receiver: ReceiverTypeDef
-    RejectionReason: str
+    ExpirationDate: datetime
     SenderAwsAccountId: str
     SenderCompanyName: str
-    Status: InvitationStatusType
+    Receiver: ReceiverTypeDef
+    Catalog: str
+    RejectionReason: str
+    Payload: PayloadOutputTypeDef
+    InvitationMessage: str
+    EngagementDescription: str
+    ExistingMembers: List[EngagementMemberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 OpportunityInvitationPayloadUnionTypeDef = Union[
@@ -1159,61 +1159,62 @@ OpportunityInvitationPayloadUnionTypeDef = Union[
 class CreateEngagementRequestTypeDef(TypedDict):
     Catalog: str
     ClientToken: str
-    Description: str
     Title: str
+    Description: str
     Contexts: NotRequired[Sequence[EngagementContextDetailsTypeDef]]
 
 class GetEngagementResponseTypeDef(TypedDict):
+    Id: str
     Arn: str
-    Contexts: List[EngagementContextDetailsTypeDef]
+    Title: str
+    Description: str
     CreatedAt: datetime
     CreatedBy: str
-    Description: str
-    Id: str
     MemberCount: int
-    Title: str
+    Contexts: List[EngagementContextDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateOpportunityRequestTypeDef(TypedDict):
     Catalog: str
     ClientToken: str
-    Customer: NotRequired[CustomerUnionTypeDef]
-    LifeCycle: NotRequired[LifeCycleUnionTypeDef]
-    Marketing: NotRequired[MarketingUnionTypeDef]
-    NationalSecurity: NotRequired[NationalSecurityType]
-    OpportunityTeam: NotRequired[Sequence[ContactTypeDef]]
-    OpportunityType: NotRequired[OpportunityTypeType]
-    Origin: NotRequired[OpportunityOriginType]
-    PartnerOpportunityIdentifier: NotRequired[str]
     PrimaryNeedsFromAws: NotRequired[Sequence[PrimaryNeedFromAwsType]]
+    NationalSecurity: NotRequired[NationalSecurityType]
+    PartnerOpportunityIdentifier: NotRequired[str]
+    Customer: NotRequired[CustomerUnionTypeDef]
     Project: NotRequired[ProjectUnionTypeDef]
+    OpportunityType: NotRequired[OpportunityTypeType]
+    Marketing: NotRequired[MarketingUnionTypeDef]
     SoftwareRevenue: NotRequired[SoftwareRevenueTypeDef]
+    LifeCycle: NotRequired[LifeCycleUnionTypeDef]
+    Origin: NotRequired[OpportunityOriginType]
+    OpportunityTeam: NotRequired[Sequence[ContactTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class UpdateOpportunityRequestTypeDef(TypedDict):
     Catalog: str
-    Identifier: str
     LastModifiedDate: TimestampTypeDef
-    Customer: NotRequired[CustomerUnionTypeDef]
-    LifeCycle: NotRequired[LifeCycleUnionTypeDef]
-    Marketing: NotRequired[MarketingUnionTypeDef]
-    NationalSecurity: NotRequired[NationalSecurityType]
-    OpportunityType: NotRequired[OpportunityTypeType]
-    PartnerOpportunityIdentifier: NotRequired[str]
+    Identifier: str
     PrimaryNeedsFromAws: NotRequired[Sequence[PrimaryNeedFromAwsType]]
+    NationalSecurity: NotRequired[NationalSecurityType]
+    PartnerOpportunityIdentifier: NotRequired[str]
+    Customer: NotRequired[CustomerUnionTypeDef]
     Project: NotRequired[ProjectUnionTypeDef]
+    OpportunityType: NotRequired[OpportunityTypeType]
+    Marketing: NotRequired[MarketingUnionTypeDef]
     SoftwareRevenue: NotRequired[SoftwareRevenueTypeDef]
+    LifeCycle: NotRequired[LifeCycleUnionTypeDef]
 
 class GetResourceSnapshotResponseTypeDef(TypedDict):
-    Arn: str
     Catalog: str
-    CreatedAt: datetime
+    Arn: str
     CreatedBy: str
+    CreatedAt: datetime
     EngagementId: str
-    Payload: ResourceSnapshotPayloadTypeDef
+    ResourceType: Literal["Opportunity"]
     ResourceId: str
     ResourceSnapshotTemplateName: str
-    ResourceType: Literal["Opportunity"]
     Revision: int
+    Payload: ResourceSnapshotPayloadTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PayloadTypeDef(TypedDict):
@@ -1223,8 +1224,8 @@ PayloadUnionTypeDef = Union[PayloadTypeDef, PayloadOutputTypeDef]
 
 class InvitationTypeDef(TypedDict):
     Message: str
-    Payload: PayloadUnionTypeDef
     Receiver: ReceiverTypeDef
+    Payload: PayloadUnionTypeDef
 
 class CreateEngagementInvitationRequestTypeDef(TypedDict):
     Catalog: str

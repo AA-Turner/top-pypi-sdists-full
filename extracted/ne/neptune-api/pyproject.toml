@@ -18,7 +18,7 @@ protobuf = ">=3.19.6,<7"
 
 [tool.poetry]
 name = "neptune-api"
-version = "0.21.0"
+version = "0.22.0"
 description = "A client library for accessing Neptune API"
 authors = ["neptune.ai <contact@neptune.ai>"]
 repository = "https://github.com/neptune-ai/neptune-api"

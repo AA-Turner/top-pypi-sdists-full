@@ -49,7 +49,8 @@ except Exception as e:
                 ru_maxrss=0
             return use()
 
-def std_colorize(m,n,c,start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
+def std_colorize(m,n,c,start='',end=''):
+    #start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
         if ((n % 2) != 0) and n > 0:
             msg=f'{start}{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m}{Style.reset}{end}'
         else:

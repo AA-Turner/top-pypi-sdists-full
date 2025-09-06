@@ -84,4 +84,4 @@ class Bash(Command):
         return {}
 
     def help(self, _: ReplState):
-        return f'{Bash.COMMAND} [bash-commands]\t run bash'
+        return f'{Bash.COMMAND} [bash-commands]\t run bash on the Cassandra nodes'

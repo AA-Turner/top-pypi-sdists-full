@@ -62,6 +62,7 @@ __all__ = (
     "StatusValuesType",
     "TargetTypeType",
     "TrustedTokenIssuerTypeType",
+    "UserBackgroundSessionApplicationStatusType",
 )
 
 ApplicationStatusType = Literal["DISABLED", "ENABLED"]
@@ -124,6 +125,7 @@ SignInOriginType = Literal["APPLICATION", "IDENTITY_CENTER"]
 StatusValuesType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["AWS_ACCOUNT"]
 TrustedTokenIssuerTypeType = Literal["OIDC_JWT"]
+UserBackgroundSessionApplicationStatusType = Literal["DISABLED", "ENABLED"]
 SSOAdminServiceName = Literal["sso-admin"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -152,6 +154,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -163,8 +166,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

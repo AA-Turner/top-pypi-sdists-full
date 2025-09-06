@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.schedule_w_jobs_retry_constant import ScheduleWJobsRetryConstant
     from ..models.schedule_w_jobs_retry_exponential import ScheduleWJobsRetryExponential
+    from ..models.schedule_w_jobs_retry_retry_if import ScheduleWJobsRetryRetryIf
 
 
 T = TypeVar("T", bound="ScheduleWJobsRetry")
@@ -19,10 +20,12 @@ class ScheduleWJobsRetry:
     Attributes:
         constant (Union[Unset, ScheduleWJobsRetryConstant]):
         exponential (Union[Unset, ScheduleWJobsRetryExponential]):
+        retry_if (Union[Unset, ScheduleWJobsRetryRetryIf]):
     """
 
     constant: Union[Unset, "ScheduleWJobsRetryConstant"] = UNSET
     exponential: Union[Unset, "ScheduleWJobsRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ScheduleWJobsRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class ScheduleWJobsRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class ScheduleWJobsRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class ScheduleWJobsRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.schedule_w_jobs_retry_constant import ScheduleWJobsRetryConstant
         from ..models.schedule_w_jobs_retry_exponential import ScheduleWJobsRetryExponential
+        from ..models.schedule_w_jobs_retry_retry_if import ScheduleWJobsRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class ScheduleWJobsRetry:
         else:
             exponential = ScheduleWJobsRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ScheduleWJobsRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ScheduleWJobsRetryRetryIf.from_dict(_retry_if)
+
         schedule_w_jobs_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         schedule_w_jobs_retry.additional_properties = d

@@ -48,6 +48,11 @@ __all__ = (
     "JobStatusType",
     "ListMultiRegionEndpointsPaginatorName",
     "ListRecommendationsFilterKeyType",
+    "ListReputationEntitiesPaginatorName",
+    "ListResourceTenantsPaginatorName",
+    "ListTenantResourcesFilterKeyType",
+    "ListTenantResourcesPaginatorName",
+    "ListTenantsPaginatorName",
     "MailFromDomainStatusType",
     "MailTypeType",
     "MetricAggregationType",
@@ -60,10 +65,14 @@ __all__ = (
     "RecommendationStatusType",
     "RecommendationTypeType",
     "RegionName",
+    "ReputationEntityFilterKeyType",
+    "ReputationEntityTypeType",
     "ResourceServiceName",
+    "ResourceTypeType",
     "ReviewStatusType",
     "SESV2ServiceName",
     "ScalingModeType",
+    "SendingStatusType",
     "ServiceName",
     "StatusType",
     "SubscriptionStatusType",
@@ -157,6 +166,11 @@ ImportDestinationTypeType = Literal["CONTACT_LIST", "SUPPRESSION_LIST"]
 JobStatusType = Literal["CANCELLED", "COMPLETED", "CREATED", "FAILED", "PROCESSING"]
 ListMultiRegionEndpointsPaginatorName = Literal["list_multi_region_endpoints"]
 ListRecommendationsFilterKeyType = Literal["IMPACT", "RESOURCE_ARN", "STATUS", "TYPE"]
+ListReputationEntitiesPaginatorName = Literal["list_reputation_entities"]
+ListResourceTenantsPaginatorName = Literal["list_resource_tenants"]
+ListTenantResourcesFilterKeyType = Literal["RESOURCE_TYPE"]
+ListTenantResourcesPaginatorName = Literal["list_tenant_resources"]
+ListTenantsPaginatorName = Literal["list_tenants"]
 MailFromDomainStatusType = Literal["FAILED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
 MailTypeType = Literal["MARKETING", "TRANSACTIONAL"]
 MetricAggregationType = Literal["RATE", "VOLUME"]
@@ -177,9 +191,17 @@ MetricType = Literal[
 QueryErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_FAILURE"]
 RecommendationImpactType = Literal["HIGH", "LOW"]
 RecommendationStatusType = Literal["FIXED", "OPEN"]
-RecommendationTypeType = Literal["BIMI", "COMPLAINT", "DKIM", "DMARC", "SPF"]
+RecommendationTypeType = Literal[
+    "BIMI", "BOUNCE", "COMPLAINT", "DKIM", "DMARC", "FEEDBACK_3P", "IP_LISTING", "SPF"
+]
+ReputationEntityFilterKeyType = Literal[
+    "ENTITY_REFERENCE_PREFIX", "ENTITY_TYPE", "REPUTATION_IMPACT", "SENDING_STATUS"
+]
+ReputationEntityTypeType = Literal["RESOURCE"]
+ResourceTypeType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "EMAIL_TEMPLATE"]
 ReviewStatusType = Literal["DENIED", "FAILED", "GRANTED", "PENDING"]
 ScalingModeType = Literal["MANAGED", "STANDARD"]
+SendingStatusType = Literal["DISABLED", "ENABLED", "REINSTATED"]
 StatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
 SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
 SuppressionListImportActionType = Literal["DELETE", "PUT"]
@@ -227,6 +249,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -238,8 +261,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -626,7 +651,13 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_multi_region_endpoints"]
+PaginatorName = Literal[
+    "list_multi_region_endpoints",
+    "list_reputation_entities",
+    "list_resource_tenants",
+    "list_tenant_resources",
+    "list_tenants",
+]
 RegionName = Literal[
     "af-south-1",
     "ap-northeast-1",

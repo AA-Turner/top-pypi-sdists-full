@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conch-triton-kernels
-Version: 1.2.1
+Version: 1.3
 Summary: Triton kernel repository
 Author-email: Jacob Manning <jmanning+oss@stackav.com>, Ryan Hsu <rhsu+oss@stackav.com>
 License-Expression: Apache-2.0
@@ -72,6 +72,10 @@ Each operation is complete with a PyTorch-only reference implementation (and som
   - GEMM
     - Mixed-precision
     - Scaled
+- Vision
+  - BEVPool
+  - Non-Max Suppression (NMS)
+  - Voxelization
 - vLLM
   - KV cache operations
     - Copy blocks
@@ -137,8 +141,10 @@ Check out the [developer instructions](./docs/getting_started/developer_environm
 
 We were inspired by and leverage components of the following libraries:
 
+- [BEVFusion](https://github.com/mit-han-lab/bevfusion)
 - [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes)
 - [GemLite](https://github.com/mobiusml/gemlite)
+- [Torchvision](https://github.com/pytorch/vision)
 - [vLLM](https://github.com/vllm-project/vllm)
 
 ## License

@@ -145,9 +145,16 @@ class SaveFile:
             dc_id = await self.storage.dc_id()
 
             session = self.media_sessions.get(dc_id)
+
             if not session:
+                dc_option = await self.get_dc_option(dc_id, is_media=True, ipv6=self.ipv6)
+
                 session = self.media_sessions[dc_id] = Session(
-                    self, dc_id, await self.storage.auth_key(),
+                    self,
+                    dc_id,
+                    dc_option.ip_address,
+                    dc_option.port,
+                    await self.storage.auth_key(),
                     await self.storage.test_mode(), is_media=True
                 )
                 await session.start()

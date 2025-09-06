@@ -1737,6 +1737,7 @@ def batch_update_dataset_items(
     max_retries = attempts
     while retry_count < max_retries:
         try:
+            logging.info(f"attempting to update batch of {len(batch_image_details)} items")
             payload = {
                 "datasetId": str(dataset_id),
                 "items": [
@@ -1769,6 +1770,7 @@ def batch_update_dataset_items(
             }
             if is_yolo:
                 payload = convert_payload_to_coco_format(payload)
+            logging.info(f"payload for updating dataset items: {payload}")
             response = rpc.put(
                 path="/v1/dataset_item/update-dataset-items/",
                 payload=payload,

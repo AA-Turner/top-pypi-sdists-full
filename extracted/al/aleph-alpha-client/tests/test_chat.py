@@ -16,6 +16,8 @@ from aleph_alpha_client.chat import (
     TextMessage,
     Usage,
     stream_chat_item_from_json,
+    ToolCall,
+    FunctionCall,
 )
 from aleph_alpha_client.structured_output import JSONSchema
 from pydantic import BaseModel
@@ -24,6 +26,7 @@ from .conftest import GenericClient
 from .test_steering import create_sample_steering_concept_creation_request
 
 
+@pytest.mark.vcr
 async def test_can_not_chat_with_all_models(async_client: AsyncClient, model_name: str):
     request = ChatRequest(
         messages=[Message(role=Role.User, content="Hello, how are you?")],
@@ -35,6 +38,7 @@ async def test_can_not_chat_with_all_models(async_client: AsyncClient, model_nam
         await async_client.chat(request, model=model_name)
 
 
+@pytest.mark.vcr
 def test_can_chat_with_chat_model(sync_client: Client, chat_model_name: str):
     request = ChatRequest(
         messages=[Message(role=Role.User, content="Hello, how are you?")],
@@ -47,6 +51,7 @@ def test_can_chat_with_chat_model(sync_client: Client, chat_model_name: str):
     assert isinstance(response.finish_reason, FinishReason)
 
 
+@pytest.mark.vcr
 async def test_can_chat_with_async_client(
     async_client: AsyncClient, chat_model_name: str
 ):
@@ -62,6 +67,76 @@ async def test_can_chat_with_async_client(
     assert response.message.content is not None
 
 
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current temperature for a given location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "City and country e.g. Bogotá, Colombia",
+                    }
+                },
+                "required": ["location"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+    }
+]
+
+
+@pytest.mark.vcr
+async def test_can_chat_with_tools(
+    async_client: AsyncClient, tool_calling_model_name: str
+):
+    system_msg = Message(role=Role.System, content="You are a helpful assistant.")
+    user_msg = Message(
+        role=Role.User, content="What is the weather like in Paris today?"
+    )
+    request = ChatRequest(
+        messages=[system_msg, user_msg],
+        model=tool_calling_model_name,
+        tools=TOOLS,
+    )
+
+    response = await async_client.chat(request, model=tool_calling_model_name)
+    assert response.message.role == Role.Assistant
+    assert response.message.content is not None
+    assert response.message.tool_calls is not None
+    calls = response.message.tool_calls
+    assert len(calls) == 1
+    assert calls[0].type == "function"
+    assert calls[0].function.name == "get_weather"
+
+    request = ChatRequest(
+        messages=[
+            system_msg,
+            Message(
+                role=response.message.role,
+                content=response.message.content,
+                tool_calls=response.message.tool_calls,
+            ),
+            Message(
+                role=Role.Tool,
+                content="Cloudy with a bit of rain.",
+                tool_call_id=response.message.tool_calls[0].id,
+            ),
+            user_msg,
+        ],
+        model=tool_calling_model_name,
+        tools=TOOLS,
+    )
+
+    response = await async_client.chat(request, model=tool_calling_model_name)
+    assert "cloudy" in response.message.content.lower()
+
+
+@pytest.mark.vcr
 async def test_can_chat_with_streaming_support(
     async_client: AsyncClient, chat_model_name: str
 ):
@@ -82,7 +157,45 @@ async def test_can_chat_with_streaming_support(
     assert isinstance(stream_items[-1], FinishReason)
 
 
-async def test_usage_response_is_parsed():
+@pytest.mark.vcr
+async def test_can_chat_with_tools_streamed(
+    async_client: AsyncClient, tool_calling_model_name: str
+):
+    system_msg = Message(role=Role.System, content="You are a helpful assistant.")
+    user_msg = Message(
+        role=Role.User, content="What is the weather like in Paris today?"
+    )
+    request = ChatRequest(
+        messages=[system_msg, user_msg],
+        model=tool_calling_model_name,
+        tools=TOOLS,
+    )
+
+    stream = async_client.chat_with_streaming(request, model=tool_calling_model_name)
+    stream_items = [stream_item async for stream_item in stream]
+
+    v = stream_items[-2]
+    tool_call_id = v.id if isinstance(v, ToolCall) else ""
+
+    assert stream_items[-3:] == [
+        ChatStreamChunk(
+            content="</think>\n\n",
+            role=None,
+            tool_calls=None,
+        ),
+        ToolCall(
+            id=tool_call_id,
+            type="function",
+            function=FunctionCall(
+                name="get_weather",
+                arguments='{"location": "Paris, France"}',
+            ),
+        ),
+        FinishReason.ToolCalls,
+    ]
+
+
+def test_usage_response_is_parsed():
     # Given an API response with usage data and no choice
     data = {
         "choices": [],
@@ -101,7 +214,7 @@ async def test_usage_response_is_parsed():
     assert result.prompt_tokens == 31
 
 
-async def test_finish_reason_response_is_parsed():
+def test_finish_reason_response_is_parsed():
     # Given an API response with finish reason and no choice
     data = {
         "choices": [
@@ -152,6 +265,7 @@ def test_chunk_response_is_parsed():
     assert result.content == " way, those clothes you're wearing"
 
 
+@pytest.mark.vcr
 async def test_stream_options(async_client: AsyncClient, chat_model_name: str):
     # Given a request with include usage options set
     stream_options = StreamOptions(include_usage=True)
@@ -165,12 +279,14 @@ async def test_stream_options(async_client: AsyncClient, chat_model_name: str):
     stream = async_client.chat_with_streaming(request, model=chat_model_name)
     stream_items = [stream_item async for stream_item in stream]
 
+    print(stream_items)
     # Then
     assert all(isinstance(item, ChatStreamChunk) for item in stream_items[:-2])
     assert isinstance(stream_items[-2], FinishReason)
     assert isinstance(stream_items[-1], Usage)
 
 
+@pytest.mark.vcr
 def test_steering_chat(sync_client: Client, chat_model_name: str):
     base_request = ChatRequest(
         messages=[Message(role=Role.User, content="Hello, how are you?")],
@@ -198,35 +314,45 @@ def test_steering_chat(sync_client: Client, chat_model_name: str):
     assert base_completion_result != steered_completion_result
 
 
-def test_response_format_json_schema(sync_client: Client, structured_output_model_name: str):
+def remove_thinking_content(content: str) -> str:
+    needle = "</think>"
+    thinking = content.find(needle)
+    content = content if thinking == -1 else content[thinking + len(needle) :]
+    return content
+
+
+@pytest.mark.vcr
+def test_response_format_json_schema(
+    sync_client: Client, structured_output_model_name: str
+):
     example_json_schema = {
-        'type': 'object',
-        'title': 'Aquarium',
-        'properties': {
-            'nemo': {
-                'type': 'string',
-                'title': 'Nemo',
-                'description': 'Name of the fish'
+        "type": "object",
+        "title": "Aquarium",
+        "properties": {
+            "nemo": {
+                "type": "string",
+                "title": "Nemo",
+                "description": "Name of the fish",
             },
-            'species': {
-                'type': 'string',
-                'title': 'Species',
-                'description': 'The species of the fish (e.g., Clownfish, Goldfish)'
+            "species": {
+                "type": "string",
+                "title": "Species",
+                "description": "The species of the fish (e.g., Clownfish, Goldfish)",
             },
-            'color': {
-                'type': 'string',
-                'title': 'Color',
-                'description': 'Primary color of the fish'
+            "color": {
+                "type": "string",
+                "title": "Color",
+                "description": "Primary color of the fish",
             },
-            'size_cm': {
-                'type': 'number',
-                'title': 'Size in centimeters',
-                'description': 'Length of the fish in centimeters',
-                'minimum': 0.1,
-                'maximum': 100.0
-            }
+            "size_cm": {
+                "type": "number",
+                "title": "Size in centimeters",
+                "description": "Length of the fish in centimeters",
+                "minimum": 0.1,
+                "maximum": 100.0,
+            },
         },
-        'required': ['nemo', 'species', 'color', 'size_cm']
+        "required": ["nemo", "species", "color", "size_cm"],
     }
 
     request = ChatRequest(
@@ -247,25 +373,32 @@ def test_response_format_json_schema(sync_client: Client, structured_output_mode
     )
 
     response = sync_client.chat(request, model=structured_output_model_name)
-    json_response = json.loads(response.message.content)
-    
+    json_response = json.loads(remove_thinking_content(response.message.content))
     # Validate all required fields are present
-    required_fields = ['nemo', 'species', 'color', 'size_cm']
+    required_fields = ["nemo", "species", "color", "size_cm"]
     for field in required_fields:
-        assert field in json_response.keys(), f"Required field '{field}' is missing from response"
-    
+        assert (
+            field in json_response.keys()
+        ), f"Required field '{field}' is missing from response"
     # Validate field types
     assert isinstance(json_response["nemo"], str), "Field 'nemo' should be a string"
-    assert isinstance(json_response["species"], str), "Field 'species' should be a string"
+    assert isinstance(
+        json_response["species"], str
+    ), "Field 'species' should be a string"
     assert isinstance(json_response["color"], str), "Field 'color' should be a string"
-    assert isinstance(json_response["size_cm"], (int, float)), "Field 'size_cm' should be a number"
-    
+    assert isinstance(
+        json_response["size_cm"], (int, float)
+    ), "Field 'size_cm' should be a number"
     # Validate size constraints
-    assert 0.1 <= json_response["size_cm"] <= 100.0, "Field 'size_cm' should be between 0.1 and 100.0"
+    assert (
+        0.1 <= json_response["size_cm"] <= 100.0
+    ), "Field 'size_cm' should be between 0.1 and 100.0"
 
 
-def test_response_format_json_schema_pydantic(sync_client: Client, structured_output_model_name: str):
-
+@pytest.mark.vcr
+def test_response_format_json_schema_pydantic(
+    sync_client: Client, structured_output_model_name: str
+):
     class Aquarium(BaseModel):
         nemo: str
         species: str
@@ -281,17 +414,19 @@ def test_response_format_json_schema_pydantic(sync_client: Client, structured_ou
             ),
         ],
         model=structured_output_model_name,
-        response_format=Aquarium
+        response_format=Aquarium,
     )
 
     response = sync_client.chat(request, model=structured_output_model_name)
+    content = remove_thinking_content(response.message.content)
     # Tests that it is valid json and loads
-    json.loads(response.message.content)
+    json.loads(content)
 
     # Validate against desired fields
-    Aquarium.model_validate_json(response.message.content)
+    Aquarium.model_validate_json(content)
 
 
+@pytest.mark.vcr
 @pytest.mark.parametrize(
     "generic_client", ["sync_client", "async_client"], indirect=True
 )
@@ -392,7 +527,6 @@ def test_multi_turn_chat_serialization(sync_client: Client, chat_model_name: str
         model=chat_model_name,
     )
     first_response = sync_client.chat(first_request, model=chat_model_name)
-
     # Second turn - includes the TextMessage from first response in history
     messages_with_history: List[Union[Message, TextMessage]] = [
         Message(role=Role.User, content="Hello"),

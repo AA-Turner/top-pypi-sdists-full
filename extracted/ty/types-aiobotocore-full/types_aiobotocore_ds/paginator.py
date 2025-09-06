@@ -21,6 +21,7 @@ Usage::
         DescribeSnapshotsPaginator,
         DescribeTrustsPaginator,
         DescribeUpdateDirectoryPaginator,
+        ListADAssessmentsPaginator,
         ListCertificatesPaginator,
         ListIpRoutesPaginator,
         ListLogSubscriptionsPaginator,
@@ -41,6 +42,7 @@ Usage::
         describe_snapshots_paginator: DescribeSnapshotsPaginator = client.get_paginator("describe_snapshots")
         describe_trusts_paginator: DescribeTrustsPaginator = client.get_paginator("describe_trusts")
         describe_update_directory_paginator: DescribeUpdateDirectoryPaginator = client.get_paginator("describe_update_directory")
+        list_ad_assessments_paginator: ListADAssessmentsPaginator = client.get_paginator("list_ad_assessments")
         list_certificates_paginator: ListCertificatesPaginator = client.get_paginator("list_certificates")
         list_ip_routes_paginator: ListIpRoutesPaginator = client.get_paginator("list_ip_routes")
         list_log_subscriptions_paginator: ListLogSubscriptionsPaginator = client.get_paginator("list_log_subscriptions")
@@ -75,6 +77,8 @@ from .type_defs import (
     DescribeTrustsResultTypeDef,
     DescribeUpdateDirectoryRequestPaginateTypeDef,
     DescribeUpdateDirectoryResultTypeDef,
+    ListADAssessmentsRequestPaginateTypeDef,
+    ListADAssessmentsResultTypeDef,
     ListCertificatesRequestPaginateTypeDef,
     ListCertificatesResultTypeDef,
     ListIpRoutesRequestPaginateTypeDef,
@@ -103,6 +107,7 @@ __all__ = (
     "DescribeSnapshotsPaginator",
     "DescribeTrustsPaginator",
     "DescribeUpdateDirectoryPaginator",
+    "ListADAssessmentsPaginator",
     "ListCertificatesPaginator",
     "ListIpRoutesPaginator",
     "ListLogSubscriptionsPaginator",
@@ -301,6 +306,27 @@ class DescribeUpdateDirectoryPaginator(_DescribeUpdateDirectoryPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/paginator/DescribeUpdateDirectory.html#DirectoryService.Paginator.DescribeUpdateDirectory.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/paginators/#describeupdatedirectorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListADAssessmentsPaginatorBase = AioPaginator[ListADAssessmentsResultTypeDef]
+else:
+    _ListADAssessmentsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListADAssessmentsPaginator(_ListADAssessmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/paginator/ListADAssessments.html#DirectoryService.Paginator.ListADAssessments)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/paginators/#listadassessmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListADAssessmentsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListADAssessmentsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/paginator/ListADAssessments.html#DirectoryService.Paginator.ListADAssessments.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ds/paginators/#listadassessmentspaginator)
         """
 
 

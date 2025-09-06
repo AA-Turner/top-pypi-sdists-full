@@ -117,16 +117,28 @@ Color = Enum("C", 'RED', 'GREEN', 'BLUE')  # E: Expected string literal "Color"
 );
 
 testcase!(
-    bug = "`e` is `Any` because we need to use the bound object to instantiate _EnumMemberT in EnumMeta.__iter__",
+    bug = "Enums with multiple inheritance are not iterable. Maybe a MRO / metaclass resolution issue?",
     test_iterate,
     r#"
 from typing import assert_type
-from enum import Enum
-class E(Enum):
+from enum import Enum, StrEnum
+
+class E1(Enum):
     X = 1
-    Y = 2
-for e in E:
-    assert_type(e, E)  # E: assert_type(Any, E)
+
+class E2(str, Enum):
+    X = "1"
+
+class E3(StrEnum):
+    X = "1"
+
+for e in E1:
+    assert_type(e, E1)
+for e in E2: # E: Type `type[E2]` is not iterable
+    assert_type(e, E2)
+for e in E3: # E: Type `type[E3]` is not iterable
+    assert_type(e, E3)
+
     "#,
 );
 
@@ -201,7 +213,7 @@ testcase!(
     test_enum_member,
     r#"
 from enum import Enum, nonmember, member
-from typing import reveal_type
+from typing import Literal, reveal_type, assert_type
 
 class MyEnum(Enum):
     A = 1
@@ -213,7 +225,7 @@ class MyEnum(Enum):
 reveal_type(MyEnum.A)  # E: revealed type: Literal[MyEnum.A]
 reveal_type(MyEnum.B)  # E: revealed type: nonmember[int]
 reveal_type(MyEnum.C)  # E: revealed type: Literal[MyEnum.C]
-reveal_type(MyEnum.D)  # E: revealed type: (self: Self@MyEnum) -> None
+reveal_type(MyEnum.D)  # E: revealed type: (self: MyEnum) -> None
 "#,
 );
 
@@ -307,13 +319,18 @@ def foo(f: MyFlag) -> None:
 testcase!(
     test_enum_instance_only_attr,
     r#"
-from typing import reveal_type
+from typing import assert_type, Any
 from enum import Enum
 
 class MyEnum(Enum):
+    X = "foo"
     Y: int
+    Z = "bar"
 
-MyEnum.Y  # E: Instance-only attribute `Y` of class `MyEnum` is not visible on the class
+assert_type(MyEnum.Y, int)
+
+for x in MyEnum:
+    assert_type(x.value, str)  # Y is not an enum member
 "#,
 );
 
@@ -484,6 +501,28 @@ class Color(IntEnum):
 }
 
 testcase!(
+    test_enum_descriptor,
+    r#"
+from enum import IntEnum
+from typing import Callable, assert_type
+
+class classproperty[_TClass, _TReturnType]:
+    fget: Callable[[_TClass], _TReturnType]
+    def __init__(self, f: Callable[[_TClass], _TReturnType]) -> None: ...
+    def __get__(self, obj: _TClass | None, cls: _TClass) -> _TReturnType: ...
+    
+class Foo(IntEnum):
+    X = 1
+    @classproperty
+    def Y(cls) -> list[Foo]:
+        return [Foo.X]
+
+# descriptors are not enum members
+assert_type(Foo.Y, list[Foo])
+"#,
+);
+
+testcase!(
     bug = "The RED = ... in pyi should be fine",
     test_enum_value_dots_pyi,
     env_enum_dots(),
@@ -515,20 +554,5 @@ class EmptyEnum(Enum):
     pass
 def test(x: EmptyEnum):
     assert_type(x.value, Any)
-    "#,
-);
-
-testcase!(
-    bug = "Our support for enum iteration is incomplete, the type is being downgraded to Any",
-    test_iterate_enum,
-    r#"
-import enum
-from typing import assert_type, Any
-class MyEnum(enum.Enum):
-    X = 'X'
-    Y = 'Y'
-def foo():
-    for e in MyEnum:
-        assert_type(e, MyEnum)  # E: assert_type(Any, MyEnum)
     "#,
 );

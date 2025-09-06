@@ -42,9 +42,20 @@ async def get_session(client: "pyrogram.Client", business_connection_id: str) ->
         if client.sessions.get(dc_id):
             return client.sessions[dc_id]
 
+        dc_option = await client.get_dc_option(dc_id, ipv6=client.ipv6)
+
         session = client.sessions[dc_id] = Session(
-            client, dc_id,
-            await Auth(client, dc_id, await client.storage.test_mode()).create(),
+            client,
+            dc_id,
+            dc_option.ip_address,
+            dc_option.port,
+            await Auth(
+                client,
+                dc_id,
+                dc_option.ip_address,
+                dc_option.port,
+                await client.storage.test_mode()
+            ).create(),
             await client.storage.test_mode()
         )
 

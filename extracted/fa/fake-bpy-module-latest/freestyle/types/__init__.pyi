@@ -327,7 +327,7 @@ class Curve:
     """
 
     is_empty: bool
-    """ True if the Curve doesnt have any Vertex yet.
+    """ True if the Curve doesn't have any Vertex yet.
 
     :type: bool
     """
@@ -2122,7 +2122,7 @@ class StrokeVertex:
 
     stroke_length: float
     """ Stroke length (it is only a value retained by the StrokeVertex,
-and it wont change the real stroke length).
+and it won't change the real stroke length).
 
     :type: float
     """

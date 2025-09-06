@@ -75,6 +75,8 @@ __all__ = (
     "RiskLevelTypeType",
     "ServiceName",
     "StatusTypeType",
+    "TermsEnforcementTypeType",
+    "TermsSourceTypeType",
     "TimeUnitsTypeType",
     "UserImportJobStatusTypeType",
     "UserPoolMfaTypeType",
@@ -190,6 +192,8 @@ RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_p
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
 StatusTypeType = Literal["Disabled", "Enabled"]
+TermsEnforcementTypeType = Literal["NONE"]
+TermsSourceTypeType = Literal["LINK"]
 TimeUnitsTypeType = Literal["days", "hours", "minutes", "seconds"]
 UserImportJobStatusTypeType = Literal[
     "Created", "Expired", "Failed", "InProgress", "Pending", "Stopped", "Stopping", "Succeeded"
@@ -238,6 +242,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -249,8 +254,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_synthetics.literals import CanaryRunStateReasonCodeType
+    from types_aiobotocore_synthetics.literals import BrowserTypeType
 
-    data: CanaryRunStateReasonCodeType = "CANARY_FAILURE"
+    data: BrowserTypeType = "CHROME"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "BrowserTypeType",
     "CanaryRunStateReasonCodeType",
     "CanaryRunStateType",
     "CanaryRunTestResultType",
@@ -38,6 +39,7 @@ __all__ = (
     "SyntheticsServiceName",
 )
 
+BrowserTypeType = Literal["CHROME", "FIREFOX"]
 CanaryRunStateReasonCodeType = Literal["CANARY_FAILURE", "EXECUTION_FAILURE"]
 CanaryRunStateType = Literal["FAILED", "PASSED", "RUNNING"]
 CanaryRunTestResultType = Literal["FAILED", "PASSED", "UNKNOWN"]
@@ -99,6 +101,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -110,8 +113,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

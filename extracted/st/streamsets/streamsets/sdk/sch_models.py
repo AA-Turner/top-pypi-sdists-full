@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2025
 
 """Classes for ControlHub-related models.
 
@@ -51,8 +53,8 @@ from .st_models import PipelineBuilder as StPipelineBuilder
 from .st_models import Stage as StStage
 from .utils import (
     DEFAULT_PROVISIONING_SPEC, METERING_METRIC_LOOKUP, TRANSFORMER_DEFAULT_EXECUTION_MODE, MutableKwargs, SeekableList,
-    Version, build_tag_from_raw_tag, format_sch_log, get_attribute, get_bw_compatibility_map,
-    get_library_directory_name, get_params, get_stage_library_display_name_from_library,
+    Version, build_tag_from_raw_tag, convert_last_modified_on_field_for_saql, format_sch_log, get_attribute,
+    get_bw_compatibility_map, get_library_directory_name, get_params, get_stage_library_display_name_from_library,
     get_stage_library_name_from_display_name, get_topology_nodes, reversed_dict, set_acl,
     top_objects_by_metering_metric, update_acl_permissions, wait_for_condition,
 )
@@ -4199,7 +4201,7 @@ class Pipelines(CollectionModel):
         kwargs_defaults = {
             'offset': None,
             'len': None,
-            'order_by': 'NAME',
+            'order_by': 'LAST_MODIFIED_ON',
             'order': None,
             'system': None,
             'filter_text': None,
@@ -4255,7 +4257,7 @@ class Pipelines(CollectionModel):
                 response = self._control_hub.api_client.get_fragments_by_query(
                     search=search,
                     org_id=self._control_hub.organization,
-                    order_by=kwargs_unioned['order_by'].lower(),
+                    order_by=convert_last_modified_on_field_for_saql(kwargs_unioned['order_by'].lower()),
                     offset=kwargs_unioned['offset'],
                     len=kwargs_unioned['len'],
                 ).response.json()
@@ -4280,7 +4282,7 @@ class Pipelines(CollectionModel):
             response = self._control_hub.api_client.get_pipelines_by_query(
                 search=search,
                 org_id=self._control_hub.organization,
-                order_by=kwargs_unioned['order_by'].lower(),
+                order_by=convert_last_modified_on_field_for_saql(kwargs_unioned['order_by'].lower()),
                 offset=kwargs_unioned['offset'],
                 len=kwargs_unioned['len'],
             ).response.json()
@@ -4718,7 +4720,7 @@ class Tag(BaseModel):
     @property
     def tag(self):
         """Get the Tag."""
-        return self.id.split(':')[0]
+        return ':'.join(self.id.split(':')[:-1])
 
 
 @analytics_class_decorator
@@ -5503,7 +5505,7 @@ class JobSequences(CollectionModel):
                 class_kwargs (:obj:`dict`): a dict of additional arguments required by the class_type's init
         """
 
-        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'NAME', 'order': 'ASC'}
+        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'LAST_MODIFIED_TIME', 'order': 'ASC'}
         kwargs_instance = MutableKwargs(kwargs_defaults, kwargs)
         kwargs_unioned = kwargs_instance.union()
         if 'id' in kwargs_unioned:
@@ -5682,7 +5684,7 @@ class Job(BaseModel):
         data_collectors = SeekableList()
         for pipeline_status in self.pipeline_status:
             # warning: some downstream uses incorrectly rely on the ValueError raised by the SeekableList here
-            data_collector = self._control_hub.data_collectors.get(id=pipeline_status.sdc_id)
+            data_collector = self._control_hub.engines.get(id=pipeline_status.sdc_id, engine_type='COLLECTOR')
             pipeline_name = pipeline_status.name
             data_collectors.append(JobDataCollector(data_collector=data_collector, pipeline_name=pipeline_name))
         return data_collectors
@@ -5692,7 +5694,7 @@ class Job(BaseModel):
         transformers = SeekableList()
         for pipeline_status in self.pipeline_status:
             # warning: some downstream uses incorrectly rely on the ValueError raised by the SeekableList here
-            transformer = self._control_hub.transformers.get(id=pipeline_status.sdc_id)
+            transformer = self._control_hub.engines.get(id=pipeline_status.sdc_id, engine_type='TRANSFORMER')
             pipeline_name = pipeline_status.name
             transformers.append(JobTransformer(transformer=transformer, pipeline_name=pipeline_name))
         return transformers
@@ -6416,7 +6418,7 @@ class DraftRuns(CollectionModel):
                 class_type (:py:class:`streamsets.sdk.sch_models.DraftRun`): the type of class to instantiate
                 class_kwargs (:obj:`dict`): a dict of additional arguments required by the class_type's init
         """
-        kwargs_defaults = {'order_by': 'name', 'search': None, 'offset': 0, 'len': None}
+        kwargs_defaults = {'order_by': 'modified_on', 'search': None, 'offset': 0, 'len': None}
         kwargs_instance = MutableKwargs(kwargs_defaults, kwargs)
         kwargs_unioned = kwargs_instance.union()
         response = self._control_hub.api_client.get_draft_runs_by_query(
@@ -6494,7 +6496,7 @@ class Jobs(CollectionModel):
                 class_kwargs (:obj:`dict`): a dict of additional arguments required by the class_type's init
         """
         kwargs_defaults = {
-            'order_by': 'NAME',
+            'order_by': 'CREATE_TIME',
             'order': 'ASC',
             'removed': False,
             'system': False,
@@ -6551,7 +6553,7 @@ class Jobs(CollectionModel):
                 response = self._control_hub.api_client.get_job_templates_by_query(
                     search=search,
                     org_id=self._control_hub.organization,
-                    order_by=kwargs_unioned['order_by'].lower(),
+                    order_by=convert_last_modified_on_field_for_saql(kwargs_unioned['order_by'].lower()),
                     offset=kwargs_unioned['offset'],
                     len=kwargs_unioned['len'],
                 ).response.json()
@@ -6559,7 +6561,7 @@ class Jobs(CollectionModel):
                 response = self._control_hub.api_client.get_jobs_by_query(
                     search=search,
                     org_id=self._control_hub.organization,
-                    order_by=kwargs_unioned['order_by'].lower(),
+                    order_by=convert_last_modified_on_field_for_saql(kwargs_unioned['order_by'].lower()),
                     offset=kwargs_unioned['offset'],
                     len=kwargs_unioned['len'],
                 ).response.json()
@@ -7405,7 +7407,7 @@ class Topologies(CollectionModel):
                 class_type (:py:class:`streamsets.sdk.sch_models.Topology`): the type of class to instantiate
                 class_kwargs (:obj:`dict`): a dict of additional arguments required by the class_type's init
         """
-        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'NAME', 'order': 'ASC'}
+        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'LAST_MODIFIED_TIME', 'order': 'ASC'}
         kwargs_instance = MutableKwargs(kwargs_defaults, kwargs)
         kwargs_unioned = kwargs_instance.union()
         response = self._control_hub.api_client.return_all_topologies(
@@ -8380,7 +8382,7 @@ class Environments(CollectionModel):
         kwargs_defaults = {
             'offset': None,
             'len': None,
-            'order_by': 'NAME',
+            'order_by': 'LAST_MODIFIED_TIME',
             'order': 'ASC',
             'tag': None,
             'with_total_count': False,
@@ -8916,7 +8918,7 @@ class Engines(CollectionModel):
             # pagination
             'offset': 0,
             'len': None,
-            'order_by': 'LAST_REPORTED_TIME',
+            'order_by': 'HTTP_URL',
             'order': 'ASC',
             # server-side filtering
             'label': label,
@@ -9721,7 +9723,7 @@ class Deployments(CollectionModel):
         kwargs_defaults = {
             'offset': None,
             'len': None,
-            'order_by': 'NAME',
+            'order_by': 'LAST_MODIFIED_TIME',
             'order': 'ASC',
             'with_total_count': False,
             'state_display_label': None,
@@ -11854,7 +11856,7 @@ class Subscriptions(CollectionModel):
                 class_type (:py:class:`streamsets.sdk.sch_models.Subscription`): the type of class to instantiate
                 class_kwargs (:obj:`dict`): a dict of additional arguments required by the class_type's init
         """
-        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'NAME', 'order': 'ASC'}
+        kwargs_defaults = {'offset': 0, 'len': None, 'order_by': 'CREATE_TIME', 'order': 'ASC'}
         kwargs_instance = MutableKwargs(kwargs_defaults, kwargs)
         kwargs_unioned = kwargs_instance.union()
         response = self._control_hub.api_client.get_all_event_subscriptions(
@@ -12582,7 +12584,7 @@ class Connections(CollectionModel):
         kwargs_defaults = {
             'offset': None,
             'len': None,
-            'order_by': 'NAME',
+            'order_by': 'LAST_MODIFIED_TIME',
             'order': 'ASC',
             'filter_text': None,
             'with_total_count': False,

@@ -105,7 +105,7 @@ class BMEdge:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasnt been removed).
+    """ True when this element is valid (hasn't been removed).
 
     :type: bool
     """
@@ -451,7 +451,7 @@ class BMFace:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasnt been removed).
+    """ True when this element is valid (hasn't been removed).
 
     :type: bool
     """
@@ -463,7 +463,7 @@ class BMFace:
     """
 
     material_index: int
-    """ The faces material index.
+    """ The face's material index.
 
     :type: int
     """
@@ -1061,7 +1061,7 @@ class BMLoop:
     """This is normally accessed from `BMFace.loops` where each face loop represents a corner of the face."""
 
     edge: BMEdge
-    """ The loops edge (between this loop and the next), (read-only).
+    """ The loop's edge (between this loop and the next), (read-only).
 
     :type: BMEdge
     """
@@ -1085,7 +1085,7 @@ class BMLoop:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasnt been removed).
+    """ True when this element is valid (hasn't been removed).
 
     :type: bool
     """
@@ -1127,7 +1127,7 @@ class BMLoop:
     """
 
     vert: BMVert
-    """ The loops vertex (read-only).
+    """ The loop's vertex (read-only).
 
     :type: BMVert
     """
@@ -1305,7 +1305,7 @@ class BMVert:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasnt been removed).
+    """ True when this element is valid (hasn't been removed).
 
     :type: bool
     """
@@ -1549,7 +1549,7 @@ class BMesh:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasnt been removed).
+    """ True when this element is valid (hasn't been removed).
 
     :type: bool
     """
@@ -1573,7 +1573,7 @@ class BMesh:
     """
 
     select_mode: set
-    """ The selection mode, values can be {VERT, EDGE, FACE}, cannot be assigned an empty set.
+    """ The selection mode, values can be {'VERT', 'EDGE', 'FACE'}, cannot be assigned an empty set.
 
     :type: set
     """

@@ -337,7 +337,8 @@ class ServiceDiscoveryClient(AioBaseClient):
     ) -> ListNamespacesResponseTypeDef:
         """
         Lists summary information about the namespaces that were created by the current
-        Amazon Web Services account.
+        Amazon Web Services account and shared with the current Amazon Web Services
+        account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/servicediscovery/client/list_namespaces.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_servicediscovery/client/#list_namespaces)

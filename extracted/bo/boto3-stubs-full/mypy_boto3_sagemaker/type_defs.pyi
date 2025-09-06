@@ -71,6 +71,7 @@ from .literals import (
     ClarifyTextLanguageType,
     ClusterAutoScalingModeType,
     ClusterAutoScalingStatusType,
+    ClusterConfigModeType,
     ClusterEventResourceTypeType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
@@ -146,6 +147,7 @@ from .literals import (
     InputModeType,
     InstanceGroupStatusType,
     InstanceTypeType,
+    IPAddressTypeType,
     IsTrackingServerActiveType,
     JobTypeType,
     JoinSourceType,
@@ -502,6 +504,7 @@ __all__ = (
     "ClusterRestrictedInstanceGroupSpecificationTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
     "ClusterSummaryTypeDef",
+    "ClusterTieredStorageConfigTypeDef",
     "CodeEditorAppImageConfigOutputTypeDef",
     "CodeEditorAppImageConfigTypeDef",
     "CodeEditorAppImageConfigUnionTypeDef",
@@ -2512,6 +2515,10 @@ class ClusterSummaryTypeDef(TypedDict):
     CreationTime: datetime
     ClusterStatus: ClusterStatusType
     TrainingPlanArns: NotRequired[List[str]]
+
+class ClusterTieredStorageConfigTypeDef(TypedDict):
+    Mode: ClusterConfigModeType
+    InstanceMemoryAllocationPercentage: NotRequired[int]
 
 class ContainerConfigOutputTypeDef(TypedDict):
     ContainerArguments: NotRequired[List[str]]
@@ -6499,6 +6506,7 @@ class CreateNotebookInstanceInputTypeDef(TypedDict):
     RoleArn: str
     SubnetId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    IpAddressType: NotRequired[IPAddressTypeType]
     KmsKeyId: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     LifecycleConfigName: NotRequired[str]
@@ -6518,6 +6526,7 @@ class DescribeNotebookInstanceOutputTypeDef(TypedDict):
     FailureReason: str
     Url: str
     InstanceType: InstanceTypeType
+    IpAddressType: IPAddressTypeType
     SubnetId: str
     SecurityGroups: List[str]
     RoleArn: str
@@ -6539,6 +6548,7 @@ class DescribeNotebookInstanceOutputTypeDef(TypedDict):
 class UpdateNotebookInstanceInputTypeDef(TypedDict):
     NotebookInstanceName: str
     InstanceType: NotRequired[InstanceTypeType]
+    IpAddressType: NotRequired[IPAddressTypeType]
     RoleArn: NotRequired[str]
     LifecycleConfigName: NotRequired[str]
     DisassociateLifecycleConfig: NotRequired[bool]
@@ -12081,6 +12091,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     RestrictedInstanceGroups: List[ClusterRestrictedInstanceGroupDetailsTypeDef]
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
+    TieredStorageConfig: ClusterTieredStorageConfigTypeDef
     NodeRecovery: ClusterNodeRecoveryType
     NodeProvisioningMode: Literal["Continuous"]
     ClusterRole: str
@@ -12525,6 +12536,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
+    TieredStorageConfig: NotRequired[ClusterTieredStorageConfigTypeDef]
     NodeProvisioningMode: NotRequired[Literal["Continuous"]]
     ClusterRole: NotRequired[str]
     AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
@@ -12535,6 +12547,7 @@ class UpdateClusterRequestTypeDef(TypedDict):
     RestrictedInstanceGroups: NotRequired[
         Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
     ]
+    TieredStorageConfig: NotRequired[ClusterTieredStorageConfigTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
     ClusterRole: NotRequired[str]

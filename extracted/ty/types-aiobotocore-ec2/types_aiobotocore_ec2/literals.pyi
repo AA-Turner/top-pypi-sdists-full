@@ -137,6 +137,9 @@ __all__ = (
     "DescribeHostReservationsPaginatorName",
     "DescribeHostsPaginatorName",
     "DescribeIamInstanceProfileAssociationsPaginatorName",
+    "DescribeImageReferencesPaginatorName",
+    "DescribeImageUsageReportEntriesPaginatorName",
+    "DescribeImageUsageReportsPaginatorName",
     "DescribeImagesPaginatorName",
     "DescribeImportImageTasksPaginatorName",
     "DescribeImportSnapshotTasksPaginatorName",
@@ -253,6 +256,7 @@ __all__ = (
     "ElasticGpuStatusType",
     "EnaSupportType",
     "EndDateTypeType",
+    "EndpointIpAddressTypeType",
     "EphemeralNvmeSupportType",
     "EventCodeType",
     "EventTypeType",
@@ -316,8 +320,11 @@ __all__ = (
     "ImageBlockPublicAccessDisabledStateType",
     "ImageBlockPublicAccessEnabledStateType",
     "ImageExistsWaiterName",
+    "ImageReferenceOptionNameType",
+    "ImageReferenceResourceTypeType",
     "ImageStateType",
     "ImageTypeValuesType",
+    "ImageUsageReportAvailableWaiterName",
     "ImdsSupportValuesType",
     "InitializationTypeType",
     "InstanceAttributeNameType",
@@ -537,6 +544,7 @@ __all__ = (
     "TokenStateType",
     "TpmSupportValuesType",
     "TrafficDirectionType",
+    "TrafficIpAddressTypeType",
     "TrafficMirrorFilterRuleFieldType",
     "TrafficMirrorNetworkServiceType",
     "TrafficMirrorRuleActionType",
@@ -866,6 +874,9 @@ DescribeHostsPaginatorName = Literal["describe_hosts"]
 DescribeIamInstanceProfileAssociationsPaginatorName = Literal[
     "describe_iam_instance_profile_associations"
 ]
+DescribeImageReferencesPaginatorName = Literal["describe_image_references"]
+DescribeImageUsageReportEntriesPaginatorName = Literal["describe_image_usage_report_entries"]
+DescribeImageUsageReportsPaginatorName = Literal["describe_image_usage_reports"]
 DescribeImagesPaginatorName = Literal["describe_images"]
 DescribeImportImageTasksPaginatorName = Literal["describe_import_image_tasks"]
 DescribeImportSnapshotTasksPaginatorName = Literal["describe_import_snapshot_tasks"]
@@ -1021,6 +1032,9 @@ Ec2InstanceConnectEndpointStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+    "update-complete",
+    "update-failed",
+    "update-in-progress",
 ]
 EkPubKeyFormatType = Literal["der", "tpmt"]
 EkPubKeyTypeType = Literal["ecc-sec-p384", "rsa-2048"]
@@ -1028,6 +1042,7 @@ ElasticGpuStateType = Literal["ATTACHED"]
 ElasticGpuStatusType = Literal["IMPAIRED", "OK"]
 EnaSupportType = Literal["required", "supported", "unsupported"]
 EndDateTypeType = Literal["limited", "unlimited"]
+EndpointIpAddressTypeType = Literal["dual-stack", "ipv4", "ipv6"]
 EphemeralNvmeSupportType = Literal["required", "supported", "unsupported"]
 EventCodeType = Literal[
     "instance-reboot", "instance-retirement", "instance-stop", "system-maintenance", "system-reboot"
@@ -1143,10 +1158,19 @@ ImageAvailableWaiterName = Literal["image_available"]
 ImageBlockPublicAccessDisabledStateType = Literal["unblocked"]
 ImageBlockPublicAccessEnabledStateType = Literal["block-new-sharing"]
 ImageExistsWaiterName = Literal["image_exists"]
+ImageReferenceOptionNameType = Literal["state-name", "version-depth"]
+ImageReferenceResourceTypeType = Literal[
+    "ec2:Instance",
+    "ec2:LaunchTemplate",
+    "imagebuilder:ContainerRecipe",
+    "imagebuilder:ImageRecipe",
+    "ssm:Parameter",
+]
 ImageStateType = Literal[
     "available", "deregistered", "disabled", "error", "failed", "invalid", "pending", "transient"
 ]
 ImageTypeValuesType = Literal["kernel", "machine", "ramdisk"]
+ImageUsageReportAvailableWaiterName = Literal["image_usage_report_available"]
 ImdsSupportValuesType = Literal["v2.0"]
 InitializationTypeType = Literal["default", "provisioned-rate"]
 InstanceAttributeNameType = Literal[
@@ -2466,6 +2490,7 @@ ResourceTypeType = Literal[
     "fpga-image",
     "host-reservation",
     "image",
+    "image-usage-report",
     "import-image-task",
     "import-snapshot-task",
     "instance",
@@ -2668,6 +2693,7 @@ TieringOperationStatusType = Literal[
 TokenStateType = Literal["expired", "valid"]
 TpmSupportValuesType = Literal["v2.0"]
 TrafficDirectionType = Literal["egress", "ingress"]
+TrafficIpAddressTypeType = Literal["dual-stack", "ipv4", "ipv6"]
 TrafficMirrorFilterRuleFieldType = Literal[
     "description", "destination-port-range", "protocol", "source-port-range"
 ]
@@ -2683,7 +2709,7 @@ TransitGatewayAssociationStateType = Literal[
     "associated", "associating", "disassociated", "disassociating"
 ]
 TransitGatewayAttachmentResourceTypeType = Literal[
-    "connect", "direct-connect-gateway", "peering", "tgw-peering", "vpc", "vpn"
+    "connect", "direct-connect-gateway", "network-function", "peering", "tgw-peering", "vpc", "vpn"
 ]
 TransitGatewayAttachmentStateType = Literal[
     "available",
@@ -2752,7 +2778,7 @@ VolumeDeletedWaiterName = Literal["volume_deleted"]
 VolumeInUseWaiterName = Literal["volume_in_use"]
 VolumeModificationStateType = Literal["completed", "failed", "modifying", "optimizing"]
 VolumeStateType = Literal["available", "creating", "deleted", "deleting", "error", "in-use"]
-VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok"]
+VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok", "warning"]
 VolumeStatusNameType = Literal["initialization-state", "io-enabled", "io-performance"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 VpcAttributeNameType = Literal[
@@ -2844,6 +2870,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -2855,8 +2882,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -3276,6 +3305,9 @@ PaginatorName = Literal[
     "describe_host_reservations",
     "describe_hosts",
     "describe_iam_instance_profile_associations",
+    "describe_image_references",
+    "describe_image_usage_report_entries",
+    "describe_image_usage_reports",
     "describe_images",
     "describe_import_image_tasks",
     "describe_import_snapshot_tasks",
@@ -3408,6 +3440,7 @@ WaiterName = Literal[
     "export_task_completed",
     "image_available",
     "image_exists",
+    "image_usage_report_available",
     "instance_exists",
     "instance_running",
     "instance_status_ok",

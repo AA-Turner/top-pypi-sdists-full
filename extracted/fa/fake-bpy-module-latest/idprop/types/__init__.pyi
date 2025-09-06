@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 class IDPropertyArray:
     typecode: typing.Any
-    """ The type of the data in the array {f: float, d: double, i: int, b: bool}."""
+    """ The type of the data in the array {'f': float, 'd': double, 'i': int, 'b': bool}."""
 
     def to_list(self) -> None:
         """Return the array as a list."""

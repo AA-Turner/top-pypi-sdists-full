@@ -43,9 +43,12 @@ __all__ = (
     "DirectoryStageType",
     "DirectoryTypeType",
     "DomainControllerStatusType",
+    "HybridADUpdatedWaiterName",
+    "HybridUpdateTypeType",
     "IpRouteStatusMsgType",
     "LDAPSStatusType",
     "LDAPSTypeType",
+    "ListADAssessmentsPaginatorName",
     "ListCertificatesPaginatorName",
     "ListIpRoutesPaginatorName",
     "ListLogSubscriptionsPaginatorName",
@@ -73,6 +76,7 @@ __all__ = (
     "TrustTypeType",
     "UpdateStatusType",
     "UpdateTypeType",
+    "WaiterName",
 )
 
 CertificateStateType = Literal[
@@ -119,11 +123,14 @@ DirectoryTypeType = Literal["ADConnector", "MicrosoftAD", "SharedMicrosoftAD", "
 DomainControllerStatusType = Literal[
     "Active", "Creating", "Deleted", "Deleting", "Failed", "Impaired", "Restoring", "Updating"
 ]
+HybridADUpdatedWaiterName = Literal["hybrid_ad_updated"]
+HybridUpdateTypeType = Literal["HybridAdministratorAccount", "SelfManagedInstances"]
 IpRouteStatusMsgType = Literal[
     "AddFailed", "Added", "Adding", "RemoveFailed", "Removed", "Removing"
 ]
 LDAPSStatusType = Literal["Disabled", "EnableFailed", "Enabled", "Enabling"]
 LDAPSTypeType = Literal["Client"]
+ListADAssessmentsPaginatorName = Literal["list_ad_assessments"]
 ListCertificatesPaginatorName = Literal["list_certificates"]
 ListIpRoutesPaginatorName = Literal["list_ip_routes"]
 ListLogSubscriptionsPaginatorName = Literal["list_log_subscriptions"]
@@ -207,6 +214,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -218,8 +226,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -616,12 +626,14 @@ PaginatorName = Literal[
     "describe_snapshots",
     "describe_trusts",
     "describe_update_directory",
+    "list_ad_assessments",
     "list_certificates",
     "list_ip_routes",
     "list_log_subscriptions",
     "list_schema_extensions",
     "list_tags_for_resource",
 ]
+WaiterName = Literal["hybrid_ad_updated"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

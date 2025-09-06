@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.flow_module_retry_constant import FlowModuleRetryConstant
     from ..models.flow_module_retry_exponential import FlowModuleRetryExponential
+    from ..models.flow_module_retry_retry_if import FlowModuleRetryRetryIf
 
 
 T = TypeVar("T", bound="FlowModuleRetry")
@@ -19,10 +20,12 @@ class FlowModuleRetry:
     Attributes:
         constant (Union[Unset, FlowModuleRetryConstant]):
         exponential (Union[Unset, FlowModuleRetryExponential]):
+        retry_if (Union[Unset, FlowModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "FlowModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "FlowModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "FlowModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class FlowModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class FlowModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class FlowModuleRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.flow_module_retry_constant import FlowModuleRetryConstant
         from ..models.flow_module_retry_exponential import FlowModuleRetryExponential
+        from ..models.flow_module_retry_retry_if import FlowModuleRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class FlowModuleRetry:
         else:
             exponential = FlowModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, FlowModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = FlowModuleRetryRetryIf.from_dict(_retry_if)
+
         flow_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         flow_module_retry.additional_properties = d

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore
-Version: 2.24.1
-Summary: Type annotations for aiobotocore 2.24.1 generated with mypy-boto3-builder 8.11.0
+Version: 2.24.2
+Summary: Type annotations for aiobotocore 2.24.2 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -35,7 +35,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<2.25.0,>=2.24.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==2.24.1; extra == "aiobotocore"
+Requires-Dist: aiobotocore==2.24.2; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<2.25.0,>=2.24.0; extra == "all"
@@ -63,6 +63,7 @@ Requires-Dist: types-aiobotocore-apprunner<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-appstream<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-appsync<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-apptest<2.25.0,>=2.24.0; extra == "all"
+Requires-Dist: types-aiobotocore-arc-region-switch<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-arc-zonal-shift<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-artifact<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-athena<2.25.0,>=2.24.0; extra == "all"
@@ -74,8 +75,10 @@ Requires-Dist: types-aiobotocore-backup<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-backup-gateway<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-backupsearch<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-batch<2.25.0,>=2.24.0; extra == "all"
+Requires-Dist: types-aiobotocore-bcm-dashboards<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-bcm-data-exports<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.25.0,>=2.24.0; extra == "all"
+Requires-Dist: types-aiobotocore-bcm-recommended-actions<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-agent<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.25.0,>=2.24.0; extra == "all"
@@ -509,6 +512,8 @@ Provides-Extra: appsync
 Requires-Dist: types-aiobotocore-appsync<2.25.0,>=2.24.0; extra == "appsync"
 Provides-Extra: apptest
 Requires-Dist: types-aiobotocore-apptest<2.25.0,>=2.24.0; extra == "apptest"
+Provides-Extra: arc-region-switch
+Requires-Dist: types-aiobotocore-arc-region-switch<2.25.0,>=2.24.0; extra == "arc-region-switch"
 Provides-Extra: arc-zonal-shift
 Requires-Dist: types-aiobotocore-arc-zonal-shift<2.25.0,>=2.24.0; extra == "arc-zonal-shift"
 Provides-Extra: artifact
@@ -531,10 +536,14 @@ Provides-Extra: backupsearch
 Requires-Dist: types-aiobotocore-backupsearch<2.25.0,>=2.24.0; extra == "backupsearch"
 Provides-Extra: batch
 Requires-Dist: types-aiobotocore-batch<2.25.0,>=2.24.0; extra == "batch"
+Provides-Extra: bcm-dashboards
+Requires-Dist: types-aiobotocore-bcm-dashboards<2.25.0,>=2.24.0; extra == "bcm-dashboards"
 Provides-Extra: bcm-data-exports
 Requires-Dist: types-aiobotocore-bcm-data-exports<2.25.0,>=2.24.0; extra == "bcm-data-exports"
 Provides-Extra: bcm-pricing-calculator
 Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.25.0,>=2.24.0; extra == "bcm-pricing-calculator"
+Provides-Extra: bcm-recommended-actions
+Requires-Dist: types-aiobotocore-bcm-recommended-actions<2.25.0,>=2.24.0; extra == "bcm-recommended-actions"
 Provides-Extra: bedrock
 Requires-Dist: types-aiobotocore-bedrock<2.25.0,>=2.24.0; extra == "bedrock"
 Provides-Extra: bedrock-agent
@@ -1308,7 +1317,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore 2.24.1](https://pypi.org/project/aiobotocore/) compatible with
+[aiobotocore 2.24.2](https://pypi.org/project/aiobotocore/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1364,7 +1373,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.24.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.24.2' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1660,9 +1669,9 @@ repository.
 
 ## Submodules
 
-- `types-aiobotocore[full]` - Type annotations for all 412 services in one
+- `types-aiobotocore[full]` - Type annotations for all 415 services in one
   package (recommended).
-- `types-aiobotocore[all]` - Type annotations for all 412 services in separate
+- `types-aiobotocore[all]` - Type annotations for all 415 services in separate
   packages.
 - `types-aiobotocore[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/),
@@ -1754,6 +1763,9 @@ repository.
 - `types-aiobotocore[apptest]` - Type annotations for
   [MainframeModernizationApplicationTesting](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apptest/)
   service.
+- `types-aiobotocore[arc-region-switch]` - Type annotations for
+  [ARCRegionswitch](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_arc_region_switch/)
+  service.
 - `types-aiobotocore[arc-zonal-shift]` - Type annotations for
   [ARCZonalShift](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_arc_zonal_shift/)
   service.
@@ -1787,11 +1799,17 @@ repository.
 - `types-aiobotocore[batch]` - Type annotations for
   [Batch](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/)
   service.
+- `types-aiobotocore[bcm-dashboards]` - Type annotations for
+  [BillingandCostManagementDashboards](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/)
+  service.
 - `types-aiobotocore[bcm-data-exports]` - Type annotations for
   [BillingandCostManagementDataExports](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_data_exports/)
   service.
 - `types-aiobotocore[bcm-pricing-calculator]` - Type annotations for
   [BillingandCostManagementPricingCalculator](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_pricing_calculator/)
+  service.
+- `types-aiobotocore[bcm-recommended-actions]` - Type annotations for
+  [BillingandCostManagementRecommendedActions](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_recommended_actions/)
   service.
 - `types-aiobotocore[bedrock]` - Type annotations for
   [Bedrock](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/)

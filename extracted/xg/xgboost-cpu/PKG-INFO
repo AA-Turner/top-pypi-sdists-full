@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xgboost-cpu
-Version: 3.0.4
+Version: 3.0.5
 Summary: XGBoost Python Package
 Project-URL: documentation, https://xgboost.readthedocs.io/en/stable/
 Project-URL: repository, https://github.com/dmlc/xgboost

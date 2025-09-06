@@ -102,7 +102,7 @@ class Gift(Object):
             Number of Telegram Stars that must be paid to buy the gift and send it to someone else.
 
         last_resale_star_count (``int``, *optional*):
-            Number of Telegram Stars that were paid by the sender for the gift; 0 if the gift was upgraded or transferred.
+            Number of Telegram Stars that were paid by the sender for the gift.
 
         last_resale_ton_count (``int``, *optional*):
             Number of TON that were paid by the sender for the gift.

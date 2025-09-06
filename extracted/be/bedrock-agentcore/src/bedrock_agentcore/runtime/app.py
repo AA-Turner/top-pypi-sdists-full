@@ -16,10 +16,12 @@ from typing import Any, Callable, Dict, Optional
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
+from starlette.types import Lifespan
 
 from .context import BedrockAgentCoreContext, RequestContext
 from .models import (
     ACCESS_TOKEN_HEADER,
+    REQUEST_ID_HEADER,
     SESSION_HEADER,
     TASK_ACTION_CLEAR_FORCED_STATUS,
     TASK_ACTION_FORCE_BUSY,
@@ -28,32 +30,36 @@ from .models import (
     TASK_ACTION_PING_STATUS,
     PingStatus,
 )
-
-# Request context for logging
-request_id_context: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_id", default=None)
+from .utils import convert_complex_objects
 
 
 class RequestContextFormatter(logging.Formatter):
-    """Custom formatter that includes request ID in log messages."""
+    """Formatter including request and session IDs."""
 
     def format(self, record):
-        """Format log record with request ID context."""
-        request_id = request_id_context.get()
+        """Format log record with request and session ID context."""
+        request_id = BedrockAgentCoreContext.get_request_id()
+        session_id = BedrockAgentCoreContext.get_session_id()
+
+        parts = []
         if request_id:
-            record.request_id = f"[{request_id}] "
-        else:
-            record.request_id = ""
+            parts.append(f"[rid:{request_id}]")
+        if session_id:
+            parts.append(f"[sid:{session_id}]")
+
+        record.request_id = " ".join(parts) + " " if parts else ""
         return super().format(record)
 
 
 class BedrockAgentCoreApp(Starlette):
     """Bedrock AgentCore application class that extends Starlette for AI agent deployment."""
 
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, lifespan: Optional[Lifespan] = None):
         """Initialize Bedrock AgentCore application.
 
         Args:
             debug: Enable debug actions for task management (default: False)
+            lifespan: Optional lifespan context manager for startup/shutdown
         """
         self.handlers: Dict[str, Callable] = {}
         self._ping_handler: Optional[Callable] = None
@@ -66,7 +72,7 @@ class BedrockAgentCoreApp(Starlette):
             Route("/invocations", self._handle_invocation, methods=["POST"]),
             Route("/ping", self._handle_ping, methods=["GET"]),
         ]
-        super().__init__(routes=routes)
+        super().__init__(routes=routes, lifespan=lifespan)
         self.debug = debug  # Set after super().__init__ to avoid override
 
         self.logger = logging.getLogger("bedrock_agentcore.app")
@@ -75,7 +81,7 @@ class BedrockAgentCoreApp(Starlette):
             formatter = RequestContextFormatter("%(asctime)s - %(name)s - %(levelname)s - %(request_id)s%(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
     def entrypoint(self, func: Callable) -> Callable:
         """Decorator to register a function as the main entrypoint.
@@ -245,17 +251,25 @@ class BedrockAgentCoreApp(Starlette):
                 return False
 
     def _build_request_context(self, request) -> RequestContext:
-        """Build request context and setup auth if present."""
+        """Build request context and setup all context variables."""
         try:
-            agent_identity_token = request.headers.get(ACCESS_TOKEN_HEADER) or request.headers.get(
-                ACCESS_TOKEN_HEADER.lower()
-            )
+            headers = request.headers
+            request_id = headers.get(REQUEST_ID_HEADER)
+            if not request_id:
+                request_id = str(uuid.uuid4())
+
+            session_id = headers.get(SESSION_HEADER)
+            BedrockAgentCoreContext.set_request_context(request_id, session_id)
+
+            agent_identity_token = headers.get(ACCESS_TOKEN_HEADER)
             if agent_identity_token:
                 BedrockAgentCoreContext.set_workload_access_token(agent_identity_token)
-            session_id = request.headers.get(SESSION_HEADER) or request.headers.get(SESSION_HEADER.lower())
+
             return RequestContext(session_id=session_id)
         except Exception as e:
             self.logger.warning("Failed to build request context: %s: %s", type(e).__name__, e)
+            request_id = str(uuid.uuid4())
+            BedrockAgentCoreContext.set_request_context(request_id, None)
             return RequestContext(session_id=None)
 
     def _takes_context(self, handler: Callable) -> bool:
@@ -266,8 +280,8 @@ class BedrockAgentCoreApp(Starlette):
             return False
 
     async def _handle_invocation(self, request):
-        request_id = str(uuid.uuid4())[:8]
-        request_id_context.set(request_id)
+        request_context = self._build_request_context(request)
+
         start_time = time.time()
 
         try:
@@ -286,7 +300,6 @@ class BedrockAgentCoreApp(Starlette):
                 self.logger.error("No entrypoint defined")
                 return JSONResponse({"error": "No entrypoint defined"}, status_code=500)
 
-            request_context = self._build_request_context(request)
             takes_context = self._takes_context(handler)
 
             handler_name = handler.__name__ if hasattr(handler, "__name__") else "unknown"
@@ -340,7 +353,7 @@ class BedrockAgentCoreApp(Starlette):
                 host = "0.0.0.0"  # nosec B104 - Docker needs this to expose the port
             else:
                 host = "127.0.0.1"
-        uvicorn.run(self, host=host, port=port)
+        uvicorn.run(self, host=host, port=port, access_log=self.debug, log_level="info" if self.debug else "warning")
 
     async def _invoke_handler(self, handler, request_context, takes_context, payload):
         try:
@@ -350,7 +363,8 @@ class BedrockAgentCoreApp(Starlette):
                 return await handler(*args)
             else:
                 loop = asyncio.get_event_loop()
-                return await loop.run_in_executor(None, handler, *args)
+                ctx = contextvars.copy_context()
+                return await loop.run_in_executor(None, ctx.run, handler, *args)
         except Exception as e:
             handler_name = getattr(handler, "__name__", "unknown")
             self.logger.error("Handler '%s' execution failed: %s: %s", handler_name, type(e).__name__, e)
@@ -431,13 +445,18 @@ class BedrockAgentCoreApp(Starlette):
             return json.dumps(obj, ensure_ascii=False)
         except (TypeError, ValueError, UnicodeEncodeError):
             try:
-                # Second attempt: convert to string, then JSON encode the string
-                return json.dumps(str(obj), ensure_ascii=False)
-            except Exception as e:
-                # Final fallback: JSON encode error object with ASCII fallback for problematic Unicode
-                self.logger.warning("Failed to serialize object: %s: %s", type(e).__name__, e)
-                error_obj = {"error": "Serialization failed", "original_type": type(obj).__name__}
-                return json.dumps(error_obj, ensure_ascii=False)
+                # Second attempt: convert to serializable dictionaries, then JSON encode the dictionaries
+                converted_obj = convert_complex_objects(obj)
+                return json.dumps(converted_obj, ensure_ascii=False)
+            except Exception:
+                try:
+                    # Third attempt: convert to string, then JSON encode the string
+                    return json.dumps(str(obj), ensure_ascii=False)
+                except Exception as e:
+                    # Final fallback: JSON encode error object with ASCII fallback for problematic Unicode
+                    self.logger.warning("Failed to serialize object: %s: %s", type(e).__name__, e)
+                    error_obj = {"error": "Serialization failed", "original_type": type(obj).__name__}
+                    return json.dumps(error_obj, ensure_ascii=False)
 
     def _convert_to_sse(self, obj) -> bytes:
         """Convert object to Server-Sent Events format using safe serialization.

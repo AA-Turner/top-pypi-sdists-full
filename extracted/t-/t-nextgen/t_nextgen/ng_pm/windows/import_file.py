@@ -195,7 +195,7 @@ class ImportFileWindow(NextGenWindow):
     @retry(exceptions=_ctypes.COMError, tries=3, delay=20, backoff=2)
     def _process_import_modal(self) -> None:
         """Handle Import Processing Dialog."""
-        modal = self.desktop_app.dialog.child_window(title="NextGen", control_type="Window")
+        modal = self.desktop_app.dialog.child_window(title="NextGen", control_type="Window", found_index=0)
         if self._modal_exists(modal):
             buttons_list = modal.wrapper_object().descendants(control_type="Button")
             if len(buttons_list) == 2 and buttons_list[0].texts()[0] == "OK" and buttons_list[1].texts()[0] == "Close":

@@ -43,7 +43,7 @@ BlockerStatusType = Literal["ACTIVE", "RESOLVED"]
 BlockerTypeType = Literal["AUTOMATED"]
 ConnectionStatusType = Literal["AVAILABLE", "ERROR", "PENDING"]
 ProviderTypeType = Literal[
-    "Bitbucket", "GitHub", "GitHubEnterpriseServer", "GitLab", "GitLabSelfManaged"
+    "AzureDevOps", "Bitbucket", "GitHub", "GitHubEnterpriseServer", "GitLab", "GitLabSelfManaged"
 ]
 PublishDeploymentStatusType = Literal["DISABLED", "ENABLED"]
 PullRequestCommentType = Literal["DISABLED", "ENABLED"]
@@ -79,6 +79,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -90,8 +91,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

@@ -38,6 +38,28 @@ logger = logging.getLogger(__name__)
 class MemoryClient:
     """High-level Bedrock AgentCore Memory client with essential operations."""
 
+    # AgentCore Memory data plane methods
+    _ALLOWED_GMDP_METHODS = {
+        "retrieve_memory_records",
+        "get_memory_record",
+        "delete_memory_record",
+        "list_memory_records",
+        "create_event",
+        "get_event",
+        "delete_event",
+        "list_events",
+    }
+
+    # AgentCore Memory control plane methods
+    _ALLOWED_GMCP_METHODS = {
+        "create_memory",
+        "get_memory",
+        "list_memories",
+        "update_memory",
+        "delete_memory",
+        "list_memory_strategies",
+    }
+
     def __init__(self, region_name: Optional[str] = None):
         """Initialize the Memory client."""
         self.region_name = region_name or boto3.Session().region_name or "us-west-2"
@@ -49,6 +71,49 @@ class MemoryClient:
             "Initialized MemoryClient for control plane: %s, data plane: %s",
             self.gmcp_client.meta.region_name,
             self.gmdp_client.meta.region_name,
+        )
+
+    def __getattr__(self, name: str):
+        """Dynamically forward method calls to the appropriate boto3 client.
+
+        This method enables access to all boto3 client methods without explicitly
+        defining them. Methods are looked up in the following order:
+        1. gmdp_client (bedrock-agentcore) - for data plane operations
+        2. gmcp_client (bedrock-agentcore-control) - for control plane operations
+
+        Args:
+            name: The method name being accessed
+
+        Returns:
+            A callable method from the appropriate boto3 client
+
+        Raises:
+            AttributeError: If the method doesn't exist on either client
+
+        Example:
+            # Access any boto3 method directly
+            client = MemoryClient()
+
+            # These calls are forwarded to the appropriate boto3 client
+            response = client.list_memory_records(memoryId="mem-123", namespace="test")
+            metadata = client.get_memory_metadata(memoryId="mem-123")
+        """
+        if name in self._ALLOWED_GMDP_METHODS and hasattr(self.gmdp_client, name):
+            method = getattr(self.gmdp_client, name)
+            logger.debug("Forwarding method '%s' to gmdp_client", name)
+            return method
+
+        if name in self._ALLOWED_GMCP_METHODS and hasattr(self.gmcp_client, name):
+            method = getattr(self.gmcp_client, name)
+            logger.debug("Forwarding method '%s' to gmcp_client", name)
+            return method
+
+        # Method not found on either client
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'. "
+            f"Method not found on gmdp_client or gmcp_client. "
+            f"Available methods can be found in the boto3 documentation for "
+            f"'bedrock-agentcore' and 'bedrock-agentcore-control' services."
         )
 
     def create_memory(
@@ -90,6 +155,40 @@ class MemoryClient:
 
         except ClientError as e:
             logger.error("Failed to create memory: %s", e)
+            raise
+
+    def create_or_get_memory(
+        self,
+        name: str,
+        strategies: Optional[List[Dict[str, Any]]] = None,
+        description: Optional[str] = None,
+        event_expiry_days: int = 90,
+        memory_execution_role_arn: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a memory resource or fetch the existing memory details if it already exists.
+
+        Returns:
+            Memory object, either newly created or existing
+        """
+        try:
+            memory = self.create_memory_and_wait(
+                name=name,
+                strategies=strategies,
+                description=description,
+                event_expiry_days=event_expiry_days,
+                memory_execution_role_arn=memory_execution_role_arn,
+            )
+            return memory
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ValidationException" and "already exists" in str(e):
+                memories = self.list_memories()
+                memory = next((m for m in memories if m["id"].startswith(name)), None)
+                logger.info("Memory already exists. Using existing memory ID: %s", memory["id"])
+                return memory
+            else:
+                logger.error("ClientError: Failed to create or get memory: %s", e)
+                raise
+        except Exception:
             raise
 
     def create_memory_and_wait(
@@ -340,6 +439,65 @@ class MemoryClient:
 
         except ClientError as e:
             logger.error("Failed to create event: %s", e)
+            raise
+
+    def create_blob_event(
+        self,
+        memory_id: str,
+        actor_id: str,
+        session_id: str,
+        blob_data: Any,
+        event_timestamp: Optional[datetime] = None,
+        branch: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Save a blob event to AgentCore Memory.
+
+        Args:
+            memory_id: Memory resource ID
+            actor_id: Actor identifier
+            session_id: Session identifier
+            blob_data: Binary or structured data to store
+            event_timestamp: Optional timestamp for the event
+            branch: Optional branch info
+
+        Returns:
+            Created event
+
+        Example:
+            # Store binary data
+            event = client.create_blob_event(
+                memory_id="mem-xyz",
+                actor_id="user-123",
+                session_id="session-456",
+                blob_data={"file_content": "base64_encoded_data", "metadata": {"type": "image"}}
+            )
+        """
+        try:
+            payload = [{"blob": blob_data}]
+
+            if event_timestamp is None:
+                event_timestamp = datetime.utcnow()
+
+            params = {
+                "memoryId": memory_id,
+                "actorId": actor_id,
+                "sessionId": session_id,
+                "eventTimestamp": event_timestamp,
+                "payload": payload,
+            }
+
+            if branch:
+                params["branch"] = branch
+
+            response = self.gmdp_client.create_event(**params)
+
+            event = response["event"]
+            logger.info("Created blob event: %s", event["eventId"])
+
+            return event
+
+        except ClientError as e:
+            logger.error("Failed to create blob event: %s", e)
             raise
 
     def save_conversation(
@@ -644,6 +802,7 @@ class MemoryClient:
                     "actorId": actor_id,
                     "sessionId": session_id,
                     "maxResults": min(100, max_results - len(all_events)),
+                    "includePayloads": include_payload,
                 }
 
                 if next_token:
@@ -954,31 +1113,26 @@ class MemoryClient:
             turns = []
             current_turn = []
 
-            # Process events in chronological order
-            for _, event in enumerate(events):
-                if "payload" in event and event["payload"]:
-                    for payload_item in event["payload"]:
-                        if "conversational" in payload_item:
-                            role = payload_item["conversational"].get("role")
+            for event in events:
+                if len(turns) >= k:
+                    break  # Only need last K turns
+                for payload_item in event.get("payload", []):
+                    if "conversational" in payload_item:
+                        role = payload_item["conversational"].get("role")
 
-                            # Start a new turn when we see a USER message and already have messages
-                            if role == Role.USER.value and current_turn:
-                                turns.append(current_turn)
-                                current_turn = []
+                        # Start new turn on USER message
+                        if role == Role.USER.value and current_turn:
+                            turns.append(current_turn)
+                            current_turn = []
 
-                            current_turn.append(payload_item["conversational"])
+                        current_turn.append(payload_item["conversational"])
 
             # Don't forget the last turn
             if current_turn:
                 turns.append(current_turn)
 
             # Return the last k turns
-            if len(turns) > k:
-                result = turns[-k:]  # Get last k turns
-            else:
-                result = turns
-
-            return result
+            return turns[:k] if len(turns) > k else turns
 
         except ClientError as e:
             logger.error("Failed to get last K turns: %s", e)

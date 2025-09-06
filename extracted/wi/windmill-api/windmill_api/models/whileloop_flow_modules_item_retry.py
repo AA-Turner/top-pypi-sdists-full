@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.whileloop_flow_modules_item_retry_constant import WhileloopFlowModulesItemRetryConstant
     from ..models.whileloop_flow_modules_item_retry_exponential import WhileloopFlowModulesItemRetryExponential
+    from ..models.whileloop_flow_modules_item_retry_retry_if import WhileloopFlowModulesItemRetryRetryIf
 
 
 T = TypeVar("T", bound="WhileloopFlowModulesItemRetry")
@@ -19,10 +20,12 @@ class WhileloopFlowModulesItemRetry:
     Attributes:
         constant (Union[Unset, WhileloopFlowModulesItemRetryConstant]):
         exponential (Union[Unset, WhileloopFlowModulesItemRetryExponential]):
+        retry_if (Union[Unset, WhileloopFlowModulesItemRetryRetryIf]):
     """
 
     constant: Union[Unset, "WhileloopFlowModulesItemRetryConstant"] = UNSET
     exponential: Union[Unset, "WhileloopFlowModulesItemRetryExponential"] = UNSET
+    retry_if: Union[Unset, "WhileloopFlowModulesItemRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class WhileloopFlowModulesItemRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -41,6 +48,8 @@ class WhileloopFlowModulesItemRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -48,6 +57,7 @@ class WhileloopFlowModulesItemRetry:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.whileloop_flow_modules_item_retry_constant import WhileloopFlowModulesItemRetryConstant
         from ..models.whileloop_flow_modules_item_retry_exponential import WhileloopFlowModulesItemRetryExponential
+        from ..models.whileloop_flow_modules_item_retry_retry_if import WhileloopFlowModulesItemRetryRetryIf
 
         d = src_dict.copy()
         _constant = d.pop("constant", UNSET)
@@ -64,9 +74,17 @@ class WhileloopFlowModulesItemRetry:
         else:
             exponential = WhileloopFlowModulesItemRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, WhileloopFlowModulesItemRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = WhileloopFlowModulesItemRetryRetryIf.from_dict(_retry_if)
+
         whileloop_flow_modules_item_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         whileloop_flow_modules_item_retry.additional_properties = d

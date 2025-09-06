@@ -48,6 +48,9 @@ Usage::
         DescribeHostReservationsPaginator,
         DescribeHostsPaginator,
         DescribeIamInstanceProfileAssociationsPaginator,
+        DescribeImageReferencesPaginator,
+        DescribeImageUsageReportEntriesPaginator,
+        DescribeImageUsageReportsPaginator,
         DescribeImagesPaginator,
         DescribeImportImageTasksPaginator,
         DescribeImportSnapshotTasksPaginator,
@@ -171,6 +174,7 @@ Usage::
         GetVpnConnectionDeviceTypesPaginator,
         ImageAvailableWaiter,
         ImageExistsWaiter,
+        ImageUsageReportAvailableWaiter,
         InstanceExistsWaiter,
         InstanceRunningWaiter,
         InstanceStatusOkWaiter,
@@ -222,6 +226,7 @@ Usage::
     export_task_completed_waiter: ExportTaskCompletedWaiter = client.get_waiter("export_task_completed")
     image_available_waiter: ImageAvailableWaiter = client.get_waiter("image_available")
     image_exists_waiter: ImageExistsWaiter = client.get_waiter("image_exists")
+    image_usage_report_available_waiter: ImageUsageReportAvailableWaiter = client.get_waiter("image_usage_report_available")
     instance_exists_waiter: InstanceExistsWaiter = client.get_waiter("instance_exists")
     instance_running_waiter: InstanceRunningWaiter = client.get_waiter("instance_running")
     instance_status_ok_waiter: InstanceStatusOkWaiter = client.get_waiter("instance_status_ok")
@@ -284,6 +289,9 @@ Usage::
     describe_host_reservations_paginator: DescribeHostReservationsPaginator = client.get_paginator("describe_host_reservations")
     describe_hosts_paginator: DescribeHostsPaginator = client.get_paginator("describe_hosts")
     describe_iam_instance_profile_associations_paginator: DescribeIamInstanceProfileAssociationsPaginator = client.get_paginator("describe_iam_instance_profile_associations")
+    describe_image_references_paginator: DescribeImageReferencesPaginator = client.get_paginator("describe_image_references")
+    describe_image_usage_report_entries_paginator: DescribeImageUsageReportEntriesPaginator = client.get_paginator("describe_image_usage_report_entries")
+    describe_image_usage_reports_paginator: DescribeImageUsageReportsPaginator = client.get_paginator("describe_image_usage_reports")
     describe_images_paginator: DescribeImagesPaginator = client.get_paginator("describe_images")
     describe_import_image_tasks_paginator: DescribeImportImageTasksPaginator = client.get_paginator("describe_import_image_tasks")
     describe_import_snapshot_tasks_paginator: DescribeImportSnapshotTasksPaginator = client.get_paginator("describe_import_snapshot_tasks")
@@ -442,7 +450,10 @@ from .paginator import (
     DescribeHostReservationsPaginator,
     DescribeHostsPaginator,
     DescribeIamInstanceProfileAssociationsPaginator,
+    DescribeImageReferencesPaginator,
     DescribeImagesPaginator,
+    DescribeImageUsageReportEntriesPaginator,
+    DescribeImageUsageReportsPaginator,
     DescribeImportImageTasksPaginator,
     DescribeImportSnapshotTasksPaginator,
     DescribeInstanceConnectEndpointsPaginator,
@@ -574,6 +585,7 @@ from .waiter import (
     ExportTaskCompletedWaiter,
     ImageAvailableWaiter,
     ImageExistsWaiter,
+    ImageUsageReportAvailableWaiter,
     InstanceExistsWaiter,
     InstanceRunningWaiter,
     InstanceStatusOkWaiter,
@@ -656,6 +668,9 @@ __all__ = (
     "DescribeHostReservationsPaginator",
     "DescribeHostsPaginator",
     "DescribeIamInstanceProfileAssociationsPaginator",
+    "DescribeImageReferencesPaginator",
+    "DescribeImageUsageReportEntriesPaginator",
+    "DescribeImageUsageReportsPaginator",
     "DescribeImagesPaginator",
     "DescribeImportImageTasksPaginator",
     "DescribeImportSnapshotTasksPaginator",
@@ -779,6 +794,7 @@ __all__ = (
     "GetVpnConnectionDeviceTypesPaginator",
     "ImageAvailableWaiter",
     "ImageExistsWaiter",
+    "ImageUsageReportAvailableWaiter",
     "InstanceExistsWaiter",
     "InstanceRunningWaiter",
     "InstanceStatusOkWaiter",

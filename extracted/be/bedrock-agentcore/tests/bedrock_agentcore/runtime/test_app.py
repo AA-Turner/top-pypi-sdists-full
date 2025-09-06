@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import threading
@@ -192,7 +193,9 @@ class TestBedrockAgentCoreApp:
         bedrock_agentcore = BedrockAgentCoreApp()
         bedrock_agentcore.run(port=8080)
 
-        mock_uvicorn.assert_called_once_with(bedrock_agentcore, host="0.0.0.0", port=8080)
+        mock_uvicorn.assert_called_once_with(
+            bedrock_agentcore, host="0.0.0.0", port=8080, access_log=False, log_level="warning"
+        )
 
     @patch("os.path.exists", return_value=True)
     @patch("uvicorn.run")
@@ -201,7 +204,9 @@ class TestBedrockAgentCoreApp:
         bedrock_agentcore = BedrockAgentCoreApp()
         bedrock_agentcore.run(port=8080)
 
-        mock_uvicorn.assert_called_once_with(bedrock_agentcore, host="0.0.0.0", port=8080)
+        mock_uvicorn.assert_called_once_with(
+            bedrock_agentcore, host="0.0.0.0", port=8080, access_log=False, log_level="warning"
+        )
 
     @patch("uvicorn.run")
     def test_serve_localhost(self, mock_uvicorn):
@@ -209,7 +214,9 @@ class TestBedrockAgentCoreApp:
         bedrock_agentcore = BedrockAgentCoreApp()
         bedrock_agentcore.run(port=8080)
 
-        mock_uvicorn.assert_called_once_with(bedrock_agentcore, host="127.0.0.1", port=8080)
+        mock_uvicorn.assert_called_once_with(
+            bedrock_agentcore, host="127.0.0.1", port=8080, access_log=False, log_level="warning"
+        )
 
     @patch("uvicorn.run")
     def test_serve_custom_host(self, mock_uvicorn):
@@ -217,7 +224,9 @@ class TestBedrockAgentCoreApp:
         bedrock_agentcore = BedrockAgentCoreApp()
         bedrock_agentcore.run(port=8080, host="custom-host.example.com")
 
-        mock_uvicorn.assert_called_once_with(bedrock_agentcore, host="custom-host.example.com", port=8080)
+        mock_uvicorn.assert_called_once_with(
+            bedrock_agentcore, host="custom-host.example.com", port=8080, access_log=False, log_level="warning"
+        )
 
     def test_entrypoint_serve_method(self):
         """Test that entrypoint decorator adds serve method that works."""
@@ -230,7 +239,129 @@ class TestBedrockAgentCoreApp:
         # Test that the serve method exists and can be called with mocked uvicorn
         with patch("uvicorn.run") as mock_uvicorn:
             handler.run(port=9000, host="test-host")
-            mock_uvicorn.assert_called_once_with(bedrock_agentcore, host="test-host", port=9000)
+            mock_uvicorn.assert_called_once_with(
+                bedrock_agentcore,
+                host="test-host",
+                port=9000,
+                access_log=False,  # Default production behavior
+                log_level="warning",
+            )
+
+    def test_debug_mode_uvicorn_config(self):
+        """Test that debug mode enables full uvicorn logging."""
+        bedrock_agentcore = BedrockAgentCoreApp(debug=True)
+
+        @bedrock_agentcore.entrypoint
+        def handler(payload):
+            return {"result": "success"}
+
+        # Test that debug mode uses full uvicorn logging
+        with patch("uvicorn.run") as mock_uvicorn:
+            handler.run(port=9000, host="test-host")
+            mock_uvicorn.assert_called_once_with(
+                bedrock_agentcore,
+                host="test-host",
+                port=9000,
+                access_log=True,  # Debug mode enables access logs
+                log_level="info",  # Debug mode uses info level
+            )
+
+    def test_invocation_with_request_id_header(self):
+        """Test that request ID from header is used."""
+        bedrock_agentcore = BedrockAgentCoreApp()
+
+        @bedrock_agentcore.entrypoint
+        def handler(request):
+            return {"status": "ok", "data": request}
+
+        client = TestClient(bedrock_agentcore)
+        headers = {"X-Amzn-Bedrock-AgentCore-Runtime-Request-Id": "custom-request-id"}
+        response = client.post("/invocations", json={"test": "data"}, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+    def test_invocation_with_both_ids(self):
+        """Test with both request and session ID headers."""
+        bedrock_agentcore = BedrockAgentCoreApp()
+
+        @bedrock_agentcore.entrypoint
+        def handler(request, context):
+            return {"session_id": context.session_id, "data": request}
+
+        client = TestClient(bedrock_agentcore)
+        headers = {
+            "X-Amzn-Bedrock-AgentCore-Runtime-Request-Id": "custom-request",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": "custom-session",
+        }
+        response = client.post("/invocations", json={"test": "data"}, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["session_id"] == "custom-session"
+
+    def test_headers_case_insensitive(self):
+        """Test that headers work with any case."""
+        bedrock_agentcore = BedrockAgentCoreApp()
+
+        @bedrock_agentcore.entrypoint
+        def handler(request, context):
+            return {"session_id": context.session_id}
+
+        client = TestClient(bedrock_agentcore)
+
+        # Test lowercase
+        headers = {
+            "x-amzn-bedrock-agentcore-request-id": "lower-request",
+            "x-amzn-bedrock-agentcore-runtime-session-id": "lower-session",
+        }
+        response = client.post("/invocations", json={}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["session_id"] == "lower-session"
+
+        # Test uppercase
+        headers = {
+            "X-AMZN-BEDROCK-AGENTCORE-REQUEST-ID": "UPPER-REQUEST",
+            "X-AMZN-BEDROCK-AGENTCORE-RUNTIME-SESSION-ID": "UPPER-SESSION",
+        }
+        response = client.post("/invocations", json={}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["session_id"] == "UPPER-SESSION"
+
+    def test_initialization_with_lifespan(self):
+        """Test that BedrockAgentCoreApp accepts lifespan parameter."""
+
+        @contextlib.asynccontextmanager
+        async def lifespan(app):
+            yield
+
+        app = BedrockAgentCoreApp(lifespan=lifespan)
+        assert app is not None
+
+    def test_lifespan_startup_and_shutdown(self):
+        """Test that lifespan startup and shutdown are called."""
+        startup_called = False
+        shutdown_called = False
+
+        @contextlib.asynccontextmanager
+        async def lifespan(app):
+            nonlocal startup_called, shutdown_called
+            startup_called = True
+            yield
+            shutdown_called = True
+
+        app = BedrockAgentCoreApp(lifespan=lifespan)
+
+        with TestClient(app):
+            assert startup_called is True
+        assert shutdown_called is True
+
+    def test_initialization_without_lifespan(self):
+        """Test that BedrockAgentCoreApp still works without lifespan."""
+        app = BedrockAgentCoreApp()  # No lifespan parameter
+
+        with TestClient(app) as client:
+            response = client.get("/ping")
+            assert response.status_code == 200
 
 
 class TestConcurrentInvocations:
@@ -718,8 +849,8 @@ class TestSSEConversion:
         # Second event: valid list
         assert parsed_events[1] == [1, 2, 3]
 
-        # Third event: error event for set
-        assert parsed_events[2] == "{1, 2, 3}"
+        # Third event: set converted to list by convert_complex_objects
+        assert parsed_events[2] == [1, 2, 3]
 
         # Fourth event: valid dict
         assert parsed_events[3] == {"more": "valid_data"}
@@ -880,9 +1011,19 @@ class TestSafeSerialization:
             # Should be a string (JSON)
             assert isinstance(result, str)
 
-            # Should be valid JSON containing the string representation
+            # Should be valid JSON
             parsed_data = json.loads(result)
-            assert parsed_data == str(test_data)
+
+            if isinstance(test_data, set):
+                # Sets are converted to lists by convert_complex_objects
+                assert isinstance(parsed_data, list)
+                assert len(parsed_data) == len(test_data)
+                # Check that all elements from the set are in the list
+                for item in test_data:
+                    assert item in parsed_data
+            else:
+                # Other objects (including frozensets) fall back to string representation
+                assert parsed_data == str(test_data)
 
     def test_safe_serialize_final_fallback_to_error_object(self):
         """Test final fallback to error object when both serialization attempts fail."""
@@ -1316,3 +1457,57 @@ class TestSerializationEdgeCases:
             parsed = json.loads(result)
             assert parsed["error"] == "Serialization failed"
             assert parsed["original_type"] == "UnserializableObject"
+
+
+class TestRequestContextFormatter:
+    """Test the RequestContextFormatter log formatting."""
+
+    def test_request_context_formatter_with_both_ids(self):
+        """Test formatter with both request and session IDs."""
+        import logging
+
+        from bedrock_agentcore.runtime.app import RequestContextFormatter
+        from bedrock_agentcore.runtime.context import BedrockAgentCoreContext
+
+        formatter = RequestContextFormatter("%(request_id)s%(message)s")
+
+        BedrockAgentCoreContext.set_request_context("req-123", "sess-456")
+        record = logging.LogRecord("test", logging.INFO, "", 1, "Test message", (), None)
+        formatted = formatter.format(record)
+
+        assert "[rid:req-123] [sid:sess-456] Test message" == formatted
+
+    def test_request_context_formatter_with_only_request_id(self):
+        """Test formatter with only request ID."""
+        import logging
+
+        from bedrock_agentcore.runtime.app import RequestContextFormatter
+        from bedrock_agentcore.runtime.context import BedrockAgentCoreContext
+
+        formatter = RequestContextFormatter("%(request_id)s%(message)s")
+
+        BedrockAgentCoreContext.set_request_context("req-789", None)
+        record = logging.LogRecord("test", logging.INFO, "", 1, "Test message", (), None)
+        formatted = formatter.format(record)
+
+        assert "[rid:req-789] Test message" == formatted
+        assert "[sid:" not in formatted
+
+    def test_request_context_formatter_with_no_ids(self):
+        """Test formatter with no IDs set."""
+        import contextvars
+        import logging
+
+        from bedrock_agentcore.runtime.app import RequestContextFormatter
+
+        formatter = RequestContextFormatter("%(request_id)s%(message)s")
+
+        # Run in fresh context to ensure no IDs are set
+        ctx = contextvars.Context()
+
+        def format_in_new_context():
+            record = logging.LogRecord("test", logging.INFO, "", 1, "Test message", (), None)
+            return formatter.format(record)
+
+        formatted = ctx.run(format_in_new_context)
+        assert formatted == "Test message"

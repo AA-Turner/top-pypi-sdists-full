@@ -33,9 +33,9 @@ from .literals import (
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
     from builtins import list as List
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 else:
-    from typing import Dict, List, Sequence
+    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -66,6 +66,7 @@ __all__ = (
     "CreateCollectionRequestTypeDef",
     "CreateCollectionResponseTypeDef",
     "CreateIamIdentityCenterConfigOptionsTypeDef",
+    "CreateIndexRequestTypeDef",
     "CreateLifecyclePolicyRequestTypeDef",
     "CreateLifecyclePolicyResponseTypeDef",
     "CreateSecurityConfigRequestTypeDef",
@@ -79,6 +80,7 @@ __all__ = (
     "DeleteCollectionDetailTypeDef",
     "DeleteCollectionRequestTypeDef",
     "DeleteCollectionResponseTypeDef",
+    "DeleteIndexRequestTypeDef",
     "DeleteLifecyclePolicyRequestTypeDef",
     "DeleteSecurityConfigRequestTypeDef",
     "DeleteSecurityPolicyRequestTypeDef",
@@ -90,11 +92,14 @@ __all__ = (
     "GetAccessPolicyRequestTypeDef",
     "GetAccessPolicyResponseTypeDef",
     "GetAccountSettingsResponseTypeDef",
+    "GetIndexRequestTypeDef",
+    "GetIndexResponseTypeDef",
     "GetPoliciesStatsResponseTypeDef",
     "GetSecurityConfigRequestTypeDef",
     "GetSecurityConfigResponseTypeDef",
     "GetSecurityPolicyRequestTypeDef",
     "GetSecurityPolicyResponseTypeDef",
+    "IamFederationConfigOptionsTypeDef",
     "IamIdentityCenterConfigOptionsTypeDef",
     "LifecyclePolicyDetailTypeDef",
     "LifecyclePolicyErrorDetailTypeDef",
@@ -135,6 +140,7 @@ __all__ = (
     "UpdateCollectionRequestTypeDef",
     "UpdateCollectionResponseTypeDef",
     "UpdateIamIdentityCenterConfigOptionsTypeDef",
+    "UpdateIndexRequestTypeDef",
     "UpdateLifecyclePolicyRequestTypeDef",
     "UpdateLifecyclePolicyResponseTypeDef",
     "UpdateSecurityConfigRequestTypeDef",
@@ -366,6 +372,14 @@ class CreateIamIdentityCenterConfigOptionsTypeDef(TypedDict):
     groupAttribute: NotRequired[IamIdentityCenterGroupAttributeType]
 
 
+CreateIndexRequestTypeDef = TypedDict(
+    "CreateIndexRequestTypeDef",
+    {
+        "id": str,
+        "indexName": str,
+        "indexSchema": NotRequired[Mapping[str, Any]],
+    },
+)
 CreateLifecyclePolicyRequestTypeDef = TypedDict(
     "CreateLifecyclePolicyRequestTypeDef",
     {
@@ -376,6 +390,11 @@ CreateLifecyclePolicyRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
+
+
+class IamFederationConfigOptionsTypeDef(TypedDict):
+    groupAttribute: NotRequired[str]
+    userAttribute: NotRequired[str]
 
 
 class SamlConfigOptionsTypeDef(TypedDict):
@@ -449,6 +468,13 @@ DeleteCollectionRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
+DeleteIndexRequestTypeDef = TypedDict(
+    "DeleteIndexRequestTypeDef",
+    {
+        "id": str,
+        "indexName": str,
+    },
+)
 DeleteLifecyclePolicyRequestTypeDef = TypedDict(
     "DeleteLifecyclePolicyRequestTypeDef",
     {
@@ -492,6 +518,13 @@ GetAccessPolicyRequestTypeDef = TypedDict(
     {
         "type": Literal["data"],
         "name": str,
+    },
+)
+GetIndexRequestTypeDef = TypedDict(
+    "GetIndexRequestTypeDef",
+    {
+        "id": str,
+        "indexName": str,
     },
 )
 
@@ -665,6 +698,14 @@ class UpdateIamIdentityCenterConfigOptionsTypeDef(TypedDict):
     groupAttribute: NotRequired[IamIdentityCenterGroupAttributeType]
 
 
+UpdateIndexRequestTypeDef = TypedDict(
+    "UpdateIndexRequestTypeDef",
+    {
+        "id": str,
+        "indexName": str,
+        "indexSchema": NotRequired[Mapping[str, Any]],
+    },
+)
 UpdateLifecyclePolicyRequestTypeDef = TypedDict(
     "UpdateLifecyclePolicyRequestTypeDef",
     {
@@ -732,6 +773,11 @@ class CreateAccessPolicyResponseTypeDef(TypedDict):
 
 class GetAccessPolicyResponseTypeDef(TypedDict):
     accessPolicyDetail: AccessPolicyDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetIndexResponseTypeDef(TypedDict):
+    indexSchema: Dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -830,6 +876,7 @@ CreateSecurityConfigRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptions": NotRequired[CreateIamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "clientToken": NotRequired[str],
     },
 )
@@ -883,6 +930,7 @@ SecurityConfigDetailTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptions": NotRequired[IamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
     },
@@ -932,6 +980,7 @@ UpdateSecurityConfigRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptionsUpdates": NotRequired[UpdateIamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "clientToken": NotRequired[str],
     },
 )

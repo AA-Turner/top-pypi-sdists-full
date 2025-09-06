@@ -23,11 +23,15 @@ _sym_db = _symbol_database.Default()
 
 
 from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
+from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
+from nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
 from nominal.types import types_pb2 as nominal_dot_types_dot_types__pb2
+from nominal.versioning.v1 import versioning_pb2 as nominal_dot_versioning_dot_v1_dot_versioning__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%nominal/connect/v1/connect_apps.proto\x12\x12nominal.connect.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\x1a\x19nominal/types/types.proto\"\xed\x03\n\x17\x43reateConnectAppRequest\x12\x16\n\x05title\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12*\n\x06labels\x18\x03 \x03(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.Label\x12\x90\x01\n\nproperties\x18\x04 \x03(\x0b\x32;.nominal.connect.v1.CreateConnectAppRequest.PropertiesEntryB?\x9a\xb2\x1a;\x12\x1bio.nominal.api.PropertyName\x1a\x1cio.nominal.api.PropertyValue\x12\x19\n\x0cis_published\x18\x05 \x01(\x08H\x01\x88\x01\x01\x12\x39\n\tworkspace\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12+\n\x07s3_path\x18\x07 \x01(\x0b\x32\x15.nominal.types.HandleH\x02\x88\x01\x01\x1a\x31\n\x0fPropertiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0e\n\x0c_descriptionB\x0f\n\r_is_publishedB\n\n\x08_s3_path\"\xe8\x02\n\x1fUpdateConnectAppMetadataRequest\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x36\n\x06labels\x18\x03 \x01(\x0b\x32!.nominal.types.LabelUpdateWrapperH\x01\x88\x01\x01\x12=\n\nproperties\x18\x04 \x01(\x0b\x32$.nominal.types.PropertyUpdateWrapperH\x02\x88\x01\x01\x12\x18\n\x0bis_archived\x18\x05 \x01(\x08H\x03\x88\x01\x01\x12\x19\n\x0cis_published\x18\x06 \x01(\x08H\x04\x88\x01\x01\x42\x0e\n\x0c_descriptionB\t\n\x07_labelsB\r\n\x0b_propertiesB\x0e\n\x0c_is_archivedB\x0f\n\r_is_published\"Q\n\x18\x43onnectAppCommitMetadata\x12\r\n\x05title\x18\x01 \x01(\t\x12&\n\x1e\x63ontains_experimental_features\x18\x02 \x01(\x08\"\xbf\x04\n\x15\x43onnectAppSearchQuery\x12\x15\n\x0bsearch_text\x18\x01 \x01(\tH\x00\x12+\n\x05label\x18\x02 \x01(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.LabelH\x00\x12+\n\x08property\x18\x03 \x01(\x0b\x32\x17.nominal.types.PropertyH\x00\x12Q\n\x03\x61nd\x18\x04 \x01(\x0b\x32\x42.nominal.connect.v1.ConnectAppSearchQuery.ConnectAppSearchAndQueryH\x00\x12O\n\x02or\x18\x05 \x01(\x0b\x32\x41.nominal.connect.v1.ConnectAppSearchQuery.ConnectAppSearchOrQueryH\x00\x12;\n\tworkspace\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRidH\x00\x12\x15\n\x0bis_archived\x18\x07 \x01(\x08H\x00\x1aV\n\x18\x43onnectAppSearchAndQuery\x12:\n\x07queries\x18\x01 \x03(\x0b\x32).nominal.connect.v1.ConnectAppSearchQuery\x1aU\n\x17\x43onnectAppSearchOrQuery\x12:\n\x07queries\x18\x01 \x03(\x0b\x32).nominal.connect.v1.ConnectAppSearchQueryB\x0e\n\x05query\x12\x05\xbaH\x02\x08\x01\x42\x19\n\x15io.nominal.connect.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%nominal/connect/v1/connect_apps.proto\x12\x12nominal.connect.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anominal/gen/v1/alias.proto\x1a\x1anominal/gen/v1/error.proto\x1a\x19nominal/types/types.proto\x1a&nominal/versioning/v1/versioning.proto\"\x99\x04\n\x17\x43reateConnectAppRequest\x12\x1d\n\x0c\x64isplay_name\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12*\n\x06labels\x18\x03 \x03(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.Label\x12\x90\x01\n\nproperties\x18\x04 \x03(\x0b\x32;.nominal.connect.v1.CreateConnectAppRequest.PropertiesEntryB?\x9a\xb2\x1a;\x12\x1bio.nominal.api.PropertyName\x1a\x1cio.nominal.api.PropertyValue\x12\x19\n\x0cis_published\x18\x05 \x01(\x08H\x01\x88\x01\x01\x12\x39\n\tworkspace\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x39\n\x06\x62undle\x18\x07 \x01(\x0b\x32$.nominal.connect.v1.ConnectAppBundleH\x02\x88\x01\x01\x12\x16\n\x0e\x63ommit_message\x18\x08 \x01(\t\x1a\x31\n\x0fPropertiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0e\n\x0c_descriptionB\x0f\n\r_is_publishedB\t\n\x07_bundle\"G\n\x18\x43reateConnectAppResponse\x12+\n\x03\x61pp\x18\x01 \x01(\x0b\x32\x1e.nominal.connect.v1.ConnectApp\"\x94\x03\n\x1fUpdateConnectAppMetadataRequest\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12\x19\n\x0c\x64isplay_name\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x36\n\x06labels\x18\x04 \x01(\x0b\x32!.nominal.types.LabelUpdateWrapperH\x02\x88\x01\x01\x12=\n\nproperties\x18\x05 \x01(\x0b\x32$.nominal.types.PropertyUpdateWrapperH\x03\x88\x01\x01\x12\x18\n\x0bis_archived\x18\x06 \x01(\x08H\x04\x88\x01\x01\x12\x19\n\x0cis_published\x18\x07 \x01(\x08H\x05\x88\x01\x01\x42\x0f\n\r_display_nameB\x0e\n\x0c_descriptionB\t\n\x07_labelsB\r\n\x0b_propertiesB\x0e\n\x0c_is_archivedB\x0f\n\r_is_published\"z\n\x10\x43onnectAppBundle\x12&\n\x07s3_path\x18\x01 \x01(\x0b\x32\x15.nominal.types.Handle\x12>\n\x08metadata\x18\x02 \x01(\x0b\x32,.nominal.connect.v1.ConnectAppBundleMetadata\"j\n\x18\x43onnectAppBundleMetadata\x12\r\n\x05title\x18\x01 \x01(\t\x12&\n\x1e\x63ontains_experimental_features\x18\x02 \x01(\x08\x12\x17\n\x0fsha256_checksum\x18\x03 \x01(\t\"\xbf\x04\n\x15\x43onnectAppSearchQuery\x12\x15\n\x0bsearch_text\x18\x01 \x01(\tH\x00\x12+\n\x05label\x18\x02 \x01(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.LabelH\x00\x12+\n\x08property\x18\x03 \x01(\x0b\x32\x17.nominal.types.PropertyH\x00\x12Q\n\x03\x61nd\x18\x04 \x01(\x0b\x32\x42.nominal.connect.v1.ConnectAppSearchQuery.ConnectAppSearchAndQueryH\x00\x12O\n\x02or\x18\x05 \x01(\x0b\x32\x41.nominal.connect.v1.ConnectAppSearchQuery.ConnectAppSearchOrQueryH\x00\x12;\n\tworkspace\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRidH\x00\x12\x15\n\x0bis_archived\x18\x07 \x01(\x08H\x00\x1aV\n\x18\x43onnectAppSearchAndQuery\x12:\n\x07queries\x18\x01 \x03(\x0b\x32).nominal.connect.v1.ConnectAppSearchQuery\x1aU\n\x17\x43onnectAppSearchOrQuery\x12:\n\x07queries\x18\x01 \x03(\x0b\x32).nominal.connect.v1.ConnectAppSearchQueryB\x0e\n\x05query\x12\x05\xbaH\x02\x08\x01\"\xfa\x04\n\x12\x43onnectAppMetadata\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x00\x88\x01\x01\x12*\n\x06labels\x18\x04 \x03(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.Label\x12\x8b\x01\n\nproperties\x18\x05 \x03(\x0b\x32\x36.nominal.connect.v1.ConnectAppMetadata.PropertiesEntryB?\x9a\xb2\x1a;\x12\x1bio.nominal.api.PropertyName\x1a\x1cio.nominal.api.PropertyValue\x12\x13\n\x0bis_archived\x18\x06 \x01(\x08\x12\x14\n\x0cis_published\x18\x07 \x01(\x08\x12.\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12;\n\ncreated_by\x18\t \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.scout.rids.api.UserRid\x12.\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x39\n\tworkspace\x18\x0b \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x1a\x31\n\x0fPropertiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0e\n\x0c_description\"\x82\x02\n\nConnectApp\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12>\n\x06\x63ommit\x18\x02 \x01(\tB.\x9a\xb2\x1a*\n(io.nominal.scout.versioning.api.CommitId\x12\x38\n\x08metadata\x18\x03 \x01(\x0b\x32&.nominal.connect.v1.ConnectAppMetadata\x12\x39\n\x06\x62undle\x18\x04 \x01(\x0b\x32$.nominal.connect.v1.ConnectAppBundleH\x00\x88\x01\x01\x42\t\n\x07_bundle\"\x8d\x01\n\x14GetConnectAppRequest\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12?\n\x10\x62ranch_or_commit\x18\x02 \x01(\x0b\x32%.nominal.versioning.v1.BranchOrCommit\"D\n\x15GetConnectAppResponse\x12+\n\x03\x61pp\x18\x01 \x01(\x0b\x32\x1e.nominal.connect.v1.ConnectApp\"h\n UpdateConnectAppMetadataResponse\x12\x44\n\x0c\x61pp_metadata\x18\x01 \x01(\x0b\x32&.nominal.connect.v1.ConnectAppMetadataB\x06\xbaH\x03\xc8\x01\x01\"\x8c\x01\n\rCommitRequest\x12\x34\n\x03rid\x18\x01 \x01(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\x12\x34\n\x06\x62undle\x18\x02 \x01(\x0b\x32$.nominal.connect.v1.ConnectAppBundle\x12\x0f\n\x07message\x18\x03 \x01(\t\"=\n\x0e\x43ommitResponse\x12+\n\x03\x61pp\x18\x01 \x01(\x0b\x32\x1e.nominal.connect.v1.ConnectApp\"\xa0\x01\n\x18SearchConnectAppsOptions\x12\x1a\n\ris_descending\x18\x01 \x01(\x08H\x00\x88\x01\x01\x12G\n\nsort_field\x18\x02 \x01(\x0e\x32..nominal.connect.v1.SearchConnectAppsSortFieldH\x01\x88\x01\x01\x42\x10\n\x0e_is_descendingB\r\n\x0b_sort_field\"\xa4\x02\n\x18SearchConnectAppsRequest\x12\x38\n\x05query\x18\x01 \x01(\x0b\x32).nominal.connect.v1.ConnectAppSearchQuery\x12\x42\n\x07options\x18\x02 \x01(\x0b\x32,.nominal.connect.v1.SearchConnectAppsOptionsH\x00\x88\x01\x01\x12\"\n\tpage_size\x18\x03 \x01(\x05\x42\n\xbaH\x07\x1a\x05\x18\xe8\x07(\x01H\x01\x88\x01\x01\x12\x38\n\x0fnext_page_token\x18\x04 \x01(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.TokenH\x02\x88\x01\x01\x42\n\n\x08_optionsB\x0c\n\n_page_sizeB\x12\n\x10_next_page_token\"\xa7\x01\n\x19SearchConnectAppsResponse\x12<\n\x0c\x61pp_metadata\x18\x01 \x03(\x0b\x32&.nominal.connect.v1.ConnectAppMetadata\x12\x38\n\x0fnext_page_token\x18\x02 \x01(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.TokenH\x00\x88\x01\x01\x42\x12\n\x10_next_page_token\"R\n\x19\x41rchiveConnectAppsRequest\x12\x35\n\x04rids\x18\x01 \x03(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\"T\n\x1bUnarchiveConnectAppsRequest\x12\x35\n\x04rids\x18\x01 \x03(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\"S\n\x1a\x41rchiveConnectAppsResponse\x12\x35\n\x04rids\x18\x01 \x03(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid\"U\n\x1cUnarchiveConnectAppsResponse\x12\x35\n\x04rids\x18\x01 \x03(\tB\'\x9a\xb2\x1a#\n!io.nominal.api.rids.ConnectAppRid*\xd6\x01\n\x1aSearchConnectAppsSortField\x12.\n*SEARCH_CONNECT_APPS_SORT_FIELD_UNSPECIFIED\x10\x00\x12(\n$SEARCH_CONNECT_APPS_SORT_FIELD_TITLE\x10\x01\x12-\n)SEARCH_CONNECT_APPS_SORT_FIELD_CREATED_AT\x10\x02\x12/\n+SEARCH_CONNECT_APPS_SORT_FIELD_DISPLAY_NAME\x10\x03*\xe7\x03\n\x17\x43onnectAppsServiceError\x12*\n&CONNECT_APPS_SERVICE_ERROR_UNSPECIFIED\x10\x00\x12T\n(CONNECT_APPS_SERVICE_ERROR_APP_NOT_FOUND\x10\x01\x1a&\xb2\xb2\x1a\"\n\tNOT_FOUND\x12\x15\x43onnect app not found\x12^\n+CONNECT_APPS_SERVICE_ERROR_COMMIT_NOT_FOUND\x10\x02\x1a-\xb2\xb2\x1a)\n\tNOT_FOUND\x12\x1c\x43onnect app commit not found\x12\x86\x01\n@CONNECT_APPS_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_CONNECT_APP\x10\x03\x1a@\xb2\xb2\x1a<\n\x10INVALID_ARGUMENT\x12(Cannot commit to an archived connect app\x12\x61\n/CONNECT_APPS_SERVICE_ERROR_INVALID_SEARCH_TOKEN\x10\x06\x1a,\xb2\xb2\x1a(\n\x10INVALID_ARGUMENT\x12\x14Invalid search token2\xac\x08\n\x12\x43onnectAppsService\x12\x8a\x01\n\x10\x43reateConnectApp\x12+.nominal.connect.v1.CreateConnectAppRequest\x1a,.nominal.connect.v1.CreateConnectAppResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\"\x10/connect/v1/apps:\x01*\x12\x84\x01\n\rGetConnectApp\x12(.nominal.connect.v1.GetConnectAppRequest\x1a).nominal.connect.v1.GetConnectAppResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/connect/v1/apps/{rid}\x12\xb1\x01\n\x18UpdateConnectAppMetadata\x12\x33.nominal.connect.v1.UpdateConnectAppMetadataRequest\x1a\x34.nominal.connect.v1.UpdateConnectAppMetadataResponse\"*\x82\xd3\xe4\x93\x02$2\x1f/connect/v1/apps/{rid}/metadata:\x01*\x12y\n\x06\x43ommit\x12!.nominal.connect.v1.CommitRequest\x1a\".nominal.connect.v1.CommitResponse\"(\x82\xd3\xe4\x93\x02\"\"\x1d/connect/v1/apps/{rid}/commit:\x01*\x12\x94\x01\n\x11SearchConnectApps\x12,.nominal.connect.v1.SearchConnectAppsRequest\x1a-.nominal.connect.v1.SearchConnectAppsResponse\"\"\x82\xd3\xe4\x93\x02\x1c\"\x17/connect/v1/apps/search:\x01*\x12\x98\x01\n\x12\x41rchiveConnectApps\x12-.nominal.connect.v1.ArchiveConnectAppsRequest\x1a..nominal.connect.v1.ArchiveConnectAppsResponse\"#\x82\xd3\xe4\x93\x02\x1d\"\x18/connect/v1/apps/archive:\x01*\x12\xa0\x01\n\x14UnarchiveConnectApps\x12/.nominal.connect.v1.UnarchiveConnectAppsRequest\x1a\x30.nominal.connect.v1.UnarchiveConnectAppsResponse\"%\x82\xd3\xe4\x93\x02\x1f\"\x1a/connect/v1/apps/unarchive:\x01*B\x19\n\x15io.nominal.connect.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,10 +39,18 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'nominal.connect.v1.connect_
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\025io.nominal.connect.v1P\001'
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_APP_NOT_FOUND"]._loaded_options = None
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_APP_NOT_FOUND"]._serialized_options = b'\262\262\032\"\n\tNOT_FOUND\022\025Connect app not found'
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_COMMIT_NOT_FOUND"]._loaded_options = None
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_COMMIT_NOT_FOUND"]._serialized_options = b'\262\262\032)\n\tNOT_FOUND\022\034Connect app commit not found'
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_CONNECT_APP"]._loaded_options = None
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_CONNECT_APP"]._serialized_options = b'\262\262\032<\n\020INVALID_ARGUMENT\022(Cannot commit to an archived connect app'
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_INVALID_SEARCH_TOKEN"]._loaded_options = None
+  _globals['_CONNECTAPPSSERVICEERROR'].values_by_name["CONNECT_APPS_SERVICE_ERROR_INVALID_SEARCH_TOKEN"]._serialized_options = b'\262\262\032(\n\020INVALID_ARGUMENT\022\024Invalid search token'
   _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._loaded_options = None
   _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._serialized_options = b'8\001'
-  _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['title']._loaded_options = None
-  _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['title']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['display_name']._loaded_options = None
+  _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['display_name']._serialized_options = b'\272H\004r\002\020\001'
   _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['labels']._loaded_options = None
   _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['labels']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Label'
   _globals['_CREATECONNECTAPPREQUEST'].fields_by_name['properties']._loaded_options = None
@@ -53,18 +65,108 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CONNECTAPPSEARCHQUERY'].fields_by_name['label']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Label'
   _globals['_CONNECTAPPSEARCHQUERY'].fields_by_name['workspace']._loaded_options = None
   _globals['_CONNECTAPPSEARCHQUERY'].fields_by_name['workspace']._serialized_options = b'\232\262\032\"\n io.nominal.api.rids.WorkspaceRid'
-  _globals['_CREATECONNECTAPPREQUEST']._serialized_start=146
-  _globals['_CREATECONNECTAPPREQUEST']._serialized_end=639
-  _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._serialized_start=545
-  _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._serialized_end=594
-  _globals['_UPDATECONNECTAPPMETADATAREQUEST']._serialized_start=642
-  _globals['_UPDATECONNECTAPPMETADATAREQUEST']._serialized_end=1002
-  _globals['_CONNECTAPPCOMMITMETADATA']._serialized_start=1004
-  _globals['_CONNECTAPPCOMMITMETADATA']._serialized_end=1085
-  _globals['_CONNECTAPPSEARCHQUERY']._serialized_start=1088
-  _globals['_CONNECTAPPSEARCHQUERY']._serialized_end=1663
-  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHANDQUERY']._serialized_start=1474
-  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHANDQUERY']._serialized_end=1560
-  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHORQUERY']._serialized_start=1562
-  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHORQUERY']._serialized_end=1647
+  _globals['_CONNECTAPPMETADATA_PROPERTIESENTRY']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA_PROPERTIESENTRY']._serialized_options = b'8\001'
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['rid']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['rid']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['labels']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['labels']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Label'
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['properties']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['properties']._serialized_options = b'\232\262\032;\022\033io.nominal.api.PropertyName\032\034io.nominal.api.PropertyValue'
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['created_by']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['created_by']._serialized_options = b'\232\262\032#\n!io.nominal.scout.rids.api.UserRid'
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['workspace']._loaded_options = None
+  _globals['_CONNECTAPPMETADATA'].fields_by_name['workspace']._serialized_options = b'\232\262\032\"\n io.nominal.api.rids.WorkspaceRid'
+  _globals['_CONNECTAPP'].fields_by_name['rid']._loaded_options = None
+  _globals['_CONNECTAPP'].fields_by_name['rid']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_CONNECTAPP'].fields_by_name['commit']._loaded_options = None
+  _globals['_CONNECTAPP'].fields_by_name['commit']._serialized_options = b'\232\262\032*\n(io.nominal.scout.versioning.api.CommitId'
+  _globals['_GETCONNECTAPPREQUEST'].fields_by_name['rid']._loaded_options = None
+  _globals['_GETCONNECTAPPREQUEST'].fields_by_name['rid']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_UPDATECONNECTAPPMETADATARESPONSE'].fields_by_name['app_metadata']._loaded_options = None
+  _globals['_UPDATECONNECTAPPMETADATARESPONSE'].fields_by_name['app_metadata']._serialized_options = b'\272H\003\310\001\001'
+  _globals['_COMMITREQUEST'].fields_by_name['rid']._loaded_options = None
+  _globals['_COMMITREQUEST'].fields_by_name['rid']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_SEARCHCONNECTAPPSREQUEST'].fields_by_name['page_size']._loaded_options = None
+  _globals['_SEARCHCONNECTAPPSREQUEST'].fields_by_name['page_size']._serialized_options = b'\272H\007\032\005\030\350\007(\001'
+  _globals['_SEARCHCONNECTAPPSREQUEST'].fields_by_name['next_page_token']._loaded_options = None
+  _globals['_SEARCHCONNECTAPPSREQUEST'].fields_by_name['next_page_token']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Token'
+  _globals['_SEARCHCONNECTAPPSRESPONSE'].fields_by_name['next_page_token']._loaded_options = None
+  _globals['_SEARCHCONNECTAPPSRESPONSE'].fields_by_name['next_page_token']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Token'
+  _globals['_ARCHIVECONNECTAPPSREQUEST'].fields_by_name['rids']._loaded_options = None
+  _globals['_ARCHIVECONNECTAPPSREQUEST'].fields_by_name['rids']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_UNARCHIVECONNECTAPPSREQUEST'].fields_by_name['rids']._loaded_options = None
+  _globals['_UNARCHIVECONNECTAPPSREQUEST'].fields_by_name['rids']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_ARCHIVECONNECTAPPSRESPONSE'].fields_by_name['rids']._loaded_options = None
+  _globals['_ARCHIVECONNECTAPPSRESPONSE'].fields_by_name['rids']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_UNARCHIVECONNECTAPPSRESPONSE'].fields_by_name['rids']._loaded_options = None
+  _globals['_UNARCHIVECONNECTAPPSRESPONSE'].fields_by_name['rids']._serialized_options = b'\232\262\032#\n!io.nominal.api.rids.ConnectAppRid'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['CreateConnectApp']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['CreateConnectApp']._serialized_options = b'\202\323\344\223\002\025\"\020/connect/v1/apps:\001*'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['GetConnectApp']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['GetConnectApp']._serialized_options = b'\202\323\344\223\002\030\022\026/connect/v1/apps/{rid}'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['UpdateConnectAppMetadata']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['UpdateConnectAppMetadata']._serialized_options = b'\202\323\344\223\002$2\037/connect/v1/apps/{rid}/metadata:\001*'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['Commit']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['Commit']._serialized_options = b'\202\323\344\223\002\"\"\035/connect/v1/apps/{rid}/commit:\001*'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['SearchConnectApps']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['SearchConnectApps']._serialized_options = b'\202\323\344\223\002\034\"\027/connect/v1/apps/search:\001*'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['ArchiveConnectApps']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['ArchiveConnectApps']._serialized_options = b'\202\323\344\223\002\035\"\030/connect/v1/apps/archive:\001*'
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['UnarchiveConnectApps']._loaded_options = None
+  _globals['_CONNECTAPPSSERVICE'].methods_by_name['UnarchiveConnectApps']._serialized_options = b'\202\323\344\223\002\037\"\032/connect/v1/apps/unarchive:\001*'
+  _globals['_SEARCHCONNECTAPPSSORTFIELD']._serialized_start=4501
+  _globals['_SEARCHCONNECTAPPSSORTFIELD']._serialized_end=4715
+  _globals['_CONNECTAPPSSERVICEERROR']._serialized_start=4718
+  _globals['_CONNECTAPPSSERVICEERROR']._serialized_end=5205
+  _globals['_CREATECONNECTAPPREQUEST']._serialized_start=277
+  _globals['_CREATECONNECTAPPREQUEST']._serialized_end=814
+  _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._serialized_start=721
+  _globals['_CREATECONNECTAPPREQUEST_PROPERTIESENTRY']._serialized_end=770
+  _globals['_CREATECONNECTAPPRESPONSE']._serialized_start=816
+  _globals['_CREATECONNECTAPPRESPONSE']._serialized_end=887
+  _globals['_UPDATECONNECTAPPMETADATAREQUEST']._serialized_start=890
+  _globals['_UPDATECONNECTAPPMETADATAREQUEST']._serialized_end=1294
+  _globals['_CONNECTAPPBUNDLE']._serialized_start=1296
+  _globals['_CONNECTAPPBUNDLE']._serialized_end=1418
+  _globals['_CONNECTAPPBUNDLEMETADATA']._serialized_start=1420
+  _globals['_CONNECTAPPBUNDLEMETADATA']._serialized_end=1526
+  _globals['_CONNECTAPPSEARCHQUERY']._serialized_start=1529
+  _globals['_CONNECTAPPSEARCHQUERY']._serialized_end=2104
+  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHANDQUERY']._serialized_start=1915
+  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHANDQUERY']._serialized_end=2001
+  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHORQUERY']._serialized_start=2003
+  _globals['_CONNECTAPPSEARCHQUERY_CONNECTAPPSEARCHORQUERY']._serialized_end=2088
+  _globals['_CONNECTAPPMETADATA']._serialized_start=2107
+  _globals['_CONNECTAPPMETADATA']._serialized_end=2741
+  _globals['_CONNECTAPPMETADATA_PROPERTIESENTRY']._serialized_start=721
+  _globals['_CONNECTAPPMETADATA_PROPERTIESENTRY']._serialized_end=770
+  _globals['_CONNECTAPP']._serialized_start=2744
+  _globals['_CONNECTAPP']._serialized_end=3002
+  _globals['_GETCONNECTAPPREQUEST']._serialized_start=3005
+  _globals['_GETCONNECTAPPREQUEST']._serialized_end=3146
+  _globals['_GETCONNECTAPPRESPONSE']._serialized_start=3148
+  _globals['_GETCONNECTAPPRESPONSE']._serialized_end=3216
+  _globals['_UPDATECONNECTAPPMETADATARESPONSE']._serialized_start=3218
+  _globals['_UPDATECONNECTAPPMETADATARESPONSE']._serialized_end=3322
+  _globals['_COMMITREQUEST']._serialized_start=3325
+  _globals['_COMMITREQUEST']._serialized_end=3465
+  _globals['_COMMITRESPONSE']._serialized_start=3467
+  _globals['_COMMITRESPONSE']._serialized_end=3528
+  _globals['_SEARCHCONNECTAPPSOPTIONS']._serialized_start=3531
+  _globals['_SEARCHCONNECTAPPSOPTIONS']._serialized_end=3691
+  _globals['_SEARCHCONNECTAPPSREQUEST']._serialized_start=3694
+  _globals['_SEARCHCONNECTAPPSREQUEST']._serialized_end=3986
+  _globals['_SEARCHCONNECTAPPSRESPONSE']._serialized_start=3989
+  _globals['_SEARCHCONNECTAPPSRESPONSE']._serialized_end=4156
+  _globals['_ARCHIVECONNECTAPPSREQUEST']._serialized_start=4158
+  _globals['_ARCHIVECONNECTAPPSREQUEST']._serialized_end=4240
+  _globals['_UNARCHIVECONNECTAPPSREQUEST']._serialized_start=4242
+  _globals['_UNARCHIVECONNECTAPPSREQUEST']._serialized_end=4326
+  _globals['_ARCHIVECONNECTAPPSRESPONSE']._serialized_start=4328
+  _globals['_ARCHIVECONNECTAPPSRESPONSE']._serialized_end=4411
+  _globals['_UNARCHIVECONNECTAPPSRESPONSE']._serialized_start=4413
+  _globals['_UNARCHIVECONNECTAPPSRESPONSE']._serialized_end=4498
+  _globals['_CONNECTAPPSSERVICE']._serialized_start=5208
+  _globals['_CONNECTAPPSSERVICE']._serialized_end=6276
 # @@protoc_insertion_point(module_scope)

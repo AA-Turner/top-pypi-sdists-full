@@ -224,6 +224,8 @@ def check_docs(ctx: Context) -> None:
     """
     Path("htmlcov").mkdir(parents=True, exist_ok=True)
     Path("htmlcov/index.html").touch(exist_ok=True)
+    if CI:
+        os.environ["DEPLOY"] = "true"
     with _material_insiders():
         ctx.run(
             tools.mkdocs.build(strict=True, verbose=True),
@@ -300,7 +302,13 @@ def check_api(ctx: Context, *cli_args: str) -> None:
         *cli_args: Additional Griffe CLI arguments.
     """
     ctx.run(
-        tools.griffe.check("griffe", search=["src"], color=True).add_args(*cli_args),
+        tools.griffe.check(
+            "griffe",
+            search=["src"],
+            color=True,
+            # YORE: Bump 2: Remove line.
+            extensions=["scripts/griffe_exts.py"],
+        ).add_args(*cli_args),
         title="Checking for API breaking changes",
         nofail=True,
     )

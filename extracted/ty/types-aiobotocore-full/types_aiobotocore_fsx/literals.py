@@ -60,6 +60,7 @@ __all__ = (
     "LustreDeploymentTypeType",
     "LustreReadCacheSizingModeType",
     "MetadataConfigurationModeType",
+    "NetworkTypeType",
     "NfsVersionType",
     "OntapDeploymentTypeType",
     "OntapVolumeTypeType",
@@ -187,6 +188,7 @@ LustreReadCacheSizingModeType = Literal[
     "NO_CACHE", "PROPORTIONAL_TO_THROUGHPUT_CAPACITY", "USER_PROVISIONED"
 ]
 MetadataConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
+NetworkTypeType = Literal["DUAL", "IPV4"]
 NfsVersionType = Literal["NFS3"]
 OntapDeploymentTypeType = Literal["MULTI_AZ_1", "MULTI_AZ_2", "SINGLE_AZ_1", "SINGLE_AZ_2"]
 OntapVolumeTypeType = Literal["DP", "LS", "RW"]
@@ -218,7 +220,14 @@ SnaplockTypeType = Literal["COMPLIANCE", "ENTERPRISE"]
 SnapshotFilterNameType = Literal["file-system-id", "volume-id"]
 SnapshotLifecycleType = Literal["AVAILABLE", "CREATING", "DELETING", "PENDING"]
 StatusType = Literal[
-    "COMPLETED", "FAILED", "IN_PROGRESS", "OPTIMIZING", "PENDING", "UPDATED_OPTIMIZING"
+    "CANCELLED",
+    "COMPLETED",
+    "FAILED",
+    "IN_PROGRESS",
+    "OPTIMIZING",
+    "PAUSED",
+    "PENDING",
+    "UPDATED_OPTIMIZING",
 ]
 StorageTypeType = Literal["HDD", "INTELLIGENT_TIERING", "SSD"]
 StorageVirtualMachineFilterNameType = Literal["file-system-id"]
@@ -272,6 +281,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -283,8 +293,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

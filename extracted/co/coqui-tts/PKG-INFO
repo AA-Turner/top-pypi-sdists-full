@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqui-tts
-Version: 0.27.0
+Version: 0.27.1
 Summary: Deep learning for Text to Speech.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-TTS
 Project-URL: Documentation, https://coqui-tts.readthedocs.io
@@ -47,8 +47,8 @@ Requires-Dist: pysbd>=0.3.4
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: scipy>=1.13.0
 Requires-Dist: soundfile>=0.12.0
-Requires-Dist: torch>=2.1
-Requires-Dist: torchaudio>=2.1.0
+Requires-Dist: torch<2.9,>=2.1
+Requires-Dist: torchaudio<2.9,>=2.1.0
 Requires-Dist: tqdm>=4.64.1
 Requires-Dist: transformers>=4.52.1
 Requires-Dist: typing-extensions>=4.10

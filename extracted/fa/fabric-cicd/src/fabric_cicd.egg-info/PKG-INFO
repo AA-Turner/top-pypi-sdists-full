@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fabric-cicd
-Version: 0.1.25
+Version: 0.1.27
 Summary: Microsoft Fabric CI/CD
 Author: Microsoft Corporation
 License:     MIT License
@@ -26,6 +26,11 @@ License:     MIT License
             SOFTWARE
         
 Project-URL: Repository, https://github.com/microsoft/fabric-cicd.git
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -42,6 +47,7 @@ Dynamic: license-file
 
 [![Language](https://img.shields.io/badge/language-Python-blue.svg)](https://www.python.org/)
 [![PyPi version](https://badgen.net/pypi/v/fabric-cicd/)](https://pypi.org/project/fabric-cicd)
+[![Python version](https://img.shields.io/pypi/pyversions/fabric-cicd)](https://pypi.org/project/fabric-cicd)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/charliermarsh/ruff)
 [![Tests](https://img.shields.io/github/actions/workflow/status/microsoft/fabric-cicd/test.yml?logo=github&label=tests&branch=main)](https://github.com/microsoft/fabric-cicd/actions/workflows/test.yml)
 

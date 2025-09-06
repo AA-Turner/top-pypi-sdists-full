@@ -737,6 +737,7 @@ def symmetrize(
     /,
     *,
     direction: typing.Literal["NEGATIVE_X", "POSITIVE_X"] | None = "NEGATIVE_X",
+    copy_bone_colors: bool | None = False,
 ) -> None:
     """Enforce symmetry, make copies of the selection or use existing
 
@@ -744,4 +745,6 @@ def symmetrize(
     :type undo: bool | None
     :param direction: Direction, Which sides to copy from and to (when both are selected)
     :type direction: typing.Literal['NEGATIVE_X','POSITIVE_X'] | None
+    :param copy_bone_colors: Bone Colors, Copy colors to existing bones
+    :type copy_bone_colors: bool | None
     """

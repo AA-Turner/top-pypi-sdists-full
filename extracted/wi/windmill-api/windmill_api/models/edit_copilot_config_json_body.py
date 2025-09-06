@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.edit_copilot_config_json_body_code_completion_model import (
         EditCopilotConfigJsonBodyCodeCompletionModel,
     )
+    from ..models.edit_copilot_config_json_body_custom_prompts import EditCopilotConfigJsonBodyCustomPrompts
     from ..models.edit_copilot_config_json_body_default_model import EditCopilotConfigJsonBodyDefaultModel
     from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
 
@@ -23,11 +24,13 @@ class EditCopilotConfigJsonBody:
         providers (Union[Unset, EditCopilotConfigJsonBodyProviders]):
         default_model (Union[Unset, EditCopilotConfigJsonBodyDefaultModel]):
         code_completion_model (Union[Unset, EditCopilotConfigJsonBodyCodeCompletionModel]):
+        custom_prompts (Union[Unset, EditCopilotConfigJsonBodyCustomPrompts]):
     """
 
     providers: Union[Unset, "EditCopilotConfigJsonBodyProviders"] = UNSET
     default_model: Union[Unset, "EditCopilotConfigJsonBodyDefaultModel"] = UNSET
     code_completion_model: Union[Unset, "EditCopilotConfigJsonBodyCodeCompletionModel"] = UNSET
+    custom_prompts: Union[Unset, "EditCopilotConfigJsonBodyCustomPrompts"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +46,10 @@ class EditCopilotConfigJsonBody:
         if not isinstance(self.code_completion_model, Unset):
             code_completion_model = self.code_completion_model.to_dict()
 
+        custom_prompts: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.custom_prompts, Unset):
+            custom_prompts = self.custom_prompts.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -52,6 +59,8 @@ class EditCopilotConfigJsonBody:
             field_dict["default_model"] = default_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
+        if custom_prompts is not UNSET:
+            field_dict["custom_prompts"] = custom_prompts
 
         return field_dict
 
@@ -60,6 +69,7 @@ class EditCopilotConfigJsonBody:
         from ..models.edit_copilot_config_json_body_code_completion_model import (
             EditCopilotConfigJsonBodyCodeCompletionModel,
         )
+        from ..models.edit_copilot_config_json_body_custom_prompts import EditCopilotConfigJsonBodyCustomPrompts
         from ..models.edit_copilot_config_json_body_default_model import EditCopilotConfigJsonBodyDefaultModel
         from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
 
@@ -85,10 +95,18 @@ class EditCopilotConfigJsonBody:
         else:
             code_completion_model = EditCopilotConfigJsonBodyCodeCompletionModel.from_dict(_code_completion_model)
 
+        _custom_prompts = d.pop("custom_prompts", UNSET)
+        custom_prompts: Union[Unset, EditCopilotConfigJsonBodyCustomPrompts]
+        if isinstance(_custom_prompts, Unset):
+            custom_prompts = UNSET
+        else:
+            custom_prompts = EditCopilotConfigJsonBodyCustomPrompts.from_dict(_custom_prompts)
+
         edit_copilot_config_json_body = cls(
             providers=providers,
             default_model=default_model,
             code_completion_model=code_completion_model,
+            custom_prompts=custom_prompts,
         )
 
         edit_copilot_config_json_body.additional_properties = d

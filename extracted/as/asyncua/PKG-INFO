@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncua
-Version: 1.1.6
+Version: 1.1.8
 Summary: Pure Python OPC-UA client and server library
 Project-URL: Homepage, http://freeopcua.github.io/
 Project-URL: Repository, https://github.com/FreeOpcUa/opcua-asyncio

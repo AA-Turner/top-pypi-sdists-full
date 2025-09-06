@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry_exponential import (
         ExtendedJobsJobsItemType1RawFlowFailureModuleRetryExponential,
     )
+    from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry_retry_if import (
+        ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf,
+    )
 
 
 T = TypeVar("T", bound="ExtendedJobsJobsItemType1RawFlowFailureModuleRetry")
@@ -23,10 +26,12 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleRetry:
     Attributes:
         constant (Union[Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleRetryConstant]):
         exponential (Union[Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleRetryExponential]):
+        retry_if (Union[Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf]):
     """
 
     constant: Union[Unset, "ExtendedJobsJobsItemType1RawFlowFailureModuleRetryConstant"] = UNSET
     exponential: Union[Unset, "ExtendedJobsJobsItemType1RawFlowFailureModuleRetryExponential"] = UNSET
+    retry_if: Union[Unset, "ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,10 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleRetry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -45,6 +54,8 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleRetry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -55,6 +66,9 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleRetry:
         )
         from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry_exponential import (
             ExtendedJobsJobsItemType1RawFlowFailureModuleRetryExponential,
+        )
+        from ..models.extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry_retry_if import (
+            ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -72,9 +86,17 @@ class ExtendedJobsJobsItemType1RawFlowFailureModuleRetry:
         else:
             exponential = ExtendedJobsJobsItemType1RawFlowFailureModuleRetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = ExtendedJobsJobsItemType1RawFlowFailureModuleRetryRetryIf.from_dict(_retry_if)
+
         extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         extended_jobs_jobs_item_type_1_raw_flow_failure_module_retry.additional_properties = d

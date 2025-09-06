@@ -1,6 +1,6 @@
 [project]
 name = "commitizen"
-version = "4.8.3"
+version = "4.8.4"
 description = "Python commitizen client tool"
 authors = [{ name = "Santiago Fraire", email = "santiwilly@gmail.com" }]
 maintainers = [
@@ -12,6 +12,7 @@ readme = "docs/README.md"
 requires-python = ">=3.9,<4.0"
 dependencies = [
     "questionary (>=2.0,<3.0)",
+    "prompt_toolkit!=3.0.52",  # Exclude transitive dependency due to known issue in questionary: https://github.com/tmbo/questionary/issues/454
     "decli (>=0.6.0,<1.0)",
     "colorama (>=0.4.1,<1.0)",
     "termcolor (>=1.1.0,<4.0.0)",
@@ -23,8 +24,7 @@ dependencies = [
     "typing-extensions (>=4.0.1,<5.0.0) ; python_version < '3.11'",
     "charset-normalizer (>=2.1.0,<4)",
     # Use the Python 3.11 and 3.12 compatible API: https://github.com/python/importlib_metadata#compatibility
-    "importlib-metadata >=8.0.0,!=8.7.0,<9.0.0 ; python_version == '3.9'", # importlib-metadata@8.7.0 + python3.9 breaks our unit test
-    "importlib-metadata >=8.0.0,<9.0.0 ; python_version != '3.9'",
+    "importlib-metadata >=8.0.0,<8.7.0 ; python_version < '3.10'",
 ]
 keywords = ["commitizen", "conventional", "commits", "git"]
 # See also: https://pypi.org/classifiers/
@@ -88,7 +88,7 @@ build-backend = "poetry.core.masonry.api"
 
 
 [tool.commitizen]
-version = "4.8.3"
+version = "4.8.4"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",

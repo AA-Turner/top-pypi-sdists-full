@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.get_websocket_trigger_response_200_retry_exponential import (
         GetWebsocketTriggerResponse200RetryExponential,
     )
+    from ..models.get_websocket_trigger_response_200_retry_retry_if import GetWebsocketTriggerResponse200RetryRetryIf
 
 
 T = TypeVar("T", bound="GetWebsocketTriggerResponse200Retry")
@@ -21,10 +22,12 @@ class GetWebsocketTriggerResponse200Retry:
     Attributes:
         constant (Union[Unset, GetWebsocketTriggerResponse200RetryConstant]):
         exponential (Union[Unset, GetWebsocketTriggerResponse200RetryExponential]):
+        retry_if (Union[Unset, GetWebsocketTriggerResponse200RetryRetryIf]):
     """
 
     constant: Union[Unset, "GetWebsocketTriggerResponse200RetryConstant"] = UNSET
     exponential: Union[Unset, "GetWebsocketTriggerResponse200RetryExponential"] = UNSET
+    retry_if: Union[Unset, "GetWebsocketTriggerResponse200RetryRetryIf"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +39,10 @@ class GetWebsocketTriggerResponse200Retry:
         if not isinstance(self.exponential, Unset):
             exponential = self.exponential.to_dict()
 
+        retry_if: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.retry_if, Unset):
+            retry_if = self.retry_if.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -43,6 +50,8 @@ class GetWebsocketTriggerResponse200Retry:
             field_dict["constant"] = constant
         if exponential is not UNSET:
             field_dict["exponential"] = exponential
+        if retry_if is not UNSET:
+            field_dict["retry_if"] = retry_if
 
         return field_dict
 
@@ -53,6 +62,9 @@ class GetWebsocketTriggerResponse200Retry:
         )
         from ..models.get_websocket_trigger_response_200_retry_exponential import (
             GetWebsocketTriggerResponse200RetryExponential,
+        )
+        from ..models.get_websocket_trigger_response_200_retry_retry_if import (
+            GetWebsocketTriggerResponse200RetryRetryIf,
         )
 
         d = src_dict.copy()
@@ -70,9 +82,17 @@ class GetWebsocketTriggerResponse200Retry:
         else:
             exponential = GetWebsocketTriggerResponse200RetryExponential.from_dict(_exponential)
 
+        _retry_if = d.pop("retry_if", UNSET)
+        retry_if: Union[Unset, GetWebsocketTriggerResponse200RetryRetryIf]
+        if isinstance(_retry_if, Unset):
+            retry_if = UNSET
+        else:
+            retry_if = GetWebsocketTriggerResponse200RetryRetryIf.from_dict(_retry_if)
+
         get_websocket_trigger_response_200_retry = cls(
             constant=constant,
             exponential=exponential,
+            retry_if=retry_if,
         )
 
         get_websocket_trigger_response_200_retry.additional_properties = d

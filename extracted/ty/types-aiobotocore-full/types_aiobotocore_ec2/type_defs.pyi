@@ -113,6 +113,7 @@ from .literals import (
     ElasticGpuStatusType,
     EnaSupportType,
     EndDateTypeType,
+    EndpointIpAddressTypeType,
     EphemeralNvmeSupportType,
     EventCodeType,
     EventTypeType,
@@ -143,6 +144,8 @@ from .literals import (
     IamInstanceProfileAssociationStateType,
     Igmpv2SupportValueType,
     ImageAttributeNameType,
+    ImageReferenceOptionNameType,
+    ImageReferenceResourceTypeType,
     ImageStateType,
     ImageTypeValuesType,
     InitializationTypeType,
@@ -320,6 +323,7 @@ from .literals import (
     TieringOperationStatusType,
     TokenStateType,
     TrafficDirectionType,
+    TrafficIpAddressTypeType,
     TrafficMirrorFilterRuleFieldType,
     TrafficMirrorRuleActionType,
     TrafficMirrorSessionFieldType,
@@ -695,6 +699,8 @@ __all__ = (
     "CreateImageRequestInstanceCreateImageTypeDef",
     "CreateImageRequestTypeDef",
     "CreateImageResultTypeDef",
+    "CreateImageUsageReportRequestTypeDef",
+    "CreateImageUsageReportResultTypeDef",
     "CreateInstanceConnectEndpointRequestTypeDef",
     "CreateInstanceConnectEndpointResultTypeDef",
     "CreateInstanceEventWindowRequestTypeDef",
@@ -902,6 +908,8 @@ __all__ = (
     "DeleteFlowLogsResultTypeDef",
     "DeleteFpgaImageRequestTypeDef",
     "DeleteFpgaImageResultTypeDef",
+    "DeleteImageUsageReportRequestTypeDef",
+    "DeleteImageUsageReportResultTypeDef",
     "DeleteInstanceConnectEndpointRequestTypeDef",
     "DeleteInstanceConnectEndpointResultTypeDef",
     "DeleteInstanceEventWindowRequestTypeDef",
@@ -1202,6 +1210,16 @@ __all__ = (
     "DescribeIdentityIdFormatResultTypeDef",
     "DescribeImageAttributeRequestImageDescribeAttributeTypeDef",
     "DescribeImageAttributeRequestTypeDef",
+    "DescribeImageReferencesRequestPaginateTypeDef",
+    "DescribeImageReferencesRequestTypeDef",
+    "DescribeImageReferencesResultTypeDef",
+    "DescribeImageUsageReportEntriesRequestPaginateTypeDef",
+    "DescribeImageUsageReportEntriesRequestTypeDef",
+    "DescribeImageUsageReportEntriesResultTypeDef",
+    "DescribeImageUsageReportsRequestPaginateTypeDef",
+    "DescribeImageUsageReportsRequestTypeDef",
+    "DescribeImageUsageReportsRequestWaitTypeDef",
+    "DescribeImageUsageReportsResultTypeDef",
     "DescribeImagesRequestPaginateTypeDef",
     "DescribeImagesRequestTypeDef",
     "DescribeImagesRequestWaitExtraTypeDef",
@@ -1968,7 +1986,14 @@ __all__ = (
     "ImageDiskContainerTypeDef",
     "ImageMetadataTypeDef",
     "ImageRecycleBinInfoTypeDef",
+    "ImageReferenceTypeDef",
     "ImageTypeDef",
+    "ImageUsageReportEntryTypeDef",
+    "ImageUsageReportTypeDef",
+    "ImageUsageResourceTypeOptionRequestTypeDef",
+    "ImageUsageResourceTypeOptionTypeDef",
+    "ImageUsageResourceTypeRequestTypeDef",
+    "ImageUsageResourceTypeTypeDef",
     "ImportClientVpnClientCertificateRevocationListRequestTypeDef",
     "ImportClientVpnClientCertificateRevocationListResultTypeDef",
     "ImportImageLicenseConfigurationRequestTypeDef",
@@ -2000,6 +2025,8 @@ __all__ = (
     "InstanceBlockDeviceMappingSpecificationTypeDef",
     "InstanceBlockDeviceMappingTypeDef",
     "InstanceCapacityTypeDef",
+    "InstanceConnectEndpointDnsNamesTypeDef",
+    "InstanceConnectEndpointPublicDnsNamesTypeDef",
     "InstanceCountTypeDef",
     "InstanceCreateTagsRequestTypeDef",
     "InstanceCreditSpecificationRequestTypeDef",
@@ -2219,6 +2246,8 @@ __all__ = (
     "ModifyInstanceAttributeRequestTypeDef",
     "ModifyInstanceCapacityReservationAttributesRequestTypeDef",
     "ModifyInstanceCapacityReservationAttributesResultTypeDef",
+    "ModifyInstanceConnectEndpointRequestTypeDef",
+    "ModifyInstanceConnectEndpointResultTypeDef",
     "ModifyInstanceCpuOptionsRequestTypeDef",
     "ModifyInstanceCpuOptionsResultTypeDef",
     "ModifyInstanceCreditSpecificationRequestTypeDef",
@@ -2566,6 +2595,8 @@ __all__ = (
     "ResetSnapshotAttributeRequestTypeDef",
     "ResourceStatementRequestTypeDef",
     "ResourceStatementTypeDef",
+    "ResourceTypeOptionTypeDef",
+    "ResourceTypeRequestTypeDef",
     "ResponseErrorTypeDef",
     "ResponseLaunchTemplateDataTypeDef",
     "ResponseMetadataTypeDef",
@@ -3221,12 +3252,14 @@ class RouteServerAssociationTypeDef(TypedDict):
 
 class AssociateRouteTableRequestRouteTableAssociateWithSubnetTypeDef(TypedDict):
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     DryRun: NotRequired[bool]
     SubnetId: NotRequired[str]
 
 class AssociateRouteTableRequestTypeDef(TypedDict):
     RouteTableId: str
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     DryRun: NotRequired[bool]
     SubnetId: NotRequired[str]
 
@@ -3804,9 +3837,10 @@ class CreateCoipCidrRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateDefaultSubnetRequestTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
     DryRun: NotRequired[bool]
     Ipv6Native: NotRequired[bool]
+    AvailabilityZoneId: NotRequired[str]
 
 class CreateDefaultVpcRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
@@ -4179,6 +4213,10 @@ class DeleteFlowLogsRequestTypeDef(TypedDict):
 
 class DeleteFpgaImageRequestTypeDef(TypedDict):
     FpgaImageId: str
+    DryRun: NotRequired[bool]
+
+class DeleteImageUsageReportRequestTypeDef(TypedDict):
+    ReportId: str
     DryRun: NotRequired[bool]
 
 class DeleteInstanceConnectEndpointRequestTypeDef(TypedDict):
@@ -4734,6 +4772,19 @@ class DescribeImageAttributeRequestTypeDef(TypedDict):
     ImageId: str
     DryRun: NotRequired[bool]
 
+class ImageReferenceTypeDef(TypedDict):
+    ImageId: NotRequired[str]
+    ResourceType: NotRequired[ImageReferenceResourceTypeType]
+    Arn: NotRequired[str]
+
+class ImageUsageReportEntryTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ReportId: NotRequired[str]
+    UsageCount: NotRequired[int]
+    AccountId: NotRequired[str]
+    ImageId: NotRequired[str]
+    ReportCreationTime: NotRequired[datetime]
+
 class DescribeInstanceAttributeRequestInstanceDescribeAttributeTypeDef(TypedDict):
     Attribute: InstanceAttributeNameType
     DryRun: NotRequired[bool]
@@ -4872,6 +4923,7 @@ class DescribeSpotFleetRequestsRequestTypeDef(TypedDict):
 
 class SpotPriceTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     InstanceType: NotRequired[InstanceTypeType]
     ProductDescription: NotRequired[RIProductDescriptionType]
     SpotPrice: NotRequired[str]
@@ -5546,6 +5598,7 @@ class FleetLaunchTemplateSpecificationTypeDef(TypedDict):
     Version: NotRequired[str]
 
 class PlacementTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     PartitionNumber: NotRequired[int]
@@ -5908,6 +5961,14 @@ class StateReasonTypeDef(TypedDict):
     Code: NotRequired[str]
     Message: NotRequired[str]
 
+class ImageUsageResourceTypeOptionRequestTypeDef(TypedDict):
+    OptionName: NotRequired[str]
+    OptionValues: NotRequired[Sequence[str]]
+
+class ImageUsageResourceTypeOptionTypeDef(TypedDict):
+    OptionName: NotRequired[str]
+    OptionValues: NotRequired[List[str]]
+
 class ImportClientVpnClientCertificateRevocationListRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
     CertificateRevocationList: str
@@ -5932,6 +5993,10 @@ class InitializationStatusDetailsTypeDef(TypedDict):
 
 class InstanceAttachmentEnaSrdUdpSpecificationTypeDef(TypedDict):
     EnaSrdUdpEnabled: NotRequired[bool]
+
+class InstanceConnectEndpointDnsNamesTypeDef(TypedDict):
+    DnsName: NotRequired[str]
+    FipsDnsName: NotRequired[str]
 
 class InstanceCountTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
@@ -6289,6 +6354,7 @@ class LaunchTemplateNetworkPerformanceOptionsTypeDef(TypedDict):
 
 class LaunchTemplatePlacementRequestTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     HostId: NotRequired[str]
@@ -6300,6 +6366,7 @@ class LaunchTemplatePlacementRequestTypeDef(TypedDict):
 
 class LaunchTemplatePlacementTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     HostId: NotRequired[str]
@@ -6404,6 +6471,13 @@ class ModifyIdentityIdFormatRequestTypeDef(TypedDict):
     Resource: str
     UseLongIds: bool
     PrincipalArn: str
+
+class ModifyInstanceConnectEndpointRequestTypeDef(TypedDict):
+    InstanceConnectEndpointId: str
+    DryRun: NotRequired[bool]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    SecurityGroupIds: NotRequired[Sequence[str]]
+    PreserveClientIp: NotRequired[bool]
 
 class ModifyInstanceCpuOptionsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -7175,6 +7249,10 @@ class ResetSnapshotAttributeRequestTypeDef(TypedDict):
     SnapshotId: str
     DryRun: NotRequired[bool]
 
+class ResourceTypeOptionTypeDef(TypedDict):
+    OptionName: NotRequired[ImageReferenceOptionNameType]
+    OptionValues: NotRequired[Sequence[str]]
+
 class RestoreAddressToClassicRequestTypeDef(TypedDict):
     PublicIp: str
     DryRun: NotRequired[bool]
@@ -7252,6 +7330,7 @@ class RouteTypeDef(TypedDict):
     VpcPeeringConnectionId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
     OdbNetworkArn: NotRequired[str]
+    IpAddress: NotRequired[str]
 
 class S3StorageOutputTypeDef(TypedDict):
     AWSAccessKeyId: NotRequired[str]
@@ -7370,12 +7449,14 @@ class StartVpcEndpointServicePrivateDnsVerificationRequestTypeDef(TypedDict):
 
 class StopInstancesRequestInstanceStopTypeDef(TypedDict):
     Hibernate: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
     Force: NotRequired[bool]
 
 class StopInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
     Hibernate: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
     Force: NotRequired[bool]
 
@@ -7405,10 +7486,14 @@ class TerminateClientVpnConnectionsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestInstanceTerminateTypeDef(TypedDict):
+    Force: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
+    Force: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 
 class TrafficMirrorPortRangeTypeDef(TypedDict):
@@ -7740,6 +7825,10 @@ class CreateImageResultTypeDef(TypedDict):
     ImageId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateImageUsageReportResultTypeDef(TypedDict):
+    ReportId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreatePublicIpv4PoolResultTypeDef(TypedDict):
     PoolId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7761,6 +7850,10 @@ class DeleteEgressOnlyInternetGatewayResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteFpgaImageResultTypeDef(TypedDict):
+    Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteImageUsageReportResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -8083,6 +8176,10 @@ class ModifyFleetResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModifyInstanceCapacityReservationAttributesResultTypeDef(TypedDict):
+    Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyInstanceConnectEndpointResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -8433,24 +8530,6 @@ class DeclarativePoliciesReportTypeDef(TypedDict):
 class DhcpOptionsCreateTagsRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
     DryRun: NotRequired[bool]
-
-class Ec2InstanceConnectEndpointTypeDef(TypedDict):
-    OwnerId: NotRequired[str]
-    InstanceConnectEndpointId: NotRequired[str]
-    InstanceConnectEndpointArn: NotRequired[str]
-    State: NotRequired[Ec2InstanceConnectEndpointStateType]
-    StateMessage: NotRequired[str]
-    DnsName: NotRequired[str]
-    FipsDnsName: NotRequired[str]
-    NetworkInterfaceIds: NotRequired[List[str]]
-    VpcId: NotRequired[str]
-    AvailabilityZone: NotRequired[str]
-    CreatedAt: NotRequired[datetime]
-    SubnetId: NotRequired[str]
-    PreserveClientIp: NotRequired[bool]
-    SecurityGroupIds: NotRequired[List[str]]
-    Tags: NotRequired[List[TagTypeDef]]
-    IpAddressType: NotRequired[IpAddressTypeType]
 
 class HostReservationTypeDef(TypedDict):
     Count: NotRequired[int]
@@ -9113,6 +9192,7 @@ class RouteTableAssociationTypeDef(TypedDict):
     RouteTableId: NotRequired[str]
     SubnetId: NotRequired[str]
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     AssociationState: NotRequired[RouteTableAssociationStateTypeDef]
 
 class AssociateTransitGatewayPolicyTableResultTypeDef(TypedDict):
@@ -9610,6 +9690,7 @@ class ClientVpnConnectionTypeDef(TypedDict):
     IngressPackets: NotRequired[str]
     EgressPackets: NotRequired[str]
     ClientIp: NotRequired[str]
+    ClientIpv6Address: NotRequired[str]
     CommonName: NotRequired[str]
     Status: NotRequired[ClientVpnConnectionStatusTypeDef]
     ConnectionEndTime: NotRequired[str]
@@ -10459,6 +10540,36 @@ class DescribeIamInstanceProfileAssociationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class DescribeImageUsageReportEntriesRequestPaginateTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeImageUsageReportEntriesRequestTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+
+class DescribeImageUsageReportsRequestPaginateTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeImageUsageReportsRequestTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+
 class DescribeImagesRequestPaginateTypeDef(TypedDict):
     ExecutableUsers: NotRequired[Sequence[str]]
     ImageIds: NotRequired[Sequence[str]]
@@ -11274,6 +11385,7 @@ class DescribeSpotInstanceRequestsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeSpotPriceHistoryRequestPaginateTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
@@ -11284,6 +11396,7 @@ class DescribeSpotPriceHistoryRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSpotPriceHistoryRequestTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
@@ -12075,6 +12188,15 @@ class DescribeExportTasksRequestWaitTypeDef(TypedDict):
     ExportTaskIds: NotRequired[Sequence[str]]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+class DescribeImageUsageReportsRequestWaitTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
 class DescribeImagesRequestWaitExtraTypeDef(TypedDict):
     ExecutableUsers: NotRequired[Sequence[str]]
     ImageIds: NotRequired[Sequence[str]]
@@ -12372,6 +12494,16 @@ class DescribeHostReservationOfferingsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeImageReferencesResultTypeDef(TypedDict):
+    ImageReferences: List[ImageReferenceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeImageUsageReportEntriesResultTypeDef(TypedDict):
+    ImageUsageReportEntries: List[ImageUsageReportEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DescribeInstanceCreditSpecificationsResultTypeDef(TypedDict):
     InstanceCreditSpecifications: List[InstanceCreditSpecificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -12512,14 +12644,16 @@ class DiskImageTypeDef(TypedDict):
     Volume: NotRequired[VolumeDetailTypeDef]
 
 class ImportVolumeRequestTypeDef(TypedDict):
-    AvailabilityZone: str
     Image: DiskImageDetailTypeDef
     Volume: VolumeDetailTypeDef
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
+    AvailabilityZone: NotRequired[str]
     Description: NotRequired[str]
 
 class ImportInstanceVolumeDetailItemTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     BytesConverted: NotRequired[int]
     Description: NotRequired[str]
     Image: NotRequired[DiskImageDescriptionTypeDef]
@@ -12529,6 +12663,7 @@ class ImportInstanceVolumeDetailItemTypeDef(TypedDict):
 
 class ImportVolumeTaskDetailsTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     BytesConverted: NotRequired[int]
     Description: NotRequired[str]
     Image: NotRequired[DiskImageDescriptionTypeDef]
@@ -12914,6 +13049,14 @@ class LocalGatewayRouteTableTypeDef(TypedDict):
     Mode: NotRequired[LocalGatewayRouteTableModeType]
     StateReason: NotRequired[StateReasonTypeDef]
 
+class ImageUsageResourceTypeRequestTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ResourceTypeOptions: NotRequired[Sequence[ImageUsageResourceTypeOptionRequestTypeDef]]
+
+class ImageUsageResourceTypeTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ResourceTypeOptions: NotRequired[List[ImageUsageResourceTypeOptionTypeDef]]
+
 class ImportInstanceLaunchSpecificationTypeDef(TypedDict):
     Architecture: NotRequired[ArchitectureValuesType]
     GroupNames: NotRequired[Sequence[str]]
@@ -12936,6 +13079,10 @@ class InferenceDeviceInfoTypeDef(TypedDict):
 class InstanceAttachmentEnaSrdSpecificationTypeDef(TypedDict):
     EnaSrdEnabled: NotRequired[bool]
     EnaSrdUdpSpecification: NotRequired[InstanceAttachmentEnaSrdUdpSpecificationTypeDef]
+
+class InstanceConnectEndpointPublicDnsNamesTypeDef(TypedDict):
+    Ipv4: NotRequired[InstanceConnectEndpointDnsNamesTypeDef]
+    Dualstack: NotRequired[InstanceConnectEndpointDnsNamesTypeDef]
 
 class ModifyInstanceCreditSpecificationRequestTypeDef(TypedDict):
     InstanceCreditSpecifications: Sequence[InstanceCreditSpecificationRequestTypeDef]
@@ -13493,6 +13640,10 @@ class RegisterTransitGatewayMulticastGroupSourcesResultTypeDef(TypedDict):
     RegisteredMulticastGroupSources: TransitGatewayMulticastRegisteredGroupSourcesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ResourceTypeRequestTypeDef(TypedDict):
+    ResourceType: NotRequired[ImageReferenceResourceTypeType]
+    ResourceTypeOptions: NotRequired[Sequence[ResourceTypeOptionTypeDef]]
+
 class RouteServerPeerTypeDef(TypedDict):
     RouteServerPeerId: NotRequired[str]
     RouteServerEndpointId: NotRequired[str]
@@ -13590,6 +13741,7 @@ ServiceDetailTypeDef = TypedDict(
         "ServiceId": NotRequired[str],
         "ServiceType": NotRequired[List[ServiceTypeDetailTypeDef]],
         "ServiceRegion": NotRequired[str],
+        "AvailabilityZoneIds": NotRequired[List[str]],
         "AvailabilityZones": NotRequired[List[str]],
         "Owner": NotRequired[str],
         "BaseEndpointDnsNames": NotRequired[List[str]],
@@ -13611,6 +13763,7 @@ ServiceConfigurationTypeDef = TypedDict(
         "ServiceId": NotRequired[str],
         "ServiceName": NotRequired[str],
         "ServiceState": NotRequired[ServiceStateType],
+        "AvailabilityZoneIds": NotRequired[List[str]],
         "AvailabilityZones": NotRequired[List[str]],
         "AcceptanceRequired": NotRequired[bool],
         "ManagesVpcEndpoints": NotRequired[bool],
@@ -13928,6 +14081,7 @@ class VerifiedAccessLogOptionsTypeDef(TypedDict):
     IncludeTrustContext: NotRequired[bool]
 
 class VolumeResponseTypeDef(TypedDict):
+    AvailabilityZoneId: str
     OutpostArn: str
     Iops: int
     Tags: List[TagTypeDef]
@@ -13950,6 +14104,7 @@ class VolumeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VolumeTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     OutpostArn: NotRequired[str]
     Iops: NotRequired[int]
     Tags: NotRequired[List[TagTypeDef]]
@@ -14085,20 +14240,6 @@ class DescribeCustomerGatewaysResultTypeDef(TypedDict):
 
 class DescribeDeclarativePoliciesReportsResultTypeDef(TypedDict):
     Reports: List[DeclarativePoliciesReportTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class CreateInstanceConnectEndpointResultTypeDef(TypedDict):
-    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
-    ClientToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeleteInstanceConnectEndpointResultTypeDef(TypedDict):
-    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeInstanceConnectEndpointsResultTypeDef(TypedDict):
-    InstanceConnectEndpoints: List[Ec2InstanceConnectEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -14812,6 +14953,8 @@ class ClientVpnEndpointTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerResponseOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementResponseOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
+    TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
 
 class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
     Connections: List[ClientVpnConnectionTypeDef]
@@ -15360,6 +15503,17 @@ class DescribeLocalGatewayRouteTablesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ImageUsageReportTypeDef(TypedDict):
+    ImageId: NotRequired[str]
+    ReportId: NotRequired[str]
+    ResourceTypes: NotRequired[List[ImageUsageResourceTypeTypeDef]]
+    AccountIds: NotRequired[List[str]]
+    State: NotRequired[str]
+    StateReason: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    ExpirationTime: NotRequired[datetime]
+    Tags: NotRequired[List[TagTypeDef]]
+
 class ImportInstanceRequestTypeDef(TypedDict):
     Platform: Literal["windows"]
     DryRun: NotRequired[bool]
@@ -15380,6 +15534,25 @@ class InstanceNetworkInterfaceAttachmentTypeDef(TypedDict):
     NetworkCardIndex: NotRequired[int]
     EnaSrdSpecification: NotRequired[InstanceAttachmentEnaSrdSpecificationTypeDef]
     EnaQueueCount: NotRequired[int]
+
+class Ec2InstanceConnectEndpointTypeDef(TypedDict):
+    OwnerId: NotRequired[str]
+    InstanceConnectEndpointId: NotRequired[str]
+    InstanceConnectEndpointArn: NotRequired[str]
+    State: NotRequired[Ec2InstanceConnectEndpointStateType]
+    StateMessage: NotRequired[str]
+    DnsName: NotRequired[str]
+    FipsDnsName: NotRequired[str]
+    NetworkInterfaceIds: NotRequired[List[str]]
+    VpcId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    SubnetId: NotRequired[str]
+    PreserveClientIp: NotRequired[bool]
+    SecurityGroupIds: NotRequired[List[str]]
+    Tags: NotRequired[List[TagTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    PublicDnsNames: NotRequired[InstanceConnectEndpointPublicDnsNamesTypeDef]
 
 class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
     InstanceImageMetadata: List[InstanceImageMetadataTypeDef]
@@ -15408,6 +15581,7 @@ class UnmonitorInstancesResultTypeDef(TypedDict):
 
 class InstanceStatusTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     OutpostArn: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
     Events: NotRequired[List[InstanceStatusEventTypeDef]]
@@ -15742,6 +15916,21 @@ class DescribeSecurityGroupRulesResultTypeDef(TypedDict):
     SecurityGroupRules: List[SecurityGroupRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class DescribeImageReferencesRequestPaginateTypeDef(TypedDict):
+    ImageIds: Sequence[str]
+    IncludeAllResourceTypes: NotRequired[bool]
+    ResourceTypes: NotRequired[Sequence[ResourceTypeRequestTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeImageReferencesRequestTypeDef(TypedDict):
+    ImageIds: Sequence[str]
+    IncludeAllResourceTypes: NotRequired[bool]
+    ResourceTypes: NotRequired[Sequence[ResourceTypeRequestTypeDef]]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
 
 class CreateRouteServerPeerResultTypeDef(TypedDict):
     RouteServerPeer: RouteServerPeerTypeDef
@@ -16450,10 +16639,10 @@ class CreateCarrierGatewayRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
 
 class CreateClientVpnEndpointRequestTypeDef(TypedDict):
-    ClientCidrBlock: str
     ServerCertificateArn: str
     AuthenticationOptions: Sequence[ClientVpnAuthenticationRequestTypeDef]
     ConnectionLogOptions: ConnectionLogOptionsTypeDef
+    ClientCidrBlock: NotRequired[str]
     DnsServers: NotRequired[Sequence[str]]
     TransportProtocol: NotRequired[TransportProtocolType]
     VpnPort: NotRequired[int]
@@ -16470,6 +16659,8 @@ class CreateClientVpnEndpointRequestTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
+    TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
 
 class CreateCoipPoolRequestTypeDef(TypedDict):
     LocalGatewayRouteTableId: str
@@ -16557,6 +16748,14 @@ class CreateImageRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
     BlockDeviceMappings: NotRequired[Sequence[BlockDeviceMappingTypeDef]]
+
+class CreateImageUsageReportRequestTypeDef(TypedDict):
+    ImageId: str
+    ResourceTypes: Sequence[ImageUsageResourceTypeRequestTypeDef]
+    DryRun: NotRequired[bool]
+    AccountIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 class CreateInstanceConnectEndpointRequestTypeDef(TypedDict):
     SubnetId: str
@@ -17157,7 +17356,8 @@ class CreateVerifiedAccessTrustProviderRequestTypeDef(TypedDict):
     ]
 
 class CreateVolumeRequestServiceResourceCreateVolumeTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Encrypted: NotRequired[bool]
     Iops: NotRequired[int]
     KmsKeyId: NotRequired[str]
@@ -17174,7 +17374,8 @@ class CreateVolumeRequestServiceResourceCreateVolumeTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateVolumeRequestTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Encrypted: NotRequired[bool]
     Iops: NotRequired[int]
     KmsKeyId: NotRequired[str]
@@ -17708,6 +17909,11 @@ class DescribeNetworkInsightsPathsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeImageUsageReportsResultTypeDef(TypedDict):
+    ImageUsageReports: List[ImageUsageReportTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class InstanceNetworkInterfaceTypeDef(TypedDict):
     Association: NotRequired[InstanceNetworkInterfaceAssociationTypeDef]
     Attachment: NotRequired[InstanceNetworkInterfaceAttachmentTypeDef]
@@ -17729,6 +17935,20 @@ class InstanceNetworkInterfaceTypeDef(TypedDict):
     Ipv6Prefixes: NotRequired[List[InstanceIpv6PrefixTypeDef]]
     ConnectionTrackingConfiguration: NotRequired[ConnectionTrackingSpecificationResponseTypeDef]
     Operator: NotRequired[OperatorResponseTypeDef]
+
+class CreateInstanceConnectEndpointResultTypeDef(TypedDict):
+    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteInstanceConnectEndpointResultTypeDef(TypedDict):
+    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeInstanceConnectEndpointsResultTypeDef(TypedDict):
+    InstanceConnectEndpoints: List[Ec2InstanceConnectEndpointTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DescribeInstanceStatusResultTypeDef(TypedDict):
     InstanceStatuses: List[InstanceStatusTypeDef]
@@ -18296,6 +18516,7 @@ SpotInstanceRequestTypeDef = TypedDict(
         "LaunchGroup": NotRequired[str],
         "LaunchSpecification": NotRequired[LaunchSpecificationTypeDef],
         "LaunchedAvailabilityZone": NotRequired[str],
+        "LaunchedAvailabilityZoneId": NotRequired[str],
         "ProductDescription": NotRequired[RIProductDescriptionType],
         "SpotInstanceRequestId": NotRequired[str],
         "SpotPrice": NotRequired[str],

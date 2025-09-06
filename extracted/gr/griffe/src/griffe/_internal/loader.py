@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from griffe._internal.agents.inspector import inspect
 from griffe._internal.agents.visitor import visit
@@ -20,7 +20,7 @@ from griffe._internal.exceptions import (
 from griffe._internal.expressions import ExprName
 from griffe._internal.extensions.base import Extensions, load_extensions
 from griffe._internal.finder import ModuleFinder, NamespacePackage, Package
-from griffe._internal.git import tmp_worktree
+from griffe._internal.git import GitInfo, _tmp_worktree
 from griffe._internal.importer import dynamic_import
 from griffe._internal.logger import logger
 from griffe._internal.merger import merge_stubs
@@ -30,7 +30,7 @@ from griffe._internal.stats import Stats
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from griffe._internal.docstrings.parsers import DocstringStyle
+    from griffe._internal.docstrings.parsers import DocstringOptions, DocstringStyle
     from griffe._internal.enumerations import Parser
 
 
@@ -49,7 +49,7 @@ class GriffeLoader:
         extensions: Extensions | None = None,
         search_paths: Sequence[str | Path] | None = None,
         docstring_parser: DocstringStyle | Parser | None = None,
-        docstring_options: dict[str, Any] | None = None,
+        docstring_options: DocstringOptions | None = None,
         lines_collection: LinesCollection | None = None,
         modules_collection: ModulesCollection | None = None,
         allow_inspection: bool = True,
@@ -62,7 +62,7 @@ class GriffeLoader:
             extensions: The extensions to use.
             search_paths: The paths to search into.
             docstring_parser: The docstring parser to use. By default, no parsing is done.
-            docstring_options: Additional docstring parsing options.
+            docstring_options: Docstring parsing options.
             lines_collection: A collection of source code lines.
             modules_collection: A collection of modules.
             allow_inspection: Whether to allow inspecting modules when visiting them is not possible.
@@ -72,7 +72,7 @@ class GriffeLoader:
         """Loaded Griffe extensions."""
         self.docstring_parser: DocstringStyle | Parser | None = docstring_parser
         """Selected docstring parser."""
-        self.docstring_options: dict[str, Any] = docstring_options or {}
+        self.docstring_options: DocstringOptions = docstring_options or {}
         """Configured parsing options."""
         self.lines_collection: LinesCollection = lines_collection or LinesCollection()
         """Collection of source code lines."""
@@ -183,20 +183,43 @@ class GriffeLoader:
 
         return self._post_load(top_module, obj_path)
 
+    def _fire_load_events(self, obj: Object) -> None:
+        for member in obj.members.values():
+            if member.is_alias:
+                self.extensions.call("on_alias", alias=member, loader=self)
+                continue
+            self.extensions.call("on_object", obj=member, loader=self)
+            if member.is_module:
+                self.extensions.call("on_module", mod=member, loader=self)
+            elif member.is_class:
+                self.extensions.call("on_class", cls=member, loader=self)
+            elif member.is_function:
+                self.extensions.call("on_function", func=member, loader=self)
+            elif member.is_attribute:
+                self.extensions.call("on_attribute", attr=member, loader=self)
+            elif member.is_type_alias:
+                self.extensions.call("on_type_alias", type_alias=member, loader=self)
+            self._fire_load_events(member)  # type: ignore[arg-type]
+
     def _post_load(self, module: Module, obj_path: str) -> Object | Alias:
         # Pre-emptively expand exports (`__all__` values),
         # as well as wildcard imports (without ever loading additional packages).
         # This is a best-effort to return the most correct API data
-        # before firing the `on_package_loaded` event.
+        # before firing the load events.
         #
         # Packages that wildcard imports from external, non-loaded packages
         # will still have incomplete data, requiring subsequent calls to
         # `load()` and/or `resolve_aliases()`.
         self.expand_exports(module)
         self.expand_wildcards(module, external=False)
-        # Package is loaded, we now retrieve the initially requested object and return it.
+        # Populate Git information if possible.
+        module.git_info = GitInfo.from_package(module)
+        # Package is loaded, we now retrieve the initially requested object,
+        # fire load events, and return it.
         obj = self.modules_collection.get_member(obj_path)
-        self.extensions.call("on_package_loaded", pkg=module, loader=self)
+        self.extensions.call("on_package", pkg=module, loader=self)
+        self.extensions.call("on_module", mod=module, loader=self)
+        self._fire_load_events(module)
         return obj
 
     def resolve_aliases(
@@ -396,6 +419,7 @@ class GriffeLoader:
                     lineno=alias_lineno,
                     endlineno=alias_endlineno,
                     parent=obj,  # type: ignore[arg-type]
+                    wildcard_imported=True,
                 )
                 # Special case: we avoid overwriting a submodule with an alias.
                 # Griffe suffers from this limitation where an object cannot store both
@@ -410,6 +434,7 @@ class GriffeLoader:
 
                 # Everything went right (supposedly), we add the alias as a member of the current object.
                 obj.set_member(new_member.name, alias)
+                # YORE: Bump 2: Remove line.
                 self.extensions.call("on_wildcard_expansion", alias=alias, loader=self)
 
     def resolve_module_aliases(
@@ -718,7 +743,7 @@ def load(
     extensions: Extensions | None = None,
     search_paths: Sequence[str | Path] | None = None,
     docstring_parser: DocstringStyle | Parser | None = None,
-    docstring_options: dict[str, Any] | None = None,
+    docstring_options: DocstringOptions | None = None,
     lines_collection: LinesCollection | None = None,
     modules_collection: ModulesCollection | None = None,
     allow_inspection: bool = True,
@@ -774,7 +799,7 @@ def load(
         extensions: The extensions to use.
         search_paths: The paths to search into.
         docstring_parser: The docstring parser to use. By default, no parsing is done.
-        docstring_options: Additional docstring parsing options.
+        docstring_options: Docstring parsing options.
         lines_collection: A collection of source code lines.
         modules_collection: A collection of modules.
         allow_inspection: Whether to allow inspecting modules when visiting them is not possible.
@@ -824,7 +849,7 @@ def load_git(
     extensions: Extensions | None = None,
     search_paths: Sequence[str | Path] | None = None,
     docstring_parser: DocstringStyle | Parser | None = None,
-    docstring_options: dict[str, Any] | None = None,
+    docstring_options: DocstringOptions | None = None,
     lines_collection: LinesCollection | None = None,
     modules_collection: ModulesCollection | None = None,
     allow_inspection: bool = True,
@@ -858,7 +883,7 @@ def load_git(
         extensions: The extensions to use.
         search_paths: The paths to search into (relative to the repository root).
         docstring_parser: The docstring parser to use. By default, no parsing is done.
-        docstring_options: Additional docstring parsing options.
+        docstring_options: Docstring parsing options.
         lines_collection: A collection of source code lines.
         modules_collection: A collection of modules.
         allow_inspection: Whether to allow inspecting modules when visiting them is not possible.
@@ -875,7 +900,7 @@ def load_git(
     Returns:
         A Griffe object.
     """
-    with tmp_worktree(repo, ref) as worktree:
+    with _tmp_worktree(repo, ref) as worktree:
         search_paths = [worktree / path for path in search_paths or ["."]]
         if isinstance(objspec, Path):
             objspec = worktree / objspec
@@ -908,7 +933,7 @@ def load_pypi(
     extensions: Extensions | None = None,  # noqa: ARG001
     search_paths: Sequence[str | Path] | None = None,  # noqa: ARG001
     docstring_parser: DocstringStyle | Parser | None = None,  # noqa: ARG001
-    docstring_options: dict[str, Any] | None = None,  # noqa: ARG001
+    docstring_options: DocstringOptions | None = None,  # noqa: ARG001
     lines_collection: LinesCollection | None = None,  # noqa: ARG001
     modules_collection: ModulesCollection | None = None,  # noqa: ARG001
     allow_inspection: bool = True,  # noqa: ARG001
@@ -929,7 +954,7 @@ def load_pypi(
         extensions: The extensions to use.
         search_paths: The paths to search into (relative to the repository root).
         docstring_parser: The docstring parser to use. By default, no parsing is done.
-        docstring_options: Additional docstring parsing options.
+        docstring_options: Docstring parsing options.
         lines_collection: A collection of source code lines.
         modules_collection: A collection of modules.
         allow_inspection: Whether to allow inspecting modules when visiting them is not possible.

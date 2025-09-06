@@ -1177,7 +1177,7 @@ class Bad1:
     x: int
     y: InitVar[str]
     z: InitVar[bytes]
-    def __post_init__(self, y: bytes, z: str): ...  # E: `__post_init__` type `BoundMethod[Bad1, (self: Self@Bad1, y: bytes, z: str) -> None]` is not assignable to expected type `(y: str, z: bytes) -> object` generated from the dataclass's `InitVar` fields
+    def __post_init__(self, y: bytes, z: str): ...  # E: `__post_init__` type `BoundMethod[Bad1, (self: Bad1, y: bytes, z: str) -> None]` is not assignable to expected type `(y: str, z: bytes) -> object` generated from the dataclass's `InitVar` fields
 @dataclass
 class Bad2:
     x: int
@@ -1217,5 +1217,25 @@ class C1:
 class C2(C1):
     c: float
 C2('', 0.2, b=3)
+    "#,
+);
+
+testcase!(
+    test_assign_to_field_in_child,
+    r#"
+from dataclasses import dataclass
+
+@dataclass
+class Animal:
+    name: str | None = None
+    def speak(self) -> str: ...
+
+@dataclass
+class Dog(Animal):
+    def speak(self) -> str:
+        self.name = "dog"
+        return "woof"
+
+hdog = Dog(name="hdog")
     "#,
 );

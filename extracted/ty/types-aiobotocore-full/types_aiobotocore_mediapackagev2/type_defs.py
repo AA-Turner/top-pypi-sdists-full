@@ -232,6 +232,7 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class InputSwitchConfigurationTypeDef(TypedDict):
     MQCSInputSwitching: NotRequired[bool]
+    PreferredInput: NotRequired[int]
 
 
 class OutputHeaderConfigurationTypeDef(TypedDict):

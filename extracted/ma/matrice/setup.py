@@ -14,7 +14,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     name="matrice",
 
-    version = "1.0.99523",
+    version = "1.0.99526",
     
     description="SDK for connecting to matrice.ai services",
     long_description=long_description,
@@ -22,7 +22,7 @@ setup(
     url="https://github.com/matrice-ai/python-sdk",
     author= "Matrice.ai",
     author_email = "dipendra@matrice.ai",
-    install_requires = ['requests'],
+    install_requires = [],
     classifiers=[
         "Development Status :: 4 - Beta",       
         "Intended Audience :: Developers",

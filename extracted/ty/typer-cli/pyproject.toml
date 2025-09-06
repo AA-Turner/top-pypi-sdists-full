@@ -36,10 +36,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "typer==0.17.3",
+    "typer==0.17.4",
 ]
 readme = "typer-cli/README.md"
-version = "0.17.3"
+version = "0.17.4"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"

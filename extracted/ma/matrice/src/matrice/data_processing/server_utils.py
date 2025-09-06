@@ -1472,6 +1472,7 @@ def get_number_of_dataset_batches(
 ) -> int:
     """Calculate total number of pages for a dataset."""
     path = f"/v1/dataset_item/item/{dataset_id}/version/{dataset_version}"
+    logging.info(f"calling get_number_of_dataset_batches with path: {path}")
     response = rpc_get_call(rpc=rpc, path=path)
     if not response:
         logging.error(
@@ -1480,8 +1481,9 @@ def get_number_of_dataset_batches(
             dataset_version,
         )
         return 0
+    logging.info(f"response received: {response}")
     total_items = response.get("total", 0)
-    logging.debug(f'Total items are {total_items}')
+    logging.info(f'Total items are {total_items}')
     return math.ceil(total_items / request_batch_size)
 
 

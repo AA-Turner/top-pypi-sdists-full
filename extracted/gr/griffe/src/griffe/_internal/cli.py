@@ -29,13 +29,14 @@ from griffe._internal.encoders import JSONEncoder
 from griffe._internal.enumerations import ExplanationStyle, Parser
 from griffe._internal.exceptions import ExtensionError, GitError
 from griffe._internal.extensions.base import load_extensions
-from griffe._internal.git import get_latest_tag, get_repo_root
+from griffe._internal.git import _get_latest_tag, _get_repo_root
 from griffe._internal.loader import GriffeLoader, load, load_git
 from griffe._internal.logger import logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from griffe._internal.docstrings.parsers import DocstringOptions, DocstringStyle
     from griffe._internal.extensions.base import Extension, Extensions
 
 
@@ -70,8 +71,8 @@ def _load_packages(
     *,
     extensions: Extensions | None = None,
     search_paths: Sequence[str | Path] | None = None,
-    docstring_parser: Parser | None = None,
-    docstring_options: dict[str, Any] | None = None,
+    docstring_parser: DocstringStyle | Parser | None = None,
+    docstring_options: DocstringOptions | None = None,
     resolve_aliases: bool = True,
     resolve_implicit: bool = False,
     resolve_external: bool | None = None,
@@ -332,8 +333,8 @@ def dump(
     *,
     output: str | IO | None = None,
     full: bool = False,
-    docstring_parser: Parser | None = None,
-    docstring_options: dict[str, Any] | None = None,
+    docstring_parser: DocstringStyle | Parser | None = None,
+    docstring_options: DocstringOptions | None = None,
     extensions: Sequence[str | dict[str, Any] | Extension | type[Extension]] | None = None,
     resolve_aliases: bool = False,
     resolve_implicit: bool = False,
@@ -352,7 +353,7 @@ def dump(
         output: Where to output the JSON-serialized data.
         full: Whether to output full or minimal data.
         docstring_parser: The docstring parser to use. By default, no parsing is done.
-        docstring_options: Additional docstring parsing options.
+        docstring_options: Docstring parsing options.
         resolve_aliases: Whether to resolve aliases (indirect objects references).
         resolve_implicit: Whether to resolve every alias or only the explicitly exported ones.
         resolve_external: Whether to load additional, unspecified modules to resolve aliases.
@@ -459,13 +460,13 @@ def check(
     if append_sys_path:
         search_paths.extend(sys.path)
 
+    against_path = against_path or package
     try:
-        against = against or get_latest_tag(package)
+        against = against or _get_latest_tag(package)
+        repository = _get_repo_root(against_path)
     except GitError as error:
         print(f"griffe: error: {error}", file=sys.stderr)
         return 2
-    against_path = against_path or package
-    repository = get_repo_root(against_path)
 
     try:
         loaded_extensions = load_extensions(*(extensions or ()))

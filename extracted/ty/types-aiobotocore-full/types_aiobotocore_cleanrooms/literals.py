@@ -40,6 +40,7 @@ __all__ = (
     "ConfiguredTableAssociationAnalysisRuleTypeType",
     "CustomMLMemberAbilityType",
     "DifferentialPrivacyAggregationTypeType",
+    "ErrorMessageTypeType",
     "FilterableMemberStatusType",
     "IdNamespaceTypeType",
     "JoinOperatorType",
@@ -109,6 +110,7 @@ ConfiguredTableAnalysisRuleTypeType = Literal["AGGREGATION", "CUSTOM", "LIST"]
 ConfiguredTableAssociationAnalysisRuleTypeType = Literal["AGGREGATION", "CUSTOM", "LIST"]
 CustomMLMemberAbilityType = Literal["CAN_RECEIVE_INFERENCE_OUTPUT", "CAN_RECEIVE_MODEL_OUTPUT"]
 DifferentialPrivacyAggregationTypeType = Literal["AVG", "COUNT", "COUNT_DISTINCT", "STDDEV", "SUM"]
+ErrorMessageTypeType = Literal["DETAILED"]
 FilterableMemberStatusType = Literal["ACTIVE", "INVITED"]
 IdNamespaceTypeType = Literal["SOURCE", "TARGET"]
 JoinOperatorType = Literal["AND", "OR"]
@@ -261,6 +263,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -272,8 +275,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

@@ -1,5 +1,7 @@
 """Tests for Claude SDK transport layer."""
 
+import os
+import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import anyio
@@ -110,8 +112,8 @@ class TestSubprocessCLITransport:
         assert "--resume" in cmd
         assert "session-123" in cmd
 
-    def test_connect_disconnect(self):
-        """Test connect and disconnect lifecycle."""
+    def test_connect_close(self):
+        """Test connect and close lifecycle."""
 
         async def _test():
             with patch("anyio.open_process") as mock_exec:
@@ -137,22 +139,22 @@ class TestSubprocessCLITransport:
 
                 await transport.connect()
                 assert transport._process is not None
-                assert transport.is_connected()
+                assert transport.is_ready()
 
-                await transport.disconnect()
+                await transport.close()
                 mock_process.terminate.assert_called_once()
 
         anyio.run(_test)
 
-    def test_receive_messages(self):
-        """Test parsing messages from CLI output."""
-        # This test is simplified to just test the parsing logic
+    def test_read_messages(self):
+        """Test reading messages from CLI output."""
+        # This test is simplified to just test the transport creation
         # The full async stream handling is tested in integration tests
         transport = SubprocessCLITransport(
             prompt="test", options=ClaudeCodeOptions(), cli_path="/usr/bin/claude"
         )
 
-        # The actual message parsing is done by the client, not the transport
+        # The transport now just provides raw message reading via read_messages()
         # So we just verify the transport can be created and basic structure is correct
         assert transport._prompt == "test"
         assert transport._cli_path == "/usr/bin/claude"
@@ -299,3 +301,54 @@ class TestSubprocessCLITransport:
         assert "--mcp-config" in cmd
         mcp_idx = cmd.index("--mcp-config")
         assert cmd[mcp_idx + 1] == json_config
+
+    def test_env_vars_passed_to_subprocess(self):
+        """Test that custom environment variables are passed to the subprocess."""
+
+        async def _test():
+            test_value = f"test-{uuid.uuid4().hex[:8]}"
+            custom_env = {
+                "MY_TEST_VAR": test_value,
+            }
+
+            options = ClaudeCodeOptions(env=custom_env)
+
+            # Mock the subprocess to capture the env argument
+            with patch(
+                "anyio.open_process", new_callable=AsyncMock
+            ) as mock_open_process:
+                mock_process = MagicMock()
+                mock_process.stdout = MagicMock()
+                mock_stdin = MagicMock()
+                mock_stdin.aclose = AsyncMock()  # Add async aclose method
+                mock_process.stdin = mock_stdin
+                mock_process.returncode = None
+                mock_open_process.return_value = mock_process
+
+                transport = SubprocessCLITransport(
+                    prompt="test",
+                    options=options,
+                    cli_path="/usr/bin/claude",
+                )
+
+                await transport.connect()
+
+                # Verify open_process was called with correct env vars
+                mock_open_process.assert_called_once()
+                call_kwargs = mock_open_process.call_args.kwargs
+                assert "env" in call_kwargs
+                env_passed = call_kwargs["env"]
+
+                # Check that custom env var was passed
+                assert env_passed["MY_TEST_VAR"] == test_value
+
+                # Verify SDK identifier is present
+                assert "CLAUDE_CODE_ENTRYPOINT" in env_passed
+                assert env_passed["CLAUDE_CODE_ENTRYPOINT"] == "sdk-py"
+
+                # Verify system env vars are also included with correct values
+                if "PATH" in os.environ:
+                    assert "PATH" in env_passed
+                    assert env_passed["PATH"] == os.environ["PATH"]
+
+        anyio.run(_test)

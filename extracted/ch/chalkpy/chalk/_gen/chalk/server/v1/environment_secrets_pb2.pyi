@@ -39,6 +39,27 @@ class SecretValue(_message.Message):
     value: str
     def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+class SecretWithValue(_message.Message):
+    __slots__ = ("id", "updated_at", "name", "full_name", "value")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    updated_at: _timestamp_pb2.Timestamp
+    name: str
+    full_name: str
+    value: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        name: _Optional[str] = ...,
+        full_name: _Optional[str] = ...,
+        value: _Optional[str] = ...,
+    ) -> None: ...
+
 class ListSecretsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

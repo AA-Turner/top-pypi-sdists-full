@@ -12,6 +12,8 @@ Usage::
     from types_aiobotocore_datazone import (
         Client,
         DataZoneClient,
+        ListAccountPoolsPaginator,
+        ListAccountsInAccountPoolPaginator,
         ListAssetFiltersPaginator,
         ListAssetRevisionsPaginator,
         ListConnectionsPaginator,
@@ -55,6 +57,8 @@ Usage::
         ...
 
 
+    list_account_pools_paginator: ListAccountPoolsPaginator = client.get_paginator("list_account_pools")
+    list_accounts_in_account_pool_paginator: ListAccountsInAccountPoolPaginator = client.get_paginator("list_accounts_in_account_pool")
     list_asset_filters_paginator: ListAssetFiltersPaginator = client.get_paginator("list_asset_filters")
     list_asset_revisions_paginator: ListAssetRevisionsPaginator = client.get_paginator("list_asset_revisions")
     list_connections_paginator: ListConnectionsPaginator = client.get_paginator("list_connections")
@@ -95,6 +99,8 @@ Usage::
 
 from .client import DataZoneClient
 from .paginator import (
+    ListAccountPoolsPaginator,
+    ListAccountsInAccountPoolPaginator,
     ListAssetFiltersPaginator,
     ListAssetRevisionsPaginator,
     ListConnectionsPaginator,
@@ -138,6 +144,8 @@ Client = DataZoneClient
 __all__ = (
     "Client",
     "DataZoneClient",
+    "ListAccountPoolsPaginator",
+    "ListAccountsInAccountPoolPaginator",
     "ListAssetFiltersPaginator",
     "ListAssetRevisionsPaginator",
     "ListConnectionsPaginator",

@@ -16,7 +16,7 @@ from ...types import (
     ledger_transaction_create_reversal_params,
     ledger_transaction_create_partial_post_params,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven, SequenceNotStr
 from ..._utils import maybe_transform, async_maybe_transform
 from .versions import (
     Versions,
@@ -262,8 +262,9 @@ class LedgerTransactions(SyncAPIResource):
     def list(
         self,
         *,
-        id: List[str] | NotGiven = NOT_GIVEN,
+        id: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
         after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
+        amount: ledger_transaction_list_params.Amount | NotGiven = NOT_GIVEN,
         effective_at: Dict[str, Union[str, datetime]] | NotGiven = NOT_GIVEN,
         effective_date: Dict[str, Union[str, datetime]] | NotGiven = NOT_GIVEN,
         external_id: str | NotGiven = NOT_GIVEN,
@@ -296,6 +297,8 @@ class LedgerTransactions(SyncAPIResource):
         Args:
           id: If you have specific IDs to retrieve in bulk, you can pass them as query
               parameters delimited with `id[]=`, for example `?id[]=123&id[]=abc`.
+
+          amount: Use `gt` (>), `gte` (>=), `lt` (<), `lte` (<=), or `eq` (=) to filter by amount.
 
           effective_at: Use "gt" (>), "gte" (>=), "lt" (<), "lte" (<=), or "eq" (=) to filter by
               effective at. For example, for all transactions after Jan 1 2000, use
@@ -341,6 +344,7 @@ class LedgerTransactions(SyncAPIResource):
                     {
                         "id": id,
                         "after_cursor": after_cursor,
+                        "amount": amount,
                         "effective_at": effective_at,
                         "effective_date": effective_date,
                         "external_id": external_id,
@@ -738,8 +742,9 @@ class AsyncLedgerTransactions(AsyncAPIResource):
     def list(
         self,
         *,
-        id: List[str] | NotGiven = NOT_GIVEN,
+        id: SequenceNotStr[str] | NotGiven = NOT_GIVEN,
         after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
+        amount: ledger_transaction_list_params.Amount | NotGiven = NOT_GIVEN,
         effective_at: Dict[str, Union[str, datetime]] | NotGiven = NOT_GIVEN,
         effective_date: Dict[str, Union[str, datetime]] | NotGiven = NOT_GIVEN,
         external_id: str | NotGiven = NOT_GIVEN,
@@ -772,6 +777,8 @@ class AsyncLedgerTransactions(AsyncAPIResource):
         Args:
           id: If you have specific IDs to retrieve in bulk, you can pass them as query
               parameters delimited with `id[]=`, for example `?id[]=123&id[]=abc`.
+
+          amount: Use `gt` (>), `gte` (>=), `lt` (<), `lte` (<=), or `eq` (=) to filter by amount.
 
           effective_at: Use "gt" (>), "gte" (>=), "lt" (<), "lte" (<=), or "eq" (=) to filter by
               effective at. For example, for all transactions after Jan 1 2000, use
@@ -817,6 +824,7 @@ class AsyncLedgerTransactions(AsyncAPIResource):
                     {
                         "id": id,
                         "after_cursor": after_cursor,
+                        "amount": amount,
                         "effective_at": effective_at,
                         "effective_date": effective_date,
                         "external_id": external_id,

@@ -25,6 +25,7 @@ import platform
 import re
 import shutil
 import sys
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -54,7 +55,7 @@ from pyrogram.handlers.handler import Handler
 from pyrogram.methods import Methods
 from pyrogram.qrlogin import QRLogin
 from pyrogram.session import Auth, Session
-from pyrogram.storage import FileStorage, MemoryStorage, Storage
+from pyrogram.storage import SQLiteStorage, Storage
 from pyrogram.types import LinkPreviewOptions, TermsOfService, User
 from pyrogram.utils import ainput
 
@@ -110,6 +111,9 @@ class Client(Methods):
 
         ipv6 (``bool``, *optional*):
             Pass True to connect to Telegram using IPv6.
+            If the session was previously used with IPv4,
+            the first request will be made via IPv4,
+            after which the server address will be updated (works both ways).
             Defaults to False (IPv4).
 
         proxy (``dict``, *optional*):
@@ -236,7 +240,7 @@ class Client(Methods):
         loop (:py:class:`asyncio.AbstractEventLoop`, *optional*):
             Event loop.
 
-        init_connection_params (:obj:`~pyrogram.raw.base.JSONValue`, *optional*):
+        init_connection_params (``dict``, *optional*):
             Additional initConnection parameters.
             For now, only the tz_offset field is supported, for specifying timezone offset in seconds.
     """
@@ -305,7 +309,7 @@ class Client(Methods):
         fetch_topics: Optional[bool] = True,
         fetch_stories: Optional[bool] = True,
         fetch_stickers: Optional[bool] = True,
-        init_connection_params: Optional["raw.base.JSONValue"] = None,
+        init_connection_params: Optional[dict] = None,
         connection_factory: Type[Connection] = Connection,
         protocol_factory: Type[TCP] = TCPAbridged,
         loop: Optional[asyncio.AbstractEventLoop] = None
@@ -357,17 +361,26 @@ class Client(Methods):
         self.storage: Storage
 
         if self.session_string:
-            self.storage = MemoryStorage(self.name, self.session_string)
+            self.storage = SQLiteStorage(
+                self.name,
+                workdir=self.workdir,
+                session_string=self.session_string,
+                in_memory=True
+            )
         elif self.in_memory:
-            self.storage = MemoryStorage(self.name)
+            self.storage = SQLiteStorage(self.name, workdir=self.workdir, in_memory=True)
         elif isinstance(storage_engine, Storage):
             self.storage = storage_engine
         else:
-            self.storage = FileStorage(self.name, self.workdir)
+            self.storage = SQLiteStorage(self.name, workdir=self.workdir)
 
         self.dispatcher: Dispatcher = Dispatcher(self)
 
         self.rnd_id = MsgId
+        self._last_sync_time = time.time()
+        self._last_monotonic = time.monotonic()
+
+        self._is_server_time_synced = False
 
         self.parser: Parser = Parser(self)
 
@@ -376,10 +389,8 @@ class Client(Methods):
         self.business_connections = {}
 
         self.sessions = {}
-        self.sessions_lock = asyncio.Lock()
-
         self.media_sessions = {}
-        self.media_sessions_lock = asyncio.Lock()
+        self.sessions_lock = asyncio.Lock()
 
         self.save_file_semaphore = asyncio.Semaphore(self.max_concurrent_transmissions)
         self.get_file_semaphore = asyncio.Semaphore(self.max_concurrent_transmissions)
@@ -410,6 +421,8 @@ class Client(Methods):
             self.loop = loop
         else:
             self.loop = asyncio.get_event_loop()
+
+        self.__config: "raw.types.Config" = None
 
     def __enter__(self):
         return self.start()
@@ -893,12 +906,23 @@ class Client(Methods):
             await self.storage.api_id(self.api_id)
 
             await self.storage.dc_id(2)
+
+            if self.test_mode:
+                await self.storage.server_address("2001:67c:4e8:f002::e" if self.ipv6 else "149.154.167.40")
+                await self.storage.port(80)
+            else:
+                await self.storage.server_address("2001:67c:4e8:f002::a" if self.ipv6 else "149.154.167.51")
+                await self.storage.port(443)
+
             await self.storage.date(0)
 
             await self.storage.test_mode(self.test_mode)
             await self.storage.auth_key(
                 await Auth(
-                    self, await self.storage.dc_id(),
+                    self,
+                    await self.storage.dc_id(),
+                    await self.storage.server_address(),
+                    await self.storage.port(),
                     await self.storage.test_mode()
                 ).create()
             )
@@ -1131,10 +1155,20 @@ class Client(Methods):
             try:
                 session = self.media_sessions.get(dc_id)
                 if not session:
+                    dc_option = await self.get_dc_option(dc_id, is_media=True, ipv6=self.ipv6)
+
                     session = self.media_sessions[dc_id] = Session(
-                        self, dc_id,
-                        await Auth(self, dc_id, await self.storage.test_mode()).create()
-                        if dc_id != await self.storage.dc_id()
+                        self,
+                        dc_id,
+                        dc_option.ip_address,
+                        dc_option.port,
+                        await Auth(
+                            self,
+                            dc_id,
+                            dc_option.ip_address,
+                            dc_option.port,
+                            await self.storage.test_mode()
+                        ).create() if dc_id != await self.storage.dc_id()
                         else await self.storage.auth_key(),
                         await self.storage.test_mode(),
                         is_media=True
@@ -1209,9 +1243,23 @@ class Client(Methods):
                         )
 
                 elif isinstance(r, raw.types.upload.FileCdnRedirect):
+                    dc_option = await self.get_dc_option(dc_id, is_cdn=True, ipv6=self.ipv6)
+
                     cdn_session = Session(
-                        self, r.dc_id, await Auth(self, r.dc_id, await self.storage.test_mode()).create(),
-                        await self.storage.test_mode(), is_media=True, is_cdn=True
+                        self,
+                        r.dc_id,
+                        dc_option.ip_address,
+                        dc_option.port,
+                        await Auth(
+                            self,
+                            r.dc_id,
+                            dc_option.ip_address,
+                            dc_option.port,
+                            await self.storage.test_mode()
+                        ).create(),
+                        await self.storage.test_mode(),
+                        is_media=True,
+                        is_cdn=True
                     )
 
                     try:
@@ -1296,6 +1344,194 @@ class Client(Methods):
                 raise
             except Exception as e:
                 log.exception(e)
+
+    async def get_session(
+        self,
+        dc_id: int,
+        is_media: Optional[bool] = False,
+        export_authorization: Optional[bool] = True,
+        server_address: Optional[str] = None,
+        port: Optional[int] = None
+    ) -> "Session":
+        """Get existing session or create a new one.
+
+        Parameters:
+            dc_id (``int``):
+                Datacenter identifier.
+
+            is_media (``bool``, *optional*):
+                Pass True to get or create a media session.
+
+            export_authorization (``bool``, *optional*):
+                Pass True to export authorization after creating the session.
+                Used only when creating a new session.
+
+            server_address (``str``, *optional*):
+                Custom server address to connect to.
+                Used only when creating a new session.
+
+            port (``int``, *optional*):
+                Custom port to connect to.
+                Used only when creating a new session.
+        """
+        if dc_id == await self.storage.dc_id() and not is_media:
+            return self.session
+
+        sessions = self.media_sessions if is_media else self.sessions
+
+        async with self.sessions_lock:
+            if sessions.get(dc_id):
+                return sessions[dc_id]
+
+            dc_option = await self.get_dc_option(dc_id, is_media=is_media, ipv6=self.ipv6)
+
+            session = self.media_sessions[dc_id] = Session(
+                self,
+                dc_id,
+                server_address or dc_option.ip_address,
+                port or dc_option.port,
+                await Auth(
+                    self,
+                    dc_id,
+                    server_address or dc_option.ip_address,
+                    port or dc_option.port,
+                    await self.storage.test_mode()
+                ).create(),
+                await self.storage.test_mode(), is_media=is_media
+            )
+
+            await session.start()
+
+            if export_authorization:
+                for _ in range(3):
+                    exported_auth = await self.invoke(
+                        raw.functions.auth.ExportAuthorization(
+                            dc_id=dc_id
+                        )
+                    )
+
+                    try:
+                        await session.invoke(
+                            raw.functions.auth.ImportAuthorization(
+                                id=exported_auth.id,
+                                bytes=exported_auth.bytes
+                            )
+                        )
+                    except AuthBytesInvalid:
+                        continue
+                    else:
+                        break
+                else:
+                    await session.stop()
+                    raise AuthBytesInvalid
+
+            return session
+
+    async def get_dc_option(
+        self,
+        dc_id: int = None,
+        is_media: bool = False,
+        is_cdn: bool = False,
+        ipv6: bool = False
+    ) -> "raw.types.DcOption":
+        if not self.__config:
+            self.__config = await self.invoke(raw.functions.help.GetConfig())
+
+        if dc_id is None:
+            dc_id = self.__config.this_dc
+
+        options = [dc for dc in self.__config.dc_options if dc.id == dc_id and dc.ipv6 == ipv6] # type: List[raw.types.DcOption]
+
+        if not options:
+            raise ValueError(f"DC{dc_id} not found")
+
+        if is_cdn:
+            cdn_options = [dc for dc in options if dc.cdn]
+
+            if cdn_options:
+                return cdn_options[0]
+
+            log.debug(
+                "No CDN datacenter found for DC%s, falling back to prod DC",
+                dc_id
+            )
+
+            is_media = True
+
+        if is_media:
+            media_options = [dc for dc in options if dc.media_only]
+
+            if media_options:
+                return media_options[0]
+
+            log.debug(
+                "No media datacenter found for DC%s, falling back to prod DC",
+                dc_id
+            )
+
+        prod_options = [dc for dc in options if not dc.media_only]
+
+        if prod_options:
+            return prod_options[0]
+
+        raise ValueError("No suitable DC found")
+
+    async def set_dc(
+        self,
+        dc_id: Optional[int] = None,
+        server_address: Optional[str] = None,
+        port: Optional[int] = None
+    ):
+        """Set configuration for the specified datacenter.
+
+        .. note::
+
+            Be careful with this method, you can easily break your session.
+
+        Parameters:
+            dc_id (``int``, *optional*):
+                Datacenter identifier.
+                Defaults to the current datacenter.
+
+            server_address (``str``, *optional*):
+                Custom server address.
+
+            port (``int``, *optional*):
+                Custom port.
+        """
+        if not self.__config:
+            self.__config = await self.invoke(raw.functions.help.GetConfig())
+
+        dc_id = dc_id or self.__config.this_dc
+        dc_option = await self.get_dc_option(dc_id, ipv6=self.ipv6)
+
+        server_address = server_address or dc_option.ip_address
+        port = port or dc_option.port
+
+        await self.storage.dc_id(dc_id)
+        await self.storage.server_address(server_address)
+        await self.storage.port(port)
+
+        if self.session.server_address != server_address or self.session.port != port:
+            self.session.server_address = server_address
+            self.session.port = port
+
+            await self.session.restart()
+            log.info("Changed session DC%s address to %s:%s", dc_id, server_address, port)
+        else:
+            log.info("Session DC%s address is already %s:%s", dc_id, server_address, port)
+
+    @property
+    def server_time(self) -> float:
+        return self._last_sync_time + (time.monotonic() - self._last_monotonic)
+
+    def _set_server_time(self, msg_id: int):
+        if self._is_server_time_synced:
+            return
+
+        self._last_sync_time = msg_id / float(2**32)
+        self._last_monotonic = time.monotonic()
+        log.info(f"Time synced: {utils.timestamp_to_datetime(self._last_sync_time)}")
 
     def guess_mime_type(self, filename: Union[str, BytesIO]) -> Optional[str]:
         if isinstance(filename, BytesIO):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.301
+Version: 0.3.304
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -58,6 +58,8 @@ Requires-Dist: scipy==1.13.1; extra == "runtime"
 Requires-Dist: pytesseract==0.3.13; extra == "runtime"
 Requires-Dist: reportlab==4.2.5; extra == "runtime"
 Requires-Dist: svglib==1.5.1; extra == "runtime"
+Requires-Dist: rlpycairo==0.3.0; extra == "runtime"
+Requires-Dist: cairocffi==1.7.1; extra == "runtime"
 Requires-Dist: docx2txt==0.8; extra == "runtime"
 Requires-Dist: mammoth==1.9.0; extra == "runtime"
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.25.0; extra == "runtime"

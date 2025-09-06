@@ -46,7 +46,7 @@ IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
 LifecyclePolicyTypeType = Literal["retention"]
 ResourceTypeType = Literal["index"]
-SecurityConfigTypeType = Literal["iamidentitycenter", "saml"]
+SecurityConfigTypeType = Literal["iamfederation", "iamidentitycenter", "saml"]
 SecurityPolicyTypeType = Literal["encryption", "network"]
 StandbyReplicasType = Literal["DISABLED", "ENABLED"]
 VpcEndpointStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
@@ -78,6 +78,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -89,8 +90,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

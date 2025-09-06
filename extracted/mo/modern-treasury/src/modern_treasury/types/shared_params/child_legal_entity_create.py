@@ -2,26 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from datetime import date, datetime
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 from .identification_create_request import IdentificationCreateRequest
 from .legal_entity_compliance_detail import LegalEntityComplianceDetail
 from .legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .legal_entity_industry_classification import LegalEntityIndustryClassification
 
-__all__ = [
-    "ChildLegalEntityCreate",
-    "UnnamedTypeWithobjectParent6",
-    "PhoneNumbers",
-    "PhoneNumber",
-    "UnnamedTypeWithobjectParent7",
-]
+__all__ = ["ChildLegalEntityCreate", "BankSettings", "PhoneNumbers", "PhoneNumber", "WealthAndEmploymentDetails"]
 
 
-class UnnamedTypeWithobjectParent6(TypedDict, total=False):
+class BankSettings(TypedDict, total=False):
     id: Required[str]
 
     backup_withholding_percentage: Required[Optional[int]]
@@ -71,7 +66,7 @@ Please use PhoneNumber instead.
 """
 
 
-class UnnamedTypeWithobjectParent7(TypedDict, total=False):
+class WealthAndEmploymentDetails(TypedDict, total=False):
     id: Required[str]
 
     annual_income: Required[Optional[int]]
@@ -234,7 +229,7 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     addresses: Iterable[LegalEntityAddressCreateRequest]
     """A list of addresses for the entity."""
 
-    bank_settings: Optional[UnnamedTypeWithobjectParent6]
+    bank_settings: Optional[BankSettings]
 
     business_name: Optional[str]
     """The business's legal business name."""
@@ -250,7 +245,7 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     date_of_birth: Annotated[Union[str, date, None], PropertyInfo(format="iso8601")]
     """An individual's date of birth (YYYY-MM-DD)."""
 
-    doing_business_as_names: List[str]
+    doing_business_as_names: SequenceNotStr[str]
 
     email: Optional[str]
     """The entity's primary email."""
@@ -301,7 +296,7 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     suffix: Optional[str]
     """An individual's suffix."""
 
-    wealth_and_employment_details: Optional[UnnamedTypeWithobjectParent7]
+    wealth_and_employment_details: Optional[WealthAndEmploymentDetails]
 
     website: Optional[str]
     """The entity's primary website URL."""

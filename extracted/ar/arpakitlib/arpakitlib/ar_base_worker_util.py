@@ -25,6 +25,7 @@ class BaseWorker(ABC):
             timeout_after_error_in_run: timedelta = timedelta(seconds=1),
             startup_funcs: list[Any] | None = None,
             worker_name: str | None = None,
+            data: dict[str, Any] | None = None,
             **kwargs
     ):
         self.timeout_after_run = timeout_after_run
@@ -38,6 +39,10 @@ class BaseWorker(ABC):
             worker_name = self.__class__.__name__
         self.worker_name = worker_name
         self.worker_id = f"{str(uuid4()).replace('-', '')}_{randint(1000, 99999)}"
+
+        if data is None:
+            data = {}
+        self.data = data
 
         self._logger = logging.getLogger(self.worker_fullname)
 

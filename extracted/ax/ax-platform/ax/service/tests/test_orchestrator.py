@@ -26,7 +26,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
@@ -1619,7 +1619,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
         with patch(
             f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
-            side_effect=[Exception("yikes!"), {"mean": 0, "timestamp": 12345}],
+            side_effect=[Exception("yikes!"), {"mean": 0, MAP_KEY: 12345}],
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.f",
             side_effect=[Exception("yikes!"), 0],
@@ -1981,6 +1981,7 @@ class TestAxOrchestrator(TestCase):
         experiment.runner = self.runner
 
         gs = self.two_sobol_steps_GS
+        self.branin_experiment.status_quo = None
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
@@ -2088,7 +2089,9 @@ class TestAxOrchestrator(TestCase):
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": ["branin"],
+                        "metric_name": [
+                            next(iter(self.branin_experiment.metrics.keys()))
+                        ],
                         "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],

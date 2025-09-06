@@ -6,17 +6,24 @@ from typing import Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypedDict
 
-__all__ = ["LedgerTransactionListParams", "OrderBy"]
+from .._types import SequenceNotStr
+
+__all__ = ["LedgerTransactionListParams", "Amount", "OrderBy"]
 
 
 class LedgerTransactionListParams(TypedDict, total=False):
-    id: List[str]
+    id: SequenceNotStr[str]
     """
     If you have specific IDs to retrieve in bulk, you can pass them as query
     parameters delimited with `id[]=`, for example `?id[]=123&id[]=abc`.
     """
 
     after_cursor: Optional[str]
+
+    amount: Amount
+    """
+    Use `gt` (>), `gte` (>=), `lt` (<), `lte` (<=), or `eq` (=) to filter by amount.
+    """
 
     effective_at: Dict[str, Union[str, datetime]]
     """
@@ -82,6 +89,18 @@ class LedgerTransactionListParams(TypedDict, total=False):
     posted at timestamp. For example, for all times after Jan 1 2000 12:00 UTC, use
     updated_at%5Bgt%5D=2000-01-01T12:00:00Z.
     """
+
+
+class Amount(TypedDict, total=False):
+    eq: int
+
+    gt: int
+
+    gte: int
+
+    lt: int
+
+    lte: int
 
 
 class OrderBy(TypedDict, total=False):

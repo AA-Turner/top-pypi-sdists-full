@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: aleph-alpha-client
-Version: 11.2.0
+Version: 11.4.0
 Summary: python client to interact with Aleph Alpha api endpoints
 Author-email: Aleph Alpha <support@aleph-alpha.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/Aleph-Alpha/aleph-alpha-client
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.28

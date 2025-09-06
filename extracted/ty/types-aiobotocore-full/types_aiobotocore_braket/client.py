@@ -123,7 +123,7 @@ class BraketClient(AioBaseClient):
         self, **kwargs: Unpack[CancelJobRequestTypeDef]
     ) -> CancelJobResponseTypeDef:
         """
-        Cancels an Amazon Braket job.
+        Cancels an Amazon Braket hybrid job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/cancel_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/client/#cancel_job)
@@ -143,7 +143,7 @@ class BraketClient(AioBaseClient):
         self, **kwargs: Unpack[CreateJobRequestTypeDef]
     ) -> CreateJobResponseTypeDef:
         """
-        Creates an Amazon Braket job.
+        Creates an Amazon Braket hybrid job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/create_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/client/#create_job)
@@ -171,7 +171,7 @@ class BraketClient(AioBaseClient):
 
     async def get_job(self, **kwargs: Unpack[GetJobRequestTypeDef]) -> GetJobResponseTypeDef:
         """
-        Retrieves the specified Amazon Braket job.
+        Retrieves the specified Amazon Braket hybrid job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/get_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/client/#get_job)
@@ -211,7 +211,7 @@ class BraketClient(AioBaseClient):
         self, **kwargs: Unpack[SearchJobsRequestTypeDef]
     ) -> SearchJobsResponseTypeDef:
         """
-        Searches for Amazon Braket jobs that match the specified filter values.
+        Searches for Amazon Braket hybrid jobs that match the specified filter values.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/client/search_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/client/#search_jobs)
