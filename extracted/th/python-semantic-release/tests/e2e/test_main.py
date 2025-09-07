@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from shutil import rmtree
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -18,8 +19,6 @@ from tests.fixtures.repos import repo_w_no_tags_conventional_commits
 from tests.util import assert_exit_code, assert_successful_exit_code
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from tests.conftest import RunCliFn
     from tests.e2e.conftest import StripLoggingMessagesFn
     from tests.fixtures.example_project import ExProjectDir, UpdatePyprojectTomlFn
@@ -220,10 +219,11 @@ def test_errors_when_config_file_invalid_configuration(
     run_cli: RunCliFn,
     update_pyproject_toml: UpdatePyprojectTomlFn,
     strip_logging_messages: StripLoggingMessagesFn,
+    pyproject_toml_file: Path,
 ):
     # Setup
     update_pyproject_toml("tool.semantic_release.remote.type", "invalidType")
-    cli_cmd = [MAIN_PROG_NAME, "--config", "pyproject.toml", VERSION_SUBCMD]
+    cli_cmd = [MAIN_PROG_NAME, "--config", str(pyproject_toml_file), VERSION_SUBCMD]
 
     # Act
     result = run_cli(cli_cmd[1:])
@@ -245,7 +245,10 @@ def test_uses_default_config_when_no_config_file_found(
     # We have to initialise an empty git repository, as the example projects
     # all have pyproject.toml configs which would be used by default
     with git.Repo.init(example_project_dir) as repo:
+        rmtree(str(Path(repo.git_dir, "hooks")))
+
         repo.git.branch("-M", "main")
+
         with repo.config_writer("repository") as config:
             config.set_value("user", "name", "semantic release testing")
             config.set_value("user", "email", "not_a_real@email.com")

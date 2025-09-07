@@ -123,6 +123,20 @@ class Color:
         :rtype: typing_extensions.Self
         """
 
+    def from_acescg_to_scene_linear(self) -> typing_extensions.Self:
+        """Convert from ACEScg linear to scene linear color space.
+
+        :return: A color in scene linear color space.
+        :rtype: typing_extensions.Self
+        """
+
+    def from_rec2020_linear_to_scene_linear(self) -> typing_extensions.Self:
+        """Convert from Rec.2020 linear color space to scene linear color space.
+
+        :return: A color in scene linear color space.
+        :rtype: typing_extensions.Self
+        """
+
     def from_rec709_linear_to_scene_linear(self) -> typing_extensions.Self:
         """Convert from Rec.709 linear color space to scene linear color space.
 
@@ -134,6 +148,20 @@ class Color:
         """Convert from scene linear to ACES2065-1 linear color space.
 
         :return: A color in ACES2065-1 linear color space.
+        :rtype: typing_extensions.Self
+        """
+
+    def from_scene_linear_to_acescg(self) -> typing_extensions.Self:
+        """Convert from scene linear to ACEScg linear color space.
+
+        :return: A color in ACEScg linear color space.
+        :rtype: typing_extensions.Self
+        """
+
+    def from_scene_linear_to_rec2020_linear(self) -> typing_extensions.Self:
+        """Convert from scene linear to Rec.2020 linear color space.
+
+        :return: A color in Rec.2020 linear color space.
         :rtype: typing_extensions.Self
         """
 

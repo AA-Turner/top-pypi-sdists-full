@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vale
-Version: 3.12.0.1
+Version: 3.12.0.2
 Summary: Install and use Vale (grammar & style check tool) in python environments.
 Author: Dani Perez
 License: MIT

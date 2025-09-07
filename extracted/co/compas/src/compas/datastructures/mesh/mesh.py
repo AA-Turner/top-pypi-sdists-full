@@ -576,8 +576,8 @@ class Mesh(Datastructure):
         """
         from compas.geometry import delaunay_triangulation
 
-        vertices, faces = delaunay_triangulation(points)
-        return cls.from_vertices_and_faces(vertices, faces)
+        faces = delaunay_triangulation(points)
+        return cls.from_vertices_and_faces(points, faces)
 
     @classmethod
     def from_polygons(cls, polygons, precision=None):  # type: (...) -> Mesh
@@ -732,7 +732,7 @@ class Mesh(Datastructure):
             The points representing the vertices of the mesh.
 
         """
-        raise NotImplementedError
+        return [self.vertex_coordinates(vertex) for vertex in self.vertices()]
 
     def to_polygons(self):
         """Convert the mesh to a collection of polygons.

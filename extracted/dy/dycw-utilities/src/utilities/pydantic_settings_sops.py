@@ -1,25 +1,31 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, override
+from typing import TYPE_CHECKING, Any, ClassVar, override
 
+from pydantic_settings.sources import DEFAULT_PATH
 from pydantic_settings_sops import SOPSConfigSettingsSource
 
-from utilities.iterables import always_iterable
-from utilities.pydantic_settings import CustomBaseSettings
+from utilities.pydantic_settings import (
+    CustomBaseSettings,
+    PathLikeOrWithSection,
+    _ensure_section,
+    _get_section,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+    from pydantic_settings.sources import PathType
 
-    from utilities.types import MaybeIterable, PathLike
+    from utilities.types import MaybeSequenceStr
 
 
 class SopsBaseSettings(CustomBaseSettings):
     """Base settings for loading secrets using `sops/age`."""
 
     # paths
-    secret_files: ClassVar[MaybeIterable[PathLike]] = ()
+    secret_files: ClassVar[Sequence[PathLikeOrWithSection]] = []
 
     @classmethod
     @override
@@ -30,11 +36,28 @@ class SopsBaseSettings(CustomBaseSettings):
         /,
     ) -> Iterator[PydanticBaseSettingsSource]:
         yield from super()._yield_base_settings_sources(settings_cls, env_settings)
-        for file in always_iterable(cls.secret_files):
-            yield SOPSConfigSettingsSource(
-                settings_cls,  # pyright: ignore[reportArgumentType],
-                json_file=file,
+        for file, section in map(_ensure_section, cls.secret_files):
+            yield SOPSConfigSectionSettingsSource(
+                settings_cls, json_file=file, section=section
             )
 
 
-__all__ = ["SopsBaseSettings"]
+class SOPSConfigSectionSettingsSource(SOPSConfigSettingsSource):
+    @override
+    def __init__(
+        self,
+        settings_cls: type[BaseSettings],
+        json_file: PathType | None = DEFAULT_PATH,
+        yaml_file: PathType | None = DEFAULT_PATH,
+        *,
+        section: MaybeSequenceStr,
+    ) -> None:
+        super().__init__(settings_cls, json_file=json_file, yaml_file=yaml_file)  # pyright: ignore[reportArgumentType]
+        self.section = section
+
+    @override
+    def __call__(self) -> dict[str, Any]:
+        return _get_section(super().__call__(), self.section)
+
+
+__all__ = ["SOPSConfigSectionSettingsSource", "SopsBaseSettings"]

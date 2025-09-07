@@ -2433,6 +2433,23 @@ gi_marshalling_tests_array_zero_terminated_return_struct (void)
 }
 
 /**
+ * gi_marshalling_tests_array_zero_terminated_return_sequential_struct:
+ *
+ * Returns: (array zero-terminated) (transfer full):
+ */
+GIMarshallingTestsBoxedStruct *
+gi_marshalling_tests_array_zero_terminated_return_sequential_struct (void)
+{
+  GIMarshallingTestsBoxedStruct *ret = (GIMarshallingTestsBoxedStruct *) g_new0 (GIMarshallingTestsBoxedStruct, 4);
+
+  ret[0].long_ = 42;
+  ret[1].long_ = 43;
+  ret[2].long_ = 44;
+
+  return ret;
+}
+
+/**
  * gi_marshalling_tests_array_zero_terminated_return_unichar:
  *
  * Returns: (array zero-terminated) (transfer full):
@@ -2768,7 +2785,7 @@ gi_marshalling_tests_length_array_utf8_none_inout (const gchar *const **array_in
 
 /**
  * gi_marshalling_tests_length_array_utf8_container_inout:
- * @array_inout: (array length=inout_length) (inout) (transfer none):
+ * @array_inout: (array length=inout_length) (inout) (transfer container):
  * @inout_length: (inout):
  */
 void
@@ -2811,6 +2828,32 @@ gi_marshalling_tests_length_array_utf8_full_inout (gchar ***array_inout, size_t 
 
   *array_inout = array_out;
   *inout_length = 4;
+}
+
+/**
+ * gi_marshalling_tests_length_array_utf8_optional_inout:
+ * @inout_length: (inout) (optional): @array_inout's length
+ * @array_inout: (inout) (array length=inout_length) (optional): array ["🅰", "β", "c", "d"]
+ *
+ * See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/9524
+ */
+void
+gi_marshalling_tests_length_array_utf8_optional_inout (int *inout_length, char **array_inout[])
+{
+  if (*inout_length > 0)
+    gi_marshalling_tests_length_array_utf8_full_inout (array_inout, (size_t *) inout_length);
+  else {
+    gchar **array_out = g_new0 (gchar *, 2);
+
+    g_assert_nonnull (inout_length);
+    g_assert_nonnull (array_inout);
+
+    array_out[0] = g_strdup ("a");
+    array_out[1] = g_strdup ("b");
+
+    *array_inout = array_out;
+    *inout_length = 2;
+  }
 }
 
 /**
@@ -4266,7 +4309,7 @@ gi_marshalling_tests_length_array_of_gstrv_transfer_none_inout (GStrv **array_in
 
 /**
  * gi_marshalling_tests_length_array_of_gstrv_transfer_container_inout:
- * @array_inout: (array length=inout_length) (inout) (element-type GStrv) (transfer none):
+ * @array_inout: (array length=inout_length) (inout) (element-type GStrv) (transfer container):
  * @inout_length: (inout):
  */
 void
@@ -6041,6 +6084,18 @@ gi_marshalling_tests_gvalue_flat_array_round_trip (const GValue one, const GValu
   array[2] = three;
 
   return array;
+}
+
+/**
+ * gi_marshalling_tests_gvalue_float:
+ * @float_value: A G_TYPE_FLOAT GValue
+ * @double_value: A G_TYPE_DOUBLE GValue
+ */
+void
+gi_marshalling_tests_gvalue_float (const GValue *float_value, const GValue *double_value)
+{
+  g_assert_cmpfloat_with_epsilon (g_value_get_float (float_value), 3.14, 0.001);
+  g_assert_cmpfloat_with_epsilon (g_value_get_double (double_value), 3.14, 0.001);
 }
 
 /**

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiolifx-themes"
-version = "1.0.0"
+version = "1.0.1"
 description = "Async library that applies color themes to LIFX lights"
 authors = ["Avi Miller <me@dje.li>"]
 license = "MIT"
@@ -49,7 +49,7 @@ docs = [
 pytest = "^8.3"
 pytest-cov = "^6.0.0"
 pre-commit = "^4.0.0"
-pytest-asyncio = "^0.26.0"
+pytest-asyncio = "^1.0.0"
 async-timeout = "^5.0.0"
 black = "^25.0.0"
 rich = "^14.0.0"
@@ -59,7 +59,7 @@ windows-curses = [{ platform = "windows", version = "^2.3.3" }]
 branch = "main"
 version_toml = ["pyproject.toml:tool.poetry.version"]
 version_variables = ["src/aiolifx_themes/__init__.py:__version__"]
-build_command = "poetry build"
+build_command = "pip install poetry && poetry build"
 
 [tool.pytest.ini_options]
 addopts = "-v -Wdefault --cov=aiolifx_themes --cov-report=term-missing:skip-covered"

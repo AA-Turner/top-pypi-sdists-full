@@ -14,7 +14,6 @@ import semantic_release.hvcs.github
 from semantic_release.changelog.context import ChangelogMode
 from semantic_release.cli.config import ChangelogOutputFormat
 from semantic_release.hvcs.github import Github
-from semantic_release.version.version import Version
 
 from tests.const import (
     CHANGELOG_SUBCMD,
@@ -76,6 +75,12 @@ if TYPE_CHECKING:
     from typing import TypedDict
 
     from requests_mock import Mocker
+
+    from semantic_release.commit_parser.conventional import (
+        ConventionalCommitParser,
+    )
+    from semantic_release.commit_parser.emoji import EmojiCommitParser
+    from semantic_release.commit_parser.scipy import ScipyCommitParser
 
     from tests.conftest import RunCliFn
     from tests.e2e.conftest import RetrieveRuntimeContextFn
@@ -867,9 +872,12 @@ def test_changelog_update_mode_unreleased_n_released(
     commit_n_rtn_changelog_entry: CommitNReturnChangelogEntryFn,
     changelog_file: Path,
     insertion_flag: str,
-    get_commit_def_of_conventional_commit: GetCommitDefFn,
-    get_commit_def_of_emoji_commit: GetCommitDefFn,
-    get_commit_def_of_scipy_commit: GetCommitDefFn,
+    get_commit_def_of_conventional_commit: GetCommitDefFn[ConventionalCommitParser],
+    get_commit_def_of_emoji_commit: GetCommitDefFn[EmojiCommitParser],
+    get_commit_def_of_scipy_commit: GetCommitDefFn[ScipyCommitParser],
+    default_conventional_parser: ConventionalCommitParser,
+    default_emoji_parser: EmojiCommitParser,
+    default_scipy_parser: ScipyCommitParser,
 ):
     """
     Given there are unreleased changes and a previous release in the changelog,
@@ -890,18 +898,23 @@ def test_changelog_update_mode_unreleased_n_released(
     commit_n_section: Commit2Section = {
         "conventional": {
             "commit": get_commit_def_of_conventional_commit(
-                "perf: improve the performance of the application"
+                "perf: improve the performance of the application",
+                parser=default_conventional_parser,
             ),
             "section": "Performance Improvements",
         },
         "emoji": {
             "commit": get_commit_def_of_emoji_commit(
-                ":zap: improve the performance of the application"
+                ":zap: improve the performance of the application",
+                parser=default_emoji_parser,
             ),
             "section": ":zap:",
         },
         "scipy": {
-            "commit": get_commit_def_of_scipy_commit("MAINT: fix an issue"),
+            "commit": get_commit_def_of_scipy_commit(
+                "MAINT: fix an issue",
+                parser=default_scipy_parser,
+            ),
             "section": "Fix",
         },
     }
@@ -1095,9 +1108,7 @@ def test_custom_release_notes_template(
 ) -> None:
     """Verify the template `.release_notes.md.j2` from `template_dir` is used."""
     expected_call_count = 1
-    version = Version.parse(
-        get_versions_from_repo_build_def(repo_result["definition"])[-1]
-    )
+    version = get_versions_from_repo_build_def(repo_result["definition"])[-1]
 
     # Setup
     use_release_notes_template()

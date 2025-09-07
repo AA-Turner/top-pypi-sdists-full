@@ -24,12 +24,15 @@ class OperationExecutorWorker(BaseWorker):
             *,
             sqlalchemy_db: SQLAlchemyDb,
             filter_operation_types: str | list[str] | None = None,
-            startup_funcs: list[Any] | None = None
+            filter_operation_markers: str | list[str] | None = None,
+            startup_funcs: list[Any] | None = None,
+            data: dict[str, Any] | None = None,
     ):
         super().__init__(
             timeout_after_run=timedelta(seconds=0.01),
             timeout_after_error_in_run=timedelta(seconds=0.1),
             startup_funcs=startup_funcs,
+            data=data
         )
 
         raise_for_type(sqlalchemy_db, SQLAlchemyDb)
@@ -38,6 +41,10 @@ class OperationExecutorWorker(BaseWorker):
         if isinstance(filter_operation_types, str):
             filter_operation_types = [filter_operation_types]
         self.filter_operation_types = filter_operation_types
+
+        if isinstance(filter_operation_markers, str):
+            filter_operation_markers = [filter_operation_markers]
+        self.filter_operation_markers = filter_operation_markers
 
     def sync_execute_operation(self, operation_dbm: OperationDBM):
         if operation_dbm.type == OperationDBM.Types.healthcheck_:
@@ -88,6 +95,8 @@ class OperationExecutorWorker(BaseWorker):
             )
             if self.filter_operation_types is not None:
                 query = query.filter(OperationDBM.type.in_(self.filter_operation_types))
+            if self.filter_operation_markers is not None:
+                query = query.filter(OperationDBM.marker.in_(self.filter_operation_markers))
             query = query.with_for_update()
             query = query.order_by(asc(OperationDBM.creation_dt))
             operation_dbm: OperationDBM | None = query.first()
@@ -181,6 +190,8 @@ class OperationExecutorWorker(BaseWorker):
             )
             if self.filter_operation_types is not None:
                 query = query.filter(OperationDBM.type.in_(self.filter_operation_types))
+            if self.filter_operation_markers is not None:
+                query = query.filter(OperationDBM.marker.in_(self.filter_operation_markers))
             query = query.order_by(asc(OperationDBM.creation_dt)).with_for_update()
 
             result = await async_session.execute(query)
@@ -271,9 +282,13 @@ class OperationExecutorWorker(BaseWorker):
 
 def create_operation_executor_worker(
         *,
-        filter_operation_types: str | list[str] | None = None
+        filter_operation_types: str | list[str] | None = None,
+        filter_operation_markers: str | list[str] | None = None,
+        startup_funcs: list[Any] | None = None
 ) -> OperationExecutorWorker:
     return OperationExecutorWorker(
         sqlalchemy_db=get_cached_sqlalchemy_db(),
-        filter_operation_types=filter_operation_types
+        filter_operation_types=filter_operation_types,
+        filter_operation_markers=filter_operation_markers,
+        startup_funcs=startup_funcs
     )

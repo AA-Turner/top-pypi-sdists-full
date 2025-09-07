@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyg-nightly
-Version: 2.7.0.dev20250905
+Version: 2.7.0.dev20250906
 Summary: Graph Neural Network Library for PyTorch
 Keywords: deep-learning,pytorch,geometric-deep-learning,graph-neural-networks,graph-convolutional-networks
 Author-email: Matthias Fey <matthias@pyg.org>
@@ -67,6 +67,7 @@ Requires-Dist: transformers ; extra == "rag"
 Requires-Dist: pandas ; extra == "rag"
 Requires-Dist: sentencepiece ; extra == "rag"
 Requires-Dist: accelerate ; extra == "rag"
+Requires-Dist: torchmetrics ; extra == "rag"
 Requires-Dist: onnx ; extra == "test"
 Requires-Dist: onnxruntime ; extra == "test"
 Requires-Dist: onnxscript ; extra == "test"

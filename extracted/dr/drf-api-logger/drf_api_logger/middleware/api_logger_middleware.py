@@ -8,6 +8,7 @@ import re
 from django.conf import settings
 from django.urls import resolve
 from django.utils import timezone
+from datetime import datetime
 
 from drf_api_logger import API_LOGGER_SIGNAL
 from drf_api_logger.apps import LOGGER_THREAD
@@ -80,11 +81,18 @@ class APILoggerMiddleware:
                 self.DRF_API_LOGGER_MAX_RESPONSE_BODY_SIZE = settings.DRF_API_LOGGER_MAX_RESPONSE_BODY_SIZE
 
     def is_static_or_media_request(self, path):
-        static_url = getattr(settings, 'STATIC_URL', '/static/')
-        media_url = getattr(settings, 'MEDIA_URL', '/media/')
-        if static_url == '/' or media_url == '/':
-            return False
-        return path.startswith(static_url) or path.startswith(media_url)
+        static_url = getattr(settings, 'STATIC_URL', None)
+        media_url = getattr(settings, 'MEDIA_URL', None)
+        
+        # Check static URL
+        if static_url and static_url != '/' and path.startswith(static_url):
+            return True
+        
+        # Check media URL
+        if media_url and media_url != '/' and path.startswith(media_url):
+            return True
+        
+        return False
 
     def __call__(self, request):
         # Skip logging for static and media files
@@ -196,6 +204,14 @@ class APILoggerMiddleware:
                 else:
                     api = request.build_absolute_uri()
 
+                # Get the current time in a timezone-aware manner
+                if settings.USE_TZ:
+                    # When USE_TZ is True, use timezone-aware datetime
+                    current_time = timezone.now()
+                else:
+                    # When USE_TZ is False, use naive datetime
+                    current_time = datetime.now()
+                
                 data = dict(
                     api=mask_sensitive_data(api, mask_api_parameters=True),
                     headers=mask_sensitive_data(headers),
@@ -205,7 +221,7 @@ class APILoggerMiddleware:
                     response=mask_sensitive_data(response_body),
                     status_code=response.status_code,
                     execution_time=time.time() - start_time,
-                    added_on=timezone.now()
+                    added_on=current_time
                 )
                 if self.DRF_API_LOGGER_DATABASE and LOGGER_THREAD:
                     d = data.copy()

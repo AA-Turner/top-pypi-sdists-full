@@ -926,6 +926,9 @@ GI_TEST_EXTERN
 GIMarshallingTestsBoxedStruct **gi_marshalling_tests_array_zero_terminated_return_struct (void);
 
 GI_TEST_EXTERN
+GIMarshallingTestsBoxedStruct *gi_marshalling_tests_array_zero_terminated_return_sequential_struct (void);
+
+GI_TEST_EXTERN
 gunichar *gi_marshalling_tests_array_zero_terminated_return_unichar (void);
 
 GI_TEST_EXTERN
@@ -994,6 +997,9 @@ void gi_marshalling_tests_length_array_utf8_container_inout (const gchar ***arra
 
 GI_TEST_EXTERN
 void gi_marshalling_tests_length_array_utf8_full_inout (gchar ***array_inout, size_t *inout_length);
+
+GI_TEST_EXTERN
+void gi_marshalling_tests_length_array_utf8_optional_inout (int *inout_length, char **array_inout[]);
 
 GI_TEST_EXTERN
 const gchar *const *gi_marshalling_tests_zero_terminated_array_utf8_none_return (void);
@@ -1578,6 +1584,9 @@ GI_TEST_EXTERN
 GValue *gi_marshalling_tests_gvalue_flat_array_round_trip (const GValue one,
                                                            const GValue two,
                                                            const GValue three);
+
+GI_TEST_EXTERN
+void gi_marshalling_tests_gvalue_float (const GValue *float_value, const GValue *double_value);
 
 /* GClosure */
 

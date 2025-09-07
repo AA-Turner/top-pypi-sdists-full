@@ -286,7 +286,7 @@ except Exception as e:
     OrderedAndRecieved.metadata.create_all(ENGINE) 
  
 class OrderAndRxdUi():
-    def between_dates(self,paged=False,limit=False,short_display=False):
+    def between_dates(self,query):
         '''list everything between start and end
         paged=True -> page results and use menu to edit/delete/stop paging
         paged=False -> print all at once
@@ -294,9 +294,27 @@ class OrderAndRxdUi():
         limit=False -> everything is printed
         short_display=True -> display less information
         '''
-        with Session(ENGINE) as session:
-            start=None
-            end=None
+        start=Control(func=FormBuilderMkText,ptext="Start DateTime: ",helpText="starting datetime",data="datetime")
+        if start is None:
+            return
+        elif not isinstance(start,datetime):
+            return
+
+        end=Control(func=FormBuilderMkText,ptext="End DateTime: ",helpText="ending datetime",data="datetime")
+        if end is None:
+            return
+        elif not isinstance(end,datetime):
+            return
+        print(f""""
+{Fore.orange_red_1}Results are for dates between
+{Fore.light_green}Start: {start}
+{Fore.light_red}End: {end}
+{'-'*(os.get_terminal_size().columns-len(Style.reset))}{Style.reset}
+            """)
+        return orderQuery(query.filter(and_(
+            OrderedAndRecieved.dtoe >= start,
+            OrderedAndRecieved.dtoe <= end))
+        ,OrderedAndRecieved.dtoe,inverse=True)
 
     def fixtable(self):
         OrderedAndRecieved.__table__.drop(ENGINE)
@@ -323,7 +341,7 @@ class OrderAndRxdUi():
         #uncomment these to troubleshoot
         #print('x3',and_(*filte))
         #print('x4')
-        return and_(*filte)
+
 
     def OrderedAndRecieved_as(self,_exlcudes=[],as_=None,item=None):
         excludes=['oarid',]
@@ -417,33 +435,43 @@ class OrderAndRxdUi():
                             continue
                 
 
-        if terms is not None:
-            with Session(ENGINE) as session:
-                query=session.query(OrderedAndRecieved).filter(terms)
-                query=orderQuery(query,OrderedAndRecieved.dtoe)
-                results=query.all()
-                ct=len(results)
-                plural=''
-                if ct > 1:
-                    plural="s"
-                print(f"{ct} result{plural}!")
-                zebra=0
-                    
+        
+        with Session(ENGINE) as session:
+            query=session.query(OrderedAndRecieved)
+            if terms is not None:
+                query=query.filter(terms)
+            query=orderQuery(query,OrderedAndRecieved.dtoe)
+            between_dates=Control(func=FormBuilderMkText,ptext="Between dates? y/n",helpText="values between two dates",data="boolean")
+            if between_dates is None:
+                return None
+            if between_dates in ['d',False]:
+                pass
+            else:
+                query=self.between_dates(query)
 
-                if selector:
-                    #for returning a list of OrderedAndRecieved
-                    selectortext(resuls)
-                    zebra+=1
-                    pass
-                if menu:
-                    #for paged edit/delete of OrderedAndRecieved and returns None
-                    selectortext(results,page=True)
-                    zebra+=1
-                    pass
+            results=query.all()
+            ct=len(results)
+            plural=''
+            if ct > 1:
+                plural="s"
+            print(f"{ct} result{plural}!")
+            zebra=0
+                
 
-                if not(zebra > 0):
-                    for num,i in enumerate(results):
-                            print(std_colorize(i,num,ct))
+            if selector:
+                #for returning a list of OrderedAndRecieved
+                selectortext(resuls)
+                zebra+=1
+                pass
+            if menu:
+                #for paged edit/delete of OrderedAndRecieved and returns None
+                selectortext(results,page=True)
+                zebra+=1
+                pass
+
+            if not(zebra > 0):
+                for num,i in enumerate(results):
+                        print(std_colorize(i,num,ct))
 
 
     def __init__(self,*args,**kwargs):
@@ -504,7 +532,7 @@ class OrderAndRxdUi():
                 elif i in self.registry:
                     self.cmds[cmd]['cmds'].pop(self.cmds[cmd]['cmds'].index(i))
             htext.append(std_colorize(f"{self.cmds[cmd]['cmds']} - {self.cmds[cmd]['desc']}",xnum,ct))
-        htext=''.join(htext)
+        htext='\n'.join(htext)
         print(htext)
         while True:
             doWhat=Control(func=FormBuilderMkText,ptext=f"{self.__class__.__name__}:Do What what",helpText=htext,data="string")
@@ -538,6 +566,6 @@ class OrderAndRxdUi():
                 for k in fd:
                     setattr(t,k,fd[k])
                 session.commit()
-            session.refresh(t)
-        
-            print(t)
+                session.refresh(t)
+            
+                print(t)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Mesa
-Version: 3.2.0
+Version: 3.3.0
 Summary: Agent-based modeling (ABM) in Python
 Project-URL: homepage, https://github.com/projectmesa/mesa
 Project-URL: repository, https://github.com/projectmesa/mesa
@@ -24,19 +24,24 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Life
 Requires-Python: >=3.11
 Requires-Dist: numpy
 Requires-Dist: pandas
+Requires-Dist: pythran>=0.17.0; sys_platform == 'darwin'
 Requires-Dist: scipy
 Requires-Dist: tqdm
 Provides-Extra: all
 Requires-Dist: altair; extra == 'all'
 Requires-Dist: ipython; extra == 'all'
+Requires-Dist: ipython>=9.2.0; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
 Requires-Dist: myst-nb; extra == 'all'
 Requires-Dist: myst-parser; extra == 'all'
 Requires-Dist: networkx; extra == 'all'
+Requires-Dist: playwright; extra == 'all'
 Requires-Dist: pydata-sphinx-theme; extra == 'all'
 Requires-Dist: pytest; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
+Requires-Dist: pytest-ipywidgets; extra == 'all'
 Requires-Dist: pytest-mock; extra == 'all'
+Requires-Dist: pytest-playwright; extra == 'all'
 Requires-Dist: ruff; extra == 'all'
 Requires-Dist: scipy; extra == 'all'
 Requires-Dist: seaborn; extra == 'all'
@@ -45,11 +50,15 @@ Requires-Dist: sphinx; extra == 'all'
 Requires-Dist: sphinx-copybutton; extra == 'all'
 Provides-Extra: dev
 Requires-Dist: altair; extra == 'dev'
+Requires-Dist: ipython>=9.2.0; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: networkx; extra == 'dev'
+Requires-Dist: playwright; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-ipywidgets; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
+Requires-Dist: pytest-playwright; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: solara; extra == 'dev'
 Requires-Dist: sphinx; extra == 'dev'
@@ -125,13 +134,13 @@ pip install -U mesa
 Starting with Mesa 3.0, we don't install all our dependencies anymore by default.
 ```bash
 # You can customize the additional dependencies you need, if you want. Available are:
-pip install -U mesa[network,viz]
+pip install -U "mesa[network,viz]"
 
 # This is equivalent to our recommended dependencies:
-pip install -U mesa[rec]
+pip install -U "mesa[rec]"
 
 # To install all, including developer, dependencies:
-pip install -U mesa[all]
+pip install -U "mesa[all]"
 ```
 
 You can also use `pip` to install the latest GitHub version:

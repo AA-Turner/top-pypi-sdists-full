@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aioharmony
-Version: 0.5.2
+Version: 0.5.3
 Summary: asyncio Python library for connecting to and controlling the Logitech Harmony
 Author-email: Erik Hendrix <endrix_erik@hotmail.com>, "J. Nick Koston" <nick@koston.org>
 License: Apache-2.0
@@ -28,6 +28,7 @@ License-File: AUTHORS
 Requires-Dist: aiohttp>=3.11
 Requires-Dist: async-timeout>=4
 Requires-Dist: slixmpp>=1.8
+Dynamic: license-file
 
 aioharmony
 ==========

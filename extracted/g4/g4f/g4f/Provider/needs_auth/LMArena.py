@@ -485,8 +485,10 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                             cls.models = list(cls.text_models) + list(cls.image_models)
                             cls.default_model = list(cls.text_models.keys())[0]
                             cls._models_loaded = True
+                            cls.live += 1
                             break
                 else:
+                    cls.live -= 1
                     debug.log(f"Failed to load models from {cls.url}: {response.status_code} {response.reason}")
         return cls.models
 
@@ -651,6 +653,8 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                 args = None
                 debug.log(f"{cls.__name__}: Cloudflare error")
                 continue
+            except:
+                raise
         if args and os.getenv("G4F_SHARE_AUTH"):
             yield "\n" * 10
             yield "<!--"

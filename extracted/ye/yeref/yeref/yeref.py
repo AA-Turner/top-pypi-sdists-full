@@ -11645,7 +11645,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
     except Exception as e:
         if PROJECT_USERNAME == 'FereyBotBot' and any(x in str(e).lower() for x in ['forbidden', 'chat not found', 'blocked by the user']) and is_private:
             sql = f"DELETE FROM BOT_{ENT_TID}.USER WHERE USER_TID=$1"
-            # await db_change_pg(sql, (chat_id,), BASE_P)
+            await db_change_pg(sql, (chat_id,), BASE_P)
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result

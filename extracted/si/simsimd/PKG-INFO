@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simsimd
-Version: 6.5.2
+Version: 6.5.3
 Summary: Portable mixed-precision BLAS-like vector math library for x86 and ARM
 Home-page: https://github.com/ashvardanian/simsimd
 Author: Ash Vardanian

@@ -4223,6 +4223,24 @@ def set_stereo_3d(
     :type use_sidebyside_crosseyed: bool | None
     """
 
+def set_working_color_space(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    convert_colors: bool | None = True,
+    working_space: str | None = "",
+) -> None:
+    """Change the working color space of all colors in this blend file
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param convert_colors: Convert Colors in All Data-blocks, Change colors in all data-blocks to the new working space
+    :type convert_colors: bool | None
+    :param working_space: Working Space, Color space to set
+    :type working_space: str | None
+    """
+
 def splash(
     execution_context: int | str | None = None,
     undo: bool | None = None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2.15.4
+Version: 2.15.5
 Summary: A tool for mining sentences from games. Update: Overlay?
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -47,11 +47,12 @@ Requires-Dist: betterproto==2.0.0b7
 Requires-Dist: obsws-python~=1.7.2
 Requires-Dist: numpy==2.2.6
 Requires-Dist: regex
+Requires-Dist: faster-whisper~=1.2.0
 Dynamic: license-file
 
 # GSM - An Immersion toolkit for Games.
 
-### English | [日本語](../docs/ja/README.md) | [简体中文](../docs/zh/README.md).
+### English | [日本語](docs/ja/README.md) | [简体中文](docs/zh/README.md).
 
 An application designed to assist with language learning through games.
 

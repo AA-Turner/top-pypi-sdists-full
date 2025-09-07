@@ -2,7 +2,9 @@
 # SPDX-FileCopyrightText: 2024 Philip Chimento <philip.chimento@gmail.com>
 
 include:
-  - remote: 'https://gitlab.gnome.org/Infrastructure/freedesktop-ci-templates/-/raw/6a40df92957c8ce9ee741aaccc5daaaf70545b1e/templates/alpine.yml'
+  - project: Infrastructure/freedesktop-ci-templates
+    file: templates/alpine.yml
+    ref: 6a40df92957c8ce9ee741aaccc5daaaf70545b1e
 
 stages:
   - image-build

@@ -1,19 +1,34 @@
+import os
 import argparse
 
 
 cdb_usage = '''
-============ cdb example commands ============
+===== cdb example commands =====
 
-BioSAK cdb -i Cdb.csv -o Cdb_reformatted.txt
+BioSAK cdb -i Cdb.csv
 
-==============================================
+================================
 '''
+
+
+def sep_path_basename_ext(file_in):
+
+    f_path, f_name = os.path.split(file_in)
+    if f_path == '':
+        f_path = '.'
+    f_base, f_ext = os.path.splitext(f_name)
+    f_ext = f_ext[1:]
+
+    return f_name, f_path, f_base, f_ext
 
 
 def cdb(args):
 
-    Cdb_file            = args['i']
-    bin_cluster_file    = args['o']
+    Cdb_file = args['i']
+    cdb_name, cdb_path, cdb_base, cdb_ext = sep_path_basename_ext(Cdb_file)
+
+    op_file_1 = '%s/%s_reformatted_1.%s' % (cdb_path, cdb_base, cdb_ext)
+    op_file_2 = '%s/%s_reformatted_2.%s' % (cdb_path, cdb_base, cdb_ext)
 
     cluster_to_bin_dict = {}
     obtained_clusters = set()
@@ -35,16 +50,24 @@ def cdb(args):
 
     obtained_clusters_list = sorted([i for i in obtained_clusters])
 
-    bin_cluster_file_handle = open(bin_cluster_file, 'w')
+    # write out 1
+    op_file_1_handle = open(op_file_1, 'w')
     for j in obtained_clusters_list:
-        bin_cluster_file_handle.write('cluster_%s\t%s\n' % (j, '\t'.join(cluster_to_bin_dict[j])))
-    bin_cluster_file_handle.close()
+        op_file_1_handle.write('cluster_%s\t%s\n' % (j, '\t'.join(cluster_to_bin_dict[j])))
+    op_file_1_handle.close()
+
+    # write out 2
+    op_file_2_handle = open(op_file_2, 'w')
+    for j in obtained_clusters_list:
+        cluster_gnm_set = cluster_to_bin_dict[j]
+        for each_g in cluster_gnm_set:
+            op_file_2_handle.write('%s\t%s\n' % (each_g, j))
+    op_file_2_handle.close()
 
 
 if __name__ == '__main__':
     cdb_parser = argparse.ArgumentParser(usage=cdb_usage)
     cdb_parser.add_argument('-i',  required=True, help='input file, Cdb.csv')
-    cdb_parser.add_argument('-o',  required=True, help='output table')
     args = vars(cdb_parser.parse_args())
     cdb(args)
 

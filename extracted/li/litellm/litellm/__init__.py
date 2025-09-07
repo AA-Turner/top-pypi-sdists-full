@@ -146,8 +146,11 @@ _custom_logger_compatible_callbacks_literal = Literal[
     "aws_sqs",
     "vector_store_pre_call_hook",
     "dotprompt",
+    "cloudzero",
 ]
-configured_cold_storage_logger: Optional[_custom_logger_compatible_callbacks_literal] = None
+configured_cold_storage_logger: Optional[
+    _custom_logger_compatible_callbacks_literal
+] = None
 logged_real_time_event_types: Optional[Union[List[str], Literal["*"]]] = None
 _known_custom_logger_compatible_callbacks: List = list(
     get_args(_custom_logger_compatible_callbacks_literal)
@@ -435,7 +438,8 @@ config_path = None
 vertex_ai_safety_settings: Optional[dict] = None
 
 ####### COMPLETION MODELS ###################
-from typing import Set  
+from typing import Set
+
 open_ai_chat_completion_models: Set = set()
 open_ai_text_completion_models: Set = set()
 cohere_models: Set = set()
@@ -450,6 +454,7 @@ vertex_vision_models: Set = set()
 vertex_chat_models: Set = set()
 vertex_code_chat_models: Set = set()
 vertex_ai_image_models: Set = set()
+vertex_ai_video_models: Set = set()
 vertex_text_models: Set = set()
 vertex_code_text_models: Set = set()
 vertex_embedding_models: Set = set()
@@ -512,6 +517,7 @@ recraft_models: Set = set()
 cometapi_models: Set = set()
 oci_models: Set = set()
 vercel_ai_gateway_models: Set = set()
+volcengine_models: Set = set()
 
 
 def is_bedrock_pricing_only_model(key: str) -> bool:
@@ -605,6 +611,9 @@ def add_known_models():
         elif value.get("litellm_provider") == "vertex_ai-image-models":
             key = key.replace("vertex_ai/", "")
             vertex_ai_image_models.add(key)
+        elif value.get("litellm_provider") == "vertex_ai-video-models":
+            key = key.replace("vertex_ai/", "")
+            vertex_ai_video_models.add(key)
         elif value.get("litellm_provider") == "vertex_ai-openai_models":
             key = key.replace("vertex_ai/", "")
             vertex_openai_models.add(key)
@@ -719,6 +728,8 @@ def add_known_models():
             cometapi_models.add(key)
         elif value.get("litellm_provider") == "oci":
             oci_models.add(key)
+        elif value.get("litellm_provider") == "volcengine":
+            volcengine_models.add(key)
 
 
 add_known_models()
@@ -811,6 +822,7 @@ model_list = list(
     | cometapi_models
     | oci_models
     | vercel_ai_gateway_models
+    | volcengine_models
 )
 
 model_list_set = set(model_list)
@@ -831,7 +843,12 @@ models_by_provider: dict = {
     "openrouter": openrouter_models,
     "vercel_ai_gateway": vercel_ai_gateway_models,
     "datarobot": datarobot_models,
-    "vertex_ai": vertex_chat_models | vertex_text_models | vertex_anthropic_models | vertex_vision_models | vertex_language_models | vertex_deepseek_models,
+    "vertex_ai": vertex_chat_models
+    | vertex_text_models
+    | vertex_anthropic_models
+    | vertex_vision_models
+    | vertex_language_models
+    | vertex_deepseek_models,
     "ai21": ai21_models,
     "bedrock": bedrock_models | bedrock_converse_models,
     "petals": petals_models,
@@ -885,6 +902,7 @@ models_by_provider: dict = {
     "recraft": recraft_models,
     "cometapi": cometapi_models,
     "oci": oci_models,
+    "volcengine": volcengine_models,
 }
 
 # mapping for those models which have larger equivalents
@@ -1128,7 +1146,9 @@ from .llms.topaz.image_variations.transformation import TopazImageVariationConfi
 from litellm.llms.openai.completion.transformation import OpenAITextCompletionConfig
 from .llms.groq.chat.transformation import GroqChatConfig
 from .llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-from .llms.voyage.embedding.transformation_contextual import VoyageContextualEmbeddingConfig
+from .llms.voyage.embedding.transformation_contextual import (
+    VoyageContextualEmbeddingConfig,
+)
 from .llms.infinity.embedding.transformation import InfinityEmbeddingConfig
 from .llms.azure_ai.chat.transformation import AzureAIStudioConfig
 from .llms.mistral.chat.transformation import MistralConfig
@@ -1192,7 +1212,9 @@ from .llms.jina_ai.embedding.transformation import JinaAIEmbeddingConfig
 from .llms.xai.chat.transformation import XAIChatConfig
 from .llms.xai.common_utils import XAIModelInfo
 from .llms.aiml.chat.transformation import AIMLChatConfig
-from .llms.volcengine import VolcEngineConfig
+from .llms.volcengine.chat.transformation import (
+    VolcEngineChatConfig as VolcEngineConfig,
+)
 from .llms.codestral.completion.transformation import CodestralTextCompletionConfig
 from .llms.azure.azure import (
     AzureOpenAIError,

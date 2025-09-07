@@ -9,6 +9,7 @@ from pytest import fixture
 
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise
+from pydrawise.exceptions import MutationError
 from pydrawise.schema import Controller, Sensor, Zone, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
@@ -45,7 +46,7 @@ async def test_get_user(api: Hydrawise, mock_session, user_json, zone_json):
     user = await api.get_user()
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "controllers {" in query
     assert query.count("zones {") == 2
     assert user.id == 1234
@@ -61,7 +62,7 @@ async def test_get_user_no_zones(api: Hydrawise, mock_session, user_json):
     user = await api.get_user(fetch_zones=False)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "controllers {" in query
     assert query.count("zones {") == 1
     assert user.id == 1234
@@ -77,7 +78,7 @@ async def test_get_controllers(api: Hydrawise, mock_session, controller_json):
     [controller] = await api.get_controllers()
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert query.count("zones {") == 2
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
@@ -90,7 +91,7 @@ async def test_get_controllers_no_zones(api: Hydrawise, mock_session, controller
     [controller] = await api.get_controllers(fetch_zones=False)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert query.count("zones {") == 1
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
@@ -107,7 +108,7 @@ async def test_get_controllers_no_sensors(
     [controller] = await api.get_controllers(fetch_sensors=False)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert query.count("sensors {") == 0
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
@@ -121,7 +122,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
     controller = await api.get_controller(9876)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "controller(" in query
     assert "controllerId: 9876" in query
     assert query.count("zones {") == 2
@@ -138,7 +139,7 @@ async def test_get_zones(api: Hydrawise, mock_session, controller_json, zone_jso
     [zone] = await api.get_zones(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "controller(" in query
     assert "controllerId: 9876" in query
 
@@ -148,7 +149,7 @@ async def test_get_zone(api: Hydrawise, mock_session, zone_json):
     await api.get_zone(1)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "zone(" in query
     assert "zoneId: 1" in query
 
@@ -159,7 +160,42 @@ async def test_start_zone(api: Hydrawise, mock_session, zone_json):
     await api.start_zone(zone, custom_run_duration=10)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
+    assert "startZone(" in query
+    assert "zoneId: 266" in query
+    assert "markRunAsScheduled: false" in query
+    assert "customRunDuration: 10" in query
+
+
+async def test_start_zone_warning(api: Hydrawise, mock_session, zone_json):
+    zone = deserialize(Zone, zone_json)
+    mock_session.execute.return_value = {
+        "startZone": {
+            "status": "WARNING",
+            "summary": f"Starting {zone.name} in 5 seconds",
+        }
+    }
+    await api.start_zone(zone, custom_run_duration=10)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector.document)
+    assert "startZone(" in query
+    assert "zoneId: 266" in query
+    assert "markRunAsScheduled: false" in query
+    assert "customRunDuration: 10" in query
+
+
+async def test_start_zone_error(api: Hydrawise, mock_session, zone_json):
+    mock_session.execute.return_value = {
+        "startZone": {"status": "ERROR", "summary": "LOL ERROR"}
+    }
+    zone = deserialize(Zone, zone_json)
+    with pytest.raises(MutationError, match="LOL ERROR"):
+        await api.start_zone(zone, custom_run_duration=10)
+
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector.document)
     assert "startZone(" in query
     assert "zoneId: 266" in query
     assert "markRunAsScheduled: false" in query
@@ -172,7 +208,7 @@ async def test_stop_zone(api: Hydrawise, mock_session, zone_json):
     await api.stop_zone(zone)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "stopZone(" in query
     assert "zoneId: 266" in query
 
@@ -183,7 +219,7 @@ async def test_start_all_zones(api: Hydrawise, mock_session, controller_json):
     await api.start_all_zones(ctrl, custom_run_duration=10)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "startAllZones(" in query
     assert "controllerId: 9876" in query
     assert "markRunAsScheduled: false" in query
@@ -196,7 +232,7 @@ async def test_stop_all_zones(api: Hydrawise, mock_session, controller_json):
     await api.stop_all_zones(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "stopAllZones(" in query
     assert "controllerId: 9876" in query
 
@@ -207,7 +243,7 @@ async def test_suspend_zone(api: Hydrawise, mock_session, zone_json):
     await api.suspend_zone(zone, until=datetime(2023, 1, 1, 0, 0, 0))
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "suspendZone(" in query
     assert "zoneId: 266" in query
     assert 'until: "Sun, 01 Jan 23 00:12:00 +0000"' in query
@@ -219,7 +255,7 @@ async def test_resume_zone(api: Hydrawise, mock_session, zone_json):
     await api.resume_zone(zone)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "resumeZone(" in query
     assert "zoneId: 266" in query
 
@@ -230,7 +266,7 @@ async def test_suspend_all_zones(api: Hydrawise, mock_session, controller_json):
     await api.suspend_all_zones(ctrl, until=datetime(2023, 1, 1, 0, 0, 0))
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "suspendAllZones(" in query
     assert "controllerId: 9876" in query
     assert 'until: "Sun, 01 Jan 23 00:12:00 +0000"' in query
@@ -242,7 +278,7 @@ async def test_resume_all_zones(api: Hydrawise, mock_session, controller_json):
     await api.resume_all_zones(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "resumeAllZones(" in query
     assert "controllerId: 9876" in query
 
@@ -257,7 +293,7 @@ async def test_delete_zone_suspension(api: Hydrawise, mock_session):
     await api.delete_zone_suspension(suspension)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "deleteZoneSuspension(" in query
     assert "id: 2222" in query
 
@@ -276,7 +312,7 @@ async def test_get_sensors(
     await api.get_sensors(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "sensors {" in query
 
 
@@ -304,7 +340,7 @@ async def test_get_water_flow_summary(
     )
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "flowSummary(" in query
 
 
@@ -320,7 +356,7 @@ async def test_get_watering_report(
     )
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "reports" in query
     assert "watering" in query
     assert len(report) == 1
@@ -347,7 +383,7 @@ async def test_get_water_use_summary(
     )
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "reports" in query
     assert "watering" in query
     assert "flowSummary(" in query
@@ -379,7 +415,7 @@ async def test_get_water_use_summary_without_sensor(
     )
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
-    query = print_ast(selector)
+    query = print_ast(selector.document)
     assert "reports" in query
     assert "watering" in query
     assert 5955343 not in summary.active_use_by_zone_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic
-Version: 2025.8.10
+Version: 2025.9.1
 Summary: Homematic interface for Home Assistant running on Python 3.
 Home-page: https://github.com/sukramj/aiohomematic
 Author-email: SukramJ <sukramj@icloud.com>, Daniel Perna <danielperna84@gmail.com>
@@ -109,6 +109,7 @@ Example:
 
 - Changelog: [see](changelog.md) for release history and latest changes.
 - Definition of calculated data points: [see](docs/calculated_data_points.md)
+- Naming: [see](docs/naming.md) for how device, channel and data point names are created.
 - Homematic(IP) Local integration: https://github.com/sukramj/homematicip_local
 - Input select helper: [see](docs/input_select_helper.md) for an overview of how to use the input select helper.
 - Troubleshooting with Home Assistant: [see](docs/homeassistant_troubleshooting.md) for common issues and how to debug them.

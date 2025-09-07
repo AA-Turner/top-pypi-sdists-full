@@ -125,11 +125,6 @@ class XBRL:
         Returns:
             bool: True if dimensions should be displayed, False otherwise
         """
-        # Skip financial statements where dimensions would mess up the display
-        if statement_type in ['BalanceSheet', 'IncomeStatement', 'CashFlowStatement', 
-                             'StatementOfEquity', 'ComprehensiveIncome']:
-            return False
-            
         # Look for keywords in role definition that suggest dimensional breakdowns
         dimension_keywords = [
             'segment', 'geography', 'geographic', 'region', 'product', 'business',
@@ -137,6 +132,47 @@ class XBRL:
         ]
         
         role_def_lower = role_definition.lower() if role_definition else ""
+        
+        # For core financial statements, check if they contain segment information
+        if statement_type in ['BalanceSheet', 'IncomeStatement', 'CashFlowStatement', 
+                             'StatementOfEquity', 'ComprehensiveIncome']:
+            
+            # Allow dimensional display if the role definition suggests segment/product breakdown
+            if any(keyword in role_def_lower for keyword in dimension_keywords):
+                return True
+                
+            # For income statements specifically, check if there are segment-related dimensional facts
+            if statement_type == 'IncomeStatement':
+                # Check if there are facts with ProductOrServiceAxis dimensions
+                try:
+                    # Look for revenue facts with ProductOrServiceAxis dimensions
+                    revenue_concepts = [
+                        'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+                        'us-gaap:Revenues',
+                        'us-gaap:SalesRevenueNet'
+                    ]
+                    
+                    for fact_key, fact in self.parser.facts.items():
+                        # Check if this is a revenue-related concept
+                        concept_name = fact.element_id if hasattr(fact, 'element_id') else getattr(fact, 'concept', str(fact))
+                        if any(revenue_concept in concept_name for revenue_concept in revenue_concepts):
+                            
+                            # Check if this fact has ProductOrServiceAxis dimension
+                            context = self.parser.contexts.get(fact.context_ref)
+                            if context and hasattr(context, 'dimensions') and context.dimensions:
+                                for dim_name, dim_value in context.dimensions.items():
+                                    if 'ProductOrServiceAxis' in dim_name:
+                                        return True
+                                        
+                    return False
+                except Exception:
+                    # If any error occurs, default to False
+                    return False
+            
+            # For other core statements, skip dimensional display by default
+            return False
+        
+        # For non-core statements, check if they contain dimensional breakdowns
         return any(keyword in role_def_lower for keyword in dimension_keywords)
         
     @property
@@ -344,6 +380,29 @@ class XBRL:
         if not hasattr(self, '_facts_view'):
             self._facts_view = FactsView(self)
         return self._facts_view
+    
+    @property
+    def current_period(self):
+        """
+        Convenient access to current period financial data.
+        
+        Provides simplified access to the most recent period's financial data
+        without comparative information. This addresses common use cases where
+        users only need the current period data.
+        
+        Returns:
+            CurrentPeriodView: Interface for accessing current period data
+            
+        Example:
+            >>> xbrl = filing.xbrl()
+            >>> current = xbrl.current_period
+            >>> balance_sheet = current.balance_sheet()
+            >>> income = current.income_statement(raw_concepts=True)
+        """
+        from edgar.xbrl.current_period import CurrentPeriodView
+        if not hasattr(self, '_current_period_view'):
+            self._current_period_view = CurrentPeriodView(self)
+        return self._current_period_view
 
     def query(self,
               include_dimensions: bool = True,
@@ -462,12 +521,13 @@ class XBRL:
         self._all_statements_cached = statements
         return statements
         
-    def get_statement_by_type(self, statement_type: str) -> Optional[Dict[str, Any]]:
+    def get_statement_by_type(self, statement_type: str, include_dimensions: bool = True) -> Optional[Dict[str, Any]]:
         """
         Get the first statement matching the given type.
         
         Args:
             statement_type: Type of statement ('BalanceSheet', 'IncomeStatement', 'Notes', etc.)
+            include_dimensions: Whether to include dimensional segment data (default: True)
             
         Returns:
             Statement data if found, None otherwise
@@ -479,7 +539,7 @@ class XBRL:
             return None
         
         # Get statement data using the found role
-        statement_data = self.get_statement(found_role)
+        statement_data = self.get_statement(found_role, should_display_dimensions=include_dimensions)
         
         if statement_data:
             # Extract periods from the statement data
@@ -712,19 +772,21 @@ class XBRL:
         
         # For dimensional statements with dimension data, handle the parent item specially
         if should_display_dimensions and dimensioned_facts:
-            # Create parent line item as an abstract header for dimensions
+            # Create parent line item with total values AND dimensional children
+            # This ensures users see both the total (e.g., Total Revenue = $25,500M) 
+            # and the dimensional breakdown (e.g., Auto Revenue = $19,878M, Energy = $3,014M)
             line_item = {
                 'concept': element_id,
                 'name': node.element_name,
                 'all_names': [node.element_name],
-                'label': f"{label}:", # Add colon to indicate it's a header with dimension children
-                'values': {},  # No values for the parent header
-                'decimals': {},
+                'label': label,  # Keep original label, don't add colon
+                'values': values,  # Show the total values
+                'decimals': decimals,  # Include decimals for formatting
                 'level': node.depth,
                 'preferred_label': node.preferred_label,
-                'is_abstract': True,  # Mark as abstract since it's just a header
+                'is_abstract': False,  # Not abstract since it has values
                 'children': node.children,
-                'has_values': False,
+                'has_values': len(values) > 0,  # True if we have total values
                 'has_dimension_children': True  # Mark as having dimension children
             }
         else:
@@ -1071,7 +1133,8 @@ class XBRL:
                           period_view: Optional[str] = None,
                           standard: bool = True,
                           show_date_range: bool = False,
-                          parenthetical: bool = False) -> Optional[RenderedStatement]:
+                          parenthetical: bool = False,
+                          include_dimensions: bool = True) -> Optional[RenderedStatement]:
         """
         Render a statement in a rich table format similar to how it would appear in an actual filing.
         
@@ -1083,6 +1146,7 @@ class XBRL:
             standard: Whether to use standardized concept labels (default: True)
             show_date_range: Whether to show full date ranges for duration periods (default: False)
             parenthetical: Whether to look for a parenthetical statement (default: False)
+            include_dimensions: Whether to include dimensional segment data (default: True)
             
         Returns:
             RichTable: A formatted table representation of the statement
@@ -1096,7 +1160,7 @@ class XBRL:
             role_definition = matching_statements[0]['definition']
         
         # Determine if this statement should display dimensions
-        should_display_dimensions = self._is_dimension_display_statement(actual_statement_type, role_definition)
+        should_display_dimensions = include_dimensions and self._is_dimension_display_statement(actual_statement_type, role_definition)
         
         # Get the statement data with dimension display flag
         statement_data = self.get_statement(statement_type, period_filter, should_display_dimensions)

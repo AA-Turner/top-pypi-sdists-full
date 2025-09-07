@@ -5181,3 +5181,100 @@ regress_test_obj_function_sync (RegressTestObj *self G_GNUC_UNUSED, int io_prior
 {
   return TRUE;
 }
+
+
+/**
+ * regress_test_obj_function2:
+ * @self: a #RegressTestObj
+ * @io_priority: a number
+ * @cancellable: (nullable): a #GCancellable, or %NULL
+ * @test_cb: (nullable) (scope notified) (closure test_data): match reporting callback
+ * @test_data: user data for @test_cb
+ * @test_destroy: (destroy test_data): Destroy notify for @match_data
+ * @callback: the function to call on completion
+ * @user_data: the data to pass to @callback
+ *
+ * This is an example taken from FPrint: `fp_device_verify`.
+ */
+void
+regress_test_obj_function2 (RegressTestObj *self,
+                            int io_priority G_GNUC_UNUSED,
+                            GCancellable *cancellable,
+                            RegressTestCallbackUserData test_cb,
+                            gpointer test_data,
+                            GDestroyNotify test_destroy,
+                            GAsyncReadyCallback callback,
+                            gpointer user_data)
+{
+  GTask *task = g_task_new (self, cancellable, callback, user_data);
+
+  async_method_tasks = g_slist_prepend (async_method_tasks, task);
+
+  if (test_cb != NULL)
+    test_cb (test_data);
+
+  if (test_destroy != NULL)
+    test_destroy (test_data);
+}
+
+/**
+ * regress_test_obj_function2_finish:
+ * @self: A #TestObj
+ * @result: A #GAsyncResult
+ * @match: (out): An extra parameter, similar to `fp_device_verify_finish()`
+ * @some_obj: (out) (transfer full) (nullable): An output object, or %NULL to ignore
+ * @error: Return location for errors, or %NULL to ignore
+ *
+ * Finish function for `regress_test_obj_function2_async()`.
+ *
+ * Returns: (type void): %FALSE on error, %TRUE otherwise
+ */
+gboolean
+regress_test_obj_function2_finish (RegressTestObj *self G_GNUC_UNUSED,
+                                   GAsyncResult *result,
+                                   gboolean *match,
+                                   GObject **some_obj,
+                                   GError **error)
+{
+  gboolean res = g_task_propagate_boolean (G_TASK (result), error);
+
+  *match = res;
+  if (some_obj)
+    *some_obj = NULL;
+
+  return res;
+}
+
+/**
+ * regress_test_obj_function2_sync:
+ *
+ */
+gboolean
+regress_test_obj_function2_sync (RegressTestObj *self G_GNUC_UNUSED, int io_priority G_GNUC_UNUSED)
+{
+  return TRUE;
+}
+
+G_DEFINE_FLAGS_TYPE (RegressTestDiscontinuousFlags, regress_test_discontinuous_flags, G_DEFINE_ENUM_VALUE (REGRESS_TEST_DISCONTINUOUS_FLAG1, "discontinuous1"), G_DEFINE_ENUM_VALUE (REGRESS_TEST_DISCONTINUOUS_FLAG2, "discontinuous2"))
+
+/**
+ * regress_test_discontinuous_1_with_private_values:
+ *
+ * Returns: REGRESS_TEST_DISCONTINUOUS_FLAG1 with a private value lower than the smallest RegressTestDiscontinuousFlags enum value.
+ */
+RegressTestDiscontinuousFlags
+regress_test_discontinuous_1_with_private_values (void)
+{
+  return 1 << 3 | REGRESS_TEST_DISCONTINUOUS_FLAG1;
+}
+
+/**
+ * regress_test_discontinuous_2_with_private_values:
+ *
+ * Returns: REGRESS_TEST_DISCONTINUOUS_FLAG2 with a private value higher than the largest RegressTestDiscontinuousFlags enum value.
+ */
+RegressTestDiscontinuousFlags
+regress_test_discontinuous_2_with_private_values (void)
+{
+  return 1 << 30 | REGRESS_TEST_DISCONTINUOUS_FLAG2;
+}

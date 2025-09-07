@@ -1199,6 +1199,8 @@ def paste(
     /,
     *,
     keep_offset: bool | None = False,
+    x: int | None = 0,
+    y: int | None = 0,
 ) -> None:
     """Paste strips from the internal clipboard
 
@@ -1206,6 +1208,10 @@ def paste(
     :type undo: bool | None
     :param keep_offset: Keep Offset, Keep strip offset relative to the current frame when pasting
     :type keep_offset: bool | None
+    :param x: X
+    :type x: int | None
+    :param y: Y
+    :type y: int | None
     """
 
 def preview_duplicate_move(
@@ -1806,6 +1812,42 @@ def select_handles(
     :type undo: bool | None
     :param side: Side, The side of the handle that is selected
     :type side: typing.Literal['LEFT','RIGHT','BOTH','LEFT_NEIGHBOR','RIGHT_NEIGHBOR','BOTH_NEIGHBORS'] | None
+    """
+
+def select_lasso(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    use_smooth_stroke: bool | None = False,
+    smooth_stroke_factor: float | None = 0.75,
+    smooth_stroke_radius: int | None = 35,
+    mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
+) -> None:
+    """Select strips using lasso selection
+
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param path: Path
+        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
+        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
+        :type use_smooth_stroke: bool | None
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
+        :type smooth_stroke_factor: float | None
+        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
+        :type smooth_stroke_radius: int | None
+        :param mode: Mode
+
+    SET
+    Set -- Set a new selection.
+
+    ADD
+    Extend -- Extend existing selection.
+
+    SUB
+    Subtract -- Subtract existing selection.
+        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_less(

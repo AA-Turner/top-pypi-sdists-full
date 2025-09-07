@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional
 from .ast_nodes import (
     Program, PackDeclaration, NamespaceDeclaration, TagDeclaration,
     VariableDeclaration, VariableAssignment, VariableSubstitution, FunctionDeclaration,
-    FunctionCall, IfStatement, WhileLoop, HookDeclaration, RawBlock,
+    FunctionCall, IfStatement, WhileLoop, HookDeclaration, RawBlock, MacroLine,
     SayCommand, BinaryExpression, LiteralExpression, ParenthesizedExpression
 )
 from .dir_map import get_dir_map, DirMap
@@ -166,11 +166,27 @@ class MDLCompiler:
         for statement in func.body:
             cmd = self._statement_to_command(statement)
             if cmd:
-                lines.append(cmd)
+                lines.append(self._ensure_macro_prefix(cmd))
         # Done routing temp commands for this function body
         self._temp_sink_stack.pop()
         
         return "\n".join(lines)
+
+    def _ensure_macro_prefix(self, text: str) -> str:
+        """Ensure any line containing a macro placeholder $(var) starts with '$'.
+        Handles multi-line text by processing each line independently.
+        """
+        import re
+        macro_re = re.compile(r"\$\([A-Za-z_][A-Za-z0-9_]*\)")
+        def process_line(line: str) -> str:
+            if macro_re.search(line):
+                stripped = line.lstrip()
+                if not stripped.startswith('$'):
+                    return '$' + line
+            return line
+        if '\n' in text:
+            return '\n'.join(process_line(ln) for ln in text.split('\n'))
+        return process_line(text)
     
     def _compile_hooks(self, hooks: List[HookDeclaration], namespace_dir: Path):
         """Compile hook declarations."""
@@ -325,6 +341,8 @@ class MDLCompiler:
             return self._say_command_to_command(statement)
         elif isinstance(statement, RawBlock):
             return statement.content
+        elif isinstance(statement, MacroLine):
+            return statement.content
         elif isinstance(statement, IfStatement):
             return self._if_statement_to_command(statement)
         elif isinstance(statement, WhileLoop):
@@ -351,8 +369,16 @@ class MDLCompiler:
             # Return the command to set the target variable from the temp
             return f"scoreboard players operation {scope} {objective} = @s {temp_var}"
         else:
-            # Simple value - use direct assignment
+            # Simple value - use direct assignment or scoreboard copy
             value = self._expression_to_value(assignment.value)
+            # If RHS resolves to a scoreboard reference (e.g., 'score @s some_obj'),
+            # emit an operation copy instead of an invalid 'set ... score ...'
+            if isinstance(value, str) and value.startswith("score "):
+                parts = value.split()
+                if len(parts) >= 3:
+                    src_scope = parts[1]
+                    src_objective = parts[2]
+                    return f"scoreboard players operation {scope} {objective} = {src_scope} {src_objective}"
             return f"scoreboard players set {scope} {objective} {value}"
 
     def _variable_declaration_to_command(self, decl: VariableDeclaration) -> str:
@@ -370,6 +396,13 @@ class MDLCompiler:
         except Exception:
             init = None
         if init is not None:
+            # Initialize from another scoreboard using operation copy
+            if isinstance(init, str) and init.startswith("score "):
+                parts = init.split()
+                if len(parts) >= 3:
+                    src_scope = parts[1]
+                    src_objective = parts[2]
+                    return f"scoreboard players operation {scope} {objective} = {src_scope} {src_objective}"
             return f"scoreboard players set {scope} {objective} {init}"
         return f"# var {decl.name} declared"
     
@@ -616,10 +649,17 @@ class MDLCompiler:
     
     def _function_call_to_command(self, func_call: FunctionCall) -> str:
         """Convert function call to execute command."""
+        # Build base function invocation, possibly with macro args
+        suffix = ""
+        if func_call.macro_json:
+            suffix = f" {func_call.macro_json}"
+        elif func_call.with_clause:
+            suffix = f" with {func_call.with_clause}"
+
+        base = f"function {func_call.namespace}:{func_call.name}{suffix}"
         if func_call.scope:
-            return f"execute as {func_call.scope.strip('<>')} run function {func_call.namespace}:{func_call.name}"
-        else:
-            return f"function {func_call.namespace}:{func_call.name}"
+            return f"execute as {func_call.scope.strip('<>')} run {base}"
+        return base
     
     def _expression_to_value(self, expression: Any) -> str:
         """Convert expression to a value string."""
@@ -747,7 +787,7 @@ class MDLCompiler:
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
                 # Assign from left value (score or literal)
-                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(left_value, str) and left_value.startswith("score ")):
                     parts = str(left_value).split()
                     scope = parts[1]
                     obj = parts[2]
@@ -755,7 +795,7 @@ class MDLCompiler:
                 else:
                     self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
             # Add right value
-            if isinstance(expression.right, VariableSubstitution) or (isinstance(expression.right, str) and str(right_value).startswith("score ")):
+            if isinstance(expression.right, VariableSubstitution) or (isinstance(right_value, str) and right_value.startswith("score ")):
                 parts = str(right_value).split()
                 scope = parts[1]
                 obj = parts[2]
@@ -767,7 +807,7 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(left_value, str) and left_value.startswith("score ")):
                     parts = str(left_value).split()
                     scope = parts[1]
                     obj = parts[2]
@@ -775,7 +815,7 @@ class MDLCompiler:
                 else:
                     self._store_temp_command(f"scoreboard players set @s {temp_var} {left_value}")
             # Subtract right value
-            if isinstance(expression.right, VariableSubstitution) or (isinstance(expression.right, str) and str(right_value).startswith("score ")):
+            if isinstance(expression.right, VariableSubstitution) or (isinstance(right_value, str) and right_value.startswith("score ")):
                 parts = str(right_value).split()
                 scope = parts[1]
                 obj = parts[2]
@@ -787,7 +827,7 @@ class MDLCompiler:
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(left_value, str) and left_value.startswith("score ")):
                     parts = str(left_value).split()
                     scope = parts[1]
                     obj = parts[2]
@@ -800,15 +840,27 @@ class MDLCompiler:
             else:
                 # For literal values, keep explicit multiply command for compatibility
                 if isinstance(expression.right, LiteralExpression):
-                    self._store_temp_command(f"scoreboard players multiply @s {temp_var} {expression.right.value}")
+                    # Normalize number formatting (e.g., 2.0 -> 2)
+                    literal_str = self._expression_to_value(expression.right)
+                    self._store_temp_command(f"scoreboard players multiply @s {temp_var} {literal_str}")
                 else:
-                    self._store_temp_command(f"scoreboard players operation @s {temp_var} *= {right_value}")
+                    # If right_value is a score reference string, strip the leading 'score '
+                    if isinstance(right_value, str) and right_value.startswith("score "):
+                        parts = right_value.split()
+                        if len(parts) >= 3:
+                            scope = parts[1]
+                            obj = parts[2]
+                            self._store_temp_command(f"scoreboard players operation @s {temp_var} *= {scope} {obj}")
+                        else:
+                            self._store_temp_command(f"scoreboard players operation @s {temp_var} *= {right_value}")
+                    else:
+                        self._store_temp_command(f"scoreboard players operation @s {temp_var} *= {right_value}")
                 
         elif expression.operator == "DIVIDE":
             if isinstance(expression.left, BinaryExpression):
                 self._store_temp_command(f"scoreboard players operation @s {temp_var} = @s {left_temp}")
             else:
-                if isinstance(expression.left, VariableSubstitution) or (isinstance(expression.left, str) and str(left_value).startswith("score ")):
+                if isinstance(expression.left, VariableSubstitution) or (isinstance(left_value, str) and left_value.startswith("score ")):
                     parts = str(left_value).split()
                     scope = parts[1]
                     obj = parts[2]
@@ -821,9 +873,21 @@ class MDLCompiler:
             else:
                 # For literal values, keep explicit divide command for compatibility
                 if isinstance(expression.right, LiteralExpression):
-                    self._store_temp_command(f"scoreboard players divide @s {temp_var} {expression.right.value}")
+                    # Normalize number formatting (e.g., 2.0 -> 2)
+                    literal_str = self._expression_to_value(expression.right)
+                    self._store_temp_command(f"scoreboard players divide @s {temp_var} {literal_str}")
                 else:
-                    self._store_temp_command(f"scoreboard players operation @s {temp_var} /= {right_value}")
+                    # If right_value is a score reference string, strip the leading 'score '
+                    if isinstance(right_value, str) and right_value.startswith("score "):
+                        parts = right_value.split()
+                        if len(parts) >= 3:
+                            scope = parts[1]
+                            obj = parts[2]
+                            self._store_temp_command(f"scoreboard players operation @s {temp_var} /= {scope} {obj}")
+                        else:
+                            self._store_temp_command(f"scoreboard players operation @s {temp_var} /= {right_value}")
+                    else:
+                        self._store_temp_command(f"scoreboard players operation @s {temp_var} /= {right_value}")
         else:
             # For other operators, just set the value
             self._store_temp_command(f"scoreboard players set @s {temp_var} 0")

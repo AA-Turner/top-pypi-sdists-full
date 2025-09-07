@@ -5,6 +5,7 @@ from typing import Any, Literal, NamedTuple, Set, cast
 import rich
 from pydantic_core import to_json
 from rich.status import Status
+from shortuuid import uuid
 from tenacity import (
     RetryCallState,
     Retrying,
@@ -15,8 +16,9 @@ from tenacity import (
 from typing_extensions import Unpack
 
 from inspect_ai._display import display as display_manager
+from inspect_ai._util._async import run_coroutine
 from inspect_ai._util.error import PrerequisiteError
-from inspect_ai._util.file import basename, filesystem
+from inspect_ai._util.file import basename, file, filesystem
 from inspect_ai._util.notgiven import NOT_GIVEN, NotGiven
 from inspect_ai.agent._agent import Agent
 from inspect_ai.approval._policy import ApprovalPolicy
@@ -29,6 +31,7 @@ from inspect_ai.log._file import (
     read_eval_log_headers,
     write_log_dir_manifest,
 )
+from inspect_ai.log._log import EvalConfig
 from inspect_ai.log._model import model_roles_to_model_roles_config
 from inspect_ai.model import (
     GenerateConfigArgs,
@@ -47,7 +50,7 @@ from .eval import eval, eval_init, eval_resolve_tasks
 from .loader import resolve_task_args
 from .task import Epochs
 from .task.resolved import ResolvedTask
-from .task.task import PreviousTask
+from .task.task import PreviousTask, resolve_epochs
 from .task.tasks import Tasks
 
 logger = logging.getLogger(__name__)
@@ -206,9 +209,12 @@ def eval_set(
     Returns:
         A tuple of bool (whether all tasks completed successfully) and a list of `EvalLog` headers (i.e. raw sample data is not included in the logs returned).
     """
+    from inspect_ai.hooks._hooks import emit_eval_set_end, emit_eval_set_start
 
     # helper function to run a set of evals
-    def run_eval(tasks: list[ResolvedTask] | list[PreviousTask]) -> list[EvalLog]:
+    def run_eval(
+        eval_set_id: str, tasks: list[ResolvedTask] | list[PreviousTask]
+    ) -> list[EvalLog]:
         # run evals
         results = eval(
             tasks=tasks,
@@ -252,6 +258,7 @@ def eval_set(
             log_shared=log_shared,
             log_header_only=True,
             score=score,
+            eval_set_id=eval_set_id,
             **kwargs,
         )
 
@@ -288,6 +295,9 @@ def eval_set(
     # ensure log_dir
     fs = filesystem(log_dir)
     fs.mkdir(log_dir, exist_ok=True)
+
+    # get eval set id
+    eval_set_id = eval_set_id_for_log_dir(log_dir)
 
     # resolve some parameters
     retry_connections = retry_connections or 1.0
@@ -369,7 +379,7 @@ def eval_set(
         # we have some pending tasks yet to run, run them
         if len(pending_tasks) > 0:
             # run the tasks
-            run_logs = run_eval(pending_tasks)
+            run_logs = run_eval(eval_set_id, pending_tasks)
 
             # if this was the entire list of resolved tasks, return results
             if len(pending_tasks) == len(all_tasks):
@@ -384,7 +394,9 @@ def eval_set(
         # all tasks have had an initial run, perform retries
         else:
             # look for retryable eval logs and cleave them into success/failed
-            success_logs, failed_logs = list_latest_eval_logs(all_logs, retry_cleanup)
+            success_logs, failed_logs = list_latest_eval_logs(
+                all_logs, epochs, retry_cleanup
+            )
 
             # retry the failed logs (look them up in resolved_tasks)
             if len(failed_logs) > 0:
@@ -398,7 +410,8 @@ def eval_set(
 
                 # run previous tasks (no models passed b/c previous task already carries its model)
                 retried_logs = run_eval(
-                    tasks=as_previous_tasks(failed_tasks, failed_logs)
+                    eval_set_id=eval_set_id,
+                    tasks=as_previous_tasks(failed_tasks, failed_logs),
                 )
 
                 # return success
@@ -419,6 +432,9 @@ def eval_set(
         before=before,
     )
 
+    # emit start event
+    run_coroutine(emit_eval_set_start(eval_set_id, log_dir))
+
     # execute w/ retry
     results = retry(try_eval)
 
@@ -438,8 +454,25 @@ def eval_set(
     # update manifest
     write_log_dir_manifest(log_dir)
 
+    # emit end event
+    run_coroutine(emit_eval_set_end(eval_set_id, log_dir))
+
     # return status + results
     return success, results
+
+
+def eval_set_id_for_log_dir(log_dir: str) -> str:
+    EVAL_SET_ID_FILE = ".eval-set-id"
+    fs = filesystem(log_dir)
+    eval_set_id_file = f"{log_dir}{fs.sep}{EVAL_SET_ID_FILE}"
+    if fs.exists(eval_set_id_file):
+        with file(eval_set_id_file, "r") as f:
+            return f.read().strip()
+    else:
+        eval_set_id = uuid()
+        with file(eval_set_id_file, "w") as f:
+            f.write(eval_set_id)
+        return eval_set_id
 
 
 # convert resolved tasks to previous tasks
@@ -505,14 +538,47 @@ def list_all_eval_logs(log_dir: str) -> list[Log]:
 
 # get the latest logs (cleaning if requested). returns tuple of successful/unsuccessful
 def list_latest_eval_logs(
-    logs: list[Log], cleanup_older: bool
+    logs: list[Log], epochs: int | Epochs | None, cleanup_older: bool
 ) -> tuple[list[Log], list[Log]]:
     latest_logs = latest_completed_task_eval_logs(
         logs=logs, cleanup_older=cleanup_older
     )
-    success_logs = [log for log in latest_logs if log.header.status == "success"]
-    failed_logs = [log for log in latest_logs if log.header.status != "success"]
-    return (success_logs, failed_logs)
+
+    # resolve epochs
+    epochs = resolve_epochs(epochs)
+
+    # figure out which logs still need work
+    complete_logs: list[Log] = []
+    incomplete_logs: list[Log] = []
+    for log in latest_logs:
+        if epochs_changed(epochs, log.header.eval.config):
+            incomplete_logs.append(log)
+        elif log.header.status != "success":
+            incomplete_logs.append(log)
+        else:
+            complete_logs.append(log)
+
+    return (complete_logs, incomplete_logs)
+
+
+def epochs_changed(epochs: Epochs | None, config: EvalConfig) -> bool:
+    # user didn't say anything about epochs on subsequent call (not changed)
+    if epochs is None:
+        return False
+    # user did specify epochs and previous call had no epochs config (changed)
+    elif config.epochs is None:
+        return True
+    # number of epochs differs (changed)
+    elif epochs.epochs != config.epochs:
+        return True
+    # different reducer list (changed)
+    elif [r.__name__ for r in (epochs.reducer or [])] != [
+        r for r in (config.epochs_reducer or [])
+    ]:
+        return True
+    # fall through (not changed)
+    else:
+        return False
 
 
 # cleanup logs that aren't the latest

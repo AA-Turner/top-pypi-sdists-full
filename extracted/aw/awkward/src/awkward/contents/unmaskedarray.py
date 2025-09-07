@@ -584,7 +584,7 @@ class UnmaskedArray(UnmaskedMeta[Content], Content):
         else:
             raise AssertionError(result)
 
-    def to_packed(self, recursive: bool = True) -> Self:
+    def _to_packed(self, recursive: bool = True) -> Self:
         return UnmaskedArray(
             self._content.to_packed(True) if recursive else self._content,
             parameters=self._parameters,
@@ -604,8 +604,8 @@ class UnmaskedArray(UnmaskedMeta[Content], Content):
         content = self._content.to_backend(backend)
         return UnmaskedArray(content, parameters=self._parameters)
 
-    def _materialize(self) -> Self:
-        content = self._content.materialize()
+    def _materialize(self, type_) -> Self:
+        content = self._content.materialize(type_)
         return UnmaskedArray(content, parameters=self._parameters)
 
     @property

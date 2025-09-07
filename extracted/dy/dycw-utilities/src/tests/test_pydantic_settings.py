@@ -8,12 +8,15 @@ import yaml
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from utilities.os import temp_environ
-from utilities.pydantic_settings import CustomBaseSettings, load_settings
+from utilities.pydantic_settings import (
+    CustomBaseSettings,
+    PathLikeOrWithSection,
+    load_settings,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
-
-    from utilities.types import MaybeIterable, PathLike
 
 
 class TestCustomBaseSettings:
@@ -22,7 +25,31 @@ class TestCustomBaseSettings:
         _ = file.write_text(json.dumps({"x": 1}))
 
         class Settings(CustomBaseSettings):
-            json_files: ClassVar[MaybeIterable[PathLike]] = file
+            json_files: ClassVar[Sequence[PathLikeOrWithSection]] = [file]
+            x: int
+
+        settings = load_settings(Settings)
+        assert settings.x == 1
+
+    def test_json_section_str(self, *, tmp_path: Path) -> None:
+        file = tmp_path.joinpath("settings.json")
+        _ = file.write_text(json.dumps({"outer": {"x": 1}}))
+
+        class Settings(CustomBaseSettings):
+            json_files: ClassVar[Sequence[PathLikeOrWithSection]] = [(file, "outer")]
+            x: int
+
+        settings = load_settings(Settings)
+        assert settings.x == 1
+
+    def test_json_section_nested(self, *, tmp_path: Path) -> None:
+        file = tmp_path.joinpath("settings.json")
+        _ = file.write_text(json.dumps({"outer": {"middle": {"x": 1}}}))
+
+        class Settings(CustomBaseSettings):
+            json_files: ClassVar[Sequence[PathLikeOrWithSection]] = [
+                (file, ["outer", "middle"])
+            ]
             x: int
 
         settings = load_settings(Settings)
@@ -33,7 +60,7 @@ class TestCustomBaseSettings:
         _ = file.write_text(tomlkit.dumps({"x": 1}))
 
         class Settings(CustomBaseSettings):
-            toml_files: ClassVar[MaybeIterable[PathLike]] = file
+            toml_files: ClassVar[Sequence[PathLikeOrWithSection]] = [file]
             x: int
 
         settings = load_settings(Settings)
@@ -44,7 +71,7 @@ class TestCustomBaseSettings:
         _ = file.write_text(yaml.dump({"x": 1}))
 
         class Settings(CustomBaseSettings):
-            yaml_files: ClassVar[MaybeIterable[PathLike]] = file
+            yaml_files: ClassVar[Sequence[PathLikeOrWithSection]] = [file]
             x: int
 
         settings = load_settings(Settings)

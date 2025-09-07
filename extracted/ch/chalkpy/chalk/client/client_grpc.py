@@ -430,14 +430,15 @@ class StubRefresher:
         try:
             return fn(get_service())
         except grpc.RpcError as e:
-            if e.code() == grpc.StatusCode.UNAVAILABLE and (
-                "FD Shutdown" in (e.details() or "") or "GOAWAY" in (e.details() or "")
-            ):
-                chalk_logger.info("Detected FD shutdown; retrying connection: %s", e.details())
-                old_stub = self._stub
-                self._refresh_stub()
-                old_stub.close()
-                return fn(get_service())
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                details = (e.details() or "").lower()
+                # capitalization seems to vary - original capitalization: "FD Shutdown" and "GOAWAY"
+                if "fd shutdown" in details or "goaway" in details:
+                    chalk_logger.info("Detected FD shutdown; retrying connection: %s", details)
+                    old_stub = self._stub
+                    self._refresh_stub()
+                    old_stub.close()
+                    return fn(get_service())
             raise
 
     def call_deploy_stub(self, fn: Callable[[DeployServiceStub], T]) -> T:

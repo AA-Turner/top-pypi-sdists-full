@@ -1269,7 +1269,7 @@ class RecordArray(RecordMeta[Content], Content):
         else:
             raise AssertionError(result)
 
-    def to_packed(self, recursive: bool = True) -> Self:
+    def _to_packed(self, recursive: bool = True) -> Self:
         return RecordArray(
             [
                 x[: self.length].to_packed(True) if recursive else x[: self.length]
@@ -1316,8 +1316,8 @@ class RecordArray(RecordMeta[Content], Content):
             backend=backend,
         )
 
-    def _materialize(self) -> Self:
-        contents = [content.materialize() for content in self._contents]
+    def _materialize(self, type_) -> Self:
+        contents = [content.materialize(type_) for content in self._contents]
         return RecordArray(
             contents,
             self._fields,

@@ -11,7 +11,57 @@ import json
 from pathlib import Path
 from datetime import date,time,datetime
 from radboy.FB.FBMTXT import *
+from copy import copy
+from radboy.DB import db as DB
 
+def findAndSelectKey(options=None):
+    if options is None:
+        options=[]
+    with Session(ENGINE) as session:
+        cmd=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"{Fore.light_red}[FindAndUse2]{Fore.light_yellow}what cmd are your looking for?",helpText="type the cmd",data="string")
+        if cmd in ['d',None]:
+            return
+        else:
+            options=copy(options)
+            
+            session.query(DB.db.FindCmd).delete()
+            session.commit()
+            for num,k in enumerate(options):
+                stage=0
+                if isinstance(options,dict):
+                    cmds=options[k]['cmds']
+                    l=[]
+                    l.extend(cmds)
+                    l.append(options[k]['desc'])
+                else:
+                    l=[]
+                    l.extend(options)
+                cmdStr=' '.join(l)
+                cmd_string=DB.db.FindCmd(CmdString=cmdStr,CmdKey=k)
+                session.add(cmd_string)
+                if num % 50 == 0:
+                    session.commit()
+            session.commit()
+            session.flush()
+
+            results=session.query(DB.db.FindCmd).filter(DB.db.FindCmd.CmdString.icontains(cmd)).all()
+
+
+            ct=len(results)
+            if ct == 0:
+                print(f"No Cmd was found by {Fore.light_red}{cmd}{Style.reset}")
+                return
+            for num,x in enumerate(results):
+                msg=DB.db.std_colorize(x.CmdKey,num,ct)
+                print(msg)
+            select=Prompt.__init2__(None,func=FormBuilderMkText,ptext="which index?",helpText="the number farthest to the left before the /",data="integer")
+            if select in [None,'d']:
+                return
+            try:
+                if select in list(i for i in range(len(options))):
+                    return results[select].CmdKey
+            except Exception as e:
+                print(e)
 
 def FormBuilder(data,extra_tooling=False,passThruText=None):
     if passThruText != None:
@@ -96,6 +146,7 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
 {Fore.grey_70}*{Fore.light_yellow}goto {Fore.light_cyan}i{Fore.light_yellow}/goto{Fore.light_cyan}i{Fore.light_green} - go to {Fore.light_cyan}index{Style.reset}
 {Fore.grey_70}*{Fore.light_yellow}goto{Fore.light_cyan}k{Fore.light_yellow},goto {Fore.light_cyan}k{Fore.light_green} goto {Fore.light_cyan}key{Fore.light_green} for field in Form {Style.reset}
 {Fore.grey_70}*{Fore.light_yellow}showkeys{Fore.light_green} to see indexes refering to form keys{Style.reset}
+{Fore.grey_70}*{Fore.light_yellow}'schk','search keys','sch ky{Fore.light_green} to search select and goto key{Style.reset}
 {Fore.grey_70}* {Fore.grey_50}These cmds only work with fields that return str/VARCHAR/TEXT/str+/list of str's, i.e. [str,]{Style.reset}"""
                 print(ht2)
                 FormBuilderHelpText()
@@ -151,6 +202,17 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
                                 finalize=True
                                 skip_review=True
                                 break
+                            elif isinstance(line,str) and line.lower() in ['schk','search keys','sch ky']:
+                                DATA={str(i):{'cmds':[i,],'desc':''} for i in data}
+                                GOTOK=findAndSelectKey(options=DATA)
+                                while GOTOK not in list(data.keys()):
+                                    GOTOK=setGOTOK_str(GOTOK)
+                                    if GOTOK in [None,]:
+                                        return
+                                done=True
+                                finalize=True
+                                skip_review=True
+                                break
                             elif isinstance(line,str) and line.lower() in ['showkeys','show keys']:
                                 keys_index(data)
                                 '''
@@ -185,7 +247,7 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
                 else:
                     if_continue=False
                     while True:
-                        passThru=['gotoi','goto i','gotok','goto k','showkeys','show keys','ff','finalize','finish']
+                        passThru=['gotoi','goto i','gotok','goto k','showkeys','show keys','ff','finalize','finish','schk','search keys','sch ky']
                         cmd=Prompt.__init2__(None,func=lambda text,data:FormBuilderMkText(text,data,passThru=passThru,PassThru=True),ptext=f"{passThruText} You(m):{item.get(k)}|Default(d):{data[k]['default']} Field:{str(k)}",helpText=f'{ht}',data=data[k]['type'])
                         if cmd in [None,]:
                             return
@@ -216,7 +278,16 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
                                 GOTOK=setGOTOK_str(data)
                             if_continue=True
                             break
-
+                        elif isinstance(cmd,str) and cmd.lower() in ['schk','search keys','sch ky']:
+                            DATA={str(i):{'cmds':[i,],'desc':''} for i in data}
+                            GOTOK=findAndSelectKey(options=DATA)
+                            print(GOTOK)
+                            while GOTOK not in list(data.keys()):
+                                GOTOK=setGOTOK_str(GOTOK)
+                                if GOTOK in [None,]:
+                                    return
+                            if_continue=True
+                            break
                         elif isinstance(cmd,str) and cmd.lower() in ['showkeys','show keys']:
                             keys_index(data)
                             continue

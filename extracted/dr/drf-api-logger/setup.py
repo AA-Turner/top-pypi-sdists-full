@@ -14,14 +14,13 @@ import setuptools
 
 
 def get_long_desc():
-    with open("README.md", "r") as fh:
-        long_description = fh.read()
-    return long_description
+    with open("README.md", "r", encoding="utf-8") as fh:
+        return fh.read()
 
 
 setuptools.setup(
     name="drf-api-logger",
-    version="1.1.20",
+    version="1.1.21",
     author="Vishal Anand",
     author_email="vishalanandl177@gmail.com",
     description="An API Logger for your Django Rest Framework project.",

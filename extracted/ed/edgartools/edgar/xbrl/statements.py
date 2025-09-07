@@ -118,7 +118,8 @@ class Statement:
     def render(self, period_filter: Optional[str] = None,
                period_view: Optional[str] = None,
                standard: bool = True,
-               show_date_range: bool = False) -> Any:
+               show_date_range: bool = False,
+               include_dimensions: bool = True) -> Any:
         """
         Render the statement as a formatted table.
         
@@ -127,6 +128,7 @@ class Statement:
             period_view: Optional name of a predefined period view
             standard: Whether to use standardized concept labels
             show_date_range: Whether to show full date ranges for duration periods
+            include_dimensions: Whether to include dimensional segment data
             
         Returns:
             Rich Table containing the rendered statement
@@ -138,7 +140,8 @@ class Statement:
                                           period_filter=period_filter,
                                           period_view=period_view,
                                           standard=standard,
-                                          show_date_range=show_date_range)
+                                          show_date_range=show_date_range,
+                                          include_dimensions=include_dimensions)
 
     def __rich__(self) -> Any:
         """
@@ -167,16 +170,18 @@ class Statement:
     def to_dataframe(self,
                      period_filter:str=None,
                      period_view:str=None,
-                     standard:bool=True ) -> Any:
+                     standard:bool=True,
+                     include_dimensions:bool=True ) -> Any:
         """Convert statement to pandas DataFrame.
             period_filter: Optional period key to filter facts
             period_view: Optional name of a predefined period view
             standard: Whether to use standardized concept labels
+            include_dimensions: Whether to include dimensional segment data
         
         Returns:
             DataFrame if pandas is available, else None
         """
-        rendered_statement:RenderedStatement = self.render(period_filter=period_filter, period_view=period_view, standard=standard)
+        rendered_statement:RenderedStatement = self.render(period_filter=period_filter, period_view=period_view, standard=standard, include_dimensions=include_dimensions)
         return rendered_statement.to_dataframe()
 
     def _validate_statement(self, skip_concept_check: bool = False) -> None:
@@ -758,6 +763,10 @@ class Statements:
             
         Returns:
             An income statement, or None if unable to resolve the statement
+            
+        Note:
+            To control dimensional display, use the include_dimensions parameter when calling
+            render() or to_dataframe() on the returned Statement object.
         """
         try:
             # Try using the xbrl.find_statement with parenthetical parameter
@@ -890,7 +899,8 @@ class Statements:
     def to_dataframe(self,
                      statement_type: str,
                      period_view: Optional[str] = None,
-                     standard: bool = True) -> Optional[pd.DataFrame]:
+                     standard: bool = True,
+                     include_dimensions: bool = True) -> Optional[pd.DataFrame]:
         """
         Convert a statement to a pandas DataFrame.
         
@@ -898,12 +908,13 @@ class Statements:
             statement_type: Type of statement to convert
             period_view: Optional period view name
             standard: Whether to use standardized concept labels (default: True)
+            include_dimensions: Whether to include dimensional segment data (default: True)
             
         Returns:
             pandas DataFrame containing the statement data
         """
         statement = self[statement_type]
-        return statement.render(period_view=period_view, standard=standard).to_dataframe()
+        return statement.render(period_view=period_view, standard=standard, include_dimensions=include_dimensions).to_dataframe()
 
 
 class StitchedStatement:
@@ -914,8 +925,8 @@ class StitchedStatement:
     financial statement from multiple filings.
     """
 
-    def __init__(self, xbrls, statement_type: str, max_periods: int = 8, standardize: bool = True,
-                 use_optimal_periods: bool = True):
+    def __init__(self, xbrls, statement_type: str, max_periods: int = 8, standard: bool = True,
+                 use_optimal_periods: bool = True, include_dimensions: bool = False):
         """
         Initialize with XBRLS object and statement parameters.
         
@@ -923,14 +934,16 @@ class StitchedStatement:
             xbrls: XBRLS object containing stitched data
             statement_type: Type of statement ('BalanceSheet', 'IncomeStatement', etc.)
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
+            include_dimensions: Whether to include dimensional segment data (default: False for stitching)
         """
         self.xbrls = xbrls
         self.statement_type = statement_type
         self.max_periods = max_periods
-        self.standardize = standardize
+        self.standard = standard
         self.use_optimal_periods = use_optimal_periods
+        self.include_dimensions = include_dimensions
         self.show_date_range = False  # Default to not showing date ranges
 
         # Statement titles
@@ -959,8 +972,9 @@ class StitchedStatement:
             self._statement_data = self.xbrls.get_statement(
                 self.statement_type,
                 self.max_periods,
-                self.standardize,
-                self.use_optimal_periods
+                self.standard,
+                self.use_optimal_periods,
+                self.include_dimensions
             )
         return self._statement_data
 
@@ -1027,97 +1041,97 @@ class StitchedStatements:
         """
         self.xbrls = xbrls
 
-    def balance_sheet(self, max_periods: int = 8, standardize: bool = True,
+    def balance_sheet(self, max_periods: int = 8, standard: bool = True,
                       use_optimal_periods: bool = True, show_date_range: bool = False) -> Optional[StitchedStatement]:
         """
         Get a stitched balance sheet across multiple time periods.
         
         Args:
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
             show_date_range: Whether to show full date ranges for duration periods
             
         Returns:
             StitchedStatement for the balance sheet
         """
-        statement = StitchedStatement(self.xbrls, 'BalanceSheet', max_periods, standardize, use_optimal_periods)
+        statement = StitchedStatement(self.xbrls, 'BalanceSheet', max_periods, standard, use_optimal_periods)
         if show_date_range:
             statement.show_date_range = show_date_range
         return statement
 
-    def income_statement(self, max_periods: int = 8, standardize: bool = True,
+    def income_statement(self, max_periods: int = 8, standard: bool = True,
                          use_optimal_periods: bool = True, show_date_range: bool = False) -> Optional[StitchedStatement]:
         """
         Get a stitched income statement across multiple time periods.
         
         Args:
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
             show_date_range: Whether to show full date ranges for duration periods
             
         Returns:
             StitchedStatement for the income statement
         """
-        statement = StitchedStatement(self.xbrls, 'IncomeStatement', max_periods, standardize, use_optimal_periods)
+        statement = StitchedStatement(self.xbrls, 'IncomeStatement', max_periods, standard, use_optimal_periods)
         if show_date_range:
             statement.show_date_range = show_date_range
         return statement
 
-    def cashflow_statement(self, max_periods: int = 8, standardize: bool = True,
+    def cashflow_statement(self, max_periods: int = 8, standard: bool = True,
                            use_optimal_periods: bool = True, show_date_range: bool = False) -> Optional[StitchedStatement]:
         """
         Get a stitched cash flow statement across multiple time periods.
         
         Args:
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
             show_date_range: Whether to show full date ranges for duration periods
             
         Returns:
             StitchedStatement for the cash flow statement
         """
-        statement = StitchedStatement(self.xbrls, 'CashFlowStatement', max_periods, standardize, use_optimal_periods)
+        statement = StitchedStatement(self.xbrls, 'CashFlowStatement', max_periods, standard, use_optimal_periods)
         if show_date_range:
             statement.show_date_range = show_date_range
         return statement
 
-    def statement_of_equity(self, max_periods: int = 8, standardize: bool = True,
+    def statement_of_equity(self, max_periods: int = 8, standard: bool = True,
                             use_optimal_periods: bool = True, show_date_range: bool = False) -> Optional[StitchedStatement]:
         """
         Get a stitched statement of changes in equity across multiple time periods.
         
         Args:
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
             show_date_range: Whether to show full date ranges for duration periods
             
         Returns:
             StitchedStatement for the statement of equity
         """
-        statement = StitchedStatement(self.xbrls, 'StatementOfEquity', max_periods, standardize, use_optimal_periods)
+        statement = StitchedStatement(self.xbrls, 'StatementOfEquity', max_periods, standard, use_optimal_periods)
         if show_date_range:
             statement.show_date_range = show_date_range
         return statement
 
-    def comprehensive_income(self, max_periods: int = 8, standardize: bool = True,
+    def comprehensive_income(self, max_periods: int = 8, standard: bool = True,
                              use_optimal_periods: bool = True, show_date_range: bool = False) -> Optional[StitchedStatement]:
         """
         Get a stitched statement of comprehensive income across multiple time periods.
         
         Args:
             max_periods: Maximum number of periods to include
-            standardize: Whether to use standardized concept labels
+            standard: Whether to use standardized concept labels
             use_optimal_periods: Whether to use entity info to determine optimal periods
             show_date_range: Whether to show full date ranges for duration periods
             
         Returns:
             StitchedStatement for the comprehensive income statement
         """
-        statement = StitchedStatement(self.xbrls, 'ComprehensiveIncome', max_periods, standardize, use_optimal_periods)
+        statement = StitchedStatement(self.xbrls, 'ComprehensiveIncome', max_periods, standard, use_optimal_periods)
         if show_date_range:
             statement.show_date_range = show_date_range
         return statement

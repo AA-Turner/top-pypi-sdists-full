@@ -448,6 +448,24 @@ typedef enum
   REGRESS_TEST_FLAG3 = 1 << 2,
 } RegressTestFlags;
 
+typedef enum
+{
+  REGRESS_TEST_DISCONTINUOUS_FLAG1 = 1 << 9,
+  REGRESS_TEST_DISCONTINUOUS_FLAG2 = 1 << 29
+} RegressTestDiscontinuousFlags;
+
+GI_TEST_EXTERN
+GType regress_test_discontinuous_flags_get_type (void) G_GNUC_CONST;
+#define REGRESS_TEST_TYPE_DISCONTINUOUS_FLAGS (regress_test_discontinuous_flags_get_type ())
+
+GI_TEST_EXTERN
+RegressTestDiscontinuousFlags
+regress_test_discontinuous_1_with_private_values (void);
+
+GI_TEST_EXTERN
+RegressTestDiscontinuousFlags
+regress_test_discontinuous_2_with_private_values (void);
+
 GI_TEST_EXTERN
 GType regress_test_enum_get_type (void) G_GNUC_CONST;
 #define REGRESS_TEST_TYPE_ENUM (regress_test_enum_get_type ())
@@ -786,7 +804,7 @@ struct _RegressTestBoxedC
 {
   guint refcount;
   guint another_thing;
-  gboolean name_conflict : 1;
+  gboolean name_conflict;
 };
 
 GI_TEST_EXTERN
@@ -1715,6 +1733,26 @@ void regress_test_obj_function_async (RegressTestObj *self,
                                       GCancellable *cancellable,
                                       GAsyncReadyCallback callback,
                                       gpointer user_data);
+
+GI_TEST_EXTERN
+void regress_test_obj_function2 (RegressTestObj *self,
+                                 int io_priority,
+                                 GCancellable *cancellable,
+                                 RegressTestCallbackUserData test_cb,
+                                 gpointer test_data,
+                                 GDestroyNotify test_destroy,
+                                 GAsyncReadyCallback callback,
+                                 gpointer user_data);
+
+GI_TEST_EXTERN
+gboolean regress_test_obj_function2_finish (RegressTestObj *self,
+                                            GAsyncResult *result,
+                                            gboolean *match,
+                                            GObject **some_obj,
+                                            GError **error);
+
+GI_TEST_EXTERN
+gboolean regress_test_obj_function2_sync (RegressTestObj *self, int io_priority);
 
 GI_TEST_EXTERN
 int regress_test_obj_function_thaw_async (RegressTestObj *self);

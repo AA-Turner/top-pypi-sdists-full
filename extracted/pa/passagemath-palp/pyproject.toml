@@ -3,9 +3,9 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.15.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.15.0',
-    'passagemath-environment ~= 10.6.15.0',
+    'passagemath-conf ~= 10.6.16.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.16.0',
+    'passagemath-environment ~= 10.6.16.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
 ]
@@ -15,7 +15,7 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-palp"
 description = "passagemath: Lattice polytopes and applications to toric geometry with PALP"
 dependencies = [
-    'passagemath-environment ~= 10.6.15.0',
+    'passagemath-environment ~= 10.6.16.0',
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
 ]
 dynamic = ["version"]
