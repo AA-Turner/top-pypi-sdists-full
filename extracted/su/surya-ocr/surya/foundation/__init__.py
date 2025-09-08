@@ -93,8 +93,14 @@ class FoundationPredictor(BasePredictor):
         },
     }
 
-    def __init__(self, checkpoint=None, device=settings.TORCH_DEVICE_MODEL, dtype=None):
-        super().__init__(checkpoint, device, dtype)
+    def __init__(
+        self,
+        checkpoint=None,
+        device=settings.TORCH_DEVICE_MODEL,
+        dtype=None,
+        attention_implementation: Optional[str] = None,
+    ):
+        super().__init__(checkpoint, device, dtype, attention_implementation)
         self.prompt_queue = deque()
         self.batch_prompt_mapping = None
         self.kv_cache = None
@@ -222,7 +228,7 @@ class FoundationPredictor(BasePredictor):
         self,
         input_ids: torch.Tensor,
         num_predicted_tokens: torch.Tensor,
-        num_new_tokens: Optional[torch.Tensor] = None
+        num_new_tokens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len = (
             input_ids.shape
@@ -238,10 +244,15 @@ class FoundationPredictor(BasePredictor):
         needs_beacon = beacon_positions.any(dim=1)  # shape: [batch_size]
         if not needs_beacon.any():
             if num_new_tokens is None:
-                num_new_tokens = torch.ones(batch_size, dtype=torch.long, device=input_ids.device) * seq_len
+                num_new_tokens = (
+                    torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
+                    * seq_len
+                )
             return input_ids, num_new_tokens.squeeze(1)
-        
-        beacon_insert_pos = torch.zeros(batch_size, dtype=torch.long, device=input_ids.device)
+
+        beacon_insert_pos = torch.zeros(
+            batch_size, dtype=torch.long, device=input_ids.device
+        )
         for i in range(batch_size):
             if needs_beacon[i]:
                 # Find first position that needs beacon
@@ -294,11 +305,15 @@ class FoundationPredictor(BasePredictor):
             num_valid_tokens=num_valid_tokens, cache_idxs=list(range(batch_size))
         )
 
+        cache_position = self.get_cache_position(
+            input_ids.shape[1], self.kv_cache.attention_mask, prefill=False
+        )
         with settings.INFERENCE_MODE():
             outputs = self.model(
                 input_ids=input_ids,
                 attention_mask=self.kv_cache.attention_mask,
                 position_ids=position_ids,
+                cache_position=cache_position,
                 use_cache=True,
                 past_key_values=self.kv_cache,
                 prefill=False,
@@ -315,14 +330,26 @@ class FoundationPredictor(BasePredictor):
         # Update this **before** inserting beacon tokens
         tau = settings.FOUNDATION_MULTI_TOKEN_MIN_CONFIDENCE
         if max_lookahead_tokens is not None:
-            num_new_tokens = torch.clamp((processed_output.scores.ge(tau).to(torch.long).cumprod(dim=1).sum(dim=1, keepdim=True)), min=1)
+            num_new_tokens = torch.clamp(
+                (
+                    processed_output.scores.ge(tau)
+                    .to(torch.long)
+                    .cumprod(dim=1)
+                    .sum(dim=1, keepdim=True)
+                ),
+                min=1,
+            )
         else:
             num_new_tokens = input_ids.shape[1]
 
         num_predicted_tokens += num_new_tokens
 
-        input_ids, num_valid_tokens = self.maybe_insert_beacon_tokens(input_ids, num_predicted_tokens, num_new_tokens)
-        position_ids = position_ids[:, -1:] + torch.arange(1, input_ids.shape[1] + 1, device=input_ids.device)
+        input_ids, num_valid_tokens = self.maybe_insert_beacon_tokens(
+            input_ids, num_predicted_tokens, num_new_tokens
+        )
+        position_ids = position_ids[:, -1:] + torch.arange(
+            1, input_ids.shape[1] + 1, device=input_ids.device
+        )
         # Some of the input sequences may now have left padding tokens, so we want to account for that
         # offset is a per-batch offset of the position_ids
         offset = (input_ids.shape[1] - num_valid_tokens).unsqueeze(1)
@@ -371,6 +398,29 @@ class FoundationPredictor(BasePredictor):
         updated_position_ids -= pad_len
 
         return padded_input_ids, updated_position_ids
+
+    def get_cache_position(
+        self,
+        seq_len: int,
+        attention_mask: torch.Tensor,
+        prefill: bool,
+    ):
+        batch_size, target_len = attention_mask.shape
+        base_cache_position = (
+            torch.arange(seq_len, device=attention_mask.device)
+            .unsqueeze(0)
+            .expand(batch_size, -1)
+        )
+        if prefill:
+            return base_cache_position
+
+        # This is a (batch_size) tensor, we can add the seq lens here
+        cache_seqlens = (
+            attention_mask
+            * torch.arange(attention_mask.size(1), device=attention_mask.device)
+        ).argmax(dim=1).to(torch.int32) + 1
+        # Needs to be unsqueezed so broadcasting works
+        return cache_seqlens.unsqueeze(1) + base_cache_position
 
     def prefill(
         self,
@@ -434,6 +484,9 @@ class FoundationPredictor(BasePredictor):
                 prefix_len = 0
             text_lengths.append(input_ids.shape[1] - prefix_len)
 
+        cache_position = self.get_cache_position(
+            input_ids.shape[1], attention_mask, prefill=True
+        )
         with settings.INFERENCE_MODE():
             outputs = self.model(
                 input_ids=input_ids,
@@ -441,6 +494,7 @@ class FoundationPredictor(BasePredictor):
                 grid_thw=grid_thw,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
+                cache_position=cache_position,
                 inputs_embeds=None,
                 past_key_values=self.kv_cache,
                 use_cache=True,
@@ -698,7 +752,11 @@ class FoundationPredictor(BasePredictor):
                             # don't use multitoken prediction for lower confidence tokens
                             if t_idx > 0 and num_tokens < seq_len:
                                 # roll so tokens are right aligned
-                                updated_inputs.input_ids[b_idx] = updated_inputs.input_ids[b_idx].roll(shifts=seq_len - num_tokens, dims=0)
+                                updated_inputs.input_ids[b_idx] = (
+                                    updated_inputs.input_ids[b_idx].roll(
+                                        shifts=seq_len - num_tokens, dims=0
+                                    )
+                                )
                                 # don't need to roll position_ids because that's handled in `decode` (and when we do beacon tokens)
                                 break
 

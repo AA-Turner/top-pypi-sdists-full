@@ -336,7 +336,7 @@ def gpencil_brush_preset_add(
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> None:
-    """Add or remove grease pencil brush preset
+    """Add or remove Grease Pencil brush preset
 
     :type execution_context: int | str | None
     :type undo: bool | None

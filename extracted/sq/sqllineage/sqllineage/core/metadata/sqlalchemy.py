@@ -1,12 +1,11 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from sqlalchemy import MetaData, Table, create_engine, make_url
 from sqlalchemy.exc import NoSuchModuleError, NoSuchTableError, OperationalError
 
 from sqllineage.core.metadata_provider import MetaDataProvider
 from sqllineage.exceptions import MetaDataProviderException
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ class SQLAlchemyMetaDataProvider(MetaDataProvider):
     SQLAlchemyMetaDataProvider queries metadata from database using SQLAlchemy
     """
 
-    def __init__(self, url: str, engine_kwargs: Optional[Dict[str, Any]] = None):
+    def __init__(self, url: str, engine_kwargs: Optional[dict[str, Any]] = None):
         """
         :param url: sqlalchemy url
         :param engine_kwargs: a dictionary of keyword arguments that will be passed to sqlalchemy create_engine
@@ -37,7 +36,12 @@ class SQLAlchemyMetaDataProvider(MetaDataProvider):
         except OperationalError as e:
             raise MetaDataProviderException(f"Could not connect to {url}") from e
 
-    def _get_table_columns(self, schema: str, table: str, **kwargs) -> List[str]:
+    def __del__(self):
+        # dispose the engine to close all connections
+        if hasattr(self, "engine") and self.engine is not None:
+            self.engine.dispose()
+
+    def _get_table_columns(self, schema: str, table: str, **kwargs) -> list[str]:
         columns = []
         try:
             sqlalchemy_table = Table(

@@ -47,6 +47,11 @@ class CookiesConfig:
     cookies: Dict[str, Cookies] = {}
     cookies_dir: str = CUSTOM_COOKIES_DIR if os.path.exists(CUSTOM_COOKIES_DIR) else str(COOKIES_DIR)
 
+class BrowserConfig:
+    port: int = None
+    host: str = "127.0.0.1"
+    stop_browser = lambda: None
+    browser_executable_path: str = None
 
 DOMAINS = (
     ".bing.com",
@@ -183,6 +188,12 @@ def read_cookie_files(dir_path: Optional[str] = None, domains_filter: Optional[L
         debug.log(f"Read cookies: Loaded env vars from {dir_path}/.env")
     except ImportError:
         debug.error("Warning: 'python-dotenv' is not installed. Env vars not loaded.")
+
+    BrowserConfig.port = os.environ.get("G4F_BROWSER_PORT", BrowserConfig.port)
+    BrowserConfig.host = os.environ.get("G4F_BROWSER_HOST", BrowserConfig.host)
+    if BrowserConfig.port:
+        BrowserConfig.port = int(BrowserConfig.port)
+        debug.log(f"Using browser: {BrowserConfig.host}:{BrowserConfig.port}")
 
     har_files, json_files = [], []
     for root, _, files in os.walk(dir_path):

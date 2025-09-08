@@ -33,6 +33,7 @@ class MammotionCloud:
     def __init__(self, mqtt_client: MammotionMQTT, cloud_client: CloudIOTGateway) -> None:
         """Initialize MammotionCloud."""
         self.cloud_client = cloud_client
+        self.command_sent_time = 0
         self.loop = asyncio.get_event_loop()
         self.is_ready = False
         self.command_queue = asyncio.Queue()
@@ -104,8 +105,8 @@ class MammotionCloud:
         assert self._mqtt_client is not None
         self._key = key
         _LOGGER.debug("Sending command: %s", key)
-        await self._mqtt_client.get_cloud_client().send_cloud_command(iot_id, command)
         self.command_sent_time = time.time()
+        await self._mqtt_client.get_cloud_client().send_cloud_command(iot_id, command)
 
     async def _on_mqtt_message(self, topic: str, payload: str, iot_id: str) -> None:
         """Handle incoming MQTT messages."""
@@ -211,6 +212,10 @@ class MammotionBaseCloudDevice(MammotionBaseDevice):
     def __del__(self) -> None:
         """Cleanup."""
         self._state_manager.cloud_queue_command_callback.remove_subscribers(self.queue_command)
+
+    @property
+    def command_sent_time(self) -> float:
+        return self._mqtt.command_sent_time
 
     def set_notification_callback(self, func: Callable[[tuple[str, Any | None]], Awaitable[None]]) -> None:
         self._state_manager.cloud_on_notification_callback.add_subscribers(func)

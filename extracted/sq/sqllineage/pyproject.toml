@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sqllineage"
+dependencies = [
+    "sqlparse>=0.5.0",
+    "networkx>=2.4",
+    "sqlfluff>=3.2.0",
+    "sqlalchemy>=2.0.0",
+]
+requires-python = ">=3.9"
+authors = [
+    { name = "Reata", email = "reddevil.hjw@gmail.com" },
+]
+maintainers = [
+    { name = "Reata", email = "reddevil.hjw@gmail.com" },
+]
+description = "SQL Lineage Analysis Tool powered by Python"
+readme = "README.md"
+license = "MIT"
+keywords = [
+    "metadata",
+    "sql",
+    "data-discovery",
+    "lineage",
+    "data-governance",
+    "data-lineage",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+ci = [
+    "black>=25.1.0",
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.10",
+    "tox>=4.28.4",
+    "twine>=6.1.0",
+    "wheel>=0.45.1",
+]
+docs = [
+    "Sphinx>=3.2.0",
+    "sphinx_rtd_theme>=0.5.0",
+]
+
+[project.scripts]
+sqllineage = "sqllineage.cli:main"
+
+[project.gui-scripts]
+sqllineage = "sqllineage.cli:main"
+
+[project.urls]
+Homepage = "https://reata.github.io/sqllineage/"
+Documentation = "https://sqllineage.readthedocs.io/en/latest/"
+Repository = "https://github.com/reata/sqllineage.git"
+Issues = "https://github.com/reata/sqllineage/issues"
+Changelog = "https://github.com/reata/sqllineage/releases"
+
+[tool.hatch.version]
+path = "sqllineage/__init__.py"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+[tool.tox]
+requires = ["tox>=4.19"]
+env_list = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+[tool.tox.env_run_base]
+deps = [".[ci]"]
+commands = [
+    ["black", ".", "--check", "--diff"],
+    ["ruff", "check", "."],
+    ["mypy"],
+    ["pytest", "--cov"],
+]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "A", # builtins
+    "G", # logging format
+    "I", # import order
+]
+ignore = [
+    "A005", # stdlib-module-shadowing, we have modules like parser, copy, select, io violating this rule
+]
+
+[tool.mypy]
+files = "sqllineage"
+ignore_missing_imports = true
+disallow_untyped_calls = true
+warn_return_any = true
+strict_optional = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+
+[tool.coverage.run]
+source = ["sqllineage"]

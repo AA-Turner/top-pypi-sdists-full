@@ -47,14 +47,15 @@ class Protocol(asyncio.Protocol, asyncio.SubprocessProtocol):
     @override
     def connection_made(self, transport):
         """Used to signal `asyncio.Protocol` of a successful connection."""
-        del transport  # no-op
+        self._transport = transport
 
     @override
     def connection_lost(self, exc: Optional[Exception]) -> None:
         """Used to signal `asyncio.Protocol` of a lost connection."""
         pass # replaces next logging statement
-        # debug(f"connection_lost: exc = {exc}")
-        self._on_error(exc if exc else EOFError())
+        # warn(f"connection_lost: exc = {exc}")
+
+        self._on_error(exc if exc else EOFError("connection_lost"))
 
     @override
     def data_received(self, data: bytes) -> None:
@@ -64,12 +65,20 @@ class Protocol(asyncio.Protocol, asyncio.SubprocessProtocol):
     @override
     def pipe_connection_lost(self, fd: int, exc: Optional[Exception]) -> None:
         """Used to signal `asyncio.SubprocessProtocol` of a lost connection."""
+
+        assert isinstance(self._transport, asyncio.SubprocessTransport)
+        debug_info = {'fd': fd, 'exc': exc, 'pid': self._transport.get_pid()}
         pass # replaces next logging statement
-        # debug("pipe_connection_lost: fd = %s, exc = %s", fd, exc)
+        # warn(f"pipe_connection_lost {debug_info}")
+
         if os.name == 'nt' and fd == 2:  # stderr
             # On windows, ignore piped stderr being closed immediately (#505)
             return
-        self._on_error(exc if exc else EOFError())
+
+        # pipe_connection_lost() *may* be called before process_exited() is
+        # called, when a Nvim subprocess crashes (SIGABRT). Do not handle
+        # errors here, as errors will be handled somewhere else
+        # self._on_error(exc if exc else EOFError("pipe_connection_lost"))
 
     @override
     def pipe_data_received(self, fd, data):
@@ -84,9 +93,14 @@ class Protocol(asyncio.Protocol, asyncio.SubprocessProtocol):
     @override
     def process_exited(self) -> None:
         """Used to signal `asyncio.SubprocessProtocol` when the child exits."""
+        assert isinstance(self._transport, asyncio.SubprocessTransport)
+        pid = self._transport.get_pid()
+        return_code = self._transport.get_returncode()
+
         pass # replaces next logging statement
-        # debug("process_exited")
-        self._on_error(EOFError())
+        # warn("process_exited, pid = %s, return_code = %s", pid, return_code)
+        err = EOFError(f"process_exited: pid = {pid}, return_code = {return_code}")
+        self._on_error(err)
 
 
 class AsyncioEventLoop(BaseEventLoop):
@@ -196,10 +210,20 @@ class AsyncioEventLoop(BaseEventLoop):
 
     @override
     def _connect_child(self, argv: List[str]) -> None:
+        def get_child_watcher():
+            try:
+                return asyncio.get_child_watcher()
+            except AttributeError:  # Python 3.14
+                return None
+
+            return None
+
         if os.name != 'nt':
             # see #238, #241
-            self._child_watcher = asyncio.get_child_watcher()
-            self._child_watcher.attach_loop(self._loop)
+            watcher = get_child_watcher()
+            if watcher is not None:
+                watcher.attach_loop(self._loop)
+                self._child_watcher = watcher
 
         async def create_subprocess():
             transport: asyncio.SubprocessTransport  # type: ignore
@@ -259,7 +283,8 @@ class AsyncioEventLoop(BaseEventLoop):
             # Windows: for ProactorBasePipeTransport, close() doesn't take in
             # effect immediately (closing happens asynchronously inside the
             # event loop), need to wait a bit for completing graceful shutdown.
-            if os.name == 'nt' and hasattr(transport, '_sock'):
+            if (sys.version_info < (3, 13) and
+                    os.name == 'nt' and hasattr(transport, '_sock')):
                 async def wait_until_closed():
                     # pylint: disable-next=protected-access
                     while transport._sock is not None:

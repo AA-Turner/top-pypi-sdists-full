@@ -341,7 +341,7 @@ def compose(
     ):
         head = ""
 
-        if isinstance(one, DocstringParam):
+        if isinstance(one, (DocstringParam, DocstringAttr)):
             head += one.arg_name or ""
         elif isinstance(one, DocstringReturns):
             head += one.return_name or ""
@@ -399,7 +399,7 @@ def compose(
 
     process_sect(
         "Attributes:",
-        [p for p in docstring.params or [] if p.args[0] == "attribute"],
+        [p for p in docstring.attrs or [] if p.args[0] == "attribute"],
     )
 
     process_sect(
@@ -421,7 +421,13 @@ def compose(
 
     for meta in docstring.meta:
         if isinstance(
-            meta, (DocstringParam, DocstringReturns, DocstringRaises)
+            meta,
+            (
+                DocstringParam,
+                DocstringAttr,
+                DocstringReturns,
+                DocstringRaises,
+            ),
         ):
             continue  # Already handled
         parts.append(meta.args[0].replace("_", "").title() + ":")

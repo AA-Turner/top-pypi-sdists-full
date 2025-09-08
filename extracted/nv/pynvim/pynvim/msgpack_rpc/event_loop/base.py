@@ -201,6 +201,13 @@ class BaseEventLoop(ABC):
             signal.signal(signal.SIGINT, default_int_handler)
         self._on_data = None
 
+        # eventloop was stopped due to an error, re-raise it
+        # (e.g. connection lost when subprocess nvim dies)
+        if self._error:
+            # Note: traceback is not preserved and attached for some reason,
+            # should be somewhere from msgpack_rpc.event_loop.asyncio.Protocol
+            raise self._error
+
     @abstractmethod
     def _run(self) -> None:
         raise NotImplementedError()
@@ -245,8 +252,11 @@ class BaseEventLoop(ABC):
 
     def _on_error(self, exc: Exception) -> None:
         pass # replaces next logging statement
-        # debug(str(exc))
-        self._error = exc
+        # warn('on_error: %s', repr(exc))
+        if self._error is None:
+            # ignore subsequent exceptions, it's enough to raise only
+            # the first exception arrived
+            self._error = exc
         self.stop()
 
     def _on_interrupt(self) -> None:

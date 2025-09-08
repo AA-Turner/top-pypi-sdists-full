@@ -1,6 +1,8 @@
+import copy
 import datetime
 import email
 import json
+import re
 from email.encoders import encode_7or8bit
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -12,14 +14,19 @@ from moto.core.common_models import BaseModel
 from moto.core.utils import utcnow
 from moto.sns.models import sns_backends
 from moto.utilities.paginator import paginate
+from moto.utilities.utils import get_partition
 
 from .exceptions import (
     AlreadyExists,
+    CannotDelete,
     ConfigurationSetAlreadyExists,
     ConfigurationSetDoesNotExist,
     EventDestinationAlreadyExists,
+    InvalidLambdaFunctionException,
     InvalidParameterValue,
     InvalidRenderingParameterException,
+    InvalidS3ConfigurationException,
+    InvalidSnsTopicException,
     MessageRejectedError,
     RuleDoesNotExist,
     RuleSetDoesNotExist,
@@ -93,8 +100,8 @@ class TemplateMessage(BaseModel):
         self,
         message_id: str,
         source: str,
-        template: List[str],
-        template_data: List[str],
+        template: str,
+        template_data: str,
         destinations: Any,
     ):
         self.id = message_id
@@ -109,8 +116,8 @@ class BulkTemplateMessage(BaseModel):
         self,
         message_ids: List[str],
         source: str,
-        template: List[str],
-        template_data: List[str],
+        template: str,
+        template_data: str,
         destinations: Any,
     ):
         self.ids = message_ids
@@ -143,6 +150,7 @@ class ReceiptRuleSet(BaseModel):
         self.created_timestamp = datetime.datetime.now(
             datetime.timezone.utc
         ).isoformat()
+        self.is_active = False  # By default, during creation
         self.rules: List[Dict[str, Any]] = []
 
     @property
@@ -204,6 +212,10 @@ class SESBackend(BaseBackend):
 
     Note that, as this is an internal API, the exact format may differ per versions.
     """
+
+    __RULE_NAME_REGEX = r"^[a-zA-Z0-9_.-]+$"
+    __RULE_SET_PARAM = "ruleSetName"
+    __RULE_PARAM = "rule.name"
 
     def __init__(self, region_name: str, account_id: str):
         super().__init__(region_name, account_id)
@@ -288,8 +300,8 @@ class SESBackend(BaseBackend):
     def send_bulk_templated_email(
         self,
         source: str,
-        template: List[str],
-        template_data: List[str],
+        template: str,
+        template_data: str,
         destinations: List[Dict[str, Dict[str, List[str]]]],
     ) -> BulkTemplateMessage:
         recipient_count = len(destinations)
@@ -306,8 +318,8 @@ class SESBackend(BaseBackend):
             self.rejected_messages_count += 1
             raise MessageRejectedError(f"Email address not verified {source}")
 
-        if not self.templates.get(template[0]):
-            raise TemplateDoesNotExist(f"Template ({template[0]}) does not exist")
+        if not self.templates.get(template):
+            raise TemplateDoesNotExist(f"Template ({template}) does not exist")
 
         self.__process_sns_feedback__(source, destinations)
 
@@ -324,8 +336,8 @@ class SESBackend(BaseBackend):
     def send_templated_email(
         self,
         source: str,
-        template: List[str],
-        template_data: List[str],
+        template: str,
+        template_data: str,
         destinations: Dict[str, List[str]],
     ) -> TemplateMessage:
         recipient_count = sum(map(len, destinations.values()))
@@ -342,8 +354,8 @@ class SESBackend(BaseBackend):
             if msg is not None:
                 raise InvalidParameterValue(msg)
 
-        if not self.templates.get(template[0]):
-            raise TemplateDoesNotExist(f"Template ({template[0]}) does not exist")
+        if not self.templates.get(template):
+            raise TemplateDoesNotExist(f"Template ({template}) does not exist")
 
         self.__process_sns_feedback__(source, destinations)
 
@@ -638,18 +650,205 @@ class SESBackend(BaseBackend):
         self.templates.pop(name)
 
     def create_receipt_rule_set(self, rule_set_name: str) -> None:
+        """
+        We have to validate rule_set_name against the following conditions:
+            1. Must match a given regex pattern
+            2. Must start and end with a number or a character
+            3. Contain 64 characters or lesser
+        """
+        # Boto3 throws an error with the same message for both failures, even though we could have very well combined it into one regex
+        self._validate_name_param(self.__RULE_SET_PARAM, rule_set_name)
         if self.receipt_rule_set.get(rule_set_name) is not None:
             raise AlreadyExists(f"Rule set already exists: {rule_set_name}")
         self.receipt_rule_set[rule_set_name] = ReceiptRuleSet(name=rule_set_name)
 
-    def create_receipt_rule(self, rule_set_name: str, rule: Dict[str, Any]) -> None:
+    def create_receipt_rule(
+        self, rule_set_name: str, rule: Dict[str, Any], after: Optional[str]
+    ) -> None:
+        # Validate ruleSetName
+        self._validate_name_param(self.__RULE_SET_PARAM, rule_set_name)
+        # Validate the name of the rule
+        self._validate_name_param(self.__RULE_PARAM, rule["name"])
+        # Start operating on the rule set, if it exists
         rule_set = self.receipt_rule_set.get(rule_set_name)
         if rule_set is None:
             raise RuleSetDoesNotExist(f"Rule set does not exist: {rule_set_name}")
+        # If "after" is specified, then verify if a rule exists by that name under the rule set
+        if after and not any(r["name"] == after for r in rule_set.rules):
+            raise RuleDoesNotExist(f"Rule does not exist: {after}")
         if rule in rule_set.rules:
             raise AlreadyExists(f"Rule already exists: {rule['name']}")
-        rule_set.rules.append(rule)
+        # Validate the actions as part of the receipt_rule
+        self._validate_receipt_rule_actions(rule)
+        if not after:
+            # If after is not provided, the new rule is inserted at the beginning of the rule list
+            rule_set.rules.insert(0, rule)
+        else:
+            # Find the position of the rule specified by after parameter
+            for rule_idx, _ in enumerate(rule_set.rules):
+                if rule_set.rules[rule_idx]["name"] == after:
+                    rule_set.rules.insert(rule_idx + 1, rule)
+                    break
         self.receipt_rule_set[rule_set_name] = rule_set
+
+    def clone_receipt_rule_set(
+        self, original_rule_set_name: str, rule_set_name: str
+    ) -> None:
+        # Boto3 validates both the original and new rule set names
+        self._validate_name_param(self.__RULE_SET_PARAM, original_rule_set_name)
+        self._validate_name_param(self.__RULE_SET_PARAM, rule_set_name)
+
+        # Check if original_rule_set_name exists
+        if self.receipt_rule_set.get(original_rule_set_name) is None:
+            raise RuleSetDoesNotExist(
+                f"Rule set does not exist: {original_rule_set_name}"
+            )
+
+        # Check if rule_set_name already exists
+        if self.receipt_rule_set.get(rule_set_name) is not None:
+            raise AlreadyExists(f"Rule set already exists: {rule_set_name}")
+
+        # Clone the original rule set
+        original_rule_set = self.receipt_rule_set[original_rule_set_name]
+        self.receipt_rule_set[rule_set_name] = ReceiptRuleSet(name=rule_set_name)
+        self.receipt_rule_set[rule_set_name].rules = copy.deepcopy(
+            original_rule_set.rules
+        )
+
+    def set_active_receipt_rule_set(
+        self, rule_set_name: Optional[str]
+    ) -> Optional[ReceiptRuleSet]:
+        if not rule_set_name:
+            # A null rule_set_name parameter (i.e., not passed in the request at all) means that all receipt rule sets should be marked inactive
+            for rs in self.receipt_rule_set.values():
+                rs.is_active = False
+            return None
+        self._validate_name_param(self.__RULE_SET_PARAM, rule_set_name)
+        # Verify that the rule set exists
+        if rule_set_name not in self.receipt_rule_set:
+            raise RuleSetDoesNotExist(f"Rule set does not exist: {rule_set_name}")
+        # Only one active rule set is allowed at a time
+        for rs in self.receipt_rule_set.values():
+            rs.is_active = False
+        self.receipt_rule_set[rule_set_name].is_active = True
+        return self.receipt_rule_set[rule_set_name]
+
+    def describe_active_receipt_rule_set(self) -> Optional[ReceiptRuleSet]:
+        for rs in self.receipt_rule_set.values():
+            if rs.is_active:
+                return rs
+        return None
+
+    def delete_receipt_rule_set(self, rule_set_name: str) -> None:
+        self._validate_name_param(self.__RULE_SET_PARAM, rule_set_name)
+        # If the rule set does not exist, boto3 silently returns with success response
+        if rule_set_name not in self.receipt_rule_set:
+            return
+        # If the rule set is active, then raise a CannotDeleteException
+        if self.receipt_rule_set[rule_set_name].is_active:
+            raise CannotDelete(f"Cannot delete active rule set: {rule_set_name}")
+        del self.receipt_rule_set[rule_set_name]
+
+    def list_receipt_rule_sets(self) -> List[ReceiptRuleSet]:
+        # The receipt rule sets are ordered by name
+        return sorted(self.receipt_rule_set.values(), key=lambda rs: rs.name)
+
+    def _validate_name_param(self, param_name: str, name: str) -> None:
+        # Boto3 throws an error with the same message for both failures, even though we could have very well combined it into one regex
+        if (
+            not re.match(SESBackend.__RULE_NAME_REGEX, name)
+            or not name[0].isalnum()
+            or not name[-1].isalnum()
+        ):
+            raise ValidationError(
+                f"Value at '{param_name}' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$"
+            )
+        # A different message thrown for length of the rule_name_set string
+        if len(name) > 64:
+            raise ValidationError(f"Not a valid {param_name}: {name}")
+        return
+
+    def _validate_receipt_rule_actions(self, rule: Dict[str, Any]) -> None:
+        # Allowed to be empty
+        actions = rule.get("actions", [])
+        for action in actions:
+            if "S3Action" in action:
+                self._validate_s3_action(action["S3Action"])
+            if "BounceAction" in action:
+                self._validate_sns_topic(action["BounceAction"].get("topic_arn"))
+            if "WorkmailAction" in action:
+                self._validate_sns_topic(action["WorkmailAction"].get("topic_arn"))
+            if "LambdaAction" in action:
+                self._validate_lambda_action(action["LambdaAction"])
+
+    def _validate_s3_action(self, s3_action: Dict[str, str]) -> None:
+        from moto.s3.models import s3_backends
+
+        # Raise an exception if the bucket does not exist
+        try:
+            partition = get_partition(self.region_name)
+            s3_backends[self.account_id][partition].get_bucket(s3_action["bucket_name"])
+        except Exception:
+            raise InvalidS3ConfigurationException(
+                f"Could not write to bucket: {s3_action['bucket_name']}"
+            )
+
+        if s3_action.get("kms_key_arn"):
+            self._validate_kms_key(s3_action["kms_key_arn"])
+
+        if s3_action.get("topic_arn"):
+            self._validate_sns_topic(s3_action["topic_arn"])
+
+        if s3_action.get("iam_role_arn"):
+            self._validate_iam_role(s3_action["iam_role_arn"])
+
+    def _validate_lambda_action(self, lambda_action: Dict[str, str]) -> None:
+        from moto.awslambda.models import lambda_backends
+
+        # Raise an exception if the Lambda function does not exist
+        try:
+            _ = lambda_backends[self.account_id][self.region_name].get_function(
+                lambda_action["function_arn"]
+            )
+        except Exception:
+            raise InvalidLambdaFunctionException(
+                f"Invalid Lambda function: {lambda_action['function_arn']}"
+            )
+
+        self._validate_sns_topic(lambda_action.get("topic_arn"))
+
+    def _validate_kms_key(self, kms_key_arn: str) -> None:
+        from moto.kms.models import kms_backends
+
+        # Raise an exception if the KMS key does not exist
+        try:
+            region_kms_backend = kms_backends[self.account_id][self.region_name]
+            _ = region_kms_backend.describe_key(kms_key_arn)
+        except Exception:
+            raise InvalidS3ConfigurationException(
+                f"Unable to use AWS KMS key: {kms_key_arn}"
+            )
+
+    def _validate_sns_topic(self, topic_arn: Optional[str]) -> None:
+        # Nothing to validate
+        if not topic_arn:
+            return
+
+        from moto.sns.models import sns_backends
+
+        # Raise an exception if the SNS topic does not exist
+        if topic_arn not in sns_backends[self.account_id][self.region_name].topics:
+            raise InvalidSnsTopicException(f"Invalid SNS topic: {topic_arn}")
+
+    def _validate_iam_role(self, role_arn: str) -> None:
+        from moto.iam.models import iam_backends
+
+        # Raise an exception if the IAM role does not exist
+        if (
+            role_arn
+            not in iam_backends[self.account_id][get_partition(self.region_name)].roles
+        ):
+            raise InvalidParameterValue("Could not assume the provided IAM role")
 
     def describe_receipt_rule_set(self, rule_set_name: str) -> ReceiptRuleSet:
         rule_set = self.receipt_rule_set.get(rule_set_name)

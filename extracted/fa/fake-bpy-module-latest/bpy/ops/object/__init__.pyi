@@ -3341,7 +3341,7 @@ def paths_calculate(
 
     :type execution_context: int | str | None
     :type undo: bool | None
-    :param display_type: Display type
+    :param display_type: Display Type
     :type display_type: bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems | None
     :param range: Computation Range
     :type range: bpy.stub_internal.rna_enums.MotionpathRangeItems | None

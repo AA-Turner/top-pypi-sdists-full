@@ -36,6 +36,7 @@ from .__init__ import (
 )
 from .__version__ import CODENAME, S_BUILD_DT, S_VERSION
 from .authsrv import expand_config_file, split_cfg_ln, upgrade_cfg_fmt
+from .bos import bos
 from .cfg import flagcats, onedash
 from .svchub import SvcHub
 from .util import (
@@ -180,7 +181,7 @@ def init_E(EE )  :
 
     E = EE  # pylint: disable=redefined-outer-name
 
-    def get_unixdir()  :
+    def get_unixdir()   :
         paths    = [
             (os.environ.get, "XDG_CONFIG_HOME"),
             (os.path.expanduser, "~/.config"),
@@ -191,6 +192,8 @@ def init_E(EE )  :
         ]
         errs = []
         for npath, (pf, pa) in enumerate(paths):
+            priv = npath < 2  # private/trusted location
+            ram = npath > 1  # "nonvolatile"; not semantically same as `not priv`
             p = ""
             try:
                 p = pf(pa)
@@ -200,15 +203,21 @@ def init_E(EE )  :
                 p = os.path.normpath(p)
                 mkdir = not os.path.isdir(p)
                 if mkdir:
-                    os.mkdir(p)
+                    os.mkdir(p, 0o700)
 
                 p = os.path.join(p, "copyparty")
+                if not priv and os.path.isdir(p):
+                    uid = os.geteuid()
+                    if os.stat(p).st_uid != uid:
+                        p += ".%s" % (uid,)
+                        if os.path.isdir(p) and os.stat(p).st_uid != uid:
+                            raise Exception("filesystem has broken unix permissions")
                 try:
                     os.listdir(p)
                 except:
-                    os.mkdir(p)
+                    os.mkdir(p, 0o700)
 
-                if npath > 1:
+                if ram:
                     t = "Using %s/copyparty [%s] for config; filekeys/dirkeys will change on every restart. Consider setting XDG_CONFIG_HOME or giving the unix-user a ~/.config/"
                     errs.append(t % (pa, p))
                 elif mkdir:
@@ -220,17 +229,19 @@ def init_E(EE )  :
                 if errs:
                     warn(". ".join(errs))
 
-                return p  # type: ignore
+                return p, priv
             except Exception as ex:
-                if p and npath < 2:
+                if p:
                     t = "Unable to store config in %s [%s] due to %r"
                     errs.append(t % (pa, p, ex))
 
-        raise Exception("could not find a writable path for config")
+        t = "could not find a writable path for runtime state:\n> %s"
+        raise Exception(t % ("\n> ".join(errs)))
 
     E.mod = os.path.dirname(os.path.realpath(__file__))
     if E.mod.endswith("__init__"):
         E.mod = os.path.dirname(E.mod)
+    E.mod_ = os.path.join(E.mod, "")
 
     try:
         p = os.environ.get("XDG_CONFIG_HOME")
@@ -241,7 +252,7 @@ def init_E(EE )  :
         p = os.path.abspath(os.path.realpath(p))
         p = os.path.join(p, "copyparty")
         if not os.path.isdir(p):
-            os.mkdir(p)
+            os.mkdir(p, 0o700)
         os.listdir(p)
     except:
         p = ""
@@ -254,11 +265,11 @@ def init_E(EE )  :
     elif sys.platform == "darwin":
         E.cfg = os.path.expanduser("~/Library/Preferences/copyparty")
     else:
-        E.cfg = get_unixdir()
+        E.cfg, E.scfg = get_unixdir()
 
     E.cfg = E.cfg.replace("\\", "/")
     try:
-        os.makedirs(E.cfg)
+        bos.makedirs(E.cfg, bos.MKD_700)
     except:
         if not os.path.isdir(E.cfg):
             raise
@@ -879,6 +890,11 @@ def get_sects():
             middleware and not by clients! and, as an extra precaution,
             send a header named '\033[36mfinalmasterspark\033[0m' (a secret keyword)
             and then \033[36m--idp-h-key finalmasterspark\033[0m to require that
+
+            the login/logout links/buttons can be replaced with links
+            going to your IdP's UI; \033[36m--idp-login /login/?redir={dst}\033[0m
+            will expand \033[36m{dst}\033[0m to the URL of the current page, so
+            the IdP can redirect the user back to where they were
             """
             ),
         ],
@@ -1169,6 +1185,7 @@ def add_share(ap):
     ap2 = ap.add_argument_group("share-url options")
     ap2.add_argument("--shr", metavar="DIR", type=u, default="", help="toplevel virtual folder for shared files/folders, for example [\033[32m/share\033[0m]")
     ap2.add_argument("--shr-db", metavar="FILE", type=u, default=db_path, help="database to store shares in")
+    ap2.add_argument("--shr-who", metavar="TXT", type=u, default="auth", help="who can create a share? [\033[32mno\033[0m]=nobody, [\033[32ma\033[0m]=admin-permission, [\033[32mauth\033[0m]=authenticated (volflag=shr_who)")
     ap2.add_argument("--shr-adm", metavar="U,U", type=u, default="", help="comma-separated list of users allowed to view/delete any share")
     ap2.add_argument("--shr-rt", metavar="MIN", type=int, default=1440, help="shares can be revived by their owner if they expired less than MIN minutes ago; [\033[32m60\033[0m]=hour, [\033[32m1440\033[0m]=day, [\033[32m10080\033[0m]=week")
     ap2.add_argument("--shr-v", action="store_true", help="debug")
@@ -1285,6 +1302,9 @@ def add_auth(ap):
     ap2.add_argument("--idp-store", metavar="N", type=int, default=1, help="how to use \033[33m--idp-db\033[0m; [\033[32m0\033[0m] = entirely disable, [\033[32m1\033[0m] = write-only (effectively disabled), [\033[32m2\033[0m] = remember users, [\033[32m3\033[0m] = remember users and groups.\nNOTE: Will remember and restore the IdP-volumes of all users for all eternity if set to 2 or 3, even when user is deleted from your IdP")
     ap2.add_argument("--idp-adm", metavar="U,U", type=u, default="", help="comma-separated list of users allowed to use /?idp (the cache management UI)")
     ap2.add_argument("--idp-cookie", metavar="S", type=int, default=0, help="generate a session-token for IdP users which is written to cookie \033[33mcppws\033[0m (or \033[33mcppwd\033[0m if plaintext), to reduce the load on the IdP server, lifetime \033[33mS\033[0m seconds.\n └─note: The expiration time is a client hint only; the actual lifetime of the session-token is infinite (until next restart with \033[33m--ses-db\033[0m wiped)")
+    ap2.add_argument("--idp-login", metavar="L", type=u, default="", help="replace all login-buttons with a link to URL \033[33mL\033[0m (unless \033[32mpw\033[0m is in \033[33m--auth-ord\033[0m then both will be shown); [\033[32m{dst}\033[0m] expands to url of current page")
+    ap2.add_argument("--idp-login-t", metavar="T", type=u, default="Login with SSO", help="the label/text for the idp-login button")
+    ap2.add_argument("--idp-logout", metavar="L", type=u, default="", help="replace all logout-buttons with a link to URL \033[33mL\033[0m")
     ap2.add_argument("--auth-ord", metavar="TXT", type=u, default="idp,ipu", help="controls auth precedence; examples: [\033[32mpw,idp,ipu\033[0m], [\033[32mipu,pw,idp\033[0m], see --help-auth-ord")
     ap2.add_argument("--no-bauth", action="store_true", help="disable basic-authentication support; do not accept passwords from the 'Authenticate' header at all. NOTE: This breaks support for the android app")
     ap2.add_argument("--bauth-last", action="store_true", help="keeps basic-authentication enabled, but only as a last-resort; if a cookie is also provided then the cookie wins")
@@ -1299,7 +1319,7 @@ def add_auth(ap):
     ap2.add_argument("--ao-idp-before-pw", type=u, default="", help=argparse.SUPPRESS)
     ap2.add_argument("--ao-h-before-hm", type=u, default="", help=argparse.SUPPRESS)
     ap2.add_argument("--ao-ipu-wins", type=u, default="", help=argparse.SUPPRESS)
-    ap2.add_argument("--ao-has-pw", type=u, default="", help=argparse.SUPPRESS)
+    ap2.add_argument("--ao-have-pw", type=u, default="", help=argparse.SUPPRESS)
 
 
 def add_chpw(ap):
@@ -1445,6 +1465,7 @@ def add_yolo(ap):
     ap2.add_argument("--no-fnugg", action="store_true", help="disable the smoketest for caching-related issues in the web-UI")
     ap2.add_argument("--getmod", action="store_true", help="permit ?move=[...] and ?delete as GET")
     ap2.add_argument("--wo-up-readme", action="store_true", help="allow users with write-only access to upload logues and readmes without adding the _wo_ filename prefix (volflag=wo_up_readme)")
+    ap2.add_argument("--unsafe-state", action="store_true", help="when one of the emergency fallback locations are used for runtime state ($TMPDIR, /tmp), certain features will be force-disabled for security reasons by default. This option overrides that safeguard and allows unsafe storage of secrets")
 
 
 def add_optouts(ap):
@@ -1458,7 +1479,7 @@ def add_optouts(ap):
     ap2.add_argument("--no-fs-abrt", action="store_true", help="disable ability to abort ongoing copy/move")
     ap2.add_argument("-nth", action="store_true", help="no title hostname; don't show \033[33m--name\033[0m in <title>")
     ap2.add_argument("-nih", action="store_true", help="no info hostname -- don't show in UI")
-    ap2.add_argument("-nid", action="store_true", help="no info disk-usage -- don't show in UI")
+    ap2.add_argument("-nid", action="store_true", help="no info disk-usage -- don't show in UI. This is the same as --du-who no")
     ap2.add_argument("-nb", action="store_true", help="no powered-by-copyparty branding in UI")
     ap2.add_argument("--zipmaxn", metavar="N", type=u, default="0", help="reject download-as-zip if more than \033[33mN\033[0m files in total; optionally takes a unit suffix: [\033[32m256\033[0m], [\033[32m9K\033[0m], [\033[32m4G\033[0m] (volflag=zipmaxn)")
     ap2.add_argument("--zipmaxs", metavar="SZ", type=u, default="0", help="reject download-as-zip if total download size exceeds \033[33mSZ\033[0m bytes; optionally takes a unit suffix: [\033[32m256M\033[0m], [\033[32m4G\033[0m], [\033[32m2T\033[0m] (volflag=zipmaxs)")
@@ -1736,7 +1757,11 @@ def add_ui(ap, retry):
     ap2.add_argument("--doctitle", metavar="TXT", type=u, default="copyparty @ --name", help="title / service-name to show in html documents")
     ap2.add_argument("--bname", metavar="TXT", type=u, default="--name", help="server name (displayed in filebrowser document title)")
     ap2.add_argument("--pb-url", metavar="URL", type=u, default=URL_PRJ, help="powered-by link; disable with \033[33m-nb\033[0m")
-    ap2.add_argument("--ver", action="store_true", help="show version on the control panel (incompatible with \033[33m-nb\033[0m)")
+    ap2.add_argument("--ver", action="store_true", help="show version on the control panel (incompatible with \033[33m-nb\033[0m). This is the same as --ver-who all")
+    ap2.add_argument("--ver-who", metavar="TXT", type=u, default="no", help="only show version for: [\033[32ma\033[0m]=admin-permission-anywhere, [\033[32mauth\033[0m]=authenticated, [\033[32mall\033[0m]=anyone")
+    ap2.add_argument("--du-who", metavar="TXT", type=u, default="all", help="only show disk usage for: [\033[32mno\033[0m]=nobody, [\033[32ma\033[0m]=admin-permission, [\033[32mrw\033[0m]=read-write, [\033[32mw\033[0m]=write, [\033[32mauth\033[0m]=authenticated, [\033[32mall\033[0m]=anyone (volflag=du_who)")
+    ap2.add_argument("--ver-iwho", type=int, default=0, help=argparse.SUPPRESS)
+    ap2.add_argument("--du-iwho", type=int, default=0, help=argparse.SUPPRESS)
     ap2.add_argument("--k304", metavar="NUM", type=int, default=0, help="configure the option to enable/disable k304 on the controlpanel (workaround for buggy reverse-proxies); [\033[32m0\033[0m] = hidden and default-off, [\033[32m1\033[0m] = visible and default-off, [\033[32m2\033[0m] = visible and default-on")
     ap2.add_argument("--no304", metavar="NUM", type=int, default=0, help="configure the option to enable/disable no304 on the controlpanel (workaround for buggy caching in browsers); [\033[32m0\033[0m] = hidden and default-off, [\033[32m1\033[0m] = visible and default-off, [\033[32m2\033[0m] = visible and default-on")
     ap2.add_argument("--ctl-re", metavar="SEC", type=int, default=1, help="the controlpanel Refresh-button will autorefresh every SEC; [\033[32m0\033[0m] = just once")

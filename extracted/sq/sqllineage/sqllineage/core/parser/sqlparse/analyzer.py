@@ -1,6 +1,6 @@
 from functools import reduce
 from operator import add
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import sqlparse
 from sqlparse.sql import (
@@ -159,7 +159,8 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                 for c in comparisons:
                     if isinstance(right := c.right, Identifier):
                         src_col = Column(right.get_real_name())
-                        src_col.parent = direct_source
+                        if direct_source is not None:
+                            src_col.parent = direct_source
                         tgt_col = Column(c.left.get_real_name())
                         tgt_col.parent = list(holder.write)[0]
                         holder.add_column_lineage(src_col, tgt_col)
@@ -187,7 +188,8 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                             for i, identifier in enumerate(identifiers):
                                 if isinstance(identifier, Identifier):
                                     src_col = Column(identifier.get_real_name())
-                                    src_col.parent = direct_source
+                                    if direct_source is not None:
+                                        src_col.parent = direct_source
                                     holder.add_column_lineage(
                                         src_col, insert_columns[i]
                                     )
@@ -254,7 +256,7 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
         return holder
 
     @classmethod
-    def parse_subquery(cls, token: TokenList) -> List[SubQuery]:
+    def parse_subquery(cls, token: TokenList) -> list[SubQuery]:
         result = []
         if isinstance(token, (Identifier, Function, Where, Values)):
             # usually SubQuery is an Identifier, but not all Identifiers are SubQuery
@@ -278,7 +280,7 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
     @classmethod
     def _parse_subquery(
         cls, token: Union[Identifier, Function, Where]
-    ) -> List[SubQuery]:
+    ) -> list[SubQuery]:
         """
         convert SubQueryTuple to sqllineage.core.models.SubQuery
         """

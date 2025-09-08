@@ -565,7 +565,7 @@ class HttpSrv(object):
 
             v = self.E.t0
             try:
-                with os.scandir(os.path.join(self.E.mod, "web")) as dh:
+                with os.scandir(self.E.mod_ + "web") as dh:
                     for fh in dh:
                         inf = fh.stat()
                         v = max(v, inf.st_mtime)

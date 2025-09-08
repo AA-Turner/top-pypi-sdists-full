@@ -7,6 +7,7 @@ import zendriver as zd
 from tests.sample_data import sample_file
 from zendriver.cdp.fetch import RequestStage
 from zendriver.cdp.network import ResourceType
+from zendriver.core.connection import ProtocolException
 
 
 async def test_set_user_agent_sets_navigator_values(browser: zd.Browser) -> None:
@@ -295,27 +296,47 @@ async def test_evaluate_complex_object_no_error(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("complex_object.html"))
     await tab.wait_for_ready_state("complete")
 
-    result = await tab.evaluate("document.querySelector('body:not(.no-js)')")
+    result = await tab.evaluate(
+        "document.querySelector('body:not(.no-js)')", return_by_value=False
+    )
     assert result is not None
 
     # This is similar to the original failing case but more likely to trigger the error
-    body_with_complex_refs = await tab.evaluate("document.body")
+    body_with_complex_refs = await tab.evaluate("document.body", return_by_value=False)
     assert body_with_complex_refs is not None
 
 
-async def test_evaluate_return_by_value_modes(browser: zd.Browser) -> None:
+async def test_evaluate_return_by_value_complex_object(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("complex_object.html"))
     await tab.wait_for_ready_state("complete")
 
     expression = "document.querySelector('body:not(.no-js)')"
 
-    result_by_value = await tab.evaluate(expression, return_by_value=True)
-    assert result_by_value is not None
+    # Fetching a complex object with return_by_value=True is unsupported because there is no
+    # way to represent the object as a simple data structure.
+    with pytest.raises(ProtocolException):
+        _ = await tab.evaluate(expression, return_by_value=True)
 
-    result_false = await tab.evaluate(expression, return_by_value=False)
+    result_by_value_false = await tab.evaluate(expression, return_by_value=False)
     assert (
-        result_false is not None
+        result_by_value_false is not None
     )  # Should return the deep serialized value, not a tuple
+
+
+async def test_evaluate_return_by_value_simple_json(browser: zd.Browser) -> None:
+    tab = await browser.get(sample_file("simple_json.html"))
+    await tab.wait_for_ready_state("complete")
+
+    expression = "JSON.parse(document.querySelector('#obj').textContent)"
+
+    result_by_value_true = await tab.evaluate(expression, return_by_value=True)
+    assert result_by_value_true == {"a": "x", "b": 3.14159}
+
+    result_by_value_false = await tab.evaluate(expression, return_by_value=False)
+    assert result_by_value_false == [
+        ["a", {"type": "string", "value": "x"}],
+        ["b", {"type": "number", "value": 3.14159}],
+    ]
 
 
 async def test_evaluate_stress_test_complex_objects(browser: zd.Browser) -> None:
@@ -323,25 +344,26 @@ async def test_evaluate_stress_test_complex_objects(browser: zd.Browser) -> None
     await tab.wait_for_ready_state("complete")
 
     # Test various DOM queries that could trigger reference chain issues
-    # Each test case is a tuple of (expression, expected_type_or_validator)
+    # Each test case is a tuple of (expression, return_by_value, expected_type_or_validator)
     test_cases = [
-        ("document.querySelector('body:not(.no-js)')", lambda x: x is not None),
-        ("document.documentElement", lambda x: x is not None),
-        ("document.querySelector('*')", lambda x: x is not None),
-        ("document.body.parentElement", lambda x: x is not None),
-        ("document.getElementById('content')", lambda x: x is not None),
+        ("document.querySelector('body:not(.no-js)')", False, lambda x: x is not None),
+        ("document.documentElement", False, lambda x: x is not None),
+        ("document.querySelector('*')", False, lambda x: x is not None),
+        ("document.body.parentElement", False, lambda x: x is not None),
+        ("document.getElementById('content')", False, lambda x: x is not None),
         (
             "document.body.complexStructure ? 'has complex structure' : 'no structure'",
+            True,
             str,
         ),
-        ("document.readyState", str),
-        ("navigator.userAgent", str),
-        ("window.location.href", str),
-        ("document.title", str),
+        ("document.readyState", True, str),
+        ("navigator.userAgent", True, str),
+        ("window.location.href", True, str),
+        ("document.title", True, str),
     ]
 
-    for expression, validator in test_cases:
-        result = await tab.evaluate(expression)
+    for expression, return_by_value, validator in test_cases:
+        result = await tab.evaluate(expression, return_by_value=return_by_value)
         # Verify the result is usable and matches expected type/validation
         if callable(validator):
             assert validator(

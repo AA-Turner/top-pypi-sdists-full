@@ -240,7 +240,7 @@ class OpenAPIConverter(FieldConverterMixin):
 
     def schema2jsonschema(self, schema):
         """Return the JSON Schema Object for a given marshmallow
-        :class:`Schema <marshmallow.Schema>` instance. Schema may optionally
+        :class:`Schema <marshmallow.Schema>`. Schema may optionally
         provide the ``title`` and ``description`` class Meta options.
 
         https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.2.md#schemaObject
@@ -254,12 +254,16 @@ class OpenAPIConverter(FieldConverterMixin):
 
         jsonschema = self.fields2jsonschema(fields, partial=partial)
 
+        schema_instance = resolve_schema_instance(schema)
+
         if hasattr(Meta, "title"):
             jsonschema["title"] = Meta.title
         if hasattr(Meta, "description"):
             jsonschema["description"] = Meta.description
-        if hasattr(Meta, "unknown") and Meta.unknown != marshmallow.EXCLUDE:
-            jsonschema["additionalProperties"] = Meta.unknown == marshmallow.INCLUDE
+        elif schema_instance.unknown != marshmallow.EXCLUDE:
+            jsonschema["additionalProperties"] = (
+                schema_instance.unknown == marshmallow.INCLUDE
+            )
 
         return jsonschema
 

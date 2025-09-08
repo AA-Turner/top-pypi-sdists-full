@@ -302,6 +302,10 @@ class TcpSrv(object):
                     if os.path.exists(ip):
                         os.unlink(ip)
                     srv.bind(ip)
+                    if uds_gid != -1:
+                        os.chown(ip, -1, uds_gid)
+                    if uds_perm != -1:
+                        os.chmod(ip, uds_perm)
                 else:
                     tf = "%s.%d" % (ip, os.getpid())
                     if os.path.exists(tf):

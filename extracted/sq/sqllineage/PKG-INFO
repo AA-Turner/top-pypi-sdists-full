@@ -1,12 +1,18 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sqllineage
-Version: 1.5.4
+Version: 1.5.5
 Summary: SQL Lineage Analysis Tool powered by Python
-Home-page: https://github.com/reata/sqllineage
-Author: Reata
-Author-email: reddevil.hjw@gmail.com
+Project-URL: Homepage, https://reata.github.io/sqllineage/
+Project-URL: Documentation, https://sqllineage.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/reata/sqllineage.git
+Project-URL: Issues, https://github.com/reata/sqllineage/issues
+Project-URL: Changelog, https://github.com/reata/sqllineage/releases
+Author-email: Reata <reddevil.hjw@gmail.com>
+Maintainer-email: Reata <reddevil.hjw@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: data-discovery,data-governance,data-lineage,lineage,metadata,sql
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -15,40 +21,24 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: sqlparse==0.5.3
+Requires-Python: >=3.9
 Requires-Dist: networkx>=2.4
-Requires-Dist: sqlfluff==3.3.1
 Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: sqlfluff>=3.2.0
+Requires-Dist: sqlparse>=0.5.0
 Provides-Extra: ci
-Requires-Dist: bandit; extra == "ci"
-Requires-Dist: black; extra == "ci"
-Requires-Dist: flake8; extra == "ci"
-Requires-Dist: flake8-blind-except; extra == "ci"
-Requires-Dist: flake8-builtins; extra == "ci"
-Requires-Dist: flake8-import-order; extra == "ci"
-Requires-Dist: flake8-logging-format; extra == "ci"
-Requires-Dist: mypy; extra == "ci"
-Requires-Dist: pytest; extra == "ci"
-Requires-Dist: pytest-cov; extra == "ci"
-Requires-Dist: tox; extra == "ci"
-Requires-Dist: twine; extra == "ci"
-Requires-Dist: wheel; extra == "ci"
+Requires-Dist: black>=25.1.0; extra == 'ci'
+Requires-Dist: mypy>=1.17.1; extra == 'ci'
+Requires-Dist: pytest-cov>=6.2.1; extra == 'ci'
+Requires-Dist: pytest>=8.4.1; extra == 'ci'
+Requires-Dist: ruff>=0.12.10; extra == 'ci'
+Requires-Dist: tox>=4.28.4; extra == 'ci'
+Requires-Dist: twine>=6.1.0; extra == 'ci'
+Requires-Dist: wheel>=0.45.1; extra == 'ci'
 Provides-Extra: docs
-Requires-Dist: Sphinx>=3.2.0; extra == "docs"
-Requires-Dist: sphinx_rtd_theme>=0.5.0; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: sphinx-rtd-theme>=0.5.0; extra == 'docs'
+Requires-Dist: sphinx>=3.2.0; extra == 'docs'
+Description-Content-Type: text/markdown
 
 # SQLLineage
 SQL Lineage Analysis Tool powered by Python

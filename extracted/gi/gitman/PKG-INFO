@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: gitman
-Version: 3.5.3
+Version: 3.6
 Summary: A language-agnostic dependency manager using Git.
 License: MIT
 Keywords: git,version control,build systems,dependency management,submodules
 Author: Jace Browning
 Author-email: jacebrowning@gmail.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -15,7 +15,6 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

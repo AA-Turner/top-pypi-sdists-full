@@ -410,10 +410,11 @@ class Up2k(object):
 
         ret      = []
         userset = set([(uname or "\n"), "*"])
+        e_d = {}
         n = 1000
         try:
             for ptop, tab2 in self.registry.items():
-                cfg = self.flags.get(ptop, {}).get("u2abort", 1)
+                cfg = self.flags.get(ptop, e_d).get("u2abort", 1)
                 if not cfg:
                     continue
                 addr = (ip or "\n") if cfg in (1, 2) else ""
@@ -1131,7 +1132,7 @@ class Up2k(object):
         ft = "\033[0;32m{}{:.0}"
         ff = "\033[0;35m{}{:.0}"
         fv = "\033[0;36m{}:\033[90m{}"
-        zs = "ext_th_d html_head put_name2 mv_re_r mv_re_t rm_re_r rm_re_t srch_re_dots srch_re_nodot zipmax zipmaxn_v zipmaxs_v"
+        zs = "du_iwho ext_th_d html_head put_name2 mv_re_r mv_re_t rm_re_r rm_re_t srch_re_dots srch_re_nodot zipmax zipmaxn_v zipmaxs_v"
         fx = set(zs.split())
         fd = vf_bmap()
         fd.update(vf_cmap())
@@ -1485,6 +1486,7 @@ class Up2k(object):
         files    = []
         fat32 = True
         cv = vcv = acv = ""
+        e_d = {}
 
         th_cvd = self.args.th_coversd
         th_cvds = self.args.th_coversd_set
@@ -1684,7 +1686,7 @@ class Up2k(object):
 
                 t = "reindex %r => %r mtime(%s/%s) size(%s/%s)"
                 self.log(t % (top, rp, dts, lmod, dsz, sz))
-                self.db_rm(db.c, rd, fn, 0)
+                self.db_rm(db.c, e_d, rd, fn, 0)
                 tfa += 1
                 db.n += 1
                 in_db = []
@@ -1721,7 +1723,7 @@ class Up2k(object):
                 un = ""
 
             # skip upload hooks by not providing vflags
-            self.db_add(db.c, {}, rd, fn, lmod, sz, "", "", wark, wark, "", un, ip, at)
+            self.db_add(db.c, e_d, rd, fn, lmod, sz, "", "", wark, wark, "", un, ip, at)
             db.n += 1
             db.nf += 1
             tfa += 1
@@ -1780,7 +1782,7 @@ class Up2k(object):
         rm_files = [x for x in hits if x not in seen_files]
         n_rm = len(rm_files)
         for fn in rm_files:
-            self.db_rm(db.c, rd, fn, 0)
+            self.db_rm(db.c, e_d, rd, fn, 0)
 
         if n_rm:
             self.log("forgot {} deleted files".format(n_rm))
@@ -3126,7 +3128,7 @@ class Up2k(object):
                 for cur, dp_dir, dp_fn in lost:
                     t = "forgetting desynced db entry: %r"
                     self.log(t % ("/" + vjoin(vjoin(vfs.vpath, dp_dir), dp_fn)))
-                    self.db_rm(cur, dp_dir, dp_fn, cj["size"])
+                    self.db_rm(cur, vfs.flags, dp_dir, dp_fn, cj["size"])
                     if c2 and c2 != cur:
                         c2.connection.commit()
 
@@ -3419,10 +3421,9 @@ class Up2k(object):
                     cur.connection.commit()
 
                     ap = djoin(job["ptop"], job["prel"], job["name"])
-                    times = (int(time.time()), int(cj["lmod"]))
-                    bos.utime(ap, times, False)
+                    mt = bos.utime_c(self.log, ap, int(cj["lmod"]), False, True)
 
-                    self.log("touched %r from %d to %d" % (ap, job["lmod"], cj["lmod"]))
+                    self.log("touched %r from %d to %d" % (ap, job["lmod"], mt))
                 except Exception as ex:
                     self.log("umod failed, %r" % (ex,), 3)
 
@@ -3456,7 +3457,7 @@ class Up2k(object):
                 vrel = vjoin(job["prel"], fname)
                 xlink = bool(vf.get("xlink"))
                 cur, wark, _, _, _, _, _ = self._find_from_vpath(ptop, vrel)
-                self._forget_file(ptop, vrel, cur, wark, True, st.st_size, xlink)
+                self._forget_file(ptop, vrel, vf, cur, wark, True, st.st_size, xlink)
             except Exception as ex:
                 self.log("skipping replace-relink: %r" % (ex,))
             finally:
@@ -3577,8 +3578,7 @@ class Up2k(object):
             shutil.copy2(fsenc(csrc), fsenc(dst))
 
         if lmod and (not linked or SYMTIME):
-            times = (int(time.time()), int(lmod))
-            bos.utime(dst, times, False)
+            bos.utime_c(self.log, dst, int(lmod), False)
 
     def handle_chunks(
         self, ptop , wark , chashes 
@@ -3750,10 +3750,8 @@ class Up2k(object):
         times = (int(time.time()), int(job["lmod"]))
         t = "no more chunks, setting times %s (%d) on %r"
         self.log(t % (times, bos.path.getsize(dst), dst))
-        try:
-            bos.utime(dst, times)
-        except:
-            self.log("failed to utime (%r, %s)" % (dst, times))
+        bos.utime_c(self.log, dst, times[1], False)
+        # the above logmsg (and associated logic) is retained due to unforget.py
 
         zs = "prel name lmod size ptop vtop wark dwrk host user addr"
         z2 = [job[x] for x in zs.split()]
@@ -3871,16 +3869,31 @@ class Up2k(object):
 
         return True
 
-    def db_rm(self, db , rd , fn , sz )  :
+    def db_rm(
+        self, db , vflags  , rd , fn , sz 
+    )  :
         sql = "delete from up where rd = ? and fn = ?"
         try:
             r = db.execute(sql, (rd, fn))
         except:
             r = db.execute(sql, s3enc(self.mem_cur, rd, fn))
 
-        if r.rowcount:
-            self.volsize[db] -= sz
-            self.volnfiles[db] -= 1
+        if not r.rowcount:
+            return
+
+        self.volsize[db] -= sz
+        self.volnfiles[db] -= 1
+
+        if "nodirsz" not in vflags:
+            try:
+                q = "update ds set nf=nf-1, sz=sz-? where rd=?"
+                while True:
+                    db.execute(q, (sz, rd))
+                    if not rd:
+                        break
+                    rd = rd.rsplit("/", 1)[0] if "/" in rd else ""
+            except:
+                pass
 
     def db_add(
         self,
@@ -3901,7 +3914,7 @@ class Up2k(object):
         skip_xau  = False,
     )  :
         """mutex(main) me"""
-        self.db_rm(db, rd, fn, sz)
+        self.db_rm(db, vflags, rd, fn, sz)
 
         if not ip:
             db_ip = ""
@@ -4182,7 +4195,7 @@ class Up2k(object):
                         xlink = bool(dbv.flags.get("xlink"))
                         cur, wark, _, _, _, _, _ = self._find_from_vpath(ptop, volpath)
                         self._forget_file(
-                            ptop, volpath, cur, wark, True, st.st_size, xlink
+                            ptop, volpath, dbv.flags, cur, wark, True, st.st_size, xlink
                         )
                     finally:
                         if cur:
@@ -4638,7 +4651,14 @@ class Up2k(object):
 
             with self.reg_mutex:
                 has_dupes = self._forget_file(
-                    svn.realpath, srem, c1, w, is_xvol, fsize_ or fsize, xlink
+                    svn.realpath,
+                    srem,
+                    svn.flags,
+                    c1,
+                    w,
+                    is_xvol,
+                    fsize_ or fsize,
+                    xlink,
                 )
 
             if not is_xvol:
@@ -4782,6 +4802,7 @@ class Up2k(object):
         self,
         ptop ,
         vrem ,
+        vflags  ,
         cur ,
         wark ,
         drop_tags ,
@@ -4806,7 +4827,7 @@ class Up2k(object):
                 q = "delete from mt where w=?"
                 cur.execute(q, (wark[:16],))
 
-            self.db_rm(cur, srd, sfn, sz)
+            self.db_rm(cur, vflags, srd, sfn, sz)
 
         reg = self.registry.get(ptop)
         if reg:
@@ -4895,7 +4916,10 @@ class Up2k(object):
             mt = bos.path.getmtime(slabs, False)
             flags = self.flags.get(ptop) or {}
             atomic_move(self.log, sabs, slabs, flags)
-            bos.utime(slabs, (int(time.time()), int(mt)), False)
+            try:
+                bos.utime(slabs, (int(time.time()), int(mt)), False)
+            except:
+                self.log("relink: failed to utime(%r, %s)" % (slabs, mt), 3)
             self._symlink(slabs, sabs, flags, False, is_mv=True)
             full[slabs] = (ptop, rem)
             sabs = slabs

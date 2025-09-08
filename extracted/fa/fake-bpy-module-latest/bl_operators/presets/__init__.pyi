@@ -198,7 +198,7 @@ class AddPresetFluid(AddPresetBase, _bpy_types.Operator):
         """
 
 class AddPresetGpencilBrush(AddPresetBase, _bpy_types.Operator):
-    """Add or remove grease pencil brush preset"""
+    """Add or remove Grease Pencil brush preset"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

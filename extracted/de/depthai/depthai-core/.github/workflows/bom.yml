@@ -1,5 +1,0 @@
-name: BOM
-
-# Only allow manual trigger
-on:
-  workflow_dispatch:

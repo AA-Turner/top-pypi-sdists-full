@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import print_function, unicode_literals
 
-S_VERSION = "2.12"
-S_BUILD_DT = "2025-08-26"
+S_VERSION = "2.13"
+S_BUILD_DT = "2025-09-05"
 
 """
 u2c.py: upload to copyparty
@@ -588,9 +588,10 @@ def undns(url):
 
 def _scd(err, top):
     """non-recursive listing of directory contents, along with stat() info"""
+    top_ = os.path.join(top, b"")
     with os.scandir(top) as dh:
         for fh in dh:
-            abspath = os.path.join(top, fh.name)
+            abspath = top_ + fh.name
             try:
                 yield [abspath, fh.stat()]
             except Exception as ex:
@@ -599,8 +600,9 @@ def _scd(err, top):
 
 def _lsd(err, top):
     """non-recursive listing of directory contents, along with stat() info"""
+    top_ = os.path.join(top, b"")
     for name in os.listdir(top):
-        abspath = os.path.join(top, name)
+        abspath = top_ + name
         try:
             yield [abspath, os.stat(abspath)]
         except Exception as ex:

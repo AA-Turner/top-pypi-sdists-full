@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioecowitt
-Version: 2025.9.0
+Version: 2025.9.1
 Summary: Python wrapper for EcoWitt Protocol
 Author-email: Home Assistant Team <hello@home-assistant.io>
 License-Expression: Apache-2.0

@@ -22,7 +22,7 @@
 +--------------------------------------------------------------------------+
 */
 
-#define MODULE_RELEASE "3.2.6"
+#define MODULE_RELEASE "3.2.7"
 
 #include <Python.h>
 #include <datetime.h>
@@ -160,13 +160,14 @@ typedef struct _param_cache_node
     int size;                         /* Size of param */
     char *varname;                    /* bound variable name */
     PyObject *var_pyvalue;            /* bound variable value */
-    SQLINTEGER ivalue;                /* Temp storage value */
+    SQLUINTEGER ivalue;                /* Temp storage value */
     double fvalue;                    /* Temp storage value */
     char *svalue;                     /* Temp storage value */
     SQLWCHAR *uvalue;                 /* Temp storage value */
     DATE_STRUCT *date_value;          /* Temp storage value */
     TIME_STRUCT *time_value;          /* Temp storage value */
     TIMESTAMP_STRUCT *ts_value;       /* Temp storage value */
+    TIMESTAMP_STRUCT_EXT_TZ *tstz_value;    /* Temp storage value */
     SQLINTEGER *ivalueArray;          /* Temp storage array of values */
     double *fvalueArray;              /* Temp storage array of values */
     SQLINTEGER *bind_indicator_array; /* Temp storage array of values */
@@ -240,6 +241,7 @@ typedef union
     SQLREAL r_val;
     SQLWCHAR *w_val;
     TIMESTAMP_STRUCT *ts_val;
+    TIMESTAMP_STRUCT_EXT_TZ *tstz_val;
     DATE_STRUCT *date_val;
     TIME_STRUCT *time_val;
 } ibm_db_row_data_type;
@@ -400,6 +402,43 @@ char *strtoupper(char *data, int max)
     return data;
 }
 
+PyObject* format_timestamp_pystr(const TIMESTAMP_STRUCT_EXT_TZ* ts) {
+    char formatted[160];
+    char sign;
+    int tz_hour_abs;
+    int tz_minute_abs;
+    LogMsg(INFO, "Entry format_timestamp_pystr()");
+    if (ts->timezone_hour < -14 || ts->timezone_hour > 14 ||
+        ts->timezone_minute < -59 || ts->timezone_minute > 59) {
+        char error_msg[64];
+        snprintf(error_msg, sizeof(error_msg),
+             "Invalid timezone offset detected: %d:%02d (allowed: -14:00 to +14:59)",
+             ts->timezone_hour, ts->timezone_minute);
+        LogMsg(EXCEPTION, error_msg);
+        PyErr_SetString(PyExc_ValueError, error_msg);
+        return NULL;
+    }
+
+    sign = (ts->timezone_hour < 0) ? '-' : '+';
+    tz_hour_abs = abs(ts->timezone_hour);
+    tz_minute_abs = abs(ts->timezone_minute);
+
+    unsigned long long full_fraction =
+        ((unsigned long long)ts->fraction * 1000ULL) + ts->fraction2;  // 12 digits total
+
+     snprintf(formatted, sizeof(formatted),
+             "%04d-%02d-%02d-%02d.%02d.%02d.%012llu %c%02d:%02d",
+             ts->year, ts->month, ts->day,
+             ts->hour, ts->minute, ts->second,
+             full_fraction,  // print 12-digit precision
+             sign, tz_hour_abs, tz_minute_abs);
+    snprintf(messageStr, sizeof(messageStr),"Final formatted string:%s",formatted);
+    LogMsg(INFO, messageStr);
+    LogMsg(INFO, "exit format_timestamp_pystr()");
+    return PyUnicode_FromString(formatted);
+}
+
+
 /*    static void _python_ibm_db_free_conn_struct */
 static void _python_ibm_db_free_conn_struct(conn_handle *handle)
 {
@@ -460,9 +499,9 @@ static void _python_ibm_db_clear_param_cache(stmt_handle *stmt_res)
 
     while (curr_ptr != NULL)
     {
-        snprintf(messageStr, sizeof(messageStr), "Freeing node: var_pyvalue=%p, varname=%p, svalue=%p, uvalue=%p, date_value=%p, time_value=%p, ts_value=%p, ivalueArray=%p, fvalueArray=%p, bind_indicator_array=%p",
+        snprintf(messageStr, sizeof(messageStr), "Freeing node: var_pyvalue=%p, varname=%p, svalue=%p, uvalue=%p, date_value=%p, time_value=%p, ts_value=%p,tstz_value=%p,ivalueArray=%p, fvalueArray=%p, bind_indicator_array=%p",
                  curr_ptr->var_pyvalue, curr_ptr->varname, curr_ptr->svalue, curr_ptr->uvalue,
-                 curr_ptr->date_value, curr_ptr->time_value, curr_ptr->ts_value,
+                 curr_ptr->date_value, curr_ptr->time_value, curr_ptr->ts_value,curr_ptr->tstz_value,
                  curr_ptr->ivalueArray, curr_ptr->fvalueArray, curr_ptr->bind_indicator_array);
         LogMsg(DEBUG, messageStr);
         /* Decrement refcount on Python handle */
@@ -477,6 +516,7 @@ static void _python_ibm_db_clear_param_cache(stmt_handle *stmt_res)
         PyMem_Free(curr_ptr->date_value);
         PyMem_Free(curr_ptr->time_value);
         PyMem_Free(curr_ptr->ts_value);
+        PyMem_Free(curr_ptr->tstz_value);
         PyMem_Free(curr_ptr->ivalueArray);
         PyMem_Free(curr_ptr->fvalueArray);
         PyMem_Free(curr_ptr->bind_indicator_array);
@@ -540,6 +580,14 @@ static void _python_ibm_db_free_result_struct(stmt_handle *handle)
                         LogMsg(DEBUG, messageStr);
                         PyMem_Del(handle->row_data[i].data.w_val);
                         handle->row_data[i].data.w_val = NULL;
+                    }
+                    break;
+                case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                    if ( handle->row_data[i].data.tstz_val != NULL ) {
+                        snprintf(messageStr, sizeof(messageStr), "Freeing row_data[%d].data.tsrz_val=%p", i, handle->row_data[i].data.tstz_val);
+                        LogMsg(DEBUG, messageStr);
+                        PyMem_Del(handle->row_data[i].data.tstz_val);
+                        handle->row_data[i].data.tstz_val = NULL;
                     }
                     break;
                 case SQL_TYPE_TIMESTAMP:
@@ -700,23 +748,19 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
     snprintf(messageStr, sizeof(messageStr), "handle=%p, hType=%d, rc=%d, cpy_to_global=%d, API=%d, recno=%d",
              handle, hType, rc, cpy_to_global, API, recno);
     LogMsg(DEBUG, messageStr);
-
-    memset(errMsg, '\0', DB2_MAX_ERR_MSG_LEN);
-    memset(msg, '\0', SQL_MAX_MESSAGE_LENGTH + 1);
     rc1 = SQLGetDiagRec(hType, handle, recno, sqlstate, &sqlcode, msg,
                         SQL_MAX_MESSAGE_LENGTH + 1, &length);
-    snprintf(messageStr, sizeof(messageStr), "SQLGetDiagRec returned rc1=%d, sqlstate=%s, sqlcode=%d, msg=%s, length=%d",
-             rc1, sqlstate, sqlcode, msg, length);
+    snprintf(messageStr, sizeof(messageStr), "SQLGetDiagRec returned rc1=%d, sqlstate=%s, sqlcode=%d, length=%d",
+             rc1, sqlstate, sqlcode, length);
     sprintf((char *)errcode, "SQLCODE=%d", (int)sqlcode);
     LogMsg(DEBUG, messageStr);
-
     if (rc1 == SQL_SUCCESS)
     {
         while ((p = strchr((char *)msg, '\n')))
         {
             *p = '\0';
         }
-        sprintf((char *)errMsg, "%s SQLCODE=%d", (char *)msg, (int)sqlcode);
+        snprintf((char *)errMsg, DB2_MAX_ERR_MSG_LEN, "%s SQLCODE=%d", (char *)msg, (int)sqlcode);
 #ifdef _WIN32
         for (i = 0; i < strlen(errMsg); i++)
         {
@@ -727,7 +771,8 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
         }
 #endif
 
-        LogMsg(ERROR, errMsg);
+        snprintf(messageStr, sizeof(messageStr), "Final error message (UTF-8): %s", errMsg);
+        LogMsg(ERROR, messageStr);
         if (cpy_to_global != 0 && rc != 1)
         {
             PyErr_SetString(PyExc_Exception, (char *)errMsg);
@@ -747,12 +792,15 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
                              "Copying to global: SQL_HANDLE_DBC, sqlstate=%s, errMsg=%s",
                              sqlstate, errMsg);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(IBM_DB_G(__python_conn_err_state),
-                            (char *)sqlstate, SQL_SQLSTATE_SIZE + 1);
-                    strncpy(IBM_DB_G(__python_conn_err_msg),
-                            (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
-                    strncpy(IBM_DB_G(__python_err_code),
-                            (char *)errcode, SQL_SQLCODE_SIZE);
+                    strncpy(IBM_DB_G(__python_conn_err_state), (char *)sqlstate, SQL_SQLSTATE_SIZE);
+                    IBM_DB_G(__python_conn_err_state)[SQL_SQLSTATE_SIZE] = '\0';
+
+                    strncpy(IBM_DB_G(__python_conn_err_msg), (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                    IBM_DB_G(__python_conn_err_msg)[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
+
+                    strncpy(IBM_DB_G(__python_err_code), (char *)errcode, SQL_SQLCODE_SIZE - 1);
+                    IBM_DB_G(__python_err_code)[SQL_SQLCODE_SIZE - 1] = '\0';
+
                     break;
 
                 case SQL_HANDLE_STMT:
@@ -760,12 +808,14 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
                              "Copying to global: SQL_HANDLE_STMT, sqlstate=%s, errMsg=%s",
                              sqlstate, errMsg);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(IBM_DB_G(__python_stmt_err_state),
-                            (char *)sqlstate, SQL_SQLSTATE_SIZE + 1);
-                    strncpy(IBM_DB_G(__python_stmt_err_msg),
-                            (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
-                    strncpy(IBM_DB_G(__python_err_code),
-                            (char *)errcode, SQL_SQLCODE_SIZE);
+                    strncpy(IBM_DB_G(__python_stmt_err_state), (char *)sqlstate, SQL_SQLSTATE_SIZE);
+                    IBM_DB_G(__python_stmt_err_state)[SQL_SQLSTATE_SIZE] = '\0';
+
+                    strncpy(IBM_DB_G(__python_stmt_err_msg), (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                    IBM_DB_G(__python_stmt_err_msg)[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
+
+                    strncpy(IBM_DB_G(__python_err_code), (char *)errcode, SQL_SQLCODE_SIZE - 1);
+                    IBM_DB_G(__python_err_code)[SQL_SQLCODE_SIZE - 1] = '\0';
 
                     break;
                 }
@@ -779,7 +829,8 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
                 {
                     snprintf(messageStr, sizeof(messageStr), "Returning SQLSTATE for DB2_ERR: %s", sqlstate);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(ret_str, (char *)sqlstate, SQL_SQLSTATE_SIZE + 1);
+                    strncpy(ret_str, (char *)sqlstate, SQL_SQLSTATE_SIZE);
+                    ret_str[SQL_SQLSTATE_SIZE] = '\0';
                 }
                 return;
             case DB2_ERRMSG:
@@ -787,7 +838,8 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
                 {
                     snprintf(messageStr, sizeof(messageStr), "Returning error message for DB2_ERRMSG: %s", errMsg);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(ret_str, (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
+                    strncpy(ret_str, (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                    ret_str[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
                 }
                 return;
             default:
@@ -806,21 +858,31 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
                              "Copying warning to global: SQL_HANDLE_DBC, sqlstate=%s, errMsg=%s",
                              sqlstate, errMsg);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(IBM_DB_G(__python_conn_warn_state),
-                            (char *)sqlstate, SQL_SQLSTATE_SIZE + 1);
-                    strncpy(IBM_DB_G(__python_conn_warn_msg),
-                            (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
-                    break;
+                    strncpy(IBM_DB_G(__python_conn_warn_state), (char *)sqlstate, SQL_SQLSTATE_SIZE);
+                    IBM_DB_G(__python_conn_warn_state)[SQL_SQLSTATE_SIZE] = '\0';
+
+                    strncpy(IBM_DB_G(__python_conn_warn_msg), (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                    IBM_DB_G(__python_conn_warn_msg)[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
+
+                    strncpy(IBM_DB_G(__python_err_code), (char *)errcode, SQL_SQLCODE_SIZE);
+                    IBM_DB_G(__python_err_code)[SQL_SQLCODE_SIZE] = '\0';
+
+                 break;
 
                 case SQL_HANDLE_STMT:
                     snprintf(messageStr, sizeof(messageStr),
                              "Copying warning to global: SQL_HANDLE_STMT, sqlstate=%s, errMsg=%s",
                              sqlstate, errMsg);
                     LogMsg(DEBUG, messageStr);
-                    strncpy(IBM_DB_G(__python_stmt_warn_state),
-                            (char *)sqlstate, SQL_SQLSTATE_SIZE + 1);
-                    strncpy(IBM_DB_G(__python_stmt_warn_msg),
-                            (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
+                    strncpy(IBM_DB_G(__python_stmt_warn_state), (char *)sqlstate, SQL_SQLSTATE_SIZE);
+                    IBM_DB_G(__python_stmt_warn_state)[SQL_SQLSTATE_SIZE] = '\0';
+
+                    strncpy(IBM_DB_G(__python_stmt_warn_msg), (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                    IBM_DB_G(__python_stmt_warn_msg)[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
+
+                    strncpy(IBM_DB_G(__python_err_code), (char *)errcode, SQL_SQLCODE_SIZE);
+                    IBM_DB_G(__python_err_code)[SQL_SQLCODE_SIZE] = '\0';
+
                     break;
                 }
             }
@@ -830,7 +892,8 @@ static void _python_ibm_db_check_sql_errors(SQLHANDLE handle, SQLSMALLINT hType,
             {
                 snprintf(messageStr, sizeof(messageStr), "Returning warning message for DB2_WARNMSG: %s", errMsg);
                 LogMsg(DEBUG, messageStr);
-                strncpy(ret_str, (char *)errMsg, DB2_MAX_ERR_MSG_LEN);
+                strncpy(ret_str, (char *)errMsg, DB2_MAX_ERR_MSG_LEN - 1);
+                ret_str[DB2_MAX_ERR_MSG_LEN - 1] = '\0';
             }
             return;
         default:
@@ -1324,7 +1387,7 @@ static int _python_ibm_db_get_result_set_info(stmt_handle *stmt_res)
         }
     }
     LogMsg(DEBUG, "Successfully completed _python_ibm_db_get_result_set_info()");
-    LogMsg(INFO, "entry _python_ibm_db_get_result_set_info()");
+    LogMsg(INFO, "exit _python_ibm_db_get_result_set_info()");
     return 0;
 }
 
@@ -1601,6 +1664,34 @@ static int _python_ibm_db_bind_column_helper(stmt_handle *stmt_res)
             {
                 _python_ibm_db_check_sql_errors((SQLHSTMT)stmt_res->hstmt,
                                                 SQL_HANDLE_STMT, rc, 1, NULL, -1, 1);
+                return -1;
+            }
+            break;
+
+        case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+            snprintf(messageStr, sizeof(messageStr), "Case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE for column index %d", i);
+            LogMsg(DEBUG, messageStr);
+            row_data->tstz_val = ALLOC(TIMESTAMP_STRUCT_EXT_TZ);
+            if ( row_data->tstz_val == NULL ) {
+                LogMsg(EXCEPTION, "Failed to Allocate Memory for tstz_val");
+                PyErr_SetString(PyExc_Exception, "Failed to Allocate Memory");
+                return -1;
+            }
+            snprintf(messageStr, sizeof(messageStr), "Allocated memory for tstz_val with size %zu", sizeof(TIMESTAMP_STRUCT_EXT_TZ));
+            LogMsg(DEBUG, messageStr);
+            snprintf(messageStr, sizeof(messageStr), "Calling SQLBindCol with parameters: hstmt=%p, col=%d,sql_type=SQL_C_TYPE_TIMESTAMP_EXT_TZ, buffer_size=%zu, out_length=%p",stmt_res->hstmt, i + 1, sizeof(TIMESTAMP_STRUCT_EXT_TZ), &stmt_res->row_data[i].out_length);
+            LogMsg(DEBUG, messageStr);
+
+            Py_BEGIN_ALLOW_THREADS;
+            rc = SQLBindCol((SQLHSTMT)stmt_res->hstmt, (SQLUSMALLINT)(i+1),
+                    SQL_C_TYPE_TIMESTAMP_EXT_TZ, row_data->tstz_val, sizeof(TIMESTAMP_STRUCT_EXT_TZ),
+                    (SQLINTEGER *)(&stmt_res->row_data[i].out_length));
+            Py_END_ALLOW_THREADS;
+            snprintf(messageStr, sizeof(messageStr), "SQLBindCol returned %d for column %d", rc, i);
+            LogMsg(DEBUG, messageStr);
+
+            if ( rc == SQL_ERROR ) {
+                _python_ibm_db_check_sql_errors((SQLHSTMT)stmt_res->hstmt, SQL_HANDLE_STMT, rc, 1, NULL, -1, 1);
                 return -1;
             }
             break;
@@ -2380,13 +2471,16 @@ static SQLWCHAR *getUnicodeDataAsSQLWCHAR(PyObject *pyobj, int *isNewBuffer)
     if (maxuniValue <= 65536)
     {
         *isNewBuffer = 0;
-        PyObject *result = (SQLWCHAR *)PyUnicode_AsWideCharString(pyobj, &maxuniValue);
+        SQLWCHAR *result = (SQLWCHAR *)PyUnicode_AsWideCharString(pyobj, &maxuniValue);
+        if (result == NULL) {
+            LogMsg(ERROR, "PyUnicode_AsWideCharString() failed");
+            return NULL;
+        }
         snprintf(messageStr, sizeof(messageStr), " result obtained: %p", (void *)result);
         LogMsg(DEBUG, "UCS2 case:");
         LogMsg(INFO, "exit getUnicodeDataAsSQLWCHAR()");
-        return (SQLWCHAR *)PyUnicode_AsWideCharString(pyobj, &maxuniValue);
+        return result;
     }
-
     *isNewBuffer = 1;
     pNewBuffer = (SQLWCHAR *)ALLOC_N(SQLWCHAR, nCharLen + 1);
     snprintf(messageStr, sizeof(messageStr), "Allocated new buffer: pNewBuffer=%p, size=%d", (void *)pNewBuffer, nCharLen + 1);
@@ -2608,6 +2702,8 @@ static void _python_ibm_db_clear_conn_err_cache(void)
 
 static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
 {
+    LogMsg(INFO, "entry get_sqlcode()");
+    LogUTF8Msg(args);
     conn_handle *conn_res = NULL;
     PyObject *py_conn_res = NULL;
     stmt_handle *stmt_res = NULL;
@@ -2616,7 +2712,6 @@ static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
     char *return_str = NULL; /* This variable is used by
                               * _python_ibm_db_check_sql_errors to return err
                               * strings */
-    LogMsg(INFO, "entry get_sqlcode()");
     if (!PyArg_ParseTuple(args, "|O", &py_conn_res) | (!PyArg_ParseTuple(args, "|O", &py_stmt_res)))
     {
         LogMsg(ERROR, "Failed to parse arguments");
@@ -2653,23 +2748,21 @@ static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
             LogMsg(DEBUG, messageStr);
         }
 
-        return_str = (SQLINTEGER *)PyMem_New(SQLINTEGER, 1);
-        snprintf(messageStr, sizeof(messageStr), "Allocated return_str: %p, size: %d", return_str, DB2_MAX_ERR_MSG_LEN);
-        LogMsg(DEBUG, messageStr);
-
+        return_str = PyMem_New(char, DB2_MAX_ERR_MSG_LEN);
         if (return_str == NULL)
         {
             PyErr_NoMemory();
             return NULL;
         }
-        memset(return_str, 0, sizeof(SQLINTEGER));
-        LogMsg(DEBUG, "Initialized return_str with zeros");
+        memset(return_str, 0, DB2_MAX_ERR_MSG_LEN);
+        snprintf(messageStr, sizeof(messageStr), "Allocated return_str: %p, size: %d", (void *)return_str, DB2_MAX_ERR_MSG_LEN);
+        LogMsg(DEBUG, messageStr);
         if (SQL_HANDLE_DBC)
         {
             _python_ibm_db_check_sql_errors(conn_res->hdbc, SQL_HANDLE_DBC, -1, 0,
                                             return_str, DB2_ERR,
                                             conn_res->error_recno_tracker);
-            snprintf(messageStr, sizeof(messageStr), "SQL errors checked. return_str: %s", return_str);
+            snprintf(messageStr, sizeof(messageStr), "SQL errors checked for DBC. return_str: %s", return_str);
             LogMsg(DEBUG, messageStr);
         }
         if (SQL_HANDLE_STMT)
@@ -2677,24 +2770,24 @@ static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
             _python_ibm_db_check_sql_errors(stmt_res->hstmt, SQL_HANDLE_STMT, -1, 0,
                                             return_str, DB2_ERR,
                                             stmt_res->error_recno_tracker);
-            snprintf(messageStr, sizeof(messageStr), "SQL errors checked. return_str: %s", return_str);
+            snprintf(messageStr, sizeof(messageStr), "SQL errors checked for STMT. return_str: %s", return_str);
             LogMsg(DEBUG, messageStr);
         }
         if (conn_res->error_recno_tracker - conn_res->errormsg_recno_tracker >= 1)
         {
-            LogMsg(DEBUG, "Updating errormsg_recno_tracker");
+            LogMsg(DEBUG, "Updating conn_res->errormsg_recno_tracker");
             conn_res->errormsg_recno_tracker = conn_res->error_recno_tracker;
         }
         conn_res->error_recno_tracker++;
-        snprintf(messageStr, sizeof(messageStr), "Updated error_recno_tracker: %d, errormsg_recno_tracker: %d", conn_res->error_recno_tracker, stmt_res->errormsg_recno_tracker);
+        snprintf(messageStr, sizeof(messageStr), "Updated conn error_recno_tracker: %d, errormsg_recno_tracker: %d", conn_res->error_recno_tracker, stmt_res->errormsg_recno_tracker);
         LogMsg(DEBUG, messageStr);
         if (stmt_res->error_recno_tracker - stmt_res->errormsg_recno_tracker >= 1)
         {
-            LogMsg(DEBUG, "Updating errormsg_recno_tracker");
+            LogMsg(DEBUG, "Updating stmt_res->errormsg_recno_tracker");
             stmt_res->errormsg_recno_tracker = stmt_res->error_recno_tracker;
         }
         stmt_res->error_recno_tracker++;
-        snprintf(messageStr, sizeof(messageStr), "Updated error_recno_tracker: %d, errormsg_recno_tracker: %d", stmt_res->error_recno_tracker, stmt_res->errormsg_recno_tracker);
+        snprintf(messageStr, sizeof(messageStr), "Updated stmt error_recno_tracker: %d, errormsg_recno_tracker: %d", stmt_res->error_recno_tracker, stmt_res->errormsg_recno_tracker);
         LogMsg(DEBUG, messageStr);
         if (return_str != NULL)
         {
@@ -2702,7 +2795,7 @@ static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
             PyMem_Del(return_str);
             return_str = NULL;
         }
-        snprintf(messageStr, sizeof(messageStr), "Created return value: %p", retVal);
+        snprintf(messageStr, sizeof(messageStr), "Created return value: %p", (void *)retVal);
         LogMsg(DEBUG, messageStr);
         LogMsg(INFO, "exit get_sqlcode()");
         return retVal;
@@ -2710,10 +2803,10 @@ static PyObject *ibm_db_get_sqlcode(PyObject *self, PyObject *args)
     else
     {
         PyObject *defaultErrorCode = StringOBJ_FromASCII(IBM_DB_G(__python_err_code));
-        snprintf(messageStr, sizeof(messageStr), "No Statement object provided. Returning default error sqlcode: %s", PyUnicode_AsUTF8(defaultErrorCode));
+        snprintf(messageStr, sizeof(messageStr), "Connection or Statement object is not provided. Returning default error sqlcode: %s", PyUnicode_AsUTF8(defaultErrorCode));
         LogMsg(DEBUG, messageStr);
-        LogMsg(INFO, "exit conn_error()");
-        return StringOBJ_FromASCII(IBM_DB_G(__python_err_code));
+        LogMsg(INFO, "exit get_sqlcode()");
+        return defaultErrorCode;
     }
 }
 
@@ -8151,22 +8244,16 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                         }
                     }
 
-                    if (isNewBuffer == 0)
+                    if (isNewBuffer == 0 || param_length <= curr->param_size)
                     {
-                        dest_uvalue = (char *)&curr->uvalue[0] + (curr->param_size * i);
-                        dest_uvalue = memcpy(dest_uvalue, tmp_uvalue, (param_length + sizeof(SQLWCHAR)));
+                        dest_uvalue = &curr->uvalue[(curr->param_size / sizeof(SQLWCHAR)) * i];
+                        memcpy(dest_uvalue, tmp_uvalue, param_length);
                         param_size = curr->param_size;
                     }
-                    else if (param_length <= curr->param_size)
+                    else if (curr->data_type == SQL_TYPE_TIMESTAMP || curr->data_type == SQL_TYPE_TIMESTAMP_WITH_TIMEZONE)
                     {
-                        dest_uvalue = (char *)&curr->uvalue[0] + (curr->param_size * i);
-                        dest_uvalue = memcpy(dest_uvalue, tmp_uvalue, (param_length + sizeof(SQLWCHAR)));
-                        param_size = curr->param_size;
-                    }
-                    else if (curr->data_type == SQL_TYPE_TIMESTAMP)
-                    {
-                        dest_uvalue = (char *)&curr->uvalue[0] + (param_length * i);
-                        dest_uvalue = memcpy(dest_uvalue, tmp_uvalue, param_length);
+                        dest_uvalue = &curr->uvalue[(param_length / sizeof(SQLWCHAR)) * i];
+                        memcpy(dest_uvalue, tmp_uvalue, param_length);
                         param_size = param_length;
                     }
                     PyMem_Del(tmp_uvalue);
@@ -8257,7 +8344,8 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                         break;
 
                     case SQL_TYPE_TIMESTAMP:
-                        snprintf(messageStr, sizeof(messageStr), "Processing SQL_TYPE_TIMESTAMP: param_length=%d", param_length);
+                    case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                        snprintf(messageStr, sizeof(messageStr), "Processing SQL_TYPE_TIMESTAMP or SQL_TYPE_TIMESTAMP_WITH_TIMEZONE: param_length=%d", param_length);
                         LogMsg(DEBUG, messageStr);
                         valueType = SQL_C_WCHAR;
                         if (param_length == 0)
@@ -8294,7 +8382,7 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
             Py_BEGIN_ALLOW_THREADS;
             rc = SQLBindParameter(stmt_res->hstmt, curr->param_num, curr->param_type, valueType,
                                   curr->data_type, curr->param_size, curr->scale, paramValuePtr,
-                                  param_size, &curr->bind_indicator_array[0]);
+                                  param_size, curr->bind_indicator_array);
             Py_END_ALLOW_THREADS;
             snprintf(messageStr, sizeof(messageStr), "Called SQLBindParameter with parameters: hstmt=%p, param_num=%d, param_type=%d, valueType=%d, data_type=%d, param_size=%d, scale=%d, paramValuePtr=%p, param_size=%d, bind_indicator_array=%p, and returned rc=%d",
                      stmt_res->hstmt, curr->param_num, curr->param_type, valueType, curr->data_type, curr->param_size, curr->scale, paramValuePtr, param_size, curr->bind_indicator_array, rc);
@@ -8481,7 +8569,8 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                 LogMsg(DEBUG, messageStr);
                 break;
             case SQL_TYPE_TIMESTAMP:
-                snprintf(messageStr, sizeof(messageStr), "Handling SQL_TYPE_TIMESTAMP: param_length=%d, uvalue[10]=%c", param_length, curr->uvalue[10]);
+            case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                snprintf(messageStr, sizeof(messageStr), "Handling SQL_TYPE_TIMESTAMP or SQL_TYPE_TIMESTAMP_WITH_TIMEZONE: param_length=%d, uvalue[10]=%c", param_length, curr->uvalue[10]);
                 LogMsg(DEBUG, messageStr);
                 valueType = SQL_C_WCHAR;
                 if (param_length == 0)
@@ -8693,7 +8782,8 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                          * * VARCHAR etc
                          * */
                     case SQL_TYPE_TIMESTAMP:
-                        snprintf(messageStr, sizeof(messageStr), "Processing SQL_TYPE_TIMESTAMP case: curr->param_type=%d, curr->data_type=%d, curr->ivalue=%d, param_length=%d",
+                    case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                        snprintf(messageStr, sizeof(messageStr), "Processing SQL_TYPE_TIMESTAMP or SQL_TYPE_TIMESTAMP_WITH_TIMEZONE case: curr->param_type=%d, curr->data_type=%d, curr->ivalue=%d, param_length=%d",
                                  curr->param_type, curr->data_type, curr->ivalue, param_length);
                         LogMsg(DEBUG, messageStr);
                         valueType = SQL_C_CHAR;
@@ -8902,7 +8992,8 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                  * VARCHAR etc
                  */
             case SQL_TYPE_TIMESTAMP:
-                snprintf(messageStr, sizeof(messageStr), "Data type: SQL_TYPE_TIMESTAMP. param_type=%d, param_length=%d, svalue[10]=%c", curr->param_type, param_length, curr->svalue[10]);
+            case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                snprintf(messageStr, sizeof(messageStr), "Data type: SQL_TYPE_TIMESTAMP or SQL_TYPE_TIMESTAMP_WITH_TIMEZONE. param_type=%d, param_length=%d, svalue[10]=%c", curr->param_type, param_length, curr->svalue[10]);
                 LogMsg(DEBUG, messageStr);
                 valueType = SQL_C_CHAR;
                 curr->bind_indicator = curr->ivalue;
@@ -8916,7 +9007,7 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
                     {
                         curr->bind_indicator = SQL_NTS;
                     }
-                    snprintf(messageStr, sizeof(messageStr), "Binding for SQL_TYPE_TIMESTAMP. bind_indicator=%d", curr->bind_indicator);
+                    snprintf(messageStr, sizeof(messageStr), "Binding for SQL_TYPE_TIMESTAMP or SQL_TYPE_TIMESTAMP_WITH_TIMEZONE. bind_indicator=%d", curr->bind_indicator);
                     LogMsg(DEBUG, messageStr);
                 }
                 if (curr->svalue[10] == 'T')
@@ -9282,6 +9373,176 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
             LogMsg(DEBUG, messageStr);
         }
         break;
+
+    case PYTHON_TIMESTAMP_TSTZ:
+       snprintf(messageStr, sizeof(messageStr), "Handling PYTHON_TIMESTAMP_TSTZ case. Current data_type=%d", curr->data_type);
+       LogMsg(DEBUG, messageStr);
+       if (TYPE(bind_data) == PYTHON_LIST) {
+           Py_ssize_t n = PyList_Size(bind_data);
+           snprintf(messageStr, sizeof(messageStr), "Binding array of timezone-aware datetimes, size: %zd", n);
+           LogMsg(DEBUG, messageStr);
+           curr->tstz_value = ALLOC_N(TIMESTAMP_STRUCT_EXT_TZ, n);
+           curr->bind_indicator_array = (SQLINTEGER *)ALLOC_N(SQLINTEGER, n);
+           for (i = 0; i < n; i++) {
+               item = PyList_GetItem(bind_data, i);
+               snprintf(messageStr, sizeof(messageStr), "Processing list item index %d, item pointer: %p", i, (void *)item);
+               LogMsg(DEBUG, messageStr);
+               if (TYPE(item) == PYTHON_NIL) {
+                   curr->bind_indicator_array[i] = SQL_NULL_DATA;
+               }else{
+                    TIMESTAMP_STRUCT_EXT_TZ *ts = &curr->tstz_value[i];
+                    ts->year = PyDateTime_GET_YEAR(item);
+                    ts->month = PyDateTime_GET_MONTH(item);
+                    ts->day = PyDateTime_GET_DAY(item);
+                    ts->hour = PyDateTime_DATE_GET_HOUR(item);
+                    ts->minute = PyDateTime_DATE_GET_MINUTE(item);
+                    ts->second = PyDateTime_DATE_GET_SECOND(item);
+                    ts->fraction = PyDateTime_DATE_GET_MICROSECOND(item) * 1000;
+                    curr->bind_indicator_array[i] = SQL_NTS;
+#if PY_VERSION_HEX >= 0x030A0000  /* Python 3.10+ */
+                    PyObject *tzinfo = PyDateTime_DATE_GET_TZINFO(item);
+#else
+                    PyObject *tzinfo = NULL;  /* Not available in Python < 3.10 */
+#endif
+                    snprintf(messageStr, sizeof(messageStr), "tzinfo pointer: %p", (void *)tzinfo);
+                    LogMsg(DEBUG, messageStr);
+
+                    if (!tzinfo || tzinfo == Py_None) {
+                        LogMsg(EXCEPTION,"No tzinfo provided on datetime object");
+                        PyErr_SetString(PyExc_ValueError, "No tzinfo provided on datetime object");
+                    }
+
+                    PyObject *offset = PyObject_CallMethod(tzinfo, "utcoffset", "O", item);
+                    if (offset == NULL || offset == Py_None) {
+                        LogMsg(EXCEPTION,"Invalid or missing tzinfo.utcoffset");
+                        PyErr_SetString(PyExc_ValueError, "Invalid or missing tzinfo.utcoffset");
+                    }
+
+                    PyObject *total_seconds_obj = PyObject_CallMethod(offset, "total_seconds", NULL);
+                    Py_XDECREF(offset);
+                    if (total_seconds_obj == NULL) {
+                        LogMsg(EXCEPTION, "Could not extract total_seconds from utcoffset");
+                        PyErr_SetString(PyExc_ValueError, "Could not extract total_seconds from utcoffset");
+                    }
+
+                    PyObject *result = PyNumber_Float(total_seconds_obj);
+                    Py_XDECREF(total_seconds_obj);
+                    if (result == NULL) {
+                        LogMsg(EXCEPTION, "Failed to convert total_seconds to float");
+                        PyErr_SetString(PyExc_ValueError, "Failed to convert total_seconds to float");
+                    }
+
+                    double total_seconds = PyFloat_AsDouble(result);
+                    Py_XDECREF(result);
+                    ts->timezone_hour = (SQLSMALLINT)(total_seconds / 3600);
+                    ts->timezone_minute = (SQLUSMALLINT)((total_seconds - (ts->timezone_hour * 3600)) / 60);
+                    if (ts->timezone_hour < 0)
+                        ts->timezone_minute = -ts->timezone_minute;
+
+                    if (ts->timezone_hour < -14 || ts->timezone_hour > 14) {
+                        snprintf(messageStr, sizeof(messageStr),"Item %zd: timezone hour out of range:%d", i, ts->timezone_hour);
+                        LogMsg(EXCEPTION, messageStr);
+                        PyErr_Format(PyExc_ValueError, "Item %zd: timezone hour out of range:%d", i, ts->timezone_hour);
+                    }
+
+                    if (abs(ts->timezone_minute) > 59) {
+                        snprintf(messageStr, sizeof(messageStr),"Item %zd: timezone hour out of range:%d", i, ts->timezone_minute);
+                        LogMsg(EXCEPTION, messageStr);
+                        PyErr_Format(PyExc_ValueError, "Item %zd: timezone minute out of range:%d", i, ts->timezone_minute);
+                    }
+                snprintf(messageStr, sizeof(messageStr), "List item index %d: year=%d, month=%d, day=%d, hour=%d, minute=%d, second=%d, fraction=%d, timezone_hour=%d, timezone_minute=%d, curr->bind_indicator_array[%d] = SQL_NTS;", i,
+                        ts->year, ts->month, ts->day, ts->hour, ts->minute, ts->second, ts->fraction, ts->timezone_hour, ts->timezone_minute,i);
+                LogMsg(DEBUG, messageStr);
+                }
+           }
+        Py_BEGIN_ALLOW_THREADS;
+        rc = SQLBindParameter(stmt_res->hstmt, curr->param_num, curr->param_type, SQL_C_TYPE_TIMESTAMP_EXT_TZ, curr->data_type,
+               curr->param_size, curr->scale, curr->tstz_value, curr->ivalue, &curr->bind_indicator_array[0]);
+        Py_END_ALLOW_THREADS;
+        snprintf(messageStr, sizeof(messageStr), "Called SQLBindParameter for PYTHON_LIST with parameters: hstmt=%p, param_num=%d, param_type=%d, data_type=%d, param_size=%d, scale=%d, tstz_value=%p, ivalue=%d, bind_indicator_array=%p and returned rc=%d",
+                     (void *)stmt_res->hstmt, curr->param_num, curr->param_type, curr->data_type, curr->param_size, curr->scale, (void *)curr->tstz_value, curr->ivalue, (void *)curr->bind_indicator_array, rc);
+        LogMsg(DEBUG, messageStr);
+
+    }
+    else
+    {
+        curr->tstz_value = ALLOC(TIMESTAMP_STRUCT_EXT_TZ);
+        curr->tstz_value->year = PyDateTime_GET_YEAR(bind_data);
+        curr->tstz_value->month = PyDateTime_GET_MONTH(bind_data);
+        curr->tstz_value->day = PyDateTime_GET_DAY(bind_data);
+        curr->tstz_value->hour = PyDateTime_DATE_GET_HOUR(bind_data);
+        curr->tstz_value->minute = PyDateTime_DATE_GET_MINUTE(bind_data);
+        curr->tstz_value->second = PyDateTime_DATE_GET_SECOND(bind_data);
+        curr->tstz_value->fraction = PyDateTime_DATE_GET_MICROSECOND(bind_data) * 1000;
+        PyObject *offset = NULL;
+        PyObject *total_seconds_obj = NULL;
+        PyObject *result = NULL;
+        double total_seconds;
+
+#if PY_VERSION_HEX >= 0x030A0000  /* Python 3.10+ */
+        PyObject* tzinfo = PyDateTime_DATE_GET_TZINFO(bind_data);
+#else
+        PyObject* tzinfo = NULL;  /* Not supported in Python < 3.10 */
+#endif
+
+        if (!tzinfo || tzinfo == Py_None) {
+            LogMsg(EXCEPTION, "No tzinfo provided on datetime object");
+            PyErr_SetString(PyExc_ValueError, "No tzinfo provided on datetime object");
+        }
+
+        offset = PyObject_CallMethod(tzinfo, "utcoffset", "O", bind_data);
+        if (offset == NULL || offset == Py_None) {
+            LogMsg(EXCEPTION, "Invalid or missing tzinfo.utcoffset");
+            PyErr_SetString(PyExc_ValueError, "Invalid or missing tzinfo.utcoffset");
+        }
+
+        total_seconds_obj = PyObject_CallMethod(offset, "total_seconds", NULL);
+        Py_XDECREF(offset);
+        if (total_seconds_obj == NULL) {
+            LogMsg(EXCEPTION, "Could not extract total_seconds from utcoffset");
+            PyErr_SetString(PyExc_ValueError, "Could not extract total_seconds from utcoffset");
+        }
+
+        result = PyNumber_Float(total_seconds_obj);
+        Py_XDECREF(total_seconds_obj);
+        if (result == NULL) {
+            LogMsg(EXCEPTION, "Failed to convert total_seconds to float");
+            PyErr_SetString(PyExc_ValueError, "Failed to convert total_seconds to float");
+        }
+        total_seconds = PyFloat_AsDouble(result);
+        Py_XDECREF(result);
+
+        curr->tstz_value->timezone_hour = (SQLSMALLINT)(total_seconds / 3600);
+        curr->tstz_value->timezone_minute = (SQLUSMALLINT)((total_seconds - (curr->tstz_value->timezone_hour * 3600)) / 60);
+
+        if (curr->tstz_value->timezone_hour < 0) {
+            curr->tstz_value->timezone_minute = -(curr->tstz_value->timezone_minute);
+        }
+
+        if (curr->tstz_value->timezone_hour < -14 || curr->tstz_value->timezone_hour > 14) {
+            snprintf(messageStr, sizeof(messageStr),"Timezone hour out of range:%d", curr->tstz_value->timezone_hour);
+            LogMsg(EXCEPTION, messageStr);
+            PyErr_Format(PyExc_ValueError, "Timezone hour out of range:%d", curr->tstz_value->timezone_hour);
+        }
+        if (abs(curr->tstz_value->timezone_minute) > 59) {
+            snprintf(messageStr, sizeof(messageStr),"Timezone minute out of range:%d",curr->tstz_value->timezone_minute);
+            LogMsg(EXCEPTION, messageStr);
+            PyErr_Format(PyExc_ValueError, "Timezone minute offset out of range:%d",curr->tstz_value->timezone_minute);
+        }
+
+        snprintf(messageStr, sizeof(messageStr), "Binding scalar value: year=%d, month=%d, day=%d, hour=%d, minute=%d, second=%d, fraction=%d, timezone_hour=%d, timezone_minute=%d",
+                        curr->tstz_value->year, curr->tstz_value->month, curr->tstz_value->day, curr->tstz_value->hour, curr->tstz_value->minute, curr->tstz_value->second, curr->tstz_value->fraction, curr->tstz_value->timezone_hour, curr->tstz_value->timezone_minute);
+        LogMsg(DEBUG, messageStr);
+        Py_BEGIN_ALLOW_THREADS;
+        rc = SQLBindParameter(stmt_res->hstmt, curr->param_num, curr->param_type, SQL_C_TYPE_TIMESTAMP_EXT_TZ,
+                curr->data_type, curr->param_size, curr->scale, curr->tstz_value, curr->ivalue, &(curr->bind_indicator));
+        Py_END_ALLOW_THREADS;
+        snprintf(messageStr, sizeof(messageStr), "Called SQLBindParameter for scalar value with parameters: hstmt=%p, param_num=%d, param_type=%d, data_type=%d, param_size=%d, scale=%d, tstz_value=%p, ivalue=%d, bind_indicator=%p and returned rc=%d",
+                     (void *)stmt_res->hstmt, curr->param_num, curr->param_type, curr->data_type, curr->param_size, curr->scale,
+                     (void *)curr->tstz_value, curr->ivalue, (void *)&(curr->bind_indicator), rc);
+        LogMsg(DEBUG, messageStr);
+    }
+    break;
 
     case PYTHON_NIL:
         snprintf(messageStr, sizeof(messageStr), "Handling PYTHON_NIL case. Current data_type=%d", curr->data_type);
@@ -9932,11 +10193,20 @@ static PyObject *ibm_db_conn_errormsg(PyObject *self, PyObject *args)
     }
     else
     {
-        PyObject *defaultErrorMsg = StringOBJ_FromASCII(IBM_DB_G(__python_conn_err_msg));
-        snprintf(messageStr, sizeof(messageStr), "No connection object provided. Returning default error message: %s", PyUnicode_AsUTF8(defaultErrorMsg));
+        PyObject *defaultErrorMsg = PyUnicode_DecodeUTF8(
+            (const char *)IBM_DB_G(__python_conn_err_msg),
+            strlen((const char *)IBM_DB_G(__python_conn_err_msg)),
+            "replace"
+        );
+        snprintf(messageStr, sizeof(messageStr), "No statement object provided. Returning default error message: %s", PyUnicode_AsUTF8(defaultErrorMsg));
+        Py_DECREF(defaultErrorMsg);
         LogMsg(INFO, messageStr);
         LogMsg(INFO, "exit conn_errormsg()");
-        return StringOBJ_FromASCII(IBM_DB_G(__python_conn_err_msg));
+        return PyUnicode_DecodeUTF8(
+            (const char *)IBM_DB_G(__python_conn_err_msg),
+            strlen((const char *)IBM_DB_G(__python_conn_err_msg)),
+            "replace"
+        );
     }
 }
 /*!# ibm_db_conn_warn
@@ -10230,11 +10500,20 @@ static PyObject *ibm_db_stmt_errormsg(PyObject *self, PyObject *args)
     }
     else
     {
-        PyObject *defaultErrorMsg = StringOBJ_FromASCII(IBM_DB_G(__python_stmt_err_msg));
+        PyObject *defaultErrorMsg = PyUnicode_DecodeUTF8(
+            (const char *)IBM_DB_G(__python_stmt_err_msg),
+            strlen((const char *)IBM_DB_G(__python_stmt_err_msg)),
+            "replace"
+        );
         snprintf(messageStr, sizeof(messageStr), "No statement object provided. Returning default error message: %s", PyUnicode_AsUTF8(defaultErrorMsg));
+        Py_DECREF(defaultErrorMsg);
         LogMsg(INFO, messageStr);
         LogMsg(INFO, "exit stmt_errormsg()");
-        return StringOBJ_FromStr(IBM_DB_G(__python_stmt_err_msg));
+        return PyUnicode_DecodeUTF8(
+            (const char *)IBM_DB_G(__python_stmt_err_msg),
+            strlen((const char *)IBM_DB_G(__python_stmt_err_msg)),
+            "replace"
+        );
     }
 }
 
@@ -13100,6 +13379,15 @@ static PyObject *_python_ibm_db_bind_fetch_helper(PyObject *args, int op)
                          row_data->ts_val->year, row_data->ts_val->month, row_data->ts_val->day,
                          row_data->ts_val->hour % 24, row_data->ts_val->minute, row_data->ts_val->second,
                          row_data->ts_val->fraction / 1000);
+                LogMsg(DEBUG, messageStr);
+                break;
+
+            case SQL_TYPE_TIMESTAMP_WITH_TIMEZONE:
+                value = format_timestamp_pystr(row_data->tstz_val);
+                snprintf(messageStr, sizeof(messageStr),"Column data converted to timestamp_with_timezone: year=%d, month=%d, day=%d, hour=%d, minute=%d,"
+                         " second=%d, fraction=%d, timezone_hour=%d, timezone_minute=%d",row_data->tstz_val->year, row_data->tstz_val->month,
+                         row_data->tstz_val->day, row_data->tstz_val->hour % 24, row_data->tstz_val->minute, row_data->tstz_val->second,
+                         row_data->tstz_val->fraction / 1000, row_data->tstz_val->timezone_hour, row_data->tstz_val->timezone_minute);
                 LogMsg(DEBUG, messageStr);
                 break;
 
@@ -16304,6 +16592,8 @@ static PyObject *ibm_db_execute_many(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_Exception, error);
         return NULL;
     }
+    PyMem_Del(data_type);
+    PyMem_Del(ref_data_type);
     LogMsg(INFO, "exit execute_many()");
     return PyInt_FromLong(row_cnt);
 }
@@ -16888,10 +17178,20 @@ static int _python_get_variable_type(PyObject *variable_value)
         return PYTHON_STRING;
     }
     else if (PyDateTime_Check(variable_value))
-    {
+	{
         LogMsg(INFO, "variable_value is a datetime object");
-        LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP");
-        return PYTHON_TIMESTAMP;
+        PyObject *tzinfo = PyObject_GetAttrString(variable_value, "tzinfo");
+        if (tzinfo && tzinfo != Py_None) {
+            Py_DECREF(tzinfo);
+            LogMsg(INFO, "variable_value is a datetime object");
+            LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP_TSTZ");
+            return PYTHON_TIMESTAMP_TSTZ;
+        } else {
+            Py_XDECREF(tzinfo);
+            LogMsg(INFO, "variable_value is a datetime object");
+            LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP");
+            return PYTHON_TIMESTAMP;
+        }
     }
     else if (PyTime_Check(variable_value))
     {

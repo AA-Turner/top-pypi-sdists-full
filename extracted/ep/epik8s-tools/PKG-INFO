@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: epik8s-tools
-Version: 0.9.13
+Version: 0.9.14
 Summary: A set of tools for generating Kubernetes Helm charts for EPICS-based systems.
 Home-page: https://github.com/yourusername/epik8s-tools
 Author: Andrea Michelotti

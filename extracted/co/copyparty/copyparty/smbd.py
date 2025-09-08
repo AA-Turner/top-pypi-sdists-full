@@ -370,7 +370,7 @@ class SMB(object):
             t = "blocked utime (no-write-acc %s): /%s @%s"
             yeet(t % (vfs.axs.uwrite, vpath, uname))
 
-        return bos.utime(ap, times)
+        bos.utime_c(info, ap, int(times[1]), False)
 
     def _p_exists(self, vpath )  :
         # ap = "?"

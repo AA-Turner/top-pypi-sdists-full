@@ -424,6 +424,8 @@ class VFS(object):
 
         self.get_dbv = self._get_dbv
         self.ls = self._ls
+        self.canonical = self._canonical
+        self.dcanonical = self._dcanonical
 
     def __repr__(self)  :
         return "VFS(%s)" % (
@@ -617,7 +619,7 @@ class VFS(object):
         vrem = vjoin(self.vpath[len(dbv.vpath) :].lstrip("/"), vrem)
         return dbv, vrem
 
-    def canonical(self, rem , resolve  = True)  :
+    def _canonical(self, rem , resolve  = True)  :
         """returns the canonical path (fully-resolved absolute fs path)"""
         ap = self.realpath
         if rem:
@@ -625,7 +627,7 @@ class VFS(object):
 
         return absreal(ap) if resolve else ap
 
-    def dcanonical(self, rem )  :
+    def _dcanonical(self, rem )  :
         """resolves until the final component (filename)"""
         ap = self.realpath
         if rem:
@@ -633,6 +635,42 @@ class VFS(object):
 
         ad, fn = os.path.split(ap)
         return os.path.join(absreal(ad), fn)
+
+    def _canonical_shr(self, rem , resolve  = True)  :
+        """returns the canonical path (fully-resolved absolute fs path)"""
+        ap = self.realpath
+        if rem:
+            ap += "/" + rem
+
+        rap = absreal(ap)
+        if self.shr_files:
+            vn, rem = self.shr_src
+            chk = absreal(os.path.join(vn.realpath, rem))
+            if chk != rap:
+                # not the dir itself; assert file allowed
+                ad, fn = os.path.split(rap)
+                if chk != ad or fn not in self.shr_files:
+                    return "\n\n"
+
+        return rap if resolve else ap
+
+    def _dcanonical_shr(self, rem )  :
+        """resolves until the final component (filename)"""
+        ap = self.realpath
+        if rem:
+            ap += "/" + rem
+
+        ad, fn = os.path.split(ap)
+        ad = absreal(ad)
+        if self.shr_files:
+            vn, rem = self.shr_src
+            chk = absreal(os.path.join(vn.realpath, rem))
+            if chk != absreal(ap):
+                # not the dir itself; assert file allowed
+                if ad != chk or fn not in self.shr_files:
+                    return "\n\n"
+
+        return os.path.join(ad, fn)
 
     def _ls_nope(
         self, *a, **ka
@@ -969,6 +1007,14 @@ class AuthSrv(object):
         self.indent = ""
         self.is_lxc = args.c == ["/z/initcfg"]
 
+        self._vf0b = {
+            "tcolor": self.args.tcolor,
+            "du_iwho": self.args.du_iwho,
+            "shr_who": self.args.shr_who if self.args.shr else "no",
+        }
+        self._vf0 = self._vf0b.copy()
+        self._vf0["d2d"] = True
+
         # fwd-decl
         self.vfs = VFS(log_func, "", "", "", AXS(), {})
         self.acct   = {}  # uname->pw
@@ -1007,7 +1053,10 @@ class AuthSrv(object):
         yield prev, True
 
     def vf0(self):
-        return {"d2d": True, "tcolor": self.args.tcolor}
+        return self._vf0.copy()
+
+    def vf0b(self):
+        return self._vf0b.copy()
 
     def idp_checkin(
         self, broker , uname , gname 
@@ -1743,12 +1792,15 @@ class AuthSrv(object):
                     files = os.listdir(E.cfg)
                 except:
                     files = []
-                hits = [x for x in files if x.lower().endswith(".conf")]
+                hits = [
+                    x
+                    for x in files
+                    if x.lower().endswith(".conf") and not x.startswith(".")
+                ]
                 if hits:
                     t = "Hint: Found some config files in [%s], but these were not automatically loaded because they are in the wrong place%s %s\n"
                     self.log(t % (E.cfg, ehint, ", ".join(hits)), 3)
-            zvf = {"tcolor": self.args.tcolor}
-            vfs = VFS(self.log_func, absreal("."), "", "", axs, zvf)
+            vfs = VFS(self.log_func, absreal("."), "", "", axs, self.vf0b())
             if not axs.uread:
                 self.badcfg1 = True
         elif "" not in mount:
@@ -2281,6 +2333,11 @@ class AuthSrv(object):
                 vol.lim.uid = vol.flags["uid"]
                 vol.lim.gid = vol.flags["gid"]
 
+            vol.flags["du_iwho"] = n_du_who(vol.flags["du_who"])
+
+            if not enshare:
+                vol.flags["shr_who"] = "no"
+
             if vol.flags.get("og"):
                 self.args.uqe = True
 
@@ -2723,6 +2780,8 @@ class AuthSrv(object):
 
                     shn.shr_files = set(fns)
                     shn.ls = shn._ls_shr
+                    shn.canonical = shn._canonical_shr
+                    shn.dcanonical = shn._dcanonical_shr
                 else:
                     shn.ls = shn._ls
 
@@ -2787,6 +2846,7 @@ class AuthSrv(object):
                 "dcrop": vf["crop"],
                 "dth3x": vf["th3x"],
                 "u2ts": vf["u2ts"],
+                "shr_who": vf["shr_who"],
                 "frand": bool(vf.get("rand")),
                 "lifetime": vf.get("lifetime") or 0,
                 "unlist": vf.get("unlist") or "",
@@ -2795,11 +2855,13 @@ class AuthSrv(object):
             js_htm = {
                 "SPINNER": self.args.spinner,
                 "s_name": self.args.bname,
+                "idp_login": self.args.idp_login,
                 "have_up2k_idx": "e2d" in vf,
                 "have_acode": not self.args.no_acode,
                 "have_c2flac": self.args.allow_flac,
                 "have_c2wav": self.args.allow_wav,
                 "have_shr": self.args.shr,
+                "shr_who": vf["shr_who"],
                 "have_zip": not self.args.no_zip,
                 "have_mv": not self.args.no_mv,
                 "have_del": not self.args.no_del,
@@ -2865,7 +2927,7 @@ class AuthSrv(object):
         self.args.ao_idp_before_pw = min(h, hm) < pw
         self.args.ao_h_before_hm = h < hm
         self.args.ao_ipu_wins = ipu == 0
-        self.args.ao_have_pw = pw < 99
+        self.args.ao_have_pw = pw < 99 or not self.args.have_idp_hdrs
 
     def load_idp_db(self, quiet=False)  :
         # mutex me
@@ -3456,6 +3518,30 @@ class AuthSrv(object):
         self.log("generated config:\n\n" + "\n".join(ret))
 
 
+def n_du_who(s )  :
+    if s == "all":
+        return 9
+    if s == "auth":
+        return 7
+    if s == "w":
+        return 5
+    if s == "rw":
+        return 4
+    if s == "a":
+        return 3
+    return 0
+
+
+def n_ver_who(s )  :
+    if s == "all":
+        return 9
+    if s == "auth":
+        return 6
+    if s == "a":
+        return 3
+    return 0
+
+
 def split_cfg_ln(ln )   :
     # "a, b, c: 3" => {a:true, b:true, c:3}
     ret = {}
@@ -3488,7 +3574,9 @@ def expand_config_file(
 
     if os.path.isdir(fp):
         names = list(sorted(os.listdir(fp)))
-        cnames = [x for x in names if x.lower().endswith(".conf")]
+        cnames = [
+            x for x in names if x.lower().endswith(".conf") and not x.startswith(".")
+        ]
         if not cnames:
             t = "warning: tried to read config-files from folder '%s' but it does not contain any "
             if names:

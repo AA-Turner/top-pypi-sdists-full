@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-calamine
-Version: 0.5.2
+Version: 0.5.3
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3.10

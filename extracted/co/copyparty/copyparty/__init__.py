@@ -108,7 +108,9 @@ class EnvParams(object):
     def __init__(self)  :
         self.t0 = time.time()
         self.mod = ""
+        self.mod_ = ""
         self.cfg = ""
+        self.scfg = True
 
 
 E = EnvParams()

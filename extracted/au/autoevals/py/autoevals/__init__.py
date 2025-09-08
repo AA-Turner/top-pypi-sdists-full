@@ -36,11 +36,11 @@ init(client=client)
 
 ```python
 from openai import AsyncOpenAI
-from autoevals.ragas import CloseQA
+from autoevals.ragas import ClosedQA
 
 # Pass client directly to evaluator
 client = AsyncOpenAI()
-evaluator = CloseQA(client=client)
+evaluator = ClosedQA(client=client)
 ```
 
 **Multi-provider support via the Braintrust AI Proxy**:
@@ -70,22 +70,22 @@ Autoevals automatically integrates with Braintrust logging when you install the 
 ```python
 from openai import AsyncOpenAI
 from braintrust import wrap_openai
-from autoevals.ragas import CloseQA
+from autoevals.ragas import ClosedQA
 
 # Explicitly wrap the client if needed
 client = wrap_openai(AsyncOpenAI())
-evaluator = CloseQA(client=client)
+evaluator = ClosedQA(client=client)
 ```
 
 **Example Autoevals usage**:
 
 ```python
-from autoevals.ragas import CloseQA
+from autoevals.ragas import ClosedQA
 import asyncio
 
 async def evaluate_qa():
     # Create evaluator for question answering
-    evaluator = CloseQA()
+    evaluator = ClosedQA()
 
     # Question and context
     question = "What was the purpose of the Apollo missions?"
@@ -120,8 +120,6 @@ asyncio.run(evaluate_qa())
 See individual module documentation for detailed usage and options.
 """
 
-from braintrust_core.score import Score, Scorer
-
 from .json import *
 from .list import *
 from .llm import *
@@ -129,5 +127,6 @@ from .moderation import *
 from .number import *
 from .oai import init
 from .ragas import *
+from .score import Score, Scorer, SerializableDataClass
 from .string import *
 from .value import ExactMatch

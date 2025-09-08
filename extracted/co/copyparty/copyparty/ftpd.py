@@ -148,10 +148,6 @@ class FtpFs(AbstractedFS):
         self.cwd = "/"  # pyftpdlib convention of leading slash
         self.root = "/var/lib/empty"
 
-        self.can_read = self.can_write = self.can_move = False
-        self.can_delete = self.can_get = self.can_upget = False
-        self.can_admin = self.can_dot = False
-
         self.listdirinfo = self.listdir
         self.chdir(".")
 
@@ -214,7 +210,7 @@ class FtpFs(AbstractedFS):
         m  = False,
         d  = False,
     )    :
-        return self.v2a(os.path.join(self.cwd, vpath), r, w, m, d)
+        return self.v2a(join(self.cwd, vpath), r, w, m, d)
 
     def ftp2fs(self, ftppath )  :
         # return self.v2a(ftppath)
@@ -293,16 +289,6 @@ class FtpFs(AbstractedFS):
             avfs = vfs
 
         self.cwd = nwd
-        (
-            self.can_read,
-            self.can_write,
-            self.can_move,
-            self.can_delete,
-            self.can_get,
-            self.can_upget,
-            self.can_admin,
-            self.can_dot,
-        ) = avfs.can_access("", self.h.uname)
 
     def mkdir(self, path )  :
         ap, vfs, _ = self.rv2a(path, w=True)
@@ -325,7 +311,7 @@ class FtpFs(AbstractedFS):
             vfs_ls = [x[0] for x in vfs_ls1]
             vfs_ls.extend(vfs_virt.keys())
 
-            if not self.can_dot:
+            if self.uname not in vfs.axs.udot:
                 vfs_ls = exclude_dotfiles(vfs_ls)
 
             vfs_ls.sort()
@@ -373,9 +359,6 @@ class FtpFs(AbstractedFS):
             raise FSE(str(ex))
 
     def rename(self, src , dst )  :
-        if not self.can_move:
-            raise FSE("Not allowed for user " + self.h.uname)
-
         if self.args.no_mv:
             raise FSE("The rename/move feature is disabled in server config")
 
@@ -405,12 +388,8 @@ class FtpFs(AbstractedFS):
             return st
 
     def utime(self, path , timeval )  :
-        try:
-            ap = self.rv2a(path, w=True)[0]
-            return bos.utime(ap, (int(time.time()), int(timeval)))
-        except Exception as ex:
-            logging.error("ftp.utime: %s, %r", ex, ex)
-            raise
+        ap = self.rv2a(path, w=True)[0]
+        bos.utime_c(logging.warning, ap, int(timeval), False)
 
     def lstat(self, path )  :
         ap = self.rv2a(path)[0]

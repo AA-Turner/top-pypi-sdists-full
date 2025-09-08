@@ -3,30 +3,36 @@ from __future__ import annotations
 import os
 import requests
 from datetime import datetime
+from urllib.parse import quote, unquote
 from flask import send_from_directory, redirect, request
 
 from ...image.copy_images import secure_filename
 from ...cookies import get_cookies_dir
 from ...errors import VersionNotFoundError
-from ...config import STATIC_URL, DOWNLOAD_URL, DIST_DIR, JSDELIVR_URL
+from ...config import STATIC_URL, DOWNLOAD_URL, DIST_DIR, JSDELIVR_URL, GITHUB_URL
 from ... import version
 
 def redirect_home():
     return redirect('/chat/')
 
-def render(filename = "home", download_url: str = DOWNLOAD_URL):
-    if download_url == DOWNLOAD_URL:
+def render(filename = "home", download_url: str = GITHUB_URL):
+    if download_url == GITHUB_URL:
         filename += ("" if "." in filename else ".html")
+    html = None
     if os.path.exists(DIST_DIR) and not request.args.get("debug"):
         path = os.path.abspath(os.path.join(os.path.dirname(DIST_DIR), filename))
         if os.path.exists(path):
-            return send_from_directory(os.path.dirname(path), os.path.basename(path))
+            if download_url == GITHUB_URL:
+                html = open(path, 'r', encoding='utf-8').read()
+            else:
+                return send_from_directory(os.path.dirname(path), os.path.basename(path))
     try:
         latest_version = version.utils.latest_version
     except VersionNotFoundError:
         latest_version = version.utils.current_version
     today = datetime.today().strftime('%Y-%m-%d')
     cache_dir = os.path.join(get_cookies_dir(), ".gui_cache", today)
+    latest_version = str(latest_version) +quote(unquote(request.query_string.decode())) or str(latest_version)
     cache_file = os.path.join(cache_dir, f"{secure_filename(f'{version.utils.current_version}-{latest_version}')}.{secure_filename(filename)}")
     is_temp = False
     if not os.path.exists(cache_file):
@@ -34,22 +40,30 @@ def render(filename = "home", download_url: str = DOWNLOAD_URL):
             is_temp = True
         else:
             os.makedirs(cache_dir, exist_ok=True)
-        response = requests.get(f"{download_url}{filename}")
-        if not response.ok:
-            found = None
-            for root, _, files in os.walk(cache_dir):
-                for file in files:
-                    if file.startswith(secure_filename(filename)):
-                        found = os.path.abspath(root), file
-                break
-            if found:
-                return send_from_directory(found[0], found[1])
-            else:
+        if html is None:
+            try:
+                response = requests.get(f"{download_url}{filename}")
                 response.raise_for_status()
-        html = response.text
+            except requests.RequestException:
+                try:
+                    response = requests.get(f"{DOWNLOAD_URL}{filename}")
+                    response.raise_for_status()
+                except requests.RequestException:
+                    found = None
+                    for root, _, files in os.walk(cache_dir):
+                        for file in files:
+                            if file.startswith(secure_filename(filename)):
+                                found = os.path.abspath(root), file
+                        break
+                    if found:
+                        return send_from_directory(found[0], found[1])
+                    else:
+                        raise
+            html = response.text
+            html = html.replace("../dist/", f"dist/")
+            html = html.replace("\"dist/", f"\"{STATIC_URL}dist/")
         html = html.replace(JSDELIVR_URL, "/")
-        html = html.replace("../dist/", f"dist/")
-        html = html.replace("\"dist/", f"\"{STATIC_URL}dist/")
+        html = html.replace("{{ v }}", latest_version)
         if is_temp:
             return html
         with open(cache_file, 'w', encoding='utf-8') as f:

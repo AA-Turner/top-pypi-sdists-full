@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: firecrawl
-Version: 4.3.5
+Version: 4.3.6
 Summary: Python SDK for Firecrawl API
 Home-page: https://github.com/firecrawl/firecrawl
 Author: Mendable.ai
@@ -40,10 +40,6 @@ Requires-Dist: websockets
 Requires-Dist: nest-asyncio
 Requires-Dist: pydantic>=2.0
 Requires-Dist: aiohttp
-Dynamic: author
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-python
 
 # Firecrawl Python SDK
 

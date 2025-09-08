@@ -1,5 +1,4 @@
 import warnings
-from typing import Dict, List
 
 from sqlfluff.core import (
     FluffConfig,
@@ -32,9 +31,9 @@ class SqlFluffLineageAnalyzer(LineageAnalyzer):
             path=file_path, overrides={"dialect": dialect}
         )
         self._silent_mode = silent_mode
-        self.tsql_split_cache: Dict[str, BaseSegment] = {}
+        self.tsql_split_cache: dict[str, BaseSegment] = {}
 
-    def split_tsql(self, sql: str) -> List[str]:
+    def split_tsql(self, sql: str) -> list[str]:
         """
         use sqlfluff parse to split tsql statements. This is in particular for semicolon not present cases.
         The result is cached so that later analyze method doesn't have to parse regarding single statement sql.
@@ -54,7 +53,7 @@ class SqlFluffLineageAnalyzer(LineageAnalyzer):
             statement_segments = self._list_specific_statement_segment(sql)
         if len(statement_segments) == 0:
             raise UnsupportedStatementException(
-                f"SQLLineage cannot parse SQL:" f"{sql}"
+                f"SQLLineage cannot parse SQL:{sql}"
             )  # pragma: no cover
         else:
             statement_segment = statement_segments[0]
@@ -70,14 +69,12 @@ class SqlFluffLineageAnalyzer(LineageAnalyzer):
             else:
                 if self._silent_mode:
                     warnings.warn(
-                        f"SQLLineage doesn't support analyzing statement type [{statement_segment.type}] for SQL:"
-                        f"{sql}"
+                        f"SQLLineage doesn't support analyzing statement type [{statement_segment.type}] for SQL:{sql}"
                     )
                     return StatementLineageHolder()
                 else:
                     raise UnsupportedStatementException(
-                        f"SQLLineage doesn't support analyzing statement type [{statement_segment.type}] for SQL:"
-                        f"{sql}"
+                        f"SQLLineage doesn't support analyzing statement type [{statement_segment.type}] for SQL:{sql}"
                     )
 
     def _list_specific_statement_segment(self, sql: str):

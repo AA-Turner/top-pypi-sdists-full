@@ -1,5 +1,0 @@
-name: Depthai Python CI/CD
-
-# Added to main to allow workflow_dispath on v3 branches
-on:
-  workflow_dispatch:

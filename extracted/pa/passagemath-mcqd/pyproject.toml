@@ -2,9 +2,9 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.6.16.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.16.0',
-    'passagemath-environment ~= 10.6.16.0',
+    'passagemath-conf ~= 10.6.17.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.17.0',
+    'passagemath-environment ~= 10.6.17.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'memory_allocator',
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',

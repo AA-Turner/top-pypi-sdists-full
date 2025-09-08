@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: upgini
-Version: 1.2.124
+Version: 1.2.125
 Summary: Intelligent data search & enrichment for Machine Learning
 Project-URL: Bug Reports, https://github.com/upgini/upgini/issues
 Project-URL: Homepage, https://upgini.com/
@@ -30,6 +30,7 @@ Requires-Dist: ipywidgets>=8.1.0
 Requires-Dist: jarowinkler>=2.0.0
 Requires-Dist: levenshtein>=0.25.1
 Requires-Dist: lightgbm>=4.6.0
+Requires-Dist: more-itertools==10.7.0
 Requires-Dist: numpy<3.0.0,>=1.19.0
 Requires-Dist: pandas<3.0.0,>=1.1.0
 Requires-Dist: psutil>=5.9.0

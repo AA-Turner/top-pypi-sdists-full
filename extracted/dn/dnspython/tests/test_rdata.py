@@ -17,6 +17,7 @@
 # OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import io
+import ipaddress
 import operator
 import pickle
 import struct
@@ -29,6 +30,8 @@ import dns.rdataclass
 import dns.rdataset
 import dns.rdatatype
 import dns.rdtypes.ANY.RRSIG
+import dns.rdtypes.IN.A
+import dns.rdtypes.IN.AAAA
 import dns.rdtypes.IN.APL
 import dns.rdtypes.util
 import dns.tokenizer
@@ -62,6 +65,21 @@ class RdataTestCase(unittest.TestCase):
         self.assertEqual(dns.rdatatype.RdataType.make("TTXT"), TTXT)
         self.assertEqual(dns.rdatatype.from_text("ttxt"), TTXT)
         self.assertEqual(dns.rdatatype.RdataType.make("ttxt"), TTXT)
+
+    def test_class_registration(self):
+        CTXT = 64003
+
+        class CTXTImp(dns.rdtypes.txtbase.TXTBase):
+            """Test TXT-like record"""
+
+        dns.rdata.register_type(CTXTImp, CTXT, "CTXT")
+        rdata = dns.rdata.from_text(dns.rdataclass.IN, CTXT, "hello world")
+        self.assertEqual(rdata.strings, (b"hello", b"world"))
+        self.assertEqual(dns.rdatatype.to_text(CTXT), "CTXT")
+        self.assertEqual(dns.rdatatype.from_text("CTXT"), CTXT)
+        self.assertEqual(dns.rdatatype.RdataType.make("CTXT"), CTXT)
+        self.assertEqual(dns.rdatatype.from_text("ctxt"), CTXT)
+        self.assertEqual(dns.rdatatype.RdataType.make("ctxt"), CTXT)
 
     def test_module_reregistration(self):
         def bad():
@@ -129,6 +147,9 @@ class RdataTestCase(unittest.TestCase):
         self.assertEqual(
             str(ns.to_generic(origin=origin)), r"\# 13 03666f6f076578616d706c6500"
         )
+
+        generic = dns.rdata.from_text("in", "type45678", "\\# 4 00010203")
+        assert generic.to_generic() is generic
 
     def test_txt_unicode(self):
         # TXT records are not defined for Unicode, but if we get
@@ -879,6 +900,28 @@ class RdataTestCase(unittest.TestCase):
         self.assertEqual(rdata.next_name(), expected_rel)
         self.assertEqual(rdata.next_name(origin), expected_abs)
 
+    def test_a_rdata_made_multiple_ways(self):
+        r1 = dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, "1.2.3.4")
+        r2 = dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, b"\x01\x02\x03\x04")
+        r3 = dns.rdtypes.IN.A.A(
+            dns.rdataclass.IN, dns.rdatatype.A, ipaddress.ip_address("1.2.3.4")
+        )
+        self.assertEqual(r1, r2)
+        self.assertEqual(r1, r3)
+
+    def test_aaaa_rdata_made_multiple_ways(self):
+        r1 = dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, "::1")
+        r2 = dns.rdtypes.IN.AAAA.AAAA(
+            dns.rdataclass.IN,
+            dns.rdatatype.AAAA,
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01",
+        )
+        r3 = dns.rdtypes.IN.AAAA.AAAA(
+            dns.rdataclass.IN, dns.rdatatype.AAAA, ipaddress.ip_address("::1")
+        )
+        self.assertEqual(r1, r2)
+        self.assertEqual(r1, r3)
+
 
 class UtilTestCase(unittest.TestCase):
     def test_Gateway_bad_type0(self):
@@ -987,6 +1030,15 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(
             dns.rdatatype.RdataType.make("NSAP-PTR"), dns.rdatatype.NSAP_PTR
         )
+
+    def test_bad_DSYNC_text(self):
+        bad_dsync = [
+            "DSYNC CDS NOTIFY 5300 notify-endpoint.parent.net."
+            "DSYNC CDS 256 5300 notify-endpoint.parent.net."
+        ]
+        for text in bad_dsync:
+            with self.assertRaises(dns.exception.SyntaxError):
+                dns.rdata.from_text("in", "dsync", text)
 
 
 Rdata = dns.rdata.Rdata

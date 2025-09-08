@@ -67,6 +67,39 @@ class BaseDBM(DeclarativeBase):
             self._bus_data = {}
         return self._bus_data
 
+    @classmethod
+    def get_table_column_names_(
+            cls,
+            *,
+            include_pk: bool = True,
+            exclude_columns: list[str] | None = None
+    ) -> list[str]:
+        exclude_columns = set(exclude_columns or [])
+        result = []
+        for c in cls.__table__.columns:
+            if not include_pk and c.primary_key:
+                continue
+            if c.name in exclude_columns:
+                continue
+            result.append(c.name)
+        return result
+
+    @classmethod
+    def get_sd_property_names(
+            cls,
+            *,
+            prefix: str = "sdp_",
+            remove_prefix: bool = False
+    ) -> list[str]:
+        props = [
+            name
+            for name, attr in vars(cls).items()
+            if isinstance(attr, property) and name.startswith(prefix)
+        ]
+        if remove_prefix:
+            return [name[len(prefix):] for name in props]
+        return props
+
     def simple_dict(
             self,
             *,

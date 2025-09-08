@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: requests-pkcs12
-Version: 1.26
+Metadata-Version: 2.4
+Name: requests_pkcs12
+Version: 1.27
 Summary: Add PKCS#12 support to the requests library in a clean way, without monkey patching or temporary files
 Home-page: https://github.com/m-click/requests_pkcs12
 Author: Volker Diels-Grabsch
@@ -12,8 +12,24 @@ Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: requests>=2.32.5
+Provides-Extra: dev
+Requires-Dist: build>=1.3.0; extra == "dev"
+Requires-Dist: twine>=3.4.2; extra == "dev"
+Requires-Dist: wheel>=0.37.0; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 PKCS#12 support for requests
 ============================

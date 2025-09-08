@@ -449,7 +449,7 @@ def compose(
     def process_one(
         one: T.Union[DocstringParam, DocstringReturns, DocstringRaises],
     ):
-        if isinstance(one, DocstringParam):
+        if isinstance(one, (DocstringParam, DocstringAttr)):
             head = one.arg_name
         elif isinstance(one, DocstringReturns):
             head = one.return_name
@@ -511,7 +511,7 @@ def compose(
         "Attributes",
         [
             item
-            for item in docstring.params or []
+            for item in docstring.attrs or []
             if item.args[0] == "attribute"
         ],
     )
@@ -570,6 +570,7 @@ def compose(
             (
                 DocstringDeprecated,
                 DocstringParam,
+                DocstringAttr,
                 DocstringReturns,
                 DocstringRaises,
             ),

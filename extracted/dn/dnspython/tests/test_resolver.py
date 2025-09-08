@@ -23,6 +23,7 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
+import dns.win32util
 import pytest
 
 import dns.e164
@@ -630,18 +631,21 @@ keyname = dns.name.from_text("keyname")
 
 @unittest.skipIf(not tests.util.is_internet_reachable(), "Internet not reachable")
 class LiveResolverTests(unittest.TestCase):
+    @tests.util.retry_on_timeout
     def testZoneForName1(self):
         name = dns.name.from_text("www.dnspython.org.")
         ezname = dns.name.from_text("dnspython.org.")
         zname = dns.resolver.zone_for_name(name)
         self.assertEqual(zname, ezname)
 
+    @tests.util.retry_on_timeout
     def testZoneForName2(self):
         name = dns.name.from_text("a.b.www.dnspython.org.")
         ezname = dns.name.from_text("dnspython.org.")
         zname = dns.resolver.zone_for_name(name)
         self.assertEqual(zname, ezname)
 
+    @tests.util.retry_on_timeout
     def testZoneForName3(self):
         ezname = dns.name.from_text("dnspython.org.")
         zname = dns.resolver.zone_for_name("dnspython.org.")
@@ -654,23 +658,27 @@ class LiveResolverTests(unittest.TestCase):
 
         self.assertRaises(dns.resolver.NotAbsolute, bad)
 
+    @tests.util.retry_on_timeout
     def testResolve(self):
         answer = dns.resolver.resolve("dns.google.", "A")
         seen = set([rdata.address for rdata in answer])
         self.assertTrue("8.8.8.8" in seen)
         self.assertTrue("8.8.4.4" in seen)
 
+    @tests.util.retry_on_timeout
     def testResolveTCP(self):
         answer = dns.resolver.resolve("dns.google.", "A", tcp=True)
         seen = set([rdata.address for rdata in answer])
         self.assertTrue("8.8.8.8" in seen)
         self.assertTrue("8.8.4.4" in seen)
 
+    @tests.util.retry_on_timeout
     def testResolveAddress(self):
         answer = dns.resolver.resolve_address("8.8.8.8")
         dnsgoogle = dns.name.from_text("dns.google.")
         self.assertEqual(answer[0].target, dnsgoogle)
 
+    @tests.util.retry_on_timeout
     def testResolveName(self):
         answers = dns.resolver.resolve_name("dns.google.")
         seen = set(answers.addresses())
@@ -700,6 +708,7 @@ class LiveResolverTests(unittest.TestCase):
             with self.assertRaises(dns.resolver.NoAnswer):
                 dns.resolver.resolve_name(dns.reversename.from_address("8.8.8.8"))
 
+    @tests.util.retry_on_timeout
     @patch.object(dns.message.Message, "use_edns")
     def testResolveEdnsOptions(self, message_use_edns_mock):
         resolver = dns.resolver.Resolver()
@@ -708,12 +717,14 @@ class LiveResolverTests(unittest.TestCase):
         resolver.resolve("dns.google.", "A")
         assert {"options": options} in message_use_edns_mock.call_args
 
+    @tests.util.retry_on_timeout
     def testResolveNodataException(self):
         def bad():
             dns.resolver.resolve("dnspython.org.", "SRV")
 
         self.assertRaises(dns.resolver.NoAnswer, bad)
 
+    @tests.util.retry_on_timeout
     def testResolveNodataAnswer(self):
         qname = dns.name.from_text("dnspython.org")
         qclass = dns.rdataclass.from_text("IN")
@@ -726,6 +737,7 @@ class LiveResolverTests(unittest.TestCase):
             ),
         )
 
+    @tests.util.retry_on_timeout
     def testResolveNXDOMAIN(self):
         qname = dns.name.from_text("nxdomain.dnspython.org")
         qclass = dns.rdataclass.from_text("IN")
@@ -742,6 +754,7 @@ class LiveResolverTests(unittest.TestCase):
             self.assertGreaterEqual(len(nx.responses()), 1)
 
     @unittest.skipIf(not tests.util.have_ipv4(), "IPv4 not reachable")
+    @tests.util.retry_on_timeout
     def testResolveCacheHit(self):
         res = dns.resolver.Resolver(configure=False)
         res.nameservers = ["8.8.8.8"]
@@ -754,6 +767,7 @@ class LiveResolverTests(unittest.TestCase):
         self.assertIs(answer2, answer1)
 
     @unittest.skipIf(not tests.util.have_ipv4(), "IPv4 not reachable")
+    @tests.util.retry_on_timeout
     def testTLSNameserver(self):
         res = dns.resolver.Resolver(configure=False)
         res.nameservers = [dns.nameserver.DoTNameserver("8.8.8.8", 853)]
@@ -766,6 +780,7 @@ class LiveResolverTests(unittest.TestCase):
         not (tests.util.have_ipv4() and dns.quic.have_quic),
         "IPv4 not reachable or QUIC not available",
     )
+    @tests.util.retry_on_timeout
     def testQuicNameserver(self):
         res = dns.resolver.Resolver(configure=False)
         res.nameservers = [dns.nameserver.DoQNameserver("94.140.14.14", 784)]
@@ -775,6 +790,7 @@ class LiveResolverTests(unittest.TestCase):
         self.assertIn("94.140.15.15", seen)
 
     @unittest.skipIf(not tests.util.have_ipv4(), "IPv4 not reachable")
+    @tests.util.retry_on_timeout
     def testResolveAtAddress(self):
         answer = dns.resolver.resolve_at("8.8.8.8", "dns.google.", "A")
         seen = set([rdata.address for rdata in answer])
@@ -782,6 +798,7 @@ class LiveResolverTests(unittest.TestCase):
         self.assertIn("8.8.4.4", seen)
 
     @unittest.skipIf(not tests.util.have_ipv4(), "IPv4 not reachable")
+    @tests.util.retry_on_timeout
     def testResolveAtName(self):
         answer = dns.resolver.resolve_at(
             "dns.google", "dns.google.", "A", family=socket.AF_INET
@@ -790,10 +807,12 @@ class LiveResolverTests(unittest.TestCase):
         self.assertIn("8.8.8.8", seen)
         self.assertIn("8.8.4.4", seen)
 
+    @tests.util.retry_on_timeout
     def testCanonicalNameNoCNAME(self):
         cname = dns.name.from_text("www.google.com")
         self.assertEqual(dns.resolver.canonical_name("www.google.com"), cname)
 
+    @tests.util.retry_on_timeout
     def testCanonicalNameCNAME(self):
         name = dns.name.from_text("www.dnspython.org")
         cname = dns.name.from_text("dmfrjf4ips8xa.cloudfront.net")
@@ -802,6 +821,7 @@ class LiveResolverTests(unittest.TestCase):
     @unittest.skipIf(
         _systemd_resolved_present or _is_docker, "systemd-resolved or docker in use"
     )
+    @tests.util.retry_on_timeout
     def testCanonicalNameDangling(self):
         name = dns.name.from_text("dangling-cname.dnspython.org")
         cname = dns.name.from_text("dangling-target.dnspython.org")
@@ -977,6 +997,11 @@ class ResolverMiscTestCase(unittest.TestCase):
             self.assertEqual(n, dns.win32util._config_domain("home"))
             self.assertEqual(n, dns.win32util._config_domain(".home"))
 
+        def test_set_config_method(self):
+            from dns.win32util import set_config_method, ConfigMethod
+            self.assertNotEqual(dns.win32util._config_method, dns.win32util.ConfigMethod.Win32)
+            dns.win32util.set_config_method(dns.win32util.ConfigMethod.Win32)
+            self.assertEqual(dns.win32util._config_method, dns.win32util.ConfigMethod.Win32)
 
 class ResolverNameserverValidTypeTestCase(unittest.TestCase):
     def test_set_nameservers_to_list(self):
@@ -996,7 +1021,6 @@ class ResolverNameserverValidTypeTestCase(unittest.TestCase):
             "1.2.3.4",
             1234,
             (1, 2, 3, 4),
-            (),
             {"invalid": "nameserver"},
         ]
         for invalid_nameserver in invalid_nameservers:

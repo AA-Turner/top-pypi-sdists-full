@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-material
-Version: 9.6.18
+Version: 9.6.19
 Summary: Documentation that simply works
 Project-URL: Homepage, https://squidfunk.github.io/mkdocs-material/
 Project-URL: Bug Tracker, https://github.com/squidfunk/mkdocs-material/issues
@@ -36,7 +36,7 @@ Requires-Dist: mkdocs-git-committers-plugin-2<3,>=1.1; extra == 'git'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.4,~=1.2; extra == 'git'
 Provides-Extra: imaging
 Requires-Dist: cairosvg~=2.6; extra == 'imaging'
-Requires-Dist: pillow~=10.2; extra == 'imaging'
+Requires-Dist: pillow<12.0,>=10.2; extra == 'imaging'
 Provides-Extra: recommended
 Requires-Dist: mkdocs-minify-plugin~=0.7; extra == 'recommended'
 Requires-Dist: mkdocs-redirects~=1.2; extra == 'recommended'
@@ -236,6 +236,9 @@ Description-Content-Type: text/markdown
   /></a>
   <a href="https://www.vector.com/" target=_blank><img
     src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-vector.png" height="58"
+  /></a>
+  <a href="https://second.tech/" target=_blank><img
+    src="https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/.github/assets/sponsors/sponsor-second.png" height="58"
   /></a>
 </p>
 <p>&nbsp;</p>

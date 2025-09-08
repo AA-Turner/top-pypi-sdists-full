@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '5f5c370acf6a60ccb53feb289f87f77ae0960e3b'
+_SKYPILOT_COMMIT_SHA = '430be1ad2ab1c3b0cd6d2aab3ce228dbebe562ee'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250906'
+__version__ = '1.0.0.dev20250907'
 __root_dir__ = directory_utils.get_sky_dir()
 
 

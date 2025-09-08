@@ -718,11 +718,13 @@ class Tab(Connection):
         | None
         | typing.Tuple[cdp.runtime.RemoteObject, cdp.runtime.ExceptionDetails | None]
     ):
-        ser = cdp.runtime.SerializationOptions(
-            serialization="deep",
-            max_depth=10,
-            additional_parameters={"maxNodeDepth": 10, "includeShadowTree": "all"},
-        )
+        ser: cdp.runtime.SerializationOptions | None = None
+        if not return_by_value:
+            ser = cdp.runtime.SerializationOptions(
+                serialization="deep",
+                max_depth=10,
+                additional_parameters={"maxNodeDepth": 10, "includeShadowTree": "all"},
+            )
 
         remote_object, errors = await self.send(
             cdp.runtime.evaluate(

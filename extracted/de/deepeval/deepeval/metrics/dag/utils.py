@@ -1,4 +1,4 @@
-from typing import Set, Dict, Optional
+from typing import Set, Dict, Optional, Union
 import inspect
 
 from deepeval.metrics.dag import (
@@ -9,18 +9,33 @@ from deepeval.metrics.dag import (
     TaskNode,
     DeepAcyclicGraph,
 )
-from deepeval.test_case import LLMTestCaseParams
+from deepeval.metrics.conversational_dag import (
+    ConversationalBaseNode,
+    ConversationalBinaryJudgementNode,
+    ConversationalNonBinaryJudgementNode,
+    ConversationalTaskNode,
+    ConversationalVerdictNode,
+)
+from deepeval.test_case import LLMTestCaseParams, TurnParams
 
 
-def is_valid_dag_from_roots(root_nodes: list[BaseNode]) -> bool:
+def is_valid_dag_from_roots(
+    root_nodes: Union[list[BaseNode], list[ConversationalBaseNode]],
+    multiturn: bool,
+) -> bool:
     visited = set()
     for root in root_nodes:
-        if not is_valid_dag(root, visited, set()):
+        if not is_valid_dag(root, multiturn, visited, set()):
             return False
     return True
 
 
-def is_valid_dag(node: BaseNode, visited=None, stack=None) -> bool:
+def is_valid_dag(
+    node: Union[BaseNode, ConversationalBaseNode],
+    multiturn: bool,
+    visited=None,
+    stack=None,
+) -> bool:
     if visited is None:
         visited = set()
     if stack is None:
@@ -33,14 +48,24 @@ def is_valid_dag(node: BaseNode, visited=None, stack=None) -> bool:
 
     visited.add(node)
     stack.add(node)
-    if (
-        isinstance(node, TaskNode)
-        or isinstance(node, BinaryJudgementNode)
-        or isinstance(node, NonBinaryJudgementNode)
-    ):
-        for child in node.children:
-            if not is_valid_dag(child, visited, stack):
-                return False
+    if not multiturn:
+        if (
+            isinstance(node, TaskNode)
+            or isinstance(node, BinaryJudgementNode)
+            or isinstance(node, NonBinaryJudgementNode)
+        ):
+            for child in node.children:
+                if not is_valid_dag(child, multiturn, visited, stack):
+                    return False
+    else:
+        if (
+            isinstance(node, ConversationalTaskNode)
+            or isinstance(node, ConversationalBinaryJudgementNode)
+            or isinstance(node, ConversationalNonBinaryJudgementNode)
+        ):
+            for child in node.children:
+                if not is_valid_dag(child, multiturn, visited, stack):
+                    return False
 
     stack.remove(node)
     return True
@@ -48,29 +73,51 @@ def is_valid_dag(node: BaseNode, visited=None, stack=None) -> bool:
 
 def extract_required_params(
     nodes: list[BaseNode],
-    required_params: Optional[Set[LLMTestCaseParams]] = None,
-) -> Set[LLMTestCaseParams]:
+    multiturn: bool,
+    required_params: Optional[
+        Union[Set[LLMTestCaseParams], Set[TurnParams]]
+    ] = None,
+) -> Union[Set[LLMTestCaseParams], Set[TurnParams]]:
     if required_params is None:
         required_params = set()
 
     for node in nodes:
-        if (
-            isinstance(node, TaskNode)
-            or isinstance(node, BinaryJudgementNode)
-            or isinstance(node, NonBinaryJudgementNode)
-        ):
-            if node.evaluation_params is not None:
-                required_params.update(node.evaluation_params)
-            extract_required_params(node.children, required_params)
+        if not multiturn:
+            if (
+                isinstance(node, TaskNode)
+                or isinstance(node, BinaryJudgementNode)
+                or isinstance(node, NonBinaryJudgementNode)
+            ):
+                if node.evaluation_params is not None:
+                    required_params.update(node.evaluation_params)
+                extract_required_params(
+                    node.children, multiturn, required_params
+                )
+        else:
+            if (
+                isinstance(node, ConversationalTaskNode)
+                or isinstance(node, ConversationalBinaryJudgementNode)
+                or isinstance(node, ConversationalNonBinaryJudgementNode)
+            ):
+                if node.evaluation_params is not None:
+                    required_params.update(node.evaluation_params)
+                extract_required_params(
+                    node.children, multiturn, required_params
+                )
 
     return required_params
 
 
 def copy_graph(original_dag: DeepAcyclicGraph) -> DeepAcyclicGraph:
     # This mapping avoids re-copying nodes that appear in multiple places.
-    visited: Dict[BaseNode, BaseNode] = {}
+    visited: Union[
+        Dict[BaseNode, BaseNode],
+        Dict[ConversationalBaseNode, ConversationalBaseNode],
+    ] = {}
 
-    def copy_node(node: BaseNode) -> BaseNode:
+    def copy_node(
+        node: Union[BaseNode, ConversationalBaseNode],
+    ) -> Union[BaseNode, ConversationalBaseNode]:
         if node in visited:
             return visited[node]
 
@@ -98,22 +145,40 @@ def copy_graph(original_dag: DeepAcyclicGraph) -> DeepAcyclicGraph:
                 "_depth",
             ]
         }
-        if (
-            isinstance(node, TaskNode)
-            or isinstance(node, BinaryJudgementNode)
-            or isinstance(node, NonBinaryJudgementNode)
-        ):
-            copied_node = node_class(
-                **valid_args,
-                children=[copy_node(child) for child in node.children]
-            )
-        else:
-            if isinstance(node, VerdictNode) and node.child:
+        if not original_dag.multiturn:
+            if (
+                isinstance(node, TaskNode)
+                or isinstance(node, BinaryJudgementNode)
+                or isinstance(node, NonBinaryJudgementNode)
+            ):
                 copied_node = node_class(
-                    **valid_args, child=copy_node(node.child)
+                    **valid_args,
+                    children=[copy_node(child) for child in node.children]
                 )
             else:
-                copied_node = node_class(**valid_args)
+                if isinstance(node, VerdictNode) and node.child:
+                    copied_node = node_class(
+                        **valid_args, child=copy_node(node.child)
+                    )
+                else:
+                    copied_node = node_class(**valid_args)
+        else:
+            if (
+                isinstance(node, ConversationalTaskNode)
+                or isinstance(node, ConversationalBinaryJudgementNode)
+                or isinstance(node, ConversationalNonBinaryJudgementNode)
+            ):
+                copied_node = node_class(
+                    **valid_args,
+                    children=[copy_node(child) for child in node.children]
+                )
+            else:
+                if isinstance(node, ConversationalVerdictNode) and node.child:
+                    copied_node = node_class(
+                        **valid_args, child=copy_node(node.child)
+                    )
+                else:
+                    copied_node = node_class(**valid_args)
 
         visited[node] = copied_node
         return copied_node

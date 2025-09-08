@@ -1579,7 +1579,7 @@ def set_handle_type(
     type: typing.Literal["AUTO", "VECTOR", "ALIGN", "FREE_ALIGN", "TOGGLE_FREE_ALIGN"]
     | None = "AUTO",
 ) -> None:
-    """Set the handle type for bezier curves
+    """Set the handle type for Bézier curves
 
         :type execution_context: int | str | None
         :type undo: bool | None

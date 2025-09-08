@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 
 from moto import mock_aws
 from tests import aws_verified
+from tests.test_awslambda.utilities import get_role_name
 
 
 @mock_aws
@@ -674,6 +675,39 @@ def test_create_receipt_rule_set():
 
 
 @mock_aws
+@pytest.mark.parametrize(
+    "rule_set_name, exc_message",
+    [
+        (
+            '123"',
+            "Value at 'ruleSetName' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$",
+        ),
+        (
+            "_123",
+            "Value at 'ruleSetName' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$",
+        ),
+        (
+            "123_",
+            "Value at 'ruleSetName' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$",
+        ),
+        ("a" * 65, f"Not a valid ruleSetName: {'a' * 65}"),
+    ],
+    ids=[
+        "having_invalid_characters",
+        "invalid_start_character",
+        "invalid_end_character",
+        "exceeding_max_length",
+    ],
+)
+def test_create_receipt_rule_set_invalid(rule_set_name, exc_message):
+    conn = boto3.client("ses", region_name="us-east-1")
+    with pytest.raises(ClientError) as ex:
+        conn.create_receipt_rule_set(RuleSetName=rule_set_name)
+    assert ex.value.response["Error"]["Code"] == "ValidationError"
+    assert ex.value.response["Error"]["Message"] == exc_message
+
+
+@mock_aws
 def test_create_receipt_rule():
     conn = boto3.client("ses", region_name="us-east-1")
     rule_set_name = "testRuleSet"
@@ -688,14 +722,7 @@ def test_create_receipt_rule():
             "Recipients": ["string"],
             "Actions": [
                 {
-                    "S3Action": {
-                        "TopicArn": "string",
-                        "BucketName": "string",
-                        "ObjectKeyPrefix": "string",
-                        "KmsKeyArn": "string",
-                    },
                     "BounceAction": {
-                        "TopicArn": "string",
                         "SmtpReplyCode": "string",
                         "StatusCode": "string",
                         "Message": "string",
@@ -719,14 +746,7 @@ def test_create_receipt_rule():
                 "Recipients": ["string"],
                 "Actions": [
                     {
-                        "S3Action": {
-                            "TopicArn": "string",
-                            "BucketName": "string",
-                            "ObjectKeyPrefix": "string",
-                            "KmsKeyArn": "string",
-                        },
                         "BounceAction": {
-                            "TopicArn": "string",
                             "SmtpReplyCode": "string",
                             "StatusCode": "string",
                             "Message": "string",
@@ -751,14 +771,7 @@ def test_create_receipt_rule():
                 "Recipients": ["string"],
                 "Actions": [
                     {
-                        "S3Action": {
-                            "TopicArn": "string",
-                            "BucketName": "string",
-                            "ObjectKeyPrefix": "string",
-                            "KmsKeyArn": "string",
-                        },
                         "BounceAction": {
-                            "TopicArn": "string",
                             "SmtpReplyCode": "string",
                             "StatusCode": "string",
                             "Message": "string",
@@ -775,6 +788,300 @@ def test_create_receipt_rule():
         ex.value.response["Error"]["Message"]
         == "Rule set does not exist: InvalidRuleSetaName"
     )
+
+
+@mock_aws
+@pytest.mark.parametrize(
+    "rule_set_name, rule, after, err_code, err_message",
+    [
+        (
+            "123_",
+            {"Name": "testRule"},
+            None,
+            "ValidationError",
+            "Value at 'ruleSetName' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$",
+        ),
+        (
+            "invalidRuleSet",
+            {"Name": "_123", "Enabled": False},
+            None,
+            "ValidationError",
+            "Value at 'rule.name' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[a-zA-Z0-9_.-]+$",
+        ),
+        (
+            "testRuleSet",
+            {"Name": "rule1", "Enabled": False},
+            "invalidRule",
+            "RuleDoesNotExist",
+            "Rule does not exist: invalidRule",
+        ),
+    ],
+    ids=["invalid_rule_set_name", "invalid_rule_name", "invalid_after_rule_param"],
+)
+def test_create_receipt_rule_invalid_top_level(
+    rule_set_name, rule, after, err_code, err_message
+):
+    conn = boto3.client("ses", region_name="us-east-1")
+    # Create a rule set with one rule
+    response = conn.create_receipt_rule_set(RuleSetName="testRuleSet")
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+    response = conn.create_receipt_rule(
+        RuleSetName="testRuleSet", Rule={"Name": "testRule"}
+    )
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    kwargs = {
+        "RuleSetName": rule_set_name,
+        "Rule": rule,
+    }
+    if after:
+        kwargs["After"] = after
+    with pytest.raises(ClientError) as ex:
+        conn.create_receipt_rule(**kwargs)
+    assert ex.value.response["Error"]["Code"] == err_code
+    assert ex.value.response["Error"]["Message"] == err_message
+
+
+@mock_aws
+@pytest.mark.parametrize(
+    "action, err_code, err_message",
+    [
+        (
+            {
+                "S3Action": {
+                    "BucketName": "my-bucket",
+                }
+            },
+            "InvalidS3Configuration",
+            "Could not write to bucket: my-bucket",
+        ),
+        (
+            {
+                "S3Action": {
+                    "BucketName": "test-bucket",
+                    "KmsKeyArn": "non-existent-key",
+                }
+            },
+            "InvalidS3Configuration",
+            "Unable to use AWS KMS key: non-existent-key",
+        ),
+        (
+            {
+                "S3Action": {
+                    "BucketName": "test-bucket",
+                    "TopicArn": "non-existent-topic",
+                }
+            },
+            "InvalidSnsTopic",
+            "Invalid SNS topic: non-existent-topic",
+        ),
+        (
+            {
+                "S3Action": {
+                    "BucketName": "test-bucket",
+                    "IamRoleArn": "my-role-arn-made-up-to-something-long",
+                }
+            },
+            "InvalidParameterValue",
+            "Could not assume the provided IAM role",
+        ),
+        (
+            {
+                "BounceAction": {
+                    "TopicArn": "non-existent-topic",
+                    "SmtpReplyCode": "string",
+                    "Message": "string",
+                    "Sender": "string",
+                }
+            },
+            "InvalidSnsTopic",
+            "Invalid SNS topic: non-existent-topic",
+        ),
+        (
+            {
+                "WorkmailAction": {
+                    "TopicArn": "non-existent-topic",
+                    "OrganizationArn": "string",
+                }
+            },
+            "InvalidSnsTopic",
+            "Invalid SNS topic: non-existent-topic",
+        ),
+        (
+            {
+                "LambdaAction": {
+                    "FunctionArn": "non-existent-function",
+                }
+            },
+            "InvalidLambdaFunction",
+            "Invalid Lambda function: non-existent-function",
+        ),
+        (
+            {
+                "LambdaAction": {
+                    "FunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:test-function",
+                    "TopicArn": "non-existent-topic",
+                }
+            },
+            "InvalidSnsTopic",
+            "Invalid SNS topic: non-existent-topic",
+        ),
+    ],
+    ids=[
+        "non_existent_bucket",
+        "non_existent_kms_key",
+        "non_existent_sns_topic",
+        "non_existent_iam_role",
+        "non_existent_sns_topic_for_bounce",
+        "non_existent_sns_topic_for_workmail",
+        "non_existent_lambda_function",
+        "non_existent_sns_topic_for_lambda_action",
+    ],
+)
+def test_create_receipt_rule_invalid_action(action, err_code, err_message):
+    conn = boto3.client("ses", region_name="us-east-1")
+    # Create a rule set with one rule
+    response = conn.create_receipt_rule_set(RuleSetName="testRuleSet")
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+    # Create a S3 bucket
+    s3_client = boto3.client("s3", region_name="us-east-1")
+    s3_client.create_bucket(Bucket="test-bucket")
+    # Create a Lambda function
+    lambda_client = boto3.client("lambda", region_name="us-east-1")
+    lambda_client.create_function(
+        FunctionName="test-function",
+        Runtime="python3.8",
+        Role=get_role_name(),
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": b"def lambda_handler(event, context): return 'Hello, World!'"},
+    )
+    kwargs = {
+        "RuleSetName": "testRuleSet",
+        "Rule": {"Name": "r1", "Actions": [action]},
+    }
+    with pytest.raises(ClientError) as ex:
+        conn.create_receipt_rule(**kwargs)
+    assert ex.value.response["Error"]["Code"] == err_code
+    assert ex.value.response["Error"]["Message"] == err_message
+
+
+@mock_aws
+def test_clone_receipt_rule_set():
+    conn = boto3.client("ses", region_name="us-east-1")
+    # First create a rule set that we will eventually clone
+    rule_set_name = "testRuleSet"
+    conn.create_receipt_rule_set(RuleSetName=rule_set_name)
+
+    result = conn.create_receipt_rule(
+        RuleSetName=rule_set_name,
+        Rule={
+            "Name": "testRule",
+            "Enabled": False,
+            "TlsPolicy": "Optional",
+            "Recipients": ["string"],
+            "Actions": [
+                {
+                    "BounceAction": {
+                        "SmtpReplyCode": "string",
+                        "StatusCode": "string",
+                        "Message": "string",
+                        "Sender": "string",
+                    },
+                }
+            ],
+            "ScanEnabled": False,
+        },
+    )
+
+    assert result["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Now try to execute Clone action by passing a non-existent rule set name
+    with pytest.raises(ClientError) as ex:
+        conn.clone_receipt_rule_set(
+            RuleSetName="ClonedRuleSet",
+            OriginalRuleSetName="NonExistentRuleSet",
+        )
+
+    assert ex.value.response["Error"]["Code"] == "RuleSetDoesNotExist"
+    assert (
+        ex.value.response["Error"]["Message"]
+        == "Rule set does not exist: NonExistentRuleSet"
+    )
+
+    # Now try to clone it to a ruleset that already exists, i.e., itself
+    with pytest.raises(ClientError) as ex:
+        conn.clone_receipt_rule_set(
+            RuleSetName=rule_set_name,
+            OriginalRuleSetName=rule_set_name,
+        )
+
+    assert ex.value.response["Error"]["Code"] == "AlreadyExists"
+    assert (
+        ex.value.response["Error"]["Message"] == "Rule set already exists: testRuleSet"
+    )
+
+    # Now perform a valid clone - it succeeds
+    conn.clone_receipt_rule_set(
+        RuleSetName="ClonedRuleSet",
+        OriginalRuleSetName=rule_set_name,
+    )
+    assert result["ResponseMetadata"]["HTTPStatusCode"] == 200
+    # Verify that the cloned rule set also has one 1 rule
+    cloned_rules = conn.describe_receipt_rule_set(RuleSetName="ClonedRuleSet")
+    assert len(cloned_rules["Rules"]) == 1
+
+
+@mock_aws
+def test_active_receipt_rule_set():
+    # Create a receipt rule set
+    conn = boto3.client("ses", region_name="us-east-1")
+    create_response = conn.create_receipt_rule_set(RuleSetName="testRuleSet")
+    assert create_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Try to set the active receipt rule set as a rule set that doesn't exist
+    with pytest.raises(ClientError) as ex:
+        conn.set_active_receipt_rule_set(RuleSetName="NonExistentRuleSet")
+    assert ex.value.response["Error"]["Code"] == "RuleSetDoesNotExist"
+    assert (
+        ex.value.response["Error"]["Message"]
+        == "Rule set does not exist: NonExistentRuleSet"
+    )
+
+    # Now set the active receipt rule set as the one we created
+    set_active_response = conn.set_active_receipt_rule_set(RuleSetName="testRuleSet")
+    assert set_active_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Verify it via DescribeActiveReceiptRuleSet action as well
+    active_rule_set = conn.describe_active_receipt_rule_set()
+    assert active_rule_set["Metadata"]["Name"] == "testRuleSet"
+
+    # Now create a second receipt rule set
+    create_response_2 = conn.create_receipt_rule_set(RuleSetName="testRuleSet2")
+    assert create_response_2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Verify that two rule sets exist
+    rule_sets = conn.list_receipt_rule_sets()
+    assert len(rule_sets["RuleSets"]) == 2
+    assert [rs["Name"] for rs in rule_sets["RuleSets"]] == [
+        "testRuleSet",
+        "testRuleSet2",
+    ]
+
+    # Now set the active receipt rule set as the second one
+    set_active_response_2 = conn.set_active_receipt_rule_set(RuleSetName="testRuleSet2")
+    assert set_active_response_2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Verify it, again, via DescribeActiveReceiptRuleSet action
+    active_rule_set_2 = conn.describe_active_receipt_rule_set()
+    assert active_rule_set_2["Metadata"]["Name"] == "testRuleSet2"
+
+    # Finally, invoking SetActiveReceiptRuleSet with no RuleSetName parameter causes all rules to become inactive
+    set_active_response_3 = conn.set_active_receipt_rule_set()
+    assert set_active_response_3["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    active_rule_set_3 = conn.describe_active_receipt_rule_set()
+    assert set_active_response_3["ResponseMetadata"]["HTTPStatusCode"] == 200
+    assert "Metadata" not in active_rule_set_3
 
 
 @mock_aws
@@ -810,14 +1117,7 @@ def test_describe_receipt_rule_set_with_rules():
         "Recipients": ["string"],
         "Actions": [
             {
-                "S3Action": {
-                    "TopicArn": "string",
-                    "BucketName": "string",
-                    "ObjectKeyPrefix": "string",
-                    "KmsKeyArn": "string",
-                },
                 "BounceAction": {
-                    "TopicArn": "string",
                     "SmtpReplyCode": "string",
                     "StatusCode": "string",
                     "Message": "string",
@@ -842,12 +1142,105 @@ def test_describe_receipt_rule_set_with_rules():
     assert len(result["Rules"]) == 1
     assert result["Rules"][0] == receipt_rule
 
+    # Create another rule, without passing in Action parameter - that rule should show up first
+    receipt_rule = {
+        "Name": "testRule2",
+        "Enabled": True,
+        "Actions": [
+            {
+                "BounceAction": {
+                    "SmtpReplyCode": "string",
+                    "Message": "string",
+                    "Sender": "string",
+                },
+            }
+        ],
+    }
+    create_receipt_rule_response = conn.create_receipt_rule(
+        RuleSetName="testRuleSet", Rule=receipt_rule
+    )
+    assert create_receipt_rule_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+    # Verified via describe_receipt_rule_set
+    result = conn.describe_receipt_rule_set(RuleSetName="testRuleSet")
+    assert result["Metadata"]["Name"] == "testRuleSet"
+    assert len(result["Rules"]) == 2
+    assert [rule["Name"] for rule in result["Rules"]] == ["testRule2", "testRule"]
+
+    # Create a third rule, by passing in after parameter
+    receipt_rule = {
+        "Name": "testRule3",
+        "Actions": [
+            {
+                "BounceAction": {
+                    "SmtpReplyCode": "string",
+                    "Message": "string",
+                    "Sender": "string",
+                },
+            }
+        ],
+    }
+    create_receipt_rule_response = conn.create_receipt_rule(
+        RuleSetName="testRuleSet", Rule=receipt_rule, After="testRule2"
+    )
+    assert create_receipt_rule_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+    # Verified via describe_receipt_rule_set
+    result = conn.describe_receipt_rule_set(RuleSetName="testRuleSet")
+    assert result["Metadata"]["Name"] == "testRuleSet"
+    assert len(result["Rules"]) == 3
+    assert [rule["Name"] for rule in result["Rules"]] == [
+        "testRule2",
+        "testRule3",
+        "testRule",
+    ]
+
+
+@mock_aws
+def test_delete_receipt_rule_set():
+    # Create a receipt rule set
+    conn = boto3.client("ses", region_name="us-east-1")
+    create_response = conn.create_receipt_rule_set(RuleSetName="testRuleSet")
+    assert create_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Delete a receipt rule set that doesn't exist. It is still considered a successful operation
+    delete_response = conn.delete_receipt_rule_set(RuleSetName="nonExistentRuleSet")
+    assert delete_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Mark the receipt rule set as active
+    set_active_response = conn.set_active_receipt_rule_set(RuleSetName="testRuleSet")
+    assert set_active_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Now attempt a deletion
+    with pytest.raises(ClientError) as ex:
+        conn.delete_receipt_rule_set(RuleSetName="testRuleSet")
+    assert ex.value.response["Error"]["Code"] == "CannotDelete"
+    assert (
+        ex.value.response["Error"]["Message"]
+        == "Cannot delete active rule set: testRuleSet"
+    )
+
+    # Mark (all) receipt rule set as inactive
+    set_inactive_response = conn.set_active_receipt_rule_set()
+    assert set_inactive_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # Now the deletion goes through successfully
+    delete_response = conn.delete_receipt_rule_set(RuleSetName="testRuleSet")
+    assert delete_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # This can be verified via a ListReceiptRuleSets action
+    result = conn.list_receipt_rule_sets()
+    assert result["ResponseMetadata"]["HTTPStatusCode"] == 200
+    assert len(result["RuleSets"]) == 0
+
 
 @mock_aws
 def test_describe_receipt_rule():
     conn = boto3.client("ses", region_name="us-east-1")
     rule_set_name = "testRuleSet"
     conn.create_receipt_rule_set(RuleSetName=rule_set_name)
+
+    # Create S3 bucket testBucketName
+    s3_client = boto3.client("s3", region_name="us-east-1")
+    s3_client.create_bucket(Bucket="testBucketName")
 
     rule_name = "testRule"
     conn.create_receipt_rule(
@@ -860,13 +1253,10 @@ def test_describe_receipt_rule():
             "Actions": [
                 {
                     "S3Action": {
-                        "TopicArn": "string",
                         "BucketName": "testBucketName",
                         "ObjectKeyPrefix": "testObjectKeyPrefix",
-                        "KmsKeyArn": "string",
                     },
                     "BounceAction": {
-                        "TopicArn": "string",
                         "SmtpReplyCode": "string",
                         "StatusCode": "string",
                         "Message": "string",
@@ -894,25 +1284,15 @@ def test_describe_receipt_rule():
     assert len(receipt_rule_response["Rule"]["Actions"]) == 1
     assert "S3Action" in receipt_rule_response["Rule"]["Actions"][0]
 
-    assert (
-        receipt_rule_response["Rule"]["Actions"][0]["S3Action"]["TopicArn"] == "string"
-    )
     assert receipt_rule_response["Rule"]["Actions"][0]["S3Action"]["BucketName"] == (
         "testBucketName"
     )
     assert receipt_rule_response["Rule"]["Actions"][0]["S3Action"][
         "ObjectKeyPrefix"
     ] == ("testObjectKeyPrefix")
-    assert (
-        receipt_rule_response["Rule"]["Actions"][0]["S3Action"]["KmsKeyArn"] == "string"
-    )
 
     assert "BounceAction" in receipt_rule_response["Rule"]["Actions"][0]
 
-    assert (
-        receipt_rule_response["Rule"]["Actions"][0]["BounceAction"]["TopicArn"]
-        == "string"
-    )
     assert (
         receipt_rule_response["Rule"]["Actions"][0]["BounceAction"]["SmtpReplyCode"]
         == "string"
@@ -959,6 +1339,9 @@ def test_update_receipt_rule():
     rule_set_name = "testRuleSet"
     conn.create_receipt_rule_set(RuleSetName=rule_set_name)
 
+    s3_client = boto3.client("s3", region_name="us-east-1")
+    s3_client.create_bucket(Bucket="testBucketName")
+
     rule_name = "testRule"
     conn.create_receipt_rule(
         RuleSetName=rule_set_name,
@@ -970,13 +1353,10 @@ def test_update_receipt_rule():
             "Actions": [
                 {
                     "S3Action": {
-                        "TopicArn": "string",
                         "BucketName": "testBucketName",
                         "ObjectKeyPrefix": "testObjectKeyPrefix",
-                        "KmsKeyArn": "string",
                     },
                     "BounceAction": {
-                        "TopicArn": "string",
                         "SmtpReplyCode": "string",
                         "StatusCode": "string",
                         "Message": "string",
@@ -998,13 +1378,10 @@ def test_update_receipt_rule():
             "Actions": [
                 {
                     "S3Action": {
-                        "TopicArn": "string",
                         "BucketName": "testBucketName",
                         "ObjectKeyPrefix": "testObjectKeyPrefix",
-                        "KmsKeyArn": "string",
                     },
                     "BounceAction": {
-                        "TopicArn": "string",
                         "SmtpReplyCode": "string",
                         "StatusCode": "string",
                         "Message": "string",
@@ -1042,13 +1419,10 @@ def test_update_receipt_rule():
                 "Actions": [
                     {
                         "S3Action": {
-                            "TopicArn": "string",
                             "BucketName": "testBucketName",
                             "ObjectKeyPrefix": "testObjectKeyPrefix",
-                            "KmsKeyArn": "string",
                         },
                         "BounceAction": {
-                            "TopicArn": "string",
                             "SmtpReplyCode": "string",
                             "StatusCode": "string",
                             "Message": "string",
@@ -1076,13 +1450,10 @@ def test_update_receipt_rule():
                 "Actions": [
                     {
                         "S3Action": {
-                            "TopicArn": "string",
                             "BucketName": "testBucketName",
                             "ObjectKeyPrefix": "testObjectKeyPrefix",
-                            "KmsKeyArn": "string",
                         },
                         "BounceAction": {
-                            "TopicArn": "string",
                             "SmtpReplyCode": "string",
                             "StatusCode": "string",
                             "Message": "string",
@@ -1106,6 +1477,9 @@ def test_update_receipt_rule_actions():
     rule_set_name = "testRuleSet"
     conn.create_receipt_rule_set(RuleSetName=rule_set_name)
 
+    s3_client = boto3.client("s3", region_name="us-east-1")
+    s3_client.create_bucket(Bucket="testBucketName")
+
     rule_name = "testRule"
     conn.create_receipt_rule(
         RuleSetName=rule_set_name,
@@ -1117,13 +1491,10 @@ def test_update_receipt_rule_actions():
             "Actions": [
                 {
                     "S3Action": {
-                        "TopicArn": "string",
                         "BucketName": "testBucketName",
                         "ObjectKeyPrefix": "testObjectKeyPrefix",
-                        "KmsKeyArn": "string",
                     },
                     "BounceAction": {
-                        "TopicArn": "string",
                         "SmtpReplyCode": "string",
                         "StatusCode": "string",
                         "Message": "string",
@@ -1145,13 +1516,10 @@ def test_update_receipt_rule_actions():
             "Actions": [
                 {
                     "S3Action": {
-                        "TopicArn": "newString",
                         "BucketName": "updatedTestBucketName",
                         "ObjectKeyPrefix": "updatedTestObjectKeyPrefix",
-                        "KmsKeyArn": "newString",
                     },
                     "BounceAction": {
-                        "TopicArn": "newString",
                         "SmtpReplyCode": "newString",
                         "StatusCode": "newString",
                         "Message": "newString",
@@ -1173,27 +1541,15 @@ def test_update_receipt_rule_actions():
     assert "S3Action" in updated_rule_description["Rule"]["Actions"][0]
 
     assert (
-        (updated_rule_description["Rule"]["Actions"][0]["S3Action"]["TopicArn"])
-        == "newString"
-    )
-    assert (
         (updated_rule_description["Rule"]["Actions"][0]["S3Action"]["BucketName"])
         == "updatedTestBucketName"
     )
     assert updated_rule_description["Rule"]["Actions"][0]["S3Action"][
         "ObjectKeyPrefix"
     ] == ("updatedTestObjectKeyPrefix")
-    assert (
-        updated_rule_description["Rule"]["Actions"][0]["S3Action"]["KmsKeyArn"]
-        == "newString"
-    )
 
     assert "BounceAction" in updated_rule_description["Rule"]["Actions"][0]
 
-    assert (
-        updated_rule_description["Rule"]["Actions"][0]["BounceAction"]["TopicArn"]
-        == "newString"
-    )
     assert (
         (
             updated_rule_description["Rule"]["Actions"][0]["BounceAction"][

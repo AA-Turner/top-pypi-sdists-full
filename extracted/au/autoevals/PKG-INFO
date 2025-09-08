@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoevals
-Version: 0.0.129
+Version: 0.0.130
 Summary: Universal library for evaluating AI models
 Home-page: https://www.braintrustdata.com
 Author: BrainTrust
@@ -14,7 +14,6 @@ License-File: LICENSE
 Requires-Dist: chevron
 Requires-Dist: polyleven
 Requires-Dist: pyyaml
-Requires-Dist: braintrust_core==0.0.59
 Requires-Dist: jsonschema
 Provides-Extra: dev
 Requires-Dist: black==22.6.0; extra == "dev"
