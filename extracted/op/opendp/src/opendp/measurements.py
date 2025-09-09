@@ -6,7 +6,7 @@ For more context, see :ref:`measurements in the User Guide <measurements-user-gu
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 
@@ -26,10 +26,16 @@ from opendp.measures import *
 __all__ = [
     "debias_randomized_response_bitvec",
     "make_alp_queryable",
+    "make_canonical_noise",
     "make_gaussian",
+    "make_gaussian_threshold",
     "make_geometric",
     "make_laplace",
     "make_laplace_threshold",
+    "make_noise",
+    "make_noise_threshold",
+    "make_noisy_max",
+    "make_noisy_top_k",
     "make_private_expr",
     "make_private_lazyframe",
     "make_private_quantile",
@@ -39,10 +45,16 @@ __all__ = [
     "make_report_noisy_max_gumbel",
     "make_user_measurement",
     "then_alp_queryable",
+    "then_canonical_noise",
     "then_gaussian",
+    "then_gaussian_threshold",
     "then_geometric",
     "then_laplace",
     "then_laplace_threshold",
+    "then_noise",
+    "then_noise_threshold",
+    "then_noisy_max",
+    "then_noisy_top_k",
     "then_private_expr",
     "then_private_lazyframe",
     "then_private_quantile",
@@ -64,10 +76,12 @@ def debias_randomized_response_bitvec(
 
     Required features: `contrib`
 
-    [debias_randomized_response_bitvec in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.debias_randomized_response_bitvec.html)
+    [debias_randomized_response_bitvec in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.debias_randomized_response_bitvec.html)
+
+    .. end-markdown
 
     :param answers: A vector of BitVectors with consistent size
-    :param f: The per bit flipping probability used to encode `answers`
+    :param f: The per bit flipping probability used to encode ``answers``
     :type f: float
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -120,7 +134,7 @@ def make_alp_queryable(
 
     Required features: `contrib`
 
-    [make_alp_queryable in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_alp_queryable.html)
+    [make_alp_queryable in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_alp_queryable.html)
 
     **Citations:**
 
@@ -129,9 +143,11 @@ def make_alp_queryable(
     **Supporting Elements:**
 
     * Input Domain:   `MapDomain<AtomDomain<K>, AtomDomain<CI>>`
-    * Output Type:    `Queryable<K, f64>`
-    * Input Metric:   `L1Distance<CI>`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `L0PInfDistance<1, AbsoluteDistance<CI>>`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `Queryable<K, f64>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -188,8 +204,10 @@ def then_alp_queryable(
 ):  
     r"""partial constructor of make_alp_queryable
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_alp_queryable`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_alp_queryable`
 
     :param scale: Privacy loss parameter. This is equal to epsilon/sensitivity.
     :type scale: float
@@ -217,6 +235,109 @@ def then_alp_queryable(
 
 
 
+def make_canonical_noise(
+    input_domain: Domain,
+    input_metric: Metric,
+    d_in: float,
+    d_out: tuple[Any, Any]
+) -> Measurement:
+    r"""Make a Measurement that adds noise from a canonical noise distribution.
+    The implementation is tailored towards approximate-DP,
+    resulting in noise sampled from the Tulap distribution.
+
+
+    Required features: `contrib`
+
+    [make_canonical_noise in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_canonical_noise.html)
+
+    **Citations:**
+
+    - [AV23 Canonical Noise Distributions and Private Hypothesis Tests](https://projecteuclid.org/journals/annals-of-statistics/volume-51/issue-2/Canonical-noise-distributions-and-private-hypothesis-tests/10.1214/23-AOS2259.short)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `AtomDomain<f64>`
+    * Output Type:    `AbsoluteDistance<f64>`
+    * Input Metric:   `Approximate<MaxDivergence>`
+    * Output Measure: `f64`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/canonical_noise/make_canonical_noise.pdf)
+
+    .. end-markdown
+
+    :param input_domain: Domain of the input.
+    :type input_domain: Domain
+    :param input_metric: Metric of the input.
+    :type input_metric: Metric
+    :param d_in: Sensitivity
+    :type d_in: float
+    :param d_out: Privacy parameters (ε, δ)
+    :type d_out: tuple[Any, Any]
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_d_in = py_to_c(d_in, c_type=ctypes.c_double, type_name="f64")
+    c_d_out = py_to_c(d_out, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Tuple', args=["f64", "f64"]))
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_canonical_noise
+    lib_function.argtypes = [Domain, Metric, ctypes.c_double, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_d_in, c_d_out), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_canonical_noise',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'd_in': d_in, 'd_out': d_out
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_canonical_noise(
+    d_in: float,
+    d_out: tuple[Any, Any]
+):  
+    r"""partial constructor of make_canonical_noise
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_canonical_noise`
+
+    :param d_in: Sensitivity
+    :type d_in: float
+    :param d_out: Privacy parameters (ε, δ)
+    :type d_out: tuple[Any, Any]
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_canonical_noise(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        d_in=d_in,
+        d_out=d_out))
+    output.__opendp_dict__ = {
+            '__function__': 'then_canonical_noise',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'd_in': d_in, 'd_out': d_out
+            },
+        }
+    return output
+
+
+
 def make_gaussian(
     input_domain: Domain,
     input_metric: Metric,
@@ -236,23 +357,29 @@ def make_gaussian(
 
     Required features: `contrib`
 
-    [make_gaussian in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_gaussian.html)
+    [make_gaussian in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_gaussian.html)
 
     **Supporting Elements:**
 
-    * Input Domain:   `D`
-    * Output Type:    `D::Carrier`
-    * Input Metric:   `D::InputMetric`
-    * Output Measure: `MO`
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noise/distribution/gaussian/make_gaussian.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of the data type to be privatized.
     :type input_domain: Domain
     :param input_metric: Metric of the data type to be privatized.
     :type input_metric: Metric
-    :param scale: Noise scale parameter for the gaussian distribution. `scale` == standard_deviation.
+    :param scale: Noise scale parameter for the gaussian distribution. ``scale`` == standard_deviation.
     :type scale: float
     :param k: The noise granularity in terms of 2^k.
-    :param MO: Output Measure. The only valid measure is `ZeroConcentratedDivergence`.
+    :param MO: Output Measure. The only valid measure is ``ZeroConcentratedDivergence``.
     :type MO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -310,13 +437,15 @@ def then_gaussian(
 ):  
     r"""partial constructor of make_gaussian
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_gaussian`
+    .. end-markdown
 
-    :param scale: Noise scale parameter for the gaussian distribution. `scale` == standard_deviation.
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_gaussian`
+
+    :param scale: Noise scale parameter for the gaussian distribution. ``scale`` == standard_deviation.
     :type scale: float
     :param k: The noise granularity in terms of 2^k.
-    :param MO: Output Measure. The only valid measure is `ZeroConcentratedDivergence`.
+    :param MO: Output Measure. The only valid measure is ``ZeroConcentratedDivergence``.
     :type MO: :py:ref:`RuntimeTypeDescriptor`
 
     :example:
@@ -351,11 +480,129 @@ def then_gaussian(
 
 
 
+def make_gaussian_threshold(
+    input_domain: Domain,
+    input_metric: Metric,
+    scale: float,
+    threshold,
+    k = None,
+    MO: RuntimeTypeDescriptor = "Approximate<ZeroConcentratedDivergence>"
+) -> Measurement:
+    r"""Make a Measurement that uses propose-test-release to privatize a hashmap of counts.
+
+    This function takes a noise granularity in terms of 2^k.
+    Larger granularities are more computationally efficient, but have a looser privacy map.
+    If k is not set, k defaults to the smallest granularity.
+
+
+    Required features: `contrib`
+
+    [make_gaussian_threshold in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_gaussian_threshold.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noise_threshold/distribution/gaussian/make_gaussian_threshold.pdf)
+
+    .. end-markdown
+
+    :param input_domain: Domain of the input.
+    :type input_domain: Domain
+    :param input_metric: Metric for the input domain.
+    :type input_metric: Metric
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
+    :type scale: float
+    :param threshold: Exclude pairs with values whose distance from zero exceeds this value.
+    :param k: The noise granularity in terms of 2^k.
+    :param MO: Output Measure.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # Standardize type arguments.
+    MO = RuntimeType.parse(type_name=MO, generics=["TV"])
+    TV = get_value_type(get_carrier_type(input_domain)) # type: ignore
+    MO = _substitute(MO, TV=TV) # type: ignore
+
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
+    c_threshold = py_to_c(threshold, c_type=ctypes.c_void_p, type_name=TV)
+    c_k = py_to_c(k, c_type=ctypes.c_void_p, type_name=RuntimeType(origin='Option', args=["i32"]))
+    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_gaussian_threshold
+    lib_function.argtypes = [Domain, Metric, ctypes.c_double, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_threshold, c_k, c_MO), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_gaussian_threshold',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'threshold': threshold, 'k': k, 'MO': MO
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_gaussian_threshold(
+    scale: float,
+    threshold,
+    k = None,
+    MO: RuntimeTypeDescriptor = "Approximate<ZeroConcentratedDivergence>"
+):  
+    r"""partial constructor of make_gaussian_threshold
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_gaussian_threshold`
+
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
+    :type scale: float
+    :param threshold: Exclude pairs with values whose distance from zero exceeds this value.
+    :param k: The noise granularity in terms of 2^k.
+    :param MO: Output Measure.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_gaussian_threshold(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        scale=scale,
+        threshold=threshold,
+        k=k,
+        MO=MO))
+    output.__opendp_dict__ = {
+            '__function__': 'then_gaussian_threshold',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'scale': scale, 'threshold': threshold, 'k': k, 'MO': MO
+            },
+        }
+    return output
+
+
+
 def make_geometric(
     input_domain: Domain,
     input_metric: Metric,
     scale: float,
-    bounds = None
+    bounds = None,
+    MO: RuntimeTypeDescriptor = "MaxDivergence"
 ) -> Measurement:
     r"""Equivalent to `make_laplace` but restricted to an integer support.
     Can specify `bounds` to run the algorithm in near constant-time.
@@ -363,7 +610,7 @@ def make_geometric(
 
     Required features: `contrib`
 
-    [make_geometric in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_geometric.html)
+    [make_geometric in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_geometric.html)
 
     **Citations:**
 
@@ -371,18 +618,26 @@ def make_geometric(
 
     **Supporting Elements:**
 
-    * Input Domain:   `D`
-    * Output Type:    `D::Carrier`
-    * Input Metric:   `D::InputMetric`
-    * Output Measure: `MaxDivergence`
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noise/distribution/geometric/make_geometric.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of the data type to be privatized.
     :type input_domain: Domain
     :param input_metric: Metric of the data type to be privatized.
     :type input_metric: Metric
-    :param scale: Noise scale parameter for the distribution. `scale` == standard_deviation / sqrt(2).
+    :param scale: Noise scale parameter for the distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param bounds: Set bounds on the count to make the algorithm run in constant-time.
+    :param MO: Measure used to quantify privacy loss. Valid values are just ``MaxDivergence``
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -405,27 +660,30 @@ def make_geometric(
     assert_features("contrib")
 
     # Standardize type arguments.
+    MO = RuntimeType.parse(type_name=MO, generics=["T", "OptionT"])
     T = get_atom(get_carrier_type(input_domain)) # type: ignore
     OptionT = RuntimeType(origin='Option', args=[RuntimeType(origin='Tuple', args=[T, T])]) # type: ignore
+    MO = _substitute(MO, T=T, OptionT=OptionT) # type: ignore
 
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
     c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
     c_bounds = py_to_c(bounds, c_type=AnyObjectPtr, type_name=OptionT)
+    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
 
     # Call library function.
     lib_function = lib.opendp_measurements__make_geometric
-    lib_function.argtypes = [Domain, Metric, ctypes.c_double, AnyObjectPtr]
+    lib_function.argtypes = [Domain, Metric, ctypes.c_double, AnyObjectPtr, ctypes.c_char_p]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_bounds), Measurement))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_bounds, c_MO), Measurement))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_geometric',
             '__module__': 'measurements',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'bounds': bounds
+                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'bounds': bounds, 'MO': MO
             },
         }
     except AttributeError:  # pragma: no cover
@@ -434,16 +692,21 @@ def make_geometric(
 
 def then_geometric(
     scale: float,
-    bounds = None
+    bounds = None,
+    MO: RuntimeTypeDescriptor = "MaxDivergence"
 ):  
     r"""partial constructor of make_geometric
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_geometric`
+    .. end-markdown
 
-    :param scale: Noise scale parameter for the distribution. `scale` == standard_deviation / sqrt(2).
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_geometric`
+
+    :param scale: Noise scale parameter for the distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param bounds: Set bounds on the count to make the algorithm run in constant-time.
+    :param MO: Measure used to quantify privacy loss. Valid values are just ``MaxDivergence``
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
 
     :example:
 
@@ -464,12 +727,13 @@ def then_geometric(
         input_domain=input_domain,
         input_metric=input_metric,
         scale=scale,
-        bounds=bounds))
+        bounds=bounds,
+        MO=MO))
     output.__opendp_dict__ = {
             '__function__': 'then_geometric',
             '__module__': 'measurements',
             '__kwargs__': {
-                'scale': scale, 'bounds': bounds
+                'scale': scale, 'bounds': bounds, 'MO': MO
             },
         }
     return output
@@ -480,7 +744,8 @@ def make_laplace(
     input_domain: Domain,
     input_metric: Metric,
     scale: float,
-    k = None
+    k = None,
+    MO: RuntimeTypeDescriptor = "MaxDivergence"
 ) -> Measurement:
     r"""Make a Measurement that adds noise from the Laplace(`scale`) distribution to the input.
 
@@ -496,7 +761,7 @@ def make_laplace(
 
     Required features: `contrib`
 
-    [make_laplace in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_laplace.html)
+    [make_laplace in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_laplace.html)
 
     **Citations:**
 
@@ -505,18 +770,26 @@ def make_laplace(
 
     **Supporting Elements:**
 
-    * Input Domain:   `D`
-    * Output Type:    `D::Carrier`
-    * Input Metric:   `D::InputMetric`
-    * Output Measure: `MaxDivergence`
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noise/distribution/laplace/make_laplace.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of the data type to be privatized.
     :type input_domain: Domain
     :param input_metric: Metric of the data type to be privatized.
     :type input_metric: Metric
-    :param scale: Noise scale parameter for the Laplace distribution. `scale` == standard_deviation / sqrt(2).
+    :param scale: Noise scale parameter for the Laplace distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param k: The noise granularity in terms of 2^k, only valid for domains over floats.
+    :param MO: Measure used to quantify privacy loss. Valid values are just ``MaxDivergence``
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -539,25 +812,28 @@ def make_laplace(
     """
     assert_features("contrib")
 
-    # No type arguments to standardize.
+    # Standardize type arguments.
+    MO = RuntimeType.parse(type_name=MO)
+
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
     c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
     c_k = py_to_c(k, c_type=ctypes.c_void_p, type_name=RuntimeType(origin='Option', args=["i32"]))
+    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
 
     # Call library function.
     lib_function = lib.opendp_measurements__make_laplace
-    lib_function.argtypes = [Domain, Metric, ctypes.c_double, ctypes.c_void_p]
+    lib_function.argtypes = [Domain, Metric, ctypes.c_double, ctypes.c_void_p, ctypes.c_char_p]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_k), Measurement))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_k, c_MO), Measurement))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_laplace',
             '__module__': 'measurements',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'k': k
+                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'k': k, 'MO': MO
             },
         }
     except AttributeError:  # pragma: no cover
@@ -566,16 +842,21 @@ def make_laplace(
 
 def then_laplace(
     scale: float,
-    k = None
+    k = None,
+    MO: RuntimeTypeDescriptor = "MaxDivergence"
 ):  
     r"""partial constructor of make_laplace
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_laplace`
+    .. end-markdown
 
-    :param scale: Noise scale parameter for the Laplace distribution. `scale` == standard_deviation / sqrt(2).
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_laplace`
+
+    :param scale: Noise scale parameter for the Laplace distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param k: The noise granularity in terms of 2^k, only valid for domains over floats.
+    :param MO: Measure used to quantify privacy loss. Valid values are just ``MaxDivergence``
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
 
     :example:
 
@@ -597,12 +878,13 @@ def then_laplace(
         input_domain=input_domain,
         input_metric=input_metric,
         scale=scale,
-        k=k))
+        k=k,
+        MO=MO))
     output.__opendp_dict__ = {
             '__function__': 'then_laplace',
             '__module__': 'measurements',
             '__kwargs__': {
-                'scale': scale, 'k': k
+                'scale': scale, 'k': k, 'MO': MO
             },
         }
     return output
@@ -614,7 +896,8 @@ def make_laplace_threshold(
     input_metric: Metric,
     scale: float,
     threshold,
-    k: int = -1074
+    k = None,
+    MO: RuntimeTypeDescriptor = "Approximate<MaxDivergence>"
 ) -> Measurement:
     r"""Make a Measurement that uses propose-test-release to privatize a hashmap of counts.
 
@@ -623,54 +906,64 @@ def make_laplace_threshold(
     If k is not set, k defaults to the smallest granularity.
 
 
-    Required features: `contrib`, `floating-point`
+    Required features: `contrib`
 
-    [make_laplace_threshold in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_laplace_threshold.html)
+    [make_laplace_threshold in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_laplace_threshold.html)
 
     **Supporting Elements:**
 
-    * Input Domain:   `MapDomain<AtomDomain<TK>, AtomDomain<TV>>`
-    * Output Type:    `HashMap<TK, TV>`
-    * Input Metric:   `L1Distance<TV>`
-    * Output Measure: `Approximate<MaxDivergence>`
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noise_threshold/distribution/laplace/make_laplace_threshold.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of the input.
     :type input_domain: Domain
     :param input_metric: Metric for the input domain.
     :type input_metric: Metric
-    :param scale: Noise scale parameter for the laplace distribution. `scale` == standard_deviation / sqrt(2).
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param threshold: Exclude counts that are less than this minimum value.
     :param k: The noise granularity in terms of 2^k.
-    :type k: int
+    :param MO: Output Measure.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
     """
-    assert_features("contrib", "floating-point")
+    assert_features("contrib")
 
     # Standardize type arguments.
-    TV = get_distance_type(input_metric) # type: ignore
+    MO = RuntimeType.parse(type_name=MO, generics=["TV"])
+    TV = get_value_type(get_carrier_type(input_domain)) # type: ignore
+    MO = _substitute(MO, TV=TV) # type: ignore
 
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
     c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
     c_threshold = py_to_c(threshold, c_type=ctypes.c_void_p, type_name=TV)
-    c_k = py_to_c(k, c_type=ctypes.c_uint32, type_name="i32")
+    c_k = py_to_c(k, c_type=ctypes.c_void_p, type_name=RuntimeType(origin='Option', args=["i32"]))
+    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
 
     # Call library function.
     lib_function = lib.opendp_measurements__make_laplace_threshold
-    lib_function.argtypes = [Domain, Metric, ctypes.c_double, ctypes.c_void_p, ctypes.c_uint32]
+    lib_function.argtypes = [Domain, Metric, ctypes.c_double, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_threshold, c_k), Measurement))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_scale, c_threshold, c_k, c_MO), Measurement))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_laplace_threshold',
             '__module__': 'measurements',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'threshold': threshold, 'k': k
+                'input_domain': input_domain, 'input_metric': input_metric, 'scale': scale, 'threshold': threshold, 'k': k, 'MO': MO
             },
         }
     except AttributeError:  # pragma: no cover
@@ -680,30 +973,496 @@ def make_laplace_threshold(
 def then_laplace_threshold(
     scale: float,
     threshold,
-    k: int = -1074
+    k = None,
+    MO: RuntimeTypeDescriptor = "Approximate<MaxDivergence>"
 ):  
     r"""partial constructor of make_laplace_threshold
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_laplace_threshold`
+    .. end-markdown
 
-    :param scale: Noise scale parameter for the laplace distribution. `scale` == standard_deviation / sqrt(2).
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_laplace_threshold`
+
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
     :type scale: float
     :param threshold: Exclude counts that are less than this minimum value.
     :param k: The noise granularity in terms of 2^k.
-    :type k: int
+    :param MO: Output Measure.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_laplace_threshold(
         input_domain=input_domain,
         input_metric=input_metric,
         scale=scale,
         threshold=threshold,
-        k=k))
+        k=k,
+        MO=MO))
     output.__opendp_dict__ = {
             '__function__': 'then_laplace_threshold',
             '__module__': 'measurements',
             '__kwargs__': {
-                'scale': scale, 'threshold': threshold, 'k': k
+                'scale': scale, 'threshold': threshold, 'k': k, 'MO': MO
+            },
+        }
+    return output
+
+
+
+def make_noise(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure,
+    scale: float,
+    k = None
+) -> Measurement:
+    r"""Make a Measurement that adds noise from the appropriate distribution to the input.
+
+    Valid inputs for `input_domain` and `input_metric` are:
+
+    | `input_domain`                  | input type   | `input_metric`          |
+    | ------------------------------- | ------------ | ----------------------- |
+    | `atom_domain(T)`                | `T`          | `absolute_distance(QI)` |
+    | `vector_domain(atom_domain(T))` | `Vec<T>`     | `l2_distance(QI)`       |
+
+
+    Required features: `contrib`
+
+    [make_noise in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_noise.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `DI::Carrier`
+
+    .. end-markdown
+
+    :param input_domain: Domain of the data type to be privatized.
+    :type input_domain: Domain
+    :param input_metric: Metric of the data type to be privatized.
+    :type input_metric: Metric
+    :param output_measure: Privacy measure. Either ``MaxDivergence`` or ``ZeroConcentratedDivergence``.
+    :type output_measure: Measure
+    :param scale: Noise scale parameter.
+    :type scale: float
+    :param k: The noise granularity in terms of 2^k.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+    c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
+    c_k = py_to_c(k, c_type=ctypes.c_void_p, type_name=RuntimeType(origin='Option', args=["i32"]))
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_noise
+    lib_function.argtypes = [Domain, Metric, Measure, ctypes.c_double, ctypes.c_void_p]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_scale, c_k), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_noise',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'scale': scale, 'k': k
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_noise(
+    output_measure: Measure,
+    scale: float,
+    k = None
+):  
+    r"""partial constructor of make_noise
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_noise`
+
+    :param output_measure: Privacy measure. Either ``MaxDivergence`` or ``ZeroConcentratedDivergence``.
+    :type output_measure: Measure
+    :param scale: Noise scale parameter.
+    :type scale: float
+    :param k: The noise granularity in terms of 2^k.
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_noise(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure,
+        scale=scale,
+        k=k))
+    output.__opendp_dict__ = {
+            '__function__': 'then_noise',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'output_measure': output_measure, 'scale': scale, 'k': k
+            },
+        }
+    return output
+
+
+
+def make_noise_threshold(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure,
+    scale: float,
+    threshold,
+    k = None
+) -> Measurement:
+    r"""Make a Measurement that uses propose-test-release to privatize a hashmap of counts.
+
+    This function takes a noise granularity in terms of 2^k.
+    Larger granularities are more computationally efficient, but have a looser privacy map.
+    If k is not set, k defaults to the smallest granularity.
+
+
+    Required features: `contrib`
+
+    [make_noise_threshold in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_noise_threshold.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `Approximate<MO>`
+    * Output Measure: `DI::Carrier`
+
+    .. end-markdown
+
+    :param input_domain: Domain of the input.
+    :type input_domain: Domain
+    :param input_metric: Metric for the input domain.
+    :type input_metric: Metric
+    :param output_measure: Privacy measure. Either ``MaxDivergence`` or ``ZeroConcentratedDivergence``.
+    :type output_measure: Measure
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
+    :type scale: float
+    :param threshold: Exclude counts that are less than this minimum value.
+    :param k: The noise granularity in terms of 2^k.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # Standardize type arguments.
+    TV = get_value_type(get_carrier_type(input_domain)) # type: ignore
+
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+    c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
+    c_threshold = py_to_c(threshold, c_type=ctypes.c_void_p, type_name=TV)
+    c_k = py_to_c(k, c_type=ctypes.c_void_p, type_name=RuntimeType(origin='Option', args=["i32"]))
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_noise_threshold
+    lib_function.argtypes = [Domain, Metric, Measure, ctypes.c_double, ctypes.c_void_p, ctypes.c_void_p]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_scale, c_threshold, c_k), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_noise_threshold',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'scale': scale, 'threshold': threshold, 'k': k
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_noise_threshold(
+    output_measure: Measure,
+    scale: float,
+    threshold,
+    k = None
+):  
+    r"""partial constructor of make_noise_threshold
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_noise_threshold`
+
+    :param output_measure: Privacy measure. Either ``MaxDivergence`` or ``ZeroConcentratedDivergence``.
+    :type output_measure: Measure
+    :param scale: Noise scale parameter for the laplace distribution. ``scale`` == standard_deviation / sqrt(2).
+    :type scale: float
+    :param threshold: Exclude counts that are less than this minimum value.
+    :param k: The noise granularity in terms of 2^k.
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_noise_threshold(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure,
+        scale=scale,
+        threshold=threshold,
+        k=k))
+    output.__opendp_dict__ = {
+            '__function__': 'then_noise_threshold',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'output_measure': output_measure, 'scale': scale, 'threshold': threshold, 'k': k
+            },
+        }
+    return output
+
+
+
+def make_noisy_max(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure,
+    scale: float,
+    negate: bool = False
+) -> Measurement:
+    r"""Make a Measurement that takes a vector of scores and privately selects the index of the highest score.
+
+
+    Required features: `contrib`
+
+    [make_noisy_max in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_noisy_max.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
+    * Output Type:    `LInfDistance<TIA>`
+    * Input Metric:   `MO`
+    * Output Measure: `usize`
+
+    .. end-markdown
+
+    :param input_domain: Domain of the input vector. Must be a non-nullable ``VectorDomain``
+    :type input_domain: Domain
+    :param input_metric: Metric on the input domain. Must be ``LInfDistance``
+    :type input_metric: Metric
+    :param output_measure: One of ``MaxDivergence``, ``ZeroConcentratedDivergence``
+    :type output_measure: Measure
+    :param scale: Scale for the noise distribution
+    :type scale: float
+    :param negate: Set to true to return min
+    :type negate: bool
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+
+    :example:
+
+    >>> dp.enable_features("contrib")
+    >>> input_space = dp.vector_domain(dp.atom_domain(T=int)), dp.linf_distance(T=int)
+    >>> select_index = dp.m.make_noisy_max(*input_space, dp.max_divergence(), scale=1.0)
+    >>> print('2?', select_index([1, 2, 3, 2, 1]))
+    2? ...
+
+    Or, more readably, define the space and then chain:
+
+    >>> select_index = input_space >> dp.m.then_noisy_max(dp.max_divergence(), scale=1.0)
+    >>> print('2?', select_index([1, 2, 3, 2, 1]))
+    2? ...
+
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+    c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
+    c_negate = py_to_c(negate, c_type=ctypes.c_bool, type_name="bool")
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_noisy_max
+    lib_function.argtypes = [Domain, Metric, Measure, ctypes.c_double, ctypes.c_bool]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_scale, c_negate), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_noisy_max',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'scale': scale, 'negate': negate
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_noisy_max(
+    output_measure: Measure,
+    scale: float,
+    negate: bool = False
+):  
+    r"""partial constructor of make_noisy_max
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_noisy_max`
+
+    :param output_measure: One of ``MaxDivergence``, ``ZeroConcentratedDivergence``
+    :type output_measure: Measure
+    :param scale: Scale for the noise distribution
+    :type scale: float
+    :param negate: Set to true to return min
+    :type negate: bool
+
+    :example:
+
+    >>> dp.enable_features("contrib")
+    >>> input_space = dp.vector_domain(dp.atom_domain(T=int)), dp.linf_distance(T=int)
+    >>> select_index = dp.m.make_noisy_max(*input_space, dp.max_divergence(), scale=1.0)
+    >>> print('2?', select_index([1, 2, 3, 2, 1]))
+    2? ...
+
+    Or, more readably, define the space and then chain:
+
+    >>> select_index = input_space >> dp.m.then_noisy_max(dp.max_divergence(), scale=1.0)
+    >>> print('2?', select_index([1, 2, 3, 2, 1]))
+    2? ...
+
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_noisy_max(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure,
+        scale=scale,
+        negate=negate))
+    output.__opendp_dict__ = {
+            '__function__': 'then_noisy_max',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'output_measure': output_measure, 'scale': scale, 'negate': negate
+            },
+        }
+    return output
+
+
+
+def make_noisy_top_k(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure,
+    k: int,
+    scale: float,
+    negate: bool = False
+) -> Measurement:
+    r"""Make a Measurement that takes a vector of scores and privately selects the index of the highest score.
+
+
+    Required features: `contrib`
+
+    [make_noisy_top_k in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_noisy_top_k.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
+    * Output Type:    `LInfDistance<TIA>`
+    * Input Metric:   `MO`
+    * Output Measure: `Vec<usize>`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/noisy_top_k/make_noisy_top_k.pdf)
+
+    .. end-markdown
+
+    :param input_domain: Domain of the input vector. Must be a non-nullable VectorDomain.
+    :type input_domain: Domain
+    :param input_metric: Metric on the input domain. Must be LInfDistance
+    :type input_metric: Metric
+    :param output_measure: One of ``MaxDivergence`` or ``ZeroConcentratedDivergence``
+    :type output_measure: Measure
+    :param k: Number of indices to select.
+    :type k: int
+    :param scale: Scale for the noise distribution.
+    :type scale: float
+    :param negate: Set to true to return bottom k
+    :type negate: bool
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+    c_k = py_to_c(k, c_type=ctypes.c_size_t, type_name="usize")
+    c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
+    c_negate = py_to_c(negate, c_type=ctypes.c_bool, type_name="bool")
+
+    # Call library function.
+    lib_function = lib.opendp_measurements__make_noisy_top_k
+    lib_function.argtypes = [Domain, Metric, Measure, ctypes.c_size_t, ctypes.c_double, ctypes.c_bool]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_k, c_scale, c_negate), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_noisy_top_k',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'k': k, 'scale': scale, 'negate': negate
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_noisy_top_k(
+    output_measure: Measure,
+    k: int,
+    scale: float,
+    negate: bool = False
+):  
+    r"""partial constructor of make_noisy_top_k
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_noisy_top_k`
+
+    :param output_measure: One of ``MaxDivergence`` or ``ZeroConcentratedDivergence``
+    :type output_measure: Measure
+    :param k: Number of indices to select.
+    :type k: int
+    :param scale: Scale for the noise distribution.
+    :type scale: float
+    :param negate: Set to true to return bottom k
+    :type negate: bool
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_noisy_top_k(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure,
+        k=k,
+        scale=scale,
+        negate=negate))
+    output.__opendp_dict__ = {
+            '__function__': 'then_noisy_top_k',
+            '__module__': 'measurements',
+            '__kwargs__': {
+                'output_measure': output_measure, 'k': k, 'scale': scale, 'negate': negate
             },
         }
     return output
@@ -722,7 +1481,7 @@ def make_private_expr(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [make_private_expr in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_private_expr.html)
+    [make_private_expr in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_private_expr.html)
 
     **Why honest-but-curious?:**
 
@@ -731,9 +1490,11 @@ def make_private_expr(
     **Supporting Elements:**
 
     * Input Domain:   `WildExprDomain`
-    * Output Type:    `ExprPlan`
-    * Input Metric:   `MI`
-    * Output Measure: `MO`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `ExprPlan`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input data.
     :type input_domain: Domain
@@ -741,7 +1502,7 @@ def make_private_expr(
     :type input_metric: Metric
     :param output_measure: How to measure privacy loss.
     :type output_measure: Measure
-    :param expr: The [`Expr`] to be privatized.
+    :param expr: The [``Expr``] to be privatized.
     :param global_scale: A tune-able parameter that affects the privacy-utility tradeoff.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -782,12 +1543,14 @@ def then_private_expr(
 ):  
     r"""partial constructor of make_private_expr
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_private_expr`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_private_expr`
 
     :param output_measure: How to measure privacy loss.
     :type output_measure: Measure
-    :param expr: The [`Expr`] to be privatized.
+    :param expr: The [``Expr``] to be privatized.
     :param global_scale: A tune-able parameter that affects the privacy-utility tradeoff.
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_private_expr(
@@ -823,14 +1586,16 @@ def make_private_lazyframe(
 
     Required features: `contrib`
 
-    [make_private_lazyframe in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_private_lazyframe.html)
+    [make_private_lazyframe in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_private_lazyframe.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `LazyFrameDomain`
-    * Output Type:    `OnceFrame`
-    * Input Metric:   `MI`
-    * Output Measure: `MO`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `OnceFrame`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input data.
     :type input_domain: Domain
@@ -838,9 +1603,9 @@ def make_private_lazyframe(
     :type input_metric: Metric
     :param output_measure: How to measure privacy loss.
     :type output_measure: Measure
-    :param lazyframe: A description of the computations to be run, in the form of a [`LazyFrame`].
+    :param lazyframe: A description of the computations to be run, in the form of a [``LazyFrame``].
     :param global_scale: Optional. A tune-able parameter that affects the privacy-utility tradeoff.
-    :param threshold: Optional. Minimum number of rows in each released partition.
+    :param threshold: Optional. Minimum number of rows in each released group.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -863,10 +1628,10 @@ def make_private_lazyframe(
     ...     lf_domain,
     ...     dp.polars.Margin(
     ...         by=[pl.col("grade")],
-    ...         public_info="keys",
-    ...         max_partition_length=50))
+    ...         invariant="keys",
+    ...         max_length=50))
 
-    With that in place, we can plan the Polars computation, using the `dp` plugin. 
+    With that in place, we can plan the Polars computation, using the ``dp`` plugin. 
 
     >>> plan = (
     ...     pl.LazyFrame(schema={'grade': pl.Int32, 'pet_count': pl.Int32})
@@ -949,14 +1714,16 @@ def then_private_lazyframe(
 ):  
     r"""partial constructor of make_private_lazyframe
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_private_lazyframe`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_private_lazyframe`
 
     :param output_measure: How to measure privacy loss.
     :type output_measure: Measure
-    :param lazyframe: A description of the computations to be run, in the form of a [`LazyFrame`].
+    :param lazyframe: A description of the computations to be run, in the form of a [``LazyFrame``].
     :param global_scale: Optional. A tune-able parameter that affects the privacy-utility tradeoff.
-    :param threshold: Optional. Minimum number of rows in each released partition.
+    :param threshold: Optional. Minimum number of rows in each released group.
 
     :example:
 
@@ -976,10 +1743,10 @@ def then_private_lazyframe(
     ...     lf_domain,
     ...     dp.polars.Margin(
     ...         by=[pl.col("grade")],
-    ...         public_info="keys",
-    ...         max_partition_length=50))
+    ...         invariant="keys",
+    ...         max_length=50))
 
-    With that in place, we can plan the Polars computation, using the `dp` plugin. 
+    With that in place, we can plan the Polars computation, using the ``dp`` plugin. 
 
     >>> plan = (
     ...     pl.LazyFrame(schema={'grade': pl.Int32, 'pet_count': pl.Int32})
@@ -1046,6 +1813,7 @@ def then_private_lazyframe(
 def make_private_quantile(
     input_domain: Domain,
     input_metric: Metric,
+    output_measure: Measure,
     candidates,
     alpha: float,
     scale: float
@@ -1055,19 +1823,23 @@ def make_private_quantile(
 
     Required features: `contrib`
 
-    [make_private_quantile in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_private_quantile.html)
+    [make_private_quantile in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_private_quantile.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Type:    `T`
-    * Input Metric:   `MI`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `T`
+
+    .. end-markdown
 
     :param input_domain: Uses a tighter sensitivity when the size of vectors in the input domain is known.
     :type input_domain: Domain
     :param input_metric: Either SymmetricDistance or InsertDeleteDistance.
     :type input_metric: Metric
+    :param output_measure: Either MaxDivergence or ZeroConcentratedDivergence.
+    :type output_measure: Measure
     :param candidates: Potential quantiles to score
     :param alpha: a value in $[0, 1]$. Choose 0.5 for median
     :type alpha: float
@@ -1085,22 +1857,23 @@ def make_private_quantile(
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
     c_candidates = py_to_c(candidates, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Vec', args=[T]))
     c_alpha = py_to_c(alpha, c_type=ctypes.c_double, type_name="f64")
     c_scale = py_to_c(scale, c_type=ctypes.c_double, type_name="f64")
 
     # Call library function.
     lib_function = lib.opendp_measurements__make_private_quantile
-    lib_function.argtypes = [Domain, Metric, AnyObjectPtr, ctypes.c_double, ctypes.c_double]
+    lib_function.argtypes = [Domain, Metric, Measure, AnyObjectPtr, ctypes.c_double, ctypes.c_double]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_candidates, c_alpha, c_scale), Measurement))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_candidates, c_alpha, c_scale), Measurement))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_private_quantile',
             '__module__': 'measurements',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'candidates': candidates, 'alpha': alpha, 'scale': scale
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'candidates': candidates, 'alpha': alpha, 'scale': scale
             },
         }
     except AttributeError:  # pragma: no cover
@@ -1108,15 +1881,20 @@ def make_private_quantile(
     return output
 
 def then_private_quantile(
+    output_measure: Measure,
     candidates,
     alpha: float,
     scale: float
 ):  
     r"""partial constructor of make_private_quantile
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_private_quantile`
+    .. end-markdown
 
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_private_quantile`
+
+    :param output_measure: Either MaxDivergence or ZeroConcentratedDivergence.
+    :type output_measure: Measure
     :param candidates: Potential quantiles to score
     :param alpha: a value in $[0, 1]$. Choose 0.5 for median
     :type alpha: float
@@ -1126,6 +1904,7 @@ def then_private_quantile(
     output = _PartialConstructor(lambda input_domain, input_metric: make_private_quantile(
         input_domain=input_domain,
         input_metric=input_metric,
+        output_measure=output_measure,
         candidates=candidates,
         alpha=alpha,
         scale=scale))
@@ -1133,7 +1912,7 @@ def then_private_quantile(
             '__function__': 'then_private_quantile',
             '__module__': 'measurements',
             '__kwargs__': {
-                'candidates': candidates, 'alpha': alpha, 'scale': scale
+                'output_measure': output_measure, 'candidates': candidates, 'alpha': alpha, 'scale': scale
             },
         }
     return output
@@ -1150,21 +1929,23 @@ def make_randomized_response(
 
     Required features: `contrib`
 
-    [make_randomized_response in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_randomized_response.html)
+    [make_randomized_response in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_randomized_response.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `AtomDomain<T>`
-    * Output Type:    `T`
-    * Input Metric:   `DiscreteDistance`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `DiscreteDistance`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `T`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/measurements/randomized_response/make_randomized_response.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/randomized_response/make_randomized_response.pdf)
+
+    .. end-markdown
 
     :param categories: Set of valid outcomes
-    :param prob: Probability of returning the correct answer. Must be in `[1/num_categories, 1)`
+    :param prob: Probability of returning the correct answer. Must be in ``[1/num_categories, 1]``
     :type prob: float
     :param T: Data type of a category.
     :type T: :py:ref:`RuntimeTypeDescriptor`
@@ -1222,7 +2003,7 @@ def make_randomized_response_bitvec(
 
     Required features: `contrib`
 
-    [make_randomized_response_bitvec in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_randomized_response_bitvec.html)
+    [make_randomized_response_bitvec in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_randomized_response_bitvec.html)
 
     **Citations:**
 
@@ -1231,13 +2012,15 @@ def make_randomized_response_bitvec(
     **Supporting Elements:**
 
     * Input Domain:   `BitVectorDomain`
-    * Output Type:    `BitVector`
-    * Input Metric:   `DiscreteDistance`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `DiscreteDistance`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `BitVector`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/measurements/randomized_response_bitvec/make_randomized_response_bitvec.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/randomized_response_bitvec/make_randomized_response_bitvec.pdf)
+
+    .. end-markdown
 
     :param input_domain: BitVectorDomain with max_weight
     :type input_domain: Domain
@@ -1253,37 +2036,39 @@ def make_randomized_response_bitvec(
 
     :example:
 
-    >>> import numpy as np
-    >>> import opendp.prelude as dp
-    >>>
-    >>> dp.enable_features("contrib")
-    >>>
-    >>> # Create the randomized response mechanism
-    >>> m_rr = dp.m.make_randomized_response_bitvec(
-    ...     dp.bitvector_domain(max_weight=4), dp.discrete_distance(), f=0.95
-    ... )
-    >>>
-    >>> # compute privacy loss
-    >>> m_rr.map(1)
-    0.8006676684558611
-    >>>
-    >>> # formula is 2 * m * ln((2 - f) / f)
-    >>> # where m = 4 (the weight) and f = .95 (the flipping probability)
-    >>>
-    >>> # prepare a dataset to release, by encoding a bit vector as a numpy byte array
-    >>> data = np.packbits(
-    ...     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
-    ... )
-    >>> assert np.array_equal(data, np.array([0, 8, 12], dtype=np.uint8))
-    >>>
-    >>> # roundtrip: numpy -> bytes -> mech -> bytes -> numpy
-    >>> release = np.frombuffer(m_rr(data.tobytes()), dtype=np.uint8)
-    >>>
-    >>> # compare the two bit vectors:
-    >>> [int(bit) for bit in np.unpackbits(data)]
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
-    >>> [int(bit) for bit in np.unpackbits(release)]
-    [...]
+    .. code:: pycon
+
+        >>> import numpy as np
+        >>> import opendp.prelude as dp
+
+        >>> dp.enable_features("contrib")
+
+        >>> # Create the randomized response mechanism
+        >>> m_rr = dp.m.make_randomized_response_bitvec(
+        ...     dp.bitvector_domain(max_weight=4), dp.discrete_distance(), f=0.95
+        ... )
+
+        >>> # compute privacy loss
+        >>> m_rr.map(1)
+        0.8006676684558611
+
+        >>> # formula is 2 * m * ln((2 - f) / f)
+        >>> # where m = 4 (the weight) and f = .95 (the flipping probability)
+
+        >>> # prepare a dataset to release, by encoding a bit vector as a numpy byte array
+        >>> data = np.packbits(
+        ...     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+        ... )
+        >>> assert np.array_equal(data, np.array([0, 8, 12], dtype=np.uint8))
+
+        >>> # roundtrip: numpy -> bytes -> mech -> bytes -> numpy
+        >>> release = np.frombuffer(m_rr(data.tobytes()), dtype=np.uint8)
+
+        >>> # compare the two bit vectors:
+        >>> [int(bit) for bit in np.unpackbits(data)]
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+        >>> [int(bit) for bit in np.unpackbits(release)]
+        [...]
 
     """
     assert_features("contrib")
@@ -1319,8 +2104,10 @@ def then_randomized_response_bitvec(
 ):  
     r"""partial constructor of make_randomized_response_bitvec
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_randomized_response_bitvec`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_randomized_response_bitvec`
 
     :param f: Per-bit flipping probability. Must be in $(0, 1]$.
     :type f: float
@@ -1329,37 +2116,39 @@ def then_randomized_response_bitvec(
 
     :example:
 
-    >>> import numpy as np
-    >>> import opendp.prelude as dp
-    >>>
-    >>> dp.enable_features("contrib")
-    >>>
-    >>> # Create the randomized response mechanism
-    >>> m_rr = dp.m.make_randomized_response_bitvec(
-    ...     dp.bitvector_domain(max_weight=4), dp.discrete_distance(), f=0.95
-    ... )
-    >>>
-    >>> # compute privacy loss
-    >>> m_rr.map(1)
-    0.8006676684558611
-    >>>
-    >>> # formula is 2 * m * ln((2 - f) / f)
-    >>> # where m = 4 (the weight) and f = .95 (the flipping probability)
-    >>>
-    >>> # prepare a dataset to release, by encoding a bit vector as a numpy byte array
-    >>> data = np.packbits(
-    ...     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
-    ... )
-    >>> assert np.array_equal(data, np.array([0, 8, 12], dtype=np.uint8))
-    >>>
-    >>> # roundtrip: numpy -> bytes -> mech -> bytes -> numpy
-    >>> release = np.frombuffer(m_rr(data.tobytes()), dtype=np.uint8)
-    >>>
-    >>> # compare the two bit vectors:
-    >>> [int(bit) for bit in np.unpackbits(data)]
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
-    >>> [int(bit) for bit in np.unpackbits(release)]
-    [...]
+    .. code:: pycon
+
+        >>> import numpy as np
+        >>> import opendp.prelude as dp
+
+        >>> dp.enable_features("contrib")
+
+        >>> # Create the randomized response mechanism
+        >>> m_rr = dp.m.make_randomized_response_bitvec(
+        ...     dp.bitvector_domain(max_weight=4), dp.discrete_distance(), f=0.95
+        ... )
+
+        >>> # compute privacy loss
+        >>> m_rr.map(1)
+        0.8006676684558611
+
+        >>> # formula is 2 * m * ln((2 - f) / f)
+        >>> # where m = 4 (the weight) and f = .95 (the flipping probability)
+
+        >>> # prepare a dataset to release, by encoding a bit vector as a numpy byte array
+        >>> data = np.packbits(
+        ...     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+        ... )
+        >>> assert np.array_equal(data, np.array([0, 8, 12], dtype=np.uint8))
+
+        >>> # roundtrip: numpy -> bytes -> mech -> bytes -> numpy
+        >>> release = np.frombuffer(m_rr(data.tobytes()), dtype=np.uint8)
+
+        >>> # compare the two bit vectors:
+        >>> [int(bit) for bit in np.unpackbits(data)]
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+        >>> [int(bit) for bit in np.unpackbits(release)]
+        [...]
 
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_randomized_response_bitvec(
@@ -1387,20 +2176,22 @@ def make_randomized_response_bool(
 
     Required features: `contrib`
 
-    [make_randomized_response_bool in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_randomized_response_bool.html)
+    [make_randomized_response_bool in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_randomized_response_bool.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `AtomDomain<bool>`
-    * Output Type:    `bool`
-    * Input Metric:   `DiscreteDistance`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `DiscreteDistance`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `bool`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/measurements/randomized_response/make_randomized_response_bool.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/measurements/randomized_response/make_randomized_response_bool.pdf)
 
-    :param prob: Probability of returning the correct answer. Must be in `[0.5, 1)`
+    .. end-markdown
+
+    :param prob: Probability of returning the correct answer. Must be in ``[0.5, 1]``
     :type prob: float
     :param constant_time: Set to true to enable constant time. Slower.
     :type constant_time: bool
@@ -1442,56 +2233,40 @@ def make_randomized_response_bool(
     return output
 
 
+@deprecated(version="0.14.0", reason="use `make_noisy_max` instead")
 def make_report_noisy_max_gumbel(
     input_domain: Domain,
     input_metric: Metric,
     scale: float,
-    optimize: str
+    optimize: str = "max"
 ) -> Measurement:
     r"""Make a Measurement that takes a vector of scores and privately selects the index of the highest score.
 
 
     Required features: `contrib`
 
-    [make_report_noisy_max_gumbel in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measurements/fn.make_report_noisy_max_gumbel.html)
+    [make_report_noisy_max_gumbel in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measurements/fn.make_report_noisy_max_gumbel.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Type:    `usize`
-    * Input Metric:   `LInfDistance<TIA>`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `LInfDistance<TIA>`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `usize`
 
-    **Proof Definition:**
+    .. end-markdown
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/measurements/gumbel_max/make_report_noisy_max_gumbel.pdf)
-
-    :param input_domain: Domain of the input vector. Must be a non-nan VectorDomain.
+    :param input_domain: Domain of the input vector. Must be a non-nullable ``VectorDomain``
     :type input_domain: Domain
-    :param input_metric: Metric on the input domain. Must be LInfDistance
+    :param input_metric: Metric on the input domain. Must be ``LInfDistance``
     :type input_metric: Metric
-    :param scale: Higher scales are more private.
+    :param scale: Scale for the noise distribution
     :type scale: float
-    :param optimize: Indicate whether to privately return the "max" or "min"
+    :param optimize: Set to "min" to report noisy min
     :type optimize: str
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
-
-    :example:
-
-    >>> dp.enable_features("contrib")
-    >>> input_space = dp.vector_domain(dp.atom_domain(T=int)), dp.linf_distance(T=int)
-    >>> select_index = dp.m.make_report_noisy_max_gumbel(*input_space, scale=1.0, optimize='max')
-    >>> print('2?', select_index([1, 2, 3, 2, 1]))
-    2? ...
-
-    Or, more readably, define the space and then chain:
-
-    >>> select_index = input_space >> dp.m.then_report_noisy_max_gumbel(scale=1.0, optimize='max')
-    >>> print('2?', select_index([1, 2, 3, 2, 1]))
-    2? ...
-
     """
     assert_features("contrib")
 
@@ -1522,32 +2297,19 @@ def make_report_noisy_max_gumbel(
 
 def then_report_noisy_max_gumbel(
     scale: float,
-    optimize: str
+    optimize: str = "max"
 ):  
     r"""partial constructor of make_report_noisy_max_gumbel
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_report_noisy_max_gumbel`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_report_noisy_max_gumbel`
 
-    :param scale: Higher scales are more private.
+    :param scale: Scale for the noise distribution
     :type scale: float
-    :param optimize: Indicate whether to privately return the "max" or "min"
+    :param optimize: Set to "min" to report noisy min
     :type optimize: str
-
-    :example:
-
-    >>> dp.enable_features("contrib")
-    >>> input_space = dp.vector_domain(dp.atom_domain(T=int)), dp.linf_distance(T=int)
-    >>> select_index = dp.m.make_report_noisy_max_gumbel(*input_space, scale=1.0, optimize='max')
-    >>> print('2?', select_index([1, 2, 3, 2, 1]))
-    2? ...
-
-    Or, more readably, define the space and then chain:
-
-    >>> select_index = input_space >> dp.m.then_report_noisy_max_gumbel(scale=1.0, optimize='max')
-    >>> print('2?', select_index([1, 2, 3, 2, 1]))
-    2? ...
-
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_report_noisy_max_gumbel(
         input_domain=input_domain,
@@ -1592,9 +2354,11 @@ def make_user_measurement(
     **Supporting Elements:**
 
     * Input Domain:   `AnyDomain`
-    * Output Type:    `AnyObject`
-    * Input Metric:   `AnyMetric`
-    * Output Measure: `AnyMeasure`
+    * Output Type:    `AnyMetric`
+    * Input Metric:   `AnyMeasure`
+    * Output Measure: `AnyObject`
+
+    .. end-markdown
 
     :param input_domain: A domain describing the set of valid inputs for the function.
     :type input_domain: Domain
@@ -1602,8 +2366,8 @@ def make_user_measurement(
     :type input_metric: Metric
     :param output_measure: The measure from which distances between adjacent output distributions are measured.
     :type output_measure: Measure
-    :param function: A function mapping data from `input_domain` to a release of type `TO`.
-    :param privacy_map: A function mapping distances from `input_metric` to `output_measure`.
+    :param function: A function mapping data from ``input_domain`` to a release of type ``TO``.
+    :param privacy_map: A function mapping distances from ``input_metric`` to ``output_measure``.
     :param TO: The data type of outputs from the function.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
@@ -1669,13 +2433,15 @@ def then_user_measurement(
 ):  
     r"""partial constructor of make_user_measurement
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.measurements.make_user_measurement`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.measurements.make_user_measurement`
 
     :param output_measure: The measure from which distances between adjacent output distributions are measured.
     :type output_measure: Measure
-    :param function: A function mapping data from `input_domain` to a release of type `TO`.
-    :param privacy_map: A function mapping distances from `input_metric` to `output_measure`.
+    :param function: A function mapping data from ``input_domain`` to a release of type ``TO``.
+    :param privacy_map: A function mapping distances from ``input_metric`` to ``output_measure``.
     :param TO: The data type of outputs from the function.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
 

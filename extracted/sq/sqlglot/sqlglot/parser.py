@@ -7,7 +7,7 @@ import typing as t
 from collections import defaultdict
 
 from sqlglot import exp
-from sqlglot.errors import ErrorLevel, ParseError, concat_messages, merge_errors
+from sqlglot.errors import ErrorLevel, ParseError, TokenError, concat_messages, merge_errors
 from sqlglot.helper import apply_index_offset, ensure_list, seq_get
 from sqlglot.time import format_time
 from sqlglot.tokens import Token, Tokenizer, TokenType
@@ -569,6 +569,7 @@ class Parser(metaclass=_Parser):
         TokenType.USE,
         TokenType.VOLATILE,
         TokenType.WINDOW,
+        *ALTERABLES,
         *CREATABLES,
         *SUBQUERY_PREDICATES,
         *TYPE_TOKENS,
@@ -644,6 +645,7 @@ class Parser(metaclass=_Parser):
         TokenType.TRUNCATE,
         TokenType.UTC_DATE,
         TokenType.UTC_TIME,
+        TokenType.UTC_TIMESTAMP,
         TokenType.WINDOW,
         TokenType.XOR,
         *TYPE_TOKENS,
@@ -5298,18 +5300,21 @@ class Parser(metaclass=_Parser):
         this: t.Optional[exp.Expression] = None
         prefix = self._match_text_seq("SYSUDTLIB", ".")
 
-        if not self._match_set(self.TYPE_TOKENS):
+        if self._match_set(self.TYPE_TOKENS):
+            type_token = self._prev.token_type
+        else:
+            type_token = None
             identifier = allow_identifiers and self._parse_id_var(
                 any_token=False, tokens=(TokenType.VAR,)
             )
             if isinstance(identifier, exp.Identifier):
-                tokens = self.dialect.tokenize(identifier.sql(dialect=self.dialect))
+                try:
+                    tokens = self.dialect.tokenize(identifier.name)
+                except TokenError:
+                    tokens = None
 
-                if len(tokens) != 1:
-                    self.raise_error("Unexpected identifier", self._prev)
-
-                if tokens[0].token_type in self.TYPE_TOKENS:
-                    self._prev = tokens[0]
+                if tokens and len(tokens) == 1 and tokens[0].token_type in self.TYPE_TOKENS:
+                    type_token = tokens[0].token_type
                 elif self.dialect.SUPPORTS_USER_DEFINED_TYPES:
                     this = self._parse_user_defined_type(identifier)
                 else:
@@ -5317,8 +5322,6 @@ class Parser(metaclass=_Parser):
                     return None
             else:
                 return None
-
-        type_token = self._prev.token_type
 
         if type_token == TokenType.PSEUDO_TYPE:
             return self.expression(exp.PseudoType, this=self._prev.text.upper())
@@ -5395,7 +5398,7 @@ class Parser(metaclass=_Parser):
                 if type_token == TokenType.VECTOR and len(expressions) == 2:
                     expressions[0] = exp.DataType.build(expressions[0].name, dialect=self.dialect)
 
-            if not expressions or not self._match(TokenType.R_PAREN):
+            if not self._match(TokenType.R_PAREN):
                 self._retreat(index)
                 return None
 
@@ -6462,6 +6465,11 @@ class Parser(metaclass=_Parser):
         return this
 
     def _parse_case(self) -> t.Optional[exp.Expression]:
+        if self._match(TokenType.DOT, advance=False):
+            # Avoid raising on valid expressions like case.*, supported by, e.g., spark & snowflake
+            self._retreat(self._index - 1)
+            return None
+
         ifs = []
         default = None
 
@@ -6862,7 +6870,15 @@ class Parser(metaclass=_Parser):
         )
 
     def _parse_match_against(self) -> exp.MatchAgainst:
-        expressions = self._parse_csv(self._parse_column)
+        if self._match_text_seq("TABLE"):
+            # parse SingleStore MATCH(TABLE ...) syntax
+            # https://docs.singlestore.com/cloud/reference/sql-reference/full-text-search-functions/match/
+            expressions = []
+            table = self._parse_table()
+            if table:
+                expressions = [table]
+        else:
+            expressions = self._parse_csv(self._parse_column)
 
         self._match_text_seq(")", "AGAINST", "(")
 
@@ -7069,8 +7085,8 @@ class Parser(metaclass=_Parser):
         if kind:
             self._match(TokenType.BETWEEN)
             start = self._parse_window_spec()
-            self._match(TokenType.AND)
-            end = self._parse_window_spec()
+
+            end = self._parse_window_spec() if self._match(TokenType.AND) else {}
             exclude = (
                 self._parse_var_from_options(self.WINDOW_EXCLUDE_OPTIONS)
                 if self._match_text_seq("EXCLUDE")
@@ -7082,8 +7098,8 @@ class Parser(metaclass=_Parser):
                 kind=kind,
                 start=start["value"],
                 start_side=start["side"],
-                end=end["value"],
-                end_side=end["side"],
+                end=end.get("value"),
+                end_side=end.get("side"),
                 exclude=exclude,
             )
         else:
@@ -7121,7 +7137,7 @@ class Parser(metaclass=_Parser):
             "value": (
                 (self._match_text_seq("UNBOUNDED") and "UNBOUNDED")
                 or (self._match_text_seq("CURRENT", "ROW") and "CURRENT ROW")
-                or self._parse_bitwise()
+                or self._parse_type()
             ),
             "side": self._match_texts(self.WINDOW_SIDES) and self._prev.text,
         }
@@ -7343,7 +7359,7 @@ class Parser(metaclass=_Parser):
         modes = []
         while True:
             mode = []
-            while self._match(TokenType.VAR):
+            while self._match(TokenType.VAR) or self._match(TokenType.NOT):
                 mode.append(self._prev.text)
 
             if mode:

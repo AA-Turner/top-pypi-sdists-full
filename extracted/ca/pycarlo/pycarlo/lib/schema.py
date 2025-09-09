@@ -438,6 +438,8 @@ class AlertSubType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ADF_JOB_FAILURE`None
+    * `AGENT_ANOMALIES`None
+    * `AGENT_ANOMALY`None
     * `AIRFLOW_DAG_FAILURE`None
     * `ANOMALIES`None
     * `COMPARISON_RULE_BREACH`None
@@ -485,6 +487,8 @@ class AlertSubType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ADF_JOB_FAILURE",
+        "AGENT_ANOMALIES",
+        "AGENT_ANOMALY",
         "AIRFLOW_DAG_FAILURE",
         "ANOMALIES",
         "COMPARISON_RULE_BREACH",
@@ -533,6 +537,7 @@ class AlertSubType(sgqlc.types.Enum):
 class AlertType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT_ANOMALIES`None
     * `ANOMALIES`None
     * `CUSTOM_RULE_ANOMALIES`None
     * `DBT_ERRORS`None
@@ -550,6 +555,7 @@ class AlertType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT_ANOMALIES",
         "ANOMALIES",
         "CUSTOM_RULE_ANOMALIES",
         "DBT_ERRORS",
@@ -1919,6 +1925,7 @@ class EventModelEventType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ADF_JOB_FAILURE`: Data Factory Pipeline Failure
+    * `AGENT_ANOM`: Agent Anomaly
     * `AIRFLOW_DAG_FAILURE`: Airflow DAG Failure
     * `COMMENT`: Timeline Comment
     * `COMPARISON_RULE_ANOM`: Comparison Rule Anomaly
@@ -1959,6 +1966,7 @@ class EventModelEventType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ADF_JOB_FAILURE",
+        "AGENT_ANOM",
         "AIRFLOW_DAG_FAILURE",
         "COMMENT",
         "COMPARISON_RULE_ANOM",
@@ -2884,6 +2892,7 @@ class IncidentModelFeedback(sgqlc.types.Enum):
 class IncidentModelIncidentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT_ANOMALIES`: Agent anomalies
     * `ANOMALIES`: Anomalies
     * `CUSTOM_RULE_ANOMALIES`: Custom rule anomalies
     * `DBT_ERRORS`: dbt errors
@@ -2901,6 +2910,7 @@ class IncidentModelIncidentType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT_ANOMALIES",
         "ANOMALIES",
         "CUSTOM_RULE_ANOMALIES",
         "DBT_ERRORS",
@@ -2936,6 +2946,7 @@ class IncidentSubType(sgqlc.types.Enum):
 
     * `abnormal_size_change`None
     * `adf_job_failure`None
+    * `agent_anomaly`None
     * `airflow_dag_failure`None
     * `comparison_rule_breach`None
     * `data_added`None
@@ -2970,6 +2981,7 @@ class IncidentSubType(sgqlc.types.Enum):
     __choices__ = (
         "abnormal_size_change",
         "adf_job_failure",
+        "agent_anomaly",
         "airflow_dag_failure",
         "comparison_rule_breach",
         "data_added",
@@ -3412,6 +3424,7 @@ class MetricMonitoringModelPriority(sgqlc.types.Enum):
 class MetricMonitoringModelType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT`: Agent
     * `CATEGORIES`: Dimension
     * `HOURLY_STATS`: Statistical metrics over an hour interval
     * `JSON_SCHEMA`: JSON schema
@@ -3420,7 +3433,14 @@ class MetricMonitoringModelType(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("CATEGORIES", "HOURLY_STATS", "JSON_SCHEMA", "METRIC_COMPARISON", "STATS")
+    __choices__ = (
+        "AGENT",
+        "CATEGORIES",
+        "HOURLY_STATS",
+        "JSON_SCHEMA",
+        "METRIC_COMPARISON",
+        "STATS",
+    )
 
 
 class ModelExecutionTypes(sgqlc.types.Enum):
@@ -5120,6 +5140,7 @@ class UserDefinedMonitorModelConsolidatedMonitorStatus(sgqlc.types.Enum):
 class UserDefinedMonitorModelMonitorType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT`: Agent
     * `CATEGORIES`: Dimension
     * `COMPARISON`: Comparison
     * `CUSTOM_SQL`: Custom SQL
@@ -5137,6 +5158,7 @@ class UserDefinedMonitorModelMonitorType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT",
         "CATEGORIES",
         "COMPARISON",
         "CUSTOM_SQL",
@@ -5494,23 +5516,18 @@ class AgentSpanFieldFilterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("value",)
     value = sgqlc.types.Field(String, graphql_name="value")
-    """Filter value. If null, filters for null values."""
 
 
 class AgentSpanFilterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("agent", "workflow", "task", "span_name")
     agent = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="agent")
-    """Filter by agent field. If omitted, no filter on agent."""
 
     workflow = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="workflow")
-    """Filter by workflow field. If omitted, no filter on workflow."""
 
     task = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="task")
-    """Filter by task field. If omitted, no filter on task."""
 
     span_name = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="spanName")
-    """Filter by span_name field. If omitted, no filter on span_name."""
 
 
 class AggregateInput(sgqlc.types.Input):
@@ -10288,7 +10305,9 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "bootstrap",
         "sensitivity",
         "monitor_sql_blocks",
+        "agent_span_filters",
         "sampling_config",
+        "filters",
     )
     monitor_fields = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="monitorFields")
     """Field/s to monitor"""
@@ -10376,8 +10395,17 @@ class IMetricsMonitor(sgqlc.types.Interface):
     monitor_sql_blocks = sgqlc.types.Field("MonitorSqlBlocks", graphql_name="monitorSqlBlocks")
     """SQL blocks used on the monitor"""
 
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanFilter")),
+        graphql_name="agentSpanFilters",
+    )
+    """agent span filters used on the monitor"""
+
     sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
     """Sampling configuration for the monitor"""
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+    """Filters used on the monitor"""
 
 
 class IMonitor(sgqlc.types.Interface):
@@ -11775,9 +11803,10 @@ class AccountNotificationSetting(sgqlc.types.Type):
     """Limit notifications to specific incident types (default=all).
     Supported options include: anomalies, schema_changes,
     json_schema_changes, deleted_tables, metric_anomalies,
-    metric_comparison_anomalies, custom_rule_anomalies,
-    performance_anomalies, dbt_errors, etl_errors,
-    pseudo_integration_test, rule_run_execution_error, merged
+    agent_anomalies, metric_comparison_anomalies,
+    custom_rule_anomalies, performance_anomalies, dbt_errors,
+    etl_errors, pseudo_integration_test, rule_run_execution_error,
+    merged
     """
 
     incident_sub_types = sgqlc.types.Field(
@@ -12288,6 +12317,24 @@ class AgentLogEntry(sgqlc.types.Type):
     """
 
 
+class AgentSpanFieldFilter(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("value",)
+    value = sgqlc.types.Field(String, graphql_name="value")
+
+
+class AgentSpanFilter(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agent", "workflow", "task", "span_name")
+    agent = sgqlc.types.Field(AgentSpanFieldFilter, graphql_name="agent")
+
+    workflow = sgqlc.types.Field(AgentSpanFieldFilter, graphql_name="workflow")
+
+    task = sgqlc.types.Field(AgentSpanFieldFilter, graphql_name="task")
+
+    span_name = sgqlc.types.Field(AgentSpanFieldFilter, graphql_name="spanName")
+
+
 class AgentSpanNode(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("node_name", "node_value", "child_nodes", "level", "count", "is_leaf")
@@ -12768,6 +12815,7 @@ class AlertTypeSummary(sgqlc.types.Type):
         "json_schema_changes",
         "deleted_tables",
         "metric_anomalies",
+        "agent_anomalies",
         "metric_comparison_anomalies",
         "custom_rule_anomalies",
         "performance_anomalies",
@@ -12786,6 +12834,8 @@ class AlertTypeSummary(sgqlc.types.Type):
     deleted_tables = sgqlc.types.Field(Int, graphql_name="deletedTables")
 
     metric_anomalies = sgqlc.types.Field(Int, graphql_name="metricAnomalies")
+
+    agent_anomalies = sgqlc.types.Field(Int, graphql_name="agentAnomalies")
 
     metric_comparison_anomalies = sgqlc.types.Field(Int, graphql_name="metricComparisonAnomalies")
 
@@ -19905,6 +19955,7 @@ class EventTypeSummary(sgqlc.types.Type):
         "size_diff",
         "metric_anom",
         "metric_comparison_anom",
+        "agent_anom",
         "custom_rule_anom",
         "validation_anom",
         "dist_anom",
@@ -19938,6 +19989,8 @@ class EventTypeSummary(sgqlc.types.Type):
     metric_anom = sgqlc.types.Field(Int, graphql_name="metricAnom")
 
     metric_comparison_anom = sgqlc.types.Field(Int, graphql_name="metricComparisonAnom")
+
+    agent_anom = sgqlc.types.Field(Int, graphql_name="agentAnom")
 
     custom_rule_anom = sgqlc.types.Field(Int, graphql_name="customRuleAnom")
 
@@ -21537,6 +21590,7 @@ class IncidentTypeSummary(sgqlc.types.Type):
         "json_schema_changes",
         "deleted_tables",
         "metric_anomalies",
+        "agent_anomalies",
         "metric_comparison_anomalies",
         "custom_rule_anomalies",
         "performance_anomalies",
@@ -21555,6 +21609,8 @@ class IncidentTypeSummary(sgqlc.types.Type):
     deleted_tables = sgqlc.types.Field(Int, graphql_name="deletedTables")
 
     metric_anomalies = sgqlc.types.Field(Int, graphql_name="metricAnomalies")
+
+    agent_anomalies = sgqlc.types.Field(Int, graphql_name="agentAnomalies")
 
     metric_comparison_anomalies = sgqlc.types.Field(Int, graphql_name="metricComparisonAnomalies")
 
@@ -30373,7 +30429,7 @@ class Mutation(sgqlc.types.Type):
     * `anomaly_types` (`[String]`): Limit notifications to specific
       incident types (default=all). Supported options include:
       anomalies, schema_changes, json_schema_changes, deleted_tables,
-      metric_anomalies, metric_comparison_anomalies,
+      metric_anomalies, agent_anomalies, metric_comparison_anomalies,
       custom_rule_anomalies, performance_anomalies, dbt_errors,
       etl_errors, pseudo_integration_test, rule_run_execution_error,
       merged
@@ -30788,7 +30844,7 @@ class Mutation(sgqlc.types.Type):
     * `anomaly_types` (`[String]`): Limit notifications to specific
       incident types (default=all). Supported options include:
       anomalies, schema_changes, json_schema_changes, deleted_tables,
-      metric_anomalies, metric_comparison_anomalies,
+      metric_anomalies, agent_anomalies, metric_comparison_anomalies,
       custom_rule_anomalies, performance_anomalies, dbt_errors,
       etl_errors, pseudo_integration_test, rule_run_execution_error,
       merged
@@ -72864,6 +72920,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "selected_metrics",
         "history_days",
         "training_config",
+        "sensitivity",
         "select_expressions",
         "mcon",
         "full_table_id",
@@ -72872,8 +72929,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "notification_settings",
         "agg_select_expression",
         "bootstrap",
-        "sensitivity",
         "notify_rule_run_failure",
+        "agent_span_filters",
+        "filters",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -73033,7 +73091,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     """SQL blocks used on the monitor"""
 
     sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
-    """Sampling configuration for the monitor"""
+    """Sampling configuration"""
 
     table = sgqlc.types.Field("WarehouseTable", graphql_name="table")
     """Table related to monitor"""
@@ -73052,6 +73110,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     training_config = sgqlc.types.Field(JSONString, graphql_name="trainingConfig")
     """Training configuration for the monitor"""
+
+    sensitivity = sgqlc.types.Field(SensitivityLevels, graphql_name="sensitivity")
+    """Sensitivity for automated thresholds"""
 
     select_expressions = sgqlc.types.Field(
         sgqlc.types.non_null(
@@ -73079,11 +73140,16 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     bootstrap = sgqlc.types.Field(MonitorBootstrap, graphql_name="bootstrap")
     """Current bootstrap state of the monitor"""
 
-    sensitivity = sgqlc.types.Field(SensitivityLevels, graphql_name="sensitivity")
-    """Sensitivity for automated thresholds"""
-
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
     """DEPRECATED: Replaced by failure audiences"""
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilter)), graphql_name="agentSpanFilters"
+    )
+    """agent span filters used on the monitor"""
+
+    filters = sgqlc.types.Field(FilterGroup, graphql_name="filters")
+    """filters used on the monitor"""
 
 
 class Monitor(
@@ -75356,6 +75422,8 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "monitor_sql_blocks",
         "sampling_config",
         "entity_mcons",
+        "agent_span_filters",
+        "filters",
         "has_custom_rule_name",
         "is_transitioning_data_provider",
         "notify_rule_run_failure",
@@ -75534,14 +75602,22 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     monitor, if any
     """
 
-    monitor_sql_blocks = sgqlc.types.Field(MonitorSqlBlocks, graphql_name="monitorSqlBlocks")
-    """SQL blocks used on the monitor"""
+    monitor_sql_blocks = sgqlc.types.Field(JSONString, graphql_name="monitorSqlBlocks")
+    """Structured SQL filtering from monitors"""
 
     sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
-    """Sampling configuration for the monitor"""
+    """Sampling configuration"""
 
     entity_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="entityMcons")
     """MCONs for monitored tables/views"""
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilter)), graphql_name="agentSpanFilters"
+    )
+    """agent span filters used on the monitor"""
+
+    filters = sgqlc.types.Field(FilterGroup, graphql_name="filters")
+    """filters used on the monitor"""
 
     has_custom_rule_name = sgqlc.types.Field(Boolean, graphql_name="hasCustomRuleName")
 

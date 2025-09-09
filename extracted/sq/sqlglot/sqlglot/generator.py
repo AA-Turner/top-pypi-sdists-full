@@ -218,6 +218,9 @@ class Generator(metaclass=_Generator):
         exp.UppercaseColumnConstraint: lambda *_: "UPPERCASE",
         exp.UtcDate: lambda self, e: self.sql(exp.CurrentDate(this=exp.Literal.string("UTC"))),
         exp.UtcTime: lambda self, e: self.sql(exp.CurrentTime(this=exp.Literal.string("UTC"))),
+        exp.UtcTimestamp: lambda self, e: self.sql(
+            exp.CurrentTimestamp(this=exp.Literal.string("UTC"))
+        ),
         exp.VarMap: lambda self, e: self.func("MAP", e.args["keys"], e.args["values"]),
         exp.ViewAttributeProperty: lambda self, e: f"WITH {self.sql(e, 'this')}",
         exp.VolatileProperty: lambda *_: "VOLATILE",
@@ -499,6 +502,9 @@ class Generator(metaclass=_Generator):
 
     # Whether LIKE and ILIKE support quantifiers such as LIKE ANY/ALL/SOME
     SUPPORTS_LIKE_QUANTIFIERS = True
+
+    # Prefix which is appended to exp.Table expressions in MATCH AGAINST
+    MATCH_AGAINST_TABLE_PREFIX: t.Optional[str] = None
 
     TYPE_MAPPING = {
         exp.DataType.Type.DATETIME2: "TIMESTAMP",
@@ -3068,9 +3074,21 @@ class Generator(metaclass=_Generator):
         return self.case_sql(exp.Case(ifs=[expression], default=expression.args.get("false")))
 
     def matchagainst_sql(self, expression: exp.MatchAgainst) -> str:
+        if self.MATCH_AGAINST_TABLE_PREFIX:
+            expressions = []
+            for expr in expression.expressions:
+                if isinstance(expr, exp.Table):
+                    expressions.append(f"TABLE {self.sql(expr)}")
+                else:
+                    expressions.append(expr)
+        else:
+            expressions = expression.expressions
+
         modifier = expression.args.get("modifier")
         modifier = f" {modifier}" if modifier else ""
-        return f"{self.func('MATCH', *expression.expressions)} AGAINST({self.sql(expression, 'this')}{modifier})"
+        return (
+            f"{self.func('MATCH', *expressions)} AGAINST({self.sql(expression, 'this')}{modifier})"
+        )
 
     def jsonkeyvalue_sql(self, expression: exp.JSONKeyValue) -> str:
         return f"{self.sql(expression, 'this')}{self.JSON_KEY_VALUE_PAIR_SEP} {self.sql(expression, 'expression')}"
@@ -3449,7 +3467,9 @@ class Generator(metaclass=_Generator):
         return f"TTL{self.seg(self.expressions(expression))}{where}{group}{aggregates}"
 
     def transaction_sql(self, expression: exp.Transaction) -> str:
-        return "BEGIN"
+        modes = self.expressions(expression, key="modes")
+        modes = f" {modes}" if modes else ""
+        return f"BEGIN{modes}"
 
     def commit_sql(self, expression: exp.Commit) -> str:
         chain = expression.args.get("chain")
@@ -5223,7 +5243,8 @@ class Generator(metaclass=_Generator):
         metrics = self.seg(f"METRICS {metrics}") if metrics else ""
         where = self.sql(expression, "where")
         where = self.seg(f"WHERE {where}") if where else ""
-        return f"SEMANTIC_VIEW({self.indent(this + metrics + dimensions + where)}{self.seg(')', sep='')}"
+        body = self.indent(this + metrics + dimensions + where, skip_first=True)
+        return f"SEMANTIC_VIEW({body}{self.seg(')', sep='')}"
 
     def getextract_sql(self, expression: exp.GetExtract) -> str:
         this = expression.this

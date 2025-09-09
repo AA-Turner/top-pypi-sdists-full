@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.migrations.operations.base import Operation
-from django.db.migrations.state import ModelState
+from django.db.migrations.state import ProjectState
 from django.utils.functional import cached_property
 
 
@@ -15,15 +15,15 @@ class InstallPlugin(Operation):
         self.name = name
         self.soname = soname
 
-    def state_forwards(self, app_label: str, state: ModelState) -> None:
+    def state_forwards(self, app_label: str, state: ProjectState) -> None:
         pass  # pragma: no cover
 
     def database_forwards(
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_st: ModelState,
-        to_st: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         if not self.plugin_installed(schema_editor):
             schema_editor.execute(
@@ -34,11 +34,11 @@ class InstallPlugin(Operation):
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_st: ModelState,
-        to_st: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         if self.plugin_installed(schema_editor):
-            schema_editor.execute("UNINSTALL PLUGIN %s" % self.name)
+            schema_editor.execute(f"UNINSTALL PLUGIN {self.name}")
 
     def plugin_installed(self, schema_editor: BaseDatabaseSchemaEditor) -> bool:
         with schema_editor.connection.cursor() as cursor:
@@ -63,15 +63,15 @@ class InstallSOName(Operation):
     def __init__(self, soname: str) -> None:
         self.soname = soname
 
-    def state_forwards(self, app_label: str, state: ModelState) -> None:
+    def state_forwards(self, app_label: str, state: ProjectState) -> None:
         pass  # pragma: no cover
 
     def database_forwards(
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_st: ModelState,
-        to_st: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         schema_editor.execute("INSTALL SONAME %s", (self.soname,))
 
@@ -79,13 +79,13 @@ class InstallSOName(Operation):
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_st: ModelState,
-        to_st: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         schema_editor.execute("UNINSTALL SONAME %s", (self.soname,))
 
     def describe(self) -> str:
-        return "Installs library %s" % (self.soname)
+        return f"Installs library {self.soname}"
 
 
 class AlterStorageEngine(Operation):
@@ -100,15 +100,15 @@ class AlterStorageEngine(Operation):
     def reversible(self) -> bool:
         return self.from_engine is not None
 
-    def state_forwards(self, app_label: str, state: ModelState) -> None:
+    def state_forwards(self, app_label: str, state: ProjectState) -> None:
         pass
 
     def database_forwards(
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_state: ModelState,
-        to_state: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         self._change_engine(app_label, schema_editor, to_state, engine=self.engine)
 
@@ -116,8 +116,8 @@ class AlterStorageEngine(Operation):
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        from_state: ModelState,
-        to_state: ModelState,
+        from_state: ProjectState,
+        to_state: ProjectState,
     ) -> None:
         if self.from_engine is None:
             raise NotImplementedError("You cannot reverse this operation")
@@ -128,7 +128,7 @@ class AlterStorageEngine(Operation):
         self,
         app_label: str,
         schema_editor: BaseDatabaseSchemaEditor,
-        to_state: ModelState,
+        to_state: ProjectState,
         engine: str,
     ) -> None:
         new_model = to_state.apps.get_model(app_label, self.name)
@@ -152,10 +152,7 @@ class AlterStorageEngine(Operation):
                 return
 
             schema_editor.execute(
-                "ALTER TABLE {table} ENGINE={engine}".format(
-                    table=qn(new_model._meta.db_table),
-                    engine=engine,
-                )
+                f"ALTER TABLE {qn(new_model._meta.db_table)} ENGINE={engine}"
             )
 
     @cached_property
@@ -170,6 +167,4 @@ class AlterStorageEngine(Operation):
             from_clause = f" from {self.from_engine}"
         else:
             from_clause = ""
-        return "Alter storage engine for {model}{from_clause} to {engine}".format(
-            model=self.name, from_clause=from_clause, engine=self.engine
-        )
+        return f"Alter storage engine for {self.name}{from_clause} to {self.engine}"

@@ -120,6 +120,7 @@ def complete_url(
         elif app not in (
             "ios", "115ios", "android", "115android", "115ipad", 
             "qandroid", "qios", "wechatmini", "alipaymini", "tv", 
+            "apple_tv", 
         ):
             app = "android"
     if not base_url:
@@ -3630,9 +3631,7 @@ class P115OpenClient(ClientRequestMixin):
                 - "user_otime": 上一次打开时间
 
             - offset: int = 0  💡 索引偏移，索引从 0 开始计算
-            - pick_code: str = <default> 💡 是否查询提取码，如果该值为 1 则查询提取码为 `search_value` 的文件
             - search_value: str = "." 💡 搜索文本，可以是 sha1
-            - show_dir: 0 | 1 = 1 💡 是否显示目录
             - source: str = <default>
             - star: 0 | 1 = <default> 💡 是否星标文件
             - suffix: str = <default> 💡 后缀名（优先级高于 `type`）
@@ -11607,7 +11606,7 @@ class P115Client(P115OpenClient):
             > POST https://passportapi.115.com/app/1.0/android/1.0/user/security_key_check
 
         :payload:
-            - safe_pwd: str = "" 💡 密码，如果需要进入隐藏模式，请传递此参数（值为密码的 md5 摘要）
+            - safe_pwd: str = "" 💡 密码，如果需要进入隐藏模式，请传递此参数（值为密码的 md5 哈希值）
             - show: 0 | 1 = 1    💡 0: 退出 1:进入
         """
         api = complete_url("/files/hiddenswitch", base_url=base_url, app=app)
@@ -14751,10 +14750,13 @@ class P115Client(P115OpenClient):
             - cid: int | str = 0 💡 目录 id，对应 parent_id
             - count_folders: 0 | 1 = <default> 💡 是否统计目录数，这样就会增加 "folder_count" 和 "file_count" 字段作为统计
             - date: str = <default> 💡 筛选日期，格式为 YYYY-MM-DD（或者 YYYY-MM 或 YYYY），具体可以看文件信息中的 "t" 字段的值
+            - fc: 0 | 1 = <default> 💡 只显示文件或目录。1:只显示目录 2:只显示文件
             - fc_mix: 0 | 1 = <default> 💡 是否目录和文件混合，如果为 0 则目录在前（目录置顶）
             - file_label: int | str = <default> 💡 标签 id
             - format: str = "json" 💡 输出格式（不用管）
+            - gte_day: str 💡 搜索结果匹配的开始时间；格式：YYYY-MM-DD
             - limit: int = 32 💡 一页大小，意思就是 page_size
+            - lte_day: str 💡 搜索结果匹配的结束时间；格式：YYYY-MM-DD
             - o: str = <default> 💡 用某字段排序
 
                 - "file_name": 文件名
@@ -14765,9 +14767,7 @@ class P115Client(P115OpenClient):
                 - "user_otime": 上一次打开时间
 
             - offset: int = 0  💡 索引偏移，索引从 0 开始计算
-            - pick_code: str = <default> 💡 是否查询提取码，如果该值为 1 则查询提取码为 `search_value` 的文件
             - search_value: str = "." 💡 搜索文本，可以是 sha1
-            - show_dir: 0 | 1 = 1     💡 是否显示目录
             - source: str = <default> 💡 来源
             - star: 0 | 1 = <default> 💡 是否打星标
             - suffix: str = <default> 💡 文件后缀（扩展名），优先级高于 `type`
@@ -14828,7 +14828,7 @@ class P115Client(P115OpenClient):
     ) -> dict | Coroutine[Any, Any, dict]:
         """搜索文件或目录
 
-        GET https://proapi.115.com/android/files/search
+        GET https://proapi.115.com/android/2.0/ufile/search
 
         .. attention::
             最多只能取回前 10,000 条数据，也就是 `limit + offset <= 10_000`，不过可以一次性取完
@@ -14847,7 +14847,9 @@ class P115Client(P115OpenClient):
             - fc_mix: 0 | 1 = <default> 💡 是否目录和文件混合，如果为 0 则目录在前（目录置顶）
             - file_label: int | str = <default> 💡 标签 id
             - format: str = "json" 💡 输出格式（不用管）
+            - gte_day: str 💡 搜索结果匹配的开始时间；格式：YYYY-MM-DD
             - limit: int = 32 💡 一页大小，意思就是 page_size
+            - lte_day: str 💡 搜索结果匹配的结束时间；格式：YYYY-MM-DD
             - o: str = <default> 💡 用某字段排序
 
                 - "file_name": 文件名
@@ -14858,9 +14860,7 @@ class P115Client(P115OpenClient):
                 - "user_otime": 上一次打开时间
 
             - offset: int = 0  💡 索引偏移，索引从 0 开始计算
-            - pick_code: str = <default> 💡 是否查询提取码，如果该值为 1 则查询提取码为 `search_value` 的文件
             - search_value: str = "." 💡 搜索文本，可以是 sha1
-            - show_dir: 0 | 1 = 1 💡 是否显示目录
             - source: str = <default>
             - star: 0 | 1 = <default> 💡 是否星标文件
             - suffix: str = <default> 💡 后缀名（优先级高于 `type`）
@@ -14878,7 +14878,7 @@ class P115Client(P115OpenClient):
 
             - version: str = <default> 💡 版本号，比如 3.1
         """
-        api = complete_url("/files/search", base_url=base_url, app=app)
+        api = complete_url("/2.0/ufile/search", base_url=base_url, app=app)
         if isinstance(payload, str):
             payload = {"search_value": payload}
         payload = {
@@ -14923,7 +14923,7 @@ class P115Client(P115OpenClient):
     ) -> dict | Coroutine[Any, Any, dict]:
         """搜索文件或目录
 
-        GET https://proapi.115.com/android/2.0/ufile/search
+        GET https://proapi.115.com/android/files/search
 
         .. attention::
             最多只能取回前 10,000 条数据，也就是 `limit + offset <= 10_000`，不过可以一次性取完
@@ -14955,9 +14955,7 @@ class P115Client(P115OpenClient):
                 - "user_otime": 上一次打开时间
 
             - offset: int = 0  💡 索引偏移，索引从 0 开始计算
-            - pick_code: str = <default> 💡 是否查询提取码，如果该值为 1 则查询提取码为 `search_value` 的文件
             - search_value: str = "." 💡 搜索文本，可以是 sha1
-            - show_dir: 0 | 1 = 1 💡 是否显示目录
             - source: str = <default>
             - star: 0 | 1 = <default> 💡 是否星标文件
             - suffix: str = <default> 💡 后缀名（优先级高于 `type`）
@@ -14975,7 +14973,7 @@ class P115Client(P115OpenClient):
 
             - version: str = <default> 💡 版本号，比如 3.1
         """
-        api = complete_url("/2.0/ufile/search", base_url=base_url, app=app)
+        api = complete_url("/files/search", base_url=base_url, app=app)
         if isinstance(payload, str):
             payload = {"search_value": payload}
         payload = {

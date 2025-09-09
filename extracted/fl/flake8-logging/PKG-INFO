@@ -1,8 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-logging
-Version: 1.7.0
+Version: 1.8.0
 Summary: A Flake8 plugin that checks for issues using the standard library logging module.
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/flake8-logging/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/adamchainz/flake8-logging
@@ -10,7 +11,6 @@ Keywords: flake8
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Flake8
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
@@ -18,11 +18,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: flake8!=3.2,>=3
+Dynamic: license-file
 
 ==============
 flake8-logging
@@ -51,7 +53,7 @@ For a brief overview and background, see `the introductory blog post <https://ad
 Requirements
 ============
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 Installation
 ============
@@ -126,7 +128,7 @@ __ https://docs.python.org/3/reference/import.html?#name__
 
 This rule detects probably-mistaken usage of similar module-level dunder constants:
 
-* |__cached__|__ - the pathname of the module’s compiled versio˜, such as ``camelot/__pycache__/spam.cpython-311.pyc``.
+* |__cached__|__ - the pathname of the module’s compiled version˜, such as ``camelot/__pycache__/spam.cpython-311.pyc``.
 
   .. |__cached__| replace:: ``__cached__``
   __ https://docs.python.org/3/reference/import.html?#cached__
@@ -522,7 +524,7 @@ When using named ``%``-style formatting, if the message references a missing key
 
 .. code-block:: pycon
 
-    >>> logging.error("Hi %(name)s", {"nam": "hacker"})
+    >>> logging.error("Hi %(name)s", {"nom": "hacker"})
     --- Logging error ---
     Traceback (most recent call last):
       File "/.../logging/__init__.py", line 1160, in emit
@@ -537,7 +539,7 @@ When using named ``%``-style formatting, if the message references a missing key
     Call stack:
       File "<stdin>", line 1, in <module>
     Message: 'Hi %(name)s'
-    Arguments: {'nam': 'hacker'}
+    Arguments: {'nom': 'hacker'}
 
 This will only happen when the logger is enabled since loggers don’t perform string formatting when disabled.
 Thus a configuration change can reveal such errors.

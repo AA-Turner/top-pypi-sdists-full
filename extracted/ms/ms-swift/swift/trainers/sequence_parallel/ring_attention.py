@@ -216,9 +216,10 @@ class RingAttention(CommonSequenceParallel):
         trainer.ring_attention = self
 
         if trainer.__class__.__name__ == 'Seq2SeqTrainer':
+            enable_dft_loss = trainer.args.enable_dft_loss
             trainer._origin_prepare_inputs = trainer._prepare_inputs
             trainer._prepare_inputs = MethodType(partial(_prepare_inputs, sp_instance=self), trainer)
-            trainer.compute_loss_func = partial(loss_scale_sp_func, sp_instance=self)
+            trainer.compute_loss_func = partial(loss_scale_sp_func, sp_instance=self, enable_dft_loss=enable_dft_loss)
 
         elif trainer.__class__.__name__ == 'DPOTrainer':
             trainer._origin_prepare_inputs = trainer._prepare_inputs
@@ -238,7 +239,7 @@ class RingAttention(CommonSequenceParallel):
             trainer.old_policy = MethodType(partial(old_policy_grpo, sp_instance=self), trainer)
             trainer._get_train_sampler = MethodType(partial(_get_train_sampler_grpo, sp_instance=self), trainer)
             trainer._prepare_inputs = MethodType(partial(_prepare_inputs_grpo, sp_instance=self), trainer)
-            trainer._get_per_token_logps_and_entropies = MethodType(
+            trainer._get_per_token_logps_and_entropies_single = MethodType(
                 partial(_get_per_token_logps_and_entropies_grpo, sp_instance=self), trainer)
             trainer.split_by_mini_batches = MethodType(partial(split_by_mini_batches_grpo, sp_instance=self), trainer)
 

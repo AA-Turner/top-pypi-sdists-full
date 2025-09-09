@@ -100,7 +100,7 @@ def issues(kubeconfig: str, config: str, param: list[str], cluster: str, namespa
     run_command(Issues(), kubeconfig, config, param, cluster, namespace, pod, ('-s',) + extra_args if show else extra_args)
 
 
-@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=PodCommandHelper, help='Get cassandra log.')
+@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=PodCommandHelper, help='SSO login.')
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
 @click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
 @click.option('--param', '-v', multiple=True, metavar='<key>=<value>', help='parameter override')

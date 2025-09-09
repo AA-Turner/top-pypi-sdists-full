@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenFisca-France
-Version: 174.1.0
+Version: 174.2.2
 Summary: OpenFisca Rules as Code model for France.
 Author-email: OpenFisca Team <contact@openfisca.fr>
 Project-URL: Homepage, https://github.com/openfisca/openfisca-france
@@ -16,6 +16,8 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

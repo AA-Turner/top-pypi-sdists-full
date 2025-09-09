@@ -80,6 +80,7 @@ from mypy.nodes import (
     AssertStmt,
     AssignmentExpr,
     AssignmentStmt,
+    AwaitExpr,
     Block,
     BreakStmt,
     BytesExpr,
@@ -229,6 +230,7 @@ from mypy.types import (
     flatten_nested_unions,
     get_proper_type,
     get_proper_types,
+    instance_cache,
     is_literal_type,
     is_named_instance,
 )
@@ -466,12 +468,6 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
         self._expr_checker = mypy.checkexpr.ExpressionChecker(
             self, self.msg, self.plugin, per_line_checking_time_ns
         )
-
-        self._str_type: Instance | None = None
-        self._function_type: Instance | None = None
-        self._int_type: Instance | None = None
-        self._bool_type: Instance | None = None
-        self._object_type: Instance | None = None
 
         self.pattern_checker = PatternChecker(self, self.msg, self.plugin, options)
         self._unique_id = 0
@@ -4929,7 +4925,11 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
                 allow_none_func_call = is_lambda or declared_none_return or declared_any_return
 
                 # Return with a value.
-                if isinstance(s.expr, (CallExpr, ListExpr, TupleExpr, DictExpr, SetExpr, OpExpr)):
+                if (
+                    isinstance(s.expr, (CallExpr, ListExpr, TupleExpr, DictExpr, SetExpr, OpExpr))
+                    or isinstance(s.expr, AwaitExpr)
+                    and isinstance(s.expr.expr, CallExpr)
+                ):
                     # For expressions that (strongly) depend on type context (i.e. those that
                     # are handled like a function call), we allow fallback to empty type context
                     # in case of errors, this improves user experience in some cases,
@@ -5682,8 +5682,8 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
                 self.push_type_map(else_map, from_assignment=False)
                 unmatched_types = else_map
 
-            if unmatched_types is not None:
-                for typ in list(unmatched_types.values()):
+            if unmatched_types is not None and not self.current_node_deferred:
+                for typ in unmatched_types.values():
                     self.msg.match_statement_inexhaustive_match(typ, s)
 
             # This is needed due to a quirk in frame_context. Without it types will stay narrowed
@@ -7460,25 +7460,25 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
         For example, named_type('builtins.object') produces the 'object' type.
         """
         if name == "builtins.str":
-            if self._str_type is None:
-                self._str_type = self._named_type(name)
-            return self._str_type
+            if instance_cache.str_type is None:
+                instance_cache.str_type = self._named_type(name)
+            return instance_cache.str_type
         if name == "builtins.function":
-            if self._function_type is None:
-                self._function_type = self._named_type(name)
-            return self._function_type
+            if instance_cache.function_type is None:
+                instance_cache.function_type = self._named_type(name)
+            return instance_cache.function_type
         if name == "builtins.int":
-            if self._int_type is None:
-                self._int_type = self._named_type(name)
-            return self._int_type
+            if instance_cache.int_type is None:
+                instance_cache.int_type = self._named_type(name)
+            return instance_cache.int_type
         if name == "builtins.bool":
-            if self._bool_type is None:
-                self._bool_type = self._named_type(name)
-            return self._bool_type
+            if instance_cache.bool_type is None:
+                instance_cache.bool_type = self._named_type(name)
+            return instance_cache.bool_type
         if name == "builtins.object":
-            if self._object_type is None:
-                self._object_type = self._named_type(name)
-            return self._object_type
+            if instance_cache.object_type is None:
+                instance_cache.object_type = self._named_type(name)
+            return instance_cache.object_type
         return self._named_type(name)
 
     def _named_type(self, name: str) -> Instance:

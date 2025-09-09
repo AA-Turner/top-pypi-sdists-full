@@ -79,7 +79,7 @@ from ..enums import (
 )
 from ..utils import from_api, get_id_from_response, parse_time
 from ..utils.waiters import wait_for_async_resolution
-from .advanced_tuning import AdvancedTuningSession
+from .advanced_tuning import AdvancedTuningSession, GridSearchArguments
 from .api_object import APIObject
 from .feature_impact import FeatureImpact
 
@@ -3269,7 +3269,12 @@ class GenericModel(APIObject, BrowserMixin):
         response = self._client.get(url)
         return response.json()
 
-    def advanced_tune(self, params, description: Optional[str] = None) -> ModelJob:
+    def advanced_tune(
+        self,
+        params,
+        description: Optional[str] = None,
+        grid_search_arguments: Optional[GridSearchArguments] = None,
+    ) -> ModelJob:
         """Generate a new model with the specified advanced-tuning parameters
 
         As of v2.17, all models other than blenders, open source, prime, baseline and
@@ -3285,7 +3290,8 @@ class GenericModel(APIObject, BrowserMixin):
             is omitted, its `current_value` will be used.
         description : str
             Human-readable string describing the newly advanced-tuned model
-
+        grid_search_arguments : GridSearchArguments
+            Grid search arguments
         Returns
         -------
         ModelJob
@@ -3298,6 +3304,8 @@ class GenericModel(APIObject, BrowserMixin):
         ]
 
         payload = {"tuningDescription": description, "tuningParameters": params_list}
+        if grid_search_arguments:
+            payload["gridSearchArguments"] = grid_search_arguments.to_api_payload()
 
         url = f"projects/{self.project_id}/models/{self.id}/advancedTuning/"
         response = self._client.post(url, data=payload)
@@ -3497,19 +3505,26 @@ class GenericModel(APIObject, BrowserMixin):
 
         return data
 
-    def start_advanced_tuning_session(self):
+    def start_advanced_tuning_session(
+        self, grid_search_arguments: Optional[GridSearchArguments] = None
+    ):
         """Start an Advanced Tuning session.  Returns an object that helps
         set up arguments for an Advanced Tuning model execution.
 
         As of v2.17, all models other than blenders, open source, prime, baseline and
         user-created support Advanced Tuning.
 
+        Parameters
+        ----------
+        grid_search_arguments : GridSearchArguments
+            Grid search arguments
+
         Returns
         -------
         AdvancedTuningSession
             Session for setting up and running Advanced Tuning on a model
         """
-        return AdvancedTuningSession(self)
+        return AdvancedTuningSession(self, grid_search_arguments)
 
     def star_model(self) -> None:
         """Mark the model as starred.

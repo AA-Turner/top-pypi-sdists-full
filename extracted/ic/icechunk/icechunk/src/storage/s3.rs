@@ -137,7 +137,7 @@ pub async fn mk_client(
 
     #[allow(clippy::unwrap_used)]
     let app_name = AppName::new("icechunk").unwrap();
-    let mut aws_config = aws_config::defaults(BehaviorVersion::v2025_01_17())
+    let mut aws_config = aws_config::defaults(BehaviorVersion::v2025_08_07())
         .region(region)
         .app_name(app_name);
 
@@ -858,6 +858,8 @@ impl Storage for S3Storage {
                 let code = err.as_service_error().and_then(|e| e.code()).unwrap_or("");
                 if code.contains("PreconditionFailed")
                     || code.contains("ConditionalRequestConflict")
+                    // ConcurrentModification sent by Ceph Object Gateway
+                    || code.contains("ConcurrentModification")
                 {
                     Ok(WriteRefResult::WontOverwrite)
                 } else {

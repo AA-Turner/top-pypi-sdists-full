@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xdoctest
-Version: 1.2.0
+Version: 1.3.0
 Summary: A rewrite of the builtin doctest module
 Home-page: https://github.com/Erotemic/xdoctest
 Author: Jon Crall
@@ -28,13 +28,11 @@ License-File: LICENSE
 Provides-Extra: all
 Requires-Dist: pytest>=6.2.5; python_version >= "3.10.0" and extra == "all"
 Requires-Dist: pytest>=4.6.0; (python_version < "3.10.0" and python_version >= "3.7.0") and extra == "all"
-Requires-Dist: pytest-cov>=3.0.0; python_version >= "3.6.0" and extra == "all"
-Requires-Dist: Pygments>=2.4.1; python_version >= "3.5.0" and extra == "all"
-Requires-Dist: Pygments>=2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "all"
+Requires-Dist: pytest-cov>=3.0.0; extra == "all"
+Requires-Dist: Pygments>=2.15.1; extra == "all"
 Requires-Dist: colorama>=0.4.1; platform_system == "Windows" and extra == "all"
 Requires-Dist: nbconvert>=6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "all"
-Requires-Dist: nbconvert>=6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "all"
-Requires-Dist: jinja2>=3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "all"
+Requires-Dist: jinja2>=3.0.0; platform_python_implementation != "PyPy" and extra == "all"
 Requires-Dist: jupyter_client>=7.0.0; extra == "all"
 Requires-Dist: IPython>=7.23.1; extra == "all"
 Requires-Dist: ipykernel>=6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "all"
@@ -42,7 +40,7 @@ Requires-Dist: ipykernel>=6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy>=1.6.0; python_version >= "3.10" and extra == "all"
 Requires-Dist: debugpy>=1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "all"
 Requires-Dist: debugpy>=1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "all"
-Requires-Dist: ipython_genutils>=0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "all"
+Requires-Dist: ipython_genutils>=0.2.0; platform_python_implementation != "PyPy" and extra == "all"
 Requires-Dist: jedi>=0.16; extra == "all"
 Requires-Dist: attrs>=19.2.0; extra == "all"
 Requires-Dist: jupyter_core>=4.7.0; extra == "all"
@@ -52,14 +50,12 @@ Provides-Extra: runtime
 Provides-Extra: tests
 Requires-Dist: pytest>=6.2.5; python_version >= "3.10.0" and extra == "tests"
 Requires-Dist: pytest>=4.6.0; (python_version < "3.10.0" and python_version >= "3.7.0") and extra == "tests"
-Requires-Dist: pytest-cov>=3.0.0; python_version >= "3.6.0" and extra == "tests"
+Requires-Dist: pytest-cov>=3.0.0; extra == "tests"
 Provides-Extra: optional
-Requires-Dist: Pygments>=2.4.1; python_version >= "3.5.0" and extra == "optional"
-Requires-Dist: Pygments>=2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "optional"
+Requires-Dist: Pygments>=2.15.1; extra == "optional"
 Requires-Dist: colorama>=0.4.1; platform_system == "Windows" and extra == "optional"
 Requires-Dist: nbconvert>=6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "optional"
-Requires-Dist: nbconvert>=6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "optional"
-Requires-Dist: jinja2>=3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "optional"
+Requires-Dist: jinja2>=3.0.0; platform_python_implementation != "PyPy" and extra == "optional"
 Requires-Dist: jupyter_client>=7.0.0; extra == "optional"
 Requires-Dist: IPython>=7.23.1; extra == "optional"
 Requires-Dist: ipykernel>=6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "optional"
@@ -67,15 +63,14 @@ Requires-Dist: ipykernel>=6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy>=1.6.0; python_version >= "3.10" and extra == "optional"
 Requires-Dist: debugpy>=1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "optional"
 Requires-Dist: debugpy>=1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "optional"
-Requires-Dist: ipython_genutils>=0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "optional"
+Requires-Dist: ipython_genutils>=0.2.0; platform_python_implementation != "PyPy" and extra == "optional"
 Requires-Dist: jedi>=0.16; extra == "optional"
 Requires-Dist: attrs>=19.2.0; extra == "optional"
 Requires-Dist: jupyter_core>=4.7.0; extra == "optional"
 Requires-Dist: pyflakes>=2.2.0; extra == "optional"
 Requires-Dist: tomli>=0.2.0; (python_version < "3.11.0" and python_version >= "3.6") and extra == "optional"
 Provides-Extra: colors
-Requires-Dist: Pygments>=2.4.1; python_version >= "3.5.0" and extra == "colors"
-Requires-Dist: Pygments>=2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "colors"
+Requires-Dist: Pygments>=2.15.1; extra == "colors"
 Requires-Dist: colorama>=0.4.1; platform_system == "Windows" and extra == "colors"
 Provides-Extra: docs
 Requires-Dist: sphinx>=5.0.1; extra == "docs"
@@ -83,13 +78,12 @@ Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
 Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "docs"
 Requires-Dist: sphinxcontrib-napoleon>=0.7; extra == "docs"
 Requires-Dist: sphinx-autoapi>=1.8.4; extra == "docs"
-Requires-Dist: Pygments>=2.9.0; extra == "docs"
+Requires-Dist: Pygments>=2.15.1; extra == "docs"
 Requires-Dist: myst_parser>=0.18.0; extra == "docs"
 Requires-Dist: sphinx-reredirects>=0.0.1; extra == "docs"
 Provides-Extra: jupyter
 Requires-Dist: nbconvert>=6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "jupyter"
-Requires-Dist: nbconvert>=6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "jupyter"
-Requires-Dist: jinja2>=3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "jupyter"
+Requires-Dist: jinja2>=3.0.0; platform_python_implementation != "PyPy" and extra == "jupyter"
 Requires-Dist: jupyter_client>=7.0.0; extra == "jupyter"
 Requires-Dist: IPython>=7.23.1; extra == "jupyter"
 Requires-Dist: ipykernel>=6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "jupyter"
@@ -97,7 +91,7 @@ Requires-Dist: ipykernel>=6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy>=1.6.0; python_version >= "3.10" and extra == "jupyter"
 Requires-Dist: debugpy>=1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "jupyter"
 Requires-Dist: debugpy>=1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "jupyter"
-Requires-Dist: ipython_genutils>=0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "jupyter"
+Requires-Dist: ipython_genutils>=0.2.0; platform_python_implementation != "PyPy" and extra == "jupyter"
 Requires-Dist: jedi>=0.16; extra == "jupyter"
 Requires-Dist: attrs>=19.2.0; extra == "jupyter"
 Requires-Dist: jupyter_core>=4.7.0; extra == "jupyter"
@@ -113,13 +107,11 @@ Requires-Dist: cmake>=3.21.2; python_version < "3.11" and extra == "tests-binary
 Provides-Extra: all-strict
 Requires-Dist: pytest==6.2.5; python_version >= "3.10.0" and extra == "all-strict"
 Requires-Dist: pytest==4.6.0; (python_version < "3.10.0" and python_version >= "3.7.0") and extra == "all-strict"
-Requires-Dist: pytest-cov==3.0.0; python_version >= "3.6.0" and extra == "all-strict"
-Requires-Dist: Pygments==2.4.1; python_version >= "3.5.0" and extra == "all-strict"
-Requires-Dist: Pygments==2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "all-strict"
+Requires-Dist: pytest-cov==3.0.0; extra == "all-strict"
+Requires-Dist: Pygments==2.15.1; extra == "all-strict"
 Requires-Dist: colorama==0.4.1; platform_system == "Windows" and extra == "all-strict"
 Requires-Dist: nbconvert==6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "all-strict"
-Requires-Dist: nbconvert==6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "all-strict"
-Requires-Dist: jinja2==3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "all-strict"
+Requires-Dist: jinja2==3.0.0; platform_python_implementation != "PyPy" and extra == "all-strict"
 Requires-Dist: jupyter_client==7.0.0; extra == "all-strict"
 Requires-Dist: IPython==7.23.1; extra == "all-strict"
 Requires-Dist: ipykernel==6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "all-strict"
@@ -127,7 +119,7 @@ Requires-Dist: ipykernel==6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy==1.6.0; python_version >= "3.10" and extra == "all-strict"
 Requires-Dist: debugpy==1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "all-strict"
 Requires-Dist: debugpy==1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "all-strict"
-Requires-Dist: ipython_genutils==0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "all-strict"
+Requires-Dist: ipython_genutils==0.2.0; platform_python_implementation != "PyPy" and extra == "all-strict"
 Requires-Dist: jedi==0.16; extra == "all-strict"
 Requires-Dist: attrs==19.2.0; extra == "all-strict"
 Requires-Dist: jupyter_core==4.7.0; extra == "all-strict"
@@ -137,14 +129,12 @@ Provides-Extra: runtime-strict
 Provides-Extra: tests-strict
 Requires-Dist: pytest==6.2.5; python_version >= "3.10.0" and extra == "tests-strict"
 Requires-Dist: pytest==4.6.0; (python_version < "3.10.0" and python_version >= "3.7.0") and extra == "tests-strict"
-Requires-Dist: pytest-cov==3.0.0; python_version >= "3.6.0" and extra == "tests-strict"
+Requires-Dist: pytest-cov==3.0.0; extra == "tests-strict"
 Provides-Extra: optional-strict
-Requires-Dist: Pygments==2.4.1; python_version >= "3.5.0" and extra == "optional-strict"
-Requires-Dist: Pygments==2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "optional-strict"
+Requires-Dist: Pygments==2.15.1; extra == "optional-strict"
 Requires-Dist: colorama==0.4.1; platform_system == "Windows" and extra == "optional-strict"
 Requires-Dist: nbconvert==6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "optional-strict"
-Requires-Dist: nbconvert==6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "optional-strict"
-Requires-Dist: jinja2==3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "optional-strict"
+Requires-Dist: jinja2==3.0.0; platform_python_implementation != "PyPy" and extra == "optional-strict"
 Requires-Dist: jupyter_client==7.0.0; extra == "optional-strict"
 Requires-Dist: IPython==7.23.1; extra == "optional-strict"
 Requires-Dist: ipykernel==6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "optional-strict"
@@ -152,15 +142,14 @@ Requires-Dist: ipykernel==6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy==1.6.0; python_version >= "3.10" and extra == "optional-strict"
 Requires-Dist: debugpy==1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "optional-strict"
 Requires-Dist: debugpy==1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "optional-strict"
-Requires-Dist: ipython_genutils==0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "optional-strict"
+Requires-Dist: ipython_genutils==0.2.0; platform_python_implementation != "PyPy" and extra == "optional-strict"
 Requires-Dist: jedi==0.16; extra == "optional-strict"
 Requires-Dist: attrs==19.2.0; extra == "optional-strict"
 Requires-Dist: jupyter_core==4.7.0; extra == "optional-strict"
 Requires-Dist: pyflakes==2.2.0; extra == "optional-strict"
 Requires-Dist: tomli==0.2.0; (python_version < "3.11.0" and python_version >= "3.6") and extra == "optional-strict"
 Provides-Extra: colors-strict
-Requires-Dist: Pygments==2.4.1; python_version >= "3.5.0" and extra == "colors-strict"
-Requires-Dist: Pygments==2.0.0; (python_version < "3.5.0" and python_version >= "2.7.0") and extra == "colors-strict"
+Requires-Dist: Pygments==2.15.1; extra == "colors-strict"
 Requires-Dist: colorama==0.4.1; platform_system == "Windows" and extra == "colors-strict"
 Provides-Extra: docs-strict
 Requires-Dist: sphinx==5.0.1; extra == "docs-strict"
@@ -168,13 +157,12 @@ Requires-Dist: sphinx-autobuild==2021.3.14; extra == "docs-strict"
 Requires-Dist: sphinx_rtd_theme==1.0.0; extra == "docs-strict"
 Requires-Dist: sphinxcontrib-napoleon==0.7; extra == "docs-strict"
 Requires-Dist: sphinx-autoapi==1.8.4; extra == "docs-strict"
-Requires-Dist: Pygments==2.9.0; extra == "docs-strict"
+Requires-Dist: Pygments==2.15.1; extra == "docs-strict"
 Requires-Dist: myst_parser==0.18.0; extra == "docs-strict"
 Requires-Dist: sphinx-reredirects==0.0.1; extra == "docs-strict"
 Provides-Extra: jupyter-strict
 Requires-Dist: nbconvert==6.1.0; (python_version >= "3.7.0" and platform_python_implementation != "PyPy") and extra == "jupyter-strict"
-Requires-Dist: nbconvert==6.0.0; (python_version < "3.7.0" and python_version >= "3.6.0" and platform_python_implementation != "PyPy") and extra == "jupyter-strict"
-Requires-Dist: jinja2==3.0.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "jupyter-strict"
+Requires-Dist: jinja2==3.0.0; platform_python_implementation != "PyPy" and extra == "jupyter-strict"
 Requires-Dist: jupyter_client==7.0.0; extra == "jupyter-strict"
 Requires-Dist: IPython==7.23.1; extra == "jupyter-strict"
 Requires-Dist: ipykernel==6.11.0; (python_version < "4.0" and python_version >= "3.12" and (platform_system != "Windows" or platform_python_implementation != "PyPy")) and extra == "jupyter-strict"
@@ -182,7 +170,7 @@ Requires-Dist: ipykernel==6.0.0; (python_version < "3.12" and python_version >= 
 Requires-Dist: debugpy==1.6.0; python_version >= "3.10" and extra == "jupyter-strict"
 Requires-Dist: debugpy==1.3.0; (python_version < "3.10" and python_version >= "3.9") and extra == "jupyter-strict"
 Requires-Dist: debugpy==1.0.0; (python_version < "3.9" and python_version >= "3.8") and extra == "jupyter-strict"
-Requires-Dist: ipython_genutils==0.2.0; (python_version >= "3.6" and platform_python_implementation != "PyPy") and extra == "jupyter-strict"
+Requires-Dist: ipython_genutils==0.2.0; platform_python_implementation != "PyPy" and extra == "jupyter-strict"
 Requires-Dist: jedi==0.16; extra == "jupyter-strict"
 Requires-Dist: attrs==19.2.0; extra == "jupyter-strict"
 Requires-Dist: jupyter_core==4.7.0; extra == "jupyter-strict"
@@ -195,6 +183,18 @@ Requires-Dist: pybind11==2.10.3; (python_version < "4.0" and python_version >= "
 Requires-Dist: pybind11==2.7.1; python_version < "3.11" and extra == "tests-binary-strict"
 Requires-Dist: cmake==3.25.0; (python_version < "4.0" and python_version >= "3.11") and extra == "tests-binary-strict"
 Requires-Dist: cmake==3.21.2; python_version < "3.11" and extra == "tests-binary-strict"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 |GithubActions| |CircleCI| |Appveyor| |Codecov| |Pypi| |PypiDownloads| |ReadTheDocs|
 
@@ -239,8 +239,9 @@ no test at all).
         """
         # I wrote this function by first finding some interesting demodata
         # then I wrote the body in IPython and copied it back in.
-        # Now I can re-use this test code I wrote in development as a test!
-        # Covered Code is much easier to debug (we have a MWE)!
+        # Now I can reuse this test code I wrote in development as a test!
+        # Covered Code is much easier to debug.
+        # We have a Minimal Working Example (MWE)!
         result = config['outer'](map(config['inner'], data))
         return result
 
@@ -290,10 +291,11 @@ Installations are tested on CPython and PyPy implementations.
     pip install xdoctest
 
 
-Distributions on pypi are signed with a GPG public key: ``D297D757``. If you
-care enough to check the gpg signature (hopefully pip will just do this in the
-future), you should also verify this agrees with the contents of
-``dev/public_gpg_key``.
+
+Github releases are signed with a GPG public key: ``59A34380`` (note: this
+incorrectly was listed as ``D297D757`` for before 2024-11-15, which was an
+older CI signing key). If you care enough to check the gpg signature, you
+should also verify this agrees with the contents of ``dev/public_gpg_key``.
 
 
 Usage: run your doctests
@@ -377,7 +379,7 @@ method, which can be placed in the ``__main__`` section of any module as such:
 This sets up the ability to invoke the ``xdoctest`` command line
 interface. ``python -m <modname> <command>``.
 
-However, it is typically prefered to just use the ``xdoctest`` executable and
+However, it is typically preferred to just use the ``xdoctest`` executable and
 pass it the path to your file, or the name of an installed module. In this case
 it is invoked like ``xdoctest -m <modname> <command>``.
 
@@ -524,14 +526,14 @@ The main enhancements ``xdoctest`` offers over ``doctest`` are:
    to perform checks in code that might write to stdout.
 5. If your test has a "want" statement and ends with both a value and
    stdout, both are checked, and the test will pass if either matches.
-6. Ouptut from multiple sequential print statements can now be checked by
+6. Output from multiple sequential print statements can now be checked by
    a single "got" statement. (new in 0.4.0).
 7. Examples can include `async code at the top level <https://xdoctest.readthedocs.io/en/latest/manual/async_doctest.html>`__.
 
 See code in ``dev/_compare/demo_enhancements.py`` for a demo that illustrates
 several of these enhancements. This demo shows cases where ``xdoctest`` works
 but ``doctest`` fails. As of version 0.9.1, there are no known syntax backwards
-incompatability. Please submit an issue if you can find any backwards
+incompatibility. Please submit an issue if you can find any backwards
 incompatible cases.
 
 

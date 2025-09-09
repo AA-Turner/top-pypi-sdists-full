@@ -43,6 +43,7 @@ class TaskTableRow(object):
         'start_time_ns': 'int',
         'end_time_ns': 'int',
         'required_resources': 'str',
+        'runtime_env': 'str',
         'node_id': 'str',
         'worker_id': 'str',
         'worker_pid': 'str',
@@ -62,6 +63,7 @@ class TaskTableRow(object):
         'start_time_ns': 'start_time_ns',
         'end_time_ns': 'end_time_ns',
         'required_resources': 'required_resources',
+        'runtime_env': 'runtime_env',
         'node_id': 'node_id',
         'worker_id': 'worker_id',
         'worker_pid': 'worker_pid',
@@ -70,7 +72,7 @@ class TaskTableRow(object):
         'exception_type': 'exception_type'
     }
 
-    def __init__(self, id=None, attempt_number=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, end_time_ns=None, required_resources=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, attempt_number=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, end_time_ns=None, required_resources=None, runtime_env=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +88,7 @@ class TaskTableRow(object):
         self._start_time_ns = None
         self._end_time_ns = None
         self._required_resources = None
+        self._runtime_env = None
         self._node_id = None
         self._worker_id = None
         self._worker_pid = None
@@ -108,6 +111,8 @@ class TaskTableRow(object):
             self.end_time_ns = end_time_ns
         if required_resources is not None:
             self.required_resources = required_resources
+        if runtime_env is not None:
+            self.runtime_env = runtime_env
         if node_id is not None:
             self.node_id = node_id
         if worker_id is not None:
@@ -341,6 +346,27 @@ class TaskTableRow(object):
         """
 
         self._required_resources = required_resources
+
+    @property
+    def runtime_env(self):
+        """Gets the runtime_env of this TaskTableRow.  # noqa: E501
+
+
+        :return: The runtime_env of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._runtime_env
+
+    @runtime_env.setter
+    def runtime_env(self, runtime_env):
+        """Sets the runtime_env of this TaskTableRow.
+
+
+        :param runtime_env: The runtime_env of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._runtime_env = runtime_env
 
     @property
     def node_id(self):

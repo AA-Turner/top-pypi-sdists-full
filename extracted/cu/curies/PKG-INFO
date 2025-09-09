@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.10.22
+Version: 0.10.23
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Project-URL: Bug Tracker, https://github.com/biopragmatics/curies/issues
 Project-URL: Homepage, https://github.com/biopragmatics/curies

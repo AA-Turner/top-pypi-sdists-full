@@ -11,9 +11,9 @@ mod chain;
 pub use crate::combinators::chain::*;
 
 #[cfg(feature = "contrib")]
-mod sequential_compositor;
+mod sequential_composition;
 #[cfg(feature = "contrib")]
-pub use sequential_compositor::*;
+pub use sequential_composition::*;
 
 #[cfg(feature = "contrib")]
 mod select_private_candidate;
@@ -24,6 +24,11 @@ pub use select_private_candidate::*;
 mod measure_cast;
 #[cfg(feature = "contrib")]
 pub use crate::combinators::measure_cast::*;
+
+#[cfg(feature = "contrib")]
+mod privacy_filter;
+#[cfg(feature = "contrib")]
+pub use privacy_filter::*;
 
 #[cfg(feature = "contrib")]
 mod fix_delta;

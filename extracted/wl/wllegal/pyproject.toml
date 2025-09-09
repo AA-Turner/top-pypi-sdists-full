@@ -41,7 +41,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "wllegal"
 requires-python = ">=3.11"
-version = "2025.5"
+version = "2025.6"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -52,11 +52,11 @@ dev = [
   "wllegal[lint,test]"
 ]
 lint = [
-  "pre-commit==4.2.0"
+  "pre-commit==4.3.0"
 ]
 test = [
   "wllegal[weblate]",
-  "coverage==7.9.1",
+  "coverage==7.10.6",
   "translate-toolkit"
 ]
 weblate = [

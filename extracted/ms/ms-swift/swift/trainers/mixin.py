@@ -1,16 +1,21 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
 # Part of the implementation is borrowed from huggingface/transformers.
+import collections
 import inspect
 import logging
 import os
+import random
+import re
 import shutil
 import time
+import warnings
 from contextlib import contextmanager
 from copy import copy
 from functools import partial, wraps
 from types import MethodType
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import safetensors
 import torch
 import torch.distributed as dist
@@ -27,17 +32,16 @@ from transformers import PreTrainedModel
 from transformers.data.data_collator import DataCollator
 from transformers.integrations import is_deepspeed_zero3_enabled
 from transformers.modeling_utils import unwrap_model
-from transformers.trainer import TrainerCallback
-from transformers.trainer_utils import EvalPrediction, IntervalStrategy
-from transformers.utils import is_torch_npu_available
+from transformers.trainer import (OPTIMIZER_NAME, PREFIX_CHECKPOINT_DIR, SCHEDULER_NAME, TRAINER_STATE_NAME,
+                                  ParallelMode, TrainerCallback, reissue_pt_warnings)
+from transformers.trainer_utils import IntervalStrategy
 
 from swift.hub import get_hub
 from swift.llm import BatchSamplerShard, DataLoaderDispatcher, DataLoaderShard, Template
 from swift.llm.utils import update_generation_config_eos_token
-from swift.plugin import MeanMetric, compute_acc, extra_tuners
+from swift.plugin import MeanMetric, compute_acc, extra_tuners, get_loss_func, get_metric
 from swift.tuners import SwiftModel
 from swift.utils import get_logger, is_dist, is_mp, is_mp_ddp, ms_logger_context, seed_worker
-from ..utils.torch_utils import get_device_count
 from .arguments import TrainingArguments
 from .utils import can_return_loss, find_labels, get_function, is_instance_of_ms_model
 
@@ -50,6 +54,7 @@ logger = get_logger()
 
 
 class SwiftMixin:
+    FLASH_CKPT_WAIT_TIMEOUT = 1800
 
     def __init__(self,
                  model: Union[PreTrainedModel, Module] = None,
@@ -59,15 +64,13 @@ class SwiftMixin:
                  eval_dataset: Optional[Union[HfDataset, Dict[str, HfDataset]]] = None,
                  template: Optional[Template] = None,
                  model_init: Optional[Callable[[], PreTrainedModel]] = None,
-                 compute_loss_func: Optional[Callable] = None,
-                 compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
                  callbacks: Optional[List[TrainerCallback]] = None,
                  optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
-                 preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
                  **kwargs) -> None:
         if not hasattr(train_dataset, '__len__') and args.dataloader_num_workers > 1:
             args.dataloader_num_workers = 1
             logger.warning('Using IterableDataset, setting args.dataloader_num_workers to 1.')
+        self.compute_loss_func = None  # Compatible with the older version of transformers
 
         if args.check_model and hasattr(model, 'model_dir'):
             with ms_logger_context(logging.CRITICAL):
@@ -84,12 +87,19 @@ class SwiftMixin:
                 args.evaluation_strategy = IntervalStrategy.NO
                 args.eval_strategy = IntervalStrategy.NO
 
-        self._custom_metrics = {}
+        def _get_mean_metric():
+            return MeanMetric(nan_value=None, device=args.device)
+
+        self.custom_metrics = {
+            'train': collections.defaultdict(_get_mean_metric),
+            'eval': collections.defaultdict(_get_mean_metric)
+        }
         self.template = template
-        self.max_memory = 0
         self.hub = get_hub()
 
         self.model_meta = model.model_meta
+
+        kwargs.update(self.create_loss_and_metric(args))
         with self.hub.patch_hub():
             super().__init__(
                 model=model,
@@ -99,13 +109,10 @@ class SwiftMixin:
                 eval_dataset=eval_dataset,
                 tokenizer=template.tokenizer,
                 model_init=model_init,
-                compute_metrics=compute_metrics,
                 callbacks=callbacks,
                 optimizers=optimizers,
-                preprocess_logits_for_metrics=preprocess_logits_for_metrics,
                 **kwargs)
 
-        self.compute_loss_func = compute_loss_func
         if get_function(model.__class__.forward) is not get_function(model.forward):
             self.label_names = find_labels(model)
             self.can_return_loss = can_return_loss(model)
@@ -227,19 +234,32 @@ class SwiftMixin:
         if AutoModelForCausalLMWithValueHead is not None:
             supported_classes = supported_classes + (AutoModelForCausalLMWithValueHead, )
         save_safetensors = self.args.save_safetensors
+        use_flash_ckpt = self.args.use_flash_ckpt
+
         if not isinstance(self.model, supported_classes) and self.model.__class__.__name__ not in supported_names:
             if state_dict is None:
                 state_dict = self.model.state_dict()
 
             _unwrap_model = unwrap_model(self.model)
             if isinstance(_unwrap_model, supported_classes):
-                _unwrap_model.save_pretrained(output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
+                if use_flash_ckpt:
+                    _unwrap_model.save_pretrained(
+                        output_dir,
+                        state_dict=state_dict,
+                        safe_serialization=False,
+                        save_function=self.flash_checkpointer.ckpt_agent.save)
+                else:
+                    _unwrap_model.save_pretrained(
+                        output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
             else:
                 logger.info('Trainer.model is not a `PreTrainedModel`, only saving its state dict.')
-                if save_safetensors:
-                    safetensors.torch.save_file(state_dict, os.path.join(output_dir, 'model.safetensors'))
+                if use_flash_ckpt:
+                    self.flash_checkpointer.ckpt_agent.save(state_dict, os.path.join(output_dir, 'pytorch_model.bin'))
                 else:
-                    torch.save(state_dict, os.path.join(output_dir, 'pytorch_model.bin'))
+                    if save_safetensors:
+                        safetensors.torch.save_file(state_dict, os.path.join(output_dir, 'model.safetensors'))
+                    else:
+                        torch.save(state_dict, os.path.join(output_dir, 'pytorch_model.bin'))
         elif AutoModelForCausalLMWithValueHead and isinstance(self.model, AutoModelForCausalLMWithValueHead):
             # save reward model
             state_dict = self.model.state_dict()
@@ -258,14 +278,30 @@ class SwiftMixin:
             else:
                 torch.save(v_head_state_dict, os.path.join(output_dir, 'value_head.bin'))
         elif is_instance_of_ms_model(self.model):
-            PreTrainedModel.save_pretrained(
-                self.model, output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
+            if use_flash_ckpt:
+                PreTrainedModel.save_pretrained(
+                    self.model,
+                    output_dir,
+                    state_dict=state_dict,
+                    safe_serialization=False,
+                    save_function=self.flash_checkpointer.ckpt_agent.save)
+            else:
+                # modelscope save_pretrained does not support safe_serialization
+                PreTrainedModel.save_pretrained(
+                    self.model, output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
         elif self.args.train_type in extra_tuners:
             extra_tuners[self.args.train_type].save_pretrained(
                 self.model, output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
         else:
             if self.model.__class__.__name__ != 'SentenceTransformer':
-                self.model.save_pretrained(output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
+                if use_flash_ckpt:
+                    self.model.save_pretrained(
+                        output_dir,
+                        state_dict=state_dict,
+                        safe_serialization=False,
+                        save_function=self.flash_checkpointer.ckpt_agent.save)
+                else:
+                    self.model.save_pretrained(output_dir, state_dict=state_dict, safe_serialization=save_safetensors)
             else:
 
                 @contextmanager
@@ -281,8 +317,15 @@ class SwiftMixin:
                     self.model[0].auto_model.save_pretrained = save_pretrained
 
                 with save_context():
-                    self.model.save_pretrained(output_dir, safe_serialization=save_safetensors)
-                    # copy sentencetransformers files
+                    if use_flash_ckpt:
+                        self.model.save_pretrained(
+                            output_dir,
+                            state_dict=state_dict,
+                            safe_serialization=False,
+                            save_function=self.flash_checkpointer.ckpt_agent.save)
+                    else:
+                        self.model.save_pretrained(output_dir, safe_serialization=save_safetensors)
+                        # copy sentencetransformers files
                     from swift.utils import copy_files_by_pattern
                     copy_files_by_pattern(
                         self.model.model_dir, output_dir, '*.py', exclude_patterns=['model.safetensors.index.json'])
@@ -321,6 +364,71 @@ class SwiftMixin:
             if getattr(self.model, 'origin_generation_config', None):
                 self.model.origin_generation_config.save_pretrained(output_dir)
 
+    def _rotate_flash_checkpoints(self, use_mtime=False, output_dir=None) -> None:
+        if (self.args.save_total_limit is None or self.args.save_total_limit <= 0):
+            return
+
+        last_step = self._get_last_checkpoint_step()
+
+        # Check if we should delete older checkpoint(s)
+        checkpoints_sorted = self._sorted_checkpoints(use_mtime=use_mtime, output_dir=output_dir)
+
+        valid_checkpoints = []
+        for path in checkpoints_sorted:
+            regex_match = re.match(f'.*{PREFIX_CHECKPOINT_DIR}-([0-9]+)', path)
+            if regex_match is not None and regex_match.groups() is not None:
+                step = int(regex_match.groups()[0])
+                if step <= last_step:
+                    valid_checkpoints.append(path)
+
+        if len(valid_checkpoints) <= self.args.save_total_limit:
+            return
+
+        # If save_total_limit=1 with load_best_model_at_end=True,
+        # we could end up deleting the last checkpoint, which
+        # should be avoided and allow resuming
+        save_total_limit = self.args.save_total_limit
+        if (self.state.best_model_checkpoint is not None and self.args.save_total_limit == 1
+                and valid_checkpoints[-1] != self.state.best_model_checkpoint):
+            save_total_limit = 2
+
+        number_of_checkpoints_to_delete = max(0, len(valid_checkpoints) - save_total_limit)
+        checkpoints_to_be_deleted = valid_checkpoints[:number_of_checkpoints_to_delete]
+        for checkpoint in checkpoints_to_be_deleted:
+            logger.info(f'Deleting older checkpoint [{checkpoint}] '
+                        f'due to save_total_limit = {self.args.save_total_limit}.')
+            shutil.rmtree(checkpoint, ignore_errors=True)
+
+    def get_last_checkpoint(self):
+        """
+        Get the path of the last complete checkpoint. Some latter directories
+        may not have the complete checkpoint because the asynchronous
+        persistence may not finish. The step in the `dlrover_latest.txt` is
+        the last step of complete checkpoint. We can get the path by the step.
+        """
+        step = self._get_last_checkpoint_step()
+        if step == 0:
+            return False
+        checkpoint_folder = f'{PREFIX_CHECKPOINT_DIR}-{step}'
+        ckpt_dir = os.path.join(self.args.output_dir, checkpoint_folder)
+        return ckpt_dir
+
+    def _get_last_checkpoint_step(self):
+        tracer_file = os.path.join(self.args.output_dir, 'dlrover_latest.txt')
+        if not os.path.exists(tracer_file):
+            return 0
+        with open(tracer_file, 'r') as f:
+            step = int(f.read())
+        return step
+
+    def wait_latest_checkpoint(self, timeout=FLASH_CKPT_WAIT_TIMEOUT):
+        """
+        Wait for the latest checkpoint.
+        Args:
+            timeout (second): The timeout to wait.
+        """
+        self.flash_checkpointer.async_save_engine.wait_latest_checkpoint(timeout)
+
     def _fix_zero3_gather_all_parameters(self) -> None:
         if is_deepspeed_zero3_enabled() and not hasattr(self.deepspeed, '_zero3_consolidated_16bit_state_dict_origin'):
             parameters = inspect.signature(self.deepspeed._zero3_consolidated_16bit_state_dict).parameters
@@ -343,9 +451,119 @@ class SwiftMixin:
     def _save_checkpoint(self, *args, **kwargs):
         self.state.last_model_checkpoint = os.path.join(self.args.output_dir, f'checkpoint-{self.state.global_step}')
         self._fix_zero3_gather_all_parameters()
-        result = super()._save_checkpoint(*args, **kwargs)
+
+        if self.args.use_flash_ckpt:
+            result = self._save_flash_checkpoint(*args, **kwargs)
+        else:
+            result = super()._save_checkpoint(*args, **kwargs)
         logger.info(f'Saving model checkpoint to {self.state.last_model_checkpoint}')
         return result
+
+    def _save_flash_checkpoint(self, model, trial, metrics=None):
+        from transformers.trainer import DeepSpeedSchedulerWrapper
+        from transformers.trainer_utils import SaveStrategy
+        from dlrover.trainer.torch.flash_checkpoint.hf_trainer import HfDdpCheckpointer, HfDeepSpeedCheckpointer
+        run_dir = self._get_output_dir(trial=trial)
+
+        torch_native_save = torch.save
+
+        # Save model checkpoint
+        checkpoint_folder = f'{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}'
+        output_dir = os.path.join(run_dir, checkpoint_folder)
+
+        if not hasattr(self, 'flash_checkpointer'):
+            if self.is_deepspeed_enabled:
+                self.flash_checkpointer = HfDeepSpeedCheckpointer(self.model_wrapped, run_dir)
+            elif not self.is_deepspeed_enabled and not self.is_fsdp_enabled:
+                self.flash_checkpointer = HfDdpCheckpointer(run_dir)
+            else:
+                raise ValueError('Flash Checkpoint only supports DeepSpeed or DDP.')
+
+        if self.hp_search_backend is None and trial is None:
+            self.store_flos()
+
+        torch.save = self.flash_checkpointer.ckpt_agent.save
+        self.save_model(output_dir, _internal_call=True)
+        if self.is_deepspeed_enabled:
+            self.model_wrapped.save_checkpoint(output_dir)
+
+        elif (self.args.should_save and not self.is_deepspeed_enabled and not self.is_fsdp_enabled):
+            # deepspeed.save_checkpoint above saves model/optim/sched
+            torch.save(
+                self.optimizer.state_dict(),
+                os.path.join(output_dir, OPTIMIZER_NAME),
+            )
+
+        # Save SCHEDULER & SCALER
+        is_deepspeed_custom_scheduler = (
+            self.is_deepspeed_enabled and not isinstance(self.lr_scheduler, DeepSpeedSchedulerWrapper))
+        if self.args.should_save and (not self.is_deepspeed_enabled or is_deepspeed_custom_scheduler):
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                torch.save(
+                    self.lr_scheduler.state_dict(),
+                    os.path.join(output_dir, SCHEDULER_NAME),
+                )
+            reissue_pt_warnings(caught_warnings)
+        if self.args.save_strategy in [SaveStrategy.STEPS, SaveStrategy.EPOCH] and self.state.best_global_step:
+            best_checkpoint_folder = f'{PREFIX_CHECKPOINT_DIR}-{self.state.best_global_step}'
+            best_checkpoint_dir = os.path.join(run_dir, best_checkpoint_folder)
+
+            if os.path.exists(best_checkpoint_dir):
+                self.state.best_model_checkpoint = best_checkpoint_dir
+
+        # Save the Trainer state
+        if self.args.should_save:
+            # Update `ExportableState` callbacks and `TrainerControl` state to where we are currently
+            from transformers.trainer_callback import ExportableState
+            for cb in [
+                    cb for cb in self.callback_handler.callbacks + [self.control] if isinstance(cb, ExportableState)
+            ]:
+                cb_name = cb.__class__.__name__
+                cb_state = cb.state()
+                if isinstance(self.state.stateful_callbacks[cb_name], list):
+                    self.state.stateful_callbacks[cb_name].append(cb_state)
+                else:
+                    self.state.stateful_callbacks[cb_name] = cb_state
+            self.state.save_to_json(os.path.join(output_dir, TRAINER_STATE_NAME))
+        # Save RNG state in non-distributed training
+        rng_states = {
+            'python': random.getstate(),
+            'numpy': np.random.get_state(),
+            'cpu': torch.random.get_rng_state(),
+        }
+        if torch.cuda.is_available():
+            if self.args.parallel_mode == ParallelMode.DISTRIBUTED:
+                # In non distributed, we save the global
+                # CUDA RNG state (will take care of DataParallel)
+                rng_states['cuda'] = torch.cuda.random.get_rng_state_all()
+            else:
+                rng_states['cuda'] = torch.cuda.random.get_rng_state()
+
+        # A process can arrive here before the process 0 has a chance to
+        # save the model, in which case output_dir may not yet exist.
+        os.makedirs(output_dir, exist_ok=True)
+
+        if self.args.world_size <= 1:
+            torch.save(rng_states, os.path.join(output_dir, 'rng_state.pth'))
+        else:
+            torch.save(
+                rng_states,
+                os.path.join(output_dir, f'rng_state_{self.args.process_index}.pth'),
+            )
+
+        torch.save = torch_native_save
+        success = self.flash_checkpointer.save_checkpoint_to_storage(self.state.global_step)
+        if not success:
+            logger.info(f'Skip saving the checkpoint of step {self.state.global_step} '
+                        'because the latest checkpoint is not finished.')
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+        if self.args.push_to_hub:
+            self._push_from_checkpoint(output_dir)
+
+        # Maybe delete some older checkpoints.
+        if self.args.should_save:
+            self._rotate_flash_checkpoints(use_mtime=True, output_dir=run_dir)
 
     @staticmethod
     @contextmanager
@@ -464,14 +682,42 @@ class SwiftMixin:
         with self.hub.patch_hub():
             return super().push_to_hub(*args, **kwargs)
 
-    def get_max_cuda_memory(self, device: Optional[Union[torch.device, int]] = None) -> float:
-        if device is None:
-            mems = [torch.cuda.max_memory_reserved(device=device) for device in range(get_device_count())]
-        else:
-            mems = [torch.cuda.max_memory_reserved(device=device)]
-        mem = sum(mems) / 1024**3
-        self.max_memory = max(self.max_memory, mem)
-        return mem
+    @staticmethod
+    def compute_custom_metrics(metrics, key_prefix: str = ''):
+        logs = {}
+        # Synchronize keys to avoid getting stuck.
+        if dist.is_initialized():
+            all_keys = [None] * dist.get_world_size()
+            dist.all_gather_object(all_keys, list(metrics.keys()))
+            for key in set().union(*all_keys):
+                if key not in metrics:
+                    metrics[key]
+
+        for k, metric in sorted(metrics.items()):
+            k = f'{key_prefix}{k}'
+            value = metric.compute()
+            metric.reset()
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    val = list(value.values())[0]
+                    logs[k] = val
+                else:
+                    for k_suffix, val in value.items():
+                        new_k = f'{k}_{k_suffix}'
+                        logs[new_k] = val
+            else:
+                logs[k] = value
+        for k in list(logs.keys()):
+            if logs[k] is None:
+                logs.pop(k)
+        return logs
+
+    def log(self, logs: dict[str, float], *args, **kwargs) -> None:
+        mode = 'train' if self.model.training else 'eval'
+        metrics = self.custom_metrics[mode]
+        prefix = 'eval_' if mode == 'eval' else ''
+        logs.update(self.compute_custom_metrics(metrics, prefix))
+        return super().log(logs, *args, **kwargs)
 
     def _maybe_log_save_evaluate(self, tr_loss, *args, **kwargs):
         if self.control.should_log and self.state.global_step > self._globalstep_last_logged:
@@ -481,31 +727,11 @@ class SwiftMixin:
             tr_loss_scalar = self._nested_gather(tr_loss).mean().item()
             loss = tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged)
             logs: Dict[str, float] = {'loss': loss}  # loss first
-
-            for k, metric in self._custom_metrics.items():
-                value = metric.compute()
-                if len(value) == 1:
-                    val = list(value.values())[0]
-                    logs[k] = val
-                else:
-                    for k_suffix, val in value.items():
-                        new_k = f'{k}_{k_suffix}'
-                        logs[new_k] = val
-                metric.reset()
-
             if version.parse(transformers.__version__) >= version.parse('4.38'):
                 grad_norm = args[0]
                 if grad_norm is not None:
                     logs['grad_norm'] = grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm
             logs['learning_rate'] = self._get_learning_rate()
-            if not is_torch_npu_available():
-                logs['memory(GiB)'] = round(self.get_max_cuda_memory(), 2)
-
-            elapse_time = time.time() - self.start_time
-            logs['train_speed(iter/s)'] = round(self.state.global_step / elapse_time, 6)
-            for k in list(logs.keys()):
-                if logs[k] is None:
-                    logs.pop(k)
             tr_loss -= tr_loss
             self._total_loss_scalar += tr_loss_scalar
             self._globalstep_last_logged = self.state.global_step
@@ -513,10 +739,22 @@ class SwiftMixin:
             self.log(logs)
 
         if self.args.eval_use_evalscope and self.control.should_evaluate:
-            self._evalscope_eval()
+            try:
+                self._evalscope_eval()
+            except Exception as e:
+                logger.warning(f'Failed to call EvalScope evaluation function: {e}.')
+
             if not self.eval_dataset:
                 self.control.should_evaluate = False
         super()._maybe_log_save_evaluate(tr_loss, *args, **kwargs)
+
+    def create_loss_and_metric(self, args):
+        res = {}
+        if args.metric is not None:
+            res['compute_metrics'], res['preprocess_logits_for_metrics'] = get_metric(args.metric)
+        if args.loss_type is not None:
+            res['compute_loss_func'] = get_loss_func(args.loss_type)
+        return res
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         if self.args.optimizer is not None:
@@ -535,31 +773,33 @@ class SwiftMixin:
         preds = outputs.logits.argmax(dim=-1)
         metrics = compute_acc(
             preds, labels, acc_strategy=args.acc_strategy, is_encoder_decoder=self.template.is_encoder_decoder)
+        mode = 'train' if self.model.training else 'eval'
         for k, v in metrics.items():
-            if k not in self._custom_metrics:
-                self._custom_metrics[k] = MeanMetric(nan_value=None)
-            self._custom_metrics[k].update(v)
+            self.custom_metrics[mode][k].update(v)
 
     @torch.no_grad()
     def _evalscope_eval(self):
-        from ..llm.eval.utils import EvalModel
+        from ..llm.eval.utils import EvalModel  # registry here
         from evalscope import TaskConfig, run_task
-        from evalscope.constants import EvalType
 
         self.model.eval()
-        max_batch_size = self.args.per_device_eval_batch_size
-        custom_model = EvalModel(
-            self.model, self.template, max_batch_size=max_batch_size, model_name=f'model-step{self.state.global_step}')
-        task_config = TaskConfig(
-            model=custom_model,
-            eval_type=EvalType.CUSTOM,
+
+        task_config_kwargs = dict(
+            model=f'model-step{self.state.global_step}',
+            model_args=dict(
+                model=self.model,
+                template=self.template,
+            ),
+            eval_type='swift_custom',
             datasets=self.args.eval_dataset,
             dataset_args=self.args.eval_dataset_args,
             limit=self.args.eval_limit,
             work_dir=os.path.join(self.args.output_dir, 'eval'),
-            eval_batch_size=max_batch_size,
+            eval_batch_size=self.args.per_device_eval_batch_size,
             generation_config=self.args.eval_generation_config or {'max_tokens': 512},
         )
+        task_config_kwargs.update(self.args.extra_eval_args or {})
+        task_config = TaskConfig(**task_config_kwargs)
         # start evaluation
         eval_report = run_task(task_config)
         # convert to dict
@@ -569,29 +809,37 @@ class SwiftMixin:
         self.model.train()
         return eval_dict
 
-    def get_logits_to_keep(self, labels):
+    def prepare_logits_to_keep(self, inputs):
+        labels = inputs['labels']
+        loss_scale = inputs.get('loss_scale')
         if labels.shape[0] == 1 and not is_mp():
             # device_map may encounter device mismatch issues.
             loss_mask = (labels != -100)[0]
             labels = labels[:, loss_mask]
             labels = nn.functional.pad(labels, (1, 0), value=-100)
+            if loss_scale is not None:
+                loss_scale = loss_scale[:, loss_mask]
+                inputs['loss_scale'] = nn.functional.pad(loss_scale, (1, 0), value=0)
             logits_to_keep = nn.functional.pad(loss_mask[1:], (0, 1), value=True)
         else:
             logits_to_keep = labels.shape[-1] - ((labels != -100).int().argmax(-1).min().item()) + 1
             assert logits_to_keep > 0
             labels = labels[:, -logits_to_keep:]
-        return labels, logits_to_keep
+            if loss_scale is not None:
+                inputs['loss_scale'] = loss_scale[:, -logits_to_keep:]
+        inputs['labels'] = labels
+        inputs['logits_to_keep'] = logits_to_keep
 
     def get_cu_seqlens(self, position_ids, logits_to_keep) -> torch.Tensor:
         from swift.llm import get_packed_seq_params
-        cu_seqlens = get_packed_seq_params(position_ids)['cumulative_seqlens_q']
+        cu_seqlens = get_packed_seq_params(position_ids)['cu_seq_lens_q']
         res_cu_seqlens = cu_seqlens.clone()
         if isinstance(logits_to_keep, torch.Tensor):
             for i in range(cu_seqlens.shape[0] - 1):
                 start, end = cu_seqlens[i], cu_seqlens[i + 1]
                 res_cu_seqlens[i + 1:] -= (~logits_to_keep[start:end]).sum()
         elif isinstance(logits_to_keep, int):
-            res_cu_seqlens[1:] -= position_ids.shape[0] + 1 - logits_to_keep
+            res_cu_seqlens[1:] -= position_ids.shape[-1] + 1 - logits_to_keep
         return res_cu_seqlens
 
     def get_batch_samples(self, *args, **kwargs):

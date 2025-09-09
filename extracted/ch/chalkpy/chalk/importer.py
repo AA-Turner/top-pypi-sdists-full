@@ -1121,7 +1121,7 @@ class ChalkImporter:
                                         range=range,
                                         message=f"The underscore expression used to define feature '{f.namespace}.{f.name}' is invalid: "
                                         + str(valid_exc),
-                                        severity=DiagnosticSeverityGQL.Warning,
+                                        severity=DiagnosticSeverityGQL.Error,
                                         code="701",
                                         codeDescription=None,
                                         relatedInformation=None,

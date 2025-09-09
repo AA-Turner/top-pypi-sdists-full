@@ -6,6 +6,10 @@ from ..models.app_deactivated_webhook_v2 import AppDeactivatedWebhookV2
 from ..models.app_installed_webhook_v2 import AppInstalledWebhookV2
 from ..models.assay_run_created_webhook_v2 import AssayRunCreatedWebhookV2
 from ..models.assay_run_updated_fields_webhook_v2 import AssayRunUpdatedFieldsWebhookV2
+from ..models.automation_file_transform_failed_webhook_v2 import AutomationFileTransformFailedWebhookV2
+from ..models.automation_file_transform_pending_webhook_v2 import AutomationFileTransformPendingWebhookV2
+from ..models.automation_file_transform_running_webhook_v2 import AutomationFileTransformRunningWebhookV2
+from ..models.automation_file_transform_succeeded_webhook_v2 import AutomationFileTransformSucceededWebhookV2
 from ..models.canvas_created_webhook_v2 import CanvasCreatedWebhookV2
 from ..models.canvas_created_webhook_v2_beta import CanvasCreatedWebhookV2Beta
 from ..models.canvas_initialize_webhook_v2 import CanvasInitializeWebhookV2
@@ -56,6 +60,10 @@ WebhookMessageV0 = Union[
     CanvasInitializeWebhookV2,
     CanvasCreatedWebhookV2,
     CanvasCreatedWebhookV2Beta,
+    AutomationFileTransformRunningWebhookV2,
+    AutomationFileTransformPendingWebhookV2,
+    AutomationFileTransformSucceededWebhookV2,
+    AutomationFileTransformFailedWebhookV2,
     AppActivateRequestedWebhookV2,
     AppDeactivatedWebhookV2,
     AppInstalledWebhookV2,

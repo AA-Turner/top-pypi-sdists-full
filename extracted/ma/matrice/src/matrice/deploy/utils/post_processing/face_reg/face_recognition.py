@@ -48,6 +48,308 @@ from .people_activity_logging import PeopleActivityLogging
 from .embedding_manager import EmbeddingManager, EmbeddingConfig
 
 
+# ---- Lightweight identity tracking and temporal smoothing (adapted from compare_similarity.py) ---- #
+from collections import deque, defaultdict
+
+
+def _normalize_embedding(vec: List[float]) -> List[float]:
+    """Normalize an embedding vector to unit length (L2). Returns float32 list."""
+    try:
+        arr = np.asarray(vec, dtype=np.float32)
+        if arr.size == 0:
+            return []
+        n = np.linalg.norm(arr)
+        if n > 0:
+            arr = arr / n
+        return arr.tolist()
+    except Exception:
+        return []
+
+
+class FaceTracker:
+    """
+    Embedding-based face tracker:
+    - Matches new face embeddings to existing tracks via cosine similarity
+    - Creates a new track when no match exceeds the similarity threshold
+
+    Note: AdvancedTracker is still the primary tracker for bounding boxes.
+    This class is available as a lightweight fallback when external tracking is disabled.
+    """
+
+    def __init__(self, similarity_threshold: float = 0.60) -> None:
+        self.similarity_threshold = similarity_threshold
+        self.tracks: Dict[str, Dict[str, object]] = {}
+        self.track_counter: int = 1
+
+    @staticmethod
+    def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+        a = np.asarray(vec1, dtype=np.float32)
+        b = np.asarray(vec2, dtype=np.float32)
+        if a.size == 0 or b.size == 0:
+            return 0.0
+        an = np.linalg.norm(a)
+        bn = np.linalg.norm(b)
+        if an == 0.0 or bn == 0.0:
+            return 0.0
+        sim = float(np.dot(a, b) / (an * bn))
+        if sim > 1.0:
+            sim = 1.0
+        elif sim < -1.0:
+            sim = -1.0
+        return sim
+
+    def _find_matching_track(self, new_embedding: List[float]) -> Optional[str]:
+        if not new_embedding:
+            return None
+        best_similarity: float = 0.0
+        best_track_id: Optional[str] = None
+        for track_id, data in self.tracks.items():
+            stored_embedding = data.get("embedding")
+            if stored_embedding:
+                sim = self._cosine_similarity(new_embedding, stored_embedding)  # type: ignore
+                if sim > self.similarity_threshold and sim > best_similarity:
+                    best_similarity = sim
+                    best_track_id = track_id
+        return best_track_id
+
+    def assign_track_id(self, embedding: List[float], frame_id: Optional[int] = None) -> str:
+        match_id = self._find_matching_track(embedding)
+        if match_id is not None and match_id in self.tracks:
+            self.tracks[match_id]["last_seen_frame"] = frame_id
+            return match_id
+
+        new_id = f"face_id_{self.track_counter}"
+        self.tracks[new_id] = {
+            "embedding": _normalize_embedding(embedding),
+            "created_frame": frame_id,
+            "last_seen_frame": frame_id,
+        }
+        self.track_counter += 1
+        return new_id
+
+
+class TemporalIdentityManager:
+    """
+    Maintains stable identity labels per tracker ID using temporal smoothing and embedding history.
+
+    Adaptation for production: _compute_best_identity queries the face recognition API
+    via search_similar_faces(embedding, threshold=0.01, limit=1) to obtain top-1 match and score.
+    """
+
+    def __init__(
+        self,
+        face_client: FacialRecognitionClient,
+        recognition_threshold: float = 0.35,
+        history_size: int = 20,
+        unknown_patience: int = 7,
+        switch_patience: int = 5,
+        fallback_margin: float = 0.05,
+    ) -> None:
+        self.face_client = face_client
+        self.threshold = float(recognition_threshold)
+        self.history_size = int(history_size)
+        self.unknown_patience = int(unknown_patience)
+        self.switch_patience = int(switch_patience)
+        self.fallback_margin = float(fallback_margin)
+        self.tracks: Dict[Any, Dict[str, object]] = {}
+
+    def _ensure_track(self, track_id: Any) -> None:
+        if track_id not in self.tracks:
+            self.tracks[track_id] = {
+                "stable_staff_id": None,
+                "stable_person_name": None,
+                "stable_employee_id": None,
+                "stable_score": 0.0,
+                "stable_staff_details": {},
+                "label_votes": defaultdict(int),  # staff_id -> votes
+                "embedding_history": deque(maxlen=self.history_size),
+                "unknown_streak": 0,
+                "streaks": defaultdict(int),  # staff_id -> consecutive frames
+            }
+
+    async def _compute_best_identity(self, emb: List[float], location: str = "", timestamp: str = "") -> Tuple[Optional[str], str, float, Optional[str], Dict[str, Any], str]:
+        """
+        Query backend for top-1 match for the given embedding.
+        Returns (staff_id, person_name, score, employee_id, staff_details, detection_type).
+        Robust to varying response shapes.
+        """
+        if not emb or not isinstance(emb, list):
+            return None, "Unknown", 0.0, None, {}, "unknown"
+        try:
+            resp = await self.face_client.search_similar_faces(
+                face_embedding=emb,
+                threshold=0.01,  # low threshold to always get top-1
+                limit=1,
+                collection="staff_enrollment",
+                location=location,
+                timestamp=timestamp,
+            )
+        except Exception:
+            return None, "Unknown", 0.0, None, {}, "unknown"
+
+        try:
+            results: List[Any] = []
+            if isinstance(resp, dict):
+                if isinstance(resp.get("data"), list):
+                    results = resp.get("data", [])
+                elif isinstance(resp.get("results"), list):
+                    results = resp.get("results", [])
+                elif isinstance(resp.get("items"), list):
+                    results = resp.get("items", [])
+            elif isinstance(resp, list):
+                results = resp
+
+            if not results:
+                return None, "Unknown", 0.0, None, {}, "unknown"
+
+            item = results[0] if isinstance(results, list) else results
+            # Be defensive with keys and types
+            staff_id = item.get("staffId") if isinstance(item, dict) else None
+            employee_id = str(item.get("_id")) if isinstance(item, dict) and item.get("_id") is not None else None
+            score = float(item.get("score", 0.0)) if isinstance(item, dict) else 0.0
+            detection_type = str(item.get("detectionType", "unknown")) if isinstance(item, dict) else "unknown"
+            staff_details = item.get("staffDetails", {}) if isinstance(item, dict) else {}
+            # Extract a person name from staff_details
+            person_name = "Unknown"
+            if isinstance(staff_details, dict) and staff_details:
+                first_name = staff_details.get("firstName")
+                last_name = staff_details.get("lastName")
+                name = staff_details.get("name")
+                if name:
+                    person_name = str(name)
+                else:
+                    if first_name or last_name:
+                        person_name = f"{first_name or ''} {last_name or ''}".strip() or "Unknown"
+            # If API says unknown or missing staff_id, treat as unknown
+            if not staff_id or detection_type == "unknown":
+                return None, "Unknown", float(score), employee_id, staff_details if isinstance(staff_details, dict) else {}, "unknown"
+            return str(staff_id), person_name, float(score), employee_id, staff_details if isinstance(staff_details, dict) else {}, "known"
+        except Exception:
+            return None, "Unknown", 0.0, None, {}, "unknown"
+
+    async def _compute_best_identity_from_history(self, track_state: Dict[str, object], location: str = "", timestamp: str = "") -> Tuple[Optional[str], str, float, Optional[str], Dict[str, Any], str]:
+        hist: deque = track_state.get("embedding_history", deque())  # type: ignore
+        if not hist:
+            return None, "Unknown", 0.0, None, {}, "unknown"
+        try:
+            proto = np.mean(np.asarray(list(hist), dtype=np.float32), axis=0)
+            proto_list = proto.tolist() if isinstance(proto, np.ndarray) else list(proto)
+        except Exception:
+            proto_list = []
+        return await self._compute_best_identity(proto_list, location=location, timestamp=timestamp)
+
+    async def update(
+        self,
+        track_id: Any,
+        emb: List[float],
+        eligible_for_recognition: bool,
+        location: str = "",
+        timestamp: str = "",
+    ) -> Tuple[Optional[str], str, float, Optional[str], Dict[str, Any], str]:
+        """
+        Update temporal identity state for a track and return a stabilized identity.
+        Returns (staff_id, person_name, score, employee_id, staff_details, detection_type).
+        """
+        self._ensure_track(track_id)
+        s = self.tracks[track_id]
+
+        # Update embedding history
+        if emb:
+            try:
+                history: deque = s["embedding_history"]  # type: ignore
+                history.append(_normalize_embedding(emb))
+            except Exception:
+                pass
+
+        # Defaults for return values
+        stable_staff_id = s.get("stable_staff_id")
+        stable_person_name = s.get("stable_person_name")
+        stable_employee_id = s.get("stable_employee_id")
+        stable_score = float(s.get("stable_score", 0.0))
+        stable_staff_details = s.get("stable_staff_details", {}) if isinstance(s.get("stable_staff_details"), dict) else {}
+
+        if eligible_for_recognition and emb:
+            staff_id, person_name, inst_score, employee_id, staff_details, det_type = await self._compute_best_identity(
+                emb, location=location, timestamp=timestamp
+            )
+
+            is_inst_known = staff_id is not None and inst_score >= self.threshold
+            if is_inst_known:
+                s["label_votes"][staff_id] += 1  # type: ignore
+                s["streaks"][staff_id] += 1  # type: ignore
+                s["unknown_streak"] = 0
+
+                # Initialize stable if not set
+                if stable_staff_id is None:
+                    s["stable_staff_id"] = staff_id
+                    s["stable_person_name"] = person_name
+                    s["stable_employee_id"] = employee_id
+                    s["stable_score"] = float(inst_score)
+                    s["stable_staff_details"] = staff_details
+                    return staff_id, person_name, float(inst_score), employee_id, staff_details, "known"
+
+                # If same as stable, keep it and update score
+                if staff_id == stable_staff_id:
+                    s["stable_score"] = float(inst_score)
+                    # prefer latest name/details if present
+                    if person_name and person_name != stable_person_name:
+                        s["stable_person_name"] = person_name
+                    if isinstance(staff_details, dict) and staff_details:
+                        s["stable_staff_details"] = staff_details
+                    if employee_id:
+                        s["stable_employee_id"] = employee_id
+                    return staff_id, s.get("stable_person_name") or person_name, float(inst_score), s.get("stable_employee_id") or employee_id, s.get("stable_staff_details", {}), "known"
+
+                # Competing identity: switch only if sustained and with slight margin
+                if s["streaks"][staff_id] >= self.switch_patience and inst_score >= (self.threshold + 0.02):  # type: ignore
+                    s["stable_staff_id"] = staff_id
+                    s["stable_person_name"] = person_name
+                    s["stable_employee_id"] = employee_id
+                    s["stable_score"] = float(inst_score)
+                    s["stable_staff_details"] = staff_details
+                    # reset other streaks
+                    try:
+                        for k in list(s["streaks"].keys()):  # type: ignore
+                            if k != staff_id:
+                                s["streaks"][k] = 0  # type: ignore
+                    except Exception:
+                        pass
+                    return staff_id, person_name, float(inst_score), employee_id, staff_details, "known"
+
+                # Do not switch yet; keep stable but return instant score/name
+                return stable_staff_id, stable_person_name or person_name, float(inst_score), stable_employee_id or employee_id, stable_staff_details, "known" if stable_staff_id else "unknown"
+
+            # Instantaneous is unknown or low score
+            s["unknown_streak"] = int(s.get("unknown_streak", 0)) + 1
+            if stable_staff_id is not None and s["unknown_streak"] <= self.unknown_patience:  # type: ignore
+                return stable_staff_id, stable_person_name or "Unknown", float(inst_score), stable_employee_id, stable_staff_details, "known"
+
+            # Fallback: use prototype from history
+            fb_staff_id, fb_name, fb_score, fb_employee_id, fb_details, fb_type = await self._compute_best_identity_from_history(s, location=location, timestamp=timestamp)
+            if fb_staff_id is not None and fb_score >= max(0.0, self.threshold - self.fallback_margin):
+                s["label_votes"][fb_staff_id] += 1  # type: ignore
+                s["stable_staff_id"] = fb_staff_id
+                s["stable_person_name"] = fb_name
+                s["stable_employee_id"] = fb_employee_id
+                s["stable_score"] = float(fb_score)
+                s["stable_staff_details"] = fb_details
+                s["unknown_streak"] = 0
+                return fb_staff_id, fb_name, float(fb_score), fb_employee_id, fb_details, "known"
+
+            # No confident identity
+            s["stable_staff_id"] = stable_staff_id
+            s["stable_person_name"] = stable_person_name
+            s["stable_employee_id"] = stable_employee_id
+            s["stable_score"] = float(stable_score)
+            s["stable_staff_details"] = stable_staff_details
+            return None, "Unknown", float(inst_score), None, {}, "unknown"
+
+        # Not eligible or no embedding; keep stable if present
+        if stable_staff_id is not None:
+            return stable_staff_id, stable_person_name or "Unknown", float(stable_score), stable_employee_id, stable_staff_details, "known"
+        return None, "Unknown", 0.0, None, {}, "unknown"
+
+
 @dataclass
 class FaceRecognitionEmbeddingConfig(BaseConfig):
     """Configuration for face recognition with embeddings use case."""
@@ -60,7 +362,9 @@ class FaceRecognitionEmbeddingConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
 
     # Base confidence threshold (separate from embedding similarity threshold)
-    confidence_threshold: float = 0.6
+    similarity_threshold: float = 0.45
+    # Base confidence threshold (separate from embedding similarity threshold)
+    confidence_threshold: float = 0.1
     
     # Face recognition optional features
     enable_face_tracking: bool = True  # Enable advanced face tracking
@@ -89,9 +393,6 @@ class FaceRecognitionEmbeddingConfig(BaseConfig):
     # Embedding configuration
     embedding_config: Optional[Any] = None  # Will be set to EmbeddingConfig instance
     
-    # Similarity and confidence thresholds
-    similarity_threshold: float = 0.35
-    confidence_threshold: float = 0.6
     
     # Track ID cache optimization settings
     enable_track_id_cache: bool = True
@@ -156,6 +457,15 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
 
         # Initialize EmbeddingManager - will be configured in process method
         self.embedding_manager = None
+        # Temporal identity manager for API-based top-1 identity smoothing
+        self.temporal_identity_manager = None
+        # Lightweight face tracker as fallback if external tracker disabled
+        self.simple_face_tracker = None
+        # Optional gating similar to compare_similarity
+        self._track_first_seen: Dict[int, int] = {}
+        self._probation_frames: int = 260  # default gate ~4 seconds at 60 fps; tune per stream
+        self._min_face_w: int = 30
+        self._min_face_h: int = 30
 
     def _get_facial_recognition_client(
         self, config: FaceRecognitionEmbeddingConfig
@@ -222,6 +532,21 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                 )
             self.embedding_manager = EmbeddingManager(config.embedding_config, self.face_client)
 
+        # Initialize TemporalIdentityManager (top-1 via API with smoothing)
+        if not self.temporal_identity_manager:
+            self.temporal_identity_manager = TemporalIdentityManager(
+                face_client=self.face_client,
+                recognition_threshold=float(getattr(config, "similarity_threshold", 0.35) or 0.35),
+                history_size=20,
+                unknown_patience=7,
+                switch_patience=5,
+                fallback_margin=0.05,
+            )
+
+        # Initialize lightweight tracker only if advanced tracking disabled
+        if not config.enable_face_tracking and self.simple_face_tracker is None:
+            self.simple_face_tracker = FaceTracker(similarity_threshold=0.60)
+
         # Detect input format and store in context
         input_format = match_results_structure(data)
         context.input_format = input_format
@@ -283,7 +608,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
             )
 
         # Advanced tracking (BYTETracker-like) - only if enabled
-        if config.enable_face_tracking:
+        if True:#config.enable_face_tracking:
             try:
                 from ..advanced_tracker import AdvancedTracker
                 from ..advanced_tracker.config import TrackerConfig
@@ -292,12 +617,15 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                 if self.tracker is None:
                     if config.confidence_threshold is not None:
                         tracker_config = TrackerConfig(
-                            track_high_thresh=float(config.confidence_threshold),
-                            # Allow even lower detections to participate in secondary association
-                            track_low_thresh=max(
-                                0.05, float(config.confidence_threshold) / 2
-                            ),
-                            new_track_thresh=float(config.confidence_threshold),
+                                        track_high_thresh=0.5,
+                                        track_low_thresh=0.05,
+                                        new_track_thresh=0.5,
+                                        match_thresh=0.8,
+                                        track_buffer=int(300),  # allow short occlusions
+                                        max_time_lost=int(150),
+                                        fuse_score=True,
+                                        enable_gmc=False,
+                                        frame_rate=int(20)
                         )
                     else:
                         tracker_config = TrackerConfig()
@@ -318,6 +646,17 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                 self.logger.warning(f"AdvancedTracker failed: {e}")
         else:
             self.logger.debug("Advanced face tracking disabled in configuration")
+            # Assign track IDs using lightweight FaceTracker based on embeddings
+            if self.simple_face_tracker is None:
+                self.simple_face_tracker = FaceTracker(similarity_threshold=0.60)
+            for det in processed_data:
+                try:
+                    emb = det.get("embedding", []) or []
+                    assigned_id = self.simple_face_tracker.assign_track_id(emb, frame_id=det.get("frame_id", 0))
+                    det["track_id"] = assigned_id
+                except Exception:
+                    # Leave track_id as-is if assignment fails
+                    pass
 
         # Initialize local recognition summary variables
         current_recognized_count = 0
@@ -387,13 +726,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         business_analytics_list = self._generate_business_analytics(
             counting_summary, alerts, config, stream_info, is_empty=True
         )
-        summary_list = self._generate_summary(
-            counting_summary,
-            incidents_list,
-            tracking_stats_list,
-            business_analytics_list,
-            alerts,
-        )
+        summary_list = self._generate_summary(incidents_list, tracking_stats_list, business_analytics_list)
 
         # Extract frame-based dictionaries from the lists
         incidents = incidents_list[0] if incidents_list else {}
@@ -645,34 +978,86 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         if not track_id:
             self.logger.warning("No track_id found in detection - cannot use cache optimization")
 
-        # Search for face using EmbeddingManager
-        search_result = await self.embedding_manager.search_face_embedding(
-            embedding=embedding,
-            track_id=track_id,
-            location=location,
-            timestamp=current_timestamp
-        )
+        # Determine if detection is eligible for recognition (similar to compare_similarity gating)
+        bbox = detection.get("bounding_box", {}) or {}
+        x1 = int(bbox.get("xmin", bbox.get("x1", 0)))
+        y1 = int(bbox.get("ymin", bbox.get("y1", 0)))
+        x2 = int(bbox.get("xmax", bbox.get("x2", 0)))
+        y2 = int(bbox.get("ymax", bbox.get("y2", 0)))
+        w_box = max(1, x2 - x1)
+        h_box = max(1, y2 - y1)
+        frame_id = detection.get("frame_id", None)
 
-        if not search_result:
-            return None
+        # Track probation age if we have a track_id
+        if track_id is not None:
+            if track_id not in self._track_first_seen:
+                try:
+                    self._track_first_seen[track_id] = int(frame_id) if frame_id is not None else self._total_frame_counter
+                except Exception:
+                    self._track_first_seen[track_id] = self._total_frame_counter
+            age_frames = (int(frame_id) if frame_id is not None else self._total_frame_counter) - int(self._track_first_seen.get(track_id, 0)) + 1
+        else:
+            age_frames = 1
 
-        # Extract variables from search result
-        employee_id = search_result.employee_id
-        staff_id = search_result.staff_id
-        detection_type = search_result.detection_type
-        staff_details = search_result.staff_details
-        person_name = search_result.person_name
-        similarity_score = search_result.similarity_score
+        eligible_for_recognition = (w_box >= self._min_face_w and h_box >= self._min_face_h)
 
-        # Update detection object with the search result variables
-        detection = self.embedding_manager.update_detection_with_search_result(search_result, detection)
-        if not detection:
-            return None
+        # Primary: API-based identity smoothing via TemporalIdentityManager
+        staff_id = None
+        person_name = "Unknown"
+        similarity_score = 0.0
+        employee_id = None
+        staff_details: Dict[str, Any] = {}
+        detection_type = "unknown"
+        try:
+            if self.temporal_identity_manager:
+                staff_id, person_name, similarity_score, employee_id, staff_details, detection_type = await self.temporal_identity_manager.update(
+                    track_id=track_id if track_id is not None else f"no_track_{id(detection)}",
+                    emb=embedding,
+                    eligible_for_recognition=eligible_for_recognition,
+                    location=location,
+                    timestamp=current_timestamp,
+                )
+        except Exception as e:
+            self.logger.warning(f"TemporalIdentityManager update failed: {e}")
+
+        # Fallback: if still unknown and we have an EmbeddingManager, use local search
+        if (staff_id is None or detection_type == "unknown") and self.embedding_manager is not None:
+            try:
+                search_result = await self.embedding_manager.search_face_embedding(
+                    embedding=embedding,
+                    track_id=track_id,
+                    location=location,
+                    timestamp=current_timestamp,
+                )
+                if search_result:
+                    employee_id = search_result.employee_id
+                    staff_id = search_result.staff_id
+                    detection_type = search_result.detection_type
+                    staff_details = search_result.staff_details
+                    person_name = search_result.person_name
+                    similarity_score = search_result.similarity_score
+            except Exception as e:
+                self.logger.warning(f"Local embedding search fallback failed: {e}")
+
+        # Update detection object directly (avoid relying on SearchResult type)
+        detection = detection.copy()
+        detection["person_id"] = staff_id
+        detection["person_name"] = person_name or "Unknown"
+        detection["recognition_status"] = "known" if staff_id else "unknown"
+        detection["employee_id"] = employee_id
+        detection["staff_details"] = staff_details if isinstance(staff_details, dict) else {}
+        detection["similarity_score"] = float(similarity_score)
+        if staff_id:
+            detection["enrolled"] = True
+            detection["category"] = f"{(person_name or 'Unknown').replace(' ', '_')}_{staff_id}"
+        else:
+            detection["enrolled"] = False
+            detection["category"] = "unrecognized"
 
         # Update global tracking using thread-safe operations
         # Count as unknown if detection_type is "unknown" OR person_name starts with "Unknown"
-        is_truly_unknown = (detection_type == "unknown" or 
-                           (person_name and person_name.startswith("Unknown")))
+        is_truly_unknown = (detection.get("recognition_status") == "unknown" or 
+                           (person_name and str(person_name).startswith("Unknown")))
         
         if not is_truly_unknown and detection_type == "known":
             # This is a recognized person - track globally
@@ -1050,6 +1435,12 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         human_text_lines.append(f"\tTotal Faces: {total_current}")
         human_text_lines.append(f"\tRecognized: {current_recognized}")
         human_text_lines.append(f"\tUnknown: {current_unknown}")
+        # Additional counts similar to compare_similarity HUD
+        try:
+            human_text_lines.append(f"\tCurrent Faces (detections): {total_detections}")
+            human_text_lines.append(f"\tTotal Unique Tracks: {cumulative_total}")
+        except Exception:
+            pass
 
         human_text = "\n".join(human_text_lines)
 
@@ -1229,41 +1620,24 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
             return []
         return []
 
-    def _generate_summary(
-        self,
-        summary: dict,
-        incidents: List,
-        tracking_stats: List,
-        business_analytics: List,
-        alerts: List,
-    ) -> List[str]:
+    def _generate_summary(self, incidents: List, tracking_stats: List, business_analytics: List) -> List[str]:
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
         """
-        lines = {}
-        lines["Application Name"] = self.CASE_TYPE
-        lines["Application Version"] = self.CASE_VERSION
+        lines = []
+        lines.append("Application Name: "+self.CASE_TYPE)
+        lines.append("Application Version: "+self.CASE_VERSION)
         if len(incidents) > 0:
-            lines["Incidents:"] = (
-                f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
-            )
+            lines.append("Incidents: "+f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
         if len(tracking_stats) > 0:
-            lines["Tracking Statistics:"] = (
-                f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
-            )
+            lines.append("Tracking Statistics: "+f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}")
         if len(business_analytics) > 0:
-            lines["Business Analytics:"] = (
-                f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
-            )
+            lines.append("Business Analytics: "+f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}")
 
-        if (
-            len(incidents) == 0
-            and len(tracking_stats) == 0
-            and len(business_analytics) == 0
-        ):
-            lines["Summary"] = "No Summary Data"
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines.append("Summary: "+"No Summary Data")
 
-        return [lines]
+        return ["\n".join(lines)]
 
     # Include all the standard helper methods from face_recognition.py...
     def _count_categories(

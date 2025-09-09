@@ -80,7 +80,7 @@ For more context, see :ref:`{name} in the User Guide <{name}-user-guide>`.
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp"
         )
@@ -196,8 +196,10 @@ def {then_name}(
 ):  
     r"""partial constructor of {func_name}
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.{module_name}.{func_name}`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.{module_name}.{func_name}`
 
 {doc_params}{example}
     """
@@ -353,6 +355,8 @@ fn generate_docstring(
 
     format!(
         r#"r"""{description}
+.. end-markdown
+
 {doc_args}{ret_arg}
 {raises}{example}
 """"#,
@@ -378,7 +382,11 @@ fn generate_docstring_arg(arg: &Argument, hierarchy: &HashMap<String, Vec<String
             })
             .map(|v| format!("\n:type {}: {}", name, v))
             .unwrap_or_default(),
-        description = arg.description.clone().unwrap_or_default()
+        description = arg
+            .description
+            .clone()
+            .unwrap_or_default()
+            .replace("`", "``") // markdown "`" to rst "``"
     )
 }
 

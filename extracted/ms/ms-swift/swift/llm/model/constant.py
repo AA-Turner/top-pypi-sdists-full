@@ -14,6 +14,7 @@ class LLMModelType:
     qwq = 'qwq'
     qwen3 = 'qwen3'
     qwen3_thinking = 'qwen3_thinking'
+    qwen3_nothinking = 'qwen3_nothinking'
     qwen3_moe = 'qwen3_moe'
     qwen3_moe_thinking = 'qwen3_moe_thinking'
     qwen3_emb = 'qwen3_emb'
@@ -35,6 +36,7 @@ class LLMModelType:
     yi_coder = 'yi_coder'
     sus = 'sus'
     gpt_oss = 'gpt_oss'
+    seed_oss = 'seed_oss'
 
     codefuse_codellama = 'codefuse_codellama'
     mengzi3 = 'mengzi3'
@@ -64,6 +66,7 @@ class LLMModelType:
     deepseek_v2_5 = 'deepseek_v2_5'
     deepseek_r1 = 'deepseek_r1'
     deepseek_r1_distill = 'deepseek_r1_distill'
+    deepseek_v3_1 = 'deepseek_v3_1'
 
     openbuddy_llama = 'openbuddy_llama'
     openbuddy_llama3 = 'openbuddy_llama3'
@@ -127,6 +130,7 @@ class LLMModelType:
     hunyuan_moe = 'hunyuan_moe'
     hunyuan = 'hunyuan'
     ernie = 'ernie'
+    longchat = 'longchat'
 
 
 class BertModelType:
@@ -163,6 +167,7 @@ class MLLMModelType:
 
     glm4v = 'glm4v'
     glm4_1v = 'glm4_1v'
+    glm4_5v = 'glm4_5v'
     glm_edge_v = 'glm_edge_v'
     cogvlm = 'cogvlm'
     cogagent_vqa = 'cogagent_vqa'
@@ -178,6 +183,7 @@ class MLLMModelType:
     internvl3 = 'internvl3'
     internvl3_5 = 'internvl3_5'
     internvl3_5_gpt = 'internvl3_5_gpt'
+    interns1 = 'interns1'
     xcomposer2 = 'xcomposer2'
     xcomposer2_4khd = 'xcomposer2_4khd'
     xcomposer2_5 = 'xcomposer2_5'
@@ -216,6 +222,7 @@ class MLLMModelType:
     minicpmv2_6 = 'minicpmv2_6'
     minicpmo2_6 = 'minicpmo2_6'
     minicpmv4 = 'minicpmv4'
+    minicpmv4_5 = 'minicpmv4_5'
 
     minimax_vl = 'minimax_vl'
 

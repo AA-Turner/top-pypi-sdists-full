@@ -164,7 +164,7 @@ if pl is not None:
         dp.series_domain("A", dp.atom_domain(T="i32")), 
         dp.series_domain("B", dp.atom_domain(T=str))
     ])
-    lf_domain_with_margin = dp.with_margin(lf_domain, Margin(by=[], max_partition_length=1000))
+    lf_domain_with_margin = dp.with_margin(lf_domain, Margin(by=[], max_length=1000))
 
     context = dp.Context.compositor(
         data=pl.LazyFrame({"age": [1, 2, 3]}),
@@ -188,7 +188,7 @@ if pl is not None:
             ),
             dp.m.make_private_expr(
                 dp.wild_expr_domain([], dp.polars.Margin(by=[])),
-                dp.partition_distance(dp.symmetric_distance()),
+                dp.l01inf_distance(dp.symmetric_distance()),
                 dp.max_divergence(),
                 dp.len(scale=1.0)
             ),

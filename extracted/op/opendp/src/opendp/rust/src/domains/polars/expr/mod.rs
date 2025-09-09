@@ -4,11 +4,10 @@ use std::fmt::{Debug, Formatter};
 
 use crate::core::{Metric, MetricSpace};
 use crate::metrics::{
-    AbsoluteDistance, ChangeOneDistance, HammingDistance, InsertDeleteDistance, LInfDistance,
-    LpDistance, Parallel, PartitionDistance, SymmetricDistance,
+    AbsoluteDistance, FrameDistance, L0InfDistance, L0PInfDistance, LInfDistance, LpDistance,
 };
 use crate::traits::ProductOrd;
-use crate::transformations::DatasetMetric;
+use crate::transformations::traits::UnboundedMetric;
 use crate::{core::Domain, error::Fallible};
 
 use super::{Frame, FrameDomain, LazyFrameDomain, Margin, SeriesDomain};
@@ -158,7 +157,7 @@ impl From<DslPlan> for ExprPlan {
     fn from(value: DslPlan) -> Self {
         ExprPlan {
             plan: value,
-            expr: all(),
+            expr: Expr::Selector(all()),
             fill: None,
         }
     }
@@ -202,10 +201,10 @@ impl Domain for ExprDomain {
 
 /// OuterMetric encodes the relationship between
 /// the metric on data that may be grouped vs the metric on individual groups.
-pub trait OuterMetric: 'static + Metric + Send + Sync {
+pub trait OuterMetric: 'static + Metric {
     /// # Proof Definition
     /// Type of metric used to measure distances between each group.
-    type InnerMetric: Metric + Send + Sync;
+    type InnerMetric: Metric;
 
     /// # Proof Definition
     /// Returns the inner metric of `self`.
@@ -214,20 +213,7 @@ pub trait OuterMetric: 'static + Metric + Send + Sync {
     fn inner_metric(&self) -> Self::InnerMetric;
 }
 
-macro_rules! impl_expr_metric_select {
-    ($($ty:ty)+) => {$(
-        impl OuterMetric for $ty {
-            type InnerMetric = Self;
-
-            fn inner_metric(&self) -> Self::InnerMetric {
-                self.clone()
-            }
-        })+
-    }
-}
-impl_expr_metric_select!(InsertDeleteDistance SymmetricDistance HammingDistance ChangeOneDistance);
-
-impl<M: 'static + Metric> OuterMetric for PartitionDistance<M> {
+impl<M: UnboundedMetric> OuterMetric for FrameDistance<M> {
     type InnerMetric = M;
 
     fn inner_metric(&self) -> Self::InnerMetric {
@@ -235,7 +221,15 @@ impl<M: 'static + Metric> OuterMetric for PartitionDistance<M> {
     }
 }
 
-impl<M: 'static + Metric> OuterMetric for Parallel<M> {
+impl<const P: usize, M: 'static + Metric> OuterMetric for L0PInfDistance<P, M> {
+    type InnerMetric = M;
+
+    fn inner_metric(&self) -> Self::InnerMetric {
+        self.0.clone()
+    }
+}
+
+impl<M: 'static + Metric> OuterMetric for L0InfDistance<M> {
     type InnerMetric = M;
 
     fn inner_metric(&self) -> Self::InnerMetric {
@@ -251,7 +245,7 @@ impl<const P: usize, Q: 'static> OuterMetric for LpDistance<P, Q> {
     }
 }
 
-impl<M: DatasetMetric> MetricSpace for (WildExprDomain, M) {
+impl<M: UnboundedMetric> MetricSpace for (WildExprDomain, FrameDistance<M>) {
     fn check_space(&self) -> Fallible<()> {
         let (expr_domain, metric) = self;
         (
@@ -262,9 +256,9 @@ impl<M: DatasetMetric> MetricSpace for (WildExprDomain, M) {
     }
 }
 
-impl<M: DatasetMetric> MetricSpace for (WildExprDomain, PartitionDistance<M>) {
+impl<const P: usize, M: UnboundedMetric> MetricSpace for (WildExprDomain, L0PInfDistance<P, M>) {
     fn check_space(&self) -> Fallible<()> {
-        let (expr_domain, PartitionDistance(inner_metric)) = self;
+        let (expr_domain, L0PInfDistance(inner_metric)) = self;
         (
             expr_domain.clone().to_frame_domain::<DslPlan>()?,
             inner_metric.clone(),
@@ -273,7 +267,7 @@ impl<M: DatasetMetric> MetricSpace for (WildExprDomain, PartitionDistance<M>) {
     }
 }
 
-impl<M: DatasetMetric> MetricSpace for (ExprDomain, M) {
+impl<M: UnboundedMetric> MetricSpace for (ExprDomain, FrameDistance<M>) {
     fn check_space(&self) -> Fallible<()> {
         Ok(())
     }
@@ -284,24 +278,57 @@ impl<Q: ProductOrd, const P: usize> MetricSpace for (ExprDomain, LpDistance<P, Q
         if ![1, 2].contains(&P) {
             return fallible!(MetricSpace, "P must be 1 or 2");
         }
+        let column = &self.0.column;
+        if column.nullable {
+            return fallible!(
+                MetricSpace,
+                "LpDistance between vectors with nulls is undefined"
+            );
+        }
+        if !column.dtype().is_primitive_numeric() {
+            return fallible!(
+                MetricSpace,
+                "LpDistance is only well defined for numeric data"
+            );
+        }
         Ok(())
     }
 }
 
 impl<Q: ProductOrd> MetricSpace for (ExprDomain, LInfDistance<Q>) {
     fn check_space(&self) -> Fallible<()> {
+        let column = &self.0.column;
+        if column.nullable {
+            return fallible!(
+                MetricSpace,
+                "LInfDistance between vectors with nulls is undefined"
+            );
+        }
+        if let DataType::Array(inner_dtype, _) = column.dtype() {
+            if !inner_dtype.is_primitive_numeric() {
+                return fallible!(
+                    MetricSpace,
+                    "LInfDistance is only well defined for numeric array data"
+                );
+            }
+        } else {
+            return fallible!(
+                MetricSpace,
+                "LInfDistance is only well defined for array data"
+            );
+        }
         Ok(())
     }
 }
 
-impl<Q: ProductOrd> MetricSpace for (ExprDomain, Parallel<LInfDistance<Q>>) {
+impl<Q: ProductOrd> MetricSpace for (ExprDomain, L0InfDistance<LInfDistance<Q>>) {
     fn check_space(&self) -> Fallible<()> {
-        let (expr_domain, Parallel(inner_metric)) = self;
+        let (expr_domain, L0InfDistance(inner_metric)) = self;
         (expr_domain.clone(), inner_metric.clone()).check_space()
     }
 }
 
-impl<M: DatasetMetric> MetricSpace for (ExprDomain, PartitionDistance<M>) {
+impl<const P: usize, M: UnboundedMetric> MetricSpace for (ExprDomain, L0PInfDistance<P, M>) {
     fn check_space(&self) -> Fallible<()> {
         Ok(())
     }

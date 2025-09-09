@@ -5,8 +5,7 @@ import re
 from collections.abc import Generator
 from importlib.metadata import version
 from re import Pattern
-from typing import Any
-from typing import Literal
+from typing import Any, Literal
 
 from flake8.options.manager import OptionManager
 
@@ -79,7 +78,7 @@ class ImportChecker:
             elif module.endswith(".*"):
                 # structured
                 cls.banned_structured_patterns.append((module, message))
-                # Also check for exact matches without the wilcard
+                # Also check for exact matches without the wildcard
                 # e.g. "foo.*" matches "foo"
                 prefix = module[:-2]
                 if prefix not in cls.banned_modules:
@@ -87,7 +86,7 @@ class ImportChecker:
             else:
                 cls.banned_modules[module] = message
 
-        # Sort the structured patterns so we match the specifc ones first.
+        # Sort the structured patterns so we match the specific ones first.
         cls.banned_structured_patterns.sort(key=lambda x: len(x[0]), reverse=True)
 
         cls.ban_relative_imports = options.ban_relative_imports
@@ -137,7 +136,7 @@ class ImportChecker:
     @staticmethod
     def compile_unstructured_glob(s: str) -> Pattern[str]:
         # Convert the patter to a regex such that ".*"
-        # matches zero or more moduels.
+        # matches zero or more modules.
         parts = s.split(".")
         transformed_parts = [
             "(\\..*)?" if p == "*" else "\\." + re.escape(p) for p in parts
@@ -202,11 +201,7 @@ class ImportChecker:
             min_node_level = 0
             message = "I252 Relative imports are banned."
 
-        if (
-            self.ban_relative_imports
-            and isinstance(node, ast.ImportFrom)
-            and node.level > min_node_level
-        ):
+        if isinstance(node, ast.ImportFrom) and node.level > min_node_level:
             yield (node.lineno, node.col_offset, message, type(self))
 
     python2to3_banned_modules = {

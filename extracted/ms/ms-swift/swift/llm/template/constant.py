@@ -14,6 +14,7 @@ class LLMTemplateType:
     qwen2_5_math_prm = 'qwen2_5_math_prm'
     qwen3 = 'qwen3'
     qwen3_thinking = 'qwen3_thinking'
+    qwen3_nothinking = 'qwen3_nothinking'
     qwen3_emb = 'qwen3_emb'
     qwen3_reranker = 'qwen3_reranker'
     qwq_preview = 'qwq_preview'
@@ -29,6 +30,7 @@ class LLMTemplateType:
     yi_coder = 'yi_coder'
     sus = 'sus'
     gpt_oss = 'gpt_oss'
+    seed_oss = 'seed_oss'
 
     minimax = 'minimax'
     minimax_m1 = 'minimax_m1'
@@ -55,6 +57,7 @@ class LLMTemplateType:
     deepseek_coder = 'deepseek_coder'
     deepseek_v2_5 = 'deepseek_v2_5'
     deepseek_r1 = 'deepseek_r1'
+    deepseek_v3_1 = 'deepseek_v3_1'
 
     openbuddy = 'openbuddy'
     openbuddy2 = 'openbuddy2'
@@ -92,6 +95,7 @@ class LLMTemplateType:
     hunyuan_moe = 'hunyuan_moe'
     hunyuan = 'hunyuan'
     ernie = 'ernie'
+    longchat = 'longchat'
 
     aya = 'aya'
     c4ai = 'c4ai'
@@ -150,6 +154,7 @@ class MLLMTemplateType:
     internvl2_5 = 'internvl2_5'
     internvl3_5 = 'internvl3_5'
     internvl3_5_gpt = 'internvl3_5_gpt'
+    interns1 = 'interns1'
 
     xcomposer2 = 'ixcomposer2'
     xcomposer2_4khd = 'xcomposer2_4khd'
@@ -163,12 +168,14 @@ class MLLMTemplateType:
     glm4v = 'glm4v'
     glm4_1v = 'glm4_1v'
     glm_edge_v = 'glm_edge_v'
+    glm4_5v = 'glm4_5v'
 
     minicpmv = 'minicpmv'
     minicpmv2_5 = 'minicpmv2_5'
     minicpmv2_6 = 'minicpmv2_6'
     minicpmo2_6 = 'minicpmo2_6'
     minicpmv4 = 'minicpmv4'
+    minicpmv4_5 = 'minicpmv4_5'
 
     deepseek_vl = 'deepseek_vl'
     deepseek_vl2 = 'deepseek_vl2'

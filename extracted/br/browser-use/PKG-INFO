@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.7.4
+Version: 0.7.6
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -106,7 +106,7 @@ Description-Content-Type: text/markdown
 We just hit **69,000 GitHub ⭐**!
 To celebrate, we're launching **#nicehack69** — a Twitter-first hackathon with a **$6,900 prize pool**. Dream big and show us the future of browser-use agents that go beyond demos!
 
-**Deadline: September 6, 2025**
+**Deadline: September 10, 2025**
 
 **[🚀 Join the hackathon →](https://github.com/browser-use/nicehack69)**
 
@@ -116,7 +116,15 @@ To celebrate, we're launching **#nicehack69** — a Twitter-first hackathon with
 </a>
 </div>
 
-# Quickstart
+
+> **🚀 Use the latest version!** 
+> 
+> We ship every day improvements for **speed**, **accuracy**, and **UX**. 
+> ```bash
+> pip install --upgrade browser-use
+> ```
+
+# Quickstart new users
 
 With pip (Python>=3.11):
 

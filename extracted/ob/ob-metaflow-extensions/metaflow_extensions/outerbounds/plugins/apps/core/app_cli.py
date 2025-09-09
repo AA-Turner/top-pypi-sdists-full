@@ -339,7 +339,7 @@ def deployment_instance_options(func):
         "--readiness-wait-time",
         type=int,
         help="The time (in seconds) to monitor the deployment for readiness after the readiness condition is met.",
-        default=4,
+        default=15,
     )
     @click.option(
         "--deployment-timeout",
@@ -377,8 +377,8 @@ def _package_necessary_things(app_config: AppConfig, logger):
     #      from the command line and that will alleviate any need to package any other directories for
     #
 
-    package_dir = app_config.get_state("packaging_directory")
-    if package_dir is None:
+    package_dirs = app_config.get_state("packaging_directories")
+    if package_dirs is None:
         app_config.set_state("code_package_url", None)
         app_config.set_state("code_package_key", None)
         return
@@ -391,11 +391,24 @@ def _package_necessary_things(app_config: AppConfig, logger):
         datastore_type=DEFAULT_DATASTORE, code_package_prefix=CODE_PACKAGE_PREFIX
     )
     package_url, package_key = packager.store(
-        paths_to_include=[package_dir], file_suffixes=suffixes
+        paths_to_include=package_dirs, file_suffixes=suffixes
     )
     app_config.set_state("code_package_url", package_url)
     app_config.set_state("code_package_key", package_key)
     logger("💾 Code package saved to : %s" % app_config.get_state("code_package_url"))
+
+
+def _sniff_pyproject_and_requirements(packaging_directories: List[str]):
+    pyproject_path = None
+    requirements_path = None
+    for directory in packaging_directories:
+        pyproject_toml = os.path.join(directory, "pyproject.toml")
+        requirements_txt = os.path.join(directory, "requirements.txt")
+        if os.path.exists(pyproject_toml):
+            pyproject_path = pyproject_toml
+        elif os.path.exists(requirements_txt):
+            requirements_path = requirements_txt
+    return pyproject_path, requirements_path
 
 
 @app.command(help="Deploy an app to the Outerbounds Platform.")
@@ -449,23 +462,19 @@ def deploy(
             system_msg=True,
         )
 
-        packaging_directory = None
-        package_src_path = app_config.get("package", {}).get("src_path", None)
-        if package_src_path:
-            if os.path.isfile(package_src_path):
-                raise AppConfigError("src_path must be a directory, not a file")
-            elif os.path.isdir(package_src_path):
-                packaging_directory = os.path.abspath(package_src_path)
-            else:
-                raise AppConfigError(f"src_path '{package_src_path}' does not exist")
-        else:
-            # If src_path is None then we assume then we can assume for the moment
-            # that we can package the current working directory.
-            packaging_directory = os.getcwd()
+        package_src_paths = app_config.get("package", {}).get("src_paths", [])
+        if package_src_paths is None:
+            package_src_paths = []
 
-        app_config.set_state("packaging_directory", packaging_directory)
+        if len(package_src_paths) == 0:
+            # If src_paths is None then we assume then we can assume for the moment
+            # that we can package the current working directory.
+            package_src_paths = [os.getcwd()]
+
+        app_config.set_state("packaging_directories", package_src_paths)
         logger(
-            "📦 Packaging directory : %s" % app_config.get_state("packaging_directory"),
+            "📦 Packaging directories : %s"
+            % ", ".join(app_config.get_state("packaging_directories")),
         )
 
         if app_config.get("no_deps", False):
@@ -489,11 +498,10 @@ def deploy(
                 )  # python gets a default value so it's always set.
                 # The user has not set any dependencies, so we can sniff the packaging directory
                 # for a dependencies file.
-                requirements_file = os.path.join(
-                    packaging_directory, "requirements.txt"
+                pyproject_toml, requirements_file = _sniff_pyproject_and_requirements(
+                    package_src_paths
                 )
-                pyproject_toml = os.path.join(packaging_directory, "pyproject.toml")
-                if os.path.exists(pyproject_toml):
+                if pyproject_toml:
                     app_config.set_state(
                         "dependencies",
                         {
@@ -504,7 +512,7 @@ def deploy(
                     logger(
                         "📦 Using dependencies from pyproject.toml: %s" % pyproject_toml
                     )
-                elif os.path.exists(requirements_file):
+                elif requirements_file:
                     app_config.set_state(
                         "dependencies",
                         {

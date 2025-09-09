@@ -9,11 +9,15 @@ use std::ptr::null;
 use std::slice;
 
 #[cfg(feature = "polars")]
-use ::polars::export::arrow;
+use crate::metrics::polars::{Bound, Bounds};
 #[cfg(feature = "polars")]
 use ::polars::prelude::*;
 #[cfg(feature = "polars")]
-use arrow::ffi::{ArrowArray, ArrowSchema};
+use polars_arrow::ffi::ArrowArray;
+#[cfg(feature = "polars")]
+use polars_arrow::ffi::{
+    ArrowSchema, export_array_to_c, export_field_to_c, import_array_from_c, import_field_from_c,
+};
 #[cfg(feature = "polars")]
 use serde::{Deserialize, Serialize};
 
@@ -24,10 +28,10 @@ use bitvec::slice::BitSlice;
 use crate::core::{FfiError, FfiResult, FfiSlice, Function};
 use crate::domains::BitVector;
 use crate::error::Fallible;
-use crate::ffi::any::{AnyFunction, AnyMeasurement, AnyObject, AnyQueryable, Downcast};
-use crate::ffi::util::{
-    self, AnyDomainPtr, ExtrinsicObject, as_ref, into_c_char_p, into_raw, to_option_str,
+use crate::ffi::any::{
+    AnyFunction, AnyMeasurement, AnyObject, AnyOdometer, AnyQueryable, Downcast,
 };
+use crate::ffi::util::{self, AnyDomainPtr, ExtrinsicObject, as_ref, into_c_char_p};
 use crate::ffi::util::{AnyMeasurementPtr, AnyTransformationPtr, Type, TypeContents, c_bool};
 use crate::measures::PrivacyProfile;
 use crate::metrics::IntDistance;
@@ -69,7 +73,7 @@ pub extern "C" fn opendp_data__slice_as_object(
                 raw.len
             );
         }
-        let plain = util::as_ref(raw.ptr as *const T)
+        let plain = as_ref(raw.ptr as *const T)
             .ok_or_else(|| {
                 err!(
                     FFI,
@@ -99,7 +103,7 @@ pub extern "C" fn opendp_data__slice_as_object(
         Ok(AnyObject::new(BitVector::from_bitslice(&bitslice[..raw.len])))
     }
     fn raw_to_string(raw: &FfiSlice) -> Fallible<AnyObject> {
-        let str_ptr = *util::as_ref(raw.ptr as *const *const c_char).ok_or_else(|| err!(FFI, "Attempted to follow a null pointer to create a string"))?;
+        let str_ptr = *as_ref(raw.ptr as *const *const c_char).ok_or_else(|| err!(FFI, "Attempted to follow a null pointer to create a string"))?;
         let string = util::to_str(str_ptr)?.to_owned();
         Ok(AnyObject::new(string))
     }
@@ -124,7 +128,7 @@ pub extern "C" fn opendp_data__slice_as_object(
     fn raw_to_vec_obj<T: 'static + Clone>(raw: &FfiSlice) -> Fallible<AnyObject> {
         let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const AnyObject, raw.len) };
         let vec = slice.iter()
-            .map(|v| util::as_ref(*v)
+            .map(|v| as_ref(*v)
                 .ok_or_else(|| err!(FFI, "Attempted to follow a null pointer to create a vector"))
                 .and_then(|v| v.downcast_ref::<T>())
                 .map(Clone::clone))
@@ -139,13 +143,13 @@ pub extern "C" fn opendp_data__slice_as_object(
         }
         let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const c_void, 2) };
 
-        let tuple = util::as_ref(slice[0] as *const T0)
+        let tuple = as_ref(slice[0] as *const T0)
             .cloned()
-            .zip(util::as_ref(slice[1] as *const T1).cloned())
+            .zip(as_ref(slice[1] as *const T1).cloned())
             .ok_or_else(|| err!(FFI, "Attempted to follow a null pointer to create a tuple"))?;
         Ok(AnyObject::new(tuple))
     }
-    fn raw_to_tuple3_partition_distance<T: 'static + Clone>(
+    fn raw_to_tuple3_l0Pinf_distance<T: 'static + Clone>(
         raw: &FfiSlice,
     ) -> Fallible<AnyObject> {
         if raw.len != 3 {
@@ -154,14 +158,14 @@ pub extern "C" fn opendp_data__slice_as_object(
         let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const c_void, 3) };
 
         let new_err = || err!(FFI, "Tuple contains null pointer");
-        let v0 = util::as_ref(slice[0] as *const IntDistance).ok_or_else(new_err)?.clone();
-        let v1 = util::as_ref(slice[1] as *const T).ok_or_else(new_err)?.clone();
-        let v2 = util::as_ref(slice[2] as *const T).ok_or_else(new_err)?.clone();
+        let v0 = as_ref(slice[0] as *const IntDistance).ok_or_else(new_err)?.clone();
+        let v1 = as_ref(slice[1] as *const T).ok_or_else(new_err)?.clone();
+        let v2 = as_ref(slice[2] as *const T).ok_or_else(new_err)?.clone();
         Ok(AnyObject::new((v0, v1, v2)))
     }
 
     fn raw_to_function<TI: 'static + Clone, TO>(obj: &FfiSlice) -> Fallible<AnyObject> {
-        let Some(function) = util::as_ref(obj.ptr as *const AnyFunction).cloned() else {
+        let Some(function) = as_ref(obj.ptr as *const AnyFunction).cloned() else {
             return fallible!(FFI, "Function must not be null pointer");
         };
         Ok(AnyObject::new(Function::new_fallible(move |x: &TI| {
@@ -212,9 +216,9 @@ pub extern "C" fn opendp_data__slice_as_object(
             let schema = try_as_ref!(slice[1] as *const ArrowSchema);
             let name = util::to_str(slice[2] as *const c_char)?;
 
-            let field = arrow::ffi::import_field_from_c(schema)
+            let field = import_field_from_c(schema)
                 .map_err(|e| err!(FFI, "failed to import field from c: {}", e.to_string()))?;
-            let array = arrow::ffi::import_array_from_c(array, field.dtype)
+            let array = import_array_from_c(array, field.dtype)
                 .map_err(|e| err!(FFI, "failed to import array from c: {}", e.to_string()))?;
             Series::try_from((PlSmallStr::from_str(name), array))
                 .map_err(|e| err!(FFI, "failed to construct Series: {}", e.to_string()))?
@@ -232,7 +236,7 @@ pub extern "C" fn opendp_data__slice_as_object(
         raw: &FfiSlice
     ) -> Fallible<AnyObject> {
         let slices = unsafe { slice::from_raw_parts(raw.ptr as *const *const FfiSlice, raw.len) };
-        let series = slices.iter().map(|&s| raw_to_concrete_series(try_as_ref!(s)).map(Column::Series))
+        let series = slices.iter().map(|&s| raw_to_concrete_series(try_as_ref!(s)).map(|s| s.into_column()))
         .collect::<Fallible<Vec<Column>>>()?;
         
         Ok(AnyObject::new(DataFrame::new(series)?))
@@ -244,10 +248,23 @@ pub extern "C" fn opendp_data__slice_as_object(
     ) -> Fallible<T> where for<'de> T: Deserialize<'de> {
         let slice = unsafe { slice::from_raw_parts(raw.ptr as *const u8, raw.len) };
         // Error checking based on pyo3-polars:
-        // https://github.com/pola-rs/pyo3-polars/blob/5150d4ca27c287ff4be5cafef243d9a878a8879d/pyo3-polars/src/lib.rs#L147-L153
+        // https://github.com/pola-rs/polars/blob/22cff4db2bb4ee5b8ab72365b9c4b4a492df55c1/pyo3-polars/pyo3-polars/src/types.rs#L237-L238
         // the slice is lf.__getstate__ from the python side and then deserialized here
-        ciborium::de::from_reader(slice).map_err(
-            |e| err!(FFI, "Error when deserializing {}. This may be because you're using features from Polars that are not currently supported. {}", name, e)
+        polars_utils::pl_serialize::SerializeOptions::default()
+            // `false` disables forward compatibility
+            .deserialize_from_reader::<_, _, false>(slice)
+            .map_err(
+            |e| err!(FFI, "Error when deserializing '{}'. This may be because you're using features from Polars that are not currently supported. {}", name, e)
+        )
+    }
+    #[cfg(feature = "polars")]
+    pub fn deserialize_raw_dslplan(
+        raw: &FfiSlice
+    ) -> Fallible<DslPlan> {
+        let slice = unsafe { slice::from_raw_parts(raw.ptr as *const u8, raw.len) };
+        DslPlan::deserialize_versioned(slice)
+            .map_err(
+            |e| err!(FFI, "Error when deserializing 'DslPlan'. This may be because you're using features from Polars that are not currently supported. {}", e)
         )
     }
     #[cfg(feature = "polars")]
@@ -256,40 +273,60 @@ pub extern "C" fn opendp_data__slice_as_object(
     }
     #[cfg(feature = "polars")]
     fn raw_to_lazyframe(raw: &FfiSlice) -> Fallible<AnyObject> {
-        Ok(AnyObject::new(LazyFrame::from(deserialize_raw::<DslPlan>(raw, "LazyFrame")?)))
+        Ok(AnyObject::new(LazyFrame::from(deserialize_raw_dslplan(raw)?)))
     }
     #[cfg(feature = "polars")]
     fn raw_to_dslplan(raw: &FfiSlice) -> Fallible<AnyObject> {
-        Ok(AnyObject::new(LazyFrame::from(deserialize_raw::<DslPlan>(raw, "LazyFrame")?).logical_plan))
+        Ok(AnyObject::new(deserialize_raw_dslplan(raw)?))
     }
     #[cfg(feature = "polars")]
     fn raw_to_margin(raw: &FfiSlice) -> Fallible<AnyObject> {
         use std::collections::HashSet;
-        use crate::domains::{Margin, MarginPub};
+        use crate::domains::{Margin, Invariant};
 
-        if raw.len != 6 {
-            return fallible!(FFI, "Margin FfiSlice must have length 6, found a length of {}", raw.len);
+        if raw.len != 4 {
+            return fallible!(FFI, "Margin FfiSlice must have length 4, found a length of {}", raw.len);
         }
         let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const c_void, raw.len) };
         Ok(AnyObject::new(Margin {
             by: HashSet::from_iter(try_!(try_as_ref!(slice[0] as *const AnyObject).downcast_ref::<Vec<Expr>>()).clone()),
-            max_partition_length: as_ref(slice[1] as *const u32).cloned(),
-            max_num_partitions: as_ref(slice[2] as *const u32).cloned(),
-            public_info: match to_option_str(slice[3] as *const c_char)? {
-                Some("keys") => Some(MarginPub::Keys),
-                Some("lengths") => Some(MarginPub::Lengths),
+            max_length: util::as_ref(slice[1] as *const u32).cloned(),
+            max_groups: util::as_ref(slice[2] as *const u32).cloned(),
+            invariant: match util::to_option_str(slice[3] as *const c_char)? {
+                Some("keys") => Some(Invariant::Keys),
+                Some("lengths") => Some(Invariant::Lengths),
                 None => None,
-                _ => return fallible!(FFI, "public_info must be None, 'keys' or 'lengths'"),
+                _ => return fallible!(FFI, "invariant must be None, 'keys' or 'lengths'"),
             },
-            max_partition_contributions: as_ref(slice[4] as *const u32).cloned(),
-            max_influenced_partitions: as_ref(slice[5] as *const u32).cloned(),
         })).into()
     }
+
+    #[cfg(feature = "polars")]
+    fn raw_to_group_bound(raw: &FfiSlice) -> Fallible<AnyObject> {
+        use std::collections::HashSet;
+        if raw.len != 3 {
+            return fallible!(FFI, "Bound FfiSlice must have length 3, found a length of {}", raw.len);
+        }
+        let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const c_void, raw.len) };
+        Ok(AnyObject::new(Bound {
+            by: HashSet::from_iter(try_!(try_as_ref!(slice[0] as *const AnyObject).downcast_ref::<Vec<Expr>>()).clone()),
+            per_group: as_ref(slice[1] as *const u32).cloned(),
+            num_groups: as_ref(slice[2] as *const u32).cloned(),
+        })).into()
+    }
+    #[cfg(feature = "polars")]
+    fn raw_to_group_bounds(raw: &FfiSlice) -> Fallible<AnyObject> {
+        let slice = unsafe { slice::from_raw_parts(raw.ptr as *const *const AnyObject, raw.len) };
+        let vec = slice.iter()
+            .map(|b| try_as_ref!(*b).downcast_ref::<Bound>().cloned())
+            .collect::<Fallible<Vec<Bound>>>()?;
+        Ok(AnyObject::new(Bounds(vec)))
+    }
     match T_.contents {
+        TypeContents::PLAIN("AnyMeasurementPtr") => raw_to_plain::<AnyMeasurement>(raw),
         TypeContents::PLAIN("BitVector") => raw_to_bitvector(raw),
         TypeContents::PLAIN("String") => raw_to_string(raw),
         TypeContents::PLAIN("ExtrinsicObject") => raw_to_plain::<ExtrinsicObject>(raw),
-
         #[cfg(feature = "polars")]
         TypeContents::PLAIN("LazyFrame") => raw_to_lazyframe(raw),
         #[cfg(feature = "polars")]
@@ -302,6 +339,10 @@ pub extern "C" fn opendp_data__slice_as_object(
         TypeContents::PLAIN("Series") => raw_to_series(raw),
         #[cfg(feature = "polars")]
         TypeContents::PLAIN("Margin") => raw_to_margin(raw),
+        #[cfg(feature = "polars")]
+        TypeContents::PLAIN("Bound") => raw_to_group_bound(raw),
+        #[cfg(feature = "polars")]
+        TypeContents::PLAIN("Bounds") => raw_to_group_bounds(raw),
 
         TypeContents::SLICE(element_id) => {
             let element = try_!(Type::of_id(&element_id));
@@ -320,6 +361,8 @@ pub extern "C" fn opendp_data__slice_as_object(
                 "SeriesDomain" => raw_to_vec::<AnyDomainPtr>(raw),
                 #[cfg(feature = "polars")]
                 "Expr" => raw_to_vec_obj::<Expr>(raw),
+                #[cfg(feature = "polars")]
+                "Bound" => raw_to_vec_obj::<Bound>(raw),
                 _ => dispatch!(raw_to_vec, [(element, @primitives)], (raw)),
             }
         }
@@ -338,8 +381,8 @@ pub extern "C" fn opendp_data__slice_as_object(
                     dispatch!(raw_to_tuple2, [(types[0], @primitives), (types[1], @primitives)], (raw))
                 },
                 3 => {
-                    try_!(check_partition_distance_types(&types));
-                    dispatch!(raw_to_tuple3_partition_distance, [(types[1], @numbers)], (raw))
+                    try_!(check_l0Pinf_distance_types(&types));
+                    dispatch!(raw_to_tuple3_l0Pinf_distance, [(types[1], @numbers)], (raw))
                 },
                 l => return err!(FFI, "Only tuples of length 2 or 3 are supported, found a length of {}", l).into()
             }
@@ -371,7 +414,7 @@ pub extern "C" fn opendp_data__slice_as_object(
             raw_to_plain,
             [(
                 T_,
-                [u8, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64, bool, AnyMeasurement, AnyQueryable]
+                [u8, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64, bool, AnyMeasurement, AnyOdometer, AnyQueryable]
             )],
             (raw)
         )},
@@ -500,7 +543,7 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
             return fallible!(FFI, "unsupported object type: Option<{}>", T.to_string());
         })
     }
-    fn tuple3_partition_distance_to_raw<T: 'static>(obj: &AnyObject) -> Fallible<FfiSlice> {
+    fn tuple3_l0Pinf_distance_to_raw<T: 'static>(obj: &AnyObject) -> Fallible<FfiSlice> {
         let tuple: &(IntDistance, T, T) = obj.downcast_ref()?;
         Ok(FfiSlice::new(
             util::into_raw([
@@ -541,7 +584,12 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
         T: Serialize,
     {
         let mut buffer: Vec<u8> = vec![];
-        ciborium::ser::into_writer(&val, &mut buffer)
+
+        polars_utils::pl_serialize::SerializeOptions::default()
+            // based on:
+            // https://github.com/pola-rs/polars/blob/22cff4db2bb4ee5b8ab72365b9c4b4a492df55c1/pyo3-polars/pyo3-polars/src/types.rs#L380-L381
+            // `false` disables forward compatibility
+            .serialize_into_writer::<_, _, false>(&mut buffer, val)
             .map_err(|e| err!(FFI, "failed to serialize {}: {}", name, e))?;
 
         let slice = FfiSlice {
@@ -552,8 +600,20 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
         Ok(slice)
     }
     #[cfg(feature = "polars")]
+    fn serialize_dslplan(logical_plan: &DslPlan) -> Fallible<FfiSlice> {
+        let mut buffer = vec![];
+        logical_plan.serialize_versioned(&mut buffer, Default::default())?;
+
+        let slice = FfiSlice {
+            ptr: buffer.as_ptr() as *mut c_void,
+            len: buffer.len(),
+        };
+        util::into_raw(buffer);
+        Ok(slice)
+    }
+    #[cfg(feature = "polars")]
     fn lazyframe_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
-        serialize_obj(&obj.downcast_ref::<LazyFrame>()?.logical_plan, "LazyFrame")
+        serialize_dslplan(&obj.downcast_ref::<LazyFrame>()?.logical_plan)
     }
     #[cfg(feature = "polars")]
     fn expr_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
@@ -584,12 +644,12 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
         let series = column.as_materialized_series();
         let array = series.rechunk().to_arrow(0, CompatLevel::newest());
 
-        let schema = arrow::ffi::export_field_to_c(&ArrowField::new(
+        let schema = export_field_to_c(&ArrowField::new(
             series.name().clone(),
             array.dtype().clone(),
             true,
         ));
-        let array = arrow::ffi::export_array_to_c(array);
+        let array = export_array_to_c(array);
 
         let buffer = vec![
             util::into_raw(array) as *const c_void,
@@ -606,7 +666,7 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
 
     #[cfg(feature = "polars")]
     fn series_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
-        concrete_column_to_raw(&Column::Series(obj.downcast_ref::<Series>()?.clone()))
+        concrete_column_to_raw(&obj.downcast_ref::<Series>()?.clone().into_column())
     }
 
     #[cfg(feature = "polars")]
@@ -615,7 +675,7 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
 
         let expr_plan = obj.downcast_ref::<ExprPlan>()?;
 
-        let plan = util::into_raw(serialize_obj(&expr_plan.plan, "DslPlan")?) as *const c_void;
+        let plan = util::into_raw(serialize_dslplan(&expr_plan.plan)?) as *const c_void;
         let expr = util::into_raw(serialize_obj(&expr_plan.expr, "Expr")?) as *const c_void;
         Ok(if let Some(fill) = &expr_plan.fill {
             let fill = util::into_raw(serialize_obj(&fill, "Expr")?) as *const c_void;
@@ -627,33 +687,32 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
 
     #[cfg(feature = "polars")]
     fn margin_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
-        use crate::domains::{Margin, MarginPub};
+        use crate::domains::{Invariant, Margin};
 
         let margin = obj.downcast_ref::<Margin>()?;
 
         fn to_ptr<T>(v: Option<T>) -> *const c_void {
-            v.map(|v| into_raw(v) as *const c_void).unwrap_or_else(null)
+            v.map(|v| util::into_raw(v) as *const c_void)
+                .unwrap_or_else(null)
         }
 
         let buffer = vec![
             AnyObject::new_raw(margin.by.iter().cloned().collect::<Vec<_>>()) as *const c_void,
-            to_ptr(margin.max_partition_length),
-            to_ptr(margin.max_num_partitions),
+            to_ptr(margin.max_length),
+            to_ptr(margin.max_groups),
             margin
-                .public_info
+                .invariant
                 .map(|v| {
                     into_c_char_p(
                         match v {
-                            MarginPub::Keys => "keys",
-                            MarginPub::Lengths => "lengths",
+                            Invariant::Keys => "keys",
+                            Invariant::Lengths => "lengths",
                         }
                         .to_string(),
                     )
                     .unwrap() as *const c_void
                 })
                 .unwrap_or_else(null),
-            to_ptr(margin.max_partition_contributions),
-            to_ptr(margin.max_influenced_partitions),
         ];
         let slice = FfiSlice {
             ptr: buffer.as_ptr() as *mut c_void,
@@ -661,6 +720,42 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
         };
         util::into_raw(buffer);
         Ok(slice)
+    }
+
+    #[cfg(feature = "polars")]
+    fn group_bound_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
+        let group_bound = obj.downcast_ref::<Bound>()?;
+
+        let buffer = vec![
+            AnyObject::new_raw(group_bound.by.iter().cloned().collect::<Vec<_>>()) as *const c_void,
+            group_bound
+                .per_group
+                .map(|v| util::into_raw(v) as *const c_void)
+                .unwrap_or_else(null),
+            group_bound
+                .num_groups
+                .map(|v| util::into_raw(v) as *const c_void)
+                .unwrap_or_else(null),
+        ];
+        let slice = FfiSlice {
+            ptr: buffer.as_ptr() as *mut c_void,
+            len: buffer.len(),
+        };
+        util::into_raw(buffer);
+        Ok(slice)
+    }
+
+    #[cfg(feature = "polars")]
+    fn group_bounds_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
+        let bounds = obj
+            .downcast_ref::<Bounds>()?
+            .0
+            .iter()
+            .map(|b| AnyObject::new(b.clone()))
+            .collect::<Vec<_>>();
+        let (ptr, len) = (bounds.as_ptr() as *mut c_void, bounds.len());
+        util::into_raw(bounds);
+        Ok(FfiSlice::new(ptr, len))
     }
 
     fn tuple_curve_f64_to_raw(obj: &AnyObject) -> Fallible<FfiSlice> {
@@ -691,6 +786,10 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
         TypeContents::PLAIN("Series") => series_to_raw(obj),
         #[cfg(feature = "polars")]
         TypeContents::PLAIN("Margin") => margin_to_raw(obj),
+        #[cfg(feature = "polars")]
+        TypeContents::PLAIN("Bound") => group_bound_to_raw(obj),
+        #[cfg(feature = "polars")]
+        TypeContents::PLAIN("Bounds") => group_bounds_to_raw(obj),
 
         TypeContents::SLICE(element_id) => {
             let element = try_!(Type::of_id(element_id));
@@ -702,12 +801,15 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
             #[cfg(feature = "polars")]
             if element.descriptor == "Expr" {
                 return vec_expr_to_raw(obj).into();
+            } else if element.descriptor == "Bound" {
+                return vec_to_raw::<Bound>(obj).into();
             }
 
             if element.descriptor == "String" {
                 vec_string_to_raw(obj)
             } else {
-                dispatch!(vec_to_raw, [(element, @primitives_plus)], (obj))
+                // equivalent to @primitives-plus, but listing the types out excludes this from debug build narrowing of types
+                dispatch!(vec_to_raw, [(element, [u32, u64, i32, i64, usize, f32, f64, bool, String, AnyObject, ExtrinsicObject])], (obj))
             }
         }
         TypeContents::TUPLE(element_ids) => {
@@ -725,8 +827,8 @@ pub extern "C" fn opendp_data__object_as_slice(obj: *const AnyObject) -> FfiResu
                     dispatch!(tuple2_to_raw, [(types[0], @primitives_plus), (types[1], @primitives_plus)], (obj))
                 },
                 3 => {
-                    try_!(check_partition_distance_types(&types));
-                    dispatch!(tuple3_partition_distance_to_raw, [(types[1], @numbers)], (obj))
+                    try_!(check_l0Pinf_distance_types(&types));
+                    dispatch!(tuple3_l0Pinf_distance_to_raw, [(types[1], @numbers)], (obj))
                 },
                 l => return err!(FFI, "Only tuples of length 2 or 3 are supported, found length of {}", l).into()
             }
@@ -767,19 +869,19 @@ fn parse_type_args<const N: usize>(args: &Vec<TypeId>, name: &str) -> Fallible<[
         })
 }
 
-/// Checks that a vector of three types satisfies the requirements of a partition distance.
-fn check_partition_distance_types(types: &Vec<Type>) -> Fallible<()> {
+/// Checks that a vector of three types satisfies the requirements of a l0Pinf distance.
+fn check_l0Pinf_distance_types(types: &Vec<Type>) -> Fallible<()> {
     if types[0] != Type::of::<IntDistance>() {
         return fallible!(
             FFI,
-            "3-tuples are only implemented for partition distances. First type must be a u32, found {}",
+            "3-tuples are only implemented for l0Pinf distances. First type must be a u32, found {}",
             types[0].to_string()
         );
     }
     if types[1] != types[2] {
         return fallible!(
             FFI,
-            "3-tuples are only implemented for partition distances. Last two types must be numbers of the same type, found {} and {}",
+            "3-tuples are only implemented for l0Pinf distances. Last two types must be numbers of the same type, found {} and {}",
             types[1].to_string(),
             types[2].to_string()
         );
@@ -950,7 +1052,8 @@ impl std::fmt::Debug for AnyObject {
             (f64, f64),
             Vec<u32>, Vec<u64>, Vec<i32>, Vec<i64>, Vec<f32>, Vec<f64>, Vec<bool>, Vec<String>, Vec<u8>, Vec<Vec<String>>,
             (AnyObject, AnyObject),
-            AnyObject
+            AnyObject,
+            AnyMeasurement
         ])], (self)).unwrap_or_else(|_| "[Non-debuggable]".to_string()).as_str())
     }
 }
@@ -997,9 +1100,15 @@ impl ProductOrd for AnyObject {
         }
 
         let type_arg = &self.type_;
+
+        #[cfg(feature = "polars")]
+        if type_arg == &Type::of::<Bounds>() {
+            return monomorphize::<Bounds>(self, other)
+        }
+
         // type list is explicit because (f32, f32), (f64, f64) are not in @numbers
         dispatch!(monomorphize, [(type_arg, [
-            u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64, (f32, f32), (f64, f64)
+            u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64, (f32, f32), (f64, f64), ExtrinsicObject
         ])], (self, other))
     }
 }
@@ -1030,7 +1139,7 @@ impl Clone for AnyObject {
                 #[cfg(feature = "polars")]
                 if let Ok(clone) = dispatch!(
                     clone_plain,
-                    [(self.type_, [LazyFrame, DataFrame, Series])],
+                    [(self.type_, [LazyFrame, DataFrame, Series, Bound, Bounds])],
                     (self)
                 ) {
                     return clone;
@@ -1057,7 +1166,8 @@ impl Clone for AnyObject {
                             bool,
                             String,
                             ExtrinsicObject,
-                            BitVector
+                            BitVector,
+                            AnyMeasurement
                         ]
                     )],
                     (self)
@@ -1098,6 +1208,11 @@ impl Clone for AnyObject {
                 }
             }
             TypeContents::VEC(type_id) => {
+                #[cfg(feature = "polars")]
+                if let Ok(clone) = dispatch!(clone_plain, [(self.type_, [Bound])], (self)) {
+                    return clone;
+                }
+
                 dispatch!(
                     clone_vec,
                     [(
@@ -1337,7 +1452,7 @@ mod tests {
         let res = opendp_data__object_as_slice(obj);
         let res = Fallible::from(res)?;
         assert_eq!(res.len, 1);
-        assert_eq!(util::as_ref(res.ptr as *const i32).unwrap_test(), &999);
+        assert_eq!(as_ref(res.ptr as *const i32).unwrap_test(), &999);
         Ok(())
     }
 
@@ -1348,7 +1463,7 @@ mod tests {
         let res = Fallible::from(res)?;
         assert_eq!(res.len, 1);
         assert_eq!(
-            util::into_string(*util::as_ref(res.ptr as *mut *mut c_char).unwrap())?,
+            util::into_string(*as_ref(res.ptr as *mut *mut c_char).unwrap())?,
             "Hello"
         );
         Ok(())
@@ -1360,10 +1475,7 @@ mod tests {
         let res = opendp_data__object_as_slice(obj);
         let res = Fallible::from(res)?;
         assert_eq!(res.len, 3);
-        assert_eq!(
-            util::as_ref(res.ptr as *const [i32; 3]).unwrap_test(),
-            &[1, 2, 3]
-        );
+        assert_eq!(as_ref(res.ptr as *const [i32; 3]).unwrap_test(), &[1, 2, 3]);
         Ok(())
     }
 
@@ -1373,11 +1485,11 @@ mod tests {
         let res = opendp_data__object_as_slice(obj);
         let res = Fallible::from(res)?;
         assert_eq!(res.len, 2);
-        let res_ptr = util::as_ref(res.ptr as *const [*mut i32; 2]).unwrap_test();
+        let res_ptr = as_ref(res.ptr as *const [*mut i32; 2]).unwrap_test();
         assert_eq!(
             (
-                util::as_ref(res_ptr[0]).unwrap_test(),
-                util::as_ref(res_ptr[1]).unwrap_test()
+                as_ref(res_ptr[0]).unwrap_test(),
+                as_ref(res_ptr[1]).unwrap_test()
             ),
             (&999, &-999)
         );
@@ -1390,11 +1502,11 @@ mod tests {
         let res = opendp_data__object_as_slice(obj);
         let res = Fallible::from(res)?;
         assert_eq!(res.len, 2);
-        let res_ptr = util::as_ref(res.ptr as *const [*mut AnyObject; 2]).unwrap_test();
+        let res_ptr = as_ref(res.ptr as *const [*mut AnyObject; 2]).unwrap_test();
         assert_eq!(
             (
-                util::as_ref(res_ptr[0]).unwrap_test().downcast_ref()?,
-                util::as_ref(res_ptr[1]).unwrap_test().downcast_ref()?
+                as_ref(res_ptr[0]).unwrap_test().downcast_ref()?,
+                as_ref(res_ptr[1]).unwrap_test().downcast_ref()?
             ),
             (&999, &999.0)
         );

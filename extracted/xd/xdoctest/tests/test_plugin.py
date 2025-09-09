@@ -3,6 +3,7 @@ Adapted from the original `pytest/tests/test_doctest.py` module at:
     https://github.com/pytest-dev/pytest
     https://github.com/pytest-dev/pytest/blob/main/tests/test_doctest.py
 """
+import shlex
 import sys
 import _pytest._code
 from xdoctest.plugin import XDoctestItem, XDoctestModule, XDoctestTextfile
@@ -119,7 +120,94 @@ def explicit_testdir():
     return testdir
 
 
-class TestXDoctest(object):
+class TestXDoctestActivation:
+    @pytest.mark.parametrize(('flags', 'load'),
+                             [('', False),
+                              ('--xdoc', True),
+                              ('--doctest-modules', False),
+                              ('--doctest-modules --xdoctest', True)])
+    def test_xdoctest_cli_activation(self, request, flags, load):
+        """
+        Activate `xdoctest` via command-line arguments.
+
+        CommandLine:
+            pytest tests/test_plugin.py::TestXDoctestActivation::\
+test_xdoctest_cli_activation
+        """
+        self._check_activation(request, flags, load)
+
+    def test_xdoctest_config_activation(self, request):
+        """
+        Activate `xdoctest` via config file.
+
+        CommandLine:
+            pytest tests/test_plugin.py::TestXDoctestActivation::\
+test_xdoctest_config_activation
+        """
+        self._get_tester(request).makeini('''
+        [pytest]
+        addopts = '--xdoctest'
+        ''')
+        self._check_activation(request, '', True)
+
+    def test_xdoctest_explicit_suppression(self, request):
+        """
+        Deactivate `xdoctest` via explicitly unloading the plugin on the
+        command line.
+
+        CommandLine:
+            pytest tests/test_plugin.py::TestXDoctestActivation::\
+test_xdoctest_explicit_suppression
+        """
+        pdt_namespace_before = self._get_pytest_doctest_module_dict()
+        try:
+            with pytest.raises(pytest.UsageError):
+                # Can't parse the `--xdoc` flag with `xdoctest` disabled
+                self._check_activation(request, '--xdoc -p no:xdoctest', False)
+        finally:
+            # Check that `_pytest.doctest` is untouched
+            pdt_namespace_after = self._get_pytest_doctest_module_dict()
+            assert pdt_namespace_before == pdt_namespace_after
+
+    def _check_activation(self, request, flags, load):
+        """
+        Check that if :py:mod:`xdoctest.plugin` is ``load``-ed,
+        :py:mod:`_pytest.doctest` is unloaded but otherwise untouched.
+        """
+        pdt_namespace_before = self._get_pytest_doctest_module_dict()
+        try:
+            config = (self
+                      ._get_tester(request)
+                      .parseconfigure(*shlex.split(flags)))
+            manager = config.pluginmanager
+            # When `--xdoctest` is set, it unsets other doctest plugins
+            if load:
+                assert manager.get_plugin('doctest') is None
+        finally:
+            # Also check that `_pytest.doctest` is untouched
+            pdt_namespace_after = self._get_pytest_doctest_module_dict()
+            assert pdt_namespace_before == pdt_namespace_after
+
+    @staticmethod
+    def _get_tester(request):
+        try:
+            from pytest import FixtureLookupError
+        except ImportError:  # Version < 6.0
+            from _pytest.fixtures import FixtureLookupError
+
+        try:
+            return request.getfixturevalue('pytester')
+        except FixtureLookupError:
+            return request.getfixturevalue('testdir')
+
+    @staticmethod
+    def _get_pytest_doctest_module_dict():
+        from _pytest import doctest
+
+        return dict(vars(doctest))
+
+
+class TestXDoctest:
 
     def test_collect_testtextfile(self, testdir):
         """
@@ -355,7 +443,7 @@ class TestXDoctest(object):
         """
         testdir.tmpdir.join('hello.py').write(_pytest._code.Source(utils.codeblock(
             """
-            class Fun(object):
+            class Fun:
                 @property
                 def test(self):
                     '''
@@ -385,7 +473,7 @@ class TestXDoctest(object):
         """
         testdir.tmpdir.join('hello.py').write(_pytest._code.Source(utils.codeblock(
             """
-            class Fun(object):
+            class Fun:
                 @property
                 def test(self):
                     '''
@@ -418,7 +506,7 @@ class TestXDoctest(object):
         """
         testdir.tmpdir.join('hello.py').write(_pytest._code.Source(utils.codeblock(
             """
-            class Fun(object):
+            class Fun:
                 @property
                 def test(self):
                     '''
@@ -454,7 +542,7 @@ class TestXDoctest(object):
         """
         testdir.tmpdir.join('hello.py').write(_pytest._code.Source(utils.codeblock(
             """
-            class Fun(object):
+            class Fun:
                 @property
                 def test(self):
                     '''
@@ -694,7 +782,7 @@ class TestXDoctest(object):
             doctest_optionflags = ELLIPSIS NORMALIZE_WHITESPACE
         """)
         p = testdir.makepyfile("""
-            class MyClass(object):
+            class MyClass:
                 '''
                 >>> a = "foo    "
                 >>> print(a)
@@ -924,7 +1012,7 @@ class TestXDoctest(object):
                    for line in result.stdout.lines)
 
 
-class TestXDoctestModuleLevel(object):
+class TestXDoctestModuleLevel:
 
     def test_doctestmodule(self, testdir):
         """
@@ -1022,7 +1110,7 @@ class TestXDoctestModuleLevel(object):
             assert items[0].parent is items[1].parent
 
 
-class TestLiterals(object):
+class TestLiterals:
 
     @pytest.mark.parametrize('config_mode', ['ini', 'comment'])
     @pytest.mark.skip('bytes are not supported yet')
@@ -1113,7 +1201,7 @@ class TestLiterals(object):
         reprec.assertoutcome(passed=passed, failed=int(not passed))
 
 
-class TestXDoctestSkips(object):
+class TestXDoctestSkips:
     """
     If all examples in a xdoctest are skipped due to the SKIP option, then
     the tests should be SKIPPED rather than PASSED. (#957)
@@ -1219,7 +1307,7 @@ class TestXDoctestSkips(object):
         reprec.assertoutcome(passed=0, skipped=0)
 
 
-class TestXDoctestAutoUseFixtures(object):
+class TestXDoctestAutoUseFixtures:
 
     SCOPES = ['module', 'session', 'class', 'function']
 
@@ -1351,7 +1439,7 @@ class TestXDoctestAutoUseFixtures(object):
 
 
 @pytest.mark.skip
-class TestXDoctestNamespaceFixture(object):
+class TestXDoctestNamespaceFixture:
     """
     Not sure why these tests wont work
 
@@ -1411,7 +1499,7 @@ class TestXDoctestNamespaceFixture(object):
         reprec.assertoutcome(passed=1)
 
 
-class TestXDoctestReportingOption(object):
+class TestXDoctestReportingOption:
 
     def _run_doctest_report(self, testdir, format):
         testdir.makepyfile("""
@@ -1505,7 +1593,7 @@ class TestXDoctestReportingOption(object):
         ])
 
 
-class Disabled(object):
+class Disabled:
 
     def test_docstring_context_around_error(self, testdir):
         """Test that we show some context before the actual line of a failing
@@ -1561,7 +1649,7 @@ class Disabled(object):
             pytest tests/test_plugin.py::TestXDoctest::test_doctest_linedata_missing
         """
         testdir.tmpdir.join('hello.py').write(_pytest._code.Source("""
-            class Fun(object):
+            class Fun:
                 @property
                 def test(self):
                     '''
@@ -1620,7 +1708,7 @@ class Disabled(object):
             pytest tests/test_plugin.py::TestXDoctest::test_doctestmodule_two_tests_one_fail
         """
         p = testdir.makepyfile("""
-            class MyClass(object):
+            class MyClass:
                 def bad_meth(self):
                     '''
                     >>> magic = 42
@@ -1643,7 +1731,7 @@ class Disabled(object):
             doctest_optionflags = ELLIPSIS
         """)
         p = testdir.makepyfile("""
-            class MyClass(object):
+            class MyClass:
                 '''
                 >>> a = "foo    "
                 >>> print(a)

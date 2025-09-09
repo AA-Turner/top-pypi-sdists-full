@@ -89,7 +89,7 @@ def format_audit_list_as_text(ctx, audits, show_columns):
     return table
 
 
-def query_auth_audits(ctx, limit=50, map_email=False, **kwargs):
+def query_auth_audits(ctx, limit=None, map_email=False, **kwargs):
     apiclient = context.get_apiclient(ctx)
     kwargs["org_id"] = input_helpers.get_org_from_input_or_ctx(ctx, **kwargs)
     dt_from = kwargs.pop("dt_from", "now-1day")

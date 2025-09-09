@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: s5cmd
-Version: 0.3.2
+Version: 0.3.3
 Summary: This project provides the infrastructure to build s5cmd Python wheels.
 Author-Email: Jean-Christophe Fillion-Robin <jchris.fillionr@kitware.com>
 License: Copyright 2024 Jean-Christophe Fillion-Robin

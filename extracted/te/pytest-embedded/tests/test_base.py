@@ -655,7 +655,6 @@ def test_quick_example(testdir):
     result.assert_outcomes(passed=1)
 
 
-@pytest.mark.skip  # skip because it takes a long time to run
 def test_unclosed_file_handler(testdir):
     """
     select only support fd < FD_SETSIZE (1024)

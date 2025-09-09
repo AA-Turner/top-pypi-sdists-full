@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.215.0
+Version: 0.216.0
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -263,7 +263,7 @@ Requires-Dist: databricks-sql-connector; extra == "dev"
 Requires-Dist: dbt-bigquery; extra == "dev"
 Requires-Dist: dbt-core; extra == "dev"
 Requires-Dist: dbt-duckdb>=1.7.1; extra == "dev"
-Requires-Dist: dbt-snowflake; extra == "dev"
+Requires-Dist: dbt-snowflake!=1.10.1; extra == "dev"
 Requires-Dist: dbt-athena-community; extra == "dev"
 Requires-Dist: dbt-clickhouse; extra == "dev"
 Requires-Dist: dbt-databricks; extra == "dev"
@@ -313,9 +313,6 @@ Provides-Extra: gcppostgres
 Requires-Dist: cloud-sql-python-connector[pg8000]>=1.8.0; extra == "gcppostgres"
 Provides-Extra: github
 Requires-Dist: PyGithub>=2.6.0; extra == "github"
-Provides-Extra: llm
-Requires-Dist: langchain; extra == "llm"
-Requires-Dist: openai; extra == "llm"
 Provides-Extra: motherduck
 Requires-Dist: duckdb>=1.2.0; extra == "motherduck"
 Provides-Extra: mssql

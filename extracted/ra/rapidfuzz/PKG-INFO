@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RapidFuzz
-Version: 3.14.0
+Version: 3.14.1
 Summary: rapid fuzzy string matching
 Author-Email: Max Bachmann <pypi@maxbachmann.de>
 License-Expression: MIT

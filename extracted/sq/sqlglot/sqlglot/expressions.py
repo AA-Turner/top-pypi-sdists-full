@@ -5520,19 +5520,19 @@ class AggFunc(Func):
 
 
 class BitwiseAndAgg(AggFunc):
-    _sql_names = ["BIT_AND"]
+    pass
 
 
 class BitwiseOrAgg(AggFunc):
-    _sql_names = ["BIT_OR"]
+    pass
 
 
 class BitwiseXorAgg(AggFunc):
-    _sql_names = ["BIT_XOR"]
+    pass
 
 
 class BitwiseCountAgg(AggFunc):
-    _sql_names = ["BIT_COUNT"]
+    pass
 
 
 class ByteLength(Func):
@@ -6075,7 +6075,11 @@ class UtcDate(Func):
 
 
 class UtcTime(Func):
-    arg_types = {}
+    arg_types = {"this": False}
+
+
+class UtcTimestamp(Func):
+    arg_types = {"this": False}
 
 
 class DateAdd(Func, IntervalOp):
@@ -7167,7 +7171,7 @@ class Sign(Func):
 
 
 class SortArray(Func):
-    arg_types = {"this": True, "asc": False}
+    arg_types = {"this": True, "asc": False, "nulls_first": False}
 
 
 class Soundex(Func):

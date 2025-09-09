@@ -53,19 +53,33 @@ def test_gaussian_search():
         lambda s: make_approx_gauss(s, 1e-5),
         d_in=1., d_out=(1., 1e-5)))
 
+def new_make_noise(measure):
+    def make_noise(domain, metric, scale):
+        return dp.m.make_noise(domain, metric, measure, scale)
+    return make_noise
 
-def test_laplace():
+@pytest.mark.parametrize("constructor", [
+    dp.m.make_laplace,
+    new_make_noise(dp.max_divergence())
+])
+def test_laplace(constructor):
     input_space = dp.atom_domain(T=float, nan=False), dp.absolute_distance(T=float)
-    meas = dp.m.make_laplace(*input_space, 10.5)
-    print("base laplace:", meas(100.))
-    print("epsilon", meas.map(1.))
-    assert meas.check(1., .096)
+    meas = constructor(*input_space, 1)
+    assert -50 < meas(0.) < 50
+    assert meas.map(1.0) == 1.0
 
-def test_vector_laplace():
+
+@pytest.mark.parametrize("constructor", [
+    dp.m.make_laplace,
+    new_make_noise(dp.max_divergence())
+])
+def test_vector_laplace(constructor):
     input_space = dp.vector_domain(dp.atom_domain(T=float, nan=False)), dp.l1_distance(T=float)
-    meas = dp.m.make_laplace(*input_space, scale=10.5)
-    print("base laplace:", meas([80., 90., 100.]))
-    assert meas.check(1., 1.3)
+    meas = constructor(*input_space, scale=1.)
+    release = meas([0., 0., 0.])
+    assert -50 < min(release)
+    assert max(release) < 50
+    assert meas.map(1.0) == 1.0
 
 
 def test_gaussian_smoothed_max_divergence():
@@ -161,14 +175,13 @@ def test_vector_discrete_gaussian():
     assert not meas.check(1., 0.124)
 
 def test_make_count_by_ptr():
-    input_space = dp.vector_domain(dp.atom_domain(T=str)), dp.symmetric_distance()
     meas = (
-        input_space >>
-        dp.t.then_count_by(MO=dp.L1Distance[float], TV=float) >> 
-        dp.m.then_laplace_threshold(scale=2., threshold=28.)
+        dp.space_of(list[str]) >>
+        dp.t.then_count_by() >> 
+        dp.m.then_laplace_threshold(scale=2., threshold=28)
     )
     print("stability histogram:", meas(["CAT_A"] * 20 + ["CAT_B"] * 10))
-    assert meas.map(1) == (0.5, 6.854795431920434e-07)
+    assert meas.map(1) == (0.5, 5.175928103895444e-07)
     assert meas.check(1, (1.0, 1e-6))
 
 def test_randomized_response():
@@ -200,25 +213,44 @@ def test_gaussian():
     input_space = dp.vector_domain(dp.atom_domain(T=float, nan=False)), dp.l2_distance(T=float)
     (input_space >> dp.m.then_gaussian(1.))([1., 2., 3.])
 
-def test_report_noisy_max_gumbel():
+
+@pytest.mark.parametrize("measure,d_out", [
+    # d_in * 2 / scale = 2
+    (dp.max_divergence(), 2), 
+    # (d_in * 2 / scale)^2 / 8
+    (dp.zero_concentrated_divergence(), 1 / 2)
+])
+def test_noisy_max(measure, d_out):
     input_domain = dp.vector_domain(dp.atom_domain(T=dp.usize))
-
     input_metric = dp.linf_distance(T=dp.usize)
-    meas = (input_domain, input_metric) >> dp.m.then_report_noisy_max_gumbel(1., "max")
-    print("should be 8-ish", meas(list(range(10))))
-    assert meas.map(2) == 4
 
-    input_metric = dp.linf_distance(monotonic=True, T=dp.usize)
-    meas = (input_domain, input_metric) >> dp.m.then_report_noisy_max_gumbel(1., "max")
-    print("should be 8-ish", meas(list(range(10))))
-    assert meas.map(2) == 2
+    meas = (input_domain, input_metric) >> dp.m.then_noisy_max(measure, 1.)
+    # fails with very small probability
+    assert meas([0, 0, 20, 40]) == 3  # because score 3 is by far the greatest
+    assert meas.map(1) == d_out
+
+
+@pytest.mark.parametrize("measure,d_out", [
+    # (d_in * 2) / scale * 2 = 4
+    (dp.max_divergence(), 4), 
+    # ((d_in * 2) / scale)^2 / 8 * 2 = 1
+    (dp.zero_concentrated_divergence(), 1)
+])
+def test_noisy_top_k(measure, d_out):
+    input_domain = dp.vector_domain(dp.atom_domain(T=dp.usize))
+    input_metric = dp.linf_distance(T=dp.usize)
+
+    meas = (input_domain, input_metric) >> dp.m.then_noisy_top_k(measure, 2, 1.)
+    # fails with very small probability
+    assert meas([0, 0, 20, 40]) == [3, 2]  # because score 3 and then 2 are by far the greatest
+
+    assert meas.map(1) == d_out
 
 
 def test_alp_histogram():
     counter = dp.t.make_count_by(
         dp.vector_domain(dp.atom_domain(T=str)),
-        dp.symmetric_distance(),
-        MO=dp.L1Distance[int])
+        dp.symmetric_distance())
 
     alp_meas = counter >> dp.m.then_alp_queryable(
         scale=1.,
@@ -252,3 +284,75 @@ def test_randomized_response_bitvec():
     # epsilon is 2 * m * ln((2 - f) / f)
     # where m = 4 and f = .95
     assert m_rr.map(1) == 0.8006676684558611
+
+def test_laplace_threshold_int():
+    domain = dp.map_domain(dp.atom_domain(T=str), dp.atom_domain(T=int))
+    metric = dp.l01inf_distance(dp.absolute_distance(T=int))
+    meas = dp.m.make_laplace_threshold(domain, metric, scale=2., threshold=28)
+    release = meas({str(i): i * 10 for i in range(10)})
+    # 0 + noise is likely not over 28
+    assert "0" not in release
+    # 90 + noise is likely over 28
+    assert "9" in release
+    # delta is the mass of the right tail of integer laplace greater than 28 with conservative arithmetic
+    # 5 = 10 / 2 = Δ / σ
+    assert meas.map((1, 10, 10)) == (5.0, 4.659221997116436e-05)
+
+def test_laplace_threshold_float():
+    domain = dp.map_domain(dp.atom_domain(T=str), dp.atom_domain(T=float, nan=False))
+    metric = dp.l01inf_distance(dp.absolute_distance(T=float))
+    meas = dp.m.make_laplace_threshold(domain, metric, scale=2., threshold=28.)
+    release = meas({str(i): i * 10.0 for i in range(10)})
+    # 0 + noise is likely not over 28
+    assert "0" not in release, release
+    # 90 + noise is likely over 28
+    assert "9" in release, release
+    print(meas.map((1, 10, 10)))
+    # delta is the mass of the right tail of continuous laplace greater than 28 with conservative arithmetic
+    # the looser continuous laplace is used because discrete laplace tail bound is not computable with large constants
+    assert meas.map((1, 10, 10)) == (5.0, 6.17049020433802e-05)
+
+def test_gaussian_threshold_int():
+    domain = dp.map_domain(dp.atom_domain(T=str), dp.atom_domain(T=int))
+    metric = dp.l02inf_distance(dp.absolute_distance(T=int))
+    meas = dp.m.make_gaussian_threshold(domain, metric, scale=2., threshold=28)
+    release = meas({str(i): i * 10 for i in range(10)})
+    # 0 + noise is likely not over 28
+    assert "0" not in release, release
+    # 90 + noise is likely over 28
+    assert "9" in release, release
+    # delta is the mass of the right tail of continuous gaussian greater than 28 with conservative arithmetic
+    # the continuous gaussian is used because discrete gaussian tail bound is not analytic
+    # 12.5 = (10 / 2)^2 / 2 = (Δ / σ)^2 / 2
+    assert meas.map((1, 10, 10)) == (12.5, 1.1102230246251565e-16)
+
+def make_noise_threshold_zCDP(domain, metric, scale, threshold):
+    measure = dp.approximate(dp.zero_concentrated_divergence())
+    return dp.m.make_noise_threshold(domain, metric, measure, scale, threshold)
+
+@pytest.mark.parametrize("constructor", [
+    dp.m.make_gaussian_threshold,
+    make_noise_threshold_zCDP
+])
+def test_gaussian_threshold_float(constructor):
+    domain = dp.map_domain(dp.atom_domain(T=str), dp.atom_domain(T=float, nan=False))
+    metric = dp.l02inf_distance(dp.absolute_distance(T=float))
+    meas = constructor(domain, metric, scale=2., threshold=28.)
+    release = meas({str(i): i * 10.0 for i in range(10)})
+    # 0 + noise is likely not over 28
+    assert "0" not in release, release
+    # 90 + noise is likely over 28
+    assert "9" in release, release
+    # delta is the mass of the right tail of continuous gaussian greater than 28 with conservative arithmetic
+    # the continuous gaussian is used because discrete gaussian tail bound is not analytic
+    # 12.5 = (10 / 2)^2 / 2 = (Δ / σ)^2 / 2
+    assert meas.map((1, 10, 10)) == (12.5, 1.1102230246251565e-16)
+
+
+def test_canonical_noise():
+    space = dp.atom_domain(T=float, nan=False), dp.absolute_distance(T=float)
+    m_cnd = space >> dp.m.then_canonical_noise(d_in=1., d_out=(1., 1e-6))
+
+    assert m_cnd.map(1.) == (1.0, 1e-6)
+    # just check that it runs
+    assert isinstance(m_cnd(0.), float)

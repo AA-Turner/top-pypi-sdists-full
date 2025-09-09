@@ -6,7 +6,7 @@ For more context, see :ref:`core in the User Guide <core-user-guide>`.
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 '''
@@ -22,6 +22,7 @@ __all__ = [
     "_error_free",
     "_function_free",
     "_measurement_free",
+    "_odometer_free",
     "_transformation_free",
     "function_eval",
     "measurement_check",
@@ -36,6 +37,15 @@ __all__ = [
     "measurement_output_measure",
     "new_function",
     "new_queryable",
+    "odometer_input_carrier_type",
+    "odometer_input_domain",
+    "odometer_input_metric",
+    "odometer_invoke",
+    "odometer_output_measure",
+    "odometer_queryable_invoke",
+    "odometer_queryable_invoke_type",
+    "odometer_queryable_privacy_loss",
+    "odometer_queryable_privacy_loss_type",
     "queryable_eval",
     "queryable_query_type",
     "transformation_check",
@@ -56,6 +66,8 @@ def _error_free(
     this
 ) -> bool:
     r"""Internal function. Free the memory associated with `error`.
+
+    .. end-markdown
 
     :param this: 
     :type this: FfiError
@@ -91,6 +103,8 @@ def _function_free(
 ):
     r"""Internal function. Free the memory associated with `this`.
 
+    .. end-markdown
+
     :param this: 
     :type this: Function
     :raises TypeError: if an argument's type differs from the expected type
@@ -125,6 +139,8 @@ def _measurement_free(
 ):
     r"""Internal function. Free the memory associated with `this`.
 
+    .. end-markdown
+
     :param this: 
     :type this: Measurement
     :raises TypeError: if an argument's type differs from the expected type
@@ -154,10 +170,48 @@ def _measurement_free(
     return output
 
 
+def _odometer_free(
+    this
+):
+    r"""Internal function. Free the memory associated with `this`.
+
+    .. end-markdown
+
+    :param this: 
+    :type this: Odometer
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = this
+
+    # Call library function.
+    lib_function = lib.opendp_core___odometer_free
+    lib_function.argtypes = [Odometer]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), ctypes.c_void_p))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_odometer_free',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def _transformation_free(
     this
 ):
     r"""Internal function. Free the memory associated with `this`.
+
+    .. end-markdown
 
     :param this: 
     :type this: Transformation
@@ -194,6 +248,8 @@ def function_eval(
     TI: Optional[str] = None
 ):
     r"""Eval the `function` with `arg`.
+
+    .. end-markdown
 
     :param this: Function to invoke.
     :type this: Function
@@ -236,6 +292,8 @@ def measurement_check(
 ) -> bool:
     r"""Check the privacy relation of the `measurement` at the given `d_in`, `d_out`
 
+    .. end-markdown
+
     :param measurement: Measurement to check the privacy relation of.
     :type measurement: Measurement
     :param distance_in: 
@@ -275,6 +333,8 @@ def measurement_function(
 ) -> Function:
     r"""Get the function from a measurement.
 
+    .. end-markdown
+
     :param this: The measurement to retrieve the value from.
     :type this: Measurement
     :raises TypeError: if an argument's type differs from the expected type
@@ -308,6 +368,8 @@ def measurement_input_carrier_type(
     this: Measurement
 ) -> str:
     r"""Get the input (carrier) data type of `this`.
+
+    .. end-markdown
 
     :param this: The measurement to retrieve the type from.
     :type this: Measurement
@@ -343,6 +405,8 @@ def measurement_input_distance_type(
 ) -> str:
     r"""Get the input distance type of `measurement`.
 
+    .. end-markdown
+
     :param this: The measurement to retrieve the type from.
     :type this: Measurement
     :raises TypeError: if an argument's type differs from the expected type
@@ -376,6 +440,8 @@ def measurement_input_domain(
     this: Measurement
 ) -> Domain:
     r"""Get the input domain from a `measurement`.
+
+    .. end-markdown
 
     :param this: The measurement to retrieve the value from.
     :type this: Measurement
@@ -411,6 +477,8 @@ def measurement_input_metric(
 ) -> Metric:
     r"""Get the input domain from a `measurement`.
 
+    .. end-markdown
+
     :param this: The measurement to retrieve the value from.
     :type this: Measurement
     :raises TypeError: if an argument's type differs from the expected type
@@ -445,6 +513,8 @@ def measurement_invoke(
     arg
 ):
     r"""Invoke the `measurement` with `arg`. Returns a differentially private release.
+
+    .. end-markdown
 
     :param this: Measurement to invoke.
     :type this: Measurement
@@ -483,6 +553,8 @@ def measurement_map(
 ):
     r"""Use the `measurement` to map a given `d_in` to `d_out`.
 
+    .. end-markdown
+
     :param measurement: Measurement to check the map distances with.
     :type measurement: Measurement
     :param distance_in: Distance in terms of the input metric.
@@ -519,6 +591,8 @@ def measurement_output_distance_type(
 ) -> str:
     r"""Get the output distance type of `measurement`.
 
+    .. end-markdown
+
     :param this: The measurement to retrieve the type from.
     :type this: Measurement
     :raises TypeError: if an argument's type differs from the expected type
@@ -552,6 +626,8 @@ def measurement_output_measure(
     this: Measurement
 ) -> Measure:
     r"""Get the output domain from a `measurement`.
+
+    .. end-markdown
 
     :param this: The measurement to retrieve the value from.
     :type this: Measurement
@@ -592,7 +668,7 @@ def new_function(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [new_function in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/core/fn.new_function.html)
+    [new_function in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/core/fn.new_function.html)
 
     **Why honest-but-curious?:**
 
@@ -608,7 +684,9 @@ def new_function(
     For instance, raising an exception with the value of a DP release will both
     reveal the DP output and cancel the computation, potentially avoiding privacy accounting.
 
-    :param function: A function mapping data to a value of type `TO`
+    .. end-markdown
+
+    :param function: A function mapping data to a value of type ``TO``
     :param TO: Output Type
     :type TO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
@@ -653,6 +731,8 @@ def new_queryable(
 
     Required features: `contrib`
 
+    .. end-markdown
+
     :param transition: A transition function taking a reference to self, a query, and an internal/external indicator
     :param Q: Query Type
     :type Q: :py:ref:`RuntimeTypeDescriptor`
@@ -694,14 +774,345 @@ def new_queryable(
     return output
 
 
+def odometer_input_carrier_type(
+    this: Odometer
+) -> str:
+    r"""Get the input (carrier) data type of `this`.
+
+    .. end-markdown
+
+    :param this: The odometer to retrieve the type from.
+    :type this: Odometer
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Odometer, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_input_carrier_type
+    lib_function.argtypes = [Odometer]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), ctypes.c_char_p))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_input_carrier_type',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_input_domain(
+    this: Odometer
+) -> Domain:
+    r"""Get the input domain from a `odometer`.
+
+    .. end-markdown
+
+    :param this: The odometer to retrieve the value from.
+    :type this: Odometer
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Odometer, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_input_domain
+    lib_function.argtypes = [Odometer]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), Domain))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_input_domain',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_input_metric(
+    this: Odometer
+) -> Metric:
+    r"""Get the input domain from a `odometer`.
+
+    .. end-markdown
+
+    :param this: The odometer to retrieve the value from.
+    :type this: Odometer
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Odometer, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_input_metric
+    lib_function.argtypes = [Odometer]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_input_metric',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_invoke(
+    this: Odometer,
+    arg
+):
+    r"""Invoke the `odometer` with `arg`. Returns a differentially private release.
+
+    .. end-markdown
+
+    :param this: Odometer to invoke.
+    :type this: Odometer
+    :param arg: Input data to supply to the odometer. A member of the odometer's input domain.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Odometer, type_name=None)
+    c_arg = py_to_c(arg, c_type=AnyObjectPtr, type_name=odometer_input_carrier_type(this))
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_invoke
+    lib_function.argtypes = [Odometer, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this, c_arg), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_invoke',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this, 'arg': arg
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_output_measure(
+    this: Odometer
+) -> Measure:
+    r"""Get the output domain from a `odometer`.
+
+    .. end-markdown
+
+    :param this: The odometer to retrieve the value from.
+    :type this: Odometer
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Odometer, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_output_measure
+    lib_function.argtypes = [Odometer]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), Measure))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_output_measure',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_queryable_invoke(
+    queryable,
+    query
+):
+    r"""Eval the odometer `queryable` with an invoke `query`.
+
+    .. end-markdown
+
+    :param queryable: Queryable to eval.
+    :param query: Invoke query to supply to the queryable.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_queryable = py_to_c(queryable, c_type=AnyObjectPtr, type_name=None)
+    c_query = py_to_c(query, c_type=AnyObjectPtr, type_name=odometer_queryable_invoke_type(queryable))
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_queryable_invoke
+    lib_function.argtypes = [AnyObjectPtr, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_queryable, c_query), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_queryable_invoke',
+            '__module__': 'core',
+            '__kwargs__': {
+                'queryable': queryable, 'query': query
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_queryable_invoke_type(
+    this
+) -> str:
+    r"""Get the invoke query type of an odometer `queryable`.
+
+    .. end-markdown
+
+    :param this: The queryable to retrieve the query type from.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=AnyObjectPtr, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_queryable_invoke_type
+    lib_function.argtypes = [AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), ctypes.c_char_p))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_queryable_invoke_type',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_queryable_privacy_loss(
+    queryable,
+    d_in
+):
+    r"""Retrieve the privacy loss of an odometer `queryable`.
+
+    .. end-markdown
+
+    :param queryable: Queryable to eval.
+    :param d_in: Maximum distance between adjacent inputs in the input domain.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_queryable = py_to_c(queryable, c_type=AnyObjectPtr, type_name=None)
+    c_d_in = py_to_c(d_in, c_type=AnyObjectPtr, type_name=odometer_queryable_privacy_loss_type(queryable))
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_queryable_privacy_loss
+    lib_function.argtypes = [AnyObjectPtr, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_queryable, c_d_in), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_queryable_privacy_loss',
+            '__module__': 'core',
+            '__kwargs__': {
+                'queryable': queryable, 'd_in': d_in
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def odometer_queryable_privacy_loss_type(
+    this
+) -> str:
+    r"""Get the map query type of an odometer `queryable`.
+
+    .. end-markdown
+
+    :param this: The queryable to retrieve the query type from.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=AnyObjectPtr, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_core__odometer_queryable_privacy_loss_type
+    lib_function.argtypes = [AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this), ctypes.c_char_p))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'odometer_queryable_privacy_loss_type',
+            '__module__': 'core',
+            '__kwargs__': {
+                'this': this
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def queryable_eval(
     queryable,
     query
 ):
-    r"""Invoke the `queryable` with `query`. Returns a differentially private release.
+    r"""Eval the `queryable` with `query`. Returns a differentially private release.
+
+    .. end-markdown
 
     :param queryable: Queryable to eval.
-    :param query: Input data to supply to the measurement. A member of the measurement's input domain.
+    :param query: The input to the queryable.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -734,6 +1145,8 @@ def queryable_query_type(
     this
 ) -> str:
     r"""Get the query type of `queryable`.
+
+    .. end-markdown
 
     :param this: The queryable to retrieve the query type from.
     :raises TypeError: if an argument's type differs from the expected type
@@ -769,6 +1182,8 @@ def transformation_check(
     distance_out
 ) -> bool:
     r"""Check the privacy relation of the `measurement` at the given `d_in`, `d_out`
+
+    .. end-markdown
 
     :param transformation: 
     :type transformation: Transformation
@@ -809,6 +1224,8 @@ def transformation_function(
 ) -> Function:
     r"""Get the function from a transformation.
 
+    .. end-markdown
+
     :param this: The transformation to retrieve the value from.
     :type this: Transformation
     :raises TypeError: if an argument's type differs from the expected type
@@ -842,6 +1259,8 @@ def transformation_input_carrier_type(
     this: Transformation
 ) -> str:
     r"""Get the input (carrier) data type of `this`.
+
+    .. end-markdown
 
     :param this: The transformation to retrieve the type from.
     :type this: Transformation
@@ -877,6 +1296,8 @@ def transformation_input_distance_type(
 ) -> str:
     r"""Get the input distance type of `transformation`.
 
+    .. end-markdown
+
     :param this: The transformation to retrieve the type from.
     :type this: Transformation
     :raises TypeError: if an argument's type differs from the expected type
@@ -910,6 +1331,8 @@ def transformation_input_domain(
     this: Transformation
 ) -> Domain:
     r"""Get the input domain from a `transformation`.
+
+    .. end-markdown
 
     :param this: The transformation to retrieve the value from.
     :type this: Transformation
@@ -945,6 +1368,8 @@ def transformation_input_metric(
 ) -> Metric:
     r"""Get the input domain from a `transformation`.
 
+    .. end-markdown
+
     :param this: The transformation to retrieve the value from.
     :type this: Transformation
     :raises TypeError: if an argument's type differs from the expected type
@@ -979,6 +1404,8 @@ def transformation_invoke(
     arg
 ):
     r"""Invoke the `transformation` with `arg`. Returns a differentially private release.
+
+    .. end-markdown
 
     :param this: Transformation to invoke.
     :type this: Transformation
@@ -1017,6 +1444,8 @@ def transformation_map(
 ):
     r"""Use the `transformation` to map a given `d_in` to `d_out`.
 
+    .. end-markdown
+
     :param transformation: Transformation to check the map distances with.
     :type transformation: Transformation
     :param distance_in: Distance in terms of the input metric.
@@ -1053,6 +1482,8 @@ def transformation_output_distance_type(
 ) -> str:
     r"""Get the output distance type of `transformation`.
 
+    .. end-markdown
+
     :param this: The transformation to retrieve the type from.
     :type this: Transformation
     :raises TypeError: if an argument's type differs from the expected type
@@ -1087,6 +1518,8 @@ def transformation_output_domain(
 ) -> Domain:
     r"""Get the output domain from a `transformation`.
 
+    .. end-markdown
+
     :param this: The transformation to retrieve the value from.
     :type this: Transformation
     :raises TypeError: if an argument's type differs from the expected type
@@ -1120,6 +1553,8 @@ def transformation_output_metric(
     this: Transformation
 ) -> Metric:
     r"""Get the output domain from a `transformation`.
+
+    .. end-markdown
 
     :param this: The transformation to retrieve the value from.
     :type this: Transformation

@@ -1,11 +1,10 @@
 use polars::prelude::*;
 use polars_plan::dsl::Expr;
-use polars_plan::prelude::{ApplyOptions, FunctionOptions};
 
 use crate::core::{Function, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{ExprDomain, OuterMetric, WildExprDomain};
 use crate::error::*;
-use crate::transformations::DatasetMetric;
+use crate::metrics::MicrodataMetric;
 
 use super::StableExpr;
 
@@ -22,9 +21,9 @@ pub fn make_expr_datetime_component<M: OuterMetric>(
     input_domain: WildExprDomain,
     input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
-    M::InnerMetric: DatasetMetric,
+    M::InnerMetric: MicrodataMetric,
     M::Distance: Clone,
     (WildExprDomain, M): MetricSpace,
     (ExprDomain, M): MetricSpace,
@@ -39,7 +38,7 @@ where
         return fallible!(MakeTransformation, "expected datetime component expression");
     };
 
-    let Some((to_dtype, _)) = match_datetime_component(&temporal_function) else {
+    let Some(to_dtype) = match_datetime_component(&temporal_function) else {
         return fallible!(
             MakeTransformation,
             "expected datetime component, found {:?}",
@@ -77,46 +76,40 @@ where
     t_prior
         >> Transformation::new(
             middle_domain.clone(),
+            middle_metric.clone(),
             output_domain,
+            middle_metric,
             Function::then_expr(move |expr| Expr::Function {
                 input: vec![expr],
                 function: FunctionExpr::TemporalExpr(temporal_function.clone()),
-                options: FunctionOptions {
-                    collect_groups: ApplyOptions::ElementWise,
-                    ..Default::default()
-                },
             }),
-            middle_metric.clone(),
-            middle_metric,
             StabilityMap::new(Clone::clone),
         )?
 }
 
 /// # Proof Definition
-/// Returns the data type and optionally the maximum number of unique values of the output
-/// when applying `temporal_function` to a temporal data type.
-/// Returns None if the temporal function is not retrieving a datetime component.
-pub(super) fn match_datetime_component(
-    temporal_function: &TemporalFunction,
-) -> Option<(DataType, Option<u32>)> {
+/// For any choice of `temporal_function`,
+/// returns the data type of the output if the input is an infallible row-by-row temporal expression,
+/// otherwise returns none.
+pub(super) fn match_datetime_component(temporal_function: &TemporalFunction) -> Option<DataType> {
     use TemporalFunction::*;
     Some(match temporal_function {
-        Millennium => (DataType::Int8, None),
-        Century => (DataType::Int8, None),
-        Year => (DataType::Int32, None),
-        IsoYear => (DataType::Int32, None),
-        Quarter => (DataType::Int8, Some(4)),
-        Month => (DataType::Int8, Some(12)),
-        Week => (DataType::Int8, Some(53)),
-        WeekDay => (DataType::Int8, Some(7)),
-        Day => (DataType::Int8, Some(31)),
-        OrdinalDay => (DataType::Int16, Some(366)),
-        Hour => (DataType::Int8, Some(24)),
-        Minute => (DataType::Int8, Some(60)),
-        Second => (DataType::Int8, Some(60)),
-        Millisecond => (DataType::Int32, Some(1_000)),
-        Microsecond => (DataType::Int32, Some(1_000_000)),
-        Nanosecond => (DataType::Int32, Some(1_000_000_000)),
+        Millennium => DataType::Int32,
+        Century => DataType::Int32,
+        Year => DataType::Int32,
+        IsoYear => DataType::Int32,
+        Quarter => DataType::Int8,
+        Month => DataType::Int8,
+        Week => DataType::Int8,
+        WeekDay => DataType::Int8,
+        Day => DataType::Int8,
+        OrdinalDay => DataType::Int16,
+        Hour => DataType::Int8,
+        Minute => DataType::Int8,
+        Second => DataType::Int8,
+        Millisecond => DataType::Int32,
+        Microsecond => DataType::Int32,
+        Nanosecond => DataType::Int32,
         _ => return None,
     })
 }

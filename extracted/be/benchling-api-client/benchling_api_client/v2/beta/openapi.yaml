@@ -6039,8 +6039,20 @@ components:
     MessageTypeWebhookV2Beta:
       description: The event that the app is subscribed to.
       enum:
+      - v2-beta.app.configuration.updated
+      - v2-beta.canvas.created
+      - v2.app.activateRequested
+      - v2.app.deactivated
+      - v2.app.installed
       - v2.assayRun.created
       - v2.assayRun.updated.fields
+      - v2.automationFileTransform.updated.status.failed
+      - v2.automationFileTransform.updated.status.pending
+      - v2.automationFileTransform.updated.status.running
+      - v2.automationFileTransform.updated.status.succeeded
+      - v2.canvas.created
+      - v2.canvas.initialized
+      - v2.canvas.userInteracted
       - v2.entity.registered
       - v2.entry.created
       - v2.entry.updated.fields
@@ -6048,22 +6060,16 @@ components:
       - v2.request.created
       - v2.request.updated.fields
       - v2.request.updated.status
+      - v2.workflowOutput.created
+      - v2.workflowOutput.updated.fields
+      - v2.workflowTask.created
+      - v2.workflowTask.updated.assignee
+      - v2.workflowTask.updated.fields
+      - v2.workflowTask.updated.scheduledOn
+      - v2.workflowTask.updated.status
       - v2.workflowTaskGroup.created
       - v2.workflowTaskGroup.mappingCompleted
       - v2.workflowTaskGroup.updated.watchers
-      - v2.workflowTask.created
-      - v2.workflowTask.updated.assignee
-      - v2.workflowTask.updated.scheduledOn
-      - v2.workflowTask.updated.status
-      - v2.workflowTask.updated.fields
-      - v2.workflowOutput.created
-      - v2.workflowOutput.updated.fields
-      - v2.canvas.userInteracted
-      - v2.canvas.initialized
-      - v2.app.activateRequested
-      - v2.app.deactivated
-      - v2.app.installed
-      - v2-beta.app.configuration.updated
       type: string
     Mixture:
       properties:

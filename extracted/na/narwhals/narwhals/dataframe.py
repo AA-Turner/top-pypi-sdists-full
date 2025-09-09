@@ -18,7 +18,6 @@ from typing import (
 from narwhals._exceptions import issue_warning
 from narwhals._expression_parsing import (
     ExprKind,
-    all_exprs_are_scalar_like,
     check_expressions_preserve_length,
     is_into_expr_eager,
     is_scalar_like,
@@ -27,6 +26,7 @@ from narwhals._typing import Arrow, Pandas, _LazyAllowedImpl, _LazyFrameCollectI
 from narwhals._utils import (
     Implementation,
     Version,
+    _Implementation,
     can_lazyframe_collect,
     check_columns_exist,
     flatten,
@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     )
 
     PS = ParamSpec("PS")
+    Incomplete: TypeAlias = Any
 
 _FrameT = TypeVar("_FrameT", bound="IntoFrame")
 LazyFrameT = TypeVar("LazyFrameT", bound="IntoLazyFrame")
@@ -104,6 +105,31 @@ MultiIndexSelector: TypeAlias = "_MultiIndexSelector[Series[Any]]"
 class BaseFrame(Generic[_FrameT]):
     _compliant_frame: Any
     _level: Literal["full", "lazy", "interchange"]
+
+    implementation: _Implementation = _Implementation()
+    """Return [`narwhals.Implementation`][] of native frame.
+
+    This can be useful when you need to use special-casing for features outside of
+    Narwhals' scope - for example, when dealing with pandas' Period Dtype.
+
+    Examples:
+        >>> import narwhals as nw
+        >>> import pandas as pd
+        >>> df_native = pd.DataFrame({"a": [1, 2, 3]})
+        >>> df = nw.from_native(df_native)
+        >>> df.implementation
+        <Implementation.PANDAS: 'pandas'>
+        >>> df.implementation.is_pandas()
+        True
+        >>> df.implementation.is_pandas_like()
+        True
+        >>> df.implementation.is_polars()
+        False
+    """
+
+    @property
+    @abstractmethod
+    def _compliant(self) -> Any: ...
 
     def __native_namespace__(self) -> ModuleType:
         return self._compliant_frame.__native_namespace__()  # type: ignore[no-any-return]
@@ -196,7 +222,7 @@ class BaseFrame(Generic[_FrameT]):
                     raise error from e
                 raise
         compliant_exprs, kinds = self._flatten_and_extract(*flat_exprs, **named_exprs)
-        if compliant_exprs and all_exprs_are_scalar_like(*flat_exprs, **named_exprs):
+        if compliant_exprs and all(is_scalar_like(kind) for kind in kinds):
             return self._with_compliant(self._compliant_frame.aggregate(*compliant_exprs))
         compliant_exprs = [
             compliant_expr.broadcast(kind) if is_scalar_like(kind) else compliant_expr
@@ -259,7 +285,7 @@ class BaseFrame(Generic[_FrameT]):
 
     def join(
         self,
-        other: Self,
+        other: Incomplete,
         on: str | list[str] | None,
         how: JoinStrategy,
         *,
@@ -310,7 +336,7 @@ class BaseFrame(Generic[_FrameT]):
 
     def join_asof(
         self,
-        other: Self,
+        other: Incomplete,
         *,
         left_on: str | None,
         right_on: str | None,
@@ -445,6 +471,10 @@ class DataFrame(BaseFrame[DataFrameT]):
     """
 
     _version: ClassVar[Version] = Version.MAIN
+
+    @property
+    def _compliant(self) -> CompliantDataFrame[Any, Any, DataFrameT, Self]:
+        return self._compliant_frame
 
     def _extract_compliant(self, arg: Any) -> Any:
         if is_into_expr_eager(arg):
@@ -651,29 +681,6 @@ class DataFrame(BaseFrame[DataFrameT]):
             f"    nw.DataFrame.from_numpy(arr, backend='pyarrow').lazy('{implementation}')"
         )
         raise ValueError(msg)
-
-    @property
-    def implementation(self) -> Implementation:
-        """Return implementation of native frame.
-
-        This can be useful when you need to use special-casing for features outside of
-        Narwhals' scope - for example, when dealing with pandas' Period Dtype.
-
-        Examples:
-            >>> import narwhals as nw
-            >>> import pandas as pd
-            >>> df_native = pd.DataFrame({"a": [1, 2, 3]})
-            >>> df = nw.from_native(df_native)
-            >>> df.implementation
-            <Implementation.PANDAS: 'pandas'>
-            >>> df.implementation.is_pandas()
-            True
-            >>> df.implementation.is_pandas_like()
-            True
-            >>> df.implementation.is_polars()
-            False
-        """
-        return self._compliant_frame._implementation
 
     def __len__(self) -> int:
         return self._compliant_frame.__len__()
@@ -1105,7 +1112,7 @@ class DataFrame(BaseFrame[DataFrameT]):
     def to_dict(self, *, as_series: Literal[False]) -> dict[str, list[Any]]: ...
     @overload
     def to_dict(
-        self, *, as_series: bool
+        self, *, as_series: bool = True
     ) -> dict[str, Series[Any]] | dict[str, list[Any]]: ...
     def to_dict(
         self, *, as_series: bool = True
@@ -2276,6 +2283,10 @@ class LazyFrame(BaseFrame[LazyFrameT]):
         ```
     """
 
+    @property
+    def _compliant(self) -> CompliantLazyFrame[Any, LazyFrameT, Self]:
+        return self._compliant_frame
+
     def _extract_compliant(self, arg: Any) -> Any:
         from narwhals.expr import Expr
         from narwhals.series import Series
@@ -2326,22 +2337,6 @@ class LazyFrame(BaseFrame[LazyFrameT]):
 
     def __repr__(self) -> str:  # pragma: no cover
         return generate_repr("Narwhals LazyFrame", self.to_native().__repr__())
-
-    @property
-    def implementation(self) -> Implementation:
-        """Return implementation of native frame.
-
-        This can be useful when you need to use special-casing for features outside of
-        Narwhals' scope - for example, when dealing with pandas' Period Dtype.
-
-        Examples:
-            >>> import narwhals as nw
-            >>> import dask.dataframe as dd
-            >>> lf_native = dd.from_dict({"a": [1, 2]}, npartitions=1)
-            >>> nw.from_native(lf_native).implementation
-            <Implementation.DASK: 'dask'>
-        """
-        return self._compliant_frame._implementation
 
     def __getitem__(self, item: str | slice) -> NoReturn:
         msg = "Slicing is not supported on LazyFrame"

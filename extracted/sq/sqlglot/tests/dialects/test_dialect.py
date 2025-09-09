@@ -1393,6 +1393,17 @@ class TestDialect(Validator):
             },
         )
 
+        self.validate_all(
+            "SORT_ARRAY(x)",
+            write={
+                "duckdb": "ARRAY_SORT(x)",
+                "hive": "SORT_ARRAY(x)",
+                "presto": "ARRAY_SORT(x)",
+                "snowflake": "ARRAY_SORT(x)",
+                "spark": "SORT_ARRAY(x)",
+            },
+        )
+
     def test_order_by(self):
         self.validate_identity(
             "SELECT c FROM t ORDER BY a, b,",
@@ -2613,14 +2624,14 @@ SELECT
             },
         )
         self.validate_all(
-            "BEGIN",
+            "BEGIN READ WRITE, ISOLATION LEVEL SERIALIZABLE",
             read={
                 "presto": "START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE",
                 "trino": "START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE",
             },
         )
         self.validate_all(
-            "BEGIN",
+            "BEGIN ISOLATION LEVEL REPEATABLE READ",
             read={
                 "presto": "START TRANSACTION ISOLATION LEVEL REPEATABLE READ",
                 "trino": "START TRANSACTION ISOLATION LEVEL REPEATABLE READ",
@@ -3604,72 +3615,6 @@ FROM subquery2""",
                 "redshift": "ASCII('A')",
                 "snowflake": "ASCII('A')",
                 "tsql": "ASCII('A')",
-            },
-        )
-
-    def test_bit_aggs(self):
-        self.validate_all(
-            "BIT_AND(x)",
-            read={
-                "bigquery": "BIT_AND(x)",
-                "spark": "BIT_AND(x)",
-                "databricks": "BIT_AND(x)",
-                "mysql": "BIT_AND(x)",
-                "dremio": "BIT_AND(x)",
-            },
-            write={
-                "bigquery": "BIT_AND(x)",
-                "spark": "BIT_AND(x)",
-                "databricks": "BIT_AND(x)",
-                "mysql": "BIT_AND(x)",
-                "dremio": "BIT_AND(x)",
-            },
-        )
-        self.validate_all(
-            "BIT_OR(x)",
-            read={
-                "bigquery": "BIT_OR(x)",
-                "spark": "BIT_OR(x)",
-                "databricks": "BIT_OR(x)",
-                "mysql": "BIT_OR(x)",
-                "dremio": "BIT_OR(x)",
-            },
-            write={
-                "bigquery": "BIT_OR(x)",
-                "spark": "BIT_OR(x)",
-                "databricks": "BIT_OR(x)",
-                "mysql": "BIT_OR(x)",
-                "dremio": "BIT_OR(x)",
-            },
-        )
-        self.validate_all(
-            "BIT_XOR(x)",
-            read={
-                "bigquery": "BIT_XOR(x)",
-                "spark": "BIT_XOR(x)",
-                "databricks": "BIT_XOR(x)",
-                "mysql": "BIT_XOR(x)",
-            },
-            write={
-                "bigquery": "BIT_XOR(x)",
-                "spark": "BIT_XOR(x)",
-                "databricks": "BIT_XOR(x)",
-                "mysql": "BIT_XOR(x)",
-            },
-        )
-        self.validate_all(
-            "BIT_COUNT(x)",
-            read={
-                "bigquery": "BIT_COUNT(x)",
-                "spark": "BIT_COUNT(x)",
-                "databricks": "BIT_COUNT(x)",
-                "mysql": "BIT_COUNT(x)",
-            },
-            write={
-                "bigquery": "BIT_COUNT(x)",
-                "spark": "BIT_COUNT(x)",
-                "databricks": "BIT_COUNT(x)",
-                "mysql": "BIT_COUNT(x)",
             },
         )
 

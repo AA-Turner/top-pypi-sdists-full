@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Callable
 
-from asgiref.sync import iscoroutinefunction
-from asgiref.sync import markcoroutinefunction
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import setting_changed
@@ -19,6 +18,7 @@ _FEATURE_NAMES: set[str] = {
     # with flag "Experimental Web Platform features" turned on:
     "accelerometer",
     "ambient-light-sensor",
+    "aria-notify",
     "attribution-reporting",
     "autoplay",
     "bluetooth",
@@ -72,10 +72,13 @@ _FEATURE_NAMES: set[str] = {
     "join-ad-interest-group",
     "keyboard-map",
     "language-detector",
+    "language-model",
     "local-fonts",
+    "local-network-access",
     "magnetometer",
     "microphone",
     "midi",
+    "on-device-speech-recognition",
     "otp-credentials",
     "payment",
     "picture-in-picture",
@@ -99,7 +102,6 @@ _FEATURE_NAMES: set[str] = {
     "unload",
     "usb",
     "vertical-scroll",
-    "web-app-installation",
     "window-management",
     "writer",
     "xr-spatial-tracking",
@@ -132,7 +134,7 @@ class PermissionsPolicyMiddleware:
             # inside __call__ to avoid swapping out dunder methods
             markcoroutinefunction(self)
 
-        self.header_value  # Access at setup so ImproperlyConfigured can be raised
+        self.header_value  # noqa: B018 - Access at setup so ImproperlyConfigured can be raised
         receiver(setting_changed)(self.clear_header_value)
 
     def __call__(

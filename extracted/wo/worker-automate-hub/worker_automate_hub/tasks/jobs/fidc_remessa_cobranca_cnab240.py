@@ -165,7 +165,7 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         #clcica em OK
         pyautogui.click(1100, 660)
 
-        await worker_sleep(120)
+        await worker_sleep(180)
 
         try:
             app = Application().connect(title="Informação", backend="uia")

@@ -12,18 +12,25 @@ use dashu::{
 use super::sample_from_uniform_bytes;
 use crate::{error::Fallible, traits::RoundCast};
 
-#[cfg(test)]
+#[cfg(all(feature = "contrib", test))]
 mod test;
 
 mod gumbel;
 pub use gumbel::GumbelRV;
 
+mod canonical;
+pub use canonical::CanonicalRV;
+
 pub trait InverseCDF: Sized {
     /// Type of lower or upper bound on the true random sample.
     type Edge: PartialOrd + Debug;
 
-    /// Calculate either a lower or upper bound on the inverse cumulative distribution function.
-    /// Returns None if the inverse CDF cannot be computed for the given uniform sample.
+    /// # Proof Definition
+    /// Given a random variable `self` (of type `Self`),
+    /// return `Ok(out)` where `out` is the inverse cumulative distribution function evaluated at `uniform`
+    /// with error in direction `R`, or `None`.
+    ///
+    /// The error between `out` and the exactly-computed CDF decreases monotonically as `refinements` increases.
     fn inverse_cdf<R: ODPRound>(&self, uniform: RBig, refinements: usize) -> Option<Self::Edge>;
 }
 
@@ -41,6 +48,7 @@ pub struct PartialSample<D: InverseCDF> {
     /// The denominator of the uniform sample fraction is 2^refinements.
     refinements: usize,
     /// A struct from which you can compute the inverse CDF.
+    /// Parameters about the distribution, like shift and scale, are stored in this struct.
     pub distribution: D,
 }
 
@@ -55,7 +63,7 @@ impl<D: InverseCDF> PartialSample<D> {
 }
 
 impl<D: InverseCDF> PartialSample<D> {
-    // Retrieve either the lower or upper edge of the uniform interval.
+    // Retrieve either a lower or upper bound on the sample.
     fn edge<R: ODPRound>(&self) -> Option<D::Edge> {
         let uniform_edge = RBig::from_parts(
             IBig::from(self.randomness.clone() + R::UBIG),
@@ -74,18 +82,21 @@ impl<D: InverseCDF> PartialSample<D> {
         Ok(())
     }
 
-    /// Retrieve a lower bound for the true random sample.
+    /// Retrieve a lower bound on the sample.
     fn lower(&self) -> Option<D::Edge> {
         self.edge::<Down>()
     }
 
-    /// Retrieve a upper bound for the true random sample.
+    /// Retrieve an upper bound on the sample.
     fn upper(&self) -> Option<D::Edge> {
         self.edge::<Up>()
     }
 
     /// Checks if `self` is greater than `other`,
     /// by refining the estimates for `self` and `other` until their intervals are disjoint.
+    ///
+    /// # Proof Definition
+    /// Returns `true` if `self` is greater than `other`, and `false` otherwise.
     pub fn greater_than(
         self: &mut PartialSample<D>,
         other: &mut PartialSample<D>,
@@ -109,6 +120,11 @@ impl<D: InverseCDF> PartialSample<D> {
     }
 
     /// Refine `psrn` until both bounds of interval round to same TO
+    ///
+    /// # Proof Definition
+    /// Returns a sample from the distribution with CDF as defined by `self`,
+    /// rounded to the nearest value of type `TO`,
+    /// or an error if there is a lack of system entropy.
     pub fn value<TO: RoundCast<D::Edge> + PartialEq>(&mut self) -> Fallible<TO> {
         Ok(loop {
             let Some((l, r)) = self.lower().zip(self.upper()) else {

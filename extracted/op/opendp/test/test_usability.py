@@ -104,7 +104,7 @@ def test_string_instead_of_tuple_for_margin_key():
                 # To reproduce failure, the column name must be multiple characters.
                 # TODO: We want to fail earlier because the key is not a tuple.
                 # (mypy does catch this, so we need "type: ignore", but we can't rely on users running mypy.)
-                dp.polars.Margin(by=("a_column"), public_info="keys", max_partition_length=5), # type: ignore
+                dp.polars.Margin(by=("a_column"), invariant="keys", max_length=5), # type: ignore
             ],
         )
 
@@ -124,7 +124,7 @@ def test_margins_dict_instead_of_list():
             privacy_loss=dp.loss_of(epsilon=1.0),
             split_evenly_over=1,
             margins={ # type: ignore[arg-type]
-                ('col',): dp.polars.Margin(public_info="keys", max_partition_length=5),
+                ('col',): dp.polars.Margin(invariant="keys", max_length=5),
             }
         )
 
@@ -133,7 +133,7 @@ def test_margins_dict_instead_of_list():
     "domain", [dp.lazyframe_domain([]), dp.series_domain("A", dp.atom_domain(T=bool))])
 def test_polars_data_loader_error_is_human_readable(domain):
     pytest.importorskip("polars")
-    overall_pipeline = dp.c.make_sequential_composition(
+    overall_pipeline = dp.c.make_adaptive_composition(
         domain, dp.symmetric_distance(), dp.max_divergence(), d_in=1,
         d_mids=[1.])
     with pytest.raises(ValueError, match="expected Polars *"):
@@ -166,3 +166,79 @@ def test_unrecognized_column():
     plain_query = context.query().select(config)
     with pytest.raises(dp.OpenDPException, match=r"unrecognized column 'X' in output domain; expected one of: A, B"):
         plain_query.release()
+
+def test_without_max_partition_length():
+    pl = pytest.importorskip("polars")
+
+    context_wo_margin = dp.Context.compositor(
+        data=pl.LazyFrame({"A": [1, 2, 3, 4], "B": [5, 6, 7, 8]}),
+        privacy_unit=dp.unit_of(contributions=1),
+        privacy_loss=dp.loss_of(epsilon=1),
+        split_evenly_over=2,
+        margins=[],
+    )
+
+    config = pl.col("A").fill_null(0).dp.mean((0, 10))
+
+    plain_query = context_wo_margin.query().select(config)
+    with pytest.raises(dp.OpenDPException, match=r"must specify 'max_length' in a margin with by=\[\]"):
+        plain_query.release()
+
+    agg_query = context_wo_margin.query().group_by(["B"]).agg(config)
+    with pytest.raises(dp.OpenDPException, match="must specify 'max_length' in a margin with by=\\[col\\(\"B\"\\)\\]"):
+        agg_query.release()
+    
+# Add a margin and try the same queries again:
+def test_with_max_length():
+    pl = pytest.importorskip("polars")
+
+    context_w_margin = dp.Context.compositor(
+        data=pl.LazyFrame({"A": [1, 2, 3, 4], "B": [5, 6, 7, 8]}),
+        privacy_unit=dp.unit_of(contributions=1),
+        privacy_loss=dp.loss_of(epsilon=1),
+        split_evenly_over=2,
+        margins=[dp.polars.Margin(
+            by=[],
+            max_length=1
+        )],
+    )
+
+    config = pl.col("A").fill_null(0).dp.mean((0, 10))
+
+    plain_query = context_w_margin.query().select(config)
+    plain_query.release()
+
+    agg_query = context_w_margin.query().group_by(["B"]).agg(config)
+    with pytest.raises(dp.OpenDPException, match=re.escape('The key-set of {col("B")} is private')):
+        agg_query.release()
+
+
+# Make key set invariant:
+def test_with_max_length_and_invariant_keys():
+    pl = pytest.importorskip("polars")
+    
+    context_w_invariant_keys = dp.Context.compositor(
+        data=pl.LazyFrame({"A": [1, 2, 3, 4], "B": [5, 6, 7, 8]}),
+        privacy_unit=dp.unit_of(contributions=1),
+        privacy_loss=dp.loss_of(epsilon=1),
+        split_evenly_over=2,
+        margins=[
+            dp.polars.Margin(
+                by=[],
+                max_length=1
+            ),
+            dp.polars.Margin(
+                by=['B'],
+                max_length=1,
+                invariant='keys',
+            ),
+        ],
+    )
+
+    config = pl.col("A").fill_null(0).dp.mean((0, 10))
+
+    plain_query = context_w_invariant_keys.query().select(config)
+    plain_query.release()
+
+    agg_query = context_w_invariant_keys.query().group_by(["B"]).agg(config)
+    agg_query.release()

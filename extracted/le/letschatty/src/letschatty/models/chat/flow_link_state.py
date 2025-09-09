@@ -90,6 +90,8 @@ class FlowStateAssignedToChat(AssignedAssetToChat):
 
     @classmethod
     def from_json(cls, json: dict) -> FlowStateAssignedToChat | SmartFollowUpState:
+        if isinstance(json, FlowStateAssignedToChat | SmartFollowUpState):
+            return json
         if json.get("is_smart_follow_up", False):
             return SmartFollowUpState(**json)
         else:

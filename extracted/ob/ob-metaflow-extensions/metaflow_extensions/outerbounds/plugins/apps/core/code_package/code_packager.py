@@ -441,6 +441,7 @@ class CodePackager:
         root,
         exclude_hidden=True,
         suffixes=None,
+        normalized_rel_path=False,
     ) -> List[Tuple[str, str]]:
         """
         Walk a directory and yield tuples of (file_path, relative_arcname) for files
@@ -456,6 +457,8 @@ class CodePackager:
             Whether to exclude hidden files and directories (those starting with '.')
         suffixes : List[str], optional
             List of file suffixes to include (e.g. ['.py', '.txt'])
+        normalized_rel_path : bool, default False
+            Whether to normalize the relative from the root. ie if the root is /a/b/c and the file is /a/b/c/d/e.py then the relative path will be d/e.py
 
         Returns
         -------
@@ -468,6 +471,8 @@ class CodePackager:
         for file_path, rel_path in symlink_friendly_walk(
             root, exclude_hidden, suffixes
         ):
+            if normalized_rel_path:
+                rel_path = file_path.replace(root, "")
             files.append((file_path, rel_path))
         return files
 
@@ -520,6 +525,7 @@ class CodePackager:
                         path,
                         exclude_hidden=True,
                         suffixes=suffixes,
+                        normalized_rel_path=True,
                     ):
                         tar.add(
                             file_path,

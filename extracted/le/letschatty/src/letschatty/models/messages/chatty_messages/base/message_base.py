@@ -149,7 +149,9 @@ class Message(BaseModel):
         if isinstance(v, datetime):
             v = v.replace(tzinfo=ZoneInfo("UTC")) if v.tzinfo is None else v.astimezone(ZoneInfo("UTC"))
             if v > datetime.now(ZoneInfo("UTC")):
-                raise ImpossibleError(f"Message created at {v} is in the future")
+                v = datetime.now(ZoneInfo("UTC"))
+                logger.warning(f"Message created at {v} is in the future, setting it to now")
+                # raise ImpossibleError(f"Message created at {v} is in the future")
             return v
         raise ValueError('must be a datetime')
 

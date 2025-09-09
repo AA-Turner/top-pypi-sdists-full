@@ -123,6 +123,7 @@ EXPORT THREEBYTES return_three_bytes(void)
 }
 """
 
+@pytest.mark.thread_unsafe(reason="Parallel tests would share a build directory")
 class TestOwnLib(object):
     Backend = CTypesBackend
 
@@ -389,7 +390,7 @@ class TestOwnLib(object):
     def test_dlopen_handle(self):
         if self.module is None:
             pytest.skip("fix the auto-generation of the tiny test lib")
-        if sys.platform == 'win32' or is_musl:
+        if sys.platform == 'win32' or is_musl or sys.platform.startswith('freebsd'):
             pytest.skip("uses 'dl' explicitly")
         if self.__class__.Backend is CTypesBackend:
             pytest.skip("not for the ctypes backend")

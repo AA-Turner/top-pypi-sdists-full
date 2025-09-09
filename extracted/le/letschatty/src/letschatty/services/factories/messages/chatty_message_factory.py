@@ -9,11 +9,13 @@ from .from_template_hot_fix import fromTemplateFactory
 from .central_notification_factory import CentralNotificationFactory
 from ....models.messages import ChattyMessageJson, CentralNotification
 from ....models.company.assets import ChattyFastAnswer
+from ....models.messages import ChattyMessage, MessageDraft, TextMessage
 if TYPE_CHECKING:
-    from ....models.messages import ChattyMessage, MessageDraft, TextMessage
     from ....models.utils import Status
 
 def from_message_json(message_json : Dict[str, Any]) -> ChattyMessage:
+    if isinstance(message_json, ChattyMessage):
+        return message_json
     chatty_message_json = ChattyMessageJson(**message_json)
     return JsonMessageFactory.from_json(chatty_message_json)
 

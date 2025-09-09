@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aiovodafone
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python library to control Vodafone Station
 License: Apache-2.0
 Author: Simone Chemelli

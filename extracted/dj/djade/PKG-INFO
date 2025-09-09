@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djade
-Version: 1.5.0
+Version: 1.6.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Summary: A Django template formatter.
 Keywords: Django
@@ -68,7 +69,7 @@ Use **pip**:
 
     python -m pip install djade
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 pre-commit hook
 ---------------

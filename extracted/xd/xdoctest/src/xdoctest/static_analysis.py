@@ -21,8 +21,10 @@ import platform
 PLAT_IMPL = platform.python_implementation()
 
 
-IS_PY_GE_308 = sys.version_info[0] >= 3 and sys.version_info[1] >= 8
-IS_PY_GE_312 = sys.version_info[0] >= 3 and sys.version_info[1] >= 12
+IS_PY_GE_312 = sys.version_info[0:2] >= (3, 12)
+IS_PY_GE_308 = sys.version_info[0:2] >= (3, 8)  # type: bool
+IS_PY_LT_314 = sys.version_info[0:2] < (3, 14)  # type: bool
+
 
 if IS_PY_GE_312:
     from xdoctest import _tokenize as tokenize
@@ -30,7 +32,7 @@ else:
     import tokenize
 
 
-class CallDefNode(object):
+class CallDefNode:
     """
     Attributes:
         lineno_end (None | int):
@@ -105,7 +107,7 @@ class TopLevelVisitor(ast.NodeVisitor):
                         pass
                 def bar():
                     pass
-                class Spam(object):
+                class Spam:
                     def eggs(self):
                         pass
                     @staticmethod
@@ -228,6 +230,7 @@ class TopLevelVisitor(ast.NodeVisitor):
                         # callname = callname + '.fset'
                         return
 
+        # TODO: Is this still necessary in modern Python versions?
         lineno = self._workaround_func_lineno(node)
         docstr, doclineno, doclineno_end = self._get_docstring(node)
         calldef = CallDefNode(callname, lineno, docstr, doclineno,
@@ -613,7 +616,7 @@ class TopLevelVisitor(ast.NodeVisitor):
             pattern = re.escape(trip) + r'\s*#.*$'
             # Assuming the multiline string is using `trip` as the triple quote
             # format, then the first instance of that pattern must terminate
-            # the string literal. Afterwords the only valid characters are
+            # the string literal. Afterwards the only valid characters are
             # whitespace and comments. Anything after the comment can be
             # ignored. The above pattern will match the first triple quote it
             # sees, and then will remove any trailing comments.
@@ -758,10 +761,10 @@ def _parse_static_node_value(node):
     Extract a constant value from a node if possible
     """
     import numbers
-    if (isinstance(node, ast.Constant) and isinstance(node.value, numbers.Number) if IS_PY_GE_308 else isinstance(node, ast.Num)):
-        value = node.value if IS_PY_GE_308 else node.n
-    elif (isinstance(node, ast.Constant) and isinstance(node.value, str) if IS_PY_GE_308 else isinstance(node, ast.Str)):
-        value = node.value if IS_PY_GE_308 else node.s
+    if (isinstance(node, ast.Constant) and isinstance(node.value, numbers.Number)):
+        value = node.value
+    elif (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        value = node.value
     elif isinstance(node, ast.List):
         value = list(map(_parse_static_node_value, node.elts))
     elif isinstance(node, ast.Tuple):
@@ -771,7 +774,9 @@ def _parse_static_node_value(node):
         values = map(_parse_static_node_value, node.values)
         value = OrderedDict(zip(keys, values))
         # value = dict(zip(keys, values))
-    elif isinstance(node, (ast.NameConstant)):
+    elif IS_PY_LT_314 and isinstance(node, (ast.NameConstant)):
+        value = node.value
+    elif isinstance(node, ast.Constant):
         value = node.value
     else:
         print(node.__dict__)
@@ -1123,7 +1128,7 @@ def _strip_hashtag_comments_and_newlines(source):
         """
         Consecutive newlines are dropped and trailing whitespace
 
-        Adapated from: https://github.com/mitogen-hq/mitogen/blob/master/mitogen/minify.py#L65
+        Adapted from: https://github.com/mitogen-hq/mitogen/blob/master/mitogen/minify.py#L65
         """
         prev_typ = None
         prev_end_col = 0

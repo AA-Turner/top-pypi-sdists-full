@@ -1011,6 +1011,7 @@ class UseCaseEntityType(StrEnum, metaclass=DRStrEnum):
     NOTEBOOK = "notebook"
     APPLICATION = "application"
     RECIPE = "recipe"
+    FILE = "file"
 
 
 class UseCaseAPIPathEntityType(StrEnum):
@@ -1018,6 +1019,7 @@ class UseCaseAPIPathEntityType(StrEnum):
     DATASET = "datasets"
     APPLICATION = "applications"
     RECIPE = "recipes"
+    FILE = "files"
 
 
 UseCaseReferenceEntityMap: dict[Optional[UseCaseEntityType], UseCaseAPIPathEntityType] = {
@@ -1025,6 +1027,7 @@ UseCaseReferenceEntityMap: dict[Optional[UseCaseEntityType], UseCaseAPIPathEntit
     UseCaseEntityType.DATASET: UseCaseAPIPathEntityType.DATASET,
     UseCaseEntityType.APPLICATION: UseCaseAPIPathEntityType.APPLICATION,
     UseCaseEntityType.RECIPE: UseCaseAPIPathEntityType.RECIPE,
+    UseCaseEntityType.FILE: UseCaseAPIPathEntityType.FILE,
 }
 
 
@@ -1899,3 +1902,22 @@ class ToolCallAccuracyArgumentComparisonMode(StrEnum):
 
     EXACT_MATCH = "exact_match"
     IGNORE_ARGUMENTS = "ignore_arguments"
+
+
+class GridSearchSearchType(StrEnum):
+    """Grid search search type"""
+
+    BRUTE_FORCE = "full"
+    SMART = "smart"
+    BAYESIAN = "bayesian"
+
+
+class GridSearchAlgorithm(StrEnum):
+    """Grid search algorithm"""
+
+    EXHAUSTIVE_SEARCH = "Exhaustive Search"
+    PATTERN_SEARCH = "Pattern Search"
+    ACCELERATED_SEARCH = "Accelerated Search"
+    GREEDY_EXHAUSTIVE_SEARCH = "Greedy Exhaustive Search"
+    TPE_SEARCH = "Bayesian TPE Search"
+    GAUSSIAN_SEARCH = "Bayesian GP Search"

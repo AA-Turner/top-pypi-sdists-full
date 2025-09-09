@@ -1,14 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: blacken-docs
-Version: 1.19.1
+Version: 1.20.0
 Summary: Run Black on Python code blocks in documentation files.
 Author-email: Anthony Sottile <asottile@umich.edu>
 Maintainer-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/blacken-docs/blob/main/CHANGELOG.rst
 Project-URL: Repository, https://github.com/asottile/blacken-docs
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -17,11 +17,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: black>=22.1
+Dynamic: license-file
 
 ============
 blacken-docs
@@ -54,7 +56,7 @@ Use **pip**:
 
     python -m pip install blacken-docs
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 Black 22.1.0+ supported.
 

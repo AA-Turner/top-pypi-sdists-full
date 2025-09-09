@@ -7,7 +7,7 @@ from dateutil.parser import isoparse
 
 from ..actions import ActionsPageResult, BoundAction, ResourceActionsClient
 from ..certificates import BoundCertificate
-from ..core import BoundModelBase, ClientEntityBase, Meta
+from ..core import BoundModelBase, Meta, ResourceClientBase
 from ..load_balancer_types import BoundLoadBalancerType
 from ..locations import BoundLocation
 from ..metrics import Metrics
@@ -64,7 +64,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
             private_nets = [
                 PrivateNet(
                     network=BoundNetwork(
-                        client._client.networks,
+                        client._parent.networks,
                         {"id": private_net["network"]},
                         complete=False,
                     ),
@@ -81,7 +81,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                 tmp_target = LoadBalancerTarget(type=target["type"])
                 if target["type"] == "server":
                     tmp_target.server = BoundServer(
-                        client._client.servers, data=target["server"], complete=False
+                        client._parent.servers, data=target["server"], complete=False
                     )
                     tmp_target.use_private_ip = target["use_private_ip"]
                 elif target["type"] == "label_selector":
@@ -124,7 +124,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                     )
                     tmp_service.http.certificates = [
                         BoundCertificate(
-                            client._client.certificates,
+                            client._parent.certificates,
                             {"id": certificate},
                             complete=False,
                         )
@@ -152,12 +152,12 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
         load_balancer_type = data.get("load_balancer_type")
         if load_balancer_type is not None:
             data["load_balancer_type"] = BoundLoadBalancerType(
-                client._client.load_balancer_types, load_balancer_type
+                client._parent.load_balancer_types, load_balancer_type
             )
 
         location = data.get("location")
         if location is not None:
-            data["location"] = BoundLocation(client._client.locations, location)
+            data["location"] = BoundLocation(client._parent.locations, location)
 
         super().__init__(client, data, complete)
 
@@ -369,8 +369,8 @@ class LoadBalancersPageResult(NamedTuple):
     meta: Meta
 
 
-class LoadBalancersClient(ClientEntityBase):
-    _client: Client
+class LoadBalancersClient(ResourceClientBase):
+    _base_url = "/load_balancers"
 
     actions: ResourceActionsClient
     """Load Balancers scoped actions client
@@ -380,7 +380,7 @@ class LoadBalancersClient(ClientEntityBase):
 
     def __init__(self, client: Client):
         super().__init__(client)
-        self.actions = ResourceActionsClient(client, "/load_balancers")
+        self.actions = ResourceActionsClient(client, self._base_url)
 
     def get_by_id(self, id: int) -> BoundLoadBalancer:
         """Get a specific Load Balancer
@@ -389,7 +389,7 @@ class LoadBalancersClient(ClientEntityBase):
         :return: :class:`BoundLoadBalancer <hcloud.load_balancers.client.BoundLoadBalancer>`
         """
         response = self._client.request(
-            url=f"/load_balancers/{id}",
+            url=f"{self._base_url}/{id}",
             method="GET",
         )
         return BoundLoadBalancer(self, response["load_balancer"])
@@ -423,9 +423,7 @@ class LoadBalancersClient(ClientEntityBase):
         if per_page is not None:
             params["per_page"] = per_page
 
-        response = self._client.request(
-            url="/load_balancers", method="GET", params=params
-        )
+        response = self._client.request(url=self._base_url, method="GET", params=params)
 
         load_balancers = [
             BoundLoadBalancer(self, load_balancer_data)
@@ -515,11 +513,11 @@ class LoadBalancersClient(ClientEntityBase):
         if location is not None:
             data["location"] = location.id_or_name
 
-        response = self._client.request(url="/load_balancers", method="POST", json=data)
+        response = self._client.request(url=self._base_url, method="POST", json=data)
 
         return CreateLoadBalancerResponse(
             load_balancer=BoundLoadBalancer(self, response["load_balancer"]),
-            action=BoundAction(self._client.actions, response["action"]),
+            action=BoundAction(self._parent.actions, response["action"]),
         )
 
     def update(
@@ -543,7 +541,7 @@ class LoadBalancersClient(ClientEntityBase):
         if labels is not None:
             data.update({"labels": labels})
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}",
+            url=f"{self._base_url}/{load_balancer.id}",
             method="PUT",
             json=data,
         )
@@ -556,7 +554,7 @@ class LoadBalancersClient(ClientEntityBase):
         :return: boolean
         """
         self._client.request(
-            url=f"/load_balancers/{load_balancer.id}",
+            url=f"{self._base_url}/{load_balancer.id}",
             method="DELETE",
         )
         return True
@@ -593,7 +591,7 @@ class LoadBalancersClient(ClientEntityBase):
             params["step"] = step
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/metrics",
+            url=f"{self._base_url}/{load_balancer.id}/metrics",
             method="GET",
             params=params,
         )
@@ -633,12 +631,12 @@ class LoadBalancersClient(ClientEntityBase):
             params["per_page"] = per_page
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions",
+            url=f"{self._base_url}/{load_balancer.id}/actions",
             method="GET",
             params=params,
         )
         actions = [
-            BoundAction(self._client.actions, action_data)
+            BoundAction(self._parent.actions, action_data)
             for action_data in response["actions"]
         ]
         return ActionsPageResult(actions, Meta.parse_meta(response))
@@ -680,11 +678,11 @@ class LoadBalancersClient(ClientEntityBase):
         data: dict[str, Any] = service.to_payload()
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/add_service",
+            url=f"{self._base_url}/{load_balancer.id}/actions/add_service",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def update_service(
         self,
@@ -700,11 +698,11 @@ class LoadBalancersClient(ClientEntityBase):
         """
         data: dict[str, Any] = service.to_payload()
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/update_service",
+            url=f"{self._base_url}/{load_balancer.id}/actions/update_service",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def delete_service(
         self,
@@ -721,11 +719,11 @@ class LoadBalancersClient(ClientEntityBase):
         data: dict[str, Any] = {"listen_port": service.listen_port}
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/delete_service",
+            url=f"{self._base_url}/{load_balancer.id}/actions/delete_service",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def add_target(
         self,
@@ -742,11 +740,11 @@ class LoadBalancersClient(ClientEntityBase):
         data: dict[str, Any] = target.to_payload()
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/add_target",
+            url=f"{self._base_url}/{load_balancer.id}/actions/add_target",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def remove_target(
         self,
@@ -765,11 +763,11 @@ class LoadBalancersClient(ClientEntityBase):
         data.pop("use_private_ip", None)
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/remove_target",
+            url=f"{self._base_url}/{load_balancer.id}/actions/remove_target",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def change_algorithm(
         self,
@@ -786,11 +784,11 @@ class LoadBalancersClient(ClientEntityBase):
         data: dict[str, Any] = {"type": algorithm.type}
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/change_algorithm",
+            url=f"{self._base_url}/{load_balancer.id}/actions/change_algorithm",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def change_dns_ptr(
         self,
@@ -808,11 +806,11 @@ class LoadBalancersClient(ClientEntityBase):
         """
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/change_dns_ptr",
+            url=f"{self._base_url}/{load_balancer.id}/actions/change_dns_ptr",
             method="POST",
             json={"ip": ip, "dns_ptr": dns_ptr},
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def change_protection(
         self,
@@ -831,11 +829,11 @@ class LoadBalancersClient(ClientEntityBase):
             data.update({"delete": delete})
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/change_protection",
+            url=f"{self._base_url}/{load_balancer.id}/actions/change_protection",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def attach_to_network(
         self,
@@ -856,11 +854,11 @@ class LoadBalancersClient(ClientEntityBase):
             data.update({"ip": ip})
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/attach_to_network",
+            url=f"{self._base_url}/{load_balancer.id}/actions/attach_to_network",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def detach_from_network(
         self,
@@ -875,11 +873,11 @@ class LoadBalancersClient(ClientEntityBase):
         """
         data: dict[str, Any] = {"network": network.id}
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/detach_from_network",
+            url=f"{self._base_url}/{load_balancer.id}/actions/detach_from_network",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def enable_public_interface(
         self,
@@ -893,10 +891,10 @@ class LoadBalancersClient(ClientEntityBase):
         """
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/enable_public_interface",
+            url=f"{self._base_url}/{load_balancer.id}/actions/enable_public_interface",
             method="POST",
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def disable_public_interface(
         self,
@@ -910,10 +908,10 @@ class LoadBalancersClient(ClientEntityBase):
         """
 
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/disable_public_interface",
+            url=f"{self._base_url}/{load_balancer.id}/actions/disable_public_interface",
             method="POST",
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])
 
     def change_type(
         self,
@@ -929,8 +927,8 @@ class LoadBalancersClient(ClientEntityBase):
         """
         data: dict[str, Any] = {"load_balancer_type": load_balancer_type.id_or_name}
         response = self._client.request(
-            url=f"/load_balancers/{load_balancer.id}/actions/change_type",
+            url=f"{self._base_url}/{load_balancer.id}/actions/change_type",
             method="POST",
             json=data,
         )
-        return BoundAction(self._client.actions, response["action"])
+        return BoundAction(self._parent.actions, response["action"])

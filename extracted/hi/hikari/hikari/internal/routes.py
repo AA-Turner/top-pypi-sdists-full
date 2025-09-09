@@ -363,9 +363,9 @@ POST_DELETE_CHANNEL_MESSAGES_BULK: typing.Final[Route] = Route(POST, "/channels/
 PUT_CHANNEL_PERMISSIONS: typing.Final[Route] = Route(PUT, "/channels/{channel}/permissions/{overwrite}")
 DELETE_CHANNEL_PERMISSIONS: typing.Final[Route] = Route(DELETE, "/channels/{channel}/permissions/{overwrite}")
 
-GET_CHANNEL_PINS: typing.Final[Route] = Route(GET, "/channels/{channel}/pins")
-PUT_CHANNEL_PINS: typing.Final[Route] = Route(PUT, "/channels/{channel}/pins/{message}")
-DELETE_CHANNEL_PIN: typing.Final[Route] = Route(DELETE, "/channels/{channel}/pins/{message}")
+GET_CHANNEL_PINS: typing.Final[Route] = Route(GET, "/channels/{channel}/messages/pins")
+PUT_CHANNEL_PINS: typing.Final[Route] = Route(PUT, "/channels/{channel}/messages/pins/{message}")
+DELETE_CHANNEL_PIN: typing.Final[Route] = Route(DELETE, "/channels/{channel}/messages/pins/{message}")
 
 POST_CHANNEL_TYPING: typing.Final[Route] = Route(POST, "/channels/{channel}/typing")
 
@@ -419,6 +419,9 @@ PATCH_GUILD_WIDGET: typing.Final[Route] = Route(PATCH, "/guilds/{guild}/widget")
 
 GET_GUILD_WELCOME_SCREEN: typing.Final[Route] = Route(GET, "/guilds/{guild}/welcome-screen")
 PATCH_GUILD_WELCOME_SCREEN: typing.Final[Route] = Route(PATCH, "/guilds/{guild}/welcome-screen")
+
+GET_GUILD_ONBOARDING: typing.Final[Route] = Route(GET, "/guilds/{guild}/onboarding")
+PUT_GUILD_ONBOARDING: typing.Final[Route] = Route(PUT, "/guilds/{guild}/onboarding")
 
 GET_GUILD_MEMBER_VERIFICATION: typing.Final[Route] = Route(GET, "/guilds/{guild}/member-verification")
 PATCH_GUILD_MEMBER_VERIFICATION: typing.Final[Route] = Route(PATCH, "/guilds/{guild}/member-verification")
@@ -655,6 +658,9 @@ CDN_GUILD_BANNER: typing.Final[CDNRoute] = CDNRoute("/banners/{guild_id}/{hash}"
 
 CDN_AVATAR_DECORATION: typing.Final[CDNRoute] = CDNRoute(
     "/avatar-decoration-presets/{hash}", {PNG, *JPEG_JPG, WEBP, APNG}
+)
+CDN_PRIMARY_GUILD_BADGE: typing.Final[CDNRoute] = CDNRoute(
+    "/guild-tag-badges/{guild_id}/{hash}", {PNG, *JPEG_JPG, WEBP}
 )
 CDN_DEFAULT_USER_AVATAR: typing.Final[CDNRoute] = CDNRoute("/embed/avatars/{style}", {PNG})
 CDN_USER_AVATAR: typing.Final[CDNRoute] = CDNRoute("/avatars/{user_id}/{hash}", {PNG, *JPEG_JPG, WEBP, AWEBP, GIF})

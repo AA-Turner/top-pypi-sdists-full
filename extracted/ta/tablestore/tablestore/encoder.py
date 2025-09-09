@@ -1046,10 +1046,11 @@ class OTSProtoBufferEncoder(object):
 
         return proto
 
-    def _encode_describe_search_index(self, table_name, index_name):
+    def _encode_describe_search_index(self, table_name, index_name, include_sync_stat):
         proto = search_pb2.DescribeSearchIndexRequest()
         proto.table_name = self._get_unicode(table_name)
         proto.index_name = self._get_unicode(index_name)
+        proto.include_sync_stat = include_sync_stat
 
         return proto
 

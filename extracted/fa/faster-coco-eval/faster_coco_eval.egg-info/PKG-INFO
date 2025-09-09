@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faster-coco-eval
-Version: 1.6.7
+Version: 1.6.8
 Summary: Faster interpretation of the original COCOEval
 Home-page: https://github.com/MiXaiLL76/faster_coco_eval
 Author: MiXaiLL76
@@ -20,20 +20,14 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
-Requires-Dist: plotly
-Requires-Dist: pandas
-Requires-Dist: Pillow
 Provides-Extra: extra
 Requires-Dist: numpy; extra == "extra"
-Requires-Dist: plotly; extra == "extra"
-Requires-Dist: pandas; extra == "extra"
-Requires-Dist: Pillow; extra == "extra"
 Requires-Dist: opencv-python-headless; extra == "extra"
+Requires-Dist: pandas; extra == "extra"
+Requires-Dist: plotly; extra == "extra"
+Requires-Dist: Pillow; extra == "extra"
 Provides-Extra: tests
 Requires-Dist: numpy; extra == "tests"
-Requires-Dist: plotly; extra == "tests"
-Requires-Dist: pandas; extra == "tests"
-Requires-Dist: Pillow; extra == "tests"
 Requires-Dist: numpy; extra == "tests"
 Requires-Dist: pycocotools; python_version < "3.13" and extra == "tests"
 Requires-Dist: pytest; extra == "tests"

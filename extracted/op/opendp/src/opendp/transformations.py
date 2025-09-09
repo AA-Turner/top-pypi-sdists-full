@@ -6,7 +6,7 @@ For more context, see :ref:`transformations in the User Guide <transformations-u
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 
@@ -124,11 +124,13 @@ def choose_branching_factor(
 
     Required features: `contrib`
 
-    [choose_branching_factor in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.choose_branching_factor.html)
+    [choose_branching_factor in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.choose_branching_factor.html)
 
     **Citations:**
 
     * [QYL13 Understanding Hierarchical Methods for Differentially Private Histograms](http://www.vldb.org/pvldb/vol6/p1954-qardaji.pdf)
+
+    .. end-markdown
 
     :param size_guess: A guess at the size of your dataset.
     :type size_guess: int
@@ -172,14 +174,16 @@ def make_b_ary_tree(
 
     Required features: `contrib`
 
-    [make_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_b_ary_tree.html)
+    [make_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_b_ary_tree.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TA>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -226,8 +230,10 @@ def then_b_ary_tree(
 ):  
     r"""partial constructor of make_b_ary_tree
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_b_ary_tree`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_b_ary_tree`
 
     :param leaf_count: The number of leaf nodes in the b-ary tree.
     :type leaf_count: int
@@ -274,7 +280,7 @@ def make_bounded_float_checked_sum(
 
     Required features: `contrib`
 
-    [make_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_bounded_float_checked_sum.html)
+    [make_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_bounded_float_checked_sum.html)
 
     **Citations:**
 
@@ -284,15 +290,17 @@ def make_bounded_float_checked_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param size_limit: Upper bound on number of records to keep in the input data.
     :type size_limit: int
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
-    :param S: Summation algorithm to use over some data type `T` (`T` is shorthand for `S::Item`)
+    :param S: Summation algorithm to use over some data type ``T`` (``T`` is shorthand for ``S::Item``)
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -354,7 +362,7 @@ def make_bounded_float_ordered_sum(
 
     Required features: `contrib`
 
-    [make_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_bounded_float_ordered_sum.html)
+    [make_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_bounded_float_ordered_sum.html)
 
     **Citations:**
 
@@ -364,15 +372,17 @@ def make_bounded_float_ordered_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `InsertDeleteDistance`
+    * Output Domain:  `InsertDeleteDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param size_limit: Upper bound on the number of records in input data. Used to bound sensitivity.
     :type size_limit: int
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
-    :param S: Summation algorithm to use over some data type `T` (`T` is shorthand for `S::Item`)
+    :param S: Summation algorithm to use over some data type ``T`` (``T`` is shorthand for ``S::Item``)
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -419,7 +429,7 @@ def make_bounded_int_monotonic_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_bounded_int_monotonic_sum.html)
+    [make_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_bounded_int_monotonic_sum.html)
 
     **Citations:**
 
@@ -429,9 +439,11 @@ def make_bounded_int_monotonic_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
@@ -479,7 +491,7 @@ def make_bounded_int_ordered_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_bounded_int_ordered_sum.html)
+    [make_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_bounded_int_ordered_sum.html)
 
     **Citations:**
 
@@ -489,9 +501,11 @@ def make_bounded_int_ordered_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `InsertDeleteDistance`
+    * Output Domain:  `InsertDeleteDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
@@ -539,7 +553,7 @@ def make_bounded_int_split_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_bounded_int_split_sum.html)
+    [make_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_bounded_int_split_sum.html)
 
     **Citations:**
 
@@ -549,9 +563,11 @@ def make_bounded_int_split_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
@@ -602,14 +618,16 @@ def make_cast(
 
     Required features: `contrib`
 
-    [make_cast in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_cast.html)
+    [make_cast in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_cast.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<OptionDomain<AtomDomain<TOA>>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<OptionDomain<AtomDomain<TOA>>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -654,8 +672,10 @@ def then_cast(
 ):  
     r"""partial constructor of make_cast
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_cast`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -694,14 +714,16 @@ def make_cast_default(
 
     Required features: `contrib`
 
-    [make_cast_default in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_cast_default.html)
+    [make_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_cast_default.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TOA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TOA>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -749,8 +771,10 @@ def then_cast_default(
 ):  
     r"""partial constructor of make_cast_default
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_cast_default`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast_default`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -785,14 +809,16 @@ def make_cast_inherent(
 
     Required features: `contrib`
 
-    [make_cast_inherent in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_cast_inherent.html)
+    [make_cast_inherent in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_cast_inherent.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TOA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TOA>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -837,8 +863,10 @@ def then_cast_inherent(
 ):  
     r"""partial constructor of make_cast_inherent
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_cast_inherent`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast_inherent`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -866,14 +894,16 @@ def make_cdf(
 
     Required features: `contrib`
 
-    [make_cdf in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_cdf.html)
+    [make_cdf in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_cdf.html)
 
     **Supporting Elements:**
 
     * Input Type:     `Vec<TA>`
     * Output Type:    `Vec<TA>`
 
-    :param TA: Atomic Type. One of `f32` or `f64`
+    .. end-markdown
+
+    :param TA: Atomic Type. One of ``f32`` or ``f64``
     :type TA: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -919,18 +949,20 @@ def make_clamp(
 
     Required features: `contrib`
 
-    [make_clamp in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_clamp.html)
+    [make_clamp in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_clamp.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TA>>`
     * Output Metric:  `M`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/transformations/clamp/make_clamp.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/transformations/clamp/make_clamp.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of input data.
     :type input_domain: Domain
@@ -975,8 +1007,10 @@ def then_clamp(
 ):  
     r"""partial constructor of make_clamp
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_clamp`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_clamp`
 
     :param bounds: Tuple of inclusive lower and upper bounds.
     :type bounds: tuple[Any, Any]
@@ -1013,7 +1047,7 @@ def make_consistent_b_ary_tree(
 
     Required features: `contrib`
 
-    [make_consistent_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_consistent_b_ary_tree.html)
+    [make_consistent_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_consistent_b_ary_tree.html)
 
     **Citations:**
 
@@ -1023,6 +1057,8 @@ def make_consistent_b_ary_tree(
 
     * Input Type:     `Vec<TIA>`
     * Output Type:    `Vec<TOA>`
+
+    .. end-markdown
 
     :param branching_factor: the maximum number of children
     :type branching_factor: int
@@ -1076,7 +1112,7 @@ def make_count(
 
     Required features: `contrib`
 
-    [make_count in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_count.html)
+    [make_count in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_count.html)
 
     **Citations:**
 
@@ -1085,13 +1121,15 @@ def make_count(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `AtomDomain<TO>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<TO>`
     * Output Metric:  `AbsoluteDistance<TO>`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/transformations/count/make_count.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/transformations/count/make_count.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of the data type to be privatized.
     :type input_domain: Domain
@@ -1136,8 +1174,10 @@ def then_count(
 ):  
     r"""partial constructor of make_count
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_count`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count`
 
     :param TO: Output Type. Must be numeric.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
@@ -1160,7 +1200,6 @@ def then_count(
 def make_count_by(
     input_domain: Domain,
     input_metric: Metric,
-    MO: RuntimeTypeDescriptor,
     TV: RuntimeTypeDescriptor = "int"
 ) -> Transformation:
     r"""Make a Transformation that computes the count of each unique value in data.
@@ -1169,7 +1208,7 @@ def make_count_by(
 
     Required features: `contrib`
 
-    [make_count_by in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_count_by.html)
+    [make_count_by in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_count_by.html)
 
     **Citations:**
 
@@ -1178,16 +1217,16 @@ def make_count_by(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TK>>`
-    * Output Domain:  `MapDomain<AtomDomain<TK>, AtomDomain<TV>>`
-    * Input Metric:   `SymmetricDistance`
-    * Output Metric:  `MO`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `MapDomain<AtomDomain<TK>, AtomDomain<TV>>`
+    * Output Metric:  `L01InfDistance<AbsoluteDistance<TV>>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
     :param input_metric: Metric on input domain
     :type input_metric: Metric
-    :param MO: Output Metric.
-    :type MO: :py:ref:`RuntimeTypeDescriptor`
     :param TV: Type of Value. Express counts in terms of this integral type.
     :type TV: :py:ref:`RuntimeTypeDescriptor`
     :return: The carrier type is `HashMap<TK, TV>`, a hashmap of the count (`TV`) for each unique data input (`TK`).
@@ -1198,29 +1237,25 @@ def make_count_by(
     assert_features("contrib")
 
     # Standardize type arguments.
-    MO = RuntimeType.parse(type_name=MO, generics=["TV"])
-    TV = RuntimeType.parse(type_name=TV, generics=["MO"])
-    MO = _substitute(MO, TV=TV) # type: ignore
-    TV = _substitute(TV, MO=MO) # type: ignore
+    TV = RuntimeType.parse(type_name=TV)
 
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
-    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
     c_TV = py_to_c(TV, c_type=ctypes.c_char_p)
 
     # Call library function.
     lib_function = lib.opendp_transformations__make_count_by
-    lib_function.argtypes = [Domain, Metric, ctypes.c_char_p, ctypes.c_char_p]
+    lib_function.argtypes = [Domain, Metric, ctypes.c_char_p]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_MO, c_TV), Transformation))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_TV), Transformation))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_count_by',
             '__module__': 'transformations',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'MO': MO, 'TV': TV
+                'input_domain': input_domain, 'input_metric': input_metric, 'TV': TV
             },
         }
     except AttributeError:  # pragma: no cover
@@ -1228,29 +1263,27 @@ def make_count_by(
     return output
 
 def then_count_by(
-    MO: RuntimeTypeDescriptor,
     TV: RuntimeTypeDescriptor = "int"
 ):  
     r"""partial constructor of make_count_by
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_count_by`
+    .. end-markdown
 
-    :param MO: Output Metric.
-    :type MO: :py:ref:`RuntimeTypeDescriptor`
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_by`
+
     :param TV: Type of Value. Express counts in terms of this integral type.
     :type TV: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_count_by(
         input_domain=input_domain,
         input_metric=input_metric,
-        MO=MO,
         TV=TV))
     output.__opendp_dict__ = {
             '__function__': 'then_count_by',
             '__module__': 'transformations',
             '__kwargs__': {
-                'MO': MO, 'TV': TV
+                'TV': TV
             },
         }
     return output
@@ -1271,7 +1304,7 @@ def make_count_by_categories(
 
     Required features: `contrib`
 
-    [make_count_by_categories in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_count_by_categories.html)
+    [make_count_by_categories in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_count_by_categories.html)
 
     **Citations:**
 
@@ -1281,9 +1314,11 @@ def make_count_by_categories(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TOA>>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `VectorDomain<AtomDomain<TOA>>`
     * Output Metric:  `MO`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -1344,8 +1379,10 @@ def then_count_by_categories(
 ):  
     r"""partial constructor of make_count_by_categories
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_count_by_categories`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_by_categories`
 
     :param categories: The set of categories to compute counts for.
     :param null_category: Include a count of the number of elements that were not in the category set at the end of the vector.
@@ -1383,7 +1420,7 @@ def make_count_distinct(
 
     Required features: `contrib`
 
-    [make_count_distinct in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_count_distinct.html)
+    [make_count_distinct in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_count_distinct.html)
 
     **Citations:**
 
@@ -1392,9 +1429,11 @@ def make_count_distinct(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `AtomDomain<TO>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<TO>`
     * Output Metric:  `AbsoluteDistance<TO>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -1439,8 +1478,10 @@ def then_count_distinct(
 ):  
     r"""partial constructor of make_count_distinct
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_count_distinct`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_distinct`
 
     :param TO: Output Type. Must be numeric.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
@@ -1470,14 +1511,16 @@ def make_create_dataframe(
 
     Required features: `contrib`
 
-    [make_create_dataframe in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_create_dataframe.html)
+    [make_create_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_create_dataframe.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<VectorDomain<AtomDomain<String>>>`
-    * Output Domain:  `DataFrameDomain<K>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `DataFrameDomain<K>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
     :param col_names: Column names for each record entry.
     :param K: categorical/hashable data type of column names
@@ -1536,14 +1579,16 @@ def make_df_cast_default(
 
     Required features: `contrib`
 
-    [make_df_cast_default in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_df_cast_default.html)
+    [make_df_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_df_cast_default.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DataFrameDomain<TK>`
-    * Output Domain:  `DataFrameDomain<TK>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `DataFrameDomain<TK>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -1600,8 +1645,10 @@ def then_df_cast_default(
 ):  
     r"""partial constructor of make_df_cast_default
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_df_cast_default`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_df_cast_default`
 
     :param column_name: column name to be transformed
     :param TIA: Atomic Input Type to cast from
@@ -1639,14 +1686,16 @@ def make_df_is_equal(
 
     Required features: `contrib`
 
-    [make_df_is_equal in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_df_is_equal.html)
+    [make_df_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_df_is_equal.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DataFrameDomain<TK>`
-    * Output Domain:  `DataFrameDomain<TK>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `DataFrameDomain<TK>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -1700,8 +1749,10 @@ def then_df_is_equal(
 ):  
     r"""partial constructor of make_df_is_equal
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_df_is_equal`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_df_is_equal`
 
     :param column_name: Column name to be transformed
     :param value: Value to check for equality
@@ -1740,14 +1791,16 @@ def make_drop_null(
 
     Required features: `contrib`
 
-    [make_drop_null in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_drop_null.html)
+    [make_drop_null in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_drop_null.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<DIA>`
-    * Output Domain:  `VectorDomain<AtomDomain<DIA::Imputed>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<DIA::Imputed>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -1787,8 +1840,10 @@ def then_drop_null(
 ):  
     r"""partial constructor of make_drop_null
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_drop_null`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_drop_null`
 
 
     """
@@ -1820,14 +1875,16 @@ def make_find(
 
     Required features: `contrib`
 
-    [make_find in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_find.html)
+    [make_find in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_find.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<OptionDomain<AtomDomain<usize>>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<OptionDomain<AtomDomain<usize>>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input vector.
     :type input_domain: Domain
@@ -1871,8 +1928,10 @@ def then_find(
 ):  
     r"""partial constructor of make_find
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_find`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_find`
 
     :param categories: The set of categories to find indexes from.
     """
@@ -1909,14 +1968,16 @@ def make_find_bin(
 
     Required features: `contrib`
 
-    [make_find_bin in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_find_bin.html)
+    [make_find_bin in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_find_bin.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<usize>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<usize>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input vector.
     :type input_domain: Domain
@@ -1960,8 +2021,10 @@ def then_find_bin(
 ):  
     r"""partial constructor of make_find_bin
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_find_bin`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_find_bin`
 
     :param edges: The set of edges to split bins by.
     """
@@ -1994,7 +2057,7 @@ def make_identity(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [make_identity in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_identity.html)
+    [make_identity in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_identity.html)
 
     **Why honest-but-curious?:**
 
@@ -2007,9 +2070,11 @@ def make_identity(
     **Supporting Elements:**
 
     * Input Domain:   `D`
-    * Output Domain:  `D`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `D`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param domain: Domain of input data
     :type domain: Domain
@@ -2049,8 +2114,10 @@ def then_identity(
 ):  
     r"""partial constructor of make_identity
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_identity`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_identity`
 
 
     """
@@ -2086,14 +2153,16 @@ def make_impute_constant(
 
     Required features: `contrib`
 
-    [make_impute_constant in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_impute_constant.html)
+    [make_impute_constant in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_impute_constant.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<DIA>`
-    * Output Domain:  `VectorDomain<AtomDomain<DIA::Imputed>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<DIA::Imputed>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of the input data. See table above.
     :type input_domain: Domain
@@ -2135,8 +2204,10 @@ def then_impute_constant(
 ):  
     r"""partial constructor of make_impute_constant
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_impute_constant`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_impute_constant`
 
     :param constant: Value to replace nulls with.
     """
@@ -2165,14 +2236,16 @@ def make_impute_uniform_float(
 
     Required features: `contrib`
 
-    [make_impute_uniform_float in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_impute_uniform_float.html)
+    [make_impute_uniform_float in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_impute_uniform_float.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TA>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of the input.
     :type input_domain: Domain
@@ -2217,8 +2290,10 @@ def then_impute_uniform_float(
 ):  
     r"""partial constructor of make_impute_uniform_float
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_impute_uniform_float`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_impute_uniform_float`
 
     :param bounds: Tuple of inclusive lower and upper bounds.
     :type bounds: tuple[Any, Any]
@@ -2250,14 +2325,16 @@ def make_index(
 
     Required features: `contrib`
 
-    [make_index in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_index.html)
+    [make_index in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_index.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<usize>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TOA>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<TOA>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input vector.
     :type input_domain: Domain
@@ -2265,7 +2342,7 @@ def make_index(
     :type input_metric: Metric
     :param categories: The set of categories to index into.
     :param null: Category to return if the index is out-of-range of the category set.
-    :param TOA: Atomic Output Type. Output data will be `Vec<TOA>`.
+    :param TOA: Atomic Output Type. Output data will be ``Vec<TOA>``.
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -2308,12 +2385,14 @@ def then_index(
 ):  
     r"""partial constructor of make_index
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_index`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_index`
 
     :param categories: The set of categories to index into.
     :param null: Category to return if the index is out-of-range of the category set.
-    :param TOA: Atomic Output Type. Output data will be `Vec<TOA>`.
+    :param TOA: Atomic Output Type. Output data will be ``Vec<TOA>``.
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_index(
@@ -2343,18 +2422,20 @@ def make_is_equal(
 
     Required features: `contrib`
 
-    [make_is_equal in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_is_equal.html)
+    [make_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_is_equal.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<bool>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<bool>>`
     * Output Metric:  `M`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/transformations/manipulation/make_is_equal.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/transformations/manipulation/make_is_equal.pdf)
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2399,8 +2480,10 @@ def then_is_equal(
 ):  
     r"""partial constructor of make_is_equal
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_is_equal`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_is_equal`
 
     :param value: value to check against
     """
@@ -2428,14 +2511,16 @@ def make_is_null(
 
     Required features: `contrib`
 
-    [make_is_null in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_is_null.html)
+    [make_is_null in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_is_null.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<DIA>`
-    * Output Domain:  `VectorDomain<AtomDomain<bool>>`
-    * Input Metric:   `M`
+    * Output Domain:  `M`
+    * Input Metric:   `VectorDomain<AtomDomain<bool>>`
     * Output Metric:  `M`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2475,8 +2560,10 @@ def then_is_null(
 ):  
     r"""partial constructor of make_is_null
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_is_null`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_is_null`
 
 
     """
@@ -2507,14 +2594,16 @@ def make_lipschitz_float_mul(
 
     Required features: `contrib`
 
-    [make_lipschitz_float_mul in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_lipschitz_float_mul.html)
+    [make_lipschitz_float_mul in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_lipschitz_float_mul.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `AtomDomain<TA>`
-    * Output Domain:  `AtomDomain<TA>`
-    * Input Metric:   `AbsoluteDistance<TA>`
+    * Output Domain:  `AbsoluteDistance<TA>`
+    * Input Metric:   `AtomDomain<TA>`
     * Output Metric:  `AbsoluteDistance<TA>`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input.
     :type input_domain: Domain
@@ -2562,8 +2651,10 @@ def then_lipschitz_float_mul(
 ):  
     r"""partial constructor of make_lipschitz_float_mul
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_lipschitz_float_mul`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_lipschitz_float_mul`
 
     :param constant: The constant to multiply aggregates by.
     :param bounds: Tuple of inclusive lower and upper bounds.
@@ -2597,14 +2688,16 @@ def make_mean(
 
     Required features: `contrib`
 
-    [make_mean in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_mean.html)
+    [make_mean in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_mean.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2644,8 +2737,10 @@ def then_mean(
 ):  
     r"""partial constructor of make_mean
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_mean`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_mean`
 
 
     """
@@ -2681,14 +2776,16 @@ def make_metric_bounded(
 
     Required features: `contrib`
 
-    [make_metric_bounded in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_metric_bounded.html)
+    [make_metric_bounded in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_metric_bounded.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `D`
-    * Output Domain:  `D`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `D`
     * Output Metric:  `MI::BoundedMetric`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2728,8 +2825,10 @@ def then_metric_bounded(
 ):  
     r"""partial constructor of make_metric_bounded
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_metric_bounded`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_metric_bounded`
 
 
     """
@@ -2762,14 +2861,16 @@ def make_metric_unbounded(
 
     Required features: `contrib`
 
-    [make_metric_unbounded in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_metric_unbounded.html)
+    [make_metric_unbounded in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_metric_unbounded.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `D`
-    * Output Domain:  `D`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `D`
     * Output Metric:  `MI::UnboundedMetric`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2809,8 +2910,10 @@ def then_metric_unbounded(
 ):  
     r"""partial constructor of make_metric_unbounded
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_metric_unbounded`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_metric_unbounded`
 
 
     """
@@ -2843,14 +2946,16 @@ def make_ordered_random(
 
     Required features: `contrib`
 
-    [make_ordered_random in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_ordered_random.html)
+    [make_ordered_random in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_ordered_random.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `D`
-    * Output Domain:  `D`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `D`
     * Output Metric:  `MI::OrderedMetric`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -2890,8 +2995,10 @@ def then_ordered_random(
 ):  
     r"""partial constructor of make_ordered_random
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_ordered_random`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_ordered_random`
 
 
     """
@@ -2920,18 +3027,20 @@ def make_quantile_score_candidates(
 
     Required features: `contrib`
 
-    [make_quantile_score_candidates in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_quantile_score_candidates.html)
+    [make_quantile_score_candidates in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_quantile_score_candidates.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TIA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<usize>>`
-    * Input Metric:   `MI`
-    * Output Metric:  `LInfDistance<usize>`
+    * Output Domain:  `MI`
+    * Input Metric:   `VectorDomain<AtomDomain<u64>>`
+    * Output Metric:  `LInfDistance<u64>`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/transformations/quantile_score_candidates/make_quantile_score_candidates.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/transformations/quantile_score_candidates/make_quantile_score_candidates.pdf)
+
+    .. end-markdown
 
     :param input_domain: Uses a smaller sensitivity when the size of vectors in the input domain is known.
     :type input_domain: Domain
@@ -2979,8 +3088,10 @@ def then_quantile_score_candidates(
 ):  
     r"""partial constructor of make_quantile_score_candidates
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_quantile_score_candidates`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_quantile_score_candidates`
 
     :param candidates: Potential quantiles to score
     :param alpha: a value in $[0, 1]$. Choose 0.5 for median
@@ -3014,20 +3125,22 @@ def make_quantiles_from_counts(
 
     Required features: `contrib`
 
-    [make_quantiles_from_counts in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_quantiles_from_counts.html)
+    [make_quantiles_from_counts in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_quantiles_from_counts.html)
 
     **Supporting Elements:**
 
     * Input Type:     `Vec<TA>`
     * Output Type:    `Vec<TA>`
 
+    .. end-markdown
+
     :param bin_edges: The edges that the input data was binned into before counting.
-    :param alphas: Return all specified `alpha`-quantiles.
-    :param interpolation: Must be one of `linear` or `nearest`
+    :param alphas: Return all specified ``alpha``-quantiles.
+    :param interpolation: Must be one of ``linear`` or ``nearest``
     :type interpolation: str
     :param TA: Atomic Type of the bin edges and data.
     :type TA: :py:ref:`RuntimeTypeDescriptor`
-    :param F: Float type of the alpha argument. One of `f32` or `f64`
+    :param F: Float type of the alpha argument. One of ``f32`` or ``f64``
     :type F: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -3080,14 +3193,16 @@ def make_resize(
 
     Required features: `contrib`
 
-    [make_resize in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_resize.html)
+    [make_resize in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_resize.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<TA>>`
-    * Output Domain:  `VectorDomain<AtomDomain<TA>>`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `VectorDomain<AtomDomain<TA>>`
     * Output Metric:  `MO`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data.
     :type input_domain: Domain
@@ -3096,7 +3211,7 @@ def make_resize(
     :param size: Number of records in output data.
     :type size: int
     :param constant: Value to impute with.
-    :param MO: Output Metric. One of `InsertDeleteDistance` or `SymmetricDistance`
+    :param MO: Output Metric. One of ``InsertDeleteDistance`` or ``SymmetricDistance``
     :type MO: :py:ref:`RuntimeTypeDescriptor`
     :return: A vector of the same type `TA`, but with the provided `size`.
     :raises TypeError: if an argument's type differs from the expected type
@@ -3140,13 +3255,15 @@ def then_resize(
 ):  
     r"""partial constructor of make_resize
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_resize`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_resize`
 
     :param size: Number of records in output data.
     :type size: int
     :param constant: Value to impute with.
-    :param MO: Output Metric. One of `InsertDeleteDistance` or `SymmetricDistance`
+    :param MO: Output Metric. One of ``InsertDeleteDistance`` or ``SymmetricDistance``
     :type MO: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_resize(
@@ -3177,14 +3294,16 @@ def make_select_column(
 
     Required features: `contrib`
 
-    [make_select_column in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_select_column.html)
+    [make_select_column in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_select_column.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DataFrameDomain<K>`
-    * Output Domain:  `VectorDomain<AtomDomain<TOA>>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `VectorDomain<AtomDomain<TOA>>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
     :param key: categorical/hashable data type of the key/column name
     :param K: data type of key
@@ -3250,7 +3369,7 @@ def make_sized_bounded_float_checked_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_float_checked_sum.html)
+    [make_sized_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_float_checked_sum.html)
 
     **Citations:**
 
@@ -3260,15 +3379,17 @@ def make_sized_bounded_float_checked_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
-    :param S: Summation algorithm to use over some data type `T` (`T` is shorthand for `S::Item`)
+    :param S: Summation algorithm to use over some data type ``T`` (``T`` is shorthand for ``S::Item``)
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -3330,7 +3451,7 @@ def make_sized_bounded_float_ordered_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_float_ordered_sum.html)
+    [make_sized_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_float_ordered_sum.html)
 
     **Citations:**
 
@@ -3340,15 +3461,17 @@ def make_sized_bounded_float_ordered_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `InsertDeleteDistance`
+    * Output Domain:  `InsertDeleteDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
     :param bounds: Tuple of lower and upper bounds for data in the input domain.
     :type bounds: tuple[Any, Any]
-    :param S: Summation algorithm to use over some data type `T` (`T` is shorthand for `S::Item`)
+    :param S: Summation algorithm to use over some data type ``T`` (``T`` is shorthand for ``S::Item``)
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -3396,7 +3519,7 @@ def make_sized_bounded_int_checked_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_checked_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_int_checked_sum.html)
+    [make_sized_bounded_int_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_int_checked_sum.html)
 
     **Citations:**
 
@@ -3406,9 +3529,11 @@ def make_sized_bounded_int_checked_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
@@ -3460,7 +3585,7 @@ def make_sized_bounded_int_monotonic_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_int_monotonic_sum.html)
+    [make_sized_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_int_monotonic_sum.html)
 
     **Citations:**
 
@@ -3470,9 +3595,11 @@ def make_sized_bounded_int_monotonic_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
@@ -3526,7 +3653,7 @@ def make_sized_bounded_int_ordered_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_int_ordered_sum.html)
+    [make_sized_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_int_ordered_sum.html)
 
     **Citations:**
 
@@ -3536,9 +3663,11 @@ def make_sized_bounded_int_ordered_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `InsertDeleteDistance`
+    * Output Domain:  `InsertDeleteDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
@@ -3592,7 +3721,7 @@ def make_sized_bounded_int_split_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sized_bounded_int_split_sum.html)
+    [make_sized_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sized_bounded_int_split_sum.html)
 
     **Citations:**
 
@@ -3602,9 +3731,11 @@ def make_sized_bounded_int_split_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param size: Number of records in input data.
     :type size: int
@@ -3657,14 +3788,16 @@ def make_split_dataframe(
 
     Required features: `contrib`
 
-    [make_split_dataframe in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_split_dataframe.html)
+    [make_split_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_split_dataframe.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `AtomDomain<String>`
-    * Output Domain:  `DataFrameDomain<K>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `DataFrameDomain<K>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
     :param separator: The token(s) that separate entries in each record.
     :type separator: str
@@ -3712,14 +3845,16 @@ def make_split_lines(
 
     Required features: `contrib`
 
-    [make_split_lines in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_split_lines.html)
+    [make_split_lines in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_split_lines.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `AtomDomain<String>`
-    * Output Domain:  `VectorDomain<AtomDomain<String>>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `VectorDomain<AtomDomain<String>>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
 
     :raises TypeError: if an argument's type differs from the expected type
@@ -3757,14 +3892,16 @@ def make_split_records(
 
     Required features: `contrib`
 
-    [make_split_records in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_split_records.html)
+    [make_split_records in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_split_records.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<String>>`
-    * Output Domain:  `VectorDomain<VectorDomain<AtomDomain<String>>>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `VectorDomain<VectorDomain<AtomDomain<String>>>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
     :param separator: The token(s) that separate entries in each record.
     :type separator: str
@@ -3807,14 +3944,16 @@ def make_stable_expr(
 
     Required features: `contrib`
 
-    [make_stable_expr in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_stable_expr.html)
+    [make_stable_expr in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_stable_expr.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `WildExprDomain`
-    * Output Domain:  `ExprDomain`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `ExprDomain`
     * Output Metric:  `MO`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input data.
     :type input_domain: Domain
@@ -3856,8 +3995,10 @@ def then_stable_expr(
 ):  
     r"""partial constructor of make_stable_expr
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_stable_expr`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_stable_expr`
 
     :param expr: The expression to be analyzed for stability.
     """
@@ -3886,20 +4027,22 @@ def make_stable_lazyframe(
 
     Required features: `contrib`
 
-    [make_stable_lazyframe in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_stable_lazyframe.html)
+    [make_stable_lazyframe in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_stable_lazyframe.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `LazyFrameDomain`
-    * Output Domain:  `LazyFrameDomain`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `LazyFrameDomain`
     * Output Metric:  `MO`
+
+    .. end-markdown
 
     :param input_domain: The domain of the input data.
     :type input_domain: Domain
     :param input_metric: How to measure distances between neighboring input data sets.
     :type input_metric: Metric
-    :param lazyframe: The [`LazyFrame`] to be analyzed.
+    :param lazyframe: The [``LazyFrame``] to be analyzed.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -3935,10 +4078,12 @@ def then_stable_lazyframe(
 ):  
     r"""partial constructor of make_stable_lazyframe
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_stable_lazyframe`
+    .. end-markdown
 
-    :param lazyframe: The [`LazyFrame`] to be analyzed.
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_stable_lazyframe`
+
+    :param lazyframe: The [``LazyFrame``] to be analyzed.
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_stable_lazyframe(
         input_domain=input_domain,
@@ -3966,14 +4111,16 @@ def make_subset_by(
 
     Required features: `contrib`
 
-    [make_subset_by in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_subset_by.html)
+    [make_subset_by in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_subset_by.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DataFrameDomain<TK>`
-    * Output Domain:  `DataFrameDomain<TK>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `DataFrameDomain<TK>`
     * Output Metric:  `SymmetricDistance`
+
+    .. end-markdown
 
     :param indicator_column: name of the boolean column that indicates inclusion in the subset
     :param keep_columns: list of column names to apply subset to
@@ -4024,7 +4171,7 @@ def make_sum(
 
     Required features: `contrib`
 
-    [make_sum in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sum.html)
+    [make_sum in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sum.html)
 
     **Citations:**
 
@@ -4034,13 +4181,15 @@ def make_sum(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<T>>`
-    * Output Domain:  `AtomDomain<T>`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `AtomDomain<T>`
     * Output Metric:  `AbsoluteDistance<T>`
+
+    .. end-markdown
 
     :param input_domain: Domain of the input data.
     :type input_domain: Domain
-    :param input_metric: One of `SymmetricDistance` or `InsertDeleteDistance`.
+    :param input_metric: One of ``SymmetricDistance`` or ``InsertDeleteDistance``.
     :type input_metric: Metric
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -4076,8 +4225,10 @@ def then_sum(
 ):  
     r"""partial constructor of make_sum
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_sum`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_sum`
 
 
     """
@@ -4119,7 +4270,7 @@ def make_sum_of_squared_deviations(
 
     Required features: `contrib`
 
-    [make_sum_of_squared_deviations in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_sum_of_squared_deviations.html)
+    [make_sum_of_squared_deviations in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_sum_of_squared_deviations.html)
 
     **Citations:**
 
@@ -4129,15 +4280,17 @@ def make_sum_of_squared_deviations(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
     :param input_metric: Metric on input domain
     :type input_metric: Metric
-    :param S: Summation algorithm to use on data type `T`. One of `Sequential<T>` or `Pairwise<T>`.
+    :param S: Summation algorithm to use on data type ``T``. One of ``Sequential<T>`` or ``Pairwise<T>``.
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -4178,10 +4331,12 @@ def then_sum_of_squared_deviations(
 ):  
     r"""partial constructor of make_sum_of_squared_deviations
 
-    .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_sum_of_squared_deviations`
+    .. end-markdown
 
-    :param S: Summation algorithm to use on data type `T`. One of `Sequential<T>` or `Pairwise<T>`.
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_sum_of_squared_deviations`
+
+    :param S: Summation algorithm to use on data type ``T``. One of ``Sequential<T>`` or ``Pairwise<T>``.
     :type S: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_sum_of_squared_deviations(
@@ -4214,14 +4369,16 @@ def make_unordered(
 
     Required features: `contrib`
 
-    [make_unordered in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_unordered.html)
+    [make_unordered in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_unordered.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `D`
-    * Output Domain:  `D`
-    * Input Metric:   `MI`
+    * Output Domain:  `MI`
+    * Input Metric:   `D`
     * Output Metric:  `MI::UnorderedMetric`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -4261,8 +4418,10 @@ def then_unordered(
 ):  
     r"""partial constructor of make_unordered
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_unordered`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_unordered`
 
 
     """
@@ -4306,6 +4465,8 @@ def make_user_transformation(
 
     In addition, `function` must not have side-effects, and `stability_map` must be a pure function.
 
+    .. end-markdown
+
     :param input_domain: A domain describing the set of valid inputs for the function.
     :type input_domain: Domain
     :param input_metric: The metric from which distances between adjacent inputs are measured.
@@ -4314,8 +4475,8 @@ def make_user_transformation(
     :type output_domain: Domain
     :param output_metric: The metric from which distances between outputs of adjacent inputs are measured.
     :type output_metric: Metric
-    :param function: A function mapping data from `input_domain` to `output_domain`.
-    :param stability_map: A function mapping distances from `input_metric` to `output_metric`.
+    :param function: A function mapping data from ``input_domain`` to ``output_domain``.
+    :param stability_map: A function mapping distances from ``input_metric`` to ``output_metric``.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -4364,7 +4525,7 @@ def make_variance(
 
     Required features: `contrib`
 
-    [make_variance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/transformations/fn.make_variance.html)
+    [make_variance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/transformations/fn.make_variance.html)
 
     **Citations:**
 
@@ -4373,9 +4534,11 @@ def make_variance(
     **Supporting Elements:**
 
     * Input Domain:   `VectorDomain<AtomDomain<S::Item>>`
-    * Output Domain:  `AtomDomain<S::Item>`
-    * Input Metric:   `SymmetricDistance`
+    * Output Domain:  `SymmetricDistance`
+    * Input Metric:   `AtomDomain<S::Item>`
     * Output Metric:  `AbsoluteDistance<S::Item>`
+
+    .. end-markdown
 
     :param input_domain: Domain of input data
     :type input_domain: Domain
@@ -4383,7 +4546,7 @@ def make_variance(
     :type input_metric: Metric
     :param ddof: Delta degrees of freedom. Set to 0 if not a sample, 1 for sample estimate.
     :type ddof: int
-    :param S: Summation algorithm to use on data type `T`. One of `Sequential<T>` or `Pairwise<T>`.
+    :param S: Summation algorithm to use on data type ``T``. One of ``Sequential<T>`` or ``Pairwise<T>``.
     :type S: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -4426,12 +4589,14 @@ def then_variance(
 ):  
     r"""partial constructor of make_variance
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.transformations.make_variance`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_variance`
 
     :param ddof: Delta degrees of freedom. Set to 0 if not a sample, 1 for sample estimate.
     :type ddof: int
-    :param S: Summation algorithm to use on data type `T`. One of `Sequential<T>` or `Pairwise<T>`.
+    :param S: Summation algorithm to use on data type ``T``. One of ``Sequential<T>`` or ``Pairwise<T>``.
     :type S: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_variance(

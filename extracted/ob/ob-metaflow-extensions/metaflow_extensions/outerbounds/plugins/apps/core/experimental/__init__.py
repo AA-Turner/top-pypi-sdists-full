@@ -55,24 +55,31 @@ def _code_info(app_config: "AppConfig"):
         def _call_git(args, path=None):
             return "", 1, True
 
-    repo_info = get_repository_info(app_config.get_state("packaging_directory", None))
-    if len(repo_info) == 0:
+    package_dirs = app_config.get_state("packaging_directories")
+    if package_dirs is None:
         return None
+    for directory in package_dirs:
+        repo_info = get_repository_info(directory)
+        if len(repo_info) == 0:
+            continue
+        git_log_info, returncode, failed = _call_git(
+            ["log", "-1", "--pretty=%B"],
+            path=directory,
+        )
+        repo_url = repo_info["repo_url"]
+        if isinstance(repo_url, str):
+            _url = (
+                repo_url if not repo_url.endswith(".git") else repo_url.rstrip(".git")
+            )
+        else:
+            _url = str(repo_url)
+        _code_info = {
+            "commitId": repo_info["commit_sha"],
+            "commitLink": os.path.join(_url, "commit", str(repo_info["commit_sha"])),
+        }
+        if not failed and returncode == 0 and isinstance(git_log_info, str):
+            _code_info["commitMessage"] = git_log_info.strip()
 
-    git_log_info, returncode, failed = _call_git(
-        ["log", "-1", "--pretty=%B"],
-        path=app_config.get_state("packaging_directory", None),
-    )
-    repo_url = repo_info["repo_url"]
-    if isinstance(repo_url, str):
-        _url = repo_url if not repo_url.endswith(".git") else repo_url.rstrip(".git")
-    else:
-        _url = str(repo_url)
-    _code_info = {
-        "commitId": repo_info["commit_sha"],
-        "commitLink": os.path.join(_url, "commit", str(repo_info["commit_sha"])),
-    }
-    if not failed and returncode == 0 and isinstance(git_log_info, str):
-        _code_info["commitMessage"] = git_log_info.strip()
+        return _code_info
 
-    return _code_info
+    return None

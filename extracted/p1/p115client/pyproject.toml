@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "p115client"
-version = "0.0.6.11.4"
+version = "0.0.6.11.5"
 description = "Python 115 webdisk client."
 authors = ["ChenyangGao <wosiwujm@gmail.com>"]
 license = "MIT"
@@ -57,6 +57,7 @@ python-startfile = ">=0.0.2"
 python-temporary = ">=0.0.1"
 python-undefined = ">=0.0.3"
 qrcode = "*"
+sqlitetools = ">=0.0.3.2"
 yarl = "*"
 
 [build-system]

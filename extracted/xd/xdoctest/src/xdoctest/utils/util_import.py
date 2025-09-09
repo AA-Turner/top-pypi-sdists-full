@@ -93,7 +93,7 @@ def _pkgutil_modname_to_modpath(modname):  # nocover
     return modpath
 
 
-class PythonPathContext(object):
+class PythonPathContext:
     """
     Context for temporarily adding a dir to the PYTHONPATH.
 
@@ -432,20 +432,23 @@ def import_module_from_name(modname):
     return module
 
 
-IS_PY_GE_308 = ((sys.version_info[0] >= 3) and (sys.version_info[1] >= 8))
-
-
 def _parse_static_node_value(node):
     """
     Extract a constant value from a node if possible
+
+    Args:
+        node (ast.AST): input node
+
+    Returns:
+        Any: parsed value
     """
     import ast
     from collections import OrderedDict
     import numbers
-    if (isinstance(node, ast.Constant) and isinstance(node.value, numbers.Number) if IS_PY_GE_308 else isinstance(node, ast.Num)):
-        value = node.value if IS_PY_GE_308 else node.n
-    elif (isinstance(node, ast.Constant) and isinstance(node.value, str) if IS_PY_GE_308 else isinstance(node, ast.Str)):
-        value = node.value if IS_PY_GE_308 else node.s
+    if isinstance(node, ast.Constant) and isinstance(node.value, numbers.Number):
+        value = node.value
+    elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+        value = node.value
     elif isinstance(node, ast.List):
         value = list(map(_parse_static_node_value, node.elts))
     elif isinstance(node, ast.Tuple):
@@ -454,11 +457,9 @@ def _parse_static_node_value(node):
         keys = map(_parse_static_node_value, node.keys)
         values = map(_parse_static_node_value, node.values)
         value = OrderedDict(zip(keys, values))
-        # value = dict(zip(keys, values))
-    elif isinstance(node, (ast.NameConstant)):
+    elif isinstance(node, ast.Constant):
         value = node.value
     else:
-        print(node.__dict__)
         raise TypeError('Cannot parse a static value from non-static node '
                         'of type: {!r}'.format(type(node)))
     return value
@@ -672,7 +673,7 @@ def _syspath_modname_to_modpath(modname, sys_path=None, exclude=None):
                             if normalize(p) not in real_exclude]
 
     def check_dpath(dpath):
-        # Check for directory-based modules (has presidence over files)
+        # Check for directory-based modules (has precedence over files)
         modpath = join(dpath, _fname_we)
         if exists(modpath):
             if isfile(join(modpath, '__init__.py')):

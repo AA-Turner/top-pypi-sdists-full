@@ -6,11 +6,10 @@ use opendp_derive::bootstrap;
 use crate::core::{Domain, Function, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{AtomDomain, OptionDomain, VectorDomain};
 use crate::error::Fallible;
+use crate::metrics::EventLevelMetric;
 use crate::traits::samplers::GeneratorOpenDP;
 use crate::traits::{CheckAtom, CheckNull, Float, HasNull};
 use crate::transformations::make_row_by_row;
-
-use super::DatasetMetric;
 use rand::distributions::{Distribution, Uniform, uniform::SampleUniform};
 
 #[bootstrap(
@@ -32,10 +31,10 @@ pub fn make_impute_uniform_float<M, TA>(
     input_domain: VectorDomain<AtomDomain<TA>>,
     input_metric: M,
     bounds: (TA, TA),
-) -> Fallible<Transformation<VectorDomain<AtomDomain<TA>>, VectorDomain<AtomDomain<TA>>, M, M>>
+) -> Fallible<Transformation<VectorDomain<AtomDomain<TA>>, M, VectorDomain<AtomDomain<TA>>, M>>
 where
     TA: Float + SampleUniform,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (VectorDomain<AtomDomain<TA>>, M): MetricSpace,
 {
     let (lower, upper) = bounds;
@@ -140,12 +139,12 @@ pub fn make_impute_constant<DIA, M>(
     input_domain: VectorDomain<DIA>,
     input_metric: M,
     constant: DIA::Imputed,
-) -> Fallible<Transformation<VectorDomain<DIA>, VectorDomain<AtomDomain<DIA::Imputed>>, M, M>>
+) -> Fallible<Transformation<VectorDomain<DIA>, M, VectorDomain<AtomDomain<DIA::Imputed>>, M>>
 where
     DIA: ImputeConstantDomain + Default,
     DIA::Imputed: 'static + Clone + CheckAtom,
     DIA::Carrier: 'static,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (VectorDomain<DIA>, M): MetricSpace,
     (VectorDomain<AtomDomain<DIA::Imputed>>, M): MetricSpace,
 {
@@ -215,20 +214,20 @@ impl<T: CheckAtom + HasNull + Clone> DropNullDomain for AtomDomain<T> {
 pub fn make_drop_null<M, DIA>(
     input_domain: VectorDomain<DIA>,
     input_metric: M,
-) -> Fallible<Transformation<VectorDomain<DIA>, VectorDomain<AtomDomain<DIA::Imputed>>, M, M>>
+) -> Fallible<Transformation<VectorDomain<DIA>, M, VectorDomain<AtomDomain<DIA::Imputed>>, M>>
 where
     DIA: DropNullDomain + Default,
     DIA::Imputed: CheckAtom,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (VectorDomain<DIA>, M): MetricSpace,
     (VectorDomain<AtomDomain<DIA::Imputed>>, M): MetricSpace,
 {
     Transformation::new(
         input_domain,
-        VectorDomain::new(AtomDomain::new_non_nan()),
-        Function::new(|arg: &Vec<DIA::Carrier>| arg.iter().filter_map(DIA::option).collect()),
         input_metric.clone(),
+        VectorDomain::new(AtomDomain::new_non_nan()),
         input_metric,
+        Function::new(|arg: &Vec<DIA::Carrier>| arg.iter().filter_map(DIA::option).collect()),
         StabilityMap::new_from_constant(1),
     )
 }

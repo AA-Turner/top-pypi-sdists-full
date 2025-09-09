@@ -24,8 +24,9 @@ class SmartFollowUpContextBuilder(ContextBuilder):
             raise PostponeFollowUp(time_delta= timedelta(seconds=expected_interval_minutes * 60 - time_since_last_message.total_seconds()), message=f"Se pospuso el Smart Follow Up porque no ha pasado el tiempo mínimo esperado de {expected_interval_minutes/60} horas para el seguimiento #{smart_follow_up_state.consecutive_count}")
         return True
 
+
     @staticmethod
-    def follow_up_strategy_context(chat_smart_follow_up_assigned: SmartFollowUpState, follow_up_strategy: FollowUpStrategy) -> str:
+    def follow_up_strategy_context(chat_smart_follow_up_assigned: SmartFollowUpState, follow_up_strategy: FollowUpStrategy, chat: Chat) -> str:
         if follow_up_strategy.maximum_consecutive_follow_ups == 0:
             raise HumanInterventionRequired("There's a 0 limit for the maximum consecutive follow ups, human intervention is required")
         if follow_up_strategy.maximum_follow_ups_to_be_executed == 0:
@@ -34,6 +35,8 @@ class SmartFollowUpContextBuilder(ContextBuilder):
             raise MaximumFollowUpsReached(message=f"Se alcanzó el máximo de seguimientos consecutivos: {follow_up_strategy.maximum_consecutive_follow_ups}.", area=follow_up_strategy.area_after_reaching_max)
         if follow_up_strategy.maximum_follow_ups_to_be_executed <= chat_smart_follow_up_assigned.total_followups_sent:
             raise MaximumFollowUpsReached(message=f"We've reached the maximum total follow ups to be executed limit of {follow_up_strategy.maximum_follow_ups_to_be_executed}", area=follow_up_strategy.area_after_reaching_max)
+
+        SmartFollowUpContextBuilder.check_minimum_time_since_last_message(chat, follow_up_strategy, chat_smart_follow_up_assigned)
 
         if datetime.now(ZoneInfo('UTC')).weekday() >= 5 and follow_up_strategy.only_on_weekdays:
             days_to_add = 1 if datetime.now(ZoneInfo('UTC')).weekday() == 5 else 2

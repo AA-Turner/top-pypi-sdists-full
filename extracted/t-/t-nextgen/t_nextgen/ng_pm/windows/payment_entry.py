@@ -1,7 +1,6 @@
 """PaymentEntry module."""
 import contextlib
 import _ctypes
-from time import sleep
 from datetime import datetime
 from logging import Logger
 import os
@@ -162,8 +161,10 @@ class PaymentEntryWindow(NextGenWindow):
     def click_open_button(self) -> None:
         """This method clicks on the open button."""
         self.logger.debug("Clicking on the open button.")
-        send_keys("%O")
-        sleep(0.5)
+        open_button = self.window.child_window(title="_cmdAction_1", control_type="Button")
+        if open_button.is_enabled():
+            with contextlib.suppress(_ctypes.COMError):
+                open_button.click_input()
 
     def get_service_rows(self) -> list[ListItemWrapper]:
         """This method gets the service rows from the current payment entry window.
@@ -416,8 +417,7 @@ class PaymentEntryWindow(NextGenWindow):
         """Clicks the save button."""
         if click_save_button:
             self.logger.debug("Clicking save button on Payment Entry Window.")
-            send_keys("%S")
-            sleep(0.5)
+            self.desktop_app.click_button_by_element_name(element_name="_cmdAction_2")
             self.verify_and_handle_modal("Please specify a status for each line item payments and adjustment.")
         else:
             self.logger.warning("Clicking cancel in payment entry to prevent changes.")

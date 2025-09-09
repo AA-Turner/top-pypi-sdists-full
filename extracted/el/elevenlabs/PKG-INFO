@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: elevenlabs
-Version: 2.14.0
+Version: 2.15.0
 Summary: 
 License: MIT
 Requires-Python: >=3.8,<4.0
@@ -24,7 +24,7 @@ Provides-Extra: pyaudio
 Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: pyaudio (>=0.2.14) ; extra == "pyaudio"
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
+Requires-Dist: pydantic-core (>=2.18.2)
 Requires-Dist: requests (>=2.20)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=11.0)

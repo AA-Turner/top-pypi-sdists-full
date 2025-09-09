@@ -268,9 +268,9 @@ def test_count_distinct():
 
 def test_count_by():
     input_space = dp.vector_domain(dp.atom_domain(T=str)), dp.symmetric_distance()
-    query = input_space >> dp.t.then_count_by(MO=dp.L1Distance[float], TV=float)
+    query = input_space >> dp.t.then_count_by()
     assert query(STR_DATA) == {str(i + 1): 1 for i in range(9)}
-    assert query.check(1, 2.)
+    assert query.map(1) == (1, 1, 1)
 
 
 def test_count_by_categories():
@@ -393,13 +393,3 @@ def test_lipschitz_b_ary_tree():
     print("meas_quantiles(data)", meas_quantiles(data))
 
     assert meas_cdf.map(1) == 4.
-
-
-def test_quantile_score_candidates():
-
-    input_space = dp.vector_domain(dp.atom_domain(T=int)), dp.symmetric_distance()
-    trans = input_space >> dp.t.then_quantile_score_candidates([0, 25, 50, 75, 100], alpha=0.5)
-    scores = trans(list(range(101)))
-    # score works out to 2 * |50 - cand|
-    assert scores == [100, 50, 0, 50, 100]
-    assert trans.map(1) == 1

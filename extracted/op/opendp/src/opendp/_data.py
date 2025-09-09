@@ -36,6 +36,8 @@ def arrow_array_free(
 ):
     r"""Internal function. Free the memory associated with `this`, a slice containing an Arrow array, schema, and name.
 
+    .. end-markdown
+
     :param this: 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -69,6 +71,8 @@ def bool_free(
 ):
     r"""Internal function. Free the memory associated with `this`, a bool.
     Used to clean up after the relation check.
+
+    .. end-markdown
 
     :param this: A pointer to the bool to free.
     :raises TypeError: if an argument's type differs from the expected type
@@ -105,6 +109,8 @@ def erfc(
 
     Used to prove an upper bound on the error of erfc.
 
+    .. end-markdown
+
     :param value: 
     :type value: float
     :raises TypeError: if an argument's type differs from the expected type
@@ -139,6 +145,8 @@ def extrinsic_object_free(
     r"""Internal function. Free the memory associated with `this`, a string.
     Used to clean up after the type getter functions.
 
+    .. end-markdown
+
     :param this: 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -171,6 +179,8 @@ def ffislice_of_anyobjectptrs(
     raw
 ):
     r"""Internal function. Converts an FfiSlice of AnyObjects to an FfiSlice of AnyObjectPtrs.
+
+    .. end-markdown
 
     :param raw: A pointer to the slice to free.
     :raises TypeError: if an argument's type differs from the expected type
@@ -206,6 +216,8 @@ def fill_bytes(
 ) -> bool:
     r"""Internal function. Populate the buffer behind `ptr` with `len` random bytes
     sampled from a cryptographically secure RNG.
+
+    .. end-markdown
 
     :param ptr: 
     :param len: 
@@ -243,6 +255,8 @@ def new_arrow_array(
     r"""Allocate an empty ArrowArray and ArrowSchema that Rust owns the memory for.
     The ArrowArray and ArrowSchema are initialized empty, and are populated by the bindings language.
 
+    .. end-markdown
+
     :param name: The name of the ArrowArray. A clone of this string owned by Rust will be returned in the slice.
     :type name: str
     :raises TypeError: if an argument's type differs from the expected type
@@ -276,6 +290,8 @@ def object_as_slice(
     obj
 ):
     r"""Internal function. Unload data from an AnyObject into an FfiSlicePtr.
+
+    .. end-markdown
 
     :param obj: A pointer to the AnyObject to unpack.
     :return: An FfiSlice that contains the data in FfiObject, but in a format readable in bindings languages.
@@ -311,6 +327,8 @@ def object_free(
 ):
     r"""Internal function. Free the memory associated with `this`, an AnyObject.
 
+    .. end-markdown
+
     :param this: A pointer to the AnyObject to free.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -344,6 +362,8 @@ def object_type(
 ) -> str:
     r"""Internal function. Retrieve the type descriptor string of an AnyObject.
 
+    .. end-markdown
+
     :param this: A pointer to the AnyObject.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -376,6 +396,8 @@ def onceframe_collect(
     onceframe
 ):
     r"""Internal function. Collects a DataFrame from a OnceFrame, exhausting the OnceFrame.
+
+    .. end-markdown
 
     :param onceframe: The queryable holding a LazyFrame.
     :raises TypeError: if an argument's type differs from the expected type
@@ -429,6 +451,8 @@ def onceframe_lazy(
     1. Do not extend the compute plan with order-sensitive computations.
     2. Shuffle the output once collected ([in Polars sample all, with shuffling enabled](https://docs.pola.rs/api/python/stable/reference/dataframe/api/polars.DataFrame.sample.html)).
 
+    .. end-markdown
+
     :param onceframe: The queryable holding a LazyFrame.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -464,6 +488,8 @@ def privacy_profile_delta(
     epsilon: float
 ):
     r"""Internal function. Use a PrivacyProfile to find epsilon at a given `epsilon`.
+
+    .. end-markdown
 
     :param curve: The PrivacyProfile.
     :param epsilon: What to fix epsilon to compute delta.
@@ -503,6 +529,8 @@ def privacy_profile_epsilon(
 ):
     r"""Internal function. Use an PrivacyProfile to find epsilon at a given `delta`.
 
+    .. end-markdown
+
     :param profile: The PrivacyProfile.
     :param delta: What to fix delta to compute epsilon.
     :type delta: float
@@ -540,6 +568,8 @@ def slice_as_object(
     T: str
 ):
     r"""Internal function. Load data from a `slice` into an AnyObject
+
+    .. end-markdown
 
     :param raw: A pointer to the slice with data.
     :type raw: FfiSlicePtr
@@ -583,6 +613,8 @@ def slice_free(
     Used to clean up after object_as_slice.
     Frees the slice, but not what the slice references!
 
+    .. end-markdown
+
     :param this: A pointer to the FfiSlice to free.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -616,6 +648,8 @@ def str_free(
 ):
     r"""Internal function. Free the memory associated with `this`, a string.
     Used to clean up after the type getter functions.
+
+    .. end-markdown
 
     :param this: A pointer to the string to free.
     :type this: str

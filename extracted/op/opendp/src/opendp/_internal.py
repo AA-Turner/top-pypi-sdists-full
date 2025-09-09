@@ -24,7 +24,8 @@ __all__ = [
 
 
 def _extrinsic_distance(
-    descriptor: str
+    identifier: str,
+    descriptor = None
 ) -> Metric:
     r"""Construct a new ExtrinsicDistance.
     This is meant for internal use, as it does not require "honest-but-curious",
@@ -32,28 +33,32 @@ def _extrinsic_distance(
 
     See `user_distance` for correct usage of this function.
 
-    :param descriptor: A string description of the metric.
-    :type descriptor: str
+    .. end-markdown
+
+    :param identifier: A string description of the metric.
+    :type identifier: str
+    :param descriptor: Additional constraints on the domain.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
     """
     # No type arguments to standardize.
     # Convert arguments to c types.
-    c_descriptor = py_to_c(descriptor, c_type=ctypes.c_char_p, type_name="String")
+    c_identifier = py_to_c(identifier, c_type=ctypes.c_char_p, type_name=None)
+    c_descriptor = py_to_c(descriptor, c_type=ExtrinsicObjectPtr, type_name="ExtrinsicObject")
 
     # Call library function.
     lib_function = lib.opendp_internal___extrinsic_distance
-    lib_function.argtypes = [ctypes.c_char_p]
+    lib_function.argtypes = [ctypes.c_char_p, ExtrinsicObjectPtr]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_descriptor), Metric))
+    output = c_to_py(unwrap(lib_function(c_identifier, c_descriptor), Metric))
     try:
         output.__opendp_dict__ = {
             '__function__': '_extrinsic_distance',
             '__module__': 'internal',
             '__kwargs__': {
-                'descriptor': descriptor
+                'identifier': identifier, 'descriptor': descriptor
             },
         }
     except AttributeError:  # pragma: no cover
@@ -69,6 +74,8 @@ def _extrinsic_divergence(
     unlike `user_divergence`.
 
     See `user_divergence` for correct usage and proof definition for this function.
+
+    .. end-markdown
 
     :param descriptor: A string description of the privacy measure.
     :type descriptor: str
@@ -109,6 +116,8 @@ def _extrinsic_domain(
     unlike `user_domain`.
 
     See `user_domain` for correct usage and proof definition for this function.
+
+    .. end-markdown
 
     :param identifier: A string description of the data domain.
     :type identifier: str
@@ -160,9 +169,11 @@ def _make_measurement(
     **Supporting Elements:**
 
     * Input Domain:   `AnyDomain`
-    * Output Type:    `AnyObject`
-    * Input Metric:   `AnyMetric`
-    * Output Measure: `AnyMeasure`
+    * Output Type:    `AnyMetric`
+    * Input Metric:   `AnyMeasure`
+    * Output Measure: `AnyObject`
+
+    .. end-markdown
 
     :param input_domain: A domain describing the set of valid inputs for the function.
     :type input_domain: Domain
@@ -170,8 +181,8 @@ def _make_measurement(
     :type input_metric: Metric
     :param output_measure: The measure from which distances between adjacent output distributions are measured.
     :type output_measure: Measure
-    :param function: A function mapping data from `input_domain` to a release of type `TO`.
-    :param privacy_map: A function mapping distances from `input_metric` to `output_measure`.
+    :param function: A function mapping data from ``input_domain`` to a release of type ``TO``.
+    :param privacy_map: A function mapping distances from ``input_metric`` to ``output_measure``.
     :param TO: The data type of outputs from the function.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
@@ -222,6 +233,8 @@ def _make_transformation(
 
     See `make_user_transformation` for correct usage and proof definition for this function.
 
+    .. end-markdown
+
     :param input_domain: A domain describing the set of valid inputs for the function.
     :type input_domain: Domain
     :param input_metric: The metric from which distances between adjacent inputs are measured.
@@ -230,8 +243,8 @@ def _make_transformation(
     :type output_domain: Domain
     :param output_metric: The metric from which distances between outputs of adjacent inputs are measured.
     :type output_metric: Metric
-    :param function: A function mapping data from `input_domain` to `output_domain`.
-    :param stability_map: A function mapping distances from `input_metric` to `output_metric`.
+    :param function: A function mapping data from ``input_domain`` to ``output_domain``.
+    :param stability_map: A function mapping distances from ``input_metric`` to ``output_metric``.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -266,7 +279,7 @@ def _make_transformation(
 
 def _new_pure_function(
     function,
-    TO: RuntimeTypeDescriptor
+    TO: RuntimeTypeDescriptor = "ExtrinsicObject"
 ) -> Function:
     r"""Construct a Function from a user-defined callback.
     This is meant for internal use, as it does not require "honest-but-curious",
@@ -277,9 +290,11 @@ def _new_pure_function(
 
     Required features: `contrib`
 
-    [_new_pure_function in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/internal/fn._new_pure_function.html)
+    [_new_pure_function in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/internal/fn._new_pure_function.html)
 
-    :param function: A function mapping data to a value of type `TO`
+    .. end-markdown
+
+    :param function: A function mapping data to a value of type ``TO``
     :param TO: Output Type
     :type TO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type

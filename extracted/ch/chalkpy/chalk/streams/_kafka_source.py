@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Union
+import json
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Union
 
 from chalk.integrations.named import create_integration_variable, load_integration_variable
 from chalk.sink._models import SinkIntegrationProtocol
@@ -25,6 +26,7 @@ _KAFKA_SECURITY_PROTOCOL_NAME = "KAFKA_SECURITY_PROTOCOL"
 _KAFKA_SASL_MECHANISM_NAME = "KAFKA_SASL_MECHANISM"
 _KAFKA_SASL_USERNAME_NAME = "KAFKA_SASL_USERNAME"
 _KAFKA_SASL_PASSWORD_NAME = "KAFKA_SASL_PASSWORD"
+_KAFKA_ADDITIONAL_KAFKA_ARGS_NAME = "KAFKA_ADDITIONAL_KAFKA_ARGS"
 
 
 class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True):
@@ -92,6 +94,12 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
     Kafka topic to send messages when message processing fails
     """
 
+    additional_kafka_args: Optional[Dict[str, Any]] = None
+    """
+    Additional arguments to use when constructing the Kafka consumer.
+    See https://kafka.apache.org/documentation/#consumerconfigs for more details.
+    """
+
     def __init__(
         self,
         *,
@@ -108,6 +116,7 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
         name: Optional[str] = None,
         late_arrival_deadline: Duration = "infinity",
         dead_letter_queue_topic: Optional[str] = None,
+        additional_kafka_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
         super(KafkaSource, self).__init__(
@@ -161,6 +170,13 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
             or load_integration_variable(
                 name=_KAFKA_SSL_CA_FILE_NAME, integration_name=name, override=integration_variable_override
             ),
+            additional_kafka_args=additional_kafka_args
+            or load_integration_variable(
+                name=_KAFKA_ADDITIONAL_KAFKA_ARGS_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+                parser=json.loads,
+            ),
         )
         self.registry.append(self)
 
@@ -196,6 +212,7 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
                 create_integration_variable(_KAFKA_SASL_MECHANISM_NAME, self.name, self.sasl_mechanism),
                 create_integration_variable(_KAFKA_SASL_USERNAME_NAME, self.name, self.sasl_username),
                 create_integration_variable(_KAFKA_SASL_PASSWORD_NAME, self.name, self.sasl_password),
+                create_integration_variable(_KAFKA_ADDITIONAL_KAFKA_ARGS_NAME, self.name, self.additional_kafka_args),
             ]
             if v is not None
         }

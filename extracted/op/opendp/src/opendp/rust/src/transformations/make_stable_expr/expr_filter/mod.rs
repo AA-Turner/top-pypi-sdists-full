@@ -2,7 +2,7 @@ use polars_plan::dsl::Expr;
 
 use crate::core::{Function, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{
-    Context, ExprDomain, ExprPlan, Margin, MarginPub, OuterMetric, WildExprDomain,
+    Context, ExprDomain, ExprPlan, Invariant, Margin, OuterMetric, WildExprDomain,
 };
 use crate::error::*;
 use crate::transformations::traits::UnboundedMetric;
@@ -22,7 +22,7 @@ pub fn make_expr_filter<M: OuterMetric>(
     input_domain: WildExprDomain,
     input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
     M::InnerMetric: UnboundedMetric,
     M::Distance: Clone,
@@ -71,7 +71,7 @@ where
         column: t_input.output_domain.column.clone(),
         context: Context::Aggregation {
             margin: Margin {
-                public_info: margin.public_info.map(|_| MarginPub::Keys),
+                invariant: margin.invariant.map(|_| Invariant::Keys),
                 ..margin
             },
         },
@@ -79,7 +79,9 @@ where
 
     Transformation::new(
         input_domain.clone(),
+        input_metric.clone(),
         output_domain,
+        input_metric,
         Function::new_fallible(move |arg| {
             let input = t_input.invoke(arg)?;
             let by = t_by.invoke(arg)?;
@@ -90,8 +92,6 @@ where
                 fill: None,
             })
         }),
-        input_metric.clone(),
-        input_metric,
         StabilityMap::new(Clone::clone),
     )
 }

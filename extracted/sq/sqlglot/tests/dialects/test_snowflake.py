@@ -11,6 +11,9 @@ class TestSnowflake(Validator):
     dialect = "snowflake"
 
     def test_snowflake(self):
+        self.validate_identity("SELECT session")
+        self.validate_identity("x::nvarchar()", "CAST(x AS VARCHAR)")
+
         ast = self.parse_one("DATEADD(DAY, n, d)")
         ast.set("unit", exp.Literal.string("MONTH"))
         self.assertEqual(ast.sql("snowflake"), "DATEADD(MONTH, n, d)")
@@ -90,6 +93,7 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT GET_PATH(PARSE_JSON(foo), 'bar')")
         self.validate_identity("SELECT GET_PATH(foo, 'bar')")
         self.validate_identity("SELECT a, exclude, b FROM xxx")
+        self.validate_identity("SELECT ARRAY_SORT(x, TRUE, FALSE)")
         self.validate_identity(
             "SELECT * FROM table AT (TIMESTAMP => '2024-07-24') UNPIVOT(a FOR b IN (c)) AS pivot_table"
         )
@@ -3029,7 +3033,7 @@ SINGLE = TRUE""",
             "SELECT * FROM SEMANTIC_VIEW(foo METRICS a.b, a.c DIMENSIONS a.b, a.c WHERE a.b > '1995-01-01')",
             """SELECT
   *
-FROM SEMANTIC_VIEW(  
+FROM SEMANTIC_VIEW(
   foo
   METRICS a.b, a.c
   DIMENSIONS a.b, a.c
@@ -3077,3 +3081,12 @@ FROM SEMANTIC_VIEW(
                 "duckdb": "CREATE SEQUENCE seq START WITH 1 INCREMENT BY 1",
             },
         )
+
+    def test_bit_aggs(self):
+        bit_and_funcs = ["BITANDAGG", "BITAND_AGG", "BIT_AND_AGG", "BIT_ANDAGG"]
+        bit_or_funcs = ["BITORAGG", "BITOR_AGG", "BIT_OR_AGG", "BIT_ORAGG"]
+        bit_xor_funcs = ["BITXORAGG", "BITXOR_AGG", "BIT_XOR_AGG", "BIT_XORAGG"]
+        for bit_func in (bit_and_funcs, bit_or_funcs, bit_xor_funcs):
+            for name in bit_func:
+                with self.subTest(f"Testing Snowflakes {name}"):
+                    self.validate_identity(f"{name}(x)", f"{bit_func[0]}(x)")

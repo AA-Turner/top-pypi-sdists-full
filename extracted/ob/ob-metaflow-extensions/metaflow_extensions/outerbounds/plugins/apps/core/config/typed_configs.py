@@ -40,6 +40,7 @@ class ResourceConfigDict(TypedDict, total=False):
     memory: Optional[str]
     gpu: Optional[str]
     disk: Optional[str]
+    shared_memory: Optional[str]
 
 
 class AuthConfigDict(TypedDict, total=False):
@@ -67,7 +68,7 @@ class DependencyConfigDict(TypedDict, total=False):
 
 
 class PackageConfigDict(TypedDict, total=False):
-    src_path: Optional[str]
+    src_paths: Optional[list]
     suffixes: Optional[list]
 
 

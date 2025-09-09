@@ -1614,6 +1614,7 @@ class TestNewFFI1:
         assert ffi.typeof(p2) is ffi.typeof("struct abc50 *")
         assert p2 == p + 1
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_multiple_independent_structs(self):
         CDEF2 = "struct ab { int x; };"
         ffi2 = cffi.FFI(); ffi2.cdef(CDEF2)
@@ -1628,6 +1629,7 @@ class TestNewFFI1:
         assert foo2.a == 20
         assert foo2.b == 30
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_include_struct_union_enum_typedef(self):
         ffi1, CCODE = construction_params
         ffi2 = cffi.FFI()
@@ -1769,6 +1771,7 @@ class TestNewFFI1:
             x = ffi.sizeof(name)
             assert 1 <= x <= 16
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_emit_c_code(self):
         ffi = cffi.FFI()
         ffi.set_source("foobar", "??")
@@ -1776,6 +1779,7 @@ class TestNewFFI1:
         ffi.emit_c_code(c_file)
         assert os.path.isfile(c_file)
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_emit_c_code_to_file_obj(self):
         ffi = cffi.FFI()
         ffi.set_source("foobar", "??")
@@ -1783,6 +1787,7 @@ class TestNewFFI1:
         ffi.emit_c_code(fileobj)
         assert 'foobar' in fileobj.getvalue()
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_import_from_lib(self):
         ffi2 = cffi.FFI()
         ffi2.cdef("int myfunc(int); extern int myvar;\n#define MYFOO ...\n")
@@ -1833,5 +1838,5 @@ class TestNewFFI1:
         assert list(y) == [u+'\u1234', u+'\u5678', u+'\x00']
         z = ffi.new("char32_t[]", u+'\U00012345')
         assert len(z) == 2
-        assert list(z) == [u+'\U00012345', u+'\x00'] # maybe a 2-unichars strin
+        assert list(z) == [u+'\U00012345', u+'\x00'] # maybe a 2-unichars string
         assert ffi.string(z) == u+'\U00012345'

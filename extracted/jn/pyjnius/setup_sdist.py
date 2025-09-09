@@ -27,17 +27,25 @@ SETUP_KWARGS = {
     'name': 'pyjnius',
     'version': VERSION,
     'url': "https://github.com/kivy/pyjnius",
+    'project_urls': {
+        'Website': "https://kivy.org",
+        'Documentation': "https://pyjnius.readthedocs.io",
+        'Source': "https://github.com/kivy/pyjnius",
+        'Bug Reports': "https://github.com/kivy/pyjnius/issues",
+        },
     'packages': ['jnius'],
     'py_modules': ['jnius_config', 'setup', 'setup_sdist', 'jnius.env'],
     'ext_package': 'jnius',
     'package_data': {
         'jnius': ['src/org/jnius/*'],
-    },
+        },
     'long_description_content_type': 'text/markdown',
     'long_description': README,
     'author': 'Kivy Team and other contributors',
     'author_email': 'kivy-dev@googlegroups.com',
-    'description': "A Python module to access Java classes as Python classes using JNI.",
+    'description':
+        "A Python library for accessing access Java classes as using the "
+        "Java Native Interface (JNI).",
     'keywords': 'Java JNI Android',
     'classifiers': [
         'Development Status :: 5 - Production/Stable',
@@ -48,12 +56,11 @@ SETUP_KWARGS = {
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
         'Operating System :: Android',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Software Development :: Libraries :: Application Frameworks'
     ]
 }

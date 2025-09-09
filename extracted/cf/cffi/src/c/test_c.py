@@ -63,9 +63,9 @@ def _assert_unraisable(error_type: type[Exception] | None, message: str = '', tr
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.17.1", ("This test_c.py file is for testing a version"
-                                 " of cffi that differs from the one that we"
-                                 " get from 'import _cffi_backend'")
+assert __version__ == "2.0.0", ("This test_c.py file is for testing a version"
+                                     " of cffi that differs from the one that we"
+                                     " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -247,7 +247,7 @@ def test_float_types():
 def test_complex_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
-        p = new_primitive_type(name + " _Complex")
+        p = new_primitive_type("_cffi_" + name + "_complex_t")
         assert bool(cast(p, 0)) is False
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
@@ -1090,6 +1090,7 @@ def test_call_function_5():
     f = cast(BFunc5, _testfunc(5))
     f()   # did not crash
 
+@pytest.mark.thread_unsafe(reason="_testfunc6 uses global state")
 def test_call_function_6():
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
@@ -1246,7 +1247,7 @@ def test_call_function_9():
 
 def test_call_function_24():
     BFloat = new_primitive_type("float")
-    BFloatComplex = new_primitive_type("float _Complex")
+    BFloatComplex = new_primitive_type("_cffi_float_complex_t")
     BFunc3 = new_function_type((BFloat, BFloat), BFloatComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(24))
@@ -1260,7 +1261,7 @@ def test_call_function_24():
 
 def test_call_function_25():
     BDouble = new_primitive_type("double")
-    BDoubleComplex = new_primitive_type("double _Complex")
+    BDoubleComplex = new_primitive_type("_cffi_double_complex_t")
     BFunc3 = new_function_type((BDouble, BDouble), BDoubleComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(25))
@@ -1342,6 +1343,7 @@ def test_read_variable_as_unknown_length_array():
     assert repr(stderr).startswith("<cdata 'char *' 0x")
     # ^^ and not 'char[]', which is basically not allowed and would crash
 
+@pytest.mark.thread_unsafe(reason="writes to global state")
 def test_write_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
@@ -1376,6 +1378,7 @@ def test_callback():
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
 
+@pytest.mark.thread_unsafe("mocks sys.unraiseablehook")
 def test_callback_exception():
     def check_value(x):
         if x == 10000:
@@ -2163,7 +2166,7 @@ def test_cast_with_functionptr():
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BFunc, -1)])
     newp(BStructPtr, [cast(BFunc, 0)])
-    newp(BStructPtr, [cast(BCharP, 0)])
+    pytest.raises(TypeError, newp, BStructPtr, [cast(BCharP, 0)])
     pytest.raises(TypeError, newp, BStructPtr, [cast(BIntP, 0)])
     pytest.raises(TypeError, newp, BStructPtr, [cast(BFunc2, 0)])
 
@@ -3285,6 +3288,7 @@ def test_new_handle():
     pytest.raises(RuntimeError, from_handle, cast(BCharP, 0))
 
 def test_new_handle_cycle():
+    import gc
     import _weakref
     BVoidP = new_pointer_type(new_void_type())
     class A(object):
@@ -3293,9 +3297,9 @@ def test_new_handle_cycle():
     o.cycle = newp_handle(BVoidP, o)
     wr = _weakref.ref(o)
     del o
-    for i in range(3):
-        if wr() is not None:
-            import gc; gc.collect()
+    # free-threading requires more iterations to clear weakref
+    while wr() is not None:
+        gc.collect()
     assert wr() is None
 
 def _test_bitfield_details(flag):
@@ -4228,8 +4232,6 @@ def test_cdata_dir():
 
 def test_char_pointer_conversion():
     import warnings
-    assert __version__.startswith("1."), (
-        "the warning will be an error if we ever release cffi 2.x")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))
     BVoidP = new_pointer_type(new_void_type())
@@ -4238,28 +4240,17 @@ def test_char_pointer_conversion():
     z2 = cast(BIntP, 0)
     z3 = cast(BVoidP, 0)
     z4 = cast(BUCharP, 0)
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        newp(new_pointer_type(BIntP), z1)    # warn
-        assert len(w) == 1
-        newp(new_pointer_type(BVoidP), z1)   # fine
-        assert len(w) == 1
-        newp(new_pointer_type(BCharP), z2)   # warn
-        assert len(w) == 2
-        newp(new_pointer_type(BVoidP), z2)   # fine
-        assert len(w) == 2
-        newp(new_pointer_type(BCharP), z3)   # fine
-        assert len(w) == 2
-        newp(new_pointer_type(BIntP), z3)    # fine
-        assert len(w) == 2
-        newp(new_pointer_type(BCharP), z4)   # fine (ignore signedness here)
-        assert len(w) == 2
-        newp(new_pointer_type(BUCharP), z1)  # fine (ignore signedness here)
-        assert len(w) == 2
-        newp(new_pointer_type(BUCharP), z3)  # fine
-        assert len(w) == 2
-    # check that the warnings are associated with lines in this file
-    assert w[1].lineno == w[0].lineno + 4
+    with pytest.raises(TypeError) as e1:
+        newp(new_pointer_type(BIntP), z1)
+    newp(new_pointer_type(BVoidP), z1)   # fine
+    with pytest.raises(TypeError) as e2:
+        newp(new_pointer_type(BCharP), z2)
+    newp(new_pointer_type(BVoidP), z2)   # fine
+    newp(new_pointer_type(BCharP), z3)   # fine
+    newp(new_pointer_type(BIntP), z3)    # fine
+    newp(new_pointer_type(BCharP), z4)   # fine (ignore signedness here)
+    newp(new_pointer_type(BUCharP), z1)  # fine (ignore signedness here)
+    newp(new_pointer_type(BUCharP), z3)  # fine
 
 def test_primitive_comparison():
     def assert_eq(a, b):
@@ -4536,9 +4527,9 @@ def test_unaligned_types():
     buf = buffer(pbuf)
     #
     for name in ['short', 'int', 'long', 'long long', 'float', 'double',
-                 'float _Complex', 'double _Complex']:
+                 '_cffi_float_complex_t', '_cffi_double_complex_t']:
         p = new_primitive_type(name)
-        if name.endswith(' _Complex'):
+        if name.endswith('_complex_t'):
             num = cast(p, 1.23 - 4.56j)
         else:
             num = cast(p, 0x0123456789abcdef)

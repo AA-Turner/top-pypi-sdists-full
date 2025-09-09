@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-seleniumbase
-Version: 4.41.4
+Version: 4.41.5
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -53,7 +53,7 @@ Classifier: Topic :: Software Development :: Testing :: Traffic Generation
 Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: seleniumbase>=4.41.4
+Requires-Dist: seleniumbase>=4.41.5
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

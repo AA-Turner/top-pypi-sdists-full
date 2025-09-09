@@ -48,15 +48,13 @@ def populated_api():
         session = api.API(USERNAME, password=PASSWORD, database=DATABASE, server=SERVER, cert=cert)
         try:
             session.authenticate()
-        except api.MyGeotabException as exception:
-            pytest.fail(exception)
+        except (api.MyGeotabException, api.AuthenticationException) as exception:
+            pytest.fail(str(exception))
             return
         yield session
     else:
         pytest.skip(
-            "Can't make calls to the API without the "
-            "MYGEOTAB_USERNAME and MYGEOTAB_PASSWORD "
-            "environment variables being set"
+            "Can't make calls to the API without the MYGEOTAB_USERNAME and MYGEOTAB_PASSWORD environment variables being set"
         )
 
 

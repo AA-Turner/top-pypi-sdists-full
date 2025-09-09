@@ -1,14 +1,14 @@
 '''
 This module requires extra installs: ``pip install 'opendp[scikit-learn]'``
 
-For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
+For convenience, all the members of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 
-The methods of this module will then be accessible at ``dp.sklearn.decomposition``.    
+The members of this module will then be accessible at ``dp.sklearn.decomposition``.    
 
 See also our :ref:`tutorial on diffentially private PCA <dp-pca>`.
 '''
@@ -35,6 +35,21 @@ class PCAEpsilons(NamedTuple):
     eigvals: float
     eigvecs: Sequence[float]
     mean: Optional[float]
+
+
+PCAEpsilons.eigvals.__doc__ = 'ε-expenditure to estimate the eigenvalues'
+PCAEpsilons.eigvecs.__doc__ = 'ε-expenditure to estimate the eigenvectors'
+PCAEpsilons.mean.__doc__ = ''  """ε-expenditure to estimate the mean.
+
+A portion of the budget is used to estimate the mean because the OpenDP PCA algorithm 
+releases an eigendecomposition of the sum of squares and cross-products matrix (SSCP), 
+not of the covariance matrix. 
+If the data is centered beforehand (either by a prior from the user or by privately estimating the mean and then centering), 
+then PCA will correspond to the covariance matrix, as expected, 
+because the SSCP matrix of centered data is equivalent to a scaled covariance matrix.
+
+If the data is not centered (or the mean is poorly estimated), then the first eigenvector will be dominated by the true mean.
+"""
 
 
 def make_private_pca(
@@ -118,7 +133,7 @@ def make_private_pca(
     # make releases under the assumption that d_in is 2.
     unit_d_in = 2
 
-    compositor = dp.c.make_sequential_composition(
+    compositor = dp.c.make_adaptive_composition(
         input_domain,
         input_metric,
         dp.max_divergence(),
@@ -160,6 +175,7 @@ register(make_private_pca)
 class PCA:
     '''
     DP wrapper for `sklearn's PCA <https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
+    This implementation is based on `Differentially Private Covariance Estimation <https://papers.nips.cc/paper_files/paper/2019/hash/4158f6d19559955bae372bb00f6204e4-Abstract.html>`_ by Kareem Amin, et al.
 
     Trying to create an instance without sklearn installed will raise an ``ImportError``.
     

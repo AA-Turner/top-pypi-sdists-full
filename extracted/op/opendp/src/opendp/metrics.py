@@ -6,7 +6,7 @@ For more context, see :ref:`metrics in the User Guide <metrics-user-guide>`.
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 '''
@@ -19,23 +19,178 @@ from opendp.typing import *
 from opendp.typing import _substitute # noqa: F401
 
 __all__ = [
+    "_change_one_id_distance_get_identifier",
+    "_extrinsic_metric_descriptor",
+    "_frame_distance_get_inner_metric",
+    "_get_bound",
     "_metric_equal",
     "_metric_free",
+    "_symmetric_id_distance_get_identifier",
     "absolute_distance",
     "change_one_distance",
+    "change_one_id_distance",
     "discrete_distance",
+    "frame_distance",
     "hamming_distance",
     "insert_delete_distance",
+    "l01inf_distance",
+    "l02inf_distance",
     "l1_distance",
     "l2_distance",
     "linf_distance",
     "metric_debug",
     "metric_distance_type",
     "metric_type",
-    "partition_distance",
     "symmetric_distance",
+    "symmetric_id_distance",
     "user_distance"
 ]
+
+
+def _change_one_id_distance_get_identifier(
+    metric: Metric
+):
+    r"""Retrieve the identifier of a `ChangeOneIdDistance` metric.
+
+    .. end-markdown
+
+    :param metric: 
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name="AnyMetric")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics___change_one_id_distance_get_identifier
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_change_one_id_distance_get_identifier',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def _extrinsic_metric_descriptor(
+    metric: Metric
+):
+    r"""Retrieve the descriptor value stored in an extrinsic metric.
+
+    .. end-markdown
+
+    :param metric: The ExtrinsicDistance to extract the descriptor from
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name="AnyMetric")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics___extrinsic_metric_descriptor
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), ExtrinsicObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_extrinsic_metric_descriptor',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def _frame_distance_get_inner_metric(
+    metric: Metric
+) -> Metric:
+    r"""Retrieve the inner metric of a `FrameDistance` metric.
+
+    .. end-markdown
+
+    :param metric: 
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name="AnyMetric")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics___frame_distance_get_inner_metric
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_frame_distance_get_inner_metric',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def _get_bound(
+    bounds,
+    by
+):
+    r"""Infer a bound when grouping by `by`.
+
+    .. end-markdown
+
+    :param bounds: 
+    :param by: 
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_bounds = py_to_c(bounds, c_type=AnyObjectPtr, type_name="Bounds")
+    c_by = py_to_c(by, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Vec', args=["Expr"]))
+
+    # Call library function.
+    lib_function = lib.opendp_metrics___get_bound
+    lib_function.argtypes = [AnyObjectPtr, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_bounds, c_by), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_get_bound',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'bounds': bounds, 'by': by
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
 
 
 def _metric_equal(
@@ -43,6 +198,8 @@ def _metric_equal(
     right: Metric
 ) -> bool:
     r"""Check whether two metrics are equal.
+
+    .. end-markdown
 
     :param left: Metric to compare.
     :type left: Metric
@@ -81,6 +238,8 @@ def _metric_free(
 ):
     r"""Internal function. Free the memory associated with `this`.
 
+    .. end-markdown
+
     :param this: 
     :type this: Metric
     :raises TypeError: if an argument's type differs from the expected type
@@ -110,12 +269,50 @@ def _metric_free(
     return output
 
 
+def _symmetric_id_distance_get_identifier(
+    metric: Metric
+):
+    r"""Retrieve the identifier of a `SymmetricIdDistance` metric.
+
+    .. end-markdown
+
+    :param metric: 
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name="AnyMetric")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics___symmetric_id_distance_get_identifier
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), AnyObjectPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_symmetric_id_distance_get_identifier',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def absolute_distance(
     T: RuntimeTypeDescriptor
 ) -> Metric:
     r"""Construct an instance of the `AbsoluteDistance` metric.
 
-    [absolute_distance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/metrics/fn.absolute_distance.html)
+    [absolute_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.absolute_distance.html)
+
+    .. end-markdown
 
     :param T: 
     :type T: :py:ref:`RuntimeTypeDescriptor`
@@ -153,6 +350,8 @@ def change_one_distance(
 ) -> Metric:
     r"""Construct an instance of the `ChangeOneDistance` metric.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -179,10 +378,47 @@ def change_one_distance(
     return output
 
 
+def change_one_id_distance(
+    identifier
+) -> ChangeOneIdDistance:
+    r"""Construct an instance of the `ChangeOneIdDistance` metric.
+
+    .. end-markdown
+
+    :param identifier: 
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_identifier = py_to_c(identifier, c_type=AnyObjectPtr, type_name="Expr")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics__change_one_id_distance
+    lib_function.argtypes = [AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_identifier), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'change_one_id_distance',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'identifier': identifier
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def discrete_distance(
 
 ) -> Metric:
     r"""Construct an instance of the `DiscreteDistance` metric.
+
+    .. end-markdown
 
 
     :raises TypeError: if an argument's type differs from the expected type
@@ -210,10 +446,48 @@ def discrete_distance(
     return output
 
 
+def frame_distance(
+    inner_metric: Metric
+) -> Metric:
+    r"""`frame_distance` is a higher-order metric that contains multiple distance bounds for different groupings of data.
+
+    .. end-markdown
+
+    :param inner_metric: 
+    :type inner_metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_inner_metric = py_to_c(inner_metric, c_type=Metric, type_name="AnyMetric")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics__frame_distance
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_inner_metric), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'frame_distance',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'inner_metric': inner_metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def hamming_distance(
 
 ) -> Metric:
     r"""Construct an instance of the `HammingDistance` metric.
+
+    .. end-markdown
 
 
     :raises TypeError: if an argument's type differs from the expected type
@@ -246,6 +520,8 @@ def insert_delete_distance(
 ) -> Metric:
     r"""Construct an instance of the `InsertDeleteDistance` metric.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -272,12 +548,90 @@ def insert_delete_distance(
     return output
 
 
+def l01inf_distance(
+    metric: Metric
+) -> Metric:
+    r"""Construct an instance of the `L01InfDistance` metric.
+
+    [l01inf_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.l01inf_distance.html)
+
+    .. end-markdown
+
+    :param metric: The metric used to compute distance between partitions.
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_metrics__l01inf_distance
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'l01inf_distance',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
+def l02inf_distance(
+    metric: Metric
+) -> Metric:
+    r"""Construct an instance of the `L02InfDistance` metric.
+
+    [l02inf_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.l02inf_distance.html)
+
+    .. end-markdown
+
+    :param metric: The metric used to compute distance between partitions.
+    :type metric: Metric
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_metric = py_to_c(metric, c_type=Metric, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_metrics__l02inf_distance
+    lib_function.argtypes = [Metric]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_metric), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'l02inf_distance',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'metric': metric
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def l1_distance(
     T: RuntimeTypeDescriptor
 ) -> Metric:
     r"""Construct an instance of the `L1Distance` metric.
 
-    [l1_distance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/metrics/fn.l1_distance.html)
+    [l1_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.l1_distance.html)
+
+    .. end-markdown
 
     :param T: 
     :type T: :py:ref:`RuntimeTypeDescriptor`
@@ -315,7 +669,9 @@ def l2_distance(
 ) -> Metric:
     r"""Construct an instance of the `L2Distance` metric.
 
-    [l2_distance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/metrics/fn.l2_distance.html)
+    [l2_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.l2_distance.html)
+
+    .. end-markdown
 
     :param T: 
     :type T: :py:ref:`RuntimeTypeDescriptor`
@@ -354,7 +710,9 @@ def linf_distance(
 ) -> Metric:
     r"""Construct an instance of the `LInfDistance` metric.
 
-    [linf_distance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/metrics/fn.linf_distance.html)
+    [linf_distance in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/metrics/fn.linf_distance.html)
+
+    .. end-markdown
 
     :param monotonic: set to true if non-monotonicity implies infinite distance
     :type monotonic: bool
@@ -395,6 +753,8 @@ def metric_debug(
 ) -> str:
     r"""Debug a `metric`.
 
+    .. end-markdown
+
     :param this: The metric to debug (stringify).
     :type this: Metric
     :raises TypeError: if an argument's type differs from the expected type
@@ -428,6 +788,8 @@ def metric_distance_type(
     this: Metric
 ) -> str:
     r"""Get the distance type of a `metric`.
+
+    .. end-markdown
 
     :param this: The metric to retrieve the distance type from.
     :type this: Metric
@@ -463,6 +825,8 @@ def metric_type(
 ) -> str:
     r"""Get the type of a `metric`.
 
+    .. end-markdown
+
     :param this: The metric to retrieve the type from.
     :type this: Metric
     :raises TypeError: if an argument's type differs from the expected type
@@ -492,46 +856,12 @@ def metric_type(
     return output
 
 
-def partition_distance(
-    metric: Metric
-) -> Metric:
-    r"""Construct an instance of the `PartitionDistance` metric.
-
-    [partition_distance in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/metrics/fn.partition_distance.html)
-
-    :param metric: The metric used to compute distance between partitions.
-    :type metric: Metric
-    :raises TypeError: if an argument's type differs from the expected type
-    :raises UnknownTypeException: if a type argument fails to parse
-    :raises OpenDPException: packaged error from the core OpenDP library
-    """
-    # No type arguments to standardize.
-    # Convert arguments to c types.
-    c_metric = py_to_c(metric, c_type=Metric, type_name=None)
-
-    # Call library function.
-    lib_function = lib.opendp_metrics__partition_distance
-    lib_function.argtypes = [Metric]
-    lib_function.restype = FfiResult
-
-    output = c_to_py(unwrap(lib_function(c_metric), Metric))
-    try:
-        output.__opendp_dict__ = {
-            '__function__': 'partition_distance',
-            '__module__': 'metrics',
-            '__kwargs__': {
-                'metric': metric
-            },
-        }
-    except AttributeError:  # pragma: no cover
-        pass
-    return output
-
-
 def symmetric_distance(
 
 ) -> Metric:
     r"""Construct an instance of the `SymmetricDistance` metric.
+
+    .. end-markdown
 
 
     :raises TypeError: if an argument's type differs from the expected type
@@ -559,8 +889,44 @@ def symmetric_distance(
     return output
 
 
+def symmetric_id_distance(
+    identifier
+) -> SymmetricIdDistance:
+    r"""Construct an instance of the `SymmetricIdDistance` metric.
+
+    .. end-markdown
+
+    :param identifier: 
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_identifier = py_to_c(identifier, c_type=AnyObjectPtr, type_name="Expr")
+
+    # Call library function.
+    lib_function = lib.opendp_metrics__symmetric_id_distance
+    lib_function.argtypes = [AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_identifier), Metric))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'symmetric_id_distance',
+            '__module__': 'metrics',
+            '__kwargs__': {
+                'identifier': identifier
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def user_distance(
-    descriptor: str
+    identifier: str,
+    descriptor = None
 ) -> Metric:
     r"""Construct a new UserDistance.
     Any two instances of an UserDistance are equal if their string descriptors are equal.
@@ -577,8 +943,11 @@ def user_distance(
     3. for any $x, y$, $d(x, y) = d(y, x)$ (symmetry)
     4. for any $x, y, z$, $d(x, z) \le d(x, y) + d(y, z)$ (triangle inequality)
 
-    :param descriptor: A string description of the metric.
-    :type descriptor: str
+    .. end-markdown
+
+    :param identifier: A string description of the metric.
+    :type identifier: str
+    :param descriptor: Additional constraints on the domain.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
@@ -587,20 +956,21 @@ def user_distance(
 
     # No type arguments to standardize.
     # Convert arguments to c types.
-    c_descriptor = py_to_c(descriptor, c_type=ctypes.c_char_p, type_name="String")
+    c_identifier = py_to_c(identifier, c_type=ctypes.c_char_p, type_name=None)
+    c_descriptor = py_to_c(descriptor, c_type=ExtrinsicObjectPtr, type_name="ExtrinsicObject")
 
     # Call library function.
     lib_function = lib.opendp_metrics__user_distance
-    lib_function.argtypes = [ctypes.c_char_p]
+    lib_function.argtypes = [ctypes.c_char_p, ExtrinsicObjectPtr]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_descriptor), Metric))
+    output = c_to_py(unwrap(lib_function(c_identifier, c_descriptor), Metric))
     try:
         output.__opendp_dict__ = {
             '__function__': 'user_distance',
             '__module__': 'metrics',
             '__kwargs__': {
-                'descriptor': descriptor
+                'identifier': identifier, 'descriptor': descriptor
             },
         }
     except AttributeError:  # pragma: no cover

@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 import uuid
 
-from globus_sdk import client, response, utils
+from globus_sdk import client, exc, response, utils
 from globus_sdk.scopes import GroupsScopes, Scope
 
 from .data import BatchMembershipActions, GroupPolicies
@@ -396,6 +396,29 @@ class GroupsClient(client.BaseClient):
         return self.post(f"/groups/{group_id}", data=actions, query_params=query_params)
 
     def set_subscription_admin_verified_id(
+        self,
+        group_id: uuid.UUID | str,
+        subscription_id: uuid.UUID | str | None,
+        *,
+        query_params: dict[str, t.Any] | None = None,
+    ) -> response.GlobusHTTPResponse:
+        """
+        Deprecated alias for :meth:`set_subscription_admin_verified`.
+
+        :param group_id: the ID of the group
+        :param subscription_id: the ID of the subscription to which the group belongs,
+            or ``None`` to disassociate the group from a subscription
+        :param query_params: additional passthrough query parameters
+        """
+        exc.warn_deprecated(
+            "`GroupsClient.set_subscription_admin_verified_id()` has been renamed to "
+            "`GroupsClient.set_subscription_admin_verified()`."
+        )
+        return self.set_subscription_admin_verified(
+            group_id, subscription_id, query_params=query_params
+        )
+
+    def set_subscription_admin_verified(
         self,
         group_id: uuid.UUID | str,
         subscription_id: uuid.UUID | str | None,

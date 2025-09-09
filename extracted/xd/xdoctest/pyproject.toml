@@ -19,6 +19,7 @@ url = "https://github.com/Erotemic/xdoctest"
 license = "Apache 2"
 dev_status = "stable"
 typed = true
+skip_autogen = ["MANIFEST.in"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -35,6 +36,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
@@ -84,3 +86,9 @@ omit = [
 
 [tool.xdoctest]
 options = ''
+
+[tool.codespell]
+skip = ['./docs/build', './*.egg-info', './build', './htmlcov']
+count = true
+quiet-level = 3
+ignore-words-list = ['wont', 'cant', 'ANS', 'doesnt', 'arent', 'ans', 'thats', 'datas', 'isnt', 'didnt', 'wasnt']

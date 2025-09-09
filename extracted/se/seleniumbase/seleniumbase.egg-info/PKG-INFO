@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.41.4
+Version: 4.41.5
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -145,7 +145,7 @@ Provides-Extra: coverage
 Requires-Dist: coverage>=7.6.1; python_version < "3.9" and extra == "coverage"
 Requires-Dist: coverage>=7.10.6; python_version >= "3.9" and extra == "coverage"
 Requires-Dist: pytest-cov>=5.0.0; python_version < "3.9" and extra == "coverage"
-Requires-Dist: pytest-cov>=6.2.1; python_version >= "3.9" and extra == "coverage"
+Requires-Dist: pytest-cov>=6.3.0; python_version >= "3.9" and extra == "coverage"
 Provides-Extra: flake8
 Requires-Dist: flake8==5.0.4; python_version < "3.9" and extra == "flake8"
 Requires-Dist: flake8==7.3.0; python_version >= "3.9" and extra == "flake8"

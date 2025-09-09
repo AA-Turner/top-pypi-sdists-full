@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oras
-Version: 0.2.37
+Version: 0.2.38
 Summary: OCI Registry as Storage Python SDK
 Home-page: https://github.com/oras-project/oras-py
 Author: Vanessa Sochat
@@ -18,11 +18,21 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.7
 Description-Content-Type: text/markdown
-Provides-Extra: all
-Provides-Extra: tests
-Provides-Extra: docker
-Provides-Extra: ecr
 License-File: LICENSE
+Requires-Dist: jsonschema
+Requires-Dist: requests
+Provides-Extra: all
+Requires-Dist: jsonschema; extra == "all"
+Requires-Dist: requests; extra == "all"
+Requires-Dist: pytest>=4.6.2; extra == "all"
+Requires-Dist: docker==5.0.1; extra == "all"
+Requires-Dist: boto3>=1.33.0; extra == "all"
+Provides-Extra: tests
+Requires-Dist: pytest>=4.6.2; extra == "tests"
+Provides-Extra: docker
+Requires-Dist: docker==5.0.1; extra == "docker"
+Provides-Extra: ecr
+Requires-Dist: boto3>=1.33.0; extra == "ecr"
 
 # ORAS Python
 

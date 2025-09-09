@@ -28,7 +28,7 @@ def create_api_app(*, prefix: str = "/api") -> FastAPI:
         version=get_cached_settings().api_version,
         docs_url=None,
         redoc_url=None,
-        openapi_url="/openapi",
+        openapi_url=get_cached_settings().api_openapi_url,
         on_startup=get_startup_api_events(),
         on_shutdown=get_shutdown_api_events(),
         contact={
@@ -46,7 +46,11 @@ def create_api_app(*, prefix: str = "/api") -> FastAPI:
         allow_headers=["*"],
     )
 
-    add_local_openapi_ui_to_api_app(app=api_app)
+    add_local_openapi_ui_to_api_app(
+        app=api_app,
+        docs_url=get_cached_settings().api_docs_url,
+        redoc_url=get_cached_settings().api_redoc_url
+    )
 
     add_exception_handler_to_api_app(app=api_app)
 

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-03T10:45:51.839516                                                            #
+# Generated on 2025-09-08T21:00:14.435882                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ class CodePackager(object, metaclass=type):
         """
         ...
     @staticmethod
-    def directory_walker(root, exclude_hidden = True, suffixes = None) -> typing.List[typing.Tuple[str, str]]:
+    def directory_walker(root, exclude_hidden = True, suffixes = None, normalized_rel_path = False) -> typing.List[typing.Tuple[str, str]]:
         """
         Walk a directory and yield tuples of (file_path, relative_arcname) for files
         that match the given suffix filters. It will follow symlinks, but not cycles.
@@ -187,6 +187,8 @@ class CodePackager(object, metaclass=type):
             Whether to exclude hidden files and directories (those starting with '.')
         suffixes : List[str], optional
             List of file suffixes to include (e.g. ['.py', '.txt'])
+        normalized_rel_path : bool, default False
+            Whether to normalize the relative from the root. ie if the root is /a/b/c and the file is /a/b/c/d/e.py then the relative path will be d/e.py
         
         Returns
         -------

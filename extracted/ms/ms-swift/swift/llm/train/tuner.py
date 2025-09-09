@@ -79,6 +79,8 @@ def get_multimodal_target_regex(
 
         sub_module = deep_getattr(model, module)
         target_modules = find_all_linears(sub_module, model_arch, extra_layers)
+        if not target_modules:
+            continue
         target_modules = [tm for tm in target_modules if tm]
         target_pattern = rf'.*\.({"|".join(target_modules)})' if target_modules else ''
         rejected_pattern = rf'(?!({"|".join(rejected_modules)}))' if rejected_modules else ''
@@ -331,13 +333,13 @@ class TunerMixin:
                 # Unsloth prepares and loads lora outside this function when
                 # resume_from_checkpoint, so do not disable grad here
                 model.requires_grad_(False)
-            if args.resume_from_checkpoint:
+            if args.resume_from_checkpoint or args.adapters:
                 if args.train_type in extra_tuners:
                     tuner: Tuner = extra_tuners[args.train_type]
                 else:
                     tuner = Swift
-                kwargs = {}
-                model = tuner.from_pretrained(model, args.resume_from_checkpoint, is_trainable=True, **kwargs)
+                assert not args.adapters or len(args.adapters) == 1, f'args.adapters: {args.adapters}'
+                model = tuner.from_pretrained(model, args.resume_from_checkpoint or args.adapters[0], is_trainable=True)
             else:
                 if args.train_type in extra_tuners:
                     tuner: Tuner = extra_tuners[args.train_type]

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-03T10:45:51.796619                                                            #
+# Generated on 2025-09-08T21:00:14.392938                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ class ResourceConfigDict(TypedDict, total=False):
     memory: typing.Optional[str]
     gpu: typing.Optional[str]
     disk: typing.Optional[str]
+    shared_memory: typing.Optional[str]
 
 class AuthConfigDict(TypedDict, total=False):
     type: typing.Optional[str]
@@ -44,7 +45,7 @@ class DependencyConfigDict(TypedDict, total=False):
     conda: typing.Optional[dict]
 
 class PackageConfigDict(TypedDict, total=False):
-    src_path: typing.Optional[str]
+    src_paths: typing.Optional[list]
     suffixes: typing.Optional[list]
 
 class TypedCoreConfig(object, metaclass=type):

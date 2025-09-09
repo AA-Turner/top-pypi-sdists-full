@@ -15,8 +15,8 @@ use crate::{
         any::{AnyDomain, AnyMetric, AnyObject, Downcast},
         util::{self, Type},
     },
+    metrics::EventLevelMetric,
     traits::CheckAtom,
-    transformations::DatasetMetric,
 };
 
 use super::{SeriesDomain, SeriesElementDomain};
@@ -150,6 +150,7 @@ pub extern "C" fn opendp_domains___series_domain_get_element_domain(
 ) -> FfiResult<*mut AnyDomain> {
     let series_domain = try_!(try_as_ref!(series_domain).downcast_ref::<SeriesDomain>());
     match series_domain.dtype() {
+        DataType::Array(_, _) => _series_domain_get_element_domain::<ArrayDomain>(series_domain),
         DataType::Categorical(_, _) => {
             _series_domain_get_element_domain::<CategoricalDomain>(series_domain)
         }
@@ -196,7 +197,7 @@ impl MetricSpace for (SeriesDomain, AnyMetric) {
     fn check_space(&self) -> Fallible<()> {
         let (domain, metric) = self;
 
-        fn monomorphize_dataset<M: 'static + DatasetMetric>(
+        fn monomorphize_dataset<M: 'static + EventLevelMetric>(
             domain: &SeriesDomain,
             metric: &AnyMetric,
         ) -> Fallible<()>

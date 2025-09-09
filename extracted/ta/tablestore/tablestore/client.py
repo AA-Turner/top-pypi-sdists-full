@@ -749,7 +749,7 @@ class OTSClient(BaseOTSClient):
 
         self._request_helper('UpdateSearchIndex', table_name, index_name, index_meta)
 
-    def describe_search_index(self, table_name, index_name):
+    def describe_search_index(self, table_name, index_name, include_sync_stat=True):
         """
         Describe search index.
 
@@ -758,12 +758,15 @@ class OTSClient(BaseOTSClient):
 
         :type index_name: str
         :param index_name: The name of index.
+        
+        :type include_sync_stat: bool
+        :param include_sync_stat: include sync stat. 
 
         Example usage:
-            index_meta = client.describe_search_index('t1', 'index_1')
+            index_meta = client.describe_search_index('t1', 'index_1', False)
         """
 
-        return self._request_helper('DescribeSearchIndex', table_name, index_name)
+        return self._request_helper('DescribeSearchIndex', table_name, index_name, include_sync_stat)
 
     def search(self, table_name, index_name, search_query, columns_to_get=None, routing_keys=None, timeout_s=None):
         """
@@ -1592,7 +1595,7 @@ class AsyncOTSClient(BaseOTSClient):
 
         await self._request_helper('UpdateSearchIndex', table_name, index_name, index_meta)
 
-    async def describe_search_index(self, table_name, index_name):
+    async def describe_search_index(self, table_name, index_name, include_sync_stat=True):
         """
         Describe search index.
 
@@ -1601,12 +1604,15 @@ class AsyncOTSClient(BaseOTSClient):
 
         :type index_name: str
         :param index_name: The name of index.
+        
+        :type include_sync_stat: bool
+        :param include_sync_stat: include sync stat. 
 
         Example usage:
-            index_meta = await client.describe_search_index('t1', 'index_1')
+            index_meta = client.describe_search_index('t1', 'index_1', False)
         """
 
-        return await self._request_helper('DescribeSearchIndex', table_name, index_name)
+        return await self._request_helper('DescribeSearchIndex', table_name, index_name, include_sync_stat)
 
     async def search(self, table_name, index_name, search_query, columns_to_get=None, routing_keys=None, timeout_s=None):
         """

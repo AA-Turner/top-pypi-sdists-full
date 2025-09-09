@@ -1033,7 +1033,7 @@ class BaseBedrockTranslator:
 
     def _get_url_regex_pattern(self) -> str:
         """Get the URL regex pattern for source extraction."""
-        return r'(?:https?://|www\.)(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^/\s]*)*'
+        return r"(?:https?://|www\.)(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^/\s]*)*"
 
     def generate_entrypoint_code(self, platform: str) -> str:
         """Generate entrypoint code for the agent."""
@@ -1064,7 +1064,7 @@ class BaseBedrockTranslator:
         )
         response_content_code = "str(agent_result)" if platform == "strands" else "agent_result[-1].content"
         url_pattern = self._get_url_regex_pattern()
-
+        
         entrypoint_code += f"""
     def endpoint(payload, context):
         try:

@@ -438,7 +438,7 @@ class FrameBaseModel():
             invoke_result_data.data = act_module_dict
         return invoke_result_data
 
-    def check_user_info(self, app_id, act_id, user_id, login_token, check_new_user, check_user_nick):
+    def check_user_info(self, app_id, act_id, user_id, login_token, check_new_user, check_user_nick, authenticat_open_id=True):
         """
         :description: 检验用户信息
         :param app_id:应用标识
@@ -447,6 +447,7 @@ class FrameBaseModel():
         :param login_token:访问令牌
         :param check_new_user:是否新用户才能参与
         :param check_user_nick:是否校验昵称为空
+        :param authenticat_open_id:鉴权open_id，如果传参跟取出的open_id不一致则输出错误信息
         :return:invoke_result_data
         :last_editors: HuangJianYi
         """
@@ -482,11 +483,12 @@ class FrameBaseModel():
                 invoke_result_data.error_code = "no_authorize"
                 invoke_result_data.error_message = "对不起,请先授权"
                 return invoke_result_data
-        if 'open_id' in self.context.request_params and user_info_dict["open_id"] != self.context.request_params.get('open_id', ''):
-            invoke_result_data.success = False
-            invoke_result_data.error_code = "error_open_id"
-            invoke_result_data.error_message = "账号异常,无法操作"
-            return invoke_result_data
+        if authenticat_open_id == True:
+            if 'open_id' in self.context.request_params and user_info_dict["open_id"] != self.context.request_params.get('open_id', ''):
+                invoke_result_data.success = False
+                invoke_result_data.error_code = "error_open_id"
+                invoke_result_data.error_message = "账号异常,无法操作"
+                return invoke_result_data
         if login_token and user_info_dict["login_token"] != login_token:
             invoke_result_data.success = False
             invoke_result_data.error_code = "error"
@@ -514,7 +516,27 @@ class FrameBaseModel():
 
         return invoke_result_data
 
-    def business_process_executing(self, app_id, act_id, module_id, user_id, login_token, handler_name, check_new_user=False, check_user_nick=True, continue_request_expire=0, acquire_lock_name="", request_limit_num=0, request_limit_time=1, source_object_id="",check_act_info=True,check_act_module=True,check_user_info=True,check_act_info_release=True,check_act_module_release=True,execute_lock_expire=90):
+    def business_process_executing(self,
+                                   app_id,
+                                   act_id,
+                                   module_id,
+                                   user_id,
+                                   login_token,
+                                   handler_name,
+                                   check_new_user=False,
+                                   check_user_nick=True,
+                                   continue_request_expire=0,
+                                   acquire_lock_name="",
+                                   request_limit_num=0,
+                                   request_limit_time=1,
+                                   source_object_id="",
+                                   check_act_info=True,
+                                   check_act_module=True,
+                                   check_user_info=True,
+                                   check_act_info_release=True,
+                                   check_act_module_release=True,
+                                   execute_lock_expire=90,
+                                   authenticat_open_id=True):
         """
         :description: 业务执行前事件,核心业务如抽奖、做任务需要调用当前方法
         :param app_id:应用标识
@@ -536,6 +558,7 @@ class FrameBaseModel():
         :param check_act_info_release:校验活动信息是否发布
         :param check_act_module_release:校验活动模块是否发布
         :param execute_lock_expire:执行锁过期时间，为0不进行校验，单位秒
+        :param authenticat_open_id:鉴权open_id，如果传参跟取出的open_id不一致则输出错误信息
         :return:
         :last_editors: HuangJianYi
         """
@@ -613,7 +636,7 @@ class FrameBaseModel():
         #校验用户信息
         user_info_dict = None
         if check_user_info == True:
-            invoke_result_data = self.check_user_info(app_id,act_id,user_id,login_token,check_new_user,check_user_nick)
+            invoke_result_data = self.check_user_info(app_id, act_id, user_id, login_token, check_new_user, check_user_nick, authenticat_open_id)
             if invoke_result_data.success == False:
                 return invoke_result_data
             user_info_dict = invoke_result_data.data

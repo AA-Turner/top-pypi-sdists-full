@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 1.5.0
+Version: 2.0.1
 Summary: Shares Python package metadata at runtime.
 Author: Adam Karpierz
 Author-email: adam@karpierz.net
@@ -29,6 +29,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
@@ -46,7 +47,7 @@ Requires-Dist: sphinx-lint>=1.0.0; extra == "doc"
 Requires-Dist: restructuredtext-lint>=1.4.0; extra == "doc"
 Requires-Dist: nbsphinx>=0.9.7; extra == "doc"
 Provides-Extra: test
-Requires-Dist: deepdiff>=8.6.0; extra == "test"
+Requires-Dist: deepdiff>=8.6.1; extra == "test"
 Requires-Dist: rich>=14.1.0; extra == "test"
 Dynamic: license-file
 
@@ -143,6 +144,13 @@ Authors
 
 Changelog
 =========
+
+2.0.1 (2025-09-08)
+------------------
+- | Workaround for the tox error when pyproject.toml and setup.cfg
+  | files coexist.
+- Mark the package as typed.
+- Setup (dependencies) update.
 
 1.5.0 (2025-09-01)
 ------------------

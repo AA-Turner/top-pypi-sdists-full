@@ -109,12 +109,14 @@ class CloudProvider(ModelEnum):
     AWS = "AWS"
     GCP = "GCP"
     AZURE = "AZURE"
+    GENERIC = "GENERIC"
 
     __docstrings__ = {
         UNKNOWN: "Unknown cloud provider.",
         AWS: "Amazon Web Services.",
         GCP: "Google Cloud Platform.",
         AZURE: "Microsoft Azure.",
+        GENERIC: "Generic cloud provider.",
     }  # type: ignore
 
 
@@ -141,7 +143,7 @@ cloud = Cloud(
     id: str = field(metadata={"docstring": "Unique identifier for this Cloud."})
     provider: Union[CloudProvider, str] = field(
         metadata={
-            "docstring": "Cloud provider (AWS, GCP, AZURE) or UNKNOWN if not recognized."
+            "docstring": "Cloud provider (AWS, GCP, AZURE, GENERIC) or UNKNOWN if not recognized."
         },
     )
     compute_stack: Union[ComputeStack, str] = field(
@@ -499,15 +501,15 @@ bucket_name: s3://my-bucket
 file_storage:
 file_storage_id: fs-12345678901234567
 aws_config:
-vpc_id: vpc-12345678901234567
-subnet_ids:
-    - subnet-11111111111111111
-    - subnet-22222222222222222
-security_group_ids:
-    - sg-12345678901234567
-anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
-cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
-memorydb_cluster_name: my-memorydb-cluster
+  vpc_id: vpc-12345678901234567
+  subnet_ids:
+  - subnet-11111111111111111
+  - subnet-22222222222222222
+  security_group_ids:
+  - sg-12345678901234567
+  anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
+  cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+  memorydb_cluster_name: my-memorydb-cluster
 """
 
     cloud_resource_id: Optional[str] = field(
@@ -519,7 +521,9 @@ memorydb_cluster_name: my-memorydb-cluster
     )
     provider: Union[CloudProvider, str] = field(
         default=CloudProvider.UNKNOWN,
-        metadata={"docstring": "The cloud provider type (e.g., AWS, GCP, or AZURE)."},
+        metadata={
+            "docstring": "The cloud provider type (e.g., AWS, GCP, AZURE, or GENERIC)."
+        },
     )
     compute_stack: Union[ComputeStack, str] = field(
         default=ComputeStack.VM,

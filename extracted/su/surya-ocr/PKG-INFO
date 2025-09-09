@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: surya-ocr
-Version: 0.16.5
+Version: 0.16.7
 Summary: OCR, layout, reading order, and table recognition in 90+ languages
 License: GPL-3.0-or-later
 Keywords: ocr,pdf,text detection,text recognition,tables
@@ -25,7 +25,7 @@ Requires-Dist: pydantic-settings (>=2.1.0,<3.0.0)
 Requires-Dist: pypdfium2 (==4.30.0)
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
 Requires-Dist: torch (>=2.7.0,<3.0.0)
-Requires-Dist: transformers (>=4.51.2,<4.54.0)
+Requires-Dist: transformers (>=4.56.1)
 Project-URL: Repository, https://github.com/VikParuchuri/surya
 Description-Content-Type: text/markdown
 

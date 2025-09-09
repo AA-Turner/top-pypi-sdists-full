@@ -1,8 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-linear-migrations
-Version: 2.17.0
+Version: 2.18.0
 Summary: Ensure your migrations are linear.
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/django-linear-migrations/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/adamchainz/django-linear-migrations
@@ -13,7 +14,6 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -22,12 +22,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: django>=4.2
+Dynamic: license-file
 
 ========================
 django-linear-migrations
@@ -62,7 +64,7 @@ For a bit of background, see the `introductory blog post <https://adamj.eu/tech/
 Requirements
 ============
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 Django 4.2 to 5.2 supported.
 
@@ -302,7 +304,7 @@ You can do this with:
     $ git rebase -i --keep-base main
 
 This will open Git’s `interactive mode <https://git-scm.com/docs/git-rebase#_interactive_mode>`__ file.
-Edit this so that every comit after the first will be squashed, by starting each line with “s”.
+Edit this so that every commit after the first will be squashed, by starting each line with “s”.
 Then close the file, and the rebase will execute.
 
 After this operation, you can rebase onto your latest ``main`` branch as per the previous example.

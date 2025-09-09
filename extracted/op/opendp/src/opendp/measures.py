@@ -6,7 +6,7 @@ For more context, see :ref:`measures in the User Guide <measures-user-guide>`.
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 '''
@@ -19,6 +19,7 @@ from opendp.typing import *
 from opendp.typing import _substitute # noqa: F401
 
 __all__ = [
+    "_approximate_divergence_get_inner_measure",
     "_measure_equal",
     "_measure_free",
     "approximate",
@@ -35,11 +36,49 @@ __all__ = [
 ]
 
 
+def _approximate_divergence_get_inner_measure(
+    privacy_measure: Measure
+) -> Measure:
+    r"""Retrieve the inner privacy measure of an approximate privacy measure.
+
+    .. end-markdown
+
+    :param privacy_measure: The privacy measure to inspect
+    :type privacy_measure: Measure
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_privacy_measure = py_to_c(privacy_measure, c_type=Measure, type_name="AnyMeasure")
+
+    # Call library function.
+    lib_function = lib.opendp_measures___approximate_divergence_get_inner_measure
+    lib_function.argtypes = [Measure]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_privacy_measure), Measure))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_approximate_divergence_get_inner_measure',
+            '__module__': 'measures',
+            '__kwargs__': {
+                'privacy_measure': privacy_measure
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def _measure_equal(
     left: Measure,
     right: Measure
 ) -> bool:
     r"""Check whether two measures are equal.
+
+    .. end-markdown
 
     :param left: Measure to compare.
     :type left: Measure
@@ -78,6 +117,8 @@ def _measure_free(
 ):
     r"""Internal function. Free the memory associated with `this`.
 
+    .. end-markdown
+
     :param this: 
     :type this: Measure
     :raises TypeError: if an argument's type differs from the expected type
@@ -109,7 +150,7 @@ def _measure_free(
 
 def approximate(
     measure: Measure
-) -> Measure:
+) -> ApproximateDivergence:
     r"""Privacy measure used to define $\delta$-approximate PM-differential privacy.
 
     In the following definition, $d$ corresponds to privacy parameters $(d', \delta)$
@@ -121,7 +162,7 @@ def approximate(
     The measurement's input metric defines the notion of adjacency,
     and the measurement's input domain defines the set of possible datasets.
 
-    [approximate in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/measures/fn.approximate.html)
+    [approximate in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/measures/fn.approximate.html)
 
     **Proof Definition:**
 
@@ -138,6 +179,8 @@ def approximate(
 
     Note that this $\delta$ is not privacy parameter $\delta$ until quantified over all adjacent datasets,
     as is done in the definition of a measurement.
+
+    .. end-markdown
 
     :param measure: inner privacy measure
     :type measure: Measure
@@ -190,6 +233,8 @@ def fixed_smoothed_max_divergence(
     Note that this $\epsilon$ and $\delta$ are not privacy parameters $\epsilon$ and $\delta$ until quantified over all adjacent datasets,
     as is done in the definition of a measurement.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -235,6 +280,8 @@ def max_divergence(
 
     $D_\infty(Y, Y') = \max_{S \subseteq \textrm{Supp}(Y)} \Big[\ln \dfrac{\Pr[Y \in S]}{\Pr[Y' \in S]} \Big] \leq d$.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -265,6 +312,8 @@ def measure_debug(
     this: Measure
 ) -> str:
     r"""Debug a `measure`.
+
+    .. end-markdown
 
     :param this: The measure to debug (stringify).
     :type this: Measure
@@ -300,6 +349,8 @@ def measure_distance_type(
 ) -> str:
     r"""Get the distance type of a `measure`.
 
+    .. end-markdown
+
     :param this: The measure to retrieve the distance type from.
     :type this: Measure
     :raises TypeError: if an argument's type differs from the expected type
@@ -333,6 +384,8 @@ def measure_type(
     this: Measure
 ) -> str:
     r"""Get the type of a `measure`.
+
+    .. end-markdown
 
     :param this: The measure to retrieve the type from.
     :type this: Measure
@@ -378,6 +431,8 @@ def new_privacy_profile(
     * monotonically decreasing
     * rejects epsilon values that are less than zero or nan
     * returns delta values only within [0, 1]
+
+    .. end-markdown
 
     :param curve: A privacy curve mapping epsilon to delta
     :raises TypeError: if an argument's type differs from the expected type
@@ -449,6 +504,8 @@ def renyi_divergence(
     Note that this $\epsilon$ and $\alpha$ are not privacy parameters $\epsilon$ and $\alpha$ until quantified over all adjacent datasets,
     as is done in the definition of a measurement.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -501,6 +558,8 @@ def smoothed_max_divergence(
     Note that $\epsilon$ and $\delta$ are not privacy parameters $\epsilon$ and $\delta$ until quantified over all adjacent datasets,
     as is done in the definition of a measurement.
 
+    .. end-markdown
+
 
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -543,6 +602,8 @@ def user_divergence(
     Your privacy measure `D` must satisfy that, for any pure function `f` and any two distributions `Y, Y'`, then $D(Y, Y') \ge D(f(Y), f(Y'))$.
 
     Beyond this, you should also consider whether your privacy measure can be used to provide meaningful privacy guarantees to your privacy units.
+
+    .. end-markdown
 
     :param descriptor: A string description of the privacy measure.
     :type descriptor: str
@@ -594,6 +655,8 @@ def zero_concentrated_divergence(
     for every possible choice of $\alpha \in (1, \infty)$,
 
     $D_\alpha(Y, Y') = \frac{1}{1 - \alpha} \mathbb{E}_{x \sim Y'} \Big[\ln \left( \dfrac{\Pr[Y = x]}{\Pr[Y' = x]} \right)^\alpha \Big] \leq d \cdot \alpha$.
+
+    .. end-markdown
 
 
     :raises TypeError: if an argument's type differs from the expected type

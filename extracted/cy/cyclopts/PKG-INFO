@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cyclopts
-Version: 3.23.1
+Version: 3.24.0
 Summary: Intuitive, easy CLIs based on type hints.
 License: Apache-2.0
 Author: Brian Pugh
@@ -17,7 +17,6 @@ Provides-Extra: trio
 Provides-Extra: yaml
 Requires-Dist: attrs (>=23.1.0)
 Requires-Dist: docstring-parser (>=0.15) ; python_version < "4.0"
-Requires-Dist: importlib-metadata (>=4.4) ; python_version < "3.10"
 Requires-Dist: pyyaml (>=6.0.1) ; extra == "yaml"
 Requires-Dist: rich (>=13.6.0)
 Requires-Dist: rich-rst (>=1.3.1,<2.0.0)

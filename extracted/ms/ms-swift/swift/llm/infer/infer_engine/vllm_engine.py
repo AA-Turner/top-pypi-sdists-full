@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 
 import torch
 from packaging import version
+from PIL import Image
 from tqdm import tqdm
 from transformers import GenerationConfig
 from transformers.utils import is_torch_npu_available
@@ -32,6 +33,11 @@ try:
 except Exception:
     raise
 
+try:
+    from vllm.reasoning import ReasoningParserManager
+except ImportError:
+    ReasoningParserManager = None
+
 dtype_mapping = {torch.float16: 'float16', torch.bfloat16: 'bfloat16', torch.float32: 'float32'}
 
 
@@ -42,6 +48,7 @@ class VllmEngine(InferEngine):
         model_id_or_path: str,
         torch_dtype: Optional[torch.dtype] = None,
         *,
+        adapters: List[str] = None,
         use_async_engine: bool = False,
         model_type: Optional[str] = None,
         use_hf: Optional[bool] = None,
@@ -59,6 +66,8 @@ class VllmEngine(InferEngine):
         limit_mm_per_prompt: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
         task_type: Optional[str] = None,  # embedding
+        disable_cascade_attn: bool = False,
+        load_format: str = 'auto',
         # lora
         enable_lora: bool = False,
         max_loras: int = 1,
@@ -67,11 +76,20 @@ class VllmEngine(InferEngine):
         enable_sleep_mode: bool = False,
         distributed_executor_backend: Optional[str] = None,
         quantization: Optional[str] = None,
+        # reasoning parser
+        reasoning_parser: Optional[str] = None,
         engine_kwargs: Optional[Dict[str, Any]] = None,
         template: Optional[Template] = None,
     ) -> None:
         if engine_kwargs is None:
             engine_kwargs = {}
+        if isinstance(adapters, str):
+            adapters = [adapters]
+        self.default_adapter_request = None
+        if isinstance(adapters, list) and adapters:
+            assert len(adapters) == 1, 'Only one adapter is supported for now.'
+            enable_lora = True
+            self.default_adapter_request = AdapterRequest('default', adapters[0])
         patch_vllm_memory_leak()
         self.use_async_engine = use_async_engine
         self.processor = get_model_tokenizer(
@@ -105,6 +123,7 @@ class VllmEngine(InferEngine):
             enable_sleep_mode=enable_sleep_mode,
             quantization=quantization,
             task=task_type,
+            disable_cascade_attn=disable_cascade_attn,
             **engine_kwargs,
         )
         context = nullcontext()
@@ -116,6 +135,7 @@ class VllmEngine(InferEngine):
         self._fix_vllm_bug()
         self.patch_remove_log()
         self._request_count = 0
+        self._prepare_reasoning_parser(reasoning_parser)
 
     def _prepare_engine(self) -> None:
         with patch_auto_tokenizer(self.tokenizer), patch_auto_config(self.config):
@@ -142,6 +162,8 @@ class VllmEngine(InferEngine):
         distributed_executor_backend: Optional[str] = None,
         enable_sleep_mode: bool = False,
         task: Optional[str] = None,
+        disable_cascade_attn: bool = False,
+        load_format: str = 'auto',
         **engine_kwargs,
     ) -> None:
         if task == 'embedding':
@@ -165,10 +187,12 @@ class VllmEngine(InferEngine):
             engine_kwargs['limit_mm_per_prompt'] = limit_mm_per_prompt
         else:
             assert not limit_mm_per_prompt, (
-                'The current version of VLLM does not support `limit_mm_per_prompt`. Please upgrade VLLM.')
-        for key in ['enable_expert_parallel', 'enable_sleep_mode']:
+                'The current version of vLLM does not support `limit_mm_per_prompt`. Please upgrade vLLM.')
+        for key in ['enable_expert_parallel', 'enable_sleep_mode', 'disable_cascade_attn', 'load_format']:
             if key in parameters:
                 engine_kwargs[key] = locals()[key]
+            else:
+                logger.warning(f'The current version of vLLM does not support `{key}`. Ignored.')
         for key in ['task', 'seed']:
             val = locals()[key]
             if val is not None:
@@ -200,6 +224,24 @@ class VllmEngine(InferEngine):
         if max_model_len is not None:
             self.max_model_len = max_model_len
             logger.info(f'Setting max_model_len: {max_model_len}')
+
+    def _prepare_reasoning_parser(self, reasoning_parser: Optional[str]) -> None:
+        self.reasoning_parser = None
+        if not reasoning_parser:
+            return
+
+        # Validate reasoning_parser if provided
+        if ReasoningParserManager is None:
+            raise ImportError('the version of vLLM is too old, please upgrade vLLM')
+
+        valid_reasoning_parsers = list(ReasoningParserManager.reasoning_parsers.keys())
+        if reasoning_parser not in valid_reasoning_parsers:
+            raise ValueError(f'Invalid reasoning_parser: {reasoning_parser}. '
+                             f'Available parsers: {valid_reasoning_parsers}')
+        logger.info(f'Using reasoning_parser: {reasoning_parser}')
+
+        reasoning_parser_cls = ReasoningParserManager.get_reasoning_parser(reasoning_parser)
+        self.reasoning_parser = reasoning_parser_cls(self.tokenizer)
 
     def _fix_vllm_bug(self) -> None:
         # fix vllm==0.4 bug (very slow)
@@ -250,22 +292,29 @@ class VllmEngine(InferEngine):
             return True
         return version.parse(vllm_version) >= version.parse(base_version)
 
+    def _add_adapter(self, adapter_request: Optional[AdapterRequest] = None):
+        assert self.enable_lora, f'adapter_request: {adapter_request}, self.enable_lora: {self.enable_lora}'
+        from vllm.lora.request import LoRARequest
+        adapter_name = adapter_request.name
+        adapter_path = adapter_request.path
+        if adapter_name in self._adapters_pool:
+            lora_request = self._adapters_pool[adapter_name]
+        else:
+            lora_request = LoRARequest(
+                lora_name=adapter_name, lora_path=adapter_path, lora_int_id=len(self._adapters_pool) + 1)
+            self._adapters_pool[adapter_name] = lora_request
+        return lora_request
+
     def _add_request(self,
                      inputs: Dict[str, Any],
                      generation_config: SamplingParams,
                      request_id: str,
                      adapter_request: Optional[AdapterRequest] = None):
         kwargs = {}
-        if self.enable_lora and adapter_request:
-            from vllm.lora.request import LoRARequest
-            adapter_name = adapter_request.name
-            adapter_path = adapter_request.path
-            if adapter_name in self._adapters_pool:
-                kwargs['lora_request'] = self._adapters_pool[adapter_name]
-            else:
-                kwargs['lora_request'] = LoRARequest(
-                    lora_name=adapter_name, lora_path=adapter_path, lora_int_id=len(self._adapters_pool) + 1)
-                self._adapters_pool[adapter_name] = kwargs['lora_request']
+        adapter_request = adapter_request or self.default_adapter_request
+        if adapter_request:
+            kwargs['lora_request'] = self._add_adapter(adapter_request)
+
         input_ids = inputs['input_ids']
         if self._version_ge('0.4.3'):
             llm_inputs = {'prompt_token_ids': input_ids}
@@ -274,11 +323,11 @@ class VllmEngine(InferEngine):
                 media_data = inputs.get(key) or []
                 if media_data:
                     if self._version_ge('0.6'):
-                        mm_data = {key.rstrip('s'): media_data[0] if len(media_data) == 1 else media_data}
+                        mm_data[key.rstrip('s')] = media_data[0] if len(media_data) == 1 else media_data
                     else:
                         assert len(media_data) == 1, (
                             f'The current version of vllm only supports single {key}. Please upgrade to vllm >= 0.6.0')
-                        mm_data = {key.rstrip('s'): media_data[0]}
+                        mm_data[key.rstrip('s')] = media_data[0]
             if mm_data:
                 llm_inputs['multi_modal_data'] = mm_data
             mm_processor_kwargs = inputs.get('mm_processor_kwargs')
@@ -383,16 +432,55 @@ class VllmEngine(InferEngine):
         num_generated_tokens = sum(len(output.token_ids) for output in result.outputs)
         usage_info = self._get_usage_info(len(result.prompt_token_ids), num_generated_tokens)
         choices = []
+        previous_texts = [''] * len(result.outputs)
         for output in result.outputs:
-            logprobs = self._get_logprobs(output.logprobs, output.token_ids[token_idxs[output.index]:],
+            i = output.index
+            logprobs = self._get_logprobs(output.logprobs, output.token_ids[token_idxs[i]:],
                                           request_config.top_logprobs)
-            token_idxs[output.index] = len(output.token_ids)
+
+            # Handle reasoning content in streaming
+            delta_content = output.delta_text
+            delta_reasoning_content = None
+
+            if self.reasoning_parser and output.delta_text:
+                try:
+                    # Get token IDs for the delta (new tokens in this step)
+                    delta_token_ids = output.token_ids[token_idxs[i]:]
+                    previous_token_ids = output.token_ids[:token_idxs[i]]
+
+                    # Get current accumulated text for this output
+                    previous_text = previous_texts[i]
+                    current_text = previous_text + output.delta_text
+                    previous_texts[i] = current_text
+                    # Extract reasoning content from the delta
+                    delta_message = self.reasoning_parser.extract_reasoning_content_streaming(
+                        previous_text, current_text, output.delta_text, previous_token_ids, output.token_ids,
+                        delta_token_ids)
+
+                    if delta_message:
+                        delta_reasoning_content = delta_message.reasoning_content
+                        if delta_message.content:
+                            delta_content = delta_message.content
+                        else:
+                            delta_content = None
+
+                except Exception as e:
+                    logger.warning(f'Failed to extract reasoning content in streaming: {e}')
+                    # Fallback to original delta_text
+                    delta_content = output.delta_text
+            token_idxs[i] = len(output.token_ids)
+
             toolcall = None
             if output.is_finished:
                 toolcall = self._get_toolcall(template.decode(output.token_ids), template)
+
             choice = ChatCompletionResponseStreamChoice(
-                index=output.index,
-                delta=DeltaMessage(role='assistant', content=output.delta_text, tool_calls=toolcall),
+                index=i,
+                delta=DeltaMessage(
+                    role='assistant',
+                    content=delta_content,
+                    reasoning_content=delta_reasoning_content,
+                    tool_calls=toolcall),
                 finish_reason=output.finish_reason,
                 logprobs=logprobs)
             choices.append(choice)
@@ -408,6 +496,7 @@ class VllmEngine(InferEngine):
     def _create_chat_completion_response(
         self,
         result,
+        inputs,
         template,
         request_config,
         request_id,
@@ -419,19 +508,46 @@ class VllmEngine(InferEngine):
         for output in result.outputs:
             output.token_ids = list(output.token_ids)
             response = template.decode(output.token_ids)
+
+            # Extract reasoning content if reasoning_parser is enabled
+            reasoning_content = None
+            content = response
+            if self.reasoning_parser:
+                try:
+                    reasoning_content, content = self.reasoning_parser.extract_reasoning_content(
+                        response,
+                        request=None  # We don't have the original request here
+                    )
+                except Exception as e:
+                    logger.warning(f'Failed to extract reasoning content: {e}')
+                    # Fallback to original response
+                    content = response
+
             logprobs = self._get_logprobs(output.logprobs, output.token_ids, request_config.top_logprobs)
-            toolcall = self._get_toolcall(response, template)
+            toolcall = self._get_toolcall(content, template)  # Use content instead of response for tool calls
             token_ids = template.skip_stop_tokens(output.token_ids) if request_config.return_details else None
             choice = ChatCompletionResponseChoice(
                 index=output.index,
-                message=ChatMessage(role='assistant', content=response, tool_calls=toolcall),
+                message=ChatMessage(
+                    role='assistant', content=content, reasoning_content=reasoning_content, tool_calls=toolcall),
                 finish_reason=output.finish_reason,
                 logprobs=logprobs,
                 token_ids=token_ids)
             choices.append(choice)
-        prompt_token_ids = result.prompt_token_ids if request_config.return_details else None
+        prompt_token_ids = None
+        images_size = None
+        if request_config.return_details:
+            prompt_token_ids = result.prompt_token_ids
+            images = inputs['template_inputs'].images
+            if all(isinstance(image, Image.Image) for image in images):
+                images_size = [image.size for image in images]
         return ChatCompletionResponse(
-            model=self.model_name, choices=choices, usage=usage_info, id=request_id, prompt_token_ids=prompt_token_ids)
+            model=self.model_name,
+            choices=choices,
+            usage=usage_info,
+            id=request_id,
+            prompt_token_ids=prompt_token_ids,
+            images_size=images_size)
 
     async def _infer_full_async(
         self,
@@ -440,8 +556,10 @@ class VllmEngine(InferEngine):
         generation_config: SamplingParams,
         adapter_request: Optional[AdapterRequest],
         request_config: RequestConfig,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletionResponse, EmbeddingResponse]:
-        request_id = random_uuid()
+        if request_id is None:
+            request_id = random_uuid()
         result_generator = self._add_request(inputs, generation_config, request_id, adapter_request=adapter_request)
         result = None
         async for result in result_generator:
@@ -449,7 +567,7 @@ class VllmEngine(InferEngine):
         if self.task_type == 'embedding':
             return self._create_embedding_response(result, template, generation_config, request_id)
         else:
-            return self._create_chat_completion_response(result, template, request_config, request_id)
+            return self._create_chat_completion_response(result, inputs, template, request_config, request_id)
 
     def _batch_infer_stream(self, *args, **kwargs):
         if hasattr(self.engine, 'engine'):
@@ -534,8 +652,8 @@ class VllmEngine(InferEngine):
                 prog_bar.close()
                 outputs = [outputs[request_id] for request_id in request_id_list]
                 res = [
-                    self._create_chat_completion_response(result, template, request_config, request_id)
-                    for request_id, result in zip(request_id_list, outputs)
+                    self._create_chat_completion_response(result, inputs, template, request_config, request_id)
+                    for request_id, inputs, result in zip(request_id_list, batched_inputs, outputs)
                 ]
                 self._update_metrics(res, metrics)
                 return self._add_error_list(res, error_list)
@@ -558,7 +676,7 @@ class VllmEngine(InferEngine):
         template.set_mode('vllm')
         loop = asyncio.get_running_loop()
         with torch.inference_mode():
-            inputs = await loop.run_in_executor(None, template.encode, infer_request)
+            inputs = await loop.run_in_executor(None, template.encode, infer_request, True)
         self.set_default_max_tokens(request_config, inputs)
         generation_config = self._prepare_generation_config(request_config)
         self._add_stop_words(generation_config, request_config, template.template_meta)
@@ -569,6 +687,9 @@ class VllmEngine(InferEngine):
             'adapter_request': adapter_request,
             'request_config': request_config,
         }
+        if hasattr(infer_request, 'uuid') and infer_request.uuid:
+            # RolloutInferRequest
+            kwargs.update({'request_id': infer_request.uuid})
         if pre_infer_hook:
             kwargs = pre_infer_hook(kwargs)
         if request_config.stream:

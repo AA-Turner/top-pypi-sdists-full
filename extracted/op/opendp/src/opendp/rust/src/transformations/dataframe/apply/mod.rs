@@ -5,8 +5,9 @@ use crate::{
     data::Column,
     domains::{AtomDomain, VectorDomain},
     error::Fallible,
+    metrics::EventLevelMetric,
     traits::{Hashable, Primitive, RoundCast},
-    transformations::{DatasetMetric, make_cast_default, make_is_equal},
+    transformations::{make_cast_default, make_is_equal},
 };
 
 use super::{DataFrame, DataFrameDomain};
@@ -22,13 +23,13 @@ fn make_apply_transformation_dataframe<K: Hashable, VI: Primitive, VO: Primitive
     column_name: K,
     transformation: Transformation<
         VectorDomain<AtomDomain<VI>>,
+        M,
         VectorDomain<AtomDomain<VO>>,
         M,
-        M,
     >,
-) -> Fallible<Transformation<DataFrameDomain<K>, DataFrameDomain<K>, M, M>>
+) -> Fallible<Transformation<DataFrameDomain<K>, M, DataFrameDomain<K>, M>>
 where
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (DataFrameDomain<K>, M): MetricSpace,
     (VectorDomain<AtomDomain<VI>>, M): MetricSpace,
     (VectorDomain<AtomDomain<VO>>, M): MetricSpace,
@@ -37,7 +38,9 @@ where
 
     Transformation::new(
         input_domain.clone(),
+        input_metric.clone(),
         input_domain,
+        input_metric,
         Function::new_fallible(move |arg: &DataFrame<K>| {
             let mut data = arg.clone();
             let column = data.remove(&column_name).ok_or_else(|| {
@@ -54,8 +57,6 @@ where
             );
             Ok(data)
         }),
-        input_metric.clone(),
-        input_metric,
         StabilityMap::new_from_constant(1),
     )
 }
@@ -97,12 +98,12 @@ pub fn make_df_cast_default<TK, TIA, TOA, M>(
     input_domain: DataFrameDomain<TK>,
     input_metric: M,
     column_name: TK,
-) -> Fallible<Transformation<DataFrameDomain<TK>, DataFrameDomain<TK>, M, M>>
+) -> Fallible<Transformation<DataFrameDomain<TK>, M, DataFrameDomain<TK>, M>>
 where
     TK: Hashable,
     TIA: Primitive,
     TOA: Primitive + RoundCast<TIA>,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (DataFrameDomain<TK>, M): MetricSpace,
     (VectorDomain<AtomDomain<TIA>>, M): MetricSpace,
     (VectorDomain<AtomDomain<TOA>>, M): MetricSpace,
@@ -145,11 +146,11 @@ pub fn make_df_is_equal<TK, TIA, M>(
     input_metric: M,
     column_name: TK,
     value: TIA,
-) -> Fallible<Transformation<DataFrameDomain<TK>, DataFrameDomain<TK>, M, M>>
+) -> Fallible<Transformation<DataFrameDomain<TK>, M, DataFrameDomain<TK>, M>>
 where
     TK: Hashable,
     TIA: Primitive,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (DataFrameDomain<TK>, M): MetricSpace,
     (VectorDomain<AtomDomain<TIA>>, M): MetricSpace,
     (VectorDomain<AtomDomain<bool>>, M): MetricSpace,

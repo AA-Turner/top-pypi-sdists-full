@@ -1,15 +1,12 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.33.0
+Version: 1.33.1
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog
 Author-email: kyle@verhoog.ca
 License: BSD 3
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -63,11 +60,6 @@ See the [Development](#development) section for how to get the test agent runnin
 
 
 ## Installation
-
-The test agent can be installed using [nix](https://docs.determinate.systems/getting-started/):
-
-    nix profile install github:datadog/dd-apm-test-agent#ddapm-test-agent
-    # nix profile upgrade ddapm-test-agent # to upgrade
 
 The test agent can be installed from PyPI:
 

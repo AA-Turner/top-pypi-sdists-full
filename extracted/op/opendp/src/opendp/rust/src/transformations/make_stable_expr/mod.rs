@@ -5,7 +5,7 @@ use crate::{
     core::{Metric, MetricSpace, Transformation},
     domains::{ExprDomain, OuterMetric, WildExprDomain},
     error::Fallible,
-    metrics::{LInfDistance, LpDistance, Parallel, PartitionDistance},
+    metrics::{L0InfDistance, L01InfDistance, LInfDistance, LpDistance},
     polars::get_disabled_features_message,
 };
 
@@ -95,7 +95,7 @@ pub fn make_stable_expr<MI: 'static + Metric, MO: 'static + Metric>(
     input_domain: WildExprDomain,
     input_metric: MI,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, MI, MO>>
+) -> Fallible<Transformation<WildExprDomain, MI, ExprDomain, MO>>
 where
     Expr: StableExpr<MI, MO>,
     (WildExprDomain, MI): MetricSpace,
@@ -109,7 +109,7 @@ pub trait StableExpr<MI: Metric, MO: Metric> {
         self,
         input_domain: WildExprDomain,
         input_metric: MI,
-    ) -> Fallible<Transformation<WildExprDomain, ExprDomain, MI, MO>>;
+    ) -> Fallible<Transformation<WildExprDomain, MI, ExprDomain, MO>>;
 }
 
 impl<M: OuterMetric> StableExpr<M, M> for Expr
@@ -123,7 +123,7 @@ where
         self,
         input_domain: WildExprDomain,
         input_metric: M,
-    ) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>> {
+    ) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>> {
         if expr_fill_nan::match_fill_nan(&self).is_some() {
             return expr_fill_nan::make_expr_fill_nan(input_domain, input_metric, self);
         }
@@ -234,17 +234,16 @@ where
     }
 }
 
-impl<MI, const P: usize> StableExpr<PartitionDistance<MI>, LpDistance<P, f64>> for Expr
+impl<MI, const P: usize> StableExpr<L01InfDistance<MI>, LpDistance<P, f64>> for Expr
 where
     MI: 'static + UnboundedMetric,
 {
     fn make_stable(
         self,
         input_domain: WildExprDomain,
-        input_metric: PartitionDistance<MI>,
-    ) -> Fallible<
-        Transformation<WildExprDomain, ExprDomain, PartitionDistance<MI>, LpDistance<P, f64>>,
-    > {
+        input_metric: L01InfDistance<MI>,
+    ) -> Fallible<Transformation<WildExprDomain, L01InfDistance<MI>, ExprDomain, LpDistance<P, f64>>>
+    {
         use Expr::*;
         match self {
             #[cfg(feature = "contrib")]
@@ -270,20 +269,20 @@ where
     }
 }
 
-impl<MI> StableExpr<PartitionDistance<MI>, Parallel<LInfDistance<f64>>> for Expr
+impl<MI> StableExpr<L01InfDistance<MI>, L0InfDistance<LInfDistance<f64>>> for Expr
 where
     MI: 'static + UnboundedMetric,
 {
     fn make_stable(
         self,
         input_domain: WildExprDomain,
-        input_metric: PartitionDistance<MI>,
+        input_metric: L01InfDistance<MI>,
     ) -> Fallible<
         Transformation<
             WildExprDomain,
+            L01InfDistance<MI>,
             ExprDomain,
-            PartitionDistance<MI>,
-            Parallel<LInfDistance<f64>>,
+            L0InfDistance<LInfDistance<f64>>,
         >,
     > {
         if expr_discrete_quantile_score::match_discrete_quantile_score(&self)?.is_some() {

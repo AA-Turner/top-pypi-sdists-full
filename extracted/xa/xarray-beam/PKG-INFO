@@ -1,35 +1,85 @@
 Metadata-Version: 2.4
 Name: xarray-beam
-Version: 0.8.0
-Home-page: https://github.com/google/xarray-beam
-Author: Google LLC
-Author-email: noreply@google.com
-License: Apache 2.0
-Requires-Python: >=3
+Version: 0.9.0
+Summary: Distributed Xarray with Apache Beam
+Author-email: Google LLC <noreply@google.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Dist: apache_beam>=2.31.0
 Requires-Dist: dask
 Requires-Dist: immutabledict
-Requires-Dist: rechunker>=0.5.1
 Requires-Dist: zarr
 Requires-Dist: xarray
-Provides-Extra: tests
-Requires-Dist: absl-py; extra == "tests"
-Requires-Dist: pandas; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: scipy; extra == "tests"
-Requires-Dist: h5netcdf; extra == "tests"
+Requires-Dist: myst-nb ; extra == "docs"
+Requires-Dist: myst-parser ; extra == "docs"
+Requires-Dist: sphinx ; extra == "docs"
+Requires-Dist: sphinx_rtd_theme ; extra == "docs"
+Requires-Dist: scipy ; extra == "docs"
+Requires-Dist: absl-py ; extra == "tests"
+Requires-Dist: h5netcdf ; extra == "tests"
+Requires-Dist: hypothesis ; extra == "tests"
+Requires-Dist: pandas ; extra == "tests"
+Requires-Dist: pytest ; extra == "tests"
+Project-URL: documentation, https://xarray-beam.readthedocs.io
+Project-URL: source, https://github.com/google/xarray-beam
 Provides-Extra: docs
-Requires-Dist: myst-nb; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
-Requires-Dist: scipy; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
+Provides-Extra: tests
+
+# Xarray-Beam
+
+Xarray-Beam is a Python library for building
+[Apache Beam](https://beam.apache.org/) pipelines with
+[Xarray](http://xarray.pydata.org/en/stable/) datasets.
+
+The project aims to facilitate data transformations and analysis on large-scale
+multi-dimensional labeled arrays, such as:
+
+-   Ad-hoc computation on Xarray data, by dividing a `xarray.Dataset` into many
+    smaller pieces ("chunks").
+-   Adjusting array chunks, using the
+    [Rechunker algorithm](https://rechunker.readthedocs.io/en/latest/algorithm.html).
+-   Ingesting large, multi-dimensional array datasets into an analysis-ready,
+    cloud-optimized format, namely [Zarr](https://zarr.readthedocs.io/) (see
+    also [Pangeo Forge](https://github.com/pangeo-forge/pangeo-forge-recipes)).
+-   Calculating statistics (e.g., "climatology") across distributed datasets
+    with arbitrary groups.
+
+For more about our approach and how to get started,
+**[read the documentation](https://xarray-beam.readthedocs.io/)**!
+
+**Warning: Xarray-Beam is a sharp tool 🔪**
+
+Xarray-Beam is relatively new, and focused on expert users:
+
+-   We use it extensively at Google for processing large-scale weather datasets,
+    but there is not yet a vibrant external community.
+-   It provides low-level abstractions that facilitate writing very large
+    scale data pipelines (e.g., 100+ TB), but by design it requires explicitly
+    thinking about how every operation is parallelized.
+
+## Installation
+
+Xarray-Beam requires recent versions of immutabledict, Xarray, Dask, Rechunker,
+Zarr, and Apache Beam. For best performance when writing Zarr files, use Xarray
+0.19.0 or later.
+
+## Disclaimer
+
+Xarray-Beam is an experiment that we are sharing with the outside world in the
+hope that it will be useful. It is not a supported Google product. We welcome
+feedback, bug reports and code contributions, but cannot guarantee they will be
+addressed.
+
+See the "Contribution guidelines" for more.
+
+## Credits
+
+Contributors:
+
+-   Stephan Hoyer
+-   Jason Hickey
+-   Cenk Gazen
+-   Alex Merose
+

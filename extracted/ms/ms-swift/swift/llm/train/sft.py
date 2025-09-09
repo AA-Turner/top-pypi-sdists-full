@@ -7,7 +7,7 @@ from datasets import Dataset as HfDataset
 from datasets import load_from_disk
 
 from swift.llm.dataset.loader import DatasetLoader
-from swift.plugin import extra_callbacks, get_loss_func, get_metric
+from swift.plugin import extra_callbacks
 from swift.trainers import TrainerFactory
 from swift.utils import append_to_jsonl, get_logger, get_model_parameter_info, is_master, plot_images, stat_array
 from ..argument import TrainArguments
@@ -29,6 +29,11 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         self._prepare_model_tokenizer()
         self._prepare_template()
         self._prepare_callbacks()
+        if self.args.use_flash_ckpt:
+            try:
+                import dlrover.trainer.torch.flash_checkpoint.hf_trainer
+            except ImportError:
+                raise ValueError('Please install dlrover to use flash ckpt `pip install dlrover[k8s,torch]')
 
     def _prepare_generation_config(self):
         args = self.args
@@ -37,12 +42,12 @@ class SwiftSft(SwiftPipeline, TunerMixin):
                                                                  args.get_request_config(), self.tokenizer)
         logger.info(f'model.generation_config: {self.model.generation_config}')
 
-    def _prepare_model_tokenizer(self, load_model=True):
+    def _prepare_model_tokenizer(self, **kwargs):
         args = self.args
         if args.sequence_parallel_size > 1:
             from swift.trainers.sequence_parallel import sequence_parallel
             sequence_parallel.init_sequence_parallel(args.sequence_parallel_size)
-        self.model, self.processor = args.get_model_processor(load_model=load_model)
+        self.model, self.processor = args.get_model_processor(**kwargs)
         if self.model is None:
             return
         if hasattr(self.model, 'hf_device_map'):
@@ -53,10 +58,13 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         self._prepare_generation_config()
 
     def _prepare_template(self) -> None:
-        template = self.args.get_template(self.processor)
+        args = self.args
+        template = args.get_template(self.processor)
         template.set_mode('train')
         if template.use_model:
             template.model = self.model
+        if args.model_meta.is_multimodal and (args.padding_free or args.packing) and not template.support_padding_free:
+            raise ValueError(f'Template `{args.template}` does not support padding free or packing.')
         self.template = template
 
     def _get_dataset(self):
@@ -179,20 +187,7 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         return self.train(trainer)
 
     def _get_trainer_kwargs(self):
-        args = self.args
-        if args.metric is not None:
-            compute_metrics, preprocess_logits_for_metrics = get_metric(args.metric)
-        elif args.predict_with_generate:
-            compute_metrics, preprocess_logits_for_metrics = get_metric('nlg')
-        else:
-            compute_metrics, preprocess_logits_for_metrics = get_metric('acc')
-            compute_metrics = partial(
-                compute_metrics, acc_strategy=args.acc_strategy, is_encoder_decoder=self.template.is_encoder_decoder)
-        return {
-            'compute_metrics': compute_metrics,
-            'preprocess_logits_for_metrics': preprocess_logits_for_metrics,
-            'compute_loss_func': get_loss_func(args.loss_type)
-        }
+        return {}
 
     def _save_trainer_state(self, trainer):
         training_args = trainer.args
@@ -226,7 +221,7 @@ class SwiftSft(SwiftPipeline, TunerMixin):
             'best_metric': state.best_metric,
             'global_step': state.global_step,
             'log_history': state.log_history,
-            'memory': trainer.max_memory,
+            'memory': getattr(state, 'max_memory', None),
         })
         if is_master():
             jsonl_path = os.path.join(training_args.output_dir, 'logging.jsonl')
@@ -240,6 +235,9 @@ class SwiftSft(SwiftPipeline, TunerMixin):
             trainer.train(trainer.args.resume_from_checkpoint)
         finally:
             res = self._save_trainer_state(trainer)
+            if self.args.use_flash_ckpt:
+                trainer.wait_latest_checkpoint(trainer.FLASH_CKPT_WAIT_TIMEOUT)
+
         return res
 
     def _prepare_callbacks(self):
@@ -260,6 +258,13 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         callbacks += extra_callbacks
         self.callbacks = callbacks
 
+        if args.early_stop_interval is not None and args.early_stop_interval > 0:
+            from swift.plugin.callback import EarlyStopCallback
+            self.callbacks.append(EarlyStopCallback(args.early_stop_interval))
+            logger.info('You are using the default early stop callback, this is a implementation of '
+                        'stopping training when the best metric showing no improvement within {} steps, '
+                        'you can write a new implementation in the plugin/callback.py.')
+
     @staticmethod
     def _stat_dataset(dataset: Union[HfDataset, PackingDataset]):
         if isinstance(dataset, HfDataset):
@@ -275,7 +280,9 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         predict_with_generate = getattr(args, 'predict_with_generate', False)
         if is_master():
             inputs = train_dataset[0] if hasattr(train_dataset, '__len__') else next(iter(train_dataset))
-            self.template.print_inputs(inputs, tokenizer_kwargs=inputs.pop('tokenizer_kwargs', None) or {})
+            if isinstance(inputs, list):
+                inputs = inputs[0]
+            self.template.print_inputs(inputs)
         elif hasattr(train_dataset, '__len__'):
             # Avoid the random mismatch issue in LazyLLMDataset.
             inputs = train_dataset[0]

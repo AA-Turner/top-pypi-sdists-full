@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-tools-mcp
-Version: 0.4.0
+Version: 0.4.1
 Summary: llama-index tools mcp integration
 Author: Sebastian Kalisz
 Author-email: Chojan Shang <psiace@outlook.com>
@@ -9,7 +9,7 @@ License-Expression: MIT
 License-File: LICENSE
 Keywords: mcp,tools
 Requires-Python: <4.0,>=3.10
-Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-core<0.15,>=0.13.0
 Requires-Dist: mcp<2,>=1.9.1
 Requires-Dist: pydantic<3,>=2.0.0
 Description-Content-Type: text/markdown

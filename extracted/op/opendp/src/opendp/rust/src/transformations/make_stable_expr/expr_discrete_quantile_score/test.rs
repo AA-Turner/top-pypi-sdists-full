@@ -3,7 +3,7 @@ use polars::prelude::*;
 
 use crate::{
     domains::{AtomDomain, LazyFrameDomain, Margin, SeriesDomain},
-    metrics::SymmetricDistance,
+    metrics::{L0PInfDistance, SymmetricDistance},
     polars::PrivacyNamespace,
 };
 
@@ -12,15 +12,11 @@ pub fn get_quantile_test_data() -> Fallible<(LazyFrameDomain, LazyFrame)> {
         SeriesDomain::new("cycle_(..101f64)", AtomDomain::<i32>::default()),
         SeriesDomain::new("cycle_(..10i32)", AtomDomain::<f64>::default()),
     ])?
-    .with_margin(
-        Margin::select()
-            .with_max_partition_length(1000)
-            .with_public_keys(),
-    )?
+    .with_margin(Margin::select().with_max_length(1000).with_invariant_keys())?
     .with_margin(
         Margin::by(["cycle_(..10i32)"])
-            .with_max_partition_length(1000)
-            .with_public_keys(),
+            .with_max_length(1000)
+            .with_invariant_keys(),
     )?;
 
     let lf = df!(
@@ -40,10 +36,11 @@ fn test_expr_discrete_quantile_score_float() -> Fallible<()> {
         [0., 10., 20., 30., 40., 50., 60., 70., 80., 90., 100.],
     );
 
-    let m_quant: Transformation<_, _, _, Parallel<LInfDistance<f64>>> = col("cycle_(..101f64)")
-        .dp()
-        .quantile_score(0.5, candidates)
-        .make_stable(lf_domain.select(), PartitionDistance(SymmetricDistance))?;
+    let m_quant: Transformation<_, _, _, L0InfDistance<LInfDistance<f64>>> =
+        col("cycle_(..101f64)")
+            .dp()
+            .quantile_score(0.5, candidates)
+            .make_stable(lf_domain.select(), L0PInfDistance(SymmetricDistance))?;
 
     let dp_expr = m_quant.invoke(&lf.logical_plan)?.expr;
 
@@ -70,10 +67,11 @@ fn test_expr_discrete_quantile_score_int() -> Fallible<()> {
     let expr_domain = lf_domain.select();
     let candidates = Series::new("".into(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
-    let m_quant: Transformation<_, _, _, Parallel<LInfDistance<f64>>> = col("cycle_(..10i32)")
+    let m_quant: Transformation<_, _, _, L0InfDistance<LInfDistance<f64>>> = col("cycle_(..10i32)")
+        .cast(DataType::Int64)
         .dp()
         .quantile_score(0.5, candidates)
-        .make_stable(expr_domain, PartitionDistance(SymmetricDistance))?;
+        .make_stable(expr_domain, L0PInfDistance(SymmetricDistance))?;
 
     let dp_expr = m_quant.invoke(&lf.logical_plan)?.expr;
 

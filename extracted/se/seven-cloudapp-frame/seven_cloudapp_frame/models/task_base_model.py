@@ -2118,7 +2118,7 @@ class TaskBaseModel(FrameBaseModel):
                 invoke_result_data.error_message = "无效邀请"
                 return invoke_result_data
 
-            invoke_result_data = self.business_process_executing(app_id,act_id,module_id,user_id,login_token,handler_name,check_new_user,check_user_nick,continue_request_expire,acquire_lock_name,check_act_info_release=check_act_info_release,check_act_module_release=check_act_module_release)
+            invoke_result_data = self.business_process_executing(app_id,act_id,module_id,user_id,login_token,handler_name,check_new_user,check_user_nick,continue_request_expire,acquire_lock_name,check_act_info_release=check_act_info_release,check_act_module_release=check_act_module_release, authenticat_open_id=False)
             if invoke_result_data.success == True:
                 # act_info_dict = invoke_result_data.data["act_info_dict"]
                 # act_module_dict = invoke_result_data.data["act_module_dict"]
@@ -2253,7 +2253,7 @@ class TaskBaseModel(FrameBaseModel):
                 invoke_result_data.error_message = "无效邀请"
                 return invoke_result_data
 
-            invoke_result_data = self.business_process_executing(app_id,act_id,module_id,user_id,login_token,handler_name,False,check_user_nick,continue_request_expire,acquire_lock_name)
+            invoke_result_data = self.business_process_executing(app_id, act_id, module_id, user_id, login_token, handler_name, False, check_user_nick, continue_request_expire, acquire_lock_name, authenticat_open_id=False)
 
             if invoke_result_data.success == True:
                 # act_info_dict = invoke_result_data.data["act_info_dict"]
@@ -3056,7 +3056,7 @@ class TaskBaseModel(FrameBaseModel):
                 invoke_result_data.error_message = "无效邀请"
                 return invoke_result_data
 
-            invoke_result_data = self.business_process_executing(app_id,act_id,module_id,user_id,login_token,handler_name,check_new_user,check_user_nick,continue_request_expire,acquire_lock_name,check_act_info_release=check_act_info_release,check_act_module_release=check_act_module_release)
+            invoke_result_data = self.business_process_executing(app_id, act_id, module_id, user_id, login_token, handler_name, check_new_user, check_user_nick, continue_request_expire, acquire_lock_name, check_act_info_release=check_act_info_release, check_act_module_release=check_act_module_release, authenticat_open_id=False)
             if invoke_result_data.success == True:
                 user_info_dict = invoke_result_data.data["user_info_dict"]
 
@@ -3817,7 +3817,7 @@ class TaskBaseModel(FrameBaseModel):
 
         return invoke_result_data
 
-    def process_receive_reward(self,app_id,act_id,module_id,user_id,login_token,task_id,task_sub_type,handler_name,request_code,task_type=0,check_new_user=False,check_user_nick=True,continue_request_expire=0,is_stat=True,info_json=None,check_act_info_release=True,check_act_module_release=True):
+    def process_receive_reward(self,app_id,act_id,module_id,user_id,login_token,task_id,task_sub_type,handler_name,request_code,task_type=0,check_new_user=False,check_user_nick=True,continue_request_expire=0,is_stat=True,info_json=None,check_act_info_release=True,check_act_module_release=True,authenticat_open_id=True):
         """
         :description: 处理领取任务奖励
         :param app_id:应用标识
@@ -3837,6 +3837,7 @@ class TaskBaseModel(FrameBaseModel):
         :param info_json:资产日志详细信息
         :param check_act_info_release:校验活动信息是否发布
         :param check_act_module_release:校验活动模块是否发布
+        :param authenticat_open_id:鉴权open_id，如果传参跟取出的open_id不一致则输出错误信息
         :return 
         :last_editors: HuangJianYi
         """
@@ -3859,7 +3860,7 @@ class TaskBaseModel(FrameBaseModel):
         now_day = TimeExHelper.get_now_day_int()
         db_transaction = DbTransaction(db_config_dict=config.get_value(self.db_connect_key), context=self.context)
         try:
-            invoke_result_data = self.business_process_executing(app_id, act_id, module_id, user_id, login_token, handler_name, check_new_user, check_user_nick, continue_request_expire, acquire_lock_name, source_object_id=source_object_id,check_act_info_release=check_act_info_release,check_act_module_release=check_act_module_release)
+            invoke_result_data = self.business_process_executing(app_id, act_id, module_id, user_id, login_token, handler_name, check_new_user, check_user_nick, continue_request_expire, acquire_lock_name, source_object_id=source_object_id,check_act_info_release=check_act_info_release,check_act_module_release=check_act_module_release,authenticat_open_id=authenticat_open_id)
             if invoke_result_data.success == True:
                 task_invoke_result_data = self.check_task_info(act_id,module_id,task_type=task_type,task_id=task_id)
                 if task_invoke_result_data.success == True:

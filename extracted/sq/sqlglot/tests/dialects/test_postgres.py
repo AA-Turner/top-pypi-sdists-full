@@ -8,6 +8,10 @@ class TestPostgres(Validator):
     dialect = "postgres"
 
     def test_postgres(self):
+        self.validate_identity(
+            "select count() OVER(partition by a order by a range offset preceding exclude current row)",
+            "SELECT COUNT() OVER (PARTITION BY a ORDER BY a range BETWEEN offset preceding AND CURRENT ROW EXCLUDE CURRENT ROW)",
+        )
         expr = self.parse_one("SELECT * FROM r CROSS JOIN LATERAL UNNEST(ARRAY[1]) AS s(location)")
         unnest = expr.args["joins"][0].this.this
         unnest.assert_is(exp.Unnest)
@@ -805,6 +809,10 @@ FROM json_data, field_ids""",
         )
         self.assertIsInstance(self.parse_one("id::UUID"), exp.Cast)
 
+        self.validate_identity('1::"int"', "CAST(1 AS INT)").to.is_type(exp.DataType.Type.INT)
+        self.validate_identity(
+            '1::"udt"', 'CAST(1 AS "udt")'
+        ).to.this == exp.DataType.Type.USERDEFINED
         self.validate_identity(
             "COPY tbl (col1, col2) FROM 'file' WITH (FORMAT format, HEADER MATCH, FREEZE TRUE)"
         )
@@ -1573,3 +1581,26 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
         for sql in advanced_revoke_cmds:
             with self.subTest(f"Testing PostgreSQL's advanced REVOKE statement: {sql}"):
                 self.validate_identity(sql, check_command_warning=True)
+
+    def test_begin_transaction(self):
+        self.validate_all(
+            "BEGIN",
+            write={
+                "postgres": "BEGIN",
+                "presto": "START TRANSACTION",
+                "trino": "START TRANSACTION",
+            },
+        )
+
+        for keyword in ("TRANSACTION", "WORK"):
+            for level in (
+                "ISOLATION LEVEL SERIALIZABLE",
+                "ISOLATION LEVEL READ COMMITTED",
+                "NOT DEFFERABLE",
+                "READ WRITE",
+                "DEFERRABLE",
+            ):
+                with self.subTest(f"Testing Postgres's BEGIN {keyword} {level}"):
+                    self.validate_identity(
+                        f"BEGIN {keyword} {level}, {level}", f"BEGIN {level}, {level}"
+                    ).assert_is(exp.Transaction)

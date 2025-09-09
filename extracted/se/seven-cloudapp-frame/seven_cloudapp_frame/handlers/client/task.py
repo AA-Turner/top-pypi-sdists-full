@@ -374,7 +374,7 @@ class InviteNewUserHandler(ClientBaseHandler):
         invoke_result_data.data = invoke_result_data.data if invoke_result_data.data else {}
         invoke_result_data.data["reward_value"] = 0
         if is_receive_reward == True:
-            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id, act_id=act_id, module_id=module_id, user_id=from_user_id, login_token='', task_id=0, task_sub_type='', handler_name=self.__class__.__name__, request_code=self.request_code, task_type=task_type, check_new_user=False, check_user_nick=False, continue_request_expire=0, is_stat=is_stat, info_json=info_json, check_act_info_release=False, check_act_module_release=False)
+            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id, act_id=act_id, module_id=module_id, user_id=from_user_id, login_token='', task_id=0, task_sub_type='', handler_name=self.__class__.__name__, request_code=self.request_code, task_type=task_type, check_new_user=False, check_user_nick=False, continue_request_expire=0, is_stat=is_stat, info_json=info_json, check_act_info_release=False, check_act_module_release=False, authenticat_open_id=False)
             if reward_invoke_result_data.success == True:
                 invoke_result_data.data["reward_value"] = reward_invoke_result_data.data["reward_value"]
         ref_params = {}
@@ -431,7 +431,24 @@ class InviteJoinMemberHandler(ClientBaseHandler):
         invoke_result_data.data = invoke_result_data.data if invoke_result_data.data else {}
         invoke_result_data.data["reward_value"] = 0
         if is_receive_reward == True:
-            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id, act_id=act_id, module_id=module_id, user_id=from_user_id, login_token='', task_id=0, task_sub_type='', handler_name=self.__class__.__name__, request_code=self.request_code, task_type=task_type, check_new_user=False, check_user_nick=False, continue_request_expire=0, is_stat=is_stat, info_json=info_json, check_act_info_release=False, check_act_module_release=False)
+            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id,
+                                                                               act_id=act_id,
+                                                                               module_id=module_id,
+                                                                               user_id=from_user_id,
+                                                                               login_token='',
+                                                                               task_id=0,
+                                                                               task_sub_type='',
+                                                                               handler_name=self.__class__.__name__,
+                                                                               request_code=self.request_code,
+                                                                               task_type=task_type,
+                                                                               check_new_user=False,
+                                                                               check_user_nick=False,
+                                                                               continue_request_expire=0,
+                                                                               is_stat=is_stat,
+                                                                               info_json=info_json,
+                                                                               check_act_info_release=False,
+                                                                               check_act_module_release=False,
+                                                                               authenticat_open_id=False)
             if reward_invoke_result_data.success == True:
                 invoke_result_data.data["reward_value"] = reward_invoke_result_data.data["reward_value"]
         ref_params = {}
@@ -674,7 +691,7 @@ class BrowseSiteHandler(ClientBaseHandler):
             invoke_result_data.error_code = "error"
             invoke_result_data.error_message = "非法操作"
             return self.response_json_error(invoke_result_data.error_code, invoke_result_data.error_message)
-        
+
         task_base_model = TaskBaseModel(context=self, check_user_type=check_user_type)
         invoke_result_data = task_base_model.process_browse_site(app_id, act_id, module_id, user_id, login_token, task_type, task_sub_type, self.__class__.__name__, check_user_nick, 0)
         if invoke_result_data.success == False:
@@ -894,7 +911,7 @@ class InviteUserHelpHandler(ClientBaseHandler):
         invoke_result_data.data = invoke_result_data.data if invoke_result_data.data else {}
         invoke_result_data.data["reward_value"] = 0
         if is_receive_reward == True:
-            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id, act_id=act_id, module_id=module_id, user_id=from_user_id, login_token='', task_id=0, task_sub_type='', handler_name=self.__class__.__name__, request_code=self.request_code, task_type=task_type, check_new_user=False, check_user_nick=False, continue_request_expire=0, is_stat=is_stat, info_json=info_json, check_act_info_release=False, check_act_module_release=False)
+            reward_invoke_result_data = task_base_model.process_receive_reward(app_id=app_id, act_id=act_id, module_id=module_id, user_id=from_user_id, login_token='', task_id=0, task_sub_type='', handler_name=self.__class__.__name__, request_code=self.request_code, task_type=task_type, check_new_user=False, check_user_nick=False, continue_request_expire=0, is_stat=is_stat, info_json=info_json, check_act_info_release=False, check_act_module_release=False, authenticat_open_id=False)
             if reward_invoke_result_data.success == True:
                 invoke_result_data.data["reward_value"] = reward_invoke_result_data.data["reward_value"]
         ref_params = {}

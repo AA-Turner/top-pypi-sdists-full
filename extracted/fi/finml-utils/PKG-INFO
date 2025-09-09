@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finml-utils
-Version: 4.0.17
+Version: 4.0.18
 Project-URL: Issues, https://github.com/dream-faster/finml-utils/issues
 Project-URL: Source, https://github.com/dream-faster/finml-utils
 Author-email: Mark Aron Szulyovszky <mark@dreamfaster.ai>, Daniel Szemerey <daniel@dreamfaster.ai>
@@ -13,11 +13,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.11
-Requires-Dist: iteration-utilities~=0.12.1
+Requires-Dist: iteration-utilities~=0.13.0
 Requires-Dist: matplotlib==3.9.2
 Requires-Dist: more-itertools~=10.3.0
-Requires-Dist: numpy==2.3.1
-Requires-Dist: pandas==2.3.0
+Requires-Dist: numpy==2.3.2
+Requires-Dist: pandas==2.3.2
 Requires-Dist: pathos~=0.3.2
 Requires-Dist: python-dotenv~=1.0.1
 Requires-Dist: scikit-learn==1.6.1

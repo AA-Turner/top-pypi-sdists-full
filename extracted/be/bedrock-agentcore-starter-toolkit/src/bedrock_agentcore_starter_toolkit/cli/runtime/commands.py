@@ -14,6 +14,7 @@ from rich.syntax import Syntax
 
 from ...operations.runtime import (
     configure_bedrock_agentcore,
+    destroy_bedrock_agentcore,
     get_status,
     invoke_bedrock_agentcore,
     launch_bedrock_agentcore,
@@ -25,6 +26,22 @@ from .configuration_manager import ConfigurationManager
 
 # Create a module-specific logger
 logger = logging.getLogger(__name__)
+
+
+def _show_configuration_not_found_panel():
+    """Show standardized configuration not found panel."""
+    console.print(
+        Panel(
+            "⚠️ [yellow]Configuration Not Found[/yellow]\n\n"
+            "No agent configuration found in this directory.\n\n"
+            "[bold]Get Started:[/bold]\n"
+            "   [cyan]agentcore configure --entrypoint your_agent.py[/cyan]\n"
+            "   [cyan]agentcore launch[/cyan]\n"
+            '   [cyan]agentcore invoke \'{"prompt": "Hello"}\'[/cyan]',
+            title="⚠️ Setup Required",
+            border_style="bright_blue",
+        )
+    )
 
 
 def _validate_requirements_file(file_path: str) -> str:
@@ -237,17 +254,23 @@ def configure(
 
         console.print(
             Panel(
-                f"[green]Configuration Summary[/green]\n\n"
-                f"Name: {agent_name}\n"
-                f"Runtime: {result.runtime}\n"
-                f"Region: {result.region}\n"
-                f"Account: {result.account_id}\n"
-                f"Execution Role: {result.execution_role}\n"
-                f"ECR: {'Auto-create' if result.auto_create_ecr else result.ecr_repository or 'N/A'}\n"
-                f"Authorization: {auth_info}\n\n"
-                f"Configuration saved to: {result.config_path}",
-                title="Bedrock AgentCore Configured",
-                border_style="green",
+                f"[green]Configuration Complete[/green]\n\n"
+                f"[bold]Agent Details:[/bold]\n"
+                f"Agent Name: [cyan]{agent_name}[/cyan]\n"
+                f"Runtime: [cyan]{result.runtime}[/cyan]\n"
+                f"Region: [cyan]{result.region}[/cyan]\n"
+                f"Account: [dim]{result.account_id}[/dim]\n\n"
+                f"[bold]Configuration:[/bold]\n"
+                f"Execution Role: [dim]{result.execution_role}[/dim]\n"
+                f"ECR Repository: [dim]"
+                f"{'Auto-create' if result.auto_create_ecr else result.ecr_repository or 'N/A'}"
+                f"[/dim]\n"
+                f"Authorization: [dim]{auth_info}[/dim]\n\n"
+                f"📄 Config saved to: [dim]{result.config_path}[/dim]\n\n"
+                f"[bold]Next Steps:[/bold]\n"
+                f"   [cyan]agentcore launch[/cyan]",
+                title="Configuration Success",
+                border_style="bright_blue",
             )
         )
 
@@ -397,22 +420,19 @@ def launch(
                 console.print("\n[yellow]Stopped[/yellow]")
 
         elif result.mode == "codebuild":
-            _print_success(f"CodeBuild completed: [cyan]{result.codebuild_id}[/cyan]")
-            _print_success(f"ARM64 image pushed to ECR: [cyan]{result.ecr_uri}:latest[/cyan]")
-
             # Show deployment success panel
             agent_name = result.tag.split(":")[0].replace("bedrock_agentcore-", "")
             deploy_panel = (
-                f"[green]CodeBuild ARM64 Deployment Successful![/green]\n\n"
-                f"Agent Name: {agent_name}\n"
-                f"CodeBuild ID: [cyan]{result.codebuild_id}[/cyan]\n"
+                f"✅ [green]CodeBuild Deployment Successful![/green]\n\n"
+                f"[bold]Agent Details:[/bold]\n"
+                f"Agent Name: [cyan]{agent_name}[/cyan]\n"
                 f"Agent ARN: [cyan]{result.agent_arn}[/cyan]\n"
-                f"ECR URI: [cyan]{result.ecr_uri}:latest[/cyan]\n\n"
-                f"ARM64 container deployed to Bedrock AgentCore.\n\n"
-                f"You can now check the status of your Bedrock AgentCore endpoint with:\n"
-                f"[cyan]agentcore status[/cyan]\n\n"
-                f"You can now invoke your Bedrock AgentCore endpoint with:\n"
-                f'[cyan]agentcore invoke \'{{"prompt": "Hello"}}\'[/cyan]'
+                f"ECR URI: [cyan]{result.ecr_uri}:latest[/cyan]\n"
+                f"CodeBuild ID: [dim]{result.codebuild_id}[/dim]\n\n"
+                f"🚀 ARM64 container deployed to Bedrock AgentCore\n\n"
+                f"[bold]Next Steps:[/bold]\n"
+                f"   [cyan]agentcore status[/cyan]\n"
+                f'   [cyan]agentcore invoke \'{{"prompt": "Hello"}}\'[/cyan]'
             )
 
             # Add log information if we have agent_id
@@ -422,7 +442,7 @@ def launch(
                 runtime_logs, otel_logs = get_agent_log_paths(result.agent_id)
                 follow_cmd, since_cmd = get_aws_tail_commands(runtime_logs)
                 deploy_panel += (
-                    f"\n\n📋 [cyan]Agent logs available at:[/cyan]\n"
+                    f"\n\n📋 [cyan]CloudWatch Logs:[/cyan]\n"
                     f"   {runtime_logs}\n"
                     f"   {otel_logs}\n\n"
                     f"💡 [dim]Tail logs with:[/dim]\n"
@@ -433,44 +453,42 @@ def launch(
             console.print(
                 Panel(
                     deploy_panel,
-                    title="CodeBuild Deployment Complete",
-                    border_style="green",
+                    title="Deployment Success",
+                    border_style="bright_blue",
                 )
             )
 
         else:  # cloud mode (either CodeBuild default or local-build)
-            _print_success(f"Image pushed to ECR: [cyan]{result.ecr_uri}:latest[/cyan]")
-
-            # Show deployment success panel
             agent_name = result.tag.split(":")[0].replace("bedrock_agentcore-", "")
 
-            # Determine deployment type for panel title
             if local_build:
-                title = "Local Build Deployment Complete"
-                deployment_type = "Local Docker Build Deployment Successful!"
+                title = "Local Build Success"
+                deployment_type = "✅ [green]Local Build Deployment Successful![/green]"
+                icon = "🔧"
             else:
-                title = "CodeBuild Deployment Complete"
-                deployment_type = "CodeBuild Deployment Successful!"
+                title = "Deployment Success"
+                deployment_type = "✅ [green]Deployment Successful![/green]"
+                icon = "🚀"
 
             deploy_panel = (
-                f"[green]{deployment_type}[/green]\n\n"
-                f"Agent Name: {agent_name}\n"
+                f"{deployment_type}\n\n"
+                f"[bold]Agent Details:[/bold]\n"
+                f"Agent Name: [cyan]{agent_name}[/cyan]\n"
                 f"Agent ARN: [cyan]{result.agent_arn}[/cyan]\n"
                 f"ECR URI: [cyan]{result.ecr_uri}[/cyan]\n\n"
-                f"You can now check the status of your Bedrock AgentCore endpoint with:\n"
-                f"[cyan]agentcore status[/cyan]\n\n"
-                f"You can now invoke your Bedrock AgentCore endpoint with:\n"
-                f'[cyan]agentcore invoke \'{{"prompt": "Hello"}}\'[/cyan]'
+                f"{icon} Container deployed to Bedrock AgentCore\n\n"
+                f"[bold]Next Steps:[/bold]\n"
+                f"   [cyan]agentcore status[/cyan]\n"
+                f'   [cyan]agentcore invoke \'{{"prompt": "Hello"}}\'[/cyan]'
             )
 
-            # Add log information if we have agent_id
             if result.agent_id:
                 from ...utils.runtime.logs import get_agent_log_paths, get_aws_tail_commands
 
                 runtime_logs, otel_logs = get_agent_log_paths(result.agent_id)
                 follow_cmd, since_cmd = get_aws_tail_commands(runtime_logs)
                 deploy_panel += (
-                    f"\n\n📋 [cyan]Agent logs available at:[/cyan]\n"
+                    f"\n\n📋 [cyan]CloudWatch Logs:[/cyan]\n"
                     f"   {runtime_logs}\n"
                     f"   {otel_logs}\n\n"
                     f"💡 [dim]Tail logs with:[/dim]\n"
@@ -482,7 +500,7 @@ def launch(
                 Panel(
                     deploy_panel,
                     title=title,
-                    border_style="green",
+                    border_style="bright_blue",
                 )
             )
 
@@ -496,6 +514,54 @@ def launch(
         if not isinstance(e, typer.Exit):
             _handle_error(f"Launch failed: {e}", e)
         raise
+
+
+def _show_invoke_info_panel(agent_name: str, invoke_result=None, config=None):
+    """Show consistent panel with invoke information (session, request_id, arn, logs)."""
+    info_lines = []
+    # Session ID
+    if invoke_result and invoke_result.session_id:
+        info_lines.append(f"Session: [cyan]{invoke_result.session_id}[/cyan]")
+    # Request ID
+    if invoke_result and isinstance(invoke_result.response, dict):
+        request_id = invoke_result.response.get("ResponseMetadata", {}).get("RequestId")
+        if request_id:
+            info_lines.append(f"Request ID: [cyan]{request_id}[/cyan]")
+    # Agent ARN
+    if invoke_result and invoke_result.agent_arn:
+        info_lines.append(f"ARN: [cyan]{invoke_result.agent_arn}[/cyan]")
+    # CloudWatch logs (if we have config with agent_id)
+    if config and hasattr(config, "bedrock_agentcore") and config.bedrock_agentcore.agent_id:
+        try:
+            from ...utils.runtime.logs import get_agent_log_paths, get_aws_tail_commands
+
+            runtime_logs, _ = get_agent_log_paths(config.bedrock_agentcore.agent_id)
+            follow_cmd, since_cmd = get_aws_tail_commands(runtime_logs)
+            info_lines.append(f"Logs: {follow_cmd}")
+            info_lines.append(f"      {since_cmd}")
+        except Exception:
+            pass  # nosec B110
+    panel_content = "\n".join(info_lines) if info_lines else "Invoke information unavailable"
+    console.print(
+        Panel(
+            panel_content,
+            title=f"{agent_name}",
+            border_style="bright_blue",
+            padding=(0, 1),
+        )
+    )
+
+
+def _show_success_response(content):
+    """Show success response content below panel."""
+    if content:
+        console.print("\n[bold]Response:[/bold]")
+        console.print(content)
+
+
+def _show_error_response(error_msg: str):
+    """Show error message in red below panel."""
+    console.print(f"\n[red]{error_msg}[/red]")
 
 
 def invoke(
@@ -524,7 +590,7 @@ def invoke(
         try:
             payload_data = json.loads(payload)
         except json.JSONDecodeError:
-            payload_data = {"message": payload}
+            payload_data = {"prompt": payload}
 
         # Handle bearer token - only use if auth config is defined in .bedrock_agentcore.yaml
         final_bearer_token = None
@@ -543,17 +609,6 @@ def invoke(
                 "[yellow]Warning: Bearer token provided but OAuth is not configured in .bedrock_agentcore.yaml[/yellow]"
             )
 
-        # Display payload
-        console.print("[bold]Payload:[/bold]")
-        console.print(
-            Syntax(
-                json.dumps(payload_data, indent=2, ensure_ascii=False),
-                "json",
-                background_color="default",
-                word_wrap=True,
-            )
-        )
-
         # Invoke
         result = invoke_bedrock_agentcore(
             config_path=config_path,
@@ -564,37 +619,91 @@ def invoke(
             user_id=user_id,
             local_mode=local_mode,
         )
-        console.print(f"Session ID: [cyan]{result.session_id}[/cyan]")
+        agent_display = config.name if config else (agent or "unknown")
+        _show_invoke_info_panel(agent_display, result, config)
         if result.response != {}:
-            console.print("\n[bold]Response:[/bold]")
-            console.print(
-                Syntax(
-                    json.dumps(result.response, indent=2, default=str, ensure_ascii=False),
-                    "json",
-                    background_color="default",
-                    word_wrap=True,
-                )
-            )
+            content = result.response
+            if isinstance(content, dict) and "response" in content:
+                content = content["response"]
+            if isinstance(content, list):
+                if len(content) == 1:
+                    content = content[0]
+                else:
+                    # Handle mix of strings and bytes
+                    string_items = []
+                    for item in content:
+                        if isinstance(item, bytes):
+                            string_items.append(item.decode("utf-8", errors="replace"))
+                        else:
+                            string_items.append(str(item))
+                    content = "".join(string_items)
+            # Parse JSON string if needed (handles escape sequences)
+            if isinstance(content, str):
+                try:
+                    parsed = json.loads(content)
+                    if isinstance(parsed, dict) and "response" in parsed:
+                        content = parsed["response"]
+                    elif isinstance(parsed, str):
+                        content = parsed
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            _show_success_response(content)
 
     except FileNotFoundError:
-        console.print("[red].bedrock_agentcore.yaml not found[/red]")
-        console.print("Run the following commands to get started:")
-        console.print("  1. agentcore configure --entrypoint your_agent.py")
-        console.print("  2. agentcore launch")
-        console.print('  3. agentcore invoke \'{"message": "Hello"}\'')
+        _show_configuration_not_found_panel()
         raise typer.Exit(1) from None
     except ValueError as e:
+        try:
+            agent_display = config.name if config else (agent or "unknown")
+            agent_config = config
+        except NameError:
+            agent_display = agent or "unknown"
+            agent_config = None
+        _show_invoke_info_panel(agent_display, invoke_result=None, config=agent_config)
         if "not deployed" in str(e):
-            console.print("[yellow]Agent not deployed yet[/yellow]")
-            console.print("Deploy your agent first:")
-            console.print("  agentcore launch                    # Deploy to AWS (recommended)")
-            console.print("  agentcore launch --local            # Run locally")
-            console.print("Then check status: agentcore status")
-            _handle_error("Bedrock AgentCore not deployed. Run 'bedrock_agentcore launch' first", e)
+            _show_error_response("Agent not deployed - run 'agentcore launch' to deploy")
         else:
-            _handle_error(f"Invocation failed: {e}", e)
+            _show_error_response(f"Invocation failed: {str(e)}")
+        raise typer.Exit(1) from e
     except Exception as e:
-        _handle_error(f"Invocation failed: {e}", e)
+        try:
+            agent_config = config
+            agent_name = config.name if config else (agent or "unknown")
+        except (NameError, AttributeError):
+            try:
+                from ...utils.runtime.config import load_config
+
+                fallback_project_config = load_config(config_path)
+                agent_config = fallback_project_config.get_agent_config(agent)
+                agent_name = agent_config.name if agent_config else (agent or "unknown")
+            except Exception:
+                agent_config = None
+                agent_name = agent or "unknown"
+
+        from ...operations.runtime.models import InvokeResult
+
+        request_id = getattr(e, "response", {}).get("ResponseMetadata", {}).get("RequestId")
+        effective_session = session_id or (
+            agent_config.bedrock_agentcore.agent_session_id
+            if agent_config and hasattr(agent_config, "bedrock_agentcore")
+            else None
+        )
+
+        error_result = (
+            InvokeResult(
+                response={"ResponseMetadata": {"RequestId": request_id}} if request_id else {},
+                session_id=effective_session or "unknown",
+                agent_arn=agent_config.bedrock_agentcore.agent_arn
+                if agent_config and hasattr(agent_config, "bedrock_agentcore")
+                else None,
+            )
+            if (request_id or effective_session or agent_config)
+            else None
+        )
+
+        _show_invoke_info_panel(agent_name, invoke_result=error_result, config=agent_config)
+        _show_error_response(f"Invocation failed: {str(e)}")
+        raise typer.Exit(1) from e
 
 
 def status(
@@ -620,46 +729,88 @@ def status(
                 if status_json["agent"] is None:
                     console.print(
                         Panel(
-                            f"[green]Status of the current Agent:[/green]\n\n"
-                            f"[green]Agent Name: {status_json['config']['name']}[/green]\n"
-                            f"[cyan]Configuration details:[/cyan]\n"
-                            f"[cyan]- region: {status_json['config']['region']}[/cyan]\n"
-                            f"[cyan]- account: {status_json['config']['account']}[/cyan]\n"
-                            f"[cyan]- execution role: {status_json['config']['execution_role']}[/cyan]\n"
-                            f"[cyan]- ecr repository: {status_json['config']['ecr_repository']}[/cyan]\n",
-                            title="Bedrock AgentCore Agent Status",
-                            border_style="green",
-                        )
-                    )
-
-                    console.print(
-                        Panel(
-                            "[yellow]Agent is configured, but not launched yet. "
-                            "Please use `agentcore launch` to launch the agent. [/yellow]\n\n",
-                            title="Bedrock AgentCore Agent Status",
-                            border_style="yellow",
+                            f"⚠️ [yellow]Configured but not deployed[/yellow]\n\n"
+                            f"[bold]Agent Details:[/bold]\n"
+                            f"Agent Name: [cyan]{status_json['config']['name']}[/cyan]\n"
+                            f"Region: [cyan]{status_json['config']['region']}[/cyan]\n"
+                            f"Account: [cyan]{status_json['config']['account']}[/cyan]\n\n"
+                            f"[bold]Configuration:[/bold]\n"
+                            f"Execution Role: [dim]{status_json['config']['execution_role']}[/dim]\n"
+                            f"ECR Repository: [dim]{status_json['config']['ecr_repository']}[/dim]\n\n"
+                            f"Your agent is configured but not yet launched.\n\n"
+                            f"[bold]Next Steps:[/bold]\n"
+                            f"   [cyan]agentcore launch[/cyan]",
+                            title=f"Agent Status: {status_json['config']['name']}",
+                            border_style="bright_blue",
                         )
                     )
 
                 elif "agent" in status_json and status_json["agent"] is not None:
                     agent_data = status_json["agent"]
+                    endpoint_data = status_json.get("endpoint", {})
+
+                    # Determine overall status
+                    endpoint_status = endpoint_data.get("status", "Unknown") if endpoint_data else "Not Ready"
+                    if endpoint_status == "READY":
+                        status_text = "Ready - Agent deployed and endpoint available"
+                    else:
+                        status_text = "Deploying - Agent created, endpoint starting"
+
+                    # Build consolidated panel with logs
+                    panel_content = (
+                        f"{status_text}\n\n"
+                        f"[bold]Agent Details:[/bold]\n"
+                        f"Agent Name: [cyan]{status_json['config']['name']}[/cyan]\n"
+                        f"Agent ARN: [cyan]{status_json['config']['agent_arn']}[/cyan]\n"
+                        f"Endpoint: [cyan]{endpoint_data.get('name', 'DEFAULT')}[/cyan] "
+                        f"([cyan]{endpoint_status}[/cyan])\n"
+                        f"Region: [cyan]{status_json['config']['region']}[/cyan] | "
+                        f"Account: [dim]{status_json['config'].get('account', 'Not available')}[/dim]\n\n"
+                        f"[bold]Deployment Info:[/bold]\n"
+                        f"Created: [dim]{agent_data.get('createdAt', 'Not available')}[/dim]\n"
+                        f"Last Updated: [dim]"
+                        f"{endpoint_data.get('lastUpdatedAt') or agent_data.get('lastUpdatedAt', 'Not available')}"
+                        f"[/dim]\n\n"
+                    )
+
+                    # Add CloudWatch logs information
+                    agent_id = status_json.get("config", {}).get("agent_id")
+                    if agent_id:
+                        try:
+                            from ...utils.runtime.logs import get_agent_log_paths, get_aws_tail_commands
+
+                            endpoint_name = endpoint_data.get("name")
+                            runtime_logs, otel_logs = get_agent_log_paths(agent_id, endpoint_name)
+                            follow_cmd, since_cmd = get_aws_tail_commands(runtime_logs)
+
+                            panel_content += (
+                                f"📋 [cyan]CloudWatch Logs:[/cyan]\n"
+                                f"   {runtime_logs}\n"
+                                f"   {otel_logs}\n\n"
+                                f"💡 [dim]Tail logs with:[/dim]\n"
+                                f"   {follow_cmd}\n"
+                                f"   {since_cmd}\n\n"
+                            )
+                        except Exception:  # nosec B110
+                            # If log retrieval fails, continue without logs section
+                            pass
+
+                    # Add ready-to-invoke message if endpoint is ready
+                    if endpoint_status == "READY":
+                        panel_content += (
+                            '[bold]Ready to invoke:[/bold]\n   [cyan]agentcore invoke \'{"prompt": "Hello"}\'[/cyan]'
+                        )
+                    else:
+                        panel_content += (
+                            "[bold]Next Steps:[/bold]\n"
+                            "   [cyan]agentcore status[/cyan]   # Check when endpoint is ready"
+                        )
+
                     console.print(
                         Panel(
-                            f"[green]Status of the current Agent:[/green]\n\n"
-                            f"[green]Agent Name: {status_json['config']['name']}[/green]\n"
-                            f"[green]Agent ID: {status_json['config']['agent_id']}[/green]\n"
-                            f"[green]Agent Arn: {status_json['config']['agent_arn']}[/green]\n"
-                            f"[green]Created at: {agent_data.get('createdAt', 'Not available')}[/green]\n"
-                            f"[green]Last Updated at: {agent_data.get('lastUpdatedAt', 'Not available')}[/green]\n"
-                            f"[cyan]Configuration details:[/cyan]\n"
-                            f"[cyan]- region: {status_json['config']['region']}[/cyan]\n"
-                            f"[cyan]- account: {status_json['config'].get('account', 'Not available')}[/cyan]\n"
-                            f"[cyan]- execution role: "
-                            f"{status_json['config'].get('execution_role', 'Not available')}[/cyan]\n"
-                            f"[cyan]- ecr repository: "
-                            f"{status_json['config'].get('ecr_repository', 'Not available')}[/cyan]\n",
-                            title="Bedrock AgentCore Agent Status",
-                            border_style="green",
+                            panel_content,
+                            title=f"Agent Status: {status_json['config']['name']}",
+                            border_style="bright_blue",
                         )
                     )
                 else:
@@ -667,57 +818,10 @@ def status(
                         Panel(
                             "[green]Please launch agent first![/green]\n\n",
                             title="Bedrock AgentCore Agent Status",
-                            border_style="yellow",
+                            border_style="bright_blue",
                         )
                     )
 
-                if "endpoint" in status_json and status_json["endpoint"] is not None:
-                    endpoint_data = status_json["endpoint"]
-                    console.print(
-                        Panel(
-                            f"[green]Status of the current Endpoint:[/green]\n\n"
-                            f"[green]Endpoint Id: {endpoint_data.get('id', 'Not available')}[/green]\n"
-                            f"[green]Endpoint Name: {endpoint_data.get('name', 'Not available')}[/green]\n"
-                            f"[green]Endpoint Arn: "
-                            f"{endpoint_data.get('agentRuntimeEndpointArn', 'Not available')}[/green]\n"
-                            f"[green]Agent Arn: {endpoint_data.get('agentRuntimeArn', 'Not available')}[/green]\n"
-                            f"[green]STATUS: [cyan]{endpoint_data.get('status', 'Unknown')}[/cyan][/green]\n"
-                            f"[green]Last Updated at: "
-                            f"{endpoint_data.get('lastUpdatedAt', 'Not available')}[/green]\n",
-                            title="Bedrock AgentCore Endpoint Status",
-                            border_style="green",
-                        )
-                    )
-                else:
-                    console.print(
-                        Panel(
-                            "[yellow]Please launch agent first and make sure endpoint status is READY "
-                            "before invoking![/yellow]\n\n",
-                            title="Bedrock AgentCore Endpoint Status",
-                            border_style="yellow",
-                        )
-                    )
-
-                # Show log information
-                agent_id = status_json.get("config", {}).get("agent_id")
-                if agent_id:
-                    try:
-                        from ...utils.runtime.logs import get_agent_log_paths, get_aws_tail_commands
-
-                        endpoint_name = status_json.get("endpoint", {}).get("name")
-
-                        runtime_logs, otel_logs = get_agent_log_paths(agent_id, endpoint_name)
-                        follow_cmd, since_cmd = get_aws_tail_commands(runtime_logs)
-
-                        console.print("\n📋 [cyan]Agent logs available at:[/cyan]")
-                        console.print(f"   {runtime_logs}")
-                        console.print(f"   {otel_logs}")
-                        console.print("\n💡 [dim]Tail logs with:[/dim]")
-                        console.print(f"   {follow_cmd}")
-                        console.print(f"   {since_cmd}")
-                    except (ValueError, TypeError) as e:
-                        # If logging info fails, log the error and continue
-                        logger.debug("Failed to display log paths: %s", str(e))
         else:  # full json verbose output
             console.print(
                 Syntax(
@@ -729,13 +833,179 @@ def status(
             )
 
     except FileNotFoundError:
-        console.print("[yellow]Configuration not found[/yellow]")
+        _show_configuration_not_found_panel()
+        raise typer.Exit(1) from None
+    except ValueError as e:
+        console.print(
+            Panel(
+                f"❌ [red]Status Check Failed[/red]\n\n"
+                f"Error: {str(e)}\n\n"
+                f"[bold]Next Steps:[/bold]\n"
+                f"   [cyan]agentcore configure --entrypoint your_agent.py[/cyan]\n"
+                f"   [cyan]agentcore launch[/cyan]",
+                title="❌ Status Error",
+                border_style="bright_blue",
+            )
+        )
+        raise typer.Exit(1) from e
+    except Exception as e:
+        console.print(
+            Panel(
+                f"❌ [red]Status Check Failed[/red]\n\n"
+                f"Unexpected error: {str(e)}\n\n"
+                f"[bold]Next Steps:[/bold]\n"
+                f"   [cyan]agentcore configure --entrypoint your_agent.py[/cyan]\n"
+                f"   [cyan]agentcore launch[/cyan]",
+                title="❌ Status Error",
+                border_style="bright_blue",
+            )
+        )
+        raise typer.Exit(1) from e
+
+
+def destroy(
+    agent: Optional[str] = typer.Option(
+        None, "--agent", "-a", help="Agent name (use 'agentcore configure list' to see available agents)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be destroyed without actually destroying anything"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Skip confirmation prompts and destroy immediately"
+    ),
+    delete_ecr_repo: bool = typer.Option(
+        False, "--delete-ecr-repo", help="Also delete the ECR repository after removing images"
+    ),
+) -> None:
+    """Destroy Bedrock AgentCore resources.
+    
+    This command removes the following AWS resources for the specified agent:
+    - Bedrock AgentCore endpoint (if exists)
+    - Bedrock AgentCore agent runtime
+    - ECR images (all images in the agent's repository)
+    - CodeBuild project
+    - IAM execution role (only if not used by other agents)
+    - Agent deployment configuration
+    - ECR repository (only if --delete-ecr-repo is specified)
+    
+    CAUTION: This action cannot be undone. Use --dry-run to preview changes first.
+    """
+    config_path = Path.cwd() / ".bedrock_agentcore.yaml"
+
+    try:
+        from ...utils.runtime.config import load_config
+
+        # Load project configuration to get agent details
+        project_config = load_config(config_path)
+        agent_config = project_config.get_agent_config(agent)
+        
+        if not agent_config:
+            _handle_error(f"Agent '{agent or 'default'}' not found in configuration")
+            
+        actual_agent_name = agent_config.name
+
+        # Show what will be destroyed
+        if dry_run:
+            console.print(f"[cyan]🔍 Dry run: Preview of resources that would be destroyed for agent '{actual_agent_name}'[/cyan]\n")
+        else:
+            console.print(f"[yellow]⚠️  About to destroy resources for agent '{actual_agent_name}'[/yellow]\n")
+
+        # Check if agent is deployed
+        if not agent_config.bedrock_agentcore:
+            console.print("[yellow]Agent is not deployed, nothing to destroy[/yellow]")
+            return
+
+        # Show deployment details
+        console.print("[cyan]Current deployment:[/cyan]")
+        if agent_config.bedrock_agentcore.agent_arn:
+            console.print(f"  • Agent ARN: {agent_config.bedrock_agentcore.agent_arn}")
+        if agent_config.bedrock_agentcore.agent_id:
+            console.print(f"  • Agent ID: {agent_config.bedrock_agentcore.agent_id}")
+        if agent_config.aws.ecr_repository:
+            console.print(f"  • ECR Repository: {agent_config.aws.ecr_repository}")
+        if agent_config.aws.execution_role:
+            console.print(f"  • Execution Role: {agent_config.aws.execution_role}")
+        console.print()
+
+        # Confirmation prompt (unless force or dry_run)
+        if not dry_run and not force:
+            console.print("[red]This will permanently delete AWS resources and cannot be undone![/red]")
+            if delete_ecr_repo:
+                console.print("[red]This includes deleting the ECR repository itself![/red]")
+            response = typer.confirm(
+                f"Are you sure you want to destroy the agent '{actual_agent_name}' and all its resources?"
+            )
+            if not response:
+                console.print("[yellow]Destruction cancelled[/yellow]")
+                return
+
+        # Perform the destroy operation
+        with console.status(f"[bold]{'Analyzing' if dry_run else 'Destroying'} Bedrock AgentCore resources...[/bold]"):
+            result = destroy_bedrock_agentcore(
+                config_path=config_path,
+                agent_name=actual_agent_name,
+                dry_run=dry_run,
+                force=force,
+                delete_ecr_repo=delete_ecr_repo,
+            )
+
+        # Display results
+        if dry_run:
+            console.print(f"[cyan]📋 Dry run completed for agent '{result.agent_name}'[/cyan]\n")
+            title = "Resources That Would Be Destroyed"
+            color = "cyan"
+        else:
+            if result.errors:
+                console.print(f"[yellow]⚠️  Destruction completed with errors for agent '{result.agent_name}'[/yellow]\n")
+                title = "Destruction Results (With Errors)"
+                color = "yellow"
+            else:
+                console.print(f"[green]✅ Successfully destroyed resources for agent '{result.agent_name}'[/green]\n")
+                title = "Resources Successfully Destroyed"
+                color = "green"
+
+        # Show resources removed
+        if result.resources_removed:
+            resources_text = "\n".join([f"  ✓ {resource}" for resource in result.resources_removed])
+            console.print(Panel(resources_text, title=title, border_style=color))
+        else:
+            console.print(Panel("No resources were found to destroy", title="Results", border_style="yellow"))
+
+        # Show warnings
+        if result.warnings:
+            warnings_text = "\n".join([f"  ⚠️  {warning}" for warning in result.warnings])
+            console.print(Panel(warnings_text, title="Warnings", border_style="yellow"))
+
+        # Show errors
+        if result.errors:
+            errors_text = "\n".join([f"  ❌ {error}" for error in result.errors])
+            console.print(Panel(errors_text, title="Errors", border_style="red"))
+
+        # Next steps
+        if not dry_run and not result.errors:
+            console.print("\n[dim]Next steps:[/dim]")
+            console.print("  • Run 'agentcore configure --entrypoint <file>' to set up a new agent")
+            console.print("  • Run 'agentcore launch' to deploy to Bedrock AgentCore")
+        elif dry_run:
+            console.print(f"\n[dim]To actually destroy these resources, run:[/dim]")
+            destroy_cmd = f"  agentcore destroy{f' --agent {actual_agent_name}' if agent else ''}"
+            if delete_ecr_repo:
+                destroy_cmd += " --delete-ecr-repo"
+            console.print(destroy_cmd)
+
+    except FileNotFoundError:
+        console.print("[red].bedrock_agentcore.yaml not found[/red]")
         console.print("Run the following commands to get started:")
         console.print("  1. agentcore configure --entrypoint your_agent.py")
         console.print("  2. agentcore launch")
         console.print('  3. agentcore invoke \'{"message": "Hello"}\'')
         raise typer.Exit(1) from None
     except ValueError as e:
-        _handle_error(f"Status failed: {e}", e)
+        if "not found" in str(e):
+            _handle_error("Agent not found. Use 'agentcore configure list' to see available agents", e)
+        else:
+            _handle_error(f"Destruction failed: {e}", e)
+    except RuntimeError as e:
+        _handle_error(f"Destruction failed: {e}", e)
     except Exception as e:
-        _handle_error(f"Status failed: {e}", e)
+        _handle_error(f"Destruction failed: {e}", e)

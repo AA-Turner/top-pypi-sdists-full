@@ -9,6 +9,8 @@ from letschatty.models.chat.flow_link_state import FlowStateAssignedToChat
 class ChatFactory:
     @staticmethod
     def from_json(chat_json: dict) -> Chat:
+        if isinstance(chat_json, Chat):
+            return chat_json
         chat_json["messages"] = [from_message_json(message) for message in chat_json["messages"]]
         chat_json["flow_states"] = [FlowStateAssignedToChat.from_json(state) for state in chat_json["flow_states"]]
         return Chat(**chat_json)

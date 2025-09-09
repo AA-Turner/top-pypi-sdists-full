@@ -1,6 +1,6 @@
 use crate::core::{Measure, PrivacyMap};
-use crate::domains::{ExprPlan, MarginPub, WildExprDomain};
-use crate::metrics::PartitionDistance;
+use crate::domains::{ExprPlan, Invariant, WildExprDomain};
+use crate::metrics::L01InfDistance;
 use crate::transformations::traits::UnboundedMetric;
 use crate::{
     core::{Function, Measurement},
@@ -34,10 +34,10 @@ mod test;
 /// * `expr` - count expression
 pub fn make_expr_private_len<MI: 'static + UnboundedMetric, MO: 'static + Measure>(
     input_domain: WildExprDomain,
-    input_metric: PartitionDistance<MI>,
+    input_metric: L01InfDistance<MI>,
     output_measure: MO,
     expr: Expr,
-) -> Fallible<Measurement<WildExprDomain, ExprPlan, PartitionDistance<MI>, MO>>
+) -> Fallible<Measurement<WildExprDomain, L01InfDistance<MI>, MO, ExprPlan>>
 where
     MO::Distance: Zero,
 {
@@ -47,7 +47,7 @@ where
 
     let margin = input_domain.context.aggregation("len")?;
 
-    if Some(MarginPub::Lengths) != margin.public_info {
+    if Some(Invariant::Lengths) != margin.invariant {
         return fallible!(
             MakeMeasurement,
             "The length of partitions when grouped by {:?} is not public information. You may have forgotten to add noise to your query.",
@@ -57,9 +57,9 @@ where
 
     Measurement::new(
         input_domain,
-        Function::from_expr(len()).fill_with(typed_lit(0u32)),
         input_metric,
         output_measure,
+        Function::from_expr(len()).fill_with(typed_lit(0u32)),
         PrivacyMap::new(move |_| MO::Distance::zero()),
     )
 }

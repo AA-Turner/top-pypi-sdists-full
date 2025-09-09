@@ -1,17 +1,19 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools",
+  "setuptools>=77",
 ]
 
 [project]
 name = "django-browser-reload"
-version = "1.18.0"
+version = "1.19.0"
 description = "Automatically reload your browser in development."
 readme = "README.rst"
 keywords = [
   "Django",
 ]
+license = "MIT"
+license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
@@ -23,7 +25,6 @@ classifiers = [
   "Framework :: Django :: 5.1",
   "Framework :: Django :: 5.2",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
@@ -32,6 +33,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Typing :: Typed",
 ]
@@ -43,20 +45,58 @@ urls.Changelog = "https://github.com/adamchainz/django-browser-reload/blob/main/
 urls.Funding = "https://adamj.eu/books/"
 urls.Repository = "https://github.com/adamchainz/django-browser-reload"
 
-[tool.isort]
-add_imports = [
-  "from __future__ import annotations",
+[dependency-groups]
+test = [
+  "coverage[toml]",
+  "jinja2",
+  "pytest",
+  "pytest-django",
+  "pytest-randomly",
 ]
-force_single_line = true
-profile = "black"
-src_paths = [
-  ".",
-  "example",
-  "src",
+django42 = [ "django>=4.2a1,<5; python_version>='3.8'" ]
+django50 = [ "django>=5.0a1,<5.1; python_version>='3.10'" ]
+django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
+django52 = [ "django>=5.2a1,<6; python_version>='3.10'" ]
+
+[tool.ruff]
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pycodestyle
+  "E",
+  # Pyflakes errors
+  "F",
+  # isort
+  "I",
+  # flake8-simplify
+  "SIM",
+  # flake8-tidy-imports
+  "TID",
+  # pyupgrade
+  "UP",
+  # Pyflakes warnings
+  "W",
 ]
+lint.ignore = [
+  # flake8-bugbear opinionated rules
+  "B9",
+  # line-too-long
+  "E501",
+  # suppressible-exception
+  "SIM105",
+  # if-else-block-instead-of-if-exp
+  "SIM108",
+]
+lint.extend-safe-fixes = [
+  # non-pep585-annotation
+  "UP006",
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 addopts = """\
@@ -101,3 +141,13 @@ allow_untyped_defs = true
 
 [tool.rstcheck]
 report_level = "ERROR"
+
+[tool.uv]
+conflicts = [
+  [
+    { group = "django42" },
+    { group = "django50" },
+    { group = "django51" },
+    { group = "django52" },
+  ],
+]

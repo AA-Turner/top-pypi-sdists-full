@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-quaternion
-Version: 2024.0.10
+Version: 2024.0.12
 Summary: Add a quaternion dtype to NumPy
 Home-page: https://github.com/moble/quaternion
 Author: Michael Boyle

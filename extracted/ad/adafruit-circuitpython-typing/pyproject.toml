@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "adafruit-circuitpython-typing"
 description = "Types needed for type annotation that are not in `typing`"
-version = "1.12.1"
+version = "1.12.2"
 requires-python = ">=3.8"
 readme = "README.rst"
 authors = [

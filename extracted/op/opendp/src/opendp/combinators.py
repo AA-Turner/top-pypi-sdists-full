@@ -6,7 +6,7 @@ For more context, see :ref:`combinators in the User Guide <combinators-user-guid
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 
@@ -24,20 +24,137 @@ from opendp.domains import *
 from opendp.metrics import *
 from opendp.measures import *
 __all__ = [
+    "make_adaptive_composition",
     "make_approximate",
     "make_basic_composition",
     "make_chain_mt",
     "make_chain_pm",
     "make_chain_tt",
+    "make_composition",
     "make_fix_delta",
     "make_fixed_approxDP_to_approxDP",
+    "make_fully_adaptive_composition",
     "make_population_amplification",
+    "make_privacy_filter",
     "make_pureDP_to_zCDP",
     "make_select_private_candidate",
     "make_sequential_composition",
     "make_zCDP_to_approxDP",
+    "then_adaptive_composition",
+    "then_fully_adaptive_composition",
     "then_sequential_composition"
 ]
+
+
+def make_adaptive_composition(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure,
+    d_in,
+    d_mids
+) -> Measurement:
+    r"""Construct a Measurement that when invoked,
+    returns a queryable that interactively composes measurements.
+
+    **Composition Properties**
+
+    * sequential: all measurements are applied to the same dataset
+    * basic: the composition is the linear sum of the privacy usage of each query
+    * interactive: mechanisms can be specified based on answers to previous queries
+    * compositor: all privacy parameters specified up-front
+
+    If the privacy measure supports concurrency,
+    this compositor allows you to spawn multiple interactive mechanisms
+    and interleave your queries amongst them.
+
+
+    Required features: `contrib`
+
+    [make_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_adaptive_composition.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `Queryable<Measurement<DI, MI, MO, TO>, TO>`
+
+    .. end-markdown
+
+    :param input_domain: indicates the space of valid input datasets
+    :type input_domain: Domain
+    :param input_metric: how distances are measured between members of the input domain
+    :type input_metric: Metric
+    :param output_measure: how privacy is measured
+    :type output_measure: Measure
+    :param d_in: maximum distance between adjacent input datasets
+    :param d_mids: maximum privacy expenditure of each query
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # Standardize type arguments.
+    QO = get_distance_type(output_measure) # type: ignore
+
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+    c_d_in = py_to_c(d_in, c_type=AnyObjectPtr, type_name=get_distance_type(input_metric))
+    c_d_mids = py_to_c(d_mids, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Vec', args=[QO]))
+
+    # Call library function.
+    lib_function = lib.opendp_combinators__make_adaptive_composition
+    lib_function.argtypes = [Domain, Metric, Measure, AnyObjectPtr, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure, c_d_in, c_d_mids), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_adaptive_composition',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure, 'd_in': d_in, 'd_mids': d_mids
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_adaptive_composition(
+    output_measure: Measure,
+    d_in,
+    d_mids
+):  
+    r"""partial constructor of make_adaptive_composition
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_adaptive_composition`
+
+    :param output_measure: how privacy is measured
+    :type output_measure: Measure
+    :param d_in: maximum distance between adjacent input datasets
+    :param d_mids: maximum privacy expenditure of each query
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_adaptive_composition(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure,
+        d_in=d_in,
+        d_mids=d_mids))
+    output.__opendp_dict__ = {
+            '__function__': 'then_adaptive_composition',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'output_measure': output_measure, 'd_in': d_in, 'd_mids': d_mids
+            },
+        }
+    return output
+
 
 
 def make_approximate(
@@ -49,7 +166,9 @@ def make_approximate(
 
     Required features: `contrib`
 
-    [make_approximate in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_approximate.html)
+    [make_approximate in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_approximate.html)
+
+    .. end-markdown
 
     :param measurement: a measurement with a privacy measure to be casted
     :type measurement: Measurement
@@ -82,6 +201,7 @@ def make_approximate(
     return output
 
 
+@deprecated(version="0.14.0", reason="This function has been renamed, use `make_composition` instead.")
 def make_basic_composition(
     measurements
 ) -> Measurement:
@@ -100,7 +220,7 @@ def make_basic_composition(
 
     Required features: `contrib`
 
-    [make_basic_composition in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_basic_composition.html)
+    .. end-markdown
 
     :param measurements: A vector of Measurements to compose.
     :raises TypeError: if an argument's type differs from the expected type
@@ -142,7 +262,9 @@ def make_chain_mt(
 
     Required features: `contrib`
 
-    [make_chain_mt in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_chain_mt.html)
+    [make_chain_mt in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_chain_mt.html)
+
+    .. end-markdown
 
     :param measurement1: outer mechanism
     :type measurement1: Measurement
@@ -189,7 +311,9 @@ def make_chain_pm(
 
     Required features: `contrib`
 
-    [make_chain_pm in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_chain_pm.html)
+    [make_chain_pm in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_chain_pm.html)
+
+    .. end-markdown
 
     :param postprocess1: outer postprocessor
     :type postprocess1: Function
@@ -235,7 +359,9 @@ def make_chain_tt(
 
     Required features: `contrib`
 
-    [make_chain_tt in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_chain_tt.html)
+    [make_chain_tt in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_chain_tt.html)
+
+    .. end-markdown
 
     :param transformation1: outer transformation
     :type transformation1: Transformation
@@ -271,6 +397,56 @@ def make_chain_tt(
     return output
 
 
+def make_composition(
+    measurements
+) -> Measurement:
+    r"""Construct the DP composition \[`measurement0`, `measurement1`, ...\].
+    Returns a Measurement that when invoked, computes `[measurement0(x), measurement1(x), ...]`
+
+    All metrics and domains must be equivalent.
+
+    **Composition Properties**
+
+    * sequential: all measurements are applied to the same dataset
+    * basic: the composition is the linear sum of the privacy usage of each query
+    * noninteractive: all mechanisms specified up-front (but each can be interactive)
+    * compositor: all privacy parameters specified up-front (via the map)
+
+
+    Required features: `contrib`
+
+    .. end-markdown
+
+    :param measurements: A vector of Measurements to compose.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_measurements = py_to_c(measurements, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Vec', args=["AnyMeasurementPtr"]))
+
+    # Call library function.
+    lib_function = lib.opendp_combinators__make_composition
+    lib_function.argtypes = [AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_measurements), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_composition',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'measurements': measurements
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def make_fix_delta(
     measurement: Measurement,
     delta: float
@@ -280,7 +456,9 @@ def make_fix_delta(
 
     Required features: `contrib`
 
-    [make_fix_delta in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_fix_delta.html)
+    [make_fix_delta in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_fix_delta.html)
+
+    .. end-markdown
 
     :param measurement: a measurement with a privacy curve to be fixed
     :type measurement: Measurement
@@ -325,7 +503,9 @@ def make_fixed_approxDP_to_approxDP(
 
     Required features: `contrib`
 
-    [make_fixed_approxDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_fixed_approxDP_to_approxDP.html)
+    [make_fixed_approxDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_fixed_approxDP_to_approxDP.html)
+
+    .. end-markdown
 
     :param measurement: a measurement with a privacy measure to be casted
     :type measurement: Measurement
@@ -358,6 +538,96 @@ def make_fixed_approxDP_to_approxDP(
     return output
 
 
+def make_fully_adaptive_composition(
+    input_domain: Domain,
+    input_metric: Metric,
+    output_measure: Measure
+) -> Odometer:
+    r"""Construct an odometer that can spawn a compositor queryable.
+
+
+    Required features: `contrib`
+
+    [make_fully_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_fully_adaptive_composition.html)
+
+    **Supporting Elements:**
+
+    * Input Domain    `DI`
+    * Input Metric    `MI`
+    * Output Measure  `MO`
+    * Query           `Measurement<DI, MI, MO, TO>`
+    * Answer          `TO`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/combinators/sequential_composition/fully_adaptive/make_fully_adaptive_composition.pdf)
+
+    .. end-markdown
+
+    :param input_domain: indicates the space of valid input datasets
+    :type input_domain: Domain
+    :param input_metric: how distances are measured between members of the input domain
+    :type input_metric: Metric
+    :param output_measure: how privacy is measured
+    :type output_measure: Measure
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
+    c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
+    c_output_measure = py_to_c(output_measure, c_type=Measure, type_name=None)
+
+    # Call library function.
+    lib_function = lib.opendp_combinators__make_fully_adaptive_composition
+    lib_function.argtypes = [Domain, Metric, Measure]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_output_measure), Odometer))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_fully_adaptive_composition',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'input_domain': input_domain, 'input_metric': input_metric, 'output_measure': output_measure
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+def then_fully_adaptive_composition(
+    output_measure: Measure
+):  
+    r"""partial constructor of make_fully_adaptive_composition
+
+    .. end-markdown
+
+    .. seealso:: 
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_fully_adaptive_composition`
+
+    :param output_measure: how privacy is measured
+    :type output_measure: Measure
+    """
+    output = _PartialConstructor(lambda input_domain, input_metric: make_fully_adaptive_composition(
+        input_domain=input_domain,
+        input_metric=input_metric,
+        output_measure=output_measure))
+    output.__opendp_dict__ = {
+            '__function__': 'then_fully_adaptive_composition',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'output_measure': output_measure
+            },
+        }
+    return output
+
+
+
 def make_population_amplification(
     measurement: Measurement,
     population_size: int
@@ -371,11 +641,13 @@ def make_population_amplification(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [make_population_amplification in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_population_amplification.html)
+    [make_population_amplification in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_population_amplification.html)
 
     **Why honest-but-curious?:**
 
     The privacy guarantees are only valid if the input dataset is a simple sample from a population with `population_size` records.
+
+    .. end-markdown
 
     :param measurement: the computation to amplify
     :type measurement: Measurement
@@ -411,6 +683,70 @@ def make_population_amplification(
     return output
 
 
+def make_privacy_filter(
+    odometer: Odometer,
+    d_in,
+    d_out
+) -> Measurement:
+    r"""Combinator that limits the privacy loss of an odometer.
+
+    Adjusts the queryable returned by the odometer
+    to reject any query that would increase the total privacy loss
+    above the privacy guarantee of the mechanism.
+
+
+    Required features: `contrib`
+
+    [make_privacy_filter in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_privacy_filter.html)
+
+    **Supporting Elements:**
+
+    * Input Domain:   `DI`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `OdometerQueryable<Q, A, MI::Distance, MO::Distance>`
+
+    **Proof Definition:**
+
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/combinators/privacy_filter/make_privacy_filter.pdf)
+
+    .. end-markdown
+
+    :param odometer: A privacy odometer
+    :type odometer: Odometer
+    :param d_in: Upper bound on the distance between adjacent datasets
+    :param d_out: Upper bound on the privacy loss
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    assert_features("contrib")
+
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_odometer = py_to_c(odometer, c_type=Odometer, type_name=None)
+    c_d_in = py_to_c(d_in, c_type=AnyObjectPtr, type_name=get_distance_type(odometer_input_metric(odometer)))
+    c_d_out = py_to_c(d_out, c_type=AnyObjectPtr, type_name=get_distance_type(odometer_output_measure(odometer)))
+
+    # Call library function.
+    lib_function = lib.opendp_combinators__make_privacy_filter
+    lib_function.argtypes = [Odometer, AnyObjectPtr, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_odometer, c_d_in, c_d_out), Measurement))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': 'make_privacy_filter',
+            '__module__': 'combinators',
+            '__kwargs__': {
+                'odometer': odometer, 'd_in': d_in, 'd_out': d_out
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def make_pureDP_to_zCDP(
     measurement: Measurement
 ) -> Measurement:
@@ -420,11 +756,13 @@ def make_pureDP_to_zCDP(
 
     Required features: `contrib`
 
-    [make_pureDP_to_zCDP in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_pureDP_to_zCDP.html)
+    [make_pureDP_to_zCDP in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_pureDP_to_zCDP.html)
 
     **Citations:**
 
     - [BS16 Concentrated Differential Privacy: Simplifications, Extensions, and Lower Bounds](https://arxiv.org/pdf/1605.02065.pdf#subsection.3.1)
+
+    .. end-markdown
 
     :param measurement: a measurement with a privacy measure to be casted
     :type measurement: Measurement
@@ -481,18 +819,20 @@ def make_select_private_candidate(
 
     Required features: `contrib`
 
-    [make_select_private_candidate in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_select_private_candidate.html)
+    [make_select_private_candidate in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_select_private_candidate.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DI`
-    * Output Type:    `Option<(f64, TO)>`
-    * Input Metric:   `MI`
-    * Output Measure: `MaxDivergence`
+    * Output Type:    `MI`
+    * Input Metric:   `MaxDivergence`
+    * Output Measure: `Option<(f64, TO)>`
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.13.0/proofs/rust/src/combinators/select_private_candidate/make_select_private_candidate.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.0/proofs/rust/src/combinators/select_private_candidate/make_select_private_candidate.pdf)
+
+    .. end-markdown
 
     :param measurement: A measurement that releases a 2-tuple of (score, candidate)
     :type measurement: Measurement
@@ -562,6 +902,7 @@ def make_select_private_candidate(
     return output
 
 
+@deprecated(version="0.14.0", reason="This function has been renamed, use `make_adaptive_composition` instead.")
 def make_sequential_composition(
     input_domain: Domain,
     input_metric: Metric,
@@ -586,14 +927,16 @@ def make_sequential_composition(
 
     Required features: `contrib`
 
-    [make_sequential_composition in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_sequential_composition.html)
+    [make_sequential_composition in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_sequential_composition.html)
 
     **Supporting Elements:**
 
     * Input Domain:   `DI`
-    * Output Type:    `Queryable<Measurement<DI, TO, MI, MO>, TO>`
-    * Input Metric:   `MI`
-    * Output Measure: `MO`
+    * Output Type:    `MI`
+    * Input Metric:   `MO`
+    * Output Measure: `Queryable<Measurement<DI, MI, MO, TO>, TO>`
+
+    .. end-markdown
 
     :param input_domain: indicates the space of valid input datasets
     :type input_domain: Domain
@@ -644,8 +987,10 @@ def then_sequential_composition(
 ):  
     r"""partial constructor of make_sequential_composition
 
+    .. end-markdown
+
     .. seealso:: 
-      Delays application of `input_domain` and `input_metric` in :py:func:`opendp.combinators.make_sequential_composition`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_sequential_composition`
 
     :param output_measure: how privacy is measured
     :type output_measure: Measure
@@ -678,7 +1023,9 @@ def make_zCDP_to_approxDP(
 
     Required features: `contrib`
 
-    [make_zCDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/combinators/fn.make_zCDP_to_approxDP.html)
+    [make_zCDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/combinators/fn.make_zCDP_to_approxDP.html)
+
+    .. end-markdown
 
     :param measurement: a measurement with a privacy measure to be casted
     :type measurement: Measurement

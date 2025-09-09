@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aiolifx-themes
-Version: 1.0.1
+Version: 1.0.2
 Summary: Async library that applies color themes to LIFX lights
 License: MIT
 Author: Avi Miller

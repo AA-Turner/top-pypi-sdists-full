@@ -68,6 +68,58 @@ components:
         required:
         - type
         type: object
+    AutomationFileTransformFailedWebhookV2:
+      allOf:
+      - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
+      - properties:
+          type:
+            enum:
+            - v2.automationFileTransform.updated.status.failed
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+      description: Sent when an automation file transform status changes to failed
+    AutomationFileTransformPendingWebhookV2:
+      allOf:
+      - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
+      - properties:
+          type:
+            enum:
+            - v2.automationFileTransform.updated.status.pending
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+      description: Sent when an automation file transform status changes to pending
+    AutomationFileTransformRunningWebhookV2:
+      allOf:
+      - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
+      - properties:
+          type:
+            enum:
+            - v2.automationFileTransform.updated.status.running
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+      description: Sent when an automation file transform status changes to running
+    AutomationFileTransformSucceededWebhookV2:
+      allOf:
+      - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
+      - properties:
+          type:
+            enum:
+            - v2.automationFileTransform.updated.status.succeeded
+            nullable: false
+            type: string
+        required:
+        - type
+        type: object
+      description: Sent when an automation file transform status changes to succeeded
     CanvasCreatedWebhookV2:
       additionalProperties: false
       allOf:
@@ -989,6 +1041,10 @@ components:
           v2.app.installed: '#/components/schemas/AppInstalledWebhookV2'
           v2.assayRun.created: '#/components/schemas/AssayRunCreatedWebhookV2'
           v2.assayRun.updated.fields: '#/components/schemas/AssayRunUpdatedFieldsWebhookV2'
+          v2.automationFileTransform.updated.status.failed: '#/components/schemas/AutomationFileTransformFailedWebhookV2'
+          v2.automationFileTransform.updated.status.pending: '#/components/schemas/AutomationFileTransformPendingWebhookV2'
+          v2.automationFileTransform.updated.status.running: '#/components/schemas/AutomationFileTransformRunningWebhookV2'
+          v2.automationFileTransform.updated.status.succeeded: '#/components/schemas/AutomationFileTransformSucceededWebhookV2'
           v2.canvas.created: '#/components/schemas/CanvasCreatedWebhookV2'
           v2.canvas.initialized: '#/components/schemas/CanvasInitializeWebhookV2'
           v2.canvas.userInteracted: '#/components/schemas/CanvasInteractionWebhookV2'
@@ -1030,6 +1086,10 @@ components:
       - $ref: '#/components/schemas/CanvasInitializeWebhookV2'
       - $ref: '#/components/schemas/CanvasCreatedWebhookV2'
       - $ref: '#/components/schemas/CanvasCreatedWebhookV2Beta'
+      - $ref: '#/components/schemas/AutomationFileTransformRunningWebhookV2'
+      - $ref: '#/components/schemas/AutomationFileTransformPendingWebhookV2'
+      - $ref: '#/components/schemas/AutomationFileTransformSucceededWebhookV2'
+      - $ref: '#/components/schemas/AutomationFileTransformFailedWebhookV2'
       - $ref: '#/components/schemas/AppActivateRequestedWebhookV2'
       - $ref: '#/components/schemas/AppDeactivatedWebhookV2'
       - $ref: '#/components/schemas/AppInstalledWebhookV2'

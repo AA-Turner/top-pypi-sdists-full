@@ -9,8 +9,6 @@ Public objects and methods wrapping the MyGeotab API.
 
 from __future__ import unicode_literals
 
-import copy
-import re
 import ssl
 import sys
 from urllib.parse import urlparse
@@ -23,6 +21,7 @@ from urllib3.util.ssl_ import create_urllib3_context
 
 from . import __title__, __version__
 from .exceptions import AuthenticationException, MyGeotabException, TimeoutException
+from .parameters import camelcaseify_parameters, convert_get_parameters
 from .serializers import json_deserialize, json_serialize
 
 DEFAULT_TIMEOUT = 300
@@ -102,7 +101,7 @@ class API(object):
         """
         if method is None:
             raise Exception("A method name must be specified")
-        params = process_parameters(parameters)
+        params = camelcaseify_parameters(parameters)
         if self.credentials and not self.credentials.session_id:
             self.authenticate()
         if "credentials" not in params and self.credentials.session_id:
@@ -168,22 +167,7 @@ class API(object):
         :return: The results from the server.
         :rtype: list
         """
-        if parameters:
-            # Detect resultsLimit if passed camelCase or python_case and
-            # remove from parameters (otherwise they will become part of search)
-            results_limit = parameters.get("resultsLimit")
-            if results_limit is not None:
-                del parameters["resultsLimit"]
-            else:
-                results_limit = parameters.get("results_limit")
-                if results_limit is not None:
-                    del parameters["results_limit"]
-
-            if "search" in parameters:
-                parameters.update(parameters["search"])
-                del parameters["search"]
-            parameters = dict(search=parameters, resultsLimit=results_limit)
-        return self.call("Get", type_name=type_name, **parameters)
+        return self.call("Get", type_name=type_name, **convert_get_parameters(parameters))
 
     def add(self, type_name, entity):
         """Adds an entity using the API. Shortcut for using call() with the 'Add' method.
@@ -333,9 +317,7 @@ class Credentials(object):
         return "{0} @ {1}/{2}".format(self.username, self.server, self.database)
 
     def __repr__(self):
-        return "Credentials(username={username}, database={database})".format(
-            username=self.username, database=self.database
-        )
+        return "Credentials(username={username}, database={database})".format(username=self.username, database=self.database)
 
     def get_param(self):
         """A simple representation of the credentials object for passing into the API.authenticate() server call.
@@ -347,16 +329,13 @@ class Credentials(object):
 
 
 class GeotabHTTPAdapter(HTTPAdapter):
-    """HTTP adapter to force use of TLS 1.2 for HTTPS connections."""
+    """HTTP adapter to enforce use of TLS for HTTPS."""
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        ssl_context = create_urllib3_context(ssl_version=ssl.PROTOCOL_TLS)
+        ssl_context = create_urllib3_context(ssl_version=ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_default_certs()
-        ssl_context.options |= ssl.OP_NO_SSLv2
-        ssl_context.options |= ssl.OP_NO_SSLv3
-        ssl_context.options |= ssl.OP_NO_TLSv1
-        ssl_context.options |= ssl.OP_NO_TLSv1_1
-        ssl_context.options |= ssl.OP_ENABLE_MIDDLEBOX_COMPAT
+        if hasattr(ssl, "OP_ENABLE_MIDDLEBOX_COMPAT"):
+            ssl_context.options |= ssl.OP_ENABLE_MIDDLEBOX_COMPAT
         self.poolmanager = urllib3.poolmanager.PoolManager(
             num_pools=connections, maxsize=maxsize, block=block, ssl_context=ssl_context, **pool_kwargs
         )
@@ -447,30 +426,8 @@ def server_call(method, server, timeout=DEFAULT_TIMEOUT, verify_ssl=True, proxie
         raise Exception("A method name must be specified")
     if server is None:
         raise Exception("A server (eg. my3.geotab.com) must be specified")
-    parameters = process_parameters(parameters)
+    parameters = camelcaseify_parameters(parameters)
     return _query(server, method, parameters, timeout=timeout, verify_ssl=verify_ssl, proxies=proxies)
-
-
-def process_parameters(parameters):
-    """Allows the use of Pythonic-style parameters with underscores instead of camel-case.
-
-    :param parameters: The parameters object.
-    :type parameters: dict
-    :return: The processed parameters.
-    :rtype: dict
-    """
-    if not parameters:
-        return {}
-    params = copy.copy(parameters)
-    for param_name in parameters:
-        value = parameters[param_name]
-        server_param_name = re.sub(r"_(\w)", lambda m: m.group(1).upper(), param_name)
-        if isinstance(value, dict):
-            value = process_parameters(value)
-        params[server_param_name] = value
-        if server_param_name != param_name:
-            del params[param_name]
-    return params
 
 
 def get_api_url(server):

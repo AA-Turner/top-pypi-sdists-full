@@ -3,7 +3,12 @@
 
 import unittest
 import sys
+import os
+import stat
+import shutil
 from pathlib import Path
+
+from . import test_dir
 
 import pkg_about
 
@@ -45,20 +50,26 @@ class MainTestCase(unittest.TestCase):
         self.assertEqual(__copyright__, __author__)
 
     def test_about_from_setup(self):
-        pkg_about.about_from_setup(Path(__file__).resolve().parent.parent)
-        self.assertEqual(about.__title__, "pkg_about")
-        self.assertEqual(about.__version__, self.version_expected)
-        self.assertEqual(about.__version_info__.major, self.version_major_expected)
-        self.assertEqual(about.__version_info__.minor, self.version_minor_expected)
-        self.assertEqual(about.__version_info__.micro, self.version_micro_expected)
-        self.assertEqual(about.__version_info__.releaselevel, "final")
-        self.assertEqual(about.__version_info__.serial, 0)
-        self.assertEqual(about.__summary__, "Shares Python package metadata at runtime.")
-        self.assertEqual(about.__uri__, "https://pypi.org/project/pkg-about/")
-        self.assertEqual(about.__author__, "Adam Karpierz")
-        self.assertEqual(about.__email__, "adam@karpierz.net")
-        self.assertEqual(about.__author_email__, "adam@karpierz.net")
-        self.assertEqual(about.__maintainer__, "Adam Karpierz")
-        self.assertEqual(about.__maintainer_email__, "adam@karpierz.net")
-        self.assertEqual(about.__license__, "Zlib")
-        self.assertEqual(about.__copyright__, about.__author__)
+        package_path = Path(__file__).resolve().parent.parent
+        setup_cfg = shutil.copy(test_dir/"data/setup.cfg", package_path/"setup.cfg")
+        try:
+            pkg_about.about_from_setup(package_path)
+            self.assertEqual(about.__title__, "pkg_about")
+            self.assertEqual(about.__version__, self.version_expected)
+            self.assertEqual(about.__version_info__.major, self.version_major_expected)
+            self.assertEqual(about.__version_info__.minor, self.version_minor_expected)
+            self.assertEqual(about.__version_info__.micro, self.version_micro_expected)
+            self.assertEqual(about.__version_info__.releaselevel, "final")
+            self.assertEqual(about.__version_info__.serial, 0)
+            self.assertEqual(about.__summary__, "Shares Python package metadata at runtime.")
+            self.assertEqual(about.__uri__, "https://pypi.org/project/pkg-about/")
+            self.assertEqual(about.__author__, "Adam Karpierz")
+            self.assertEqual(about.__email__, "adam@karpierz.net")
+            self.assertEqual(about.__author_email__, "adam@karpierz.net")
+            self.assertEqual(about.__maintainer__, "Adam Karpierz")
+            self.assertEqual(about.__maintainer_email__, "adam@karpierz.net")
+            self.assertEqual(about.__license__, "Zlib")
+            self.assertEqual(about.__copyright__, about.__author__)
+        finally:
+            os.chmod(setup_cfg, stat.S_IWRITE)
+            setup_cfg.unlink()

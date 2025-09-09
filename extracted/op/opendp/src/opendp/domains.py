@@ -6,7 +6,7 @@ For more context, see :ref:`domains in the User Guide <domains-user-guide>`.
 For convenience, all the functions of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 '''
@@ -28,6 +28,7 @@ __all__ = [
     "_lazyframe_domain_get_margin",
     "_lazyframe_domain_get_series_domain",
     "_lazyframe_from_domain",
+    "_member",
     "_option_domain_get_element_domain",
     "_series_domain_get_element_domain",
     "_series_domain_get_name",
@@ -45,7 +46,6 @@ __all__ = [
     "enum_domain",
     "lazyframe_domain",
     "map_domain",
-    "member",
     "option_domain",
     "series_domain",
     "user_domain",
@@ -60,7 +60,9 @@ def _atom_domain_get_bounds_closed(
 ):
     r"""Retrieve bounds from an AtomDomain<T>
 
-    [_atom_domain_get_bounds_closed in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn._atom_domain_get_bounds_closed.html)
+    [_atom_domain_get_bounds_closed in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn._atom_domain_get_bounds_closed.html)
+
+    .. end-markdown
 
     :param domain: 
     :type domain: Domain
@@ -96,7 +98,9 @@ def _atom_domain_nan(
 ):
     r"""Retrieve whether members of AtomDomain<T> may be NaN.
 
-    [_atom_domain_nan in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn._atom_domain_nan.html)
+    [_atom_domain_nan in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn._atom_domain_nan.html)
+
+    .. end-markdown
 
     :param domain: 
     :type domain: Domain
@@ -132,6 +136,8 @@ def _domain_equal(
     right: Domain
 ) -> bool:
     r"""Check whether two domains are equal.
+
+    .. end-markdown
 
     :param left: Domain to compare.
     :type left: Domain
@@ -170,6 +176,8 @@ def _domain_free(
 ):
     r"""Internal function. Free the memory associated with `this`.
 
+    .. end-markdown
+
     :param this: 
     :type this: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -203,6 +211,8 @@ def _extrinsic_domain_descriptor(
     domain: Domain
 ):
     r"""Retrieve the descriptor value stored in an extrinsic domain.
+
+    .. end-markdown
 
     :param domain: The ExtrinsicDomain to extract the descriptor from
     :type domain: Domain
@@ -238,6 +248,8 @@ def _lazyframe_domain_get_columns(
 ):
     r"""Retrieve the column names of the LazyFrameDomain.
 
+    .. end-markdown
+
     :param lazyframe_domain: Domain to retrieve the column names from
     :type lazyframe_domain: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -272,6 +284,8 @@ def _lazyframe_domain_get_margin(
     by
 ):
     r"""Retrieve the series domain at index 'column`.
+
+    .. end-markdown
 
     :param lazyframe_domain: Domain to retrieve the SeriesDomain from
     :type lazyframe_domain: Domain
@@ -309,6 +323,8 @@ def _lazyframe_domain_get_series_domain(
     name: str
 ) -> Domain:
     r"""Retrieve the series domain at index `column`.
+
+    .. end-markdown
 
     :param lazyframe_domain: Domain to retrieve the SeriesDomain from
     :type lazyframe_domain: Domain
@@ -349,7 +365,9 @@ def _lazyframe_from_domain(
 
     This is useful for creating a dummy lazyframe used to write a query plan.
 
-    [_lazyframe_from_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn._lazyframe_from_domain.html)
+    [_lazyframe_from_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn._lazyframe_from_domain.html)
+
+    .. end-markdown
 
     :param domain: A LazyFrameDomain.
     :type domain: Domain
@@ -380,10 +398,51 @@ def _lazyframe_from_domain(
     return output
 
 
+def _member(
+    this: Domain,
+    val
+) -> bool:
+    r"""Check membership in a `domain`.
+
+    .. end-markdown
+
+    :param this: The domain to check membership in.
+    :type this: Domain
+    :param val: A potential element of the domain.
+    :raises TypeError: if an argument's type differs from the expected type
+    :raises UnknownTypeException: if a type argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # No type arguments to standardize.
+    # Convert arguments to c types.
+    c_this = py_to_c(this, c_type=Domain, type_name="AnyDomain")
+    c_val = py_to_c(val, c_type=AnyObjectPtr, type_name=domain_carrier_type(this))
+
+    # Call library function.
+    lib_function = lib.opendp_domains___member
+    lib_function.argtypes = [Domain, AnyObjectPtr]
+    lib_function.restype = FfiResult
+
+    output = c_to_py(unwrap(lib_function(c_this, c_val), BoolPtr))
+    try:
+        output.__opendp_dict__ = {
+            '__function__': '_member',
+            '__module__': 'domains',
+            '__kwargs__': {
+                'this': this, 'val': val
+            },
+        }
+    except AttributeError:  # pragma: no cover
+        pass
+    return output
+
+
 def _option_domain_get_element_domain(
     option_domain: Domain
 ) -> Domain:
     r"""Retrieve the element domain of the option domain.
+
+    .. end-markdown
 
     :param option_domain: The option domain from which to retrieve the element domain
     :type option_domain: Domain
@@ -419,7 +478,9 @@ def _series_domain_get_element_domain(
 ) -> Domain:
     r"""Retrieve the element domain of the series domain.
 
-    [_series_domain_get_element_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn._series_domain_get_element_domain.html)
+    [_series_domain_get_element_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn._series_domain_get_element_domain.html)
+
+    .. end-markdown
 
     :param series_domain: The series domain from which to retrieve the element domain
     :type series_domain: Domain
@@ -455,6 +516,8 @@ def _series_domain_get_name(
 ):
     r"""
 
+    .. end-markdown
+
     :param series_domain: The series domain from which to retrieve the name of elements
     :type series_domain: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -488,6 +551,8 @@ def _series_domain_get_nullable(
     series_domain: Domain
 ):
     r"""Retrieve whether elements in members of the domain may be null.
+
+    .. end-markdown
 
     :param series_domain: The series domain from which to check nullability.
     :type series_domain: Domain
@@ -523,6 +588,8 @@ def _vector_domain_get_element_domain(
 ) -> Domain:
     r"""Retrieve the element domain of the vector domain.
 
+    .. end-markdown
+
     :param vector_domain: The vector domain from which to retrieve the element domain
     :type vector_domain: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -556,6 +623,8 @@ def _vector_domain_get_size(
     vector_domain: Domain
 ):
     r"""Retrieve the size of vectors in the vector domain.
+
+    .. end-markdown
 
     :param vector_domain: The vector domain from which to retrieve the size
     :type vector_domain: Domain
@@ -592,6 +661,8 @@ def array_domain(
 ) -> Domain:
     r"""Construct an instance of `ArrayDomain`.
     Can be used as an argument to a Polars series domain.
+
+    .. end-markdown
 
     :param element_domain: The domain of each element in the array.
     :type element_domain: Domain
@@ -635,7 +706,9 @@ def atom_domain(
     The domain defaults to unbounded if `bounds` is `None`,
     If `T` is float, `nan` defaults to `true`.
 
-    [atom_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn.atom_domain.html)
+    [atom_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn.atom_domain.html)
+
+    .. end-markdown
 
     :param bounds: Optional bounds of elements in the domain, if the data type is numeric.
     :param nan: Whether the domain may contain NaN, if the data type is float.
@@ -683,6 +756,8 @@ def bitvector_domain(
 ) -> Domain:
     r"""Construct an instance of `BitVectorDomain`.
 
+    .. end-markdown
+
     :param max_weight: The maximum number of positive bits.
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -716,6 +791,8 @@ def categorical_domain(
 ) -> Domain:
     r"""Construct an instance of `CategoricalDomain`.
     Can be used as an argument to a Polars series domain.
+
+    .. end-markdown
 
     :param categories: Optional ordered set of valid string categories
     :raises TypeError: if an argument's type differs from the expected type
@@ -753,9 +830,11 @@ def datetime_domain(
 
     Documentation on valid time zones can be found [in the Polars documentation](https://docs.pola.rs/user-guide/transformations/time-series/timezones/).
 
-    [datetime_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn.datetime_domain.html)
+    [datetime_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn.datetime_domain.html)
 
-    :param time_unit: One of `ns`, `us` or `ms`, corresponding to nano-, micro-, and milliseconds
+    .. end-markdown
+
+    :param time_unit: One of ``ns``, ``us`` or ``ms``, corresponding to nano-, micro-, and milliseconds
     :type time_unit: str
     :param time_zone: Optional time zone.
     :type time_zone: str
@@ -792,6 +871,8 @@ def domain_carrier_type(
 ) -> str:
     r"""Get the carrier type of a `domain`.
 
+    .. end-markdown
+
     :param this: The domain to retrieve the carrier type from.
     :type this: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -826,6 +907,8 @@ def domain_debug(
 ) -> str:
     r"""Debug a `domain`.
 
+    .. end-markdown
+
     :param this: The domain to debug (stringify).
     :type this: Domain
     :raises TypeError: if an argument's type differs from the expected type
@@ -859,6 +942,8 @@ def domain_type(
     this: Domain
 ) -> str:
     r"""Get the type of a `domain`.
+
+    .. end-markdown
 
     :param this: The domain to retrieve the type from.
     :type this: Domain
@@ -895,6 +980,8 @@ def enum_domain(
     r"""Construct an instance of `EnumDomain`.
     Can be used as an argument to a Polars series domain.
 
+    .. end-markdown
+
     :param categories: Optional ordered set of string categories
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
@@ -927,6 +1014,8 @@ def lazyframe_domain(
     series_domains
 ) -> LazyFrameDomain:
     r"""Construct an instance of `LazyFrameDomain`.
+
+    .. end-markdown
 
     :param series_domains: Domain of each series in the lazyframe.
     :raises TypeError: if an argument's type differs from the expected type
@@ -962,6 +1051,8 @@ def map_domain(
 ) -> Domain:
     r"""Construct an instance of `MapDomain`.
 
+    .. end-markdown
+
     :param key_domain: domain of keys in the hashmap
     :type key_domain: Domain
     :param value_domain: domain of values in the hashmap
@@ -994,50 +1085,15 @@ def map_domain(
     return output
 
 
-def member(
-    this: Domain,
-    val
-) -> bool:
-    r"""Check membership in a `domain`.
-
-    :param this: The domain to check membership in.
-    :type this: Domain
-    :param val: A potential element of the domain.
-    :raises TypeError: if an argument's type differs from the expected type
-    :raises UnknownTypeException: if a type argument fails to parse
-    :raises OpenDPException: packaged error from the core OpenDP library
-    """
-    # No type arguments to standardize.
-    # Convert arguments to c types.
-    c_this = py_to_c(this, c_type=Domain, type_name="AnyDomain")
-    c_val = py_to_c(val, c_type=AnyObjectPtr, type_name=domain_carrier_type(this))
-
-    # Call library function.
-    lib_function = lib.opendp_domains__member
-    lib_function.argtypes = [Domain, AnyObjectPtr]
-    lib_function.restype = FfiResult
-
-    output = c_to_py(unwrap(lib_function(c_this, c_val), BoolPtr))
-    try:
-        output.__opendp_dict__ = {
-            '__function__': 'member',
-            '__module__': 'domains',
-            '__kwargs__': {
-                'this': this, 'val': val
-            },
-        }
-    except AttributeError:  # pragma: no cover
-        pass
-    return output
-
-
 def option_domain(
     element_domain: Domain,
     D: Optional[RuntimeTypeDescriptor] = None
 ) -> OptionDomain:
     r"""Construct an instance of `OptionDomain`.
 
-    [option_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn.option_domain.html)
+    [option_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn.option_domain.html)
+
+    .. end-markdown
 
     :param element_domain: 
     :type element_domain: Domain
@@ -1079,7 +1135,9 @@ def series_domain(
 ) -> SeriesDomain:
     r"""Construct an instance of `SeriesDomain`.
 
-    [series_domain in Rust documentation.](https://docs.rs/opendp/0.13.0/opendp/domains/fn.series_domain.html)
+    [series_domain in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/domains/fn.series_domain.html)
+
+    .. end-markdown
 
     :param name: The name of the series.
     :type name: str
@@ -1137,6 +1195,8 @@ def user_domain(
     1. be a pure function
     2. be sound (only return true if its input is a member of the domain).
 
+    .. end-markdown
+
     :param identifier: A string description of the data domain.
     :type identifier: str
     :param member: A function used to test if a value is a member of the data domain.
@@ -1178,6 +1238,8 @@ def vector_domain(
 ) -> VectorDomain:
     r"""Construct an instance of `VectorDomain`.
 
+    .. end-markdown
+
     :param atom_domain: The inner domain.
     :type atom_domain: Domain
     :param size: 
@@ -1218,6 +1280,8 @@ def wild_expr_domain(
 
     Required features: `contrib`
 
+    .. end-markdown
+
     :param columns: descriptors for each column in the data
     :param margin: descriptors for grouped data
     :raises TypeError: if an argument's type differs from the expected type
@@ -1255,6 +1319,8 @@ def with_margin(
     margin
 ) -> LazyFrameDomain:
     r"""
+
+    .. end-markdown
 
     :param frame_domain: 
     :type frame_domain: Domain

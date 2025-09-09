@@ -4,7 +4,7 @@ use polars_plan::dsl::Expr;
 use crate::core::{MetricSpace, Transformation};
 use crate::domains::{ExprDomain, OuterMetric, WildExprDomain};
 use crate::error::*;
-use crate::transformations::DatasetMetric;
+use crate::metrics::MicrodataMetric;
 
 use super::StableExpr;
 
@@ -21,9 +21,9 @@ pub fn make_namespace_arr<M: OuterMetric>(
     _input_domain: WildExprDomain,
     _input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
-    M::InnerMetric: DatasetMetric,
+    M::InnerMetric: MicrodataMetric,
     M::Distance: Clone,
     (WildExprDomain, M): MetricSpace,
     (ExprDomain, M): MetricSpace,

@@ -351,7 +351,9 @@ ThreatIntelIndicatorTypeType = Literal[
     "PROCESS",
     "URL",
 ]
-UnprocessedErrorCodeType = Literal["ACCESS_DENIED", "INVALID_INPUT", "LIMIT_EXCEEDED", "NOT_FOUND"]
+UnprocessedErrorCodeType = Literal[
+    "ACCESS_DENIED", "INVALID_INPUT", "LIMIT_EXCEEDED", "NOT_FOUND", "RESOURCE_NOT_FOUND"
+]
 UpdateStatusType = Literal["READY", "UPDATING"]
 VerificationStateType = Literal["BENIGN_POSITIVE", "FALSE_POSITIVE", "TRUE_POSITIVE", "UNKNOWN"]
 VulnerabilityExploitAvailableType = Literal["NO", "YES"]

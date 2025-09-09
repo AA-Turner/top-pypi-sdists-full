@@ -5,21 +5,16 @@ import sys
 import unittest
 from collections.abc import Iterable
 from types import TracebackType
-from typing import Any
-from typing import Union
-from typing import cast
-from unittest.case import TestCase
-from unittest.case import _SubTest  # type: ignore [attr-defined]
-from unittest.result import STDERR_LINE
-from unittest.result import STDOUT_LINE
-from unittest.result import TestResult
-from unittest.result import failfast
+from typing import Any, Union, cast
+from unittest.case import (  # type: ignore [attr-defined]
+    TestCase,
+    _SubTest,
+)
+from unittest.result import STDERR_LINE, STDOUT_LINE, TestResult, failfast
 from unittest.runner import _WritelnDecorator
 
 from django.test import testcases
-from django.test.runner import DebugSQLTextTestResult
-from django.test.runner import DiscoverRunner
-from django.test.runner import PDBDebugResult
+from django.test.runner import DebugSQLTextTestResult, DiscoverRunner, PDBDebugResult
 from rich.color import Color
 from rich.console import Console
 from rich.rule import Rule
@@ -121,7 +116,7 @@ class RichTextTestResult(unittest.TextTestResult):
         for test, err in errors:
             title = f"{flavour}: {self.getDescription(test)}"
             self.console.print(DJANGO_GREEN_RULE, title, DJANGO_GREEN_RULE)
-            self.stream.write("%s\n" % err)
+            self.stream.write(f"{err}\n")
 
     def _write_status(self, test: TestCase, status: str) -> None:
         is_subtest = isinstance(test, _SubTest)
@@ -207,7 +202,7 @@ class RichDebugSQLTextTestResult(DebugSQLTextTestResult, RichTextTestResult):
         for test, err, sql_debug in errors:
             title = f"{flavour}: {self.getDescription(test)}"
             self.console.print(DJANGO_GREEN_RULE, title, DJANGO_GREEN_RULE)
-            self.stream.write("%s\n" % err)
+            self.stream.write(f"{err}\n")
             self.console.print(DJANGO_GREEN_RULE)
             self.console.print(sql_debug)
 
@@ -217,7 +212,9 @@ class RichPDBDebugResult(PDBDebugResult, RichTextTestResult):
 
 
 class RichTestRunner(unittest.TextTestRunner):
-    resultclass = RichTextTestResult
+    # Ignoring typing issue because it’s hard to make RichTextTestResult match
+    # the types of TextTestResult.
+    resultclass = RichTextTestResult  # type: ignore [assignment]
 
     def _printDurations(self, result: RichTextTestResult) -> None:
         if not result.collectedDurations:
@@ -235,7 +232,7 @@ class RichTestRunner(unittest.TextTestRunner):
             if self.verbosity < 2 and elapsed < 0.001:
                 hidden = True
                 continue
-            table.add_row("%.3fs" % elapsed, test)
+            table.add_row(f"{elapsed:.3f}s", test)
         if hidden:
             table.caption = (
                 "Durations < 0.001s were hidden. Use -v to show these durations."

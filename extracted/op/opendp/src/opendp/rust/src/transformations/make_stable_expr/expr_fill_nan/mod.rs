@@ -4,7 +4,7 @@ use polars_plan::dsl::Expr;
 use crate::core::{Function, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{AtomDomain, ExprDomain, ExprPlan, OuterMetric, WildExprDomain};
 use crate::error::*;
-use crate::transformations::DatasetMetric;
+use crate::metrics::MicrodataMetric;
 
 use super::StableExpr;
 
@@ -21,9 +21,9 @@ pub fn make_expr_fill_nan<M: OuterMetric>(
     input_domain: WildExprDomain,
     input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
-    M::InnerMetric: DatasetMetric,
+    M::InnerMetric: MicrodataMetric,
     M::Distance: Clone,
     (WildExprDomain, M): MetricSpace,
     (ExprDomain, M): MetricSpace,
@@ -72,7 +72,7 @@ where
         // If the float domain is NaN-able, then the domain includes NaN
         DataType::Float32 => fill_series.atom_domain::<f32>()?.nan(),
         DataType::Float64 => fill_series.atom_domain::<f64>()?.nan(),
-        i if i.is_numeric() => false,
+        i if i.is_primitive_numeric() => false,
         _ => {
             return fallible!(
                 MakeTransformation,
@@ -113,7 +113,9 @@ where
 
     Transformation::new(
         input_domain,
+        input_metric.clone(),
         output_domain,
+        input_metric,
         Function::new_fallible(move |arg| {
             let data = t_data.invoke(arg)?;
             let fill = t_fill.invoke(arg)?;
@@ -124,8 +126,6 @@ where
                 fill: data.fill.zip(fill.fill).map(|(d, f)| d.fill_nan(f)),
             })
         }),
-        input_metric.clone(),
-        input_metric,
         StabilityMap::new(Clone::clone),
     )
 }

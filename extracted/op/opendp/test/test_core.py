@@ -220,6 +220,36 @@ def test_new_domain():
     assert not not_null_domain.member(float("nan"))
 
 
+@pytest.mark.parametrize("struct", [
+    dp.m.make_user_measurement(
+        dp.atom_domain(T=int),
+        dp.absolute_distance(T=int),
+        dp.max_divergence(),
+        lambda x: x,
+        lambda _: 0.0,
+    ), 
+    dp.t.make_user_transformation(
+        dp.atom_domain(T=int),
+        dp.absolute_distance(T=int),
+        dp.atom_domain(T=int),
+        dp.absolute_distance(T=int),
+        lambda x: x,
+        lambda _: 0.0,
+    ),
+    dp.c.make_fully_adaptive_composition(
+        dp.atom_domain(T=int),
+        dp.absolute_distance(T=int),
+        dp.max_divergence(),
+    ),
+    dp.user_distance(""),
+    dp.user_divergence(""),
+    dp.user_domain("", lambda _: True),
+    dp.new_function(lambda x: x, TO="i32"),
+])
+def test_struct_iter(struct):
+    with pytest.raises(ValueError):
+        [*struct]
+
 @pytest.mark.parametrize("new_domain", [dp.user_domain, _extrinsic_domain])
 def test_custom_domain(new_domain):
     from datetime import datetime
@@ -248,6 +278,11 @@ def test_custom_domain(new_domain):
 
     # can retrieve the descriptor for use in further analysis
     assert domain.descriptor == {1, 2, 3, 4}
+    # or retrieve the descriptor with type-checking
+    assert domain.cast(set) == {1, 2, 3, 4}
+
+    with pytest.raises(ValueError, match="domain descriptor must be a int"):
+        assert domain.cast(int)
 
     # nest inside a vector domain
     vec_domain = dp.vector_domain(domain)
@@ -275,7 +310,7 @@ def test_extrinsic_free():
         lambda _: 0.0,
     )
 
-    sc_meas = space >> dp.c.then_sequential_composition(
+    sc_meas = space >> dp.c.then_adaptive_composition(
         dp.max_divergence(),
         d_in=1,
         d_mids=[1.0],

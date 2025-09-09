@@ -2,18 +2,15 @@
 Setup.py for creating a binary distribution.
 '''
 
-from __future__ import print_function
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
-try:
-    import subprocess32 as subprocess
-except ImportError:
-    import subprocess
-
 from os import environ
 from os.path import dirname, join
+import subprocess
 import sys
+
 from setup_sdist import SETUP_KWARGS
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
+
 
 # XXX hack to be able to import jnius.env withough having build
 # jnius.jnius yet, better solution welcome
@@ -67,6 +64,7 @@ JAVA=get_java_setup(PLATFORM)
 
 assert JAVA.is_jdk(), "You need a JDK, we only found a JRE. Try setting JAVA_HOME"
 
+
 def compile_native_invocation_handler(java):
     '''Find javac and compile NativeInvocationHandler.java.'''
     javac = java.get_javac()
@@ -82,19 +80,13 @@ def compile_native_invocation_handler(java):
             join('jnius', 'src', 'org', 'jnius', 'NativeInvocationHandler.java')
         ])
 
+
 compile_native_invocation_handler(JAVA)
 
 
 # generate the config.pxi
 with open(join(dirname(__file__), 'jnius', 'config.pxi'), 'w') as fd:
-    if PLATFORM == 'android':
-        cython3 = environ.get('ANDROID_PYJNIUS_CYTHON_3', '0') == '1'
-    else:
-        import Cython
-        cython3 = Cython.__version__.startswith('3.')
     fd.write('DEF JNIUS_PLATFORM = {0!r}\n\n'.format(PLATFORM))
-    # record the Cython version, to address #669
-    fd.write(f'DEF JNIUS_CYTHON_3 = {cython3}')
 
 # pop setup.py from included files in the installed package
 SETUP_KWARGS['py_modules'].remove('setup')

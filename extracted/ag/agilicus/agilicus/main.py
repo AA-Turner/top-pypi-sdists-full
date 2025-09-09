@@ -701,12 +701,11 @@ def list_audit_records(ctx, show_column, **kwargs):
 
 
 @cli.command(name="list-auth-audit-records")
-@click.option("--limit", type=int, default=50)
+@click.option("--limit", type=int, default=None)
 @click.option("--org-id", default=None)
 @click.option("--dt-from", default=None)
 @click.option("--dt-to", default=None)
 @click.option("--user-id", default=None)
-@click.option("--event", default=None)
 @click.option("--session-id", default=None)
 @click.option("--trace-id", default=None)
 @click.option("--upstream-user-id", default=None)

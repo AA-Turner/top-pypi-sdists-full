@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-03T10:45:51.835569                                                            #
+# Generated on 2025-09-08T21:00:14.431881                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
 from .config_utils import ConfigField as ConfigField
 from .config_utils import ConfigMeta as ConfigMeta
@@ -129,6 +129,9 @@ class PackageConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins
     """
     Package configuration.
     """
+    @staticmethod
+    def validate(package_config: "PackageConfig"):
+        ...
     def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
         ...
     ...

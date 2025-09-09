@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bm25s
-Version: 0.2.13
+Version: 0.2.14
 Summary: An ultra-fast implementation of BM25 based on sparse matrices.
 Home-page: https://github.com/xhluca/bm25s
 Author: Xing Han Lù
@@ -21,9 +21,9 @@ License-File: LICENSE
 
 <div align="center">
 
-<h1>BM25-Sparse⚡</h1>
+<h1>BM25S⚡</h1>
 
-<i>BM25S is an ultrafast implementation of BM25 in pure Python, powered by Scipy sparse matrices</i>
+<i>BM25S (or BM25-Sparse) is an ultrafast implementation of BM25 in pure Python, powered by Scipy sparse matrices</i>
 
 <table>
       <tr>
@@ -97,13 +97,13 @@ If you want to use stemming for better results, you can install the recommended 
 
 ```bash
 # Install all extra dependencies
-pip install bm25s[full]
+pip install "bm25s[full]"
 
 # If you want to use stemming for better results, you can install a stemmer
 pip install PyStemmer
 
 # To speed up the top-k selection process, you can install `jax`
-pip install jax[cpu]
+pip install "jax[cpu]"
 ```
 
 ## Quickstart

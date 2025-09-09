@@ -1,22 +1,24 @@
-use std::{ffi::c_char, fmt::Debug, marker::PhantomData};
+use std::ffi::c_char;
 
 use opendp_derive::bootstrap;
 
 use crate::{
     core::{FfiResult, Metric},
+    domains::ffi::ExtrinsicElement,
     error::Fallible,
     ffi::{
         any::{AnyMetric, Downcast},
         util::{self, ExtrinsicObject, Type, c_bool, into_c_char_p, to_str},
     },
     metrics::{AbsoluteDistance, L1Distance, L2Distance},
-    traits::InfAdd,
+    traits::{InfAdd, Number},
 };
 
 use super::{
-    ChangeOneDistance, DiscreteDistance, HammingDistance, InsertDeleteDistance, LInfDistance,
-    PartitionDistance, SymmetricDistance,
+    ChangeOneDistance, DiscreteDistance, HammingDistance, InsertDeleteDistance, L0PInfDistance,
+    L01InfDistance, L02InfDistance, LInfDistance, SymmetricDistance,
 };
+
 #[bootstrap(
     name = "_metric_free",
     arguments(this(do_not_convert = true)),
@@ -102,7 +104,7 @@ pub extern "C" fn opendp_metrics__metric_distance_type(
 /// Construct an instance of the `SymmetricDistance` metric.
 #[unsafe(no_mangle)]
 pub extern "C" fn opendp_metrics__symmetric_distance() -> FfiResult<*mut AnyMetric> {
-    FfiResult::Ok(util::into_raw(AnyMetric::new(SymmetricDistance::default())))
+    FfiResult::Ok(util::into_raw(AnyMetric::new(SymmetricDistance)))
 }
 
 #[bootstrap(
@@ -112,9 +114,7 @@ pub extern "C" fn opendp_metrics__symmetric_distance() -> FfiResult<*mut AnyMetr
 /// Construct an instance of the `InsertDeleteDistance` metric.
 #[unsafe(no_mangle)]
 pub extern "C" fn opendp_metrics__insert_delete_distance() -> FfiResult<*mut AnyMetric> {
-    FfiResult::Ok(util::into_raw(AnyMetric::new(
-        InsertDeleteDistance::default(),
-    )))
+    FfiResult::Ok(util::into_raw(AnyMetric::new(InsertDeleteDistance)))
 }
 
 #[bootstrap(
@@ -131,7 +131,7 @@ pub extern "C" fn opendp_metrics__change_one_distance() -> FfiResult<*mut AnyMet
 /// Construct an instance of the `HammingDistance` metric.
 #[unsafe(no_mangle)]
 pub extern "C" fn opendp_metrics__hamming_distance() -> FfiResult<*mut AnyMetric> {
-    FfiResult::Ok(util::into_raw(AnyMetric::new(HammingDistance::default())))
+    FfiResult::Ok(util::into_raw(AnyMetric::new(HammingDistance)))
 }
 
 #[bootstrap(returns(c_type = "FfiResult<AnyMetric *>"))]
@@ -190,7 +190,7 @@ pub extern "C" fn opendp_metrics__l2_distance(T: *const c_char) -> FfiResult<*mu
 /// Construct an instance of the `DiscreteDistance` metric.
 #[unsafe(no_mangle)]
 pub extern "C" fn opendp_metrics__discrete_distance() -> FfiResult<*mut AnyMetric> {
-    FfiResult::Ok(util::into_raw(AnyMetric::new(DiscreteDistance::default())))
+    FfiResult::Ok(util::into_raw(AnyMetric::new(DiscreteDistance)))
 }
 
 #[bootstrap(
@@ -198,24 +198,55 @@ pub extern "C" fn opendp_metrics__discrete_distance() -> FfiResult<*mut AnyMetri
     generics(M(suppress)),
     returns(c_type = "FfiResult<AnyMetric *>")
 )]
-/// Construct an instance of the `PartitionDistance` metric.
+/// Construct an instance of the `L01InfDistance` metric.
 ///
 /// # Arguments
 /// * `metric` - The metric used to compute distance between partitions.
-fn partition_distance<M: Metric>(metric: M) -> PartitionDistance<M> {
-    PartitionDistance(metric)
+fn l01inf_distance<M: Metric>(metric: M) -> L01InfDistance<M> {
+    L0PInfDistance(metric)
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn opendp_metrics__partition_distance(
+pub extern "C" fn opendp_metrics__l01inf_distance(
     metric: *const AnyMetric,
 ) -> FfiResult<*mut AnyMetric> {
-    fn monomorphize<M: 'static + Metric>(metric: &AnyMetric) -> FfiResult<*mut AnyMetric> {
-        let metric = try_!(metric.downcast_ref::<M>()).clone();
-        Ok(AnyMetric::new(partition_distance::<M>(metric))).into()
-    }
     let metric = try_as_ref!(metric);
     let M = metric.type_.clone();
-    dispatch!(monomorphize, [(M, [SymmetricDistance, AbsoluteDistance<i32>, AbsoluteDistance<f64>])], (metric))
+    if M == Type::of::<SymmetricDistance>() {
+        let metric = try_!(metric.downcast_ref::<SymmetricDistance>()).clone();
+        return Ok(AnyMetric::new(l01inf_distance(metric))).into();
+    }
+    fn monomorphize<Q: Number>(metric: &AnyMetric) -> Fallible<AnyMetric> {
+        let metric = metric.downcast_ref::<AbsoluteDistance<Q>>()?.clone();
+        Ok(AnyMetric::new(l01inf_distance(metric))).into()
+    }
+    let Q = try_!(M.get_atom());
+    dispatch!(monomorphize, [(Q, @numbers)], (metric)).into()
+}
+
+#[bootstrap(
+    arguments(metric(c_type = "AnyMetric *", rust_type = b"null")),
+    generics(M(suppress)),
+    returns(c_type = "FfiResult<AnyMetric *>")
+)]
+/// Construct an instance of the `L02InfDistance` metric.
+///
+/// # Arguments
+/// * `metric` - The metric used to compute distance between partitions.
+fn l02inf_distance<M: Metric>(metric: M) -> L02InfDistance<M> {
+    L0PInfDistance(metric)
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn opendp_metrics__l02inf_distance(
+    metric: *const AnyMetric,
+) -> FfiResult<*mut AnyMetric> {
+    let metric = try_as_ref!(metric);
+    let M = metric.type_.clone();
+    fn monomorphize<Q: Number>(metric: &AnyMetric) -> Fallible<AnyMetric> {
+        let metric = metric.downcast_ref::<AbsoluteDistance<Q>>()?.clone();
+        Ok(AnyMetric::new(l02inf_distance(metric))).into()
+    }
+    let Q = try_!(M.get_atom());
+    dispatch!(monomorphize, [(Q, @numbers)], (metric)).into()
 }
 
 #[bootstrap(
@@ -248,20 +279,20 @@ pub extern "C" fn opendp_metrics__linf_distance(
         (monotonic)
     )
 }
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ExtrinsicDistance {
-    pub descriptor: String,
+    pub element: ExtrinsicElement,
 }
 
 impl std::fmt::Debug for ExtrinsicDistance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UserDistance({:?})", self.descriptor)
+        write!(f, "{:?}", self.element)
     }
 }
 
 impl PartialEq for ExtrinsicDistance {
     fn eq(&self, other: &Self) -> bool {
-        self.descriptor == other.descriptor
+        self.element == other.element
     }
 }
 
@@ -272,13 +303,17 @@ impl Metric for ExtrinsicDistance {
 #[bootstrap(
     name = "user_distance",
     features("honest-but-curious"),
-    arguments(descriptor(rust_type = "String"))
+    arguments(
+        identifier(c_type = "char *", rust_type = b"null"),
+        descriptor(default = b"null", rust_type = "ExtrinsicObject")
+    )
 )]
 /// Construct a new UserDistance.
 /// Any two instances of an UserDistance are equal if their string descriptors are equal.
 ///
 /// # Arguments
-/// * `descriptor` - A string description of the metric.
+/// * `identifier` - A string description of the metric.
+/// * `descriptor` - Additional constraints on the domain.
 ///
 /// # Why honest-but-curious?
 /// Your definition of `d` must satisfy the requirements of a pseudo-metric:
@@ -289,61 +324,27 @@ impl Metric for ExtrinsicDistance {
 /// 4. for any $x, y, z$, $d(x, z) \le d(x, y) + d(y, z)$ (triangle inequality)
 #[unsafe(no_mangle)]
 pub extern "C" fn opendp_metrics__user_distance(
-    descriptor: *mut c_char,
+    identifier: *mut c_char,
+    descriptor: *mut ExtrinsicObject,
 ) -> FfiResult<*mut AnyMetric> {
-    let descriptor = try_!(to_str(descriptor)).to_string();
-    Ok(AnyMetric::new(ExtrinsicDistance { descriptor })).into()
+    let identifier = try_!(to_str(identifier)).to_string();
+    let value = try_as_ref!(descriptor).clone();
+    let element = ExtrinsicElement { identifier, value };
+    Ok(AnyMetric::new(ExtrinsicDistance { element })).into()
 }
 
-pub struct TypedMetric<Q> {
-    metric: AnyMetric,
-    marker: PhantomData<fn() -> Q>,
-}
-
-impl<Q: 'static> TypedMetric<Q> {
-    pub fn new(metric: AnyMetric) -> Fallible<TypedMetric<Q>> {
-        if metric.distance_type != Type::of::<Q>() {
-            return fallible!(
-                FFI,
-                "unexpected distance type in metric. Expected {}, got {}",
-                Type::of::<Q>().to_string(),
-                metric.distance_type.to_string()
-            );
-        }
-
-        Ok(TypedMetric {
-            metric,
-            marker: PhantomData,
-        })
-    }
-}
-
-impl<Q> PartialEq for TypedMetric<Q> {
-    fn eq(&self, other: &Self) -> bool {
-        self.metric == other.metric
-    }
-}
-
-impl<Q> Clone for TypedMetric<Q> {
-    fn clone(&self) -> Self {
-        Self {
-            metric: self.metric.clone(),
-            marker: self.marker.clone(),
-        }
-    }
-}
-
-impl<Q> Debug for TypedMetric<Q> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.metric)
-    }
-}
-impl<Q> Default for TypedMetric<Q> {
-    fn default() -> Self {
-        panic!()
-    }
-}
-
-impl<Q> Metric for TypedMetric<Q> {
-    type Distance = Q;
+#[bootstrap(
+    name = "_extrinsic_metric_descriptor",
+    returns(c_type = "FfiResult<ExtrinsicObject *>")
+)]
+/// Retrieve the descriptor value stored in an extrinsic metric.
+///
+/// # Arguments
+/// * `metric` - The ExtrinsicDistance to extract the descriptor from
+#[unsafe(no_mangle)]
+pub extern "C" fn opendp_metrics___extrinsic_metric_descriptor(
+    metric: *mut AnyMetric,
+) -> FfiResult<*mut ExtrinsicObject> {
+    let metric = try_!(try_as_ref!(metric).downcast_ref::<ExtrinsicDistance>()).clone();
+    FfiResult::Ok(util::into_raw(metric.element.value.clone()))
 }

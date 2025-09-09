@@ -1,15 +1,20 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Optional, Tuple
 
 import torch.distributed as dist
 from megatron.core import mpu
 from megatron.core.extensions.transformer_engine import TEGroupedLinear, TELayerNormColumnParallelLinear, TELinear
 from megatron.core.models.common.embeddings.language_model_embedding import LanguageModelEmbedding
+from megatron.core.transformer.moe.router import TopKRouter
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint, sharded_state_dict_default
 from megatron.training import checkpointing, get_args
+from peft.utils.other import ModulesToSaveWrapper
+from torch import nn
 
-from swift.utils import activate_parameters, find_layers, freeze_parameters, get_logger, get_model_parameter_info
+from swift.utils import (activate_parameters, deep_getattr, find_layers, freeze_parameters, get_logger,
+                         get_model_parameter_info)
 
 logger = get_logger()
 
@@ -17,15 +22,61 @@ logger = get_logger()
 def find_all_linears(model):
 
     def _cond(name, module):
-        if isinstance(module, (TELinear, TELayerNormColumnParallelLinear, TEGroupedLinear)):
+        if isinstance(module, (TELinear, TELayerNormColumnParallelLinear, TEGroupedLinear, nn.Linear)):
             return True
         return False
 
     return find_layers(model, _cond)
 
 
+def find_router(model):
+    return find_layers(model, lambda name, module: isinstance(module, TopKRouter))
+
+
 def find_embedding(model):
     return find_layers(model, lambda name, module: isinstance(module, LanguageModelEmbedding))
+
+
+def get_multimodal_target_regex(
+    args,
+    model,
+    *,
+    freeze_llm: bool = False,
+    freeze_vit: bool = True,
+    freeze_aligner: bool = True,
+) -> str:
+    modules = []
+    visual_cls = args.megatron_model_meta.visual_cls
+    vision_tower = [f'visual.{vit}' for vit in visual_cls.vision_tower]
+    aligner = [f'visual.{_aligner}' for _aligner in visual_cls.aligner]
+    if not freeze_llm:
+        modules.append('language_model')
+    if not freeze_vit:
+        modules += vision_tower
+    if not freeze_aligner:
+        modules += aligner
+    assert len(modules) > 0, f'modules: {modules}'
+
+    res = []
+    for module in modules:
+        rejected_modules = []
+        if not freeze_vit:
+            for _aligner in aligner:
+                if _aligner.startswith(f'{module}.'):
+                    rejected_modules.append(_aligner)
+
+        sub_module = deep_getattr(model, module)
+        if sub_module is None:
+            continue
+        target_modules = find_all_linears(sub_module)
+        if not target_modules:
+            continue
+        target_modules = [tm for tm in target_modules if tm]
+        target_pattern = rf'.*\.({"|".join(target_modules)})' if target_modules else ''
+        rejected_pattern = rf'(?!({"|".join(rejected_modules)}))' if rejected_modules else ''
+        res.append(rf'{rejected_pattern}{module}{target_pattern}')
+
+    return rf'^({"|".join(res)})$'
 
 
 def get_target_modules(args, model):
@@ -33,11 +84,23 @@ def get_target_modules(args, model):
         return args.target_modules
     target_modules = args.target_modules.copy()
     if 'all-linear' in target_modules:
-        target_modules.remove('all-linear')
-        target_modules += find_all_linears(model)
+        if args.model_meta.is_multimodal:
+            return get_multimodal_target_regex(
+                args,
+                model,
+                freeze_llm=args.freeze_llm,
+                freeze_vit=args.freeze_vit,
+                freeze_aligner=args.freeze_aligner,
+            )
+        else:
+            target_modules.remove('all-linear')
+            target_modules += find_all_linears(model)
     if 'all-embedding' in target_modules:
         target_modules.remove('all-embedding')
         target_modules += find_embedding(model)
+    if 'all-router' in target_modules:
+        target_modules.remove('all-router')
+        target_modules += find_router(model)
     return target_modules
 
 
@@ -54,6 +117,29 @@ def set_linear_is_expert(model):
         if '.local_experts.' in n and isinstance(module, (TELinear, TELayerNormColumnParallelLinear)) or isinstance(
                 module, TEGroupedLinear):
             module.is_expert = True
+
+
+@contextmanager
+def _patch_deepcopy():
+    import copy
+    _origin_deepcopy = copy.deepcopy
+
+    def new_deepcopy(x, *args, **kwargs):
+        if getattr(x, 'tp_group', None) is not None:
+            origin_tp_group = x.tp_group
+            x.tp_group = None
+            res = _origin_deepcopy(x, *args, **kwargs)
+            x.tp_group = origin_tp_group
+            res.tp_group = origin_tp_group
+            return res
+        else:
+            return _origin_deepcopy(x, *args, **kwargs)
+
+    copy.deepcopy = new_deepcopy
+    try:
+        yield
+    finally:
+        copy.deepcopy = _origin_deepcopy
 
 
 def prepare_adapter(model):
@@ -73,7 +159,15 @@ def prepare_adapter(model):
     }
     lora_config = LoraConfig(task_type='CAUSAL_LM', lora_dtype=args.lora_dtype, **lora_kwargs)
     logger.info(f'lora_config: {lora_config}')
-    return Swift.prepare_model(model, lora_config)
+    with _patch_deepcopy():
+        model = Swift.prepare_model(model, lora_config)
+    if args.ref_adapter_load:
+        lora_config = deepcopy(lora_config)
+        lora_config.inference_mode = True
+        with _patch_deepcopy():
+            model.add_adapter('ref_adapter', lora_config)
+        model.base_model._cast_adapter_dtype(adapter_name='ref_adapter', autocast_adapter_dtype=True)
+    return model
 
 
 def prepare_mcore_model(model):
@@ -149,8 +243,25 @@ def tuners_sharded_state_dict(
 
 def copy_original_module_weight(model):
     for module in model.modules():
-        if 'ModulesToSaveWrapper' in module.__class__.__name__ and hasattr(module, 'original_module'):
+        if isinstance(module, ModulesToSaveWrapper):
             original_module = module.original_module
-            modules_to_save = module.modules_to_save
-            if 'default' in modules_to_save:
-                original_module.load_state_dict(modules_to_save['default'].state_dict())
+            default_module = module.modules_to_save['default']
+            original_module.load_state_dict(default_module.state_dict())
+
+
+def copy_ref_adapter_weight(model, ref_adapter_name: str):
+    from swift.megatron.tuners import LoraParallelLinear
+    for module in model.modules():
+        if isinstance(module, LoraParallelLinear):
+            for key in ['lora_A', 'lora_B']:
+                sub_module = getattr(module, key)
+                if 'default' in sub_module and ref_adapter_name in sub_module:
+                    sub_module[ref_adapter_name].load_state_dict(sub_module['default'].state_dict())
+            for key in ['lora_embedding_A', 'lora_embedding_B']:
+                sub_module = getattr(module, key)
+                if 'default' in sub_module and ref_adapter_name in sub_module:
+                    sub_module[ref_adapter_name].data.copy_(sub_module['default'])
+        elif isinstance(module, ModulesToSaveWrapper):
+            sub_module = module.modules_to_save
+            if 'default' in sub_module and ref_adapter_name in sub_module:
+                sub_module[ref_adapter_name].load_state_dict(sub_module['default'].state_dict())

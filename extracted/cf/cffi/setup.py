@@ -1,4 +1,4 @@
-import sys, os, platform
+import sys, sysconfig, os, platform
 import subprocess
 import errno
 
@@ -16,6 +16,12 @@ library_dirs = []
 extra_compile_args = []
 extra_link_args = []
 
+FREE_THREADED_BUILD = bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
+
+if FREE_THREADED_BUILD and sys.version_info < (3, 14):
+    raise RuntimeError("CFFI does not support the free-threaded build of CPython 3.13. "
+                       "Upgrade to free-threaded 3.14 or newer to use CFFI with the "
+                       "free-threaded build.")
 
 def _ask_pkg_config(resultlist, option, result_prefix='', sysroot=False):
     pkg_config = os.environ.get('PKG_CONFIG','pkg-config')
@@ -176,39 +182,13 @@ if __name__ == '__main__':
     # arguments mostly empty in this case.
     cpython = ('_cffi_backend' not in sys.builtin_module_names)
 
-    install_requires = []
-    if cpython:
-        install_requires.append('pycparser')
-
     setup(
-        name='cffi',
-        description='Foreign Function Interface for Python calling C code.',
-        long_description="""
-CFFI
-====
-
-Foreign Function Interface for Python calling C code.
-Please see the `Documentation <http://cffi.readthedocs.org/>`_.
-
-Contact
--------
-
-`Mailing list <https://groups.google.com/forum/#!forum/python-cffi>`_
-""",
-        version='1.17.1',
-        python_requires='>=3.8',
         packages=['cffi'] if cpython else [],
         package_dir={"": "src"},
         package_data={'cffi': ['_cffi_include.h', 'parse_c_type.h', 
                                '_embedding.h', '_cffi_errors.h']}
                      if cpython else {},
         zip_safe=False,
-
-        url='http://cffi.readthedocs.org',
-        author='Armin Rigo, Maciej Fijalkowski',
-        author_email='python-cffi@googlegroups.com',
-
-        license='MIT',
 
         distclass=CFFIDistribution,
         ext_modules=[Extension(
@@ -222,26 +202,4 @@ Contact
             extra_link_args=extra_link_args,
             extra_objects=forced_extra_objs,
         )] if cpython else [],
-
-        install_requires=install_requires,
-
-        entry_points = {
-            "distutils.setup_keywords": [
-                "cffi_modules = cffi.setuptools_ext:cffi_modules",
-            ],
-        },
-
-        classifiers=[
-            'Programming Language :: Python',
-            'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.8',
-            'Programming Language :: Python :: 3.9',
-            'Programming Language :: Python :: 3.10',
-            'Programming Language :: Python :: 3.11',
-            'Programming Language :: Python :: 3.12',
-            'Programming Language :: Python :: 3.13',
-            'Programming Language :: Python :: Implementation :: CPython',
-            'Programming Language :: Python :: Implementation :: PyPy',
-            'License :: OSI Approved :: MIT License',
-        ],
     )

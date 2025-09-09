@@ -123,6 +123,12 @@ class Settings(SimpleSettings):
 
     api_workers: int = 4
 
+    api_docs_url: str = "/secret/docs"
+
+    api_redoc_url: str = "/secret/redoc"
+
+    api_openapi_url: str = "/secret/openapi"
+
     sqladmin_secret_key: str | None = "85a9583cb91c4de7a78d7eb1e5306a04418c9c43014c447ea8ec8dd5deb4cf71"
 
     sqladmin_authorize_keys: list[str] | None = ["1"]

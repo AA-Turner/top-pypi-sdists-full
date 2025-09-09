@@ -70,6 +70,11 @@ class ConnectAppsServiceStub(object):
                 request_serializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsRequest.SerializeToString,
                 response_deserializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsResponse.FromString,
                 _registered_method=True)
+        self.GetConnectAppBundleDownloadUrl = channel.unary_unary(
+                '/nominal.connect.v1.ConnectAppsService/GetConnectAppBundleDownloadUrl',
+                request_serializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlRequest.SerializeToString,
+                response_deserializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlResponse.FromString,
+                _registered_method=True)
 
 
 class ConnectAppsServiceServicer(object):
@@ -125,6 +130,13 @@ class ConnectAppsServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetConnectAppBundleDownloadUrl(self, request, context):
+        """Get a pre-signed URL for downloading the bundle of a Connect App at a specific commit or the latest commit on the main branch
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ConnectAppsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -162,6 +174,11 @@ def add_ConnectAppsServiceServicer_to_server(servicer, server):
                     servicer.UnarchiveConnectApps,
                     request_deserializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsRequest.FromString,
                     response_serializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsResponse.SerializeToString,
+            ),
+            'GetConnectAppBundleDownloadUrl': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetConnectAppBundleDownloadUrl,
+                    request_deserializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlRequest.FromString,
+                    response_serializer=nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -354,6 +371,33 @@ class ConnectAppsService(object):
             '/nominal.connect.v1.ConnectAppsService/UnarchiveConnectApps',
             nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsRequest.SerializeToString,
             nominal_dot_connect_dot_v1_dot_connect__apps__pb2.UnarchiveConnectAppsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetConnectAppBundleDownloadUrl(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.connect.v1.ConnectAppsService/GetConnectAppBundleDownloadUrl',
+            nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlRequest.SerializeToString,
+            nominal_dot_connect_dot_v1_dot_connect__apps__pb2.GetConnectAppBundleDownloadUrlResponse.FromString,
             options,
             channel_credentials,
             insecure,

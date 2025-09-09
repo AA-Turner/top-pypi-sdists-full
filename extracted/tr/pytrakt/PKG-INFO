@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrakt
-Version: 4.2.1
+Version: 4.2.2
 Summary: Pythonic abstraction layer for easier scripting of the Trakt.tv REST API.
 Home-page: https://github.com/glensc/python-pytrakt
 Author: Elan Ruusamäe

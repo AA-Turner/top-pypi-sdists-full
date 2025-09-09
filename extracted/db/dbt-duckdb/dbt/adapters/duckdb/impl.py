@@ -1,5 +1,8 @@
 import os
+import traceback
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from typing import List
 from typing import Optional
@@ -9,11 +12,15 @@ from uuid import uuid4
 
 from dbt_common.contracts.constraints import ColumnLevelConstraint
 from dbt_common.contracts.constraints import ConstraintType
+from dbt_common.dataclass_schema import dbtClassMixin
+from dbt_common.dataclass_schema import ValidationError
 from dbt_common.exceptions import DbtInternalError
 from dbt_common.exceptions import DbtRuntimeError
+from dbt_common.utils import encoding as dbt_encoding
 
 from .constants import DEFAULT_TEMP_SCHEMA_NAME
 from .constants import TEMP_SCHEMA_NAME
+from dbt.adapters.base import AdapterConfig
 from dbt.adapters.base import BaseRelation
 from dbt.adapters.base.column import Column as BaseColumn
 from dbt.adapters.base.impl import ConstraintSupport
@@ -27,6 +34,8 @@ from dbt.adapters.duckdb.relation import DuckDBRelation
 from dbt.adapters.duckdb.utils import TargetConfig
 from dbt.adapters.duckdb.utils import TargetLocation
 from dbt.adapters.events.logging import AdapterLogger
+from dbt.adapters.exceptions import IndexConfigError
+from dbt.adapters.exceptions import IndexConfigNotDictError
 from dbt.adapters.sql import SQLAdapter
 
 
@@ -36,10 +45,49 @@ if TYPE_CHECKING:
 logger = AdapterLogger("DuckDB")
 
 
+@dataclass
+class DuckDBIndexConfig(dbtClassMixin):
+    columns: List[str]
+    unique: bool = False
+
+    def render(self, relation):
+        # We append the current timestamp to the index name because otherwise
+        # the index will only be created on every other run. See
+        # https://github.com/dbt-labs/dbt-core/issues/1945#issuecomment-576714925
+        # for an explanation.
+        now = datetime.utcnow().isoformat()
+        inputs = self.columns + [
+            relation.render(),
+            str(self.unique),
+            now,
+        ]
+        string = "_".join(inputs)
+        return dbt_encoding.md5(string)
+
+    @classmethod
+    def parse(cls, raw_index) -> Optional["DuckDBIndexConfig"]:
+        if raw_index is None:
+            return None
+        try:
+            cls.validate(raw_index)
+            return cls.from_dict(raw_index)
+        except ValidationError as exc:
+            raise IndexConfigError(exc)
+        except TypeError:
+            raise IndexConfigNotDictError(raw_index)
+
+
+@dataclass
+class DuckDBConfig(AdapterConfig):
+    indexes: Optional[List[DuckDBIndexConfig]] = None
+
+
 class DuckDBAdapter(SQLAdapter):
     ConnectionManager = DuckDBConnectionManager
     Column = DuckDBColumn
     Relation = DuckDBRelation
+
+    AdapterSpecificConfigs = DuckDBConfig
 
     CONSTRAINT_SUPPORT = {
         ConstraintType.check: ConstraintSupport.ENFORCED,
@@ -63,6 +111,10 @@ class DuckDBAdapter(SQLAdapter):
 
     def debug_query(self):
         self.execute("select 1 as id")
+
+    @available
+    def parse_index(self, raw_index: Any) -> Optional[DuckDBIndexConfig]:
+        return DuckDBIndexConfig.parse(raw_index)
 
     @available
     def is_motherduck(self):
@@ -193,7 +245,7 @@ class DuckDBAdapter(SQLAdapter):
             self.connections.commit_if_has_connection()
         except DbtInternalError as e:
             # Log commit errors instead of silently swallowing them to aid debugging
-            logger.exception(f"Commit failed with DbtInternalError: {e}")
+            logger.warning(f"Commit failed with DbtInternalError: {e}\n{traceback.format_exc()}")
             # Still pass to maintain backward compatibility, but now with visibility
             pass
 
@@ -234,18 +286,22 @@ class DuckDBAdapter(SQLAdapter):
         return sql
 
     @available.parse(lambda *a, **k: [])
-    def get_column_schema_from_query(self, sql: str) -> List[BaseColumn]:
-        """Get a list of the Columns with names and data types from the given sql."""
+    def get_column_schema_from_query(self, sql: str) -> List[DuckDBColumn]:
+        """Get a list of the column names and data types from the given sql.
 
+        :param str sql: The sql to execute.
+        :return: List[DuckDBColumn]
+        """
         # Taking advantage of yet another amazing DuckDB SQL feature right here: the
         # ability to DESCRIBE a query instead of a relation
         describe_sql = f"DESCRIBE ({sql})"
         _, cursor = self.connections.add_select_query(describe_sql)
-        ret = []
+        flattened_columns = []
         for row in cursor.fetchall():
             name, dtype = row[0], row[1]
-            ret.append(DuckDBColumn.create(name, dtype))
-        return ret
+            column = DuckDBColumn(column=name, dtype=dtype)
+            flattened_columns.extend(column.flatten())
+        return flattened_columns
 
     @classmethod
     def render_column_constraint(cls, constraint: ColumnLevelConstraint) -> Optional[str]:

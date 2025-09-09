@@ -496,6 +496,15 @@ class Snowflake(Dialect):
     ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN = False
     TRY_CAST_REQUIRES_STRING = True
 
+    ANNOTATORS = {
+        **Dialect.ANNOTATORS,
+        **{
+            expr_type: lambda self, e: self._annotate_by_args(e, "this")
+            for expr_type in (exp.Reverse,)
+        },
+        exp.ConcatWs: lambda self, e: self._annotate_by_args(e, "expressions"),
+    }
+
     TIME_MAPPING = {
         "YYYY": "%Y",
         "yyyy": "%Y",
@@ -574,6 +583,7 @@ class Snowflake(Dialect):
                 end=exp.Sub(this=seq_get(args, 1), expression=exp.Literal.number(1)),
                 step=seq_get(args, 2),
             ),
+            "ARRAY_SORT": exp.SortArray.from_arg_list,
             "BITXOR": _build_bitwise(exp.BitwiseXor, "BITXOR"),
             "BIT_XOR": _build_bitwise(exp.BitwiseXor, "BITXOR"),
             "BITOR": _build_bitwise(exp.BitwiseOr, "BITOR"),
@@ -582,6 +592,18 @@ class Snowflake(Dialect):
             "BIT_SHIFTLEFT": _build_bitwise(exp.BitwiseLeftShift, "BIT_SHIFTLEFT"),
             "BITSHIFTRIGHT": _build_bitwise(exp.BitwiseRightShift, "BITSHIFTRIGHT"),
             "BIT_SHIFTRIGHT": _build_bitwise(exp.BitwiseRightShift, "BIT_SHIFTRIGHT"),
+            "BITANDAGG": exp.BitwiseAndAgg.from_arg_list,
+            "BITAND_AGG": exp.BitwiseAndAgg.from_arg_list,
+            "BIT_AND_AGG": exp.BitwiseAndAgg.from_arg_list,
+            "BIT_ANDAGG": exp.BitwiseAndAgg.from_arg_list,
+            "BITORAGG": exp.BitwiseOrAgg.from_arg_list,
+            "BITOR_AGG": exp.BitwiseOrAgg.from_arg_list,
+            "BIT_OR_AGG": exp.BitwiseOrAgg.from_arg_list,
+            "BIT_ORAGG": exp.BitwiseOrAgg.from_arg_list,
+            "BITXORAGG": exp.BitwiseXorAgg.from_arg_list,
+            "BITXOR_AGG": exp.BitwiseXorAgg.from_arg_list,
+            "BIT_XOR_AGG": exp.BitwiseXorAgg.from_arg_list,
+            "BIT_XORAGG": exp.BitwiseXorAgg.from_arg_list,
             "BOOLXOR": _build_bitwise(exp.Xor, "BOOLXOR"),
             "DATE": _build_datetime("DATE", exp.DataType.Type.DATE),
             "DATE_TRUNC": _date_trunc_to_time,
@@ -1139,7 +1161,6 @@ class Snowflake(Dialect):
             "RM": TokenType.COMMAND,
             "SAMPLE": TokenType.TABLE_SAMPLE,
             "SEMANTIC VIEW": TokenType.SEMANTIC_VIEW,
-            "SESSION": TokenType.SESSION,
             "SQL_DOUBLE": TokenType.DOUBLE,
             "SQL_VARCHAR": TokenType.VARCHAR,
             "STAGE": TokenType.STAGE,
@@ -1200,6 +1221,10 @@ class Snowflake(Dialect):
             ),
             exp.BitwiseOr: rename_func("BITOR"),
             exp.BitwiseXor: rename_func("BITXOR"),
+            exp.BitwiseAnd: rename_func("BITAND"),
+            exp.BitwiseAndAgg: rename_func("BITANDAGG"),
+            exp.BitwiseOrAgg: rename_func("BITORAGG"),
+            exp.BitwiseXorAgg: rename_func("BITXORAGG"),
             exp.BitwiseLeftShift: rename_func("BITSHIFTLEFT"),
             exp.BitwiseRightShift: rename_func("BITSHIFTRIGHT"),
             exp.Create: transforms.preprocess([_flatten_structured_types_unless_iceberg]),
@@ -1272,6 +1297,7 @@ class Snowflake(Dialect):
                 ]
             ),
             exp.SHA: rename_func("SHA1"),
+            exp.SortArray: rename_func("ARRAY_SORT"),
             exp.StarMap: rename_func("OBJECT_CONSTRUCT"),
             exp.StartsWith: rename_func("STARTSWITH"),
             exp.EndsWith: rename_func("ENDSWITH"),

@@ -8,6 +8,10 @@ from ..models.app_deactivated_webhook_v2 import AppDeactivatedWebhookV2
 from ..models.app_installed_webhook_v2 import AppInstalledWebhookV2
 from ..models.assay_run_created_webhook_v2 import AssayRunCreatedWebhookV2
 from ..models.assay_run_updated_fields_webhook_v2 import AssayRunUpdatedFieldsWebhookV2
+from ..models.automation_file_transform_failed_webhook_v2 import AutomationFileTransformFailedWebhookV2
+from ..models.automation_file_transform_pending_webhook_v2 import AutomationFileTransformPendingWebhookV2
+from ..models.automation_file_transform_running_webhook_v2 import AutomationFileTransformRunningWebhookV2
+from ..models.automation_file_transform_succeeded_webhook_v2 import AutomationFileTransformSucceededWebhookV2
 from ..models.canvas_created_webhook_v2 import CanvasCreatedWebhookV2
 from ..models.canvas_created_webhook_v2_beta import CanvasCreatedWebhookV2Beta
 from ..models.canvas_initialize_webhook_v2 import CanvasInitializeWebhookV2
@@ -72,6 +76,10 @@ class WebhookEnvelopeV0:
         CanvasInitializeWebhookV2,
         CanvasCreatedWebhookV2,
         CanvasCreatedWebhookV2Beta,
+        AutomationFileTransformRunningWebhookV2,
+        AutomationFileTransformPendingWebhookV2,
+        AutomationFileTransformSucceededWebhookV2,
+        AutomationFileTransformFailedWebhookV2,
         AppActivateRequestedWebhookV2,
         AppDeactivatedWebhookV2,
         AppInstalledWebhookV2,
@@ -151,6 +159,18 @@ class WebhookEnvelopeV0:
             message = self._message.to_dict()
 
         elif isinstance(self._message, CanvasCreatedWebhookV2Beta):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, AutomationFileTransformRunningWebhookV2):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, AutomationFileTransformPendingWebhookV2):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, AutomationFileTransformSucceededWebhookV2):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, AutomationFileTransformFailedWebhookV2):
             message = self._message.to_dict()
 
         elif isinstance(self._message, AppActivateRequestedWebhookV2):
@@ -342,6 +362,10 @@ class WebhookEnvelopeV0:
             CanvasInitializeWebhookV2,
             CanvasCreatedWebhookV2,
             CanvasCreatedWebhookV2Beta,
+            AutomationFileTransformRunningWebhookV2,
+            AutomationFileTransformPendingWebhookV2,
+            AutomationFileTransformSucceededWebhookV2,
+            AutomationFileTransformFailedWebhookV2,
             AppActivateRequestedWebhookV2,
             AppDeactivatedWebhookV2,
             AppInstalledWebhookV2,
@@ -391,6 +415,10 @@ class WebhookEnvelopeV0:
                 CanvasInitializeWebhookV2,
                 CanvasCreatedWebhookV2,
                 CanvasCreatedWebhookV2Beta,
+                AutomationFileTransformRunningWebhookV2,
+                AutomationFileTransformPendingWebhookV2,
+                AutomationFileTransformSucceededWebhookV2,
+                AutomationFileTransformFailedWebhookV2,
                 AppActivateRequestedWebhookV2,
                 AppDeactivatedWebhookV2,
                 AppInstalledWebhookV2,
@@ -462,6 +490,14 @@ class WebhookEnvelopeV0:
                     message = AssayRunCreatedWebhookV2.from_dict(_message)
                 elif discriminator == "v2.assayRun.updated.fields":
                     message = AssayRunUpdatedFieldsWebhookV2.from_dict(_message)
+                elif discriminator == "v2.automationFileTransform.updated.status.failed":
+                    message = AutomationFileTransformFailedWebhookV2.from_dict(_message)
+                elif discriminator == "v2.automationFileTransform.updated.status.pending":
+                    message = AutomationFileTransformPendingWebhookV2.from_dict(_message)
+                elif discriminator == "v2.automationFileTransform.updated.status.running":
+                    message = AutomationFileTransformRunningWebhookV2.from_dict(_message)
+                elif discriminator == "v2.automationFileTransform.updated.status.succeeded":
+                    message = AutomationFileTransformSucceededWebhookV2.from_dict(_message)
                 elif discriminator == "v2.canvas.created":
                     message = CanvasCreatedWebhookV2.from_dict(_message)
                 elif discriminator == "v2.canvas.initialized":
@@ -547,6 +583,10 @@ class WebhookEnvelopeV0:
                     CanvasInitializeWebhookV2,
                     CanvasCreatedWebhookV2,
                     CanvasCreatedWebhookV2Beta,
+                    AutomationFileTransformRunningWebhookV2,
+                    AutomationFileTransformPendingWebhookV2,
+                    AutomationFileTransformSucceededWebhookV2,
+                    AutomationFileTransformFailedWebhookV2,
                     AppActivateRequestedWebhookV2,
                     AppDeactivatedWebhookV2,
                     AppInstalledWebhookV2,
@@ -691,6 +731,10 @@ class WebhookEnvelopeV0:
         CanvasInitializeWebhookV2,
         CanvasCreatedWebhookV2,
         CanvasCreatedWebhookV2Beta,
+        AutomationFileTransformRunningWebhookV2,
+        AutomationFileTransformPendingWebhookV2,
+        AutomationFileTransformSucceededWebhookV2,
+        AutomationFileTransformFailedWebhookV2,
         AppActivateRequestedWebhookV2,
         AppDeactivatedWebhookV2,
         AppInstalledWebhookV2,
@@ -747,6 +791,10 @@ class WebhookEnvelopeV0:
             CanvasInitializeWebhookV2,
             CanvasCreatedWebhookV2,
             CanvasCreatedWebhookV2Beta,
+            AutomationFileTransformRunningWebhookV2,
+            AutomationFileTransformPendingWebhookV2,
+            AutomationFileTransformSucceededWebhookV2,
+            AutomationFileTransformFailedWebhookV2,
             AppActivateRequestedWebhookV2,
             AppDeactivatedWebhookV2,
             AppInstalledWebhookV2,

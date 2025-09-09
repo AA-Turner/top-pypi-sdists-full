@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: psycopg-c
-Version: 3.2.9
+Version: 3.2.10
 Summary: PostgreSQL database adapter for Python -- C optimisation distribution
 Home-page: https://psycopg.org/psycopg3/
 Author: Daniele Varrazzo
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Front-Ends

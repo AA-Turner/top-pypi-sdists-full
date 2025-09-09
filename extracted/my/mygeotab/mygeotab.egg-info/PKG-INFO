@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mygeotab
-Version: 0.9.2
+Version: 0.9.3
 Summary: A Python client for the MyGeotab SDK
 Home-page: https://github.com/geotab/mygeotab-python
 Author: Geotab Inc.
@@ -28,6 +28,15 @@ Requires-Dist: aiohttp<4,>=3.8.1
 Requires-Dist: python-rapidjson
 Provides-Extra: notebook
 Requires-Dist: pandas; extra == "notebook"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 MyGeotab
 ========
@@ -141,6 +150,14 @@ Read the docs at `<http://mygeotab-python.readthedocs.org>`_
 Changes
 -------
 
+0.9.3 (2025-09-08)
+++++++++++++++++++
+
+**Improvements**
+
+- Centralized and better handling of new parameters in API calls (like `resultsLimit`, `search`, and `propertySelector`) `#127 <https://github.com/Geotab/mygeotab-python/pull/127>`__.
+- Removes deprecated SSL parameters for SSL context creation `#125 <https://github.com/Geotab/mygeotab-python/pull/125>`__.
+
 0.9.2 (2024-10-08)
 ++++++++++++++++++
 
@@ -165,7 +182,7 @@ Changes
 - Simplified code based on removing support for Python 2 and Python 3.6 and lower.
 
 **Bug Fixes**
-ls
+
 - Support results limit in get requests `#11 <https://github.com/Geotab/mygeotab-python/pull/11>`__. 
 - Handles ArgumentException when extending the session `#19 <https://github.com/Geotab/mygeotab-python/issues/19>`__.
 

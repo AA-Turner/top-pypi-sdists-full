@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-03T10:45:51.798478                                                            #
+# Generated on 2025-09-08T21:00:14.394925                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
@@ -160,7 +160,7 @@ class CapsuleApi(object, metaclass=type):
         ...
     def create(self, capsule_input: dict):
         ...
-    def get(self, capsule_id: str):
+    def get(self, capsule_id: str) -> typing.Dict[str, typing.Any]:
         ...
     def get_by_name(self, name: str, most_recent_only: bool = True):
         ...

@@ -301,6 +301,10 @@ class MySQL(Dialect):
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
+            "BIT_AND": exp.BitwiseAndAgg.from_arg_list,
+            "BIT_OR": exp.BitwiseOrAgg.from_arg_list,
+            "BIT_XOR": exp.BitwiseXorAgg.from_arg_list,
+            "BIT_COUNT": exp.BitwiseCountAgg.from_arg_list,
             "CONVERT_TZ": lambda args: exp.ConvertTimezone(
                 source_tz=seq_get(args, 1), target_tz=seq_get(args, 2), timestamp=seq_get(args, 0)
             ),
@@ -691,7 +695,7 @@ class MySQL(Dialect):
     class Generator(generator.Generator):
         INTERVAL_ALLOWS_PLURAL_FORM = False
         LOCKING_READS_SUPPORTED = True
-        NULL_ORDERING_SUPPORTED = None
+        NULL_ORDERING_SUPPORTED: t.Optional[bool] = None
         JOIN_HINTS = False
         TABLE_HINTS = True
         DUPLICATE_KEY_UPDATE_WITH_SET = False
@@ -712,6 +716,10 @@ class MySQL(Dialect):
         TRANSFORMS = {
             **generator.Generator.TRANSFORMS,
             exp.ArrayAgg: rename_func("GROUP_CONCAT"),
+            exp.BitwiseAndAgg: rename_func("BIT_AND"),
+            exp.BitwiseOrAgg: rename_func("BIT_OR"),
+            exp.BitwiseXorAgg: rename_func("BIT_XOR"),
+            exp.BitwiseCountAgg: rename_func("BIT_COUNT"),
             exp.CurrentDate: no_paren_current_date_sql,
             exp.DateDiff: _remove_ts_or_ds_to_date(
                 lambda self, e: self.func("DATEDIFF", e.this, e.expression), ("this", "expression")
@@ -779,6 +787,8 @@ class MySQL(Dialect):
             exp.Week: _remove_ts_or_ds_to_date(),
             exp.WeekOfYear: _remove_ts_or_ds_to_date(rename_func("WEEKOFYEAR")),
             exp.Year: _remove_ts_or_ds_to_date(),
+            exp.UtcTimestamp: rename_func("UTC_TIMESTAMP"),
+            exp.UtcTime: rename_func("UTC_TIME"),
         }
 
         UNSIGNED_TYPE_MAPPING = {

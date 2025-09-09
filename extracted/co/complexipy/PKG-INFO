@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: complexipy
-Version: 4.0.2
+Version: 4.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -200,6 +200,7 @@ json = true
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
+| `--version` | Show installed complexipy version and exit | - |
 
 ## API Reference
 

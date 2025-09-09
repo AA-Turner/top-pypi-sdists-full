@@ -294,8 +294,10 @@ def patch_automodel(model_info, model_meta, automodel_class, return_dummy_model,
         if hasattr(cls, '_tp_plan'):  # fix tp_plan
             cls._tp_plan = cls._tp_plan or {}
         if return_dummy_model:
-            with torch.device('meta'):
-                model = cls(copy.deepcopy(kwargs['config']))
+            origin_torch_dtype = torch.get_default_dtype()
+            torch.set_default_dtype(kwargs['config'].torch_dtype)
+            model = cls(copy.deepcopy(kwargs['config']))
+            torch.set_default_dtype(origin_torch_dtype)
         else:
             model = from_pretrained(cls, *args, **kwargs)
         return model
@@ -345,7 +347,6 @@ def patch_mp_ddp():
         transformers.modeling_utils.get_balanced_memory = lambda *args, **kwargs: {}
         transformers.modeling_utils.infer_auto_device_map = _infer_auto_device_map_patch
 
-    if is_mp_ddp():
         _old_accelerator_init = trainer.Accelerator.__init__
         trainer.Accelerator.__init__ = (lambda self, device_placement=False, *args, **kwargs: _old_accelerator_init(
             self, device_placement=device_placement, *args, **kwargs))
@@ -379,3 +380,18 @@ def patch_tp_plan(load_model: bool):
     os.environ.pop('WORLD_SIZE')
     yield
     os.environ['WORLD_SIZE'] = WORLD_SIZE
+
+
+@contextmanager
+def patch_attach_align_device_hook_on_blocks():
+    from accelerate import big_modeling
+    origin_attach_align_device_hook_on_blocks = big_modeling.attach_align_device_hook_on_blocks
+
+    def attach_align_device_hook_on_blocks(*args, **kwargs):
+        return
+
+    big_modeling.attach_align_device_hook_on_blocks = attach_align_device_hook_on_blocks
+    try:
+        yield
+    finally:
+        big_modeling.attach_align_device_hook_on_blocks = origin_attach_align_device_hook_on_blocks

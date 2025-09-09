@@ -1017,6 +1017,7 @@ class DescribeComputationModelExecutionSummaryRequestTypeDef(TypedDict):
 
 class DescribeComputationModelRequestTypeDef(TypedDict):
     computationModelId: str
+    computationModelVersion: NotRequired[str]
 
 
 class DescribeDashboardRequestTypeDef(TypedDict):

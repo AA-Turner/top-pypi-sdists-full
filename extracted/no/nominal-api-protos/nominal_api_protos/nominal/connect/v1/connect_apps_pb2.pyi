@@ -30,6 +30,7 @@ class ConnectAppsServiceError(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     CONNECT_APPS_SERVICE_ERROR_COMMIT_NOT_FOUND: _ClassVar[ConnectAppsServiceError]
     CONNECT_APPS_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_CONNECT_APP: _ClassVar[ConnectAppsServiceError]
     CONNECT_APPS_SERVICE_ERROR_INVALID_SEARCH_TOKEN: _ClassVar[ConnectAppsServiceError]
+    CONNECT_APPS_SERVICE_ERROR_MISSING_BUNDLE: _ClassVar[ConnectAppsServiceError]
 SEARCH_CONNECT_APPS_SORT_FIELD_UNSPECIFIED: SearchConnectAppsSortField
 SEARCH_CONNECT_APPS_SORT_FIELD_TITLE: SearchConnectAppsSortField
 SEARCH_CONNECT_APPS_SORT_FIELD_CREATED_AT: SearchConnectAppsSortField
@@ -39,6 +40,7 @@ CONNECT_APPS_SERVICE_ERROR_APP_NOT_FOUND: ConnectAppsServiceError
 CONNECT_APPS_SERVICE_ERROR_COMMIT_NOT_FOUND: ConnectAppsServiceError
 CONNECT_APPS_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_CONNECT_APP: ConnectAppsServiceError
 CONNECT_APPS_SERVICE_ERROR_INVALID_SEARCH_TOKEN: ConnectAppsServiceError
+CONNECT_APPS_SERVICE_ERROR_MISSING_BUNDLE: ConnectAppsServiceError
 
 class CreateConnectAppRequest(_message.Message):
     __slots__ = ("display_name", "description", "labels", "properties", "is_published", "workspace", "bundle", "commit_message")
@@ -187,6 +189,20 @@ class GetConnectAppRequest(_message.Message):
     rid: str
     branch_or_commit: _versioning_pb2.BranchOrCommit
     def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ...) -> None: ...
+
+class GetConnectAppBundleDownloadUrlRequest(_message.Message):
+    __slots__ = ("rid", "branch_or_commit")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch_or_commit: _versioning_pb2.BranchOrCommit
+    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ...) -> None: ...
+
+class GetConnectAppBundleDownloadUrlResponse(_message.Message):
+    __slots__ = ("url",)
+    URL_FIELD_NUMBER: _ClassVar[int]
+    url: str
+    def __init__(self, url: _Optional[str] = ...) -> None: ...
 
 class GetConnectAppResponse(_message.Message):
     __slots__ = ("app",)

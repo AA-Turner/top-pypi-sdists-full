@@ -6,8 +6,7 @@ from types import TracebackType
 from django.db import connections
 from django.db.backends.utils import CursorWrapper
 from django.db.models import Model
-from django.db.transaction import TransactionManagementError
-from django.db.transaction import atomic
+from django.db.transaction import TransactionManagementError, atomic
 from django.db.utils import DEFAULT_DB_ALIAS
 
 from django_mysql.exceptions import TimeoutError
@@ -24,7 +23,7 @@ class Lock:
         else:
             self.db = using
 
-        # For multi-database servers, we prefix the name of the lock wth
+        # For multi-database servers, we prefix the name of the lock with
         # the database, to protect against concurrent apps with the same locks
         self.name = self.make_name(self.db, name)
 

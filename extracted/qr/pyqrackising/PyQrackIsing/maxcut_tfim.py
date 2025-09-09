@@ -4,9 +4,21 @@ import numpy as np
 import os
 from numba import njit, prange
 
+
 IS_OPENCL_AVAILABLE = True
+ctx = None
+queue = None
 try:
     import pyopencl as cl
+    
+    # Pick a device (GPU if available)
+    ctx = cl.create_some_context()
+    queue = cl.CommandQueue(ctx)
+
+    # Load and build OpenCL kernels
+    kernel_src = open(os.path.dirname(os.path.abspath(__file__)) + "/kernels.cl").read()
+    program = cl.Program(ctx, kernel_src).build()
+    maxcut_hamming_cdf_kernel = program.maxcut_hamming_cdf
 except ImportError:
     IS_OPENCL_AVAILABLE = False
 
@@ -321,14 +333,6 @@ def maxcut_tfim(
     hamming_prob = init_thresholds(n_qubits)
 
     if IS_OPENCL_AVAILABLE and grid_size >= 128:
-        # Pick a device (GPU if available)
-        ctx = cl.create_some_context()
-        queue = cl.CommandQueue(ctx)
-
-        # Load and build OpenCL kernels
-        kernel_src = open(os.path.dirname(os.path.abspath(__file__)) + "/kernels.cl").read()
-        program = cl.Program(ctx, kernel_src).build()
-
         delta_t = 1.0 / n_steps
         tot_t = 2.0 * n_steps * delta_t
         h_mult = 2.0 / tot_t
@@ -353,7 +357,7 @@ def maxcut_tfim(
         ham_buf = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=hamming_prob)
 
         # Kernel execution
-        program.maxcut_hamming_cdf(
+        maxcut_hamming_cdf_kernel(
             queue, (grid_dim,), (group_size,),
             np.int32(n_qubits), deg_buf, args_buf, J_buf, theta_buf, ham_buf
         )

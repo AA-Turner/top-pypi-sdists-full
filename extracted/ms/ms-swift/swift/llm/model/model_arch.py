@@ -50,6 +50,7 @@ class MLLMModelArch:
 
     xcomposer = 'xcomposer'
     internvl = 'internvl'
+    interns1 = 'interns1'
     minicpmv = 'minicpmv'
     deepseek_vl = 'deepseek_vl'
     deepseek_vl2 = 'deepseek_vl2'
@@ -69,6 +70,7 @@ class MLLMModelArch:
     dots_ocr = 'dots_ocr'
 
     ovis = 'ovis'
+    ovis2_5 = 'ovis2_5'
     molmo = 'molmo'
     emu3_chat = 'emu3_chat'
     megrez_omni = 'megrez_omni'
@@ -392,6 +394,14 @@ register_model_arch(
 
 register_model_arch(
     MultiModelKeys(
+        MLLMModelArch.interns1,
+        language_model='model.language_model',
+        aligner='model.multi_modal_projector',
+        vision_tower='model.vision_tower',
+    ))
+
+register_model_arch(
+    MultiModelKeys(
         MLLMModelArch.mplug_owl3,
         language_model='language_model',
         aligner='vision2text_model',
@@ -598,6 +608,14 @@ register_model_arch(
         MLLMModelArch.ovis,
         language_model='llm',
         vision_tower=['visual_tokenizer', 'vte'],
+    ))
+
+register_model_arch(
+    MultiModelKeys(
+        MLLMModelArch.ovis2_5,
+        language_model='llm',
+        aligner='visual_tokenizer.head',
+        vision_tower=['visual_tokenizer.vit', 'vte'],
     ))
 
 register_model_arch(

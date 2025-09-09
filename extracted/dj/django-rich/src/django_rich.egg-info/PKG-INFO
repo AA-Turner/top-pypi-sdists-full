@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: django-rich
-Version: 2.0.0
+Version: 2.1.0
 Summary: Extensions for using Rich with Django.
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/django-rich/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/adamchainz/django-rich
@@ -13,7 +14,6 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
@@ -63,7 +64,7 @@ I wrote django-rich whilst working on the book!
 Requirements
 ------------
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 Django 4.2 to 5.2 supported.
 
@@ -85,7 +86,31 @@ Reference
 ``shell`` command integration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-django-rich has an extended version of Django’s built-in |shell command|__ that enables `Rich’s pretty-printing <https://rich.readthedocs.io/en/stable/introduction.html?highlight=install#rich-in-the-repl>`__.
+django-rich has an extended version of Django’s built-in |shell command|__ that does two things:
+
+1. It enables `Rich’s pretty-printing <https://rich.readthedocs.io/en/stable/introduction.html?highlight=install#rich-in-the-repl>`__.
+2. On Django 5.2+, it adds `automatic imports <https://docs.djangoproject.com/en/stable/howto/custom-shell/>`__ of these functions from Rich:
+
+   * |inspect()|__
+
+     .. |inspect()| replace:: ``inspect()``
+     __ https://rich.readthedocs.io/en/stable/introduction.html#rich-inspect
+
+   * |print()|__
+
+     .. |print()| replace:: ``print()``
+     __ https://rich.readthedocs.io/en/stable/introduction.html#quick-start
+
+   * |print_json()|__
+
+     .. |print_json()| replace:: ``print_json()``
+     __ https://rich.readthedocs.io/en/stable/console.html#printing-json
+
+   * |pprint()|__
+
+     .. |pprint()| replace:: ``pprint()``
+     __ https://rich.readthedocs.io/en/stable/pretty.html#pprint-method
+
 To activate this feature, add ``django_rich`` to your ``INSTALLED_APPS`` setting:
 
 .. |shell command| replace:: ``shell`` command

@@ -4,7 +4,7 @@ use polars_plan::dsl::{Expr, FunctionExpr};
 use crate::core::{Function, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{AtomDomain, CategoricalDomain, ExprDomain, OuterMetric, WildExprDomain};
 use crate::error::*;
-use crate::transformations::DatasetMetric;
+use crate::metrics::MicrodataMetric;
 
 use super::StableExpr;
 
@@ -21,9 +21,9 @@ pub fn make_expr_to_physical<M: OuterMetric>(
     input_domain: WildExprDomain,
     input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
-    M::InnerMetric: DatasetMetric,
+    M::InnerMetric: MicrodataMetric,
     M::Distance: Clone,
     (WildExprDomain, M): MetricSpace,
     (ExprDomain, M): MetricSpace,
@@ -99,10 +99,10 @@ where
     t_prior
         >> Transformation::new(
             middle_domain.clone(),
-            output_domain,
-            Function::then_expr(move |expr| expr.to_physical()),
             middle_metric.clone(),
+            output_domain,
             middle_metric,
+            Function::then_expr(move |expr| expr.to_physical()),
             StabilityMap::new(Clone::clone),
         )?
 }

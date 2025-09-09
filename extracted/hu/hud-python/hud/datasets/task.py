@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
 from string import Template
 from typing import Any
@@ -11,6 +12,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from hud.settings import settings
 from hud.types import MCPToolCall
+
+logger = logging.getLogger(__name__)
 
 
 class Task(BaseModel):
@@ -48,7 +51,9 @@ class Task(BaseModel):
             try:
                 return json.loads(v)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON string: {e}") from e
+                from hud.shared.exceptions import HudConfigError
+
+                raise HudConfigError(f"Invalid JSON string: {e}") from e
         return v
 
     @field_validator("setup_tool", "evaluate_tool", mode="before")
@@ -63,7 +68,9 @@ class Task(BaseModel):
             try:
                 v = json.loads(v)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON string: {e}") from e
+                from hud.shared.exceptions import HudConfigError
+
+                raise HudConfigError(f"Invalid JSON string: {e}") from e
 
         if isinstance(v, dict):
             return MCPToolCall(**v)
@@ -90,6 +97,8 @@ class Task(BaseModel):
 
         if settings.api_key:
             mapping["HUD_API_KEY"] = settings.api_key
+        else:
+            logger.error("HUD_API_KEY is not set, tracing and remote training will not work")
 
         def substitute_in_value(obj: Any) -> Any:
             """Recursively substitute variables in nested structures."""

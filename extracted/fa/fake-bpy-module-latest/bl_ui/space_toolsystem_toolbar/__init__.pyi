@@ -139,6 +139,7 @@ class _defs_edit_curve:
 
 class _defs_edit_curves:
     draw: typing.Any
+    pen: typing.Any
 
 class _defs_edit_mesh:
     bevel: typing.Any

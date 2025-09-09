@@ -1,7 +1,7 @@
 use crate::core::{Function, MetricSpace, Transformation};
 use crate::domains::{AtomDomain, Context, ExprDomain, Margin, SeriesDomain, WildExprDomain};
 use crate::error::*;
-use crate::metrics::{LpDistance, PartitionDistance};
+use crate::metrics::{L01InfDistance, LpDistance};
 use crate::transformations::traits::UnboundedMetric;
 use polars_plan::dsl::{Expr, len};
 use polars_plan::plans::typed_lit;
@@ -24,12 +24,12 @@ mod test;
 /// * `expr` - a length expression
 pub fn make_expr_len<MI, const P: usize>(
     input_domain: WildExprDomain,
-    input_metric: PartitionDistance<MI>,
+    input_metric: L01InfDistance<MI>,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, PartitionDistance<MI>, LpDistance<P, f64>>>
+) -> Fallible<Transformation<WildExprDomain, L01InfDistance<MI>, ExprDomain, LpDistance<P, f64>>>
 where
     MI: 'static + UnboundedMetric,
-    (WildExprDomain, PartitionDistance<MI>): MetricSpace,
+    (WildExprDomain, L01InfDistance<MI>): MetricSpace,
     (ExprDomain, LpDistance<P, f64>): MetricSpace,
 {
     let Expr::Len = expr else {
@@ -39,11 +39,9 @@ where
     let old_margin = input_domain.context.aggregation("len")?;
     let margin = Margin {
         by: old_margin.by,
-        max_partition_length: Some(1),
-        max_num_partitions: Some(1),
-        max_partition_contributions: old_margin.max_partition_contributions,
-        max_influenced_partitions: old_margin.max_influenced_partitions,
-        public_info: old_margin.public_info,
+        max_length: Some(1),
+        max_groups: Some(1),
+        invariant: old_margin.invariant,
     };
 
     // build output domain
@@ -56,10 +54,10 @@ where
 
     Transformation::new(
         input_domain,
-        output_domain,
-        Function::from_expr(len()).fill_with(typed_lit(0u32)),
         input_metric,
+        output_domain,
         LpDistance::default(),
-        counting_query_stability_map(margin.public_info),
+        Function::from_expr(len()).fill_with(typed_lit(0u32)),
+        counting_query_stability_map(margin.invariant),
     )
 }

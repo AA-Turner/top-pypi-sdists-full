@@ -253,6 +253,68 @@ class DatasetToZarrTest(test_util.TestCase):
     ):
       inputs2 | xbeam.ChunksToZarr(temp_dir, template)
 
+  def test_chunks_to_zarr_append(self):
+    zarr_chunks = {'t': 1, 'x': 5}
+
+    # ds is the full dataset we want to write to zarr.
+
+    # Warning: Do not chunk this ds. If you do, caching will make tests
+    # pass, so long as you simply modify the template (without even calling
+    # ChunksToZarr).
+    ds = xarray.Dataset(
+        {'foo': (('t', 'x'), np.arange(3 * 5).reshape(3, 5))},
+        coords={
+            't': np.arange(100, 103),
+            'x': np.arange(5),
+        },
+    )
+
+    # Write the first two chunks.
+    two_chunk_template = xbeam.make_template(ds.isel(t=slice(2)))
+    first_two_chunks = [
+        (xbeam.Key({'t': 0}), ds.isel(t=[0])),
+        (xbeam.Key({'t': 1}), ds.isel(t=[1])),
+    ]
+    path = self.create_tempdir().full_path
+    first_two_chunks | xbeam.ChunksToZarr(
+        path, template=two_chunk_template, zarr_chunks=zarr_chunks
+    )
+    two_chunk_result = xarray.open_zarr(path, consolidated=True)
+    xarray.testing.assert_identical(ds.isel(t=slice(2)), two_chunk_result)
+
+    # Now append the last chunk.
+
+    # First modify the metadata
+    # Append the new data (t=[2]) to the existing metadata.
+    # This results in t/.zarray that has chunk:2, equal to the number of times
+    # in the first write.
+    xbeam.make_template(ds.isel(t=[2])).chunk(zarr_chunks).to_zarr(
+        # Caling make_template is not necessary, but let's test it since
+        # this is the anticipated workflow.
+        path,
+        mode='a',
+        append_dim='t',
+        compute=False,
+    )
+    xbeam_opened_result, chunks = xbeam.open_zarr(path)
+    self.assertEqual(zarr_chunks, chunks)
+
+    # Second, write the last chunk only.
+    last_chunk = [
+        (xbeam.Key({'t': 2}), ds.isel(t=[2])),
+    ]
+
+    last_chunk | xbeam.ChunksToZarr(
+        path,
+        template=xbeam.make_template(xbeam_opened_result),
+        zarr_chunks=zarr_chunks,
+        needs_setup=False,
+    )
+
+    final_result, final_chunks = xbeam.open_zarr(path, consolidated=True)
+    xarray.testing.assert_identical(ds, final_result)
+    self.assertEqual(zarr_chunks, final_chunks)
+
   def test_multiple_vars_chunks_to_zarr(self):
     dataset = xarray.Dataset(
         {
@@ -313,6 +375,48 @@ class DatasetToZarrTest(test_util.TestCase):
       inputs | xbeam.ChunksToZarr(temp_dir, template=dataset.chunk())
       result = xarray.open_zarr(temp_dir, consolidated=True)
       xarray.testing.assert_identical(dataset, result)
+
+  def test_write_chunk_not_all_dims(self):
+
+    temp_dir = self.create_tempdir().full_path
+
+    # Dataset used to infer the template and chunk, crucially
+    # "non_chunked_dim" only exists in non-chunked variables.
+    full_dataset = xarray.Dataset({
+        'chunked_var': xarray.DataArray(
+            np.arange(10), dims=('chunked_dim',)),
+        'non_chunked_var': xarray.DataArray(
+            np.arange(5), dims=('non_chunked_dim',)),
+    })
+
+    # In this case, only one of the two variables is actually chunked, and we
+    # want the other to be written to Zarr at the time of writing the template.
+    template = xbeam.make_template(full_dataset, ['chunked_var'])
+    zarr_chunks = {'chunked_dim': 1}
+    # The "non_chunked_var" will get written at this stage.
+    xbeam.setup_zarr(template, temp_dir, zarr_chunks)
+
+    # Smoke test of writing the chunk.
+    key = xbeam.Key(offsets={'chunked_dim': 0})
+    chunk = full_dataset.isel(chunked_dim=[0])
+    xbeam.validate_zarr_chunk(key, chunk, template, zarr_chunks)
+
+    # The "non_chunked_var" (and "_dim") will be dropped before writing.
+    xbeam.write_chunk_to_zarr(key, chunk, temp_dir, template)
+
+  def test_chunks_to_zarr_dask_chunks(self):
+    dataset = xarray.Dataset(
+        {'foo': ('x', np.arange(0, 60, 10))},
+        coords={'x': np.arange(6)},
+    )
+    chunked = dataset.chunk()
+    inputs = [
+        (xbeam.Key({'x': 0}), dataset.chunk(3)),
+    ]
+    temp_dir = self.create_tempdir().full_path
+    inputs | xbeam.ChunksToZarr(temp_dir, chunked)
+    result = xarray.open_zarr(temp_dir)
+    xarray.testing.assert_identical(dataset, result)
 
   def test_dataset_to_zarr_simple(self):
     dataset = xarray.Dataset(

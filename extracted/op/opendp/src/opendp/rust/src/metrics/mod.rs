@@ -14,6 +14,11 @@
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi;
 
+#[cfg(feature = "polars")]
+pub mod polars;
+#[cfg(feature = "polars")]
+pub use polars::*;
+
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -21,7 +26,7 @@ use crate::{
     core::{Domain, Metric, MetricSpace},
     domains::{AtomDomain, BitVectorDomain, MapDomain, VectorDomain, type_name},
     error::Fallible,
-    traits::{CheckAtom, InfAdd},
+    traits::CheckAtom,
 };
 #[cfg(feature = "contrib")]
 use crate::{traits::Hashable, transformations::DataFrameDomain};
@@ -368,6 +373,26 @@ where
     }
 }
 
+impl<K: CheckAtom, V: CheckAtom, const P: usize, Q> MetricSpace
+    for (
+        MapDomain<AtomDomain<K>, AtomDomain<V>>,
+        L0PInfDistance<P, AbsoluteDistance<Q>>,
+    )
+where
+    K: Eq + Hash,
+{
+    fn check_space(&self) -> Fallible<()> {
+        if self.0.value_domain.nan() {
+            return fallible!(
+                MetricSpace,
+                "PartitionDistance<AbsoluteDistance<Q>> requires non-nullable elements"
+            );
+        } else {
+            Ok(())
+        }
+    }
+}
+
 /// The $L_1$ distance between two vector-valued aggregates.
 ///
 /// Refer to [`LpDistance`] for details.
@@ -428,82 +453,88 @@ impl<T: CheckAtom, Q> MetricSpace for (AtomDomain<T>, AbsoluteDistance<Q>) {
     }
 }
 
-/// The $L^0$, $L\infty$ norms of the per-partition distances between data sets.
+/// The $L^0$, $L\infty$ norms of the group-wise distances between data sets.
 ///
-/// The $L^0$ norm counts the number of partitions that have changed.
-/// The $L\infty$ norm is the greatest change in any one partition.
+/// The $L^0$ norm counts the number of groups that have changed.
+/// The $L\infty$ norm is the greatest change in any one group.
 ///
 /// # Proof Definition
 ///
-/// ### $d$-closeness
-/// For any two partitionings $x, x' \in \texttt{D}$ and $d$ of type `(u32, M::Distance)`,
-/// we say that $x, x'$ are $d = (l0, li)$-close under the the partition distance metric whenever
+/// ## $d$-closeness
+/// For any two datasets $x, x' \in \texttt{D}$,
+/// where $x$ and $x'$ are indexed by $1, \ldots, r$, let
 ///
 /// ```math
-/// d(x, x') = (|d_M(x, x')|_0, |d_M(x, x')|_\infty) \leq (l0, li) = d
+/// s = [d_M(x_0, x'_0), \ldots, d_M(x_r, x'_r)],
 /// ```
+/// where `M` is a valid metric on the indexed space.
+/// If a dataset `x` does not contain an index `i`, assume `x_i` is the additive identity.
 ///
-/// Both numbers in the 2-tuple must be less than their respective values to be $d$-close.
+/// For any $d$ of type `(usize, M::Distance, M::Distance)`,
+/// we say that $x, x'$ are $d$-close under the the multi-norm distance metric whenever
 ///
-#[derive(Clone, PartialEq)]
-pub struct Parallel<M: Metric>(pub M);
-impl<M: Metric> Default for Parallel<M> {
-    fn default() -> Self {
-        Parallel(M::default())
-    }
-}
-impl<M: Metric> Debug for Parallel<M> {
+/// ```math
+/// |s|_0 \leq d_0 \land |s|_\infty \leq d_2.
+/// ```
+#[derive(Clone, PartialEq, Default)]
+pub struct L0InfDistance<M: Metric>(pub M);
+impl<M: Metric> Debug for L0InfDistance<M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "Parallel({:?})", self.0)
+        write!(f, "L0InfDistance({:?})", self.0)
     }
 }
 
-impl<M: Metric> Metric for Parallel<M> {
+impl<M: Metric> Metric for L0InfDistance<M> {
     //               L^0          L^\infty
     type Distance = (IntDistance, M::Distance);
 }
 
-/// The $L^0$, $L^1$, $L\infty$ norms of the per-partition distances between data sets.
+/// The $L^0$, $L^P$, $L\infty$ norms of the per-partition distances between data sets.
 ///
 /// The $L^0$ norm counts the number of partitions that have changed.
-/// The $L^1$ norm is the total change.
+/// The $L^P$ norm is the total change if $P = 1$, or euclidean distance if $P = 2$.
 /// The $L\infty$ norm is the greatest change in any one partition.
 ///
 /// # Proof Definition
 ///
-/// ### $d$-closeness
-/// For any two partitionings $u, v \in \texttt{D}$ and $d$ of type `(usize, M::Distance, M::Distance)`,
-/// we say that $u, v$ are $d$-close under the the partition distance metric whenever
+/// ## $d$-closeness
+/// For any two datasets $x, x' \in \texttt{D}$,
+/// where $x$ and $x'$ are indexed by $1, \ldots, r$, let
 ///
 /// ```math
-/// d(x, x') = |d_M(x, x')|_0, |d_M(x, x')|_1, |d_M(x, x')|_\infty \leq d
+/// s = [d_M(x_0, x'_0), \ldots, d_M(x_r, x'_r)],
 /// ```
+/// where `M` is a valid metric on the indexed space.
+/// If a dataset `x` does not contain an index `i`, assume `x_i` is the additive identity.
 ///
-/// All three numbers in the triple must be less than their respective values in $d$ to be $d$-close.
+/// For any integer $P > 0$,
+/// and $d$ of type `(usize, M::Distance, M::Distance)`,
+/// we say that $x, x'$ are $d$-close under the the multi-norm distance metric whenever
 ///
-#[derive(Clone, PartialEq)]
-pub struct PartitionDistance<M: Metric>(pub M);
-impl<M: Metric> Default for PartitionDistance<M> {
-    fn default() -> Self {
-        PartitionDistance(M::default())
-    }
-}
+/// ```math
+/// |s|_0 \leq d_0 \land |s|_P \leq d_1 \land |s|_\infty \leq d_2.
+/// ```
+#[derive(Clone, PartialEq, Default)]
+pub struct L0PInfDistance<const P: usize, M: Metric>(pub M);
 
-impl<M: Metric> Debug for PartitionDistance<M> {
+pub type L01InfDistance<M> = L0PInfDistance<1, M>;
+pub type L02InfDistance<M> = L0PInfDistance<2, M>;
+
+impl<M: Metric, const P: usize> Debug for L0PInfDistance<P, M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "PartitionDistance({:?})", self.0)
+        write!(f, "L0{P}InfDistance({:?})", self.0)
     }
 }
 
-impl<M: Metric> Metric for PartitionDistance<M> {
-    //               L^0          L^1          L^\infty
+impl<const P: usize, M: Metric> Metric for L0PInfDistance<P, M> {
+    //               L^0          L^P          L^\infty
     type Distance = (IntDistance, M::Distance, M::Distance);
 }
 
-impl<T: CheckAtom> MetricSpace
+impl<T: CheckAtom, const P: usize> MetricSpace
     for (
         VectorDomain<AtomDomain<T>>,
-        PartitionDistance<AbsoluteDistance<T>>,
+        L0PInfDistance<P, AbsoluteDistance<T>>,
     )
 {
     fn check_space(&self) -> Fallible<()> {
@@ -560,19 +591,57 @@ impl MetricSpace for (BitVectorDomain, DiscreteDistance) {
     }
 }
 
-/// Distance between score vectors with monotonicity indicator.
+/// The $L_\infty$ distance between two vector-valued aggregates.
+///
+/// A monotonic flag can be set to indicate that all differences must share the same sign.
+/// This can be used to differentiate between the sensitivities of monotonic and non-monotonic scoring functions.
 ///
 /// # Proof Definition
 ///
-/// ### `d`-closeness
-/// For any two datasets $u, v \in$ `VectorDomain<AtomDomain<T>>` and any $d$ of type `T`,
-/// we say that $u, v$ are $d$-close under the l-infinity metric (abbreviated as $d_{\infty}$) whenever
+/// ## `d`-closeness
+/// For any two datasets $x$, $x'$ and any $d$ of type `Q`,
+/// we say that $x$, $x'$ are $d$-close under the l-infinity metric (abbreviated as $d_{\infty}$) whenever
 ///
 /// ```math
-/// d_{\infty}(u, v) = max_{i} |u_i - v_i|
+/// d_{\infty}(x, x') = max_{i} |x_i - x'_i|
 /// ```
 ///
 /// If `monotonic` is `true`, then the distance is infinity if any of the differences have opposing signs.
+///
+/// Equivalently,
+///
+/// ```math
+/// d_{\infty}(x, x') = \begin{cases}
+///     \infty & \text{if } \exists i, x_i \cdot x'_i < 0 \land \texttt{monotonic} \\
+///     \max_i \abs{x_i - x'_i} & \text{otherwise} \\
+/// \end{cases}
+/// ```
+///
+/// # Monotonicity Descriptor
+///
+/// The $L_\infty$ distance is a common metric to express the sensitivity
+/// of score vectors passed into private selection mechanisms.
+/// However, the $L_\infty$ distance does not capture whether signs of the differences are all in agreement,
+/// so many private selection mechanisms (like variations of the exponential mechanism)
+/// have a factor of two in the privacy loss.
+///
+/// This factor of two is eliminated by the more flexible range distance,
+/// which in turn has twice the sensitivity when scores may vary in different directions:
+/// ```math
+/// d_{\mathrm{Range}}(x, x') = \max_{ij} |(x_i - x'_i) - (x_j - x'_j)|.
+/// ```
+///
+/// A downside to $d_\mathrm{Range}$ is that it is a more complicated metric that is unfamiliar to many users,
+/// and in the common non-monotonic case works out to double the sensitivity of the $L_\infty$ sensitivity.
+/// Therefore if private selection mechanisms are used in a non-monotonic setting,
+/// this introduces a footgun where sensitivity may easily be underestimated by a factor of 2.
+///
+/// For this reason, we instead add a monotonicity case to the $L_\infty$ distance metric.
+/// Any bound on the $L_\infty$ distance with the monotonicity flag set to `True` is also valid with the monotonicity flag set to `False`.
+/// This design allows the sensitivity to be expressed in terms of the more familiar $L_\infty$ distance,
+/// while also enabling the tighter privacy analysis from monotonic scoring functions.
+///
+/// You can use the `range_distance` method to derive an upper bound for the range distance.
 pub struct LInfDistance<Q> {
     pub monotonic: bool,
     _marker: PhantomData<fn() -> Q>,
@@ -583,21 +652,6 @@ impl<Q> LInfDistance<Q> {
         LInfDistance {
             monotonic,
             _marker: PhantomData,
-        }
-    }
-}
-
-impl<Q: InfAdd> LInfDistance<Q> {
-    /// Translate a distance bound `d_in` wrt the $L_\infty$ metric to a distance bound wrt the range metric.
-    ///
-    /// ```math
-    /// d_{\text{Range}}(u, v) = max_{ij} |(u_i - v_i) - (u_j - v_j)|
-    /// ```
-    pub fn range_distance(&self, d_in: Q) -> Fallible<Q> {
-        if self.monotonic {
-            Ok(d_in)
-        } else {
-            d_in.inf_add(&d_in)
         }
     }
 }
@@ -644,3 +698,58 @@ impl<T: CheckAtom> MetricSpace for (VectorDomain<AtomDomain<T>>, LInfDistance<T>
         }
     }
 }
+
+pub trait MicrodataMetric: 'static + Metric<Distance = IntDistance> {
+    /// Whether adjacent datasets share the same number of element.
+    const SIZED: bool;
+    /// Whether the metric is sensitive to reordering of elements.
+    const ORDERED: bool;
+    #[cfg(feature = "polars")]
+    /// The identifier column if defined.
+    fn identifier(&self) -> Option<polars_plan::dsl::Expr>;
+
+    type EventMetric: EventLevelMetric;
+}
+impl MicrodataMetric for SymmetricDistance {
+    const SIZED: bool = false;
+    const ORDERED: bool = false;
+    #[cfg(feature = "polars")]
+    fn identifier(&self) -> Option<polars_plan::dsl::Expr> {
+        None
+    }
+    type EventMetric = SymmetricDistance;
+}
+impl MicrodataMetric for InsertDeleteDistance {
+    const SIZED: bool = false;
+    const ORDERED: bool = true;
+    #[cfg(feature = "polars")]
+    fn identifier(&self) -> Option<polars_plan::dsl::Expr> {
+        None
+    }
+    type EventMetric = InsertDeleteDistance;
+}
+impl MicrodataMetric for ChangeOneDistance {
+    const SIZED: bool = true;
+    const ORDERED: bool = false;
+    #[cfg(feature = "polars")]
+    fn identifier(&self) -> Option<polars_plan::dsl::Expr> {
+        None
+    }
+    type EventMetric = ChangeOneDistance;
+}
+impl MicrodataMetric for HammingDistance {
+    const SIZED: bool = true;
+    const ORDERED: bool = true;
+    #[cfg(feature = "polars")]
+    fn identifier(&self) -> Option<polars_plan::dsl::Expr> {
+        None
+    }
+    type EventMetric = HammingDistance;
+}
+
+pub trait EventLevelMetric: MicrodataMetric + Default {}
+
+impl EventLevelMetric for SymmetricDistance {}
+impl EventLevelMetric for InsertDeleteDistance {}
+impl EventLevelMetric for ChangeOneDistance {}
+impl EventLevelMetric for HammingDistance {}

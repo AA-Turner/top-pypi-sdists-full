@@ -322,6 +322,60 @@ def handle_type_set(
         :type type: typing.Literal['AUTO','VECTOR','ALIGN','FREE_ALIGN','TOGGLE_FREE_ALIGN'] | None
     """
 
+def pen(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    extend: bool | None = False,
+    deselect: bool | None = False,
+    toggle: bool | None = False,
+    deselect_all: bool | None = False,
+    select_passthrough: bool | None = False,
+    extrude_point: bool | None = False,
+    extrude_handle: typing.Literal["AUTO", "VECTOR"] | None = "VECTOR",
+    delete_point: bool | None = False,
+    insert_point: bool | None = False,
+    move_segment: bool | None = False,
+    select_point: bool | None = False,
+    move_point: bool | None = False,
+    cycle_handle_type: bool | None = False,
+    radius: float | None = 0.01,
+) -> None:
+    """Construct and edit Bézier curves
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param extend: Extend, Extend selection instead of deselecting everything first
+    :type extend: bool | None
+    :param deselect: Deselect, Remove from selection
+    :type deselect: bool | None
+    :param toggle: Toggle Selection, Toggle the selection
+    :type toggle: bool | None
+    :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
+    :type deselect_all: bool | None
+    :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected
+    :type select_passthrough: bool | None
+    :param extrude_point: Extrude Point, Add a point connected to the last selected point
+    :type extrude_point: bool | None
+    :param extrude_handle: Extrude Handle Type, Type of the extruded handle
+    :type extrude_handle: typing.Literal['AUTO','VECTOR'] | None
+    :param delete_point: Delete Point, Delete an existing point
+    :type delete_point: bool | None
+    :param insert_point: Insert Point, Insert Point into a curve segment
+    :type insert_point: bool | None
+    :param move_segment: Move Segment, Delete an existing point
+    :type move_segment: bool | None
+    :param select_point: Select Point, Select a point or its handles
+    :type select_point: bool | None
+    :param move_point: Move Point, Move a point or its handles
+    :type move_point: bool | None
+    :param cycle_handle_type: Cycle Handle Type, Cycle between all four handle types
+    :type cycle_handle_type: bool | None
+    :param radius: Radius
+    :type radius: float | None
+    """
+
 def sculptmode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,

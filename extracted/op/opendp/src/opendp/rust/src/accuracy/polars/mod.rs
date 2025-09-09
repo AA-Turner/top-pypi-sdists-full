@@ -2,12 +2,9 @@ use opendp_derive::bootstrap;
 use polars::{
     datatypes::{AnyValue, DataType, Field},
     frame::{DataFrame, row::Row},
-    prelude::{FunctionExpr, IntoLazy, LazyFrame, Schema},
+    prelude::{DslPlan, FunctionExpr, IntoLazy, LazyFrame, Schema},
 };
-use polars_plan::{
-    dsl::{AggExpr, Expr},
-    plans::DslPlan,
-};
+use polars_plan::dsl::{AggExpr, Expr};
 
 #[cfg(test)]
 mod test;
@@ -23,8 +20,8 @@ use crate::{
     measurements::{
         KeySanitizer, MatchGroupBy,
         expr_index_candidates::IndexCandidatesPlugin,
-        expr_noise::{Distribution, NoisePlugin, Support},
-        expr_report_noisy_max::ReportNoisyMaxPlugin,
+        expr_noise::{NoiseDistribution, NoisePlugin, Support},
+        expr_noisy_max::NoisyMaxPlugin,
         is_threshold_predicate, match_group_by,
     },
     polars::{ExtractLazyFrame, OnceFrame, match_trusted_plugin},
@@ -46,7 +43,7 @@ mod ffi;
 )]
 /// Summarize the statistics to be released from a measurement that returns a OnceFrame.
 ///
-/// If a threshold is configured for censoring small/sensitive partitions,
+/// If a threshold is configured for censoring small/sensitive groups,
 /// a threshold column will be included,
 /// containing the cutoff for the respective count query being thresholded.
 ///
@@ -54,7 +51,7 @@ mod ffi;
 /// * `measurement` - computation from which you want to read noise scale parameters from
 /// * `alpha` - optional statistical significance to use to compute accuracy estimates
 pub fn summarize_polars_measurement<MI: Metric, MO: 'static + Measure>(
-    measurement: Measurement<LazyFrameDomain, OnceFrame, MI, MO>,
+    measurement: Measurement<LazyFrameDomain, MI, MO, OnceFrame>,
     alpha: Option<f64>,
 ) -> Fallible<DataFrame>
 where
@@ -196,7 +193,7 @@ fn summarize_expr<'a>(
 
     if let Some((input, plugin)) = match_trusted_plugin::<NoisePlugin>(&expr)? {
         let accuracy = if let Some(alpha) = alpha {
-            use {Distribution::*, Support::*};
+            use {NoiseDistribution::*, Support::*};
             Some(match (plugin.distribution, plugin.support) {
                 (Laplace, Float) => laplacian_scale_to_accuracy(plugin.scale, alpha),
                 (Gaussian, Float) => gaussian_scale_to_accuracy(plugin.scale, alpha),
@@ -222,11 +219,15 @@ fn summarize_expr<'a>(
         return summarize_expr(&inputs[0], alpha, threshold);
     }
 
-    if let Some((inputs, plugin)) = match_trusted_plugin::<ReportNoisyMaxPlugin>(&expr)? {
+    if let Some((inputs, plugin)) = match_trusted_plugin::<NoisyMaxPlugin>(&expr)? {
         return Ok(vec![UtilitySummary {
             name,
             aggregate: expr_aggregate(&inputs[0])?.to_string(),
-            distribution: Some(format!("Gumbel{:?}", plugin.optimize)),
+            distribution: Some(format!(
+                "{}{}",
+                plugin.distribution,
+                if plugin.negate { "Min" } else { "Max" }
+            )),
             scale: Some(plugin.scale),
             accuracy: None,
             threshold: t_value,

@@ -40,7 +40,7 @@ pub trait CheckAtom: CheckNull + Sized + Clone + PartialEq + Debug + Send + Sync
     }
 }
 
-/// Checks if a value is nan.
+/// Checks if a value is null.
 ///
 /// Since [`crate::domains::AtomDomain`] may or may not contain null values,
 /// this trait is necessary for its member check.
@@ -68,7 +68,7 @@ pub trait HasNull: CheckNull {
 /// The framework provides a way to ensure values are non-null at runtime.
 /// This trait should only be used when the framework can rely on these assurances.
 /// ProductOrd shares the same interface as Ord, but with a total_ prefix on methods
-pub trait ProductOrd: PartialOrd + Sized {
+pub trait ProductOrd: Sized {
     /// # Proof Definition
     /// For any two values `self` and `other` of type `Self`, returns `Ok(out)` or `Err(e)`.
     /// The implementation returns `Err(e)` if either `self` or `other` are null.
@@ -96,7 +96,7 @@ pub trait ProductOrd: PartialOrd + Sized {
     /// The implementation returns `Err(e)` if any of `self`, `min` or `max` are null.
     /// Otherwise returns `Some(out)` where `out` is `min` if $self \lt min$, `max` if $self \gt max$, or else `self`.
     fn total_clamp(self, min: Self, max: Self) -> Fallible<Self> {
-        if min > max {
+        if min.total_gt(&max)? {
             return fallible!(FailedFunction, "min cannot be greater than max");
         }
         Ok(if let Ordering::Less = self.total_cmp(&min)? {
@@ -323,13 +323,13 @@ impl<Q, A> CheckNull for Queryable<Q, A> {
     const NULLABLE: bool = false;
 }
 
-// TRAIT InherentNull
-macro_rules! impl_inherent_null_float {
+// TRAIT HasNull
+macro_rules! impl_HasNull_float {
     ($($ty:ty),+) => ($(impl HasNull for $ty {
         const NULL: Self = Self::NAN;
     })+)
 }
-impl_inherent_null_float!(f64, f32);
+impl_HasNull_float!(f64, f32);
 
 // TRAIT ProductOrd
 macro_rules! impl_ProductOrd_for_ord {
@@ -421,5 +421,21 @@ impl FloatBits for f32 {
     }
     fn from_bits(bits: Self::Bits) -> Self {
         Self::from_bits(bits)
+    }
+}
+
+#[allow(dead_code)]
+/// # Proof Definition
+/// Return the minimum of `a` and `b` if both are `Some`,
+/// or the `Some` value if only one is `Some`.
+pub(crate) fn option_min<T: PartialOrd>(a: Option<T>, b: Option<T>) -> Option<T> {
+    match (a, b) {
+        (Some(a), Some(b)) => match a.partial_cmp(&b) {
+            None => None,
+            Some(std::cmp::Ordering::Greater) => Some(b),
+            _ => Some(a),
+        },
+        (Some(x), _) | (_, Some(x)) => Some(x),
+        _ => None,
     }
 }

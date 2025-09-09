@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-litellm
-Version: 0.6.2
+Version: 0.6.3
 Summary: llama-index llms litellm integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: litellm<2,>=1.18.13
-Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-core<0.15,>=0.13.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Llms Integration: Litellm

@@ -7,7 +7,7 @@ import sys
 import time
 from functools import partial
 import shlex
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Optional, List, Dict, Any, Tuple, Union, Callable
 from .utils import TODOException, safe_requests_wrapper, MaximumRetriesExceeded
 from .app_config import AppConfig, CAPSULE_DEBUG, AuthType
 from . import experimental
@@ -75,7 +75,6 @@ class CapsuleStateMachine:
         return self._status_trail
 
     def add_status(self, status: CapsuleStatus):
-        assert type(status) == dict, "TODO: Make this check somewhere else"
         self._status_trail.append({"timestamp": time.time(), "status": status})
 
     @property
@@ -116,7 +115,9 @@ class CapsuleStateMachine:
         pass
 
     def save_debug_info(self, state_dir: str):
-        debug_path = os.path.join(state_dir, f"debug_capsule_{self._capsule_id}.json")
+        debug_path = os.path.join(
+            state_dir, f"debug_capsule_sm_{self._capsule_id}.json"
+        )
         with open(debug_path, "w") as f:
             json.dump(self._status_trail, f, indent=4)
 
@@ -427,7 +428,7 @@ class CapsuleApi:
                 message="Capsule JSON decode failed",
             )
 
-    def get(self, capsule_id: str):
+    def get(self, capsule_id: str) -> Dict[str, Any]:
         _url = os.path.join(self._base_url, capsule_id)
         response = self._wrapped_api_caller(
             requests.get,
@@ -446,6 +447,7 @@ class CapsuleApi:
                 message="Capsule JSON decode failed",
             )
 
+    # TODO: refactor me since name *currently(9/8/25)* is unique across capsules.
     def get_by_name(self, name: str, most_recent_only: bool = True):
         _url = os.path.join(self._base_url, f"?displayName={name}")
         response = self._wrapped_api_caller(
@@ -726,17 +728,51 @@ class CapsuleDeployer:
                 f"A capsule upgrade was triggered outside current deployment instance. Current deployment version was discarded. Current deployment version: {current_deployment_instance_version} and new version: {capsule_response.get('version', None)}",
             )
 
+    def _update_capsule_and_worker_sm(
+        self,
+        capsule_sm: "CapsuleStateMachine",
+        workers_sm: "CapsuleWorkersStateMachine",
+        logger: Callable[[str], None],
+    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        capsule_response = self.get()
+        capsule_sm.add_status(capsule_response.get("status", {}))  # type: ignore
+
+        # We need to check if someone has not upgraded the capsule under the hood and
+        # the current deployment instance is invalid.
+        self._backend_version_mismatch_check(
+            capsule_response, self.current_deployment_instance_version  # type: ignore
+        )
+        workers_response = self.get_workers()
+        capsule_sm.report_current_status(logger)
+        workers_sm.add_status(workers_response)
+        workers_sm.report_current_status(logger)
+        return capsule_response, workers_response
+
+    def _publish_capsule_debug_info(
+        self,
+        capsule_sm: "CapsuleStateMachine",
+        workers_sm: "CapsuleWorkersStateMachine",
+        capsule_response: Dict[str, Any],
+    ):
+        if CAPSULE_DEBUG and self._debug_dir:
+            capsule_sm.save_debug_info(self._debug_dir)
+            workers_sm.save_debug_info(self._debug_dir)
+            debug_path = os.path.join(
+                self._debug_dir, f"debug_capsule_{self.identifier}.json"
+            )
+            with open(debug_path, "w") as f:
+                f.write(json.dumps(capsule_response, indent=4))
+
     def _monitor_worker_readiness(
         self,
         workers_sm: "CapsuleWorkersStateMachine",
+        capsule_sm: "CapsuleStateMachine",
     ):
         """returns True if the worker is crashlooping, False otherwise"""
         logger = self._logger_fn or partial(print, file=sys.stderr)
         for i in range(self._readiness_wait_time):
             time.sleep(1)
-            workers_response = self.get_workers()
-            workers_sm.add_status(workers_response)
-            workers_sm.report_current_status(logger)
+            self._update_capsule_and_worker_sm(capsule_sm, workers_sm, logger)
             if workers_sm.is_crashlooping:
                 return True
         return False
@@ -782,21 +818,19 @@ class CapsuleDeployer:
             minimum_replicas=min_replicas,
         )
         self.status = state_machine
+
+        # This loop will check all the conditions that help verify the terminal state.
+        # How it works is by extracting the statuses of the capsule and workers and
+        # then adding them as a part of a state-machine that helps track transitions and
+        # helps derive terminal states.
+        # We will first keep checking for terminal conditions or outright failure conditions
+        # If we reach a teminal condition like described in `DEPLOYMENT_READY_CONDITIONS`, then
+        # we will further check for readiness conditions.
         for i in range(self._create_timeout):
             time.sleep(1)
-            capsule_response = self.get()
-            workers_response = self.get_workers()
-
-            # We first need to check if someone has not upgraded the capsule under the hood and
-            # the current deployment instance is invalid.
-            self._backend_version_mismatch_check(
-                capsule_response, self.current_deployment_instance_version  # type: ignore
+            capsule_response, _ = self._update_capsule_and_worker_sm(
+                state_machine, workers_state_machine, logger
             )
-            state_machine.add_status(capsule_response.get("status", {}))  # type: ignore
-            workers_state_machine.add_status(workers_response)
-            state_machine.report_current_status(logger)
-
-            workers_state_machine.report_current_status(logger)
             # Deployment readiness checks will determine what is the terminal state
             # of the workerstate machine. If we detect a terminal state in the workers,
             # then even if the capsule upgrade is still in progress we will end up crashing
@@ -839,7 +873,8 @@ class CapsuleDeployer:
                         % self.identifier
                     )
                     _further_readiness_check_failed = self._monitor_worker_readiness(
-                        workers_state_machine
+                        workers_state_machine,
+                        state_machine,
                     )
 
                 if CAPSULE_DEBUG:
@@ -883,13 +918,18 @@ class CapsuleDeployer:
 
                 break
 
-            if CAPSULE_DEBUG and self._debug_dir:
-                state_machine.save_debug_info(self._debug_dir)
-                workers_state_machine.save_debug_info(self._debug_dir)
-                if i % 3 == 0:  # Every 3 seconds report the status
-                    logger(
-                        f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status: {state_machine.current_status} | worker states: {workers_state_machine.current_status} | capsule_ready : {capsule_ready} | further_check_worker_readiness {further_check_worker_readiness}"
-                    )
+            self._publish_capsule_debug_info(
+                state_machine, workers_state_machine, capsule_response
+            )
+
+            if CAPSULE_DEBUG and i % 3 == 0:  # Every 3 seconds report the status
+                logger(
+                    f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status: {state_machine.current_status} | worker states: {workers_state_machine.current_status} | capsule_ready : {capsule_ready} | further_check_worker_readiness {further_check_worker_readiness}"
+                )
+
+        self._publish_capsule_debug_info(
+            state_machine, workers_state_machine, capsule_response
+        )
 
         # We will only check ready_to_serve_traffic under the following conditions:
         # If the readiness condition is not Async and min_replicas in this deployment
@@ -905,13 +945,6 @@ class CapsuleDeployer:
             raise CapsuleDeploymentException(
                 self.identifier,
                 f"Capsule {self.identifier} failed to be ready to serve traffic",
-            )
-
-        if CAPSULE_DEBUG and self._debug_dir:
-            state_machine.save_debug_info(self._debug_dir)
-            workers_state_machine.save_debug_info(self._debug_dir)
-            logger(
-                f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status [on return]: {state_machine.current_status} | worker states: {workers_state_machine.current_status}"
             )
 
         return dict(

@@ -1471,18 +1471,26 @@ class CloudController(BaseController):
             d.pop("cloud_deployment_id", None)
         return formatted_cloud_resources
 
-    def get_cloud_resources(self, cloud_id: str) -> List[CloudDeployment]:
-        decorated_cloud_resources = self.get_decorated_cloud_resources(cloud_id)
-
+    def _convert_decorated_cloud_resource_to_cloud_deployment(
+        self, decorated_cloud_resource: DecoratedCloudResource
+    ) -> CloudDeployment:
         # DecoratedCloudResource has extra fields that are not in CloudDeployment.
         allowed_keys = set(CloudDeployment.attribute_map.keys())
         allowed_keys.remove(
             "cloud_deployment_id"
         )  # Remove deprecated cloud_deployment_id field.
+        return CloudDeployment(
+            **{
+                k: v
+                for k, v in decorated_cloud_resource.to_dict().items()
+                if k in allowed_keys
+            }
+        )
+
+    def get_cloud_resources(self, cloud_id: str) -> List[CloudDeployment]:
+        decorated_cloud_resources = self.get_decorated_cloud_resources(cloud_id)
         return [
-            CloudDeployment(
-                **{k: v for k, v in resource.to_dict().items() if k in allowed_keys}
-            )
+            self._convert_decorated_cloud_resource_to_cloud_deployment(resource)
             for resource in decorated_cloud_resources
         ]
 
@@ -1815,24 +1823,25 @@ class CloudController(BaseController):
                 "Please use `anyscale cloud resource create` to add cloud resources."
             )
 
-        # Diff the existing and new specs
-        diff = self._generate_diff(
-            [self._remove_empty_values(r.to_dict()) for r in existing_resources], spec
-        )
-        if not diff:
-            self.log.info("No changes detected.")
-            return
-
         existing_resources_dict = {
             resource.cloud_resource_id: resource for resource in existing_resources
         }
 
+        all_deployments: List[CloudDeployment] = []
         updated_deployments: List[CloudDeployment] = []
         for d in spec:
             try:
                 deployment = CloudDeployment(**d)
             except Exception as e:  # noqa: BLE001
-                raise ClickException(f"Failed to parse cloud resource: {e}")
+                try:
+                    # Try to parse the cloud deployment as a DecoratedCloudResource as well,
+                    # which has extra fields that are not in CloudDeployment.
+                    deployment = self._convert_decorated_cloud_resource_to_cloud_deployment(
+                        DecoratedCloudResource(**d)
+                    )
+                except:  # noqa: E722
+                    # Raise original error from parsing as CloudDeployment.
+                    raise ClickException(f"Failed to parse cloud resource: {e}")
 
             if not deployment.cloud_resource_id:
                 raise ClickException(
@@ -1846,10 +1855,20 @@ class CloudController(BaseController):
                 raise ClickException(
                     "Please use the `anyscale machine-pool` CLI to update machine pools."
                 )
+
+            all_deployments.append(deployment)
             if deployment != existing_resources_dict[deployment.cloud_resource_id]:
                 updated_deployments.append(deployment)
 
-        # Log the diff and confirm.
+        # Diff the existing and new specs and confirm.
+        diff = self._generate_diff(
+            [self._remove_empty_values(r.to_dict()) for r in existing_resources],
+            [self._remove_empty_values(r.to_dict()) for r in all_deployments],
+        )
+        if not diff:
+            self.log.info("No changes detected.")
+            return
+
         self.log.info(f"Detected the following changes:\n{diff}")
 
         confirm("Would you like to proceed with updating this cloud?", yes)

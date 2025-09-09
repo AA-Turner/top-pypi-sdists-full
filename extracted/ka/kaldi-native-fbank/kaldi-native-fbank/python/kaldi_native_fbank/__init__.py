@@ -8,11 +8,13 @@ from _kaldi_native_fbank import (
     MfccOptions,
     OnlineFbank,
     OnlineMfcc,
+    OnlineRawAudioSamples,
     OnlineWhisperFbank,
+    RawAudioSamplesOptions,
     Rfft,
     Stft,
     StftConfig,
     StftResult,
     WhisperFeatureOptions,
 )
-__version__ = '1.21.5'
+__version__ = '1.22.1'

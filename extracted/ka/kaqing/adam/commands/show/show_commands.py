@@ -4,7 +4,7 @@ from adam.repl_state import ReplState, RequiredState
 from adam.utils import lines_to_tabular, log
 
 class ShowKubectlCommands(Command):
-    COMMAND = 'show kubectl-commands'
+    COMMAND = 'show cli-commands'
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):

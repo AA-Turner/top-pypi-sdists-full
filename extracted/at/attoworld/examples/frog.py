@@ -1,3 +1,8 @@
+# /// script
+# [tool.marimo.display]
+# theme = "dark"
+# ///
+
 import marimo
 
 __generated_with = "0.15.2"
@@ -7,32 +12,27 @@ app = marimo.App(width="medium")
 @app.cell
 async def _():
     import marimo as mo
-    # check if running in a browser, install attoworld from local copy
+
+    # check if running in a browser for extra setup
     import sys
     is_in_web_notebook = sys.platform == "emscripten"
     if is_in_web_notebook:
         import micropip
         import os
-        await micropip.install("https://nickkarpowicz.github.io/wheels/attoworld-2025.0.41-cp312-cp312-emscripten_3_1_58_wasm32.whl")
-
-        import base64
         import zipfile
-
-        def create_download_link(data, filename, mime_type="text/plain"):
-            encoded_data = base64.b64encode(data).decode("utf-8")
-            data_uri = f"data:{mime_type};base64,{encoded_data}"
-            html = f'<a href="{data_uri}" download="{filename}">Download {filename}</a>'
-            return mo.Html(html)
-
+        await micropip.install(
+            "https://nickkarpowicz.github.io/wheels/attoworld-2025.0.42-cp312-cp312-emscripten_3_1_58_wasm32.whl"
+        )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
         ):
             with open(path, "rb") as _file:
                 mo.output.append(
-                    create_download_link(
-                        data=_file.read(),
+                    mo.download(
+                        data=_file,
                         filename=output_name,
-                        mime_type=mime_type,
+                        mimetype=mime_type,
+                        label=f"Download {output_name}",
                     )
                 )
     else:
@@ -61,14 +61,9 @@ async def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-    # FROG reconstruction
-
-    ---
-    #### Select your FROG file:
-    """
-    )
+    mo.output.append(mo.md("# FROG Reconstruction:"))
+    mo.output.append(mo.md("---"))
+    mo.output.append(mo.md("#### Select your FROG file:"))
     return
 
 
@@ -91,86 +86,6 @@ def _(mo):
     mode_selector = mo.ui.dropdown(options=["SHG", "THG", "Kerr", "XFROG", "BlindFROG"], label="FROG type:", value="SHG")
     mode_selector
     return (mode_selector,)
-
-
-@app.cell
-def _(mo):
-    mo.md(
-        r"""
-    ---
-    #### Optional spectral constraint:
-    """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    spectral_constraint_file = mo.ui.file(label="Spectral contstraint file")
-    spectral_constraint_file
-    return (spectral_constraint_file,)
-
-
-@app.cell
-def _(mo, spectral_constraint_file):
-    spectral_constraint_format = mo.ui.dropdown(options=["Columns", "Text with headers"], value="Text with headers")
-    spectral_constraint_data = spectral_constraint_file.contents()
-    if spectral_constraint_data is not None:
-        mo.output.append(spectral_constraint_format)
-    return spectral_constraint_data, spectral_constraint_format
-
-
-@app.cell
-def _(mo, spectral_constraint_data, spectral_constraint_format):
-    spectral_constraint_wavelength_header = mo.ui.text(label="Wavelength column key:", value="wavelength (nm)")
-    spectral_constraint_wavelength_multiplier = mo.ui.number(label="Wavelength multiplier:", value=1e9)
-    spectral_constraint_intensity_header = mo.ui.text(label="Intensity column key:", value="intensity (a.u.)")
-    spectral_constraint_skip_lines = mo.ui.number(value=0, label="Header lines:")
-    if spectral_constraint_data is not None:
-        if spectral_constraint_format.value == "Text with headers":
-            mo.output.append(spectral_constraint_wavelength_header)
-            mo.output.append(spectral_constraint_wavelength_multiplier)
-            mo.output.append(spectral_constraint_intensity_header)
-        if spectral_constraint_format.value == "Columns":
-            mo.output.append(spectral_constraint_skip_lines)
-    return (
-        spectral_constraint_intensity_header,
-        spectral_constraint_skip_lines,
-        spectral_constraint_wavelength_header,
-        spectral_constraint_wavelength_multiplier,
-    )
-
-
-@app.cell
-def _(
-    aw,
-    mo,
-    spectral_constraint_data,
-    spectral_constraint_format,
-    spectral_constraint_intensity_header,
-    spectral_constraint_skip_lines,
-    spectral_constraint_wavelength_header,
-    spectral_constraint_wavelength_multiplier,
-):
-    spectral_constraint = None
-    if spectral_constraint_data is not None:
-        match spectral_constraint_format.value:
-            case "Columns":
-                spectral_constraint = aw.data.load_mean_spectrum_from_scarab(
-                    spectral_constraint_data.decode("utf-8"), is_bytes=True, header_size=spectral_constraint_skip_lines.value
-                )
-            case "Text with headers":
-                spectral_constraint = aw.data.load_spectrum_from_text(
-                    filename=spectral_constraint_data,
-                    wavelength_multiplier=1.0
-                    / spectral_constraint_wavelength_multiplier.value,
-                    wavelength_field=spectral_constraint_wavelength_header.value,
-                    spectrum_field=spectral_constraint_intensity_header.value,
-                )
-        mo.output.append(mo.md("### Loaded spectral constraint:"))
-        spectral_constraint.plot_with_group_delay()
-        aw.plot.showmo()
-    return (spectral_constraint,)
 
 
 @app.cell
@@ -228,12 +143,8 @@ def _(aw, calibration_selector, file_browser):
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-    ---
-    #### Bin onto evenly-spaced space/time grid:
-    """
-    )
+    mo.output.append(mo.md("---"))
+    mo.output.append(mo.md("#### Bin data onto evenly spaced grid:"))
     return
 
 
@@ -369,12 +280,80 @@ def _(
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-    ---
-    #### Run the reconstruction routine:
-    """
+    mo.output.append(mo.md("---"))
+    mo.output.append(mo.md("#### Optional spectral constraint:"))
+    spectral_constraint_file = mo.ui.file(label="Spectral contstraint file")
+    mo.output.append(spectral_constraint_file)
+    return (spectral_constraint_file,)
+
+
+@app.cell
+def _(mo, spectral_constraint_file):
+    spectral_constraint_format = mo.ui.dropdown(options=["Columns", "Text with headers"], value="Text with headers")
+    spectral_constraint_data = spectral_constraint_file.contents()
+    if spectral_constraint_data is not None:
+        mo.output.append(spectral_constraint_format)
+    return spectral_constraint_data, spectral_constraint_format
+
+
+@app.cell
+def _(mo, spectral_constraint_data, spectral_constraint_format):
+    spectral_constraint_wavelength_header = mo.ui.text(label="Wavelength column key:", value="wavelength (nm)")
+    spectral_constraint_wavelength_multiplier = mo.ui.number(label="Wavelength multiplier:", value=1e9)
+    spectral_constraint_intensity_header = mo.ui.text(label="Intensity column key:", value="intensity (a.u.)")
+    spectral_constraint_skip_lines = mo.ui.number(value=0, label="Header lines:")
+    if spectral_constraint_data is not None:
+        if spectral_constraint_format.value == "Text with headers":
+            mo.output.append(spectral_constraint_wavelength_header)
+            mo.output.append(spectral_constraint_wavelength_multiplier)
+            mo.output.append(spectral_constraint_intensity_header)
+        if spectral_constraint_format.value == "Columns":
+            mo.output.append(spectral_constraint_skip_lines)
+    return (
+        spectral_constraint_intensity_header,
+        spectral_constraint_skip_lines,
+        spectral_constraint_wavelength_header,
+        spectral_constraint_wavelength_multiplier,
     )
+
+
+@app.cell
+def _(
+    aw,
+    mo,
+    spectral_constraint_data,
+    spectral_constraint_format,
+    spectral_constraint_intensity_header,
+    spectral_constraint_skip_lines,
+    spectral_constraint_wavelength_header,
+    spectral_constraint_wavelength_multiplier,
+):
+    spectral_constraint = None
+    if spectral_constraint_data is not None:
+        match spectral_constraint_format.value:
+            case "Columns":
+                spectral_constraint = aw.data.load_mean_spectrum_from_scarab(
+                    spectral_constraint_data.decode("utf-8"), is_data_string=True, header_size=spectral_constraint_skip_lines.value
+                )
+            case "Text with headers":
+                spectral_constraint = aw.data.load_spectrum_from_text(
+                    filename_or_data_string=spectral_constraint_data.decode("utf-8"),
+                    wavelength_multiplier=1.0
+                    / spectral_constraint_wavelength_multiplier.value,
+                    wavelength_field=spectral_constraint_wavelength_header.value,
+                    spectrum_field=spectral_constraint_intensity_header.value,
+                    is_data_string=True
+                )
+        mo.output.append(mo.md("### Loaded spectral constraint:"))
+        spectral_constraint.plot_with_group_delay()
+        aw.plot.showmo()
+    return (spectral_constraint,)
+
+
+@app.cell
+def _(mo):
+    mo.output.append(mo.md("---"))
+    mo.output.append(mo.md("#### Run the reconstruction:"))
     return
 
 
@@ -438,7 +417,7 @@ def _(
                 frog_type = aw.attoworld_rs.FrogType.Xfrog
             case "BlindFROG":
                 frog_type = aw.attoworld_rs.FrogType.Blindfrog
-        result, gate_result = aw.wave.reconstruct_frog(
+        result, result_gate = aw.wave.reconstruct_frog(
             measurement=frog_data,
             repeats=int(recon_trials.value),
             test_iterations=int(recon_trial_length.value),
@@ -449,7 +428,7 @@ def _(
         )
     else:
         result = None
-    return (result,)
+    return result, result_gate
 
 
 @app.cell
@@ -462,19 +441,14 @@ def _(
     mode_selector,
     result,
     result_gate,
-    zipfile,
 ):
     if result is not None:
-        plot = result.plot_all(
-            figsize=(9, 6),
-            wavelength_autoscale=1e-3
-        )
+        plot = result.plot_all(figsize=(9, 6), wavelength_autoscale=1e-3)
         aw.plot.showmo()
         if mode_selector.value == "BlindFROG":
             mo.output.append(mo.md("### Gate"))
             plot_gate = result_gate.plot_all(
-                figsize=(9, 6),
-                wavelength_autoscale=1e-3
+                figsize=(9, 6), wavelength_autoscale=1e-3
             )
             aw.plot.showmo()
 
@@ -483,22 +457,44 @@ def _(
             display_download_link_from_file(
                 "temp.svg", output_name=f"{file_base.value}.svg"
             )
-
-            result.save(file_base.value)
-            result.save_yaml(f"{file_base.value}.yml")
-            with zipfile.ZipFile(f"{file_base.value}.zip", "w") as zip:
-                zip.write(f"{file_base.value}.A.dat")
-                zip.write(f"{file_base.value}.Arecon.dat")
-                zip.write(f"{file_base.value}.Ek.dat")
-                zip.write(f"{file_base.value}.Speck.dat")
-                zip.write(f"{file_base.value}.yml")
-            display_download_link_from_file(
-                f"{file_base.value}.zip",
-                output_name=f"{file_base.value}.zip",
-                mime_type="application/zip",
-            )
-            display_download_link_from_file(f"{file_base.value}.yml",output_name=f"{file_base.value}.yml",mime_type="text/yaml")
     return (plot,)
+
+
+@app.cell
+def _(display_download_link_from_file, file_base, is_in_web_notebook, result):
+    if (result is not None) and is_in_web_notebook:
+        result.save_yaml(f"{file_base.value}.yml")
+        display_download_link_from_file(
+            f"{file_base.value}.yml",
+            output_name=f"{file_base.value}.yml",
+            mime_type="text/yaml",
+        )
+    return
+
+
+@app.cell
+def _(
+    display_download_link_from_file,
+    file_base,
+    is_in_web_notebook,
+    result,
+    zipfile,
+):
+    if (result is not None) and is_in_web_notebook:
+        result.save(file_base.value)
+        with zipfile.ZipFile(f"{file_base.value}.zip", "w") as zip:
+            zip.write(f"{file_base.value}.A.dat")
+            zip.write(f"{file_base.value}.Arecon.dat")
+            zip.write(f"{file_base.value}.Ek.dat")
+            zip.write(f"{file_base.value}.Speck.dat")
+            zip.write(f"{file_base.value}.yml")
+            zip.write(f"{file_base.value}.svg")
+        display_download_link_from_file(
+            f"{file_base.value}.zip",
+            output_name=f"{file_base.value}.zip",
+            mime_type="application/zip",
+        )
+    return
 
 
 @app.cell

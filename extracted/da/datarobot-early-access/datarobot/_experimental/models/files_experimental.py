@@ -154,7 +154,7 @@ class FilesStage(APIObject, HumanReadable):
         """
         url = f"files/{self.catalog_id}/fromStage/"
         response = self._client.post(url, json={"stageId": self.stage_id})
-        return Files.get(response.json()["catalogId"])
+        return FilesExperimental.get(response.json()["catalogId"])
 
     def upload(self, source: str | IOBase, file_name: str | None = None) -> None:
         """Upload a file into the `FilesStage`.

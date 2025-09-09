@@ -4,9 +4,11 @@ from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
 def add_local_openapi_ui_to_api_app(
         *,
-        app: FastAPI
+        app: FastAPI,
+        docs_url: str = "/docs",
+        redoc_url: str = "/redocs",
 ):
-    @app.get("/docs", include_in_schema=False)
+    @app.get(docs_url, include_in_schema=False)
     async def custom_swagger_ui_html():
         return get_swagger_ui_html(
             openapi_url=app.openapi_url,
@@ -16,7 +18,7 @@ def add_local_openapi_ui_to_api_app(
             swagger_favicon_url="/static/openapi-favicon.png"
         )
 
-    @app.get("/redoc", include_in_schema=False)
+    @app.get(redoc_url, include_in_schema=False)
     async def custom_redoc_html():
         return get_redoc_html(
             openapi_url=app.openapi_url,

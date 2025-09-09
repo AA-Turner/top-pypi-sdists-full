@@ -154,7 +154,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -269,7 +269,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/change_kafka_cluster_compartment.py.html>`__ to see an example of how to use change_kafka_cluster_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/change_kafka_cluster_compartment.py.html>`__ to see an example of how to use change_kafka_cluster_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -386,7 +386,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/change_kafka_cluster_config_compartment.py.html>`__ to see an example of how to use change_kafka_cluster_config_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/change_kafka_cluster_config_compartment.py.html>`__ to see an example of how to use change_kafka_cluster_config_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId']
@@ -496,7 +496,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/create_kafka_cluster.py.html>`__ to see an example of how to use create_kafka_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/create_kafka_cluster.py.html>`__ to see an example of how to use create_kafka_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -597,7 +597,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/create_kafka_cluster_config.py.html>`__ to see an example of how to use create_kafka_cluster_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/create_kafka_cluster_config.py.html>`__ to see an example of how to use create_kafka_cluster_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -699,7 +699,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/delete_kafka_cluster.py.html>`__ to see an example of how to use delete_kafka_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/delete_kafka_cluster.py.html>`__ to see an example of how to use delete_kafka_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -808,7 +808,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/delete_kafka_cluster_config.py.html>`__ to see an example of how to use delete_kafka_cluster_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/delete_kafka_cluster_config.py.html>`__ to see an example of how to use delete_kafka_cluster_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId']
@@ -920,7 +920,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/delete_kafka_cluster_config_version.py.html>`__ to see an example of how to use delete_kafka_cluster_config_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/delete_kafka_cluster_config_version.py.html>`__ to see an example of how to use delete_kafka_cluster_config_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId', 'versionNumber']
@@ -1037,7 +1037,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/disable_superuser.py.html>`__ to see an example of how to use disable_superuser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/disable_superuser.py.html>`__ to see an example of how to use disable_superuser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -1159,7 +1159,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/enable_superuser.py.html>`__ to see an example of how to use enable_superuser API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/enable_superuser.py.html>`__ to see an example of how to use enable_superuser API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -1267,7 +1267,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/get_kafka_cluster.py.html>`__ to see an example of how to use get_kafka_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/get_kafka_cluster.py.html>`__ to see an example of how to use get_kafka_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -1370,7 +1370,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/get_kafka_cluster_config.py.html>`__ to see an example of how to use get_kafka_cluster_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/get_kafka_cluster_config.py.html>`__ to see an example of how to use get_kafka_cluster_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId']
@@ -1476,7 +1476,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/get_kafka_cluster_config_version.py.html>`__ to see an example of how to use get_kafka_cluster_config_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/get_kafka_cluster_config_version.py.html>`__ to see an example of how to use get_kafka_cluster_config_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId', 'versionNumber']
@@ -1580,7 +1580,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1708,7 +1708,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_kafka_cluster_config_versions.py.html>`__ to see an example of how to use list_kafka_cluster_config_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_kafka_cluster_config_versions.py.html>`__ to see an example of how to use list_kafka_cluster_config_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId']
@@ -1878,7 +1878,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_kafka_cluster_configs.py.html>`__ to see an example of how to use list_kafka_cluster_configs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_kafka_cluster_configs.py.html>`__ to see an example of how to use list_kafka_cluster_configs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2051,7 +2051,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_kafka_clusters.py.html>`__ to see an example of how to use list_kafka_clusters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_kafka_clusters.py.html>`__ to see an example of how to use list_kafka_clusters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2209,7 +2209,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2364,7 +2364,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2534,7 +2534,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2677,7 +2677,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/update_kafka_cluster.py.html>`__ to see an example of how to use update_kafka_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/update_kafka_cluster.py.html>`__ to see an example of how to use update_kafka_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterId']
@@ -2793,7 +2793,7 @@ class KafkaClusterClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.1/managedkafka/update_kafka_cluster_config.py.html>`__ to see an example of how to use update_kafka_cluster_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/managedkafka/update_kafka_cluster_config.py.html>`__ to see an example of how to use update_kafka_cluster_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['kafkaClusterConfigId']

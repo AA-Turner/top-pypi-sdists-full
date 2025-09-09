@@ -601,8 +601,10 @@ class OTSProtoBufferDecoder(object):
         return index_meta
 
     def _parse_sync_stat(self, proto):
-        sync_stat = SyncStat(SyncPhase.FULL if proto.sync_phase == search_pb.FULL else SyncPhase.INCR,
-                             proto.current_sync_timestamp)
+        if not proto.HasField('sync_stat'):
+            return None
+        sync_stat = SyncStat(SyncPhase.FULL if proto.sync_stat.sync_phase == search_pb.FULL else SyncPhase.INCR,
+                             proto.sync_stat.current_sync_timestamp)
         return sync_stat
 
     def _decode_list_search_index(self, body, request_id):
@@ -619,7 +621,7 @@ class OTSProtoBufferDecoder(object):
         proto.ParseFromString(body)
 
         index_meta = self._parse_index_meta(proto.schema)
-        sync_stat = self._parse_sync_stat(proto.sync_stat)
+        sync_stat = self._parse_sync_stat(proto)
         index_meta.time_to_live = proto.time_to_live
 
         return (index_meta, sync_stat), proto

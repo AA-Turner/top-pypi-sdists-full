@@ -3,15 +3,15 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+use opendp_derive::proven;
 use polars::lazy::dsl::len;
 use polars::prelude::*;
 
 use crate::core::Domain;
-use crate::metrics::{LInfDistance, LpDistance};
+use crate::metrics::{FrameDistance, LInfDistance, LpDistance, MicrodataMetric};
 use crate::traits::{InfMul, ProductOrd};
-use crate::{
-    core::MetricSpace, domains::SeriesDomain, error::Fallible, transformations::DatasetMetric,
-};
+use crate::transformations::traits::UnboundedMetric;
+use crate::{core::MetricSpace, domains::SeriesDomain, error::Fallible};
 
 use super::NumericDataType;
 
@@ -67,7 +67,7 @@ impl Frame for DataFrame {
 /// # Example
 /// ```
 /// use polars::prelude::*;
-/// use opendp::domains::{AtomDomain, SeriesDomain, LazyFrameDomain, Frame, Margin, MarginPub::*};
+/// use opendp::domains::{AtomDomain, SeriesDomain, LazyFrameDomain, Frame, Margin, Invariant::*};
 /// use std::collections::HashSet;
 ///
 /// // Create a LazyFrameDomain
@@ -81,8 +81,8 @@ impl Frame for DataFrame {
 ///     SeriesDomain::new("A", AtomDomain::<i32>::default()),
 ///     SeriesDomain::new("B", AtomDomain::<String>::default()),
 /// ])?
-///         .with_margin(Margin::by(["A"]).with_public_keys())?
-///         .with_margin(Margin::by(["B"]).with_public_lengths())?;
+///         .with_margin(Margin::by(["A"]).with_invariant_keys())?
+///         .with_margin(Margin::by(["B"]).with_invariant_lengths())?;
 ///
 /// # opendp::error::Fallible::Ok(())
 /// ```
@@ -103,18 +103,22 @@ impl<F: Frame> PartialEq for FrameDomain<F> {
 pub type LazyFrameDomain = FrameDomain<LazyFrame>;
 pub(crate) type DslPlanDomain = FrameDomain<DslPlan>;
 
-impl<F: Frame, M: DatasetMetric> MetricSpace for (FrameDomain<F>, M) {
+impl<F: Frame, M: MicrodataMetric> MetricSpace for (FrameDomain<F>, M) {
     fn check_space(&self) -> Fallible<()> {
-        if M::SIZED
-            && self
-                .0
-                .margins
-                .iter()
-                .all(|m| m.public_info != Some(MarginPub::Lengths))
-        {
-            return fallible!(MetricSpace, "bounded dataset metric must have known size");
+        if let Some(identifier) = self.1.identifier() {
+            identifier
+                .meta()
+                .root_names()
+                .into_iter()
+                .try_for_each(|n| self.0.series_domain(n).map(|_| ()))?;
         }
         Ok(())
+    }
+}
+
+impl<F: Frame, M: UnboundedMetric> MetricSpace for (FrameDomain<F>, FrameDistance<M>) {
+    fn check_space(&self) -> Fallible<()> {
+        (self.0.clone(), self.1.0.clone()).check_space()
     }
 }
 
@@ -204,6 +208,25 @@ impl<F: Frame> FrameDomain<F> {
     }
 
     /// # Proof Definition
+    /// Return the schema shared by all members of the domain,
+    /// when `plan` is applied to members of the domain.
+    pub(crate) fn simulate_schema(
+        &self,
+        plan: impl Fn(LazyFrame) -> LazyFrame,
+    ) -> Fallible<Schema> {
+        let output = plan(DataFrame::empty_with_schema(&self.schema()).lazy())
+            .collect()
+            .map_err(|e| {
+                err!(
+                    MakeTransformation,
+                    "Failed to determine output dtypes: {}",
+                    e
+                )
+            })?;
+        Ok((&**output.schema()).clone())
+    }
+
+    /// # Proof Definition
     /// Return a FrameDomain equivalent to `self`,
     /// but whose carrier type (the type of a frame) is `FO`.
     pub(crate) fn cast_carrier<FO: Frame>(&self) -> FrameDomain<FO> {
@@ -215,34 +238,27 @@ impl<F: Frame> FrameDomain<F> {
     }
 
     /// # Proof Definition
-    /// Return a FrameDomain that only includes those elements of `self` that,
-    /// when grouped by `by`, observes those descriptors in `margin`,
-    /// or an error.
+    /// Errors if another margin with same `by` keys is present,
+    /// otherwise returns an equivalent FrameDomain, but with `margin`.
     #[must_use]
     pub fn with_margin(mut self, margin: Margin) -> Fallible<Self> {
-        let _ = margin
-            .by
-            .iter()
+        (margin.by.iter())
             .map(|e| e.clone().meta().root_names())
             .flatten()
-            .try_for_each(|name| {
-                if self
-                    .series_domains
-                    .iter()
-                    .find(|s| s.name == name)
-                    .is_none()
-                {
-                    return fallible!(MakeDomain, "column not found: {}", name);
-                };
-                Ok(())
-            });
-        if self.margins.iter().find(|m| m.by == margin.by).is_some() {
-            return fallible!(MakeDomain, "margin already exists: {:?}", margin.by);
+            .try_for_each(|name| self.series_domain(name).map(|_| ()))?;
+
+        if self.margins.iter().any(|m| m.by == margin.by) {
+            return fallible!(
+                MakeDomain,
+                "margin ({:?}) is already present in domain",
+                margin.by
+            );
         }
         self.margins.push(margin);
         Ok(self)
     }
 
+    #[proven]
     /// # Proof Definition
     /// Return margin descriptors when grouped by `by`
     /// that can be inferred from `self`.
@@ -250,68 +266,38 @@ impl<F: Frame> FrameDomain<F> {
     /// Best effort is made to derive more restrictive descriptors,
     /// but optimal inference of descriptors is not guaranteed.
     pub fn get_margin(&self, by: &HashSet<Expr>) -> Margin {
-        let mut margin = self
-            .margins
-            .iter()
+        // find the margin descriptor for `by` if it exists, otherwise create a new one
+        let mut margin = (self.margins.iter())
             .find(|m| &m.by == by)
             .cloned()
             .unwrap_or_else(|| Margin::by(by.iter().cloned().collect::<Vec<_>>()));
 
-        let subset_margins = self
-            .margins
-            .iter()
+        // find margins for coarser groupings of the data
+        let coarser_margins = (self.margins.iter())
             .filter(|m| m.by.is_subset(by))
             .collect::<Vec<&Margin>>();
 
-        // the max_partition_* descriptors can take the minimum known value from any margin on a subset of the grouping columns
-        margin.max_partition_length = (subset_margins.iter())
-            .filter_map(|m| m.max_partition_length)
-            .min();
+        // the max_length is the largest group length of any coarser grouping
+        margin.max_length = coarser_margins.iter().filter_map(|m| m.max_length).min();
 
-        margin.max_partition_contributions = (subset_margins.iter())
-            .filter_map(|m| m.max_partition_contributions)
-            .min();
-
-        let all_mnps = (self.margins.iter())
-            .filter_map(|m| Some((&m.by, m.max_num_partitions?)))
+        let all_max_groups = (self.margins.iter())
+            .filter_map(|m| Some((&m.by, m.max_groups?)))
             .collect();
 
-        // in the worst case, the max partition length is the product of the max partition lengths of the cover
-        margin.max_num_partitions = find_min_covering(by.clone(), all_mnps)
-            .map(|cover| {
-                cover
-                    .iter()
-                    .try_fold(1u32, |acc, (_, v)| acc.inf_mul(v).ok())
-            })
-            .flatten();
-
-        let all_mips = (self.margins.iter())
-            .filter_map(|m| Some((&m.by, m.max_influenced_partitions?)))
-            .collect();
-
-        // in the worst case, the max partition contributions is the product of the max partition contributions of the cover
-        margin.max_influenced_partitions = find_min_covering(by.clone(), all_mips)
-            .map(|cover| {
-                cover
-                    .iter()
-                    .try_fold(1u32, |acc, (_, v)| acc.inf_mul(v).ok())
-            })
-            .flatten();
+        // in the worst case, the max group length is the product of the max group lengths of the cover
+        margin.max_groups = find_min_covering(by.clone(), all_max_groups).and_then(|cover| {
+            cover
+                .iter()
+                .try_fold(1u32, |acc, (_, v)| acc.inf_mul(v).ok())
+        });
 
         // if keys or lengths are known about any higher-way marginal,
         // then the same is known about lower-way marginals
-        margin.public_info = (self.margins.iter())
+        margin.invariant = (self.margins.iter())
             .filter(|m| by.is_subset(&m.by))
-            .map(|m| m.public_info)
+            .map(|m| m.invariant)
             .max()
             .flatten();
-
-        // with no grouping, the key-set is trivial/public
-        if by.is_empty() {
-            margin.public_info.get_or_insert(MarginPub::Keys);
-            margin.max_num_partitions = Some(1);
-            margin.max_influenced_partitions = Some(1);
-        }
 
         margin
     }
@@ -393,24 +379,17 @@ impl<F: Frame> Domain for FrameDomain<F> {
 pub struct Margin {
     /// The columns to group by to form the margin.
     pub by: HashSet<Expr>,
-    /// The greatest number of records that can be present in any one partition.
-    pub max_partition_length: Option<u32>,
-    /// The greatest number of partitions that can be present.
-    pub max_num_partitions: Option<u32>,
 
-    /// The greatest number of contributions that can be made by one unit to any one partition.
-    ///
-    /// This affects how margins interact with the metric.
-    /// The distance between data sets differing by more than this quantity is considered infinite.
-    pub max_partition_contributions: Option<u32>,
-    /// The greatest number of partitions that can be contributed to.
-    ///
-    /// This affects how margins interact with the metric.
-    /// The distance between data sets differing by more than this quantity is considered infinite.
-    pub max_influenced_partitions: Option<u32>,
+    /// The greatest number of records that can be present in any one group.
+    pub max_length: Option<u32>,
+    /// The greatest number of groups that can be present.
+    pub max_groups: Option<u32>,
 
-    /// Denote whether the unique values and/or in the margin are public.
-    pub public_info: Option<MarginPub>,
+    /// Denote whether all datasets have the same keys and/or lengths.
+    ///
+    /// This is more general than a domain descriptor;
+    /// it denotes a multiverse of potential domains.
+    pub invariant: Option<Invariant>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord)]
@@ -418,14 +397,15 @@ pub struct Margin {
 ///
 /// Order of elements in the enum is significant:
 /// variants are ordered by how restrictive they are as descriptors.
-pub enum MarginPub {
-    /// The distance between data sets with different margin keys are is infinite.
+pub enum Invariant {
+    /// All datasets share the same group keys.
     Keys,
-    /// The distance between data sets with different margin keys or partition lengths is infinite.
+    /// All datasets share the same group keys and group lengths.
     Lengths,
+    // `Order` is also a potential invariant, for dropping the shuffle after collect.
 }
 
-impl PartialOrd for MarginPub {
+impl PartialOrd for Invariant {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         (*self as usize).partial_cmp(&(*other as usize))
     }
@@ -439,38 +419,28 @@ impl Margin {
     pub fn by<E: AsRef<[IE]>, IE: Into<Expr> + Clone>(by: E) -> Self {
         Self {
             by: by.as_ref().iter().cloned().map(Into::into).collect(),
-            max_partition_length: None,
-            max_num_partitions: None,
-            max_partition_contributions: None,
-            max_influenced_partitions: None,
-            public_info: None,
+            max_length: None,
+            max_groups: None,
+            invariant: None,
         }
     }
 
-    pub fn with_max_partition_length(mut self, value: u32) -> Self {
-        self.max_partition_length = Some(value);
+    pub fn with_max_length(mut self, value: u32) -> Self {
+        self.max_length = Some(value);
         self
     }
-    pub fn with_max_num_partitions(mut self, value: u32) -> Self {
-        self.max_num_partitions = Some(value);
-        self
-    }
-    pub fn with_max_partition_contributions(mut self, value: u32) -> Self {
-        self.max_partition_contributions = Some(value);
-        self
-    }
-    pub fn with_max_influenced_partitions(mut self, value: u32) -> Self {
-        self.max_influenced_partitions = Some(value);
+    pub fn with_max_groups(mut self, value: u32) -> Self {
+        self.max_groups = Some(value);
         self
     }
 
-    pub fn with_public_keys(mut self) -> Self {
-        self.public_info = Some(MarginPub::Keys);
+    pub fn with_invariant_keys(mut self) -> Self {
+        self.invariant = Some(Invariant::Keys);
         self
     }
 
-    pub fn with_public_lengths(mut self) -> Self {
-        self.public_info = Some(MarginPub::Lengths);
+    pub fn with_invariant_lengths(mut self) -> Self {
+        self.invariant = Some(Invariant::Lengths);
         self
     }
 
@@ -487,45 +457,38 @@ impl Margin {
 
         let max_part_length = value.clone().agg([len()]).select(&[max("len")]);
 
-        if item!(max_part_length, u32) > self.max_partition_length.unwrap_or(u32::MAX) {
+        if item!(max_part_length, u32) > self.max_length.unwrap_or(u32::MAX) {
             return Ok(false);
         }
 
         let max_num_parts = value.agg([]).select(&[len()]);
 
-        if item!(max_num_parts, u32) > self.max_num_partitions.unwrap_or(u32::MAX) {
+        if item!(max_num_parts, u32) > self.max_groups.unwrap_or(u32::MAX) {
             return Ok(false);
         }
         Ok(true)
     }
 
     /// # Proof Definition
-    /// Returns the greatest number of partitions that may differ
+    /// Returns the greatest number of groups that may differ
     /// when at most `l_1` records may be added or removed,
-    /// given optional domain descriptor `max_num_partitions`
-    /// and optional metric descriptor `max_influenced_partitions`.
+    /// given optional domain descriptor `max_groups`.
     pub(crate) fn l_0(&self, l_1: u32) -> u32 {
-        self.max_influenced_partitions
-            .or(self.max_num_partitions)
-            .unwrap_or(l_1)
-            .min(l_1)
+        self.max_groups.unwrap_or(l_1).min(l_1)
     }
 
     /// # Proof Definition
-    /// Returns the greatest number of records that may be added or removed in any any one partition
+    /// Returns the greatest number of records that may be added or removed in any any one group
     /// when at most `l_1` records may be added or removed,
-    /// given optional domain descriptor `max_partition_length`
-    /// and optional metric descriptor `max_partition_contributions`.
+    /// given optional domain descriptor `max_length`.
     pub(crate) fn l_inf(&self, l_1: u32) -> u32 {
-        self.max_partition_contributions
-            .or(self.max_partition_length)
-            .unwrap_or(l_1)
-            .min(l_1)
+        self.max_length.unwrap_or(l_1).min(l_1)
     }
 }
 
+#[proven]
 /// # Proof Definition
-/// Return a subset of `sets` whose intersection is a superset of `must_cover`.
+/// Return a subset of `sets` whose intersection contains `must_cover`, or None.
 ///
 /// While this algorithm also tries to minimize the number of sets returned,
 /// finding the optimal smallest set of sets is not a requirement to prove correctness of this algorithm.
@@ -533,7 +496,7 @@ impl Margin {
 ///
 /// # Citation
 /// * A Greedy Heuristic for the Set-Covering Problem, V. Chvatal
-fn find_min_covering<T: Hash + Eq>(
+pub(crate) fn find_min_covering<T: Hash + Eq>(
     mut must_cover: HashSet<T>,
     sets: Vec<(&HashSet<T>, u32)>,
 ) -> Option<Vec<(&HashSet<T>, u32)>> {
@@ -541,16 +504,19 @@ fn find_min_covering<T: Hash + Eq>(
     while !must_cover.is_empty() {
         let (best_set, weight) = sets
             .iter()
-            .max_by_key(|(set, len)| {
+            .max_by_key(|(set, weight)| {
                 (
                     // choose the set that covers the most uncovered elements
                     set.intersection(&must_cover).count(),
                     // of those, prioritize smaller sets
                     -(set.len() as i32),
                     // of those, prioritize lower weight
-                    -(*len as i32),
+                    -(*weight as i32),
                 )
             })
+            // If sets is non-empty, and the "best set" overlaps with the must_cover set,
+            //    then it is a valid addition to the covering.
+            // Otherwise, return None.
             .and_then(|(best_set, weight)| {
                 (!best_set.is_disjoint(&must_cover)).then(|| (best_set, *weight))
             })?;

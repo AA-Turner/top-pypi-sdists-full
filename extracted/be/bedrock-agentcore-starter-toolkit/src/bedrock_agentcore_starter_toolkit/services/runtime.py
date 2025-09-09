@@ -29,7 +29,6 @@ def _handle_http_response(response) -> dict:
     if "text/event-stream" in response.headers.get("content-type", ""):
         return _handle_streaming_response(response)
     else:
-        # Check if response has content
         if not response.content:
             raise ValueError("Empty response from agent endpoint")
 
@@ -43,6 +42,15 @@ def _handle_aws_response(response) -> dict:
         try:
             events = []
             for event in response.get("response", []):
+                if isinstance(event, bytes):
+                    try:
+                        decoded = event.decode("utf-8")
+                        if decoded.startswith('"') and decoded.endswith('"'):
+                            event = json.loads(decoded)
+                        else:
+                            event = decoded
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        pass
                 events.append(event)
         except Exception as e:
             events = [f"Error reading EventStream: {e}"]
@@ -64,11 +72,11 @@ def _handle_streaming_response(response) -> Dict[str, Any]:
                         text_chunk = parsed_chunk
                     else:
                         text_chunk = json.dumps(parsed_chunk, ensure_ascii=False)
-                        text_chunk += "\n"
-                    console.print(text_chunk, end="", style="bold cyan")
+                        text_chunk += "\n\n"
+                    console.print(text_chunk, end="")
                     complete_text += text_chunk
                 except json.JSONDecodeError:
-                    console.print(json_chunk, style="bold cyan")
+                    console.print(json_chunk)
                     continue
     console.print()
     return {}
@@ -374,6 +382,28 @@ class BedrockAgentCoreClient:
             agentRuntimeId=agent_id,
             endpointName=endpoint_name,
         )
+
+    def delete_agent_runtime_endpoint(self, agent_id: str, endpoint_name: str = "DEFAULT") -> Dict:
+        """Delete agent runtime endpoint.
+
+        Args:
+            agent_id: Agent ID to delete endpoint for
+            endpoint_name: Endpoint name, defaults to "DEFAULT"
+
+        Returns:
+            Response containing the deletion status
+        """
+        self.logger.info("Deleting agent runtime endpoint '%s' for agent ID: %s", endpoint_name, agent_id)
+        try:
+            response = self.client.delete_agent_runtime_endpoint(
+                agentRuntimeId=agent_id,
+                endpointName=endpoint_name,
+            )
+            self.logger.info("Successfully initiated deletion of endpoint '%s' for agent ID: %s", endpoint_name, agent_id)
+            return response
+        except Exception as e:
+            self.logger.error("Failed to delete endpoint '%s' for agent ID '%s': %s", endpoint_name, agent_id, str(e))
+            raise
 
     def invoke_endpoint(
         self,

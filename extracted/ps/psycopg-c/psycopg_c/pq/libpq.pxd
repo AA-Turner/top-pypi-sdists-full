@@ -89,6 +89,7 @@ cdef extern from "libpq-fe.h":
         CONNECTION_CHECK_TARGET
         CONNECTION_CHECK_STANDBY
         CONNECTION_ALLOCATED
+        CONNECTION_AUTHENTICATING
 
     ctypedef enum PGTransactionStatusType:
         PQTRANS_IDLE
@@ -144,6 +145,7 @@ cdef extern from "libpq-fe.h":
     int PQbackendPID(const PGconn *conn)
     int PQconnectionNeedsPassword(const PGconn *conn)
     int PQconnectionUsedPassword(const PGconn *conn)
+    int PQconnectionUsedGSSAPI(const PGconn *conn)
     int PQsslInUse(PGconn *conn)   # TODO: const in PG 12 docs - verify/report
     # TODO: PQsslAttribute, PQsslAttributeNames, PQsslStruct, PQgetssl
 
@@ -341,6 +343,10 @@ typedef enum {
 #define PQpipelineSync(conn) 0
 #define PQsendFlushRequest(conn) 0
 #define PQsetTraceFlags(conn, stream) do {} while (0)
+#endif
+
+#if PG_VERSION_NUM < 160000
+#define PQconnectionUsedGSSAPI(conn) 0
 #endif
 
 #if PG_VERSION_NUM < 170000

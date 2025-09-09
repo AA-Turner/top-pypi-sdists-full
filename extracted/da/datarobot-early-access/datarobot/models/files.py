@@ -237,13 +237,11 @@ class Files(APIObject):
         None
         """
         assert_single_parameter(("filelike", "file_path"), filelike, file_path)
-        params = {}
+        data = {}
         if file_name:
-            params["file_name"] = file_name
+            data["fileName"] = file_name
 
-        response = self._client.post(
-            f"{self._path}{self.id}/downloads/", params=params, stream=True
-        )
+        response = self._client.post(f"{self._path}{self.id}/downloads/", json=data, stream=True)
         if file_path:
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=1000):

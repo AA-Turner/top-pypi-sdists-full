@@ -165,4 +165,4 @@ else:
 
 assert is_list_of_setuptools_extension(ext_modules), "Expected mypycify to use setuptools"
 
-setup(version="1.18.0a7", ext_modules=ext_modules, cmdclass=cmdclass)
+setup(version="1.19.0a1", ext_modules=ext_modules, cmdclass=cmdclass)

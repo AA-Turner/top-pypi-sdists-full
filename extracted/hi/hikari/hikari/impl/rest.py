@@ -503,6 +503,17 @@ def _transform_emoji_to_url_format(
     return emoji
 
 
+def _build_prompts(
+    prompts: typing.Sequence[special_endpoints.GuildOnboardingPromptBuilder],
+) -> list[typing.MutableMapping[str, typing.Any]]:
+    prompt_bodys: list[typing.MutableMapping[str, typing.Any]] = []
+    for index, prompt in enumerate(prompts):
+        if prompt.id is undefined.UNDEFINED:
+            prompt.set_id(index)
+        prompt_bodys.append(prompt.build())
+    return prompt_bodys
+
+
 class RESTClientImpl(rest_api.RESTClient):
     """Implementation of the V10-compatible Discord HTTP API.
 
@@ -1281,6 +1292,7 @@ class RESTClientImpl(rest_api.RESTClient):
         route = routes.GET_CHANNEL_INVITES.compile(channel=channel)
         response = await self._request(route)
         assert isinstance(response, list)
+
         return [self._entity_factory.deserialize_invite_with_metadata(invite_payload) for invite_payload in response]
 
     @typing_extensions.override
@@ -1325,13 +1337,17 @@ class RESTClientImpl(rest_api.RESTClient):
         )
 
     @typing_extensions.override
-    async def fetch_pins(
-        self, channel: snowflakes.SnowflakeishOr[channels_.TextableChannel]
-    ) -> typing.Sequence[messages_.Message]:
-        route = routes.GET_CHANNEL_PINS.compile(channel=channel)
-        response = await self._request(route)
-        assert isinstance(response, list)
-        return [self._entity_factory.deserialize_message(message_pl) for message_pl in response]
+    def fetch_pins(
+        self,
+        channel: snowflakes.SnowflakeishOr[channels_.TextableChannel],
+        *,
+        before: undefined.UndefinedOr[datetime.datetime] = undefined.UNDEFINED,
+    ) -> iterators.LazyIterator[messages_.PinnedMessage]:
+        first_id = str(int(before.timestamp())) if before is not undefined.UNDEFINED else undefined.UNDEFINED
+
+        return special_endpoints_impl.PinnedMessageIterator(
+            entity_factory=self._entity_factory, request_call=self._request, channel=channel, first_id=first_id
+        )
 
     @typing_extensions.override
     async def pin_message(
@@ -1530,14 +1546,12 @@ class RESTClientImpl(rest_api.RESTClient):
         body.put("embeds", serialized_embeds)
         body.put("components", serialized_components)
         body.put("poll", poll, conversion=lambda p: p.build())
+        body.put(
+            "allowed_mentions",
+            mentions.generate_allowed_mentions(mentions_everyone, mentions_reply, user_mentions, role_mentions),
+        )
 
         body.put_snowflake_array("sticker_ids", (sticker,) if sticker else stickers)
-
-        if not edit or not undefined.all_undefined(mentions_everyone, mentions_reply, user_mentions, role_mentions):
-            body.put(
-                "allowed_mentions",
-                mentions.generate_allowed_mentions(mentions_everyone, mentions_reply, user_mentions, role_mentions),
-            )
 
         form_builder: data_binding.URLEncodedFormBuilder | None = None
         if resources or final_attachments:
@@ -2484,12 +2498,17 @@ class RESTClientImpl(rest_api.RESTClient):
         client_secret: str,
         code: str,
         redirect_uri: str,
+        *,
+        code_verifier: undefined.UndefinedOr[str] = undefined.UNDEFINED,
     ) -> applications.OAuth2AuthorizationToken:
         route = routes.POST_TOKEN.compile()
         form_builder = data_binding.URLEncodedFormBuilder()
         form_builder.add_field("grant_type", "authorization_code")
         form_builder.add_field("code", code)
         form_builder.add_field("redirect_uri", redirect_uri)
+
+        if code_verifier is not undefined.UNDEFINED:
+            form_builder.add_field("code_verifier", code_verifier)
 
         response = await self._request(
             route, form_builder=form_builder, auth=self._gen_oauth2_token(client, client_secret)
@@ -3563,15 +3582,19 @@ class RESTClientImpl(rest_api.RESTClient):
         )
 
     @typing_extensions.override
-    async def reposition_channels(
+    def reposition_channels(
         self,
         guild: snowflakes.SnowflakeishOr[guilds.PartialGuild],
-        positions: typing.Mapping[int, snowflakes.SnowflakeishOr[channels_.GuildChannel]],
+        positions: undefined.UndefinedOr[
+            typing.Mapping[int, snowflakes.SnowflakeishOr[channels_.GuildChannel]]
+        ] = undefined.UNDEFINED,
         reason: undefined.UndefinedOr[str] = undefined.UNDEFINED,
-    ) -> None:
-        route = routes.PATCH_GUILD_CHANNELS.compile(guild=guild)
-        body = [{"id": str(int(channel)), "position": pos} for pos, channel in positions.items()]
-        await self._request(route, json=body, reason=reason)
+    ) -> special_endpoints.ChannelRepositioner:
+        builder = special_endpoints_impl.ChannelRepositioner(guild=guild, request_call=self._request, reason=reason)
+        if positions is not undefined.UNDEFINED:
+            for pos, channel in positions.items():
+                builder.add_reposition_channel(position=pos, channel=channel)
+        return builder
 
     @typing_extensions.override
     async def fetch_member(
@@ -3967,11 +3990,21 @@ class RESTClientImpl(rest_api.RESTClient):
     @typing_extensions.override
     async def fetch_guild_invites(
         self, guild: snowflakes.SnowflakeishOr[guilds.PartialGuild]
-    ) -> typing.Sequence[invites.InviteWithMetadata]:
+    ) -> typing.Sequence[invites.InviteWithMetadata] | typing.Sequence[invites.Invite]:
         route = routes.GET_GUILD_INVITES.compile(guild=guild)
         response = await self._request(route)
         assert isinstance(response, list)
-        return [self._entity_factory.deserialize_invite_with_metadata(invite_payload) for invite_payload in response]
+
+        # If we are missing MANAGE_GUILD, we will only get normal invites (no metadata)
+        if not response:
+            return []
+
+        if "created_at" in response[0]:
+            return [
+                self._entity_factory.deserialize_invite_with_metadata(invite_payload) for invite_payload in response
+            ]
+
+        return [self._entity_factory.deserialize_invite(invite_payload) for invite_payload in response]
 
     @typing_extensions.override
     async def fetch_integrations(
@@ -4047,6 +4080,42 @@ class RESTClientImpl(rest_api.RESTClient):
         response = await self._request(route, json=body)
         assert isinstance(response, dict)
         return self._entity_factory.deserialize_welcome_screen(response)
+
+    @typing_extensions.override
+    async def fetch_guild_onboarding(
+        self, guild: snowflakes.SnowflakeishOr[guilds.PartialGuild]
+    ) -> guilds.GuildOnboarding:
+        route = routes.GET_GUILD_ONBOARDING.compile(guild=guild)
+        response = await self._request(route)
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_guild_onboarding(response)
+
+    @typing_extensions.override
+    async def edit_guild_onboarding(
+        self,
+        guild: snowflakes.SnowflakeishOr[guilds.PartialGuild],
+        *,
+        default_channel_ids: undefined.UndefinedOr[
+            snowflakes.SnowflakeishSequence[channels_.GuildChannel]
+        ] = undefined.UNDEFINED,
+        enabled: undefined.UndefinedOr[bool] = undefined.UNDEFINED,
+        mode: undefined.UndefinedOr[guilds.GuildOnboardingMode] = undefined.UNDEFINED,
+        prompts: undefined.UndefinedOr[
+            typing.Sequence[special_endpoints.GuildOnboardingPromptBuilder]
+        ] = undefined.UNDEFINED,
+        reason: undefined.UndefinedOr[str] = undefined.UNDEFINED,
+    ) -> guilds.GuildOnboarding:
+        route = routes.PUT_GUILD_ONBOARDING.compile(guild=guild)
+        body = data_binding.JSONObjectBuilder()
+        body.put_snowflake_array("default_channel_ids", default_channel_ids)
+        body.put("enabled", enabled)
+        body.put("mode", mode, conversion=int)
+        if prompts is not undefined.UNDEFINED:
+            body.put("prompts", _build_prompts(prompts))
+
+        response = await self._request(route, json=body, reason=reason)
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_guild_onboarding(response)
 
     @typing_extensions.override
     async def fetch_vanity_url(self, guild: snowflakes.SnowflakeishOr[guilds.PartialGuild]) -> invites.VanityURL:
@@ -4422,10 +4491,6 @@ class RESTClientImpl(rest_api.RESTClient):
         return special_endpoints_impl.InteractionModalBuilder(title=title, custom_id=custom_id)
 
     @typing_extensions.override
-    def interaction_premium_required_builder(self) -> special_endpoints.InteractionPremiumRequiredBuilder:
-        return special_endpoints_impl.InteractionPremiumRequiredBuilder()
-
-    @typing_extensions.override
     async def fetch_interaction_response(
         self, application: snowflakes.SnowflakeishOr[guilds.PartialApplication], token: str
     ) -> messages_.Message:
@@ -4460,7 +4525,7 @@ class RESTClientImpl(rest_api.RESTClient):
         role_mentions: undefined.UndefinedOr[
             snowflakes.SnowflakeishSequence[guilds.PartialRole] | bool
         ] = undefined.UNDEFINED,
-    ) -> None:
+    ) -> base_interactions.InteractionCallbackResponse:
         route = routes.POST_INTERACTION_RESPONSE.compile(interaction=interaction, token=token)
 
         data, form = self._build_message_payload(
@@ -4482,11 +4547,17 @@ class RESTClientImpl(rest_api.RESTClient):
         body.put("type", response_type)
         body.put("data", data)
 
+        query = data_binding.StringMapBuilder()
+        query.put("with_response", True)
+
         if form is not None:
             form.add_field("payload_json", self._dumps(body), content_type=_APPLICATION_JSON)
-            await self._request(route, form_builder=form, auth=None)
+            response = await self._request(route, form_builder=form, query=query, auth=None)
         else:
-            await self._request(route, json=body, auth=None)
+            response = await self._request(route, json=body, query=query, auth=None)
+
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_interaction_callback_response(response)
 
     @typing_extensions.override
     async def create_interaction_voice_message_response(
@@ -4498,7 +4569,7 @@ class RESTClientImpl(rest_api.RESTClient):
         duration: float,
         *,
         flags: int | messages_.MessageFlag | undefined.UndefinedType = undefined.UNDEFINED,
-    ) -> None:
+    ) -> base_interactions.InteractionCallbackResponse:
         route = routes.POST_INTERACTION_RESPONSE.compile(interaction=interaction, token=token)
 
         data, form_builder = self._build_voice_message_payload(
@@ -4511,7 +4582,13 @@ class RESTClientImpl(rest_api.RESTClient):
 
         form_builder.add_field("payload_json", self._dumps(body), content_type=_APPLICATION_JSON)
 
-        await self._request(route, form_builder=form_builder, auth=None)
+        query = data_binding.StringMapBuilder()
+        query.put("with_response", True)
+
+        response = await self._request(route, form_builder=form_builder, query=query, auth=None)
+
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_interaction_callback_response(response)
 
     @typing_extensions.override
     async def edit_interaction_response(
@@ -4596,8 +4673,11 @@ class RESTClientImpl(rest_api.RESTClient):
         interaction: snowflakes.SnowflakeishOr[base_interactions.PartialInteraction],
         token: str,
         choices: typing.Sequence[special_endpoints.AutocompleteChoiceBuilder],
-    ) -> None:
+    ) -> base_interactions.InteractionCallbackResponse:
         route = routes.POST_INTERACTION_RESPONSE.compile(interaction=interaction, token=token)
+
+        query = data_binding.StringMapBuilder()
+        query.put("with_response", True)
 
         body = data_binding.JSONObjectBuilder()
         body.put("type", base_interactions.ResponseType.AUTOCOMPLETE)
@@ -4606,7 +4686,10 @@ class RESTClientImpl(rest_api.RESTClient):
         data.put("choices", [{"name": choice.name, "value": choice.value} for choice in choices])
 
         body.put("data", data)
-        await self._request(route, json=body, auth=None)
+        response = await self._request(route, json=body, query=query, auth=None)
+
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_interaction_callback_response(response)
 
     @typing_extensions.override
     async def create_modal_response(
@@ -4618,7 +4701,7 @@ class RESTClientImpl(rest_api.RESTClient):
         custom_id: str,
         component: undefined.UndefinedOr[special_endpoints.ComponentBuilder] = undefined.UNDEFINED,
         components: undefined.UndefinedOr[typing.Sequence[special_endpoints.ComponentBuilder]] = undefined.UNDEFINED,
-    ) -> None:
+    ) -> base_interactions.InteractionCallbackResponse:
         if undefined.all_undefined(component, components) or not undefined.any_undefined(component, components):
             msg = "Must specify exactly only one of 'component' or 'components'"
             raise ValueError(msg)
@@ -4639,7 +4722,13 @@ class RESTClientImpl(rest_api.RESTClient):
         body.put("type", base_interactions.ResponseType.MODAL)
         body.put("data", data)
 
-        await self._request(route, json=body, auth=None)
+        query = data_binding.StringMapBuilder()
+        query.put("with_response", True)
+
+        response = await self._request(route, json=body, query=query, auth=None)
+
+        assert isinstance(response, dict)
+        return self._entity_factory.deserialize_interaction_callback_response(response)
 
     @typing_extensions.override
     def build_message_action_row(self) -> special_endpoints.MessageActionRowBuilder:
@@ -4648,18 +4737,6 @@ class RESTClientImpl(rest_api.RESTClient):
     @typing_extensions.override
     def build_modal_action_row(self) -> special_endpoints.ModalActionRowBuilder:
         return special_endpoints_impl.ModalActionRowBuilder()
-
-    @typing_extensions.override
-    async def create_premium_required_response(
-        self, interaction: snowflakes.SnowflakeishOr[base_interactions.PartialInteraction], token: str
-    ) -> None:
-        route = routes.POST_INTERACTION_RESPONSE.compile(interaction=interaction, token=token)
-
-        body = data_binding.JSONObjectBuilder()
-        body.put("type", base_interactions.ResponseType.PREMIUM_REQUIRED)
-        body.put("data", {})
-
-        await self._request(route, json=body, auth=None)
 
     @typing_extensions.override
     async def fetch_scheduled_event(

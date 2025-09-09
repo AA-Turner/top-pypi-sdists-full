@@ -21,6 +21,7 @@ from dbt_semantic_interfaces.protocols import (
     SemanticModel,
     SemanticModelDefaults,
 )
+from dbt_semantic_interfaces.protocols.metric import Metric
 from dbt_semantic_interfaces.references import (
     DimensionReference,
     EntityReference,
@@ -29,6 +30,7 @@ from dbt_semantic_interfaces.references import (
     SemanticModelReference,
     TimeDimensionReference,
 )
+from dbt_semantic_interfaces.type_enums.metric_type import MetricType
 from dsi_pydantic_shim import Field
 
 
@@ -137,8 +139,46 @@ class PydanticSemanticModel(HashableBaseModel, ModelWithMetadataParsing, Protoco
 
         raise ValueError(f"No entity with name ({entity_reference}) in semantic_model with name ({self.name})")
 
+    def _get_default_agg_time_dimension(self) -> Optional[str]:  # noqa: D
+        return self.defaults.agg_time_dimension if self.defaults is not None else None
+
+    def checked_agg_time_dimension_for_simple_metric(  # noqa: D
+        self,
+        metric: Metric,
+    ) -> TimeDimensionReference:
+        metric_time_dimension_name = None
+        assert metric.type == MetricType.SIMPLE, "Only simple metrics can have an agg time dimension."
+        metric_agg_params = metric.type_params.metric_aggregation_params
+        # There are validations elsewhere to check this for metrics and provide messaging for it.
+        assert metric_agg_params, "Simple metrics must have metric_aggregation_params."
+        # This indicates a validation bug / dev error, not a user error that should appear
+        # in a user's YAML.
+        assert (
+            metric_agg_params.semantic_model == self.name
+        ), "Cannot retrieve the agg time dimension for a metric from a different model "
+        f"than the one that the metric belongs to. Metric `{metric.name}` belongs to model "
+        f"`{metric_agg_params.semantic_model}`, but we requested the agg time dimension from model `{self.name}`."
+
+        if (
+            metric.type_params
+            and metric.type_params.metric_aggregation_params
+            and metric.type_params.metric_aggregation_params.agg_time_dimension
+        ):
+            metric_time_dimension_name = metric.type_params.metric_aggregation_params.agg_time_dimension
+
+        default_agg_time_dimension = self._get_default_agg_time_dimension()
+        agg_time_dimension_name = metric_time_dimension_name or default_agg_time_dimension
+
+        assert agg_time_dimension_name is not None, (
+            f"Aggregation time dimension for metric {metric.name} is not set! This should either be set directly on "
+            f"the metric specification in the model, or else defaulted to the time dimension in the data "
+            f"source containing the metric."
+        )
+        return TimeDimensionReference(element_name=agg_time_dimension_name)
+
     def checked_agg_time_dimension_for_measure(  # noqa: D
-        self, measure_reference: MeasureReference
+        self,
+        measure_reference: MeasureReference,
     ) -> TimeDimensionReference:
         measure = self.get_measure(measure_reference=measure_reference)
         default_agg_time_dimension = self.defaults.agg_time_dimension if self.defaults is not None else None

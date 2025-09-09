@@ -26,7 +26,7 @@ use std::ops::Bound;
 
 use crate::core::Domain;
 use crate::error::Fallible;
-use crate::traits::{CheckAtom, HasNull, ProductOrd};
+use crate::traits::{CheckAtom, CheckNull, HasNull, ProductOrd};
 use std::fmt::{Debug, Formatter};
 
 use bitvec::prelude::{BitVec, Lsb0};
@@ -122,10 +122,8 @@ impl<T: CheckAtom> AtomDomain<T> {
         }
         Ok(())
     }
-    pub fn bounds(&self) -> Option<&Bounds<T>> {
-        self.bounds.as_ref()
-    }
 }
+
 impl<T: CheckAtom> AtomDomain<T> {
     pub fn new_non_nan() -> Self {
         AtomDomain {
@@ -134,7 +132,7 @@ impl<T: CheckAtom> AtomDomain<T> {
         }
     }
 }
-impl<T: CheckAtom + ProductOrd + Debug> AtomDomain<T> {
+impl<T: CheckAtom + PartialOrd + Debug> AtomDomain<T> {
     pub fn new_closed(bounds: (T, T)) -> Fallible<Self> {
         Ok(AtomDomain {
             bounds: Some(Bounds::new_closed(bounds)?),
@@ -207,7 +205,7 @@ pub struct Bounds<T> {
     lower: Bound<T>,
     upper: Bound<T>,
 }
-impl<T: ProductOrd + Debug> Bounds<T> {
+impl<T: PartialOrd + Debug + CheckNull> Bounds<T> {
     pub fn new_closed(bounds: (T, T)) -> Fallible<Self> {
         Self::new((Bound::Included(bounds.0), Bound::Included(bounds.1)))
     }
@@ -250,6 +248,16 @@ impl<T: ProductOrd + Debug> Bounds<T> {
                     }
                     _ => (),
                 }
+            }
+        }
+        if let Some(lower) = get(&lower) {
+            if lower.is_null() {
+                return fallible!(FailedFunction, "lower must not be null");
+            }
+        }
+        if let Some(upper) = get(&upper) {
+            if upper.is_null() {
+                return fallible!(FailedFunction, "upper must not be null");
             }
         }
         Ok(Bounds { lower, upper })
@@ -350,10 +358,10 @@ impl<DK: Domain, DV: Domain> MapDomain<DK, DV>
 where
     DK::Carrier: Eq + Hash,
 {
-    pub fn new(key_domain: DK, element_domain: DV) -> Self {
+    pub fn new(key_domain: DK, value_domain: DV) -> Self {
         MapDomain {
             key_domain,
-            value_domain: element_domain,
+            value_domain,
         }
     }
 }

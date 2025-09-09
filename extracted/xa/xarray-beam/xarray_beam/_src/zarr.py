@@ -17,12 +17,12 @@ from __future__ import annotations
 import collections
 import dataclasses
 import logging
+import os
 from typing import (
     AbstractSet,
     Any,
     Dict,
     Mapping,
-    MutableMapping,
     Optional,
     Set,
     Tuple,
@@ -39,11 +39,13 @@ import xarray
 from xarray_beam._src import core
 from xarray_beam._src import rechunk
 from xarray_beam._src import threadmap
+from zarr import storage as zarr_storage
 
 # pylint: disable=logging-fstring-interpolation
 
-ReadableStore = Union[str, Mapping[str, bytes]]
-WritableStore = Union[str, MutableMapping[str, bytes]]
+# Match the types accepted by xarray.open_zarr() and to_zarr().
+ReadableStore = Union[str, zarr_storage.StoreLike, os.PathLike[str]]
+WritableStore = Union[str, zarr_storage.StoreLike, os.PathLike[str]]
 
 
 def _infer_chunks(dataset: xarray.Dataset) -> Mapping[str, int]:
@@ -431,14 +433,18 @@ def write_chunk_to_zarr(
       "chunked" with Dask, and will only have their metadata written to Zarr
       without array values.
   """
-  # Immutable dicts not considered a Mapping type which method expects.
-  region = core.offsets_to_slices(key.offsets, chunk.sizes)  # pytype: disable=wrong-arg-types
   already_written = [
       k for k in chunk.variables if k in _unchunked_vars(template)
   ]
   writable_chunk = chunk.drop_vars(already_written)
+
+  # Immutable dicts not considered a Mapping type which method expects.
+  region = core.offsets_to_slices(key.offsets, writable_chunk.sizes)  # pytype: disable=wrong-arg-types
+
+  # Ensure the arrays in writable_chunk are each stored in a single dask chunk.
+  writable_chunk = writable_chunk.compute().chunk()
   try:
-    future = writable_chunk.chunk().to_zarr(
+    future = writable_chunk.to_zarr(
         store, region=region, compute=False, consolidated=True
     )
     future.compute(num_workers=len(writable_chunk))

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
 use crate::domains::{AtomDomain, DatetimeDomain, LazyFrameDomain, SeriesDomain};
-use crate::metrics::SymmetricDistance;
+use crate::metrics::{FrameDistance, SymmetricDistance};
 use crate::transformations::make_stable_lazyframe;
 
 use super::*;
@@ -35,7 +35,7 @@ fn test_make_expr_components() -> Fallible<()> {
         col("datetime").dt().ordinal_day().alias("datetime-day"),
         col("date").dt().quarter().alias("date-quarter"),
     ]);
-    let t_components = make_stable_lazyframe(lf_domain, SymmetricDistance, plan)?;
+    let t_components = make_stable_lazyframe(lf_domain, FrameDistance(SymmetricDistance), plan)?;
 
     let actual = t_components.invoke(&data)?.collect()?;
     let expected = r#"shape: (1, 6)
@@ -57,10 +57,6 @@ fn assert_temporal_op_schema<const L: usize>(df: DataFrame, ops: [TemporalFuncti
             Expr::Function {
                 input: vec![col("x")],
                 function: FunctionExpr::TemporalExpr(op.clone()),
-                options: FunctionOptions {
-                    collect_groups: ApplyOptions::ElementWise,
-                    ..Default::default()
-                },
             }
             .alias(op.to_string().as_str())
         })
@@ -68,10 +64,7 @@ fn assert_temporal_op_schema<const L: usize>(df: DataFrame, ops: [TemporalFuncti
 
     let observed = df.lazy().select(exprs).collect_schema().unwrap();
     let expected = Arc::new(Schema::from_iter(ops.iter().map(|op| {
-        Field::new(
-            op.to_string().into(),
-            match_datetime_component(op).unwrap().0,
-        )
+        Field::new(op.to_string().into(), match_datetime_component(op).unwrap())
     })));
 
     assert_eq!(observed, expected);

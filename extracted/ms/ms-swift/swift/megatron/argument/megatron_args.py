@@ -18,9 +18,10 @@ logger = get_logger()
 @dataclass
 class RLHFMegatronArgumentsMixin:
     ref_load: Optional[str] = None
+    ref_adapter_load: Optional[str] = None
 
     beta: float = 0.1
-    rpo_alpha: float = 1.
+    rpo_alpha: Optional[float] = None
     reference_free: bool = False
     label_smoothing: float = 0.
     f_divergence_type: str = 'reverse_kl'
@@ -30,6 +31,9 @@ class RLHFMegatronArgumentsMixin:
 @dataclass
 class MegatronTunerMixin:
     train_type: Literal['lora', 'full'] = 'full'
+    freeze_llm: bool = False
+    freeze_vit: bool = True
+    freeze_aligner: bool = True
     # full
     freeze_parameters: List[str] = field(default_factory=list)
     freeze_parameters_regex: Optional[str] = None
@@ -50,25 +54,28 @@ class MegatronTunerMixin:
     lora_dtype: Literal['float16', 'bfloat16', 'float32', None] = None
     use_rslora: bool = False
 
+    @staticmethod
+    def load_tuner_config(adapter_load: Optional[str]) -> Dict[str, Any]:
+        res = {}
+        if adapter_load is None:
+            return res
+        args_path = os.path.join(adapter_load, 'args.json')
+        if os.path.exists(args_path):
+            with open(args_path, 'r', encoding='utf-8') as f:
+                old_args = json.load(f)
+            tuner_keys = list(f.name for f in fields(MegatronTunerMixin)) + ['load']
+            for key in tuner_keys:
+                old_value = old_args.get(key)
+                if old_value is not None:
+                    res[key] = old_value
+            res.pop('adapter_load', None)
+        return res
+
     def __post_init__(self):
         if self.freeze_parameters_ratio > 0 and self.pipeline_model_parallel_size > 1:
             raise ValueError('`freeze_parameters_ratio` is not supported when `pipeline_model_parallel_size` > 1')
-
-        if self.adapter_load:
-            args_path = os.path.join(self.adapter_load, 'args.json')
-            if os.path.exists(args_path):
-                with open(args_path, 'r', encoding='utf-8') as f:
-                    old_args = json.load(f)
-                tuner_keys = list(f.name for f in fields(MegatronTunerMixin))
-                for key in tuner_keys:
-                    old_value = old_args.get(key)
-                    if old_value is not None:
-                        setattr(self, key, old_value)
-                if self.adapter_load is not None and hasattr(self, 'load'):
-                    old_value = old_args.get('load')
-                    if self.load is None and old_value is not None:
-                        logger.info(f'Setting args.load: {old_value}')
-                        self.load = old_value
+        if self.target_regex:
+            self.target_modules = self.target_regex
 
 
 @dataclass
@@ -84,11 +91,18 @@ class ExtraMegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     dataloader_prefetch_factor: int = 10
 
     architectures: Optional[str] = None
+    llm_architectures: Optional[str] = None
     max_epochs: Optional[int] = None
+    enable_dft_loss: bool = False
+    enable_channel_loss: bool = False
 
     original_max_position_embeddings: Optional[int] = None
     partial_rotary_factor: Optional[float] = None
     use_shared_expert_gate: Optional[bool] = None
+
+    # visual
+    vit_gradient_checkpointing: bool = True
+    gradient_checkpointing_kwargs: Optional[Union[dict, str]] = None
 
 
 @dataclass
@@ -181,7 +195,8 @@ class MegatronArguments(ExtraMegatronArguments):
     group_query_attention: Optional[bool] = None
     num_query_groups: Optional[int] = None
     max_position_embeddings: Optional[int] = None
-    position_embedding_type: Literal['learned_absolute', 'rope', 'mrope', 'relative', 'none'] = 'rope'
+    position_embedding_type: Optional[Literal['learned_absolute', 'rope', 'mrope', 'relative', 'none']] = None
+    mrope_section: Optional[List[int]] = None
     rotary_base: Optional[int] = None
     rotary_percent: float = 1.
     rotary_interleaved: Optional[bool] = None
@@ -372,10 +387,14 @@ class MegatronArguments(ExtraMegatronArguments):
             self.rope_scaling = json_parse_to_dict(self.rope_scaling)
             if 'type' in self.rope_scaling and 'rope_type' not in self.rope_scaling:
                 self.rope_scaling['rope_type'] = self.rope_scaling['type']
+        if self.gradient_checkpointing_kwargs is not None:
+            self.gradient_checkpointing_kwargs = json_parse_to_dict(self.gradient_checkpointing_kwargs)
         if self.eval_interval is None:
             self.eval_interval = self.save_interval
         if self.seq_length is None:
             self.seq_length = self.max_position_embeddings
+        if self.position_embedding_type is None:
+            self.position_embedding_type = 'rope'
         if self.tensorboard_dir is None and self.save is not None:
             self.tensorboard_dir = f'{self.save}/runs'
         self._init_moe()

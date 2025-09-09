@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: drf-nested-routers
-Version: 0.94.2
+Version: 0.95.0
 Summary: Nested resources for the Django Rest Framework
 Home-page: https://github.com/alanjds/drf-nested-routers
 Author: Alan Justino et al.
@@ -35,6 +35,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

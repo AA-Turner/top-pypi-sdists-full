@@ -1,5 +1,5 @@
 use crate::{
-    metrics::{InsertDeleteDistance, L2Distance, PartitionDistance},
+    metrics::{InsertDeleteDistance, L0PInfDistance, L2Distance},
     transformations::test_helper::get_test_data,
 };
 
@@ -14,7 +14,7 @@ fn test_select_make_sum_expr() -> Fallible<()> {
     let t_sum: Transformation<_, _, _, L2Distance<f64>> = col("const_1f64")
         .clip(lit(0), lit(1))
         .sum()
-        .make_stable(expr_domain, PartitionDistance(InsertDeleteDistance))?;
+        .make_stable(expr_domain, L0PInfDistance(InsertDeleteDistance))?;
     let expr_res = t_sum.invoke(&lf.logical_plan)?.expr;
     // dtype in clip changes
     assert_eq!(expr_res, col("const_1f64").clip(lit(0.), lit(1.)).sum());
@@ -36,7 +36,7 @@ fn test_grouped_make_sum_expr() -> Fallible<()> {
         .clip(lit(0), lit(1))
         .sum()
         .clone()
-        .make_stable(expr_domain, PartitionDistance(InsertDeleteDistance))?;
+        .make_stable(expr_domain, L0PInfDistance(InsertDeleteDistance))?;
     let expr_res = t_sum.invoke(&lf.logical_plan)?.expr;
 
     let df_actual = lf
@@ -86,7 +86,7 @@ fn test_overflow_sum_expr() -> Fallible<()> {
         .clip(lit(0), lit(u32::MAX))
         .sum()
         .clone()
-        .make_stable(expr_domain, PartitionDistance(InsertDeleteDistance))
+        .make_stable(expr_domain, L0PInfDistance(InsertDeleteDistance))
         .map(|_: Transformation<_, _, _, L2Distance<f64>>| ())
         .unwrap_err();
 
@@ -107,8 +107,8 @@ fn test_polars_sum_types() -> Fallible<()> {
         "f64" => &[1f64, 2.0, 3.0],
     )?
     .lazy();
-
-    let schema = lf.select([all().sum()]).collect()?.schema();
+    let lf2 = lf.select([all().as_expr().sum()]).collect()?;
+    let schema = lf2.schema();
 
     macro_rules! test_dtype {
         ($dtype:ident, $expected:ident) => {

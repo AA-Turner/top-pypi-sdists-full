@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-google-sso
-Version: 8.0.1
+Version: 8.0.2
 Summary: Easily add Google Authentication to your Django Projects
 License: MIT
 Keywords: google,django,sso

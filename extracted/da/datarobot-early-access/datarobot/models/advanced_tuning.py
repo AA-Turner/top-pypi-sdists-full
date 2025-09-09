@@ -16,6 +16,11 @@ from pprint import pformat
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
+import trafaret as t
+
+from datarobot.enums import GridSearchAlgorithm, GridSearchSearchType, enum_to_list
+from datarobot.models.api_object import APIObject
+
 if TYPE_CHECKING:
     from datarobot.models.model import AdvancedTuningParamsType, Model, TuningParametersType
     from datarobot.models.modeljob import ModelJob
@@ -61,6 +66,91 @@ class NonUniqueParametersException(Exception):
         super().__init__(message)
 
 
+class GridSearchArguments(APIObject):
+    """
+    Grid search arguments
+
+    Attributes
+    ----------
+    search_type : GridSearchSearchType
+        The type of grid search to be performed. If not specified, DataRobot performs Smart Search.
+    algorithm : GridSearchAlgorithm (optional)
+        The algorithm to apply when running the grid search.
+        This is only applicable if the search type is specified and the search determines which algorithm to use.
+        The following are the valid combinations of search type and algorithm:
+        ------------------------------------------------------------
+        | GridSearchSearchType.SMART | GridSearchAlgorithm.PATTERN_SEARCH (default) |
+        | GridSearchSearchType.SMART | GridSearchAlgorithm.ACCELERATED_SEARCH |
+        | GridSearchSearchType.BAYESIAN | GridSearchAlgorithm.TPE_SEARCH (default) |
+        | GridSearchSearchType.BAYESIAN | GridSearchAlgorithm.GAUSSIAN_SEARCH |
+        | GridSearchSearchType.BRUTE_FORCE | GridSearchAlgorithm.EXHAUSTIVE_SEARCH (default) |
+        | GridSearchSearchType.BRUTE_FORCE | GridSearchAlgorithm.GREEDY_EXHAUSTIVE_SEARCH |
+        ------------------------------------------------------------
+    batch_size : int (optional)
+        The number of iterations to perform in each batch.
+    max_iterations : int (optional)
+        Sets the maximum number of iterations to perform.
+    random_state : int (optional)
+        The random state/seed used for the grid search.
+    wall_clock_time_limit : int (optional)
+       The wall clock time limit, in seconds. The model with the best score, at this point, is selected.
+    """
+
+    _converter = t.Dict(
+        {
+            t.Key("grid_search_arguments", optional=True): t.List(
+                t.Dict(
+                    {
+                        t.Key("search_type", optional=True): t.Enum(
+                            *enum_to_list(GridSearchSearchType)
+                        ),
+                        t.Key("algorithm", optional=True): t.Enum(
+                            *enum_to_list(GridSearchAlgorithm)
+                        ),
+                        t.Key("batch_size", optional=True): t.Int(),
+                        t.Key("max_iterations", optional=True): t.Int(),
+                        t.Key("random_state", optional=True): t.Int(),
+                        t.Key("wall_clock_time_limit", optional=True): t.Int(),
+                    }
+                )
+            ),
+        }
+    ).allow_extra("*")
+
+    def __init__(
+        self,
+        search_type: Optional[GridSearchSearchType] = None,
+        algorithm: Optional[GridSearchAlgorithm] = None,
+        batch_size: Optional[int] = None,
+        max_iterations: Optional[int] = None,
+        random_state: Optional[int] = None,
+        wall_clock_time_limit: Optional[int] = None,
+    ) -> None:
+        self.search_type = search_type if search_type else GridSearchSearchType.SMART
+        self.algorithm = algorithm
+        self.batch_size = batch_size
+        self.max_iterations = max_iterations
+        self.random_state = random_state
+        self.wall_clock_time_limit = wall_clock_time_limit
+
+    def to_api_payload(self) -> Dict[str, Any]:
+        """Convert the GridSearchArguments to an API payload"""
+        payload: Dict[str, Any] = {}
+        if self.search_type:
+            payload["searchType"] = self.search_type
+        if self.algorithm:
+            payload["algorithm"] = self.algorithm
+        if self.batch_size:
+            payload["batchSize"] = self.batch_size
+        if self.max_iterations:
+            payload["maxIterations"] = self.max_iterations
+        if self.random_state:
+            payload["randomState"] = self.random_state
+        if self.wall_clock_time_limit:
+            payload["wallClockTimeLimit"] = self.wall_clock_time_limit
+        return payload
+
+
 class AdvancedTuningSession:
     """A session enabling users to configure and run advanced tuning for a model.
 
@@ -78,15 +168,19 @@ class AdvancedTuningSession:
         Defaults to the same description as the base model.
     """
 
-    def __init__(self, model: Model) -> None:
+    def __init__(
+        self, model: Model, grid_search_arguments: Optional[GridSearchArguments] = None
+    ) -> None:
         """Initiate an Advanced Tuning session.
 
         Params
         ------
         model : datarobot.models.model.Model
+        grid_search_arguments : datarobot.models.advanced_tuning.GridSearchArguments
+            Grid search arguments
         """
         self._new_values: Dict[str, Union[int, float, str, List[str]]] = {}
-
+        self._grid_search_arguments = grid_search_arguments
         self._model = model
 
         param_info = model.get_advanced_tuning_parameters()
@@ -247,4 +341,6 @@ class AdvancedTuningSession:
         datarobot.models.modeljob.ModelJob
             The created job to build the model
         """
-        return self._model.advanced_tune(self._new_values, self.description)
+        return self._model.advanced_tune(
+            self._new_values, self.description, self._grid_search_arguments
+        )

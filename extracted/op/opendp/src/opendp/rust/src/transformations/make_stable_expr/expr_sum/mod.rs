@@ -1,8 +1,8 @@
 use crate::core::{Function, StabilityMap, Transformation};
 use crate::domains::{AtomDomain, Context, Margin, WildExprDomain};
-use crate::domains::{ExprDomain, MarginPub::Lengths, NumericDataType, SeriesDomain};
+use crate::domains::{ExprDomain, Invariant::Lengths, NumericDataType, SeriesDomain};
 use crate::error::*;
-use crate::metrics::{IntDistance, LpDistance, PartitionDistance};
+use crate::metrics::{IntDistance, L01InfDistance, LpDistance};
 use crate::traits::{
     AlertingAbs, CheckAtom, ExactIntCast, InfAdd, InfCast, InfMul, InfSqrt, InfSub, Number,
     ProductOrd,
@@ -30,12 +30,12 @@ use super::StableExpr;
 /// * `expr` - an expression ending with sum
 pub fn make_expr_sum<MI, const P: usize>(
     input_domain: WildExprDomain,
-    input_metric: PartitionDistance<MI>,
+    input_metric: L01InfDistance<MI>,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, PartitionDistance<MI>, LpDistance<P, f64>>>
+) -> Fallible<Transformation<WildExprDomain, L01InfDistance<MI>, ExprDomain, LpDistance<P, f64>>>
 where
     MI: 'static + UnboundedMetric,
-    Expr: StableExpr<PartitionDistance<MI>, PartitionDistance<MI>>,
+    Expr: StableExpr<L01InfDistance<MI>, L01InfDistance<MI>>,
 {
     let Expr::Agg(AggExpr::Sum(input)) = expr else {
         return fallible!(MakeTransformation, "expected sum expression");
@@ -107,22 +107,20 @@ where
         context: Context::Aggregation {
             margin: Margin {
                 by: input_margin.by,
-                max_partition_length: Some(1),
-                max_num_partitions: input_margin.max_num_partitions,
-                max_partition_contributions: None,
-                max_influenced_partitions: Some(1),
-                public_info: input_margin.public_info,
+                max_length: Some(1),
+                max_groups: input_margin.max_groups,
+                invariant: input_margin.invariant,
             },
         },
     };
 
     t_prior
-        >> Transformation::<_, _, PartitionDistance<MI>, LpDistance<P, _>>::new(
+        >> Transformation::<_, L01InfDistance<MI>, _, LpDistance<P, _>>::new(
             middle_domain,
-            output_domain,
-            Function::then_expr(Expr::sum).fill_with(fill_value),
             middle_metric.clone(),
+            output_domain,
             LpDistance::default(),
+            Function::then_expr(Expr::sum).fill_with(fill_value),
             stability_map,
         )?
 }
@@ -140,7 +138,7 @@ where
 
 fn sum_stability_map<MI, const P: usize, TI>(
     domain: &ExprDomain,
-) -> Fallible<StabilityMap<PartitionDistance<MI>, LpDistance<P, f64>>>
+) -> Fallible<StabilityMap<L01InfDistance<MI>, LpDistance<P, f64>>>
 where
     MI: UnboundedMetric,
     TI: Summand,
@@ -150,12 +148,18 @@ where
     let (l, u) = domain.column.atom_domain::<TI>()?.get_closed_bounds()?;
     let (l, u) = (TI::Sum::neg_inf_cast(l)?, TI::Sum::inf_cast(u)?);
 
-    let public_info = margin.public_info;
+    let invariant = margin.invariant;
 
-    let max_size = usize::exact_int_cast(margin.max_partition_length.ok_or_else(|| {
+    let max_size = usize::exact_int_cast(margin.max_length.ok_or_else(|| {
+        let margin_by = margin
+            .by
+            .iter()
+            .map(|expr| expr.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         err!(
             MakeTransformation,
-            "must specify max_partition_length in margin"
+            "must specify 'max_length' in a margin with by=[{margin_by}]"
         )
     })?)?;
 
@@ -167,38 +171,36 @@ where
         _ => return fallible!(MakeTransformation, "unsupported Lp norm"),
     };
 
-    let pp_map = move |d_in: &IntDistance| match public_info {
+    let pp_map = move |d_in: &IntDistance| match invariant {
         Some(Lengths) => TI::Sum::inf_cast(*d_in / 2)?.inf_mul(&u.inf_sub(&l)?),
         _ => TI::Sum::inf_cast(*d_in)?.inf_mul(&l.alerting_abs()?.total_max(u)?),
     };
 
-    // 'mnp_check: this invariant is used later
-    if !pp_relaxation.is_zero() && !MI::ORDERED && margin.max_num_partitions.is_none() {
+    // 'mng_check: this invariant is used later
+    if !pp_relaxation.is_zero() && !MI::ORDERED && margin.max_groups.is_none() {
         return fallible!(
             MakeTransformation,
-            "max_num_partitions must be known when the metric is not sensitive to ordering (SymmetricDistance)"
+            "max_groups must be known when the metric is not sensitive to ordering (SymmetricDistance)"
         );
     }
 
     Ok(StabilityMap::new_fallible(
         move |(l0, l1, l_inf): &(IntDistance, IntDistance, IntDistance)| {
-            // max changed partitions
-            let mcp = if pp_relaxation.is_zero() {
+            // max changed groups
+            let mcg = if pp_relaxation.is_zero() {
                 0u32
             } else if MI::ORDERED {
-                (*l0).min(margin.max_num_partitions.unwrap_or(*l0))
+                (*l0).min(margin.max_groups.unwrap_or(*l0))
             } else {
-                margin
-                    .max_num_partitions
-                    .expect("not none due to 'mnp_check above")
+                margin.max_groups.expect("not none due to 'mng_check above")
             };
 
-            let mcp_p = norm_map(f64::from(mcp))?;
+            let mcg_p = norm_map(f64::from(mcg))?;
             let l0_p = norm_map(f64::from(*l0))?;
             let l1_p = f64::inf_cast(pp_map(l1)?)?;
             let l_inf_p = f64::inf_cast(pp_map(l_inf)?)?;
 
-            let relaxation = mcp_p.inf_mul(&pp_relaxation)?;
+            let relaxation = mcg_p.inf_mul(&pp_relaxation)?;
 
             l1_p.total_min(l0_p.inf_mul(&l_inf_p)?)?
                 .inf_add(&relaxation)

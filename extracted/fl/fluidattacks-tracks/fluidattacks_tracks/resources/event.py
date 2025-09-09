@@ -83,9 +83,10 @@ class EventResource:
         self.client.post("/event", json=_serialize_event(event))
 
     @fire_and_forget
-    def create_authenticated(self, event: Event) -> None:
-        """Create an event."""
-        self.client.post("/event/authenticated", authenticated=True, json=_serialize_event(event))
+    def create_batch(self, events: list[Event]) -> None:
+        """Create a batch of events."""
+        serialized_events = [_serialize_event(event) for event in events]
+        self.client.post("/events/batch", authenticated=True, json=serialized_events)
 
     async def read_pages(  # noqa: PLR0913
         self,

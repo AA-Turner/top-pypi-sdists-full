@@ -5,89 +5,20 @@ from typing import Callable, Optional
 
 import numpy as np
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
 from accelerate.utils import gather_object
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 from transformers.utils import strtobool
 
-from swift.plugin import MeanMetric
 
-
-class LossType:
-    loss_scale = 'loss_scale'
-    cosine_similarity = 'cosine_similarity'
-    contrastive = 'contrastive'
-    online_contrastive = 'online_contrastive'
-    infonce = 'infonce'
-    channel_loss = 'channel_loss'
-    reranker = 'reranker'
-    generative_reranker = 'generative_reranker'
-    listwise_reranker = 'listwise_reranker'
-    listwise_generative_reranker = 'listwise_generative_reranker'
-
-
-LOSS_MAPPING = {}
-
-
-def register_loss_func(loss_type: str, loss_func: Optional[Callable] = None):
-    loss_info = {}
-
-    if loss_func is not None:
-        loss_info['loss_func'] = loss_func
-        LOSS_MAPPING[loss_type] = loss_info
-        return
-
-    def _register_loss_func(loss_func: Callable) -> Callable:
-        loss_info['loss_func'] = loss_func
-        LOSS_MAPPING[loss_type] = loss_info
-        return loss_func
-
-    return _register_loss_func
-
-
-def ce_loss_func(outputs, labels):
-    logits = outputs.logits
-    device = logits.device
-    # Shift so that tokens < n predict n
-    shift_logits = logits[..., :-1, :]
-    shift_labels = labels[..., 1:].to(device)
-    # Save memory
-    masks = shift_labels != -100
-    shift_logits = shift_logits[masks]
-    shift_labels = shift_labels[masks]
-    # Flatten the tokens
-    loss_fct = CrossEntropyLoss(reduction='none')
-    loss = loss_fct(shift_logits, shift_labels)
-    return loss, masks
-
-
-# Use @register_loss_func to decorate your own loss, use --loss_type xxx to train
-@register_loss_func(LossType.loss_scale)
-def loss_scale_func(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
-    """Loss func
-
-    Args:
-        outputs: The model outputs
-        labels: The labels
-        loss_scale: The loss scale
-        num_items_in_batch: Number of tokens in the labels of gradient accumulation round that are not -100.
-
-    Returns:
-
-    """
-    loss, masks = ce_loss_func(outputs, labels)
-    if loss_scale is not None:
-        shift_scale = loss_scale[..., 1:].to(masks.device)
-        shift_scale = shift_scale[masks]
-        loss = (shift_scale * loss)
+def cross_entropy_loss_func(outputs, labels, num_items_in_batch=None, **kwargs):
+    # You need to return a scalar representing the loss.
+    from swift.trainers import per_token_loss_func
+    token_loss = per_token_loss_func(outputs, labels)
     if num_items_in_batch is None:
-        loss = loss.mean()
-    else:
-        # compat transformers>=4.46
-        loss = loss.sum() / num_items_in_batch
-    return loss
+        num_items_in_batch = (labels[:, 1:] != -100).sum()
+    return token_loss.sum() / num_items_in_batch
 
 
 def _parse_pair_sentence(outputs):
@@ -117,8 +48,7 @@ class SiameseDistanceMetric(Enum):
     COSINE_DISTANCE = lambda x, y: 1 - F.cosine_similarity(x, y)  # noqa
 
 
-@register_loss_func(LossType.cosine_similarity)
-def cosine_similarity_func(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def cosine_similarity_func(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     cos_score_transformation = nn.Identity()
     loss_fct = MSELoss()
     sentence1, sentence2 = _parse_pair_sentence(outputs)
@@ -126,8 +56,7 @@ def cosine_similarity_func(outputs, labels, loss_scale=None, num_items_in_batch=
     return loss_fct(output, labels.to(output.dtype).view(-1))
 
 
-@register_loss_func(LossType.contrastive)
-def contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     sentence1, sentence2 = _parse_pair_sentence(outputs)
     distance_metric = SiameseDistanceMetric.COSINE_DISTANCE
     distances = distance_metric(sentence1, sentence2)
@@ -138,8 +67,8 @@ def contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) 
 
 
 def calculate_paired_metrics(embeddings, labels):
-    from sklearn.metrics.pairwise import paired_cosine_distances, paired_euclidean_distances, \
-        paired_manhattan_distances
+    from sklearn.metrics.pairwise import (paired_cosine_distances, paired_euclidean_distances,
+                                          paired_manhattan_distances)
     from scipy.stats import pearsonr, spearmanr
 
     embeddings1, embeddings2 = _parse_pair_sentence(embeddings)
@@ -173,9 +102,6 @@ def calculate_paired_metrics(embeddings, labels):
 
 
 def calculate_infonce_metrics(embeddings, labels):
-    from sklearn.metrics.pairwise import paired_cosine_distances, paired_euclidean_distances, \
-        paired_manhattan_distances
-    from scipy.stats import pearsonr, spearmanr
     hard_negatives = os.environ.get('INFONCE_HARD_NEGATIVES', None)
     use_batch = strtobool(os.environ.get('INFONCE_USE_BATCH', 'True'))
     if hard_negatives is not None:
@@ -390,8 +316,7 @@ def _parse_multi_negative_sentences(sentences, labels, hard_negatives=None):
     return split_tensors
 
 
-@register_loss_func(LossType.infonce)
-def infonce_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def infonce_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     temperature = float(os.environ.get('INFONCE_TEMPERATURE', '0.01'))  # temperature
     # calculate CE across the batch, meaning all samples will be negative except the matching positive
     use_batch = strtobool(os.environ.get('INFONCE_USE_BATCH', 'True'))
@@ -491,8 +416,7 @@ def infonce_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> t
     return loss
 
 
-@register_loss_func(LossType.online_contrastive)
-def online_contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def online_contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     sentence1, sentence2 = _parse_pair_sentence(outputs)
     distance_metric = SiameseDistanceMetric.COSINE_DISTANCE
     distance_matrix = distance_metric(sentence1, sentence2)
@@ -510,81 +434,7 @@ def online_contrastive_loss(outputs, labels, loss_scale=None, num_items_in_batch
     return loss
 
 
-@register_loss_func(LossType.channel_loss)
-def channel_loss_func(outputs,
-                      labels,
-                      num_items_in_batch=None,
-                      sample_channels=None,
-                      trainer=None,
-                      position_ids=None) -> torch.Tensor:
-    channels = trainer.args.channels
-    assert channels is not None, 'Please pass --channels as a hyperparameter.'
-    assert sample_channels is not None, 'Data does not have channel field.'
-    logits = outputs.logits
-
-    # compute token loss
-    shift_logits = logits[..., :-1, :].contiguous()
-    shift_labels = labels[..., 1:].contiguous()
-    loss_fct = nn.CrossEntropyLoss(reduction='none')
-    flat_logits = shift_logits.view(-1, shift_logits.size(-1))
-    flat_labels = shift_labels.view(-1)
-    token_loss = loss_fct(flat_logits, flat_labels)
-    mask = flat_labels != -100
-
-    if position_ids is not None and trainer.template._packing:
-        pos = position_ids[..., :-1].view(-1)
-        start_idx_mask = pos.eq(0).int()
-        sample_idx = (torch.cumsum(start_idx_mask, dim=0) - 1).tolist()
-        token_channels = [sample_channels[i] for i in sample_idx]
-    else:
-        bs, seq = shift_labels.shape
-        token_channels = []
-        for i in range(bs):
-            token_channels.extend([sample_channels[i]] * seq)
-
-    state = trainer.state
-    state.local_step += 1
-    for ch in set(sample_channels):
-        indices = [i for i, c in enumerate(token_channels) if c == ch]
-        if not indices:
-            continue
-        ch_mask = mask[indices]
-        ch_losses = token_loss[indices]
-        valid_losses = ch_losses[ch_mask]
-        state.ch_loss_steps.setdefault(ch, []).append(valid_losses)
-
-    # At the end of a global step, compute the mean loss for each channel
-    if state.local_step % trainer.args.gradient_accumulation_steps == 0:
-        for ch in channels:
-            ch_loss_steps = state.ch_loss_steps.get(ch, [])
-            loss_sum_tensor = torch.tensor([sum(torch.sum(x) for x in ch_loss_steps)],
-                                           dtype=torch.float32,
-                                           device=logits.device)
-            num_items_tensor = torch.tensor([sum(x.numel() for x in ch_loss_steps)],
-                                            dtype=torch.float32,
-                                            device=logits.device)
-            if dist.is_initialized():
-                dist.all_reduce(loss_sum_tensor, op=dist.ReduceOp.SUM)
-                dist.all_reduce(num_items_tensor, op=dist.ReduceOp.SUM)
-            loss_sum = loss_sum_tensor.item()
-            num_items = num_items_tensor.item()
-            ch_loss = loss_sum / (num_items + 1e-12)
-
-            if ch_loss > 0.0:
-                metric_key = f'loss_{ch}'
-                trainer._custom_metrics.setdefault(metric_key, MeanMetric(nan_value=None)).update(ch_loss)
-            # Reset
-            state.ch_loss_steps[ch] = []
-
-    # return loss
-    total_loss = token_loss.masked_select(mask).sum()
-    total_tokens = mask.sum()
-    return total_loss / num_items_in_batch if num_items_in_batch is not None \
-        else total_loss / (total_tokens.float() + 1e-12)
-
-
-@register_loss_func(LossType.reranker)
-def reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     logits = outputs.logits
     logits = logits.squeeze(1)
     labels = labels.to(logits.dtype)
@@ -593,8 +443,12 @@ def reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> 
     return loss
 
 
-@register_loss_func(LossType.generative_reranker)
-def generative_reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, trainer=None) -> torch.Tensor:
+def generative_reranker_loss(outputs,
+                             labels,
+                             loss_scale=None,
+                             num_items_in_batch=None,
+                             trainer=None,
+                             **kwargs) -> torch.Tensor:
     """
     Generative reranker loss function.
 
@@ -649,8 +503,7 @@ def generative_reranker_loss(outputs, labels, loss_scale=None, num_items_in_batc
     return loss
 
 
-@register_loss_func(LossType.listwise_reranker)
-def listwise_reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None) -> torch.Tensor:
+def listwise_reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=None, **kwargs) -> torch.Tensor:
     """
     List-wise reranker loss function.
 
@@ -739,12 +592,12 @@ def listwise_reranker_loss(outputs, labels, loss_scale=None, num_items_in_batch=
     return total_loss / num_groups
 
 
-@register_loss_func(LossType.listwise_generative_reranker)
 def listwise_generative_reranker_loss(outputs,
                                       labels,
                                       loss_scale=None,
                                       num_items_in_batch=None,
-                                      trainer=None) -> torch.Tensor:
+                                      trainer=None,
+                                      **kwargs) -> torch.Tensor:
     """
     List-wise generative reranker loss function.
 
@@ -863,7 +716,22 @@ def listwise_generative_reranker_loss(outputs,
     return total_loss / num_groups
 
 
+loss_mapping = {
+    'cross_entropy': cross_entropy_loss_func,  # examples
+    # embedding
+    'cosine_similarity': cosine_similarity_func,
+    'contrastive': contrastive_loss,
+    'online_contrastive': online_contrastive_loss,
+    'infonce': infonce_loss,
+    # reranker
+    'reranker': reranker_loss,
+    'generative_reranker': generative_reranker_loss,
+    'listwise_reranker': listwise_reranker_loss,
+    'listwise_generative_reranker': listwise_generative_reranker_loss,
+}
+
+
 def get_loss_func(loss_type: Optional[str]) -> Optional[Callable]:
     if loss_type is None:
         return None
-    return LOSS_MAPPING[loss_type]['loss_func']
+    return loss_mapping[loss_type]

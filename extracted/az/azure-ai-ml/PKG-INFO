@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-ai-ml
-Version: 1.28.1
+Version: 1.29.0
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -25,7 +25,6 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: NOTICE.txt
 Requires-Dist: pyyaml<7.0.0,>=5.1.0
-Requires-Dist: msrest<1.0.0,>=0.6.18
 Requires-Dist: azure-core>=1.23.0
 Requires-Dist: azure-mgmt-core>=1.3.0
 Requires-Dist: marshmallow<4.0.0,>=3.5
@@ -42,11 +41,24 @@ Requires-Dist: isodate<1.0.0
 Requires-Dist: azure-common>=1.1
 Requires-Dist: typing-extensions<5.0.0
 Requires-Dist: azure-monitor-opentelemetry
-Requires-Dist: six>=1.11.0
 Provides-Extra: designer
 Requires-Dist: mldesigner; extra == "designer"
 Provides-Extra: mount
 Requires-Dist: azureml-dataprep-rslex>=2.22.0; python_version < "3.13" and extra == "mount"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure ML Package client library for Python
 
@@ -230,11 +242,24 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 1.29.0 (2025-09-01)
+
+### Features Added
+
+- Removed the dependencies - msrest and six
+
+### Bugs Fixed
+- Fix for registry resource group passed to OnlineEndpointOperations when model is in registry in different resource group compared to workspace.
+- Set defaults for min_instances, max_instances, idle_time_before_scale_down in AmlCompute
+
+### Other Changes
+- v2 component types are now case insensitive
+
 ## 1.28.1 (2025-07-08)
 
 ### Features Added
 
-- Added a workflow to create GitHub issues in case a major version of a dependency is released.
+- Added a workflow to create GitHub issues in case a major version of a dependency is released
 
 ## 1.27.1 (2025-05-13)
 

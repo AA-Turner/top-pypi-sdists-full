@@ -76770,7 +76770,7 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     _draft_state: Optional[bool] = None
     _archived: Optional[bool] = None
     _workspace: Optional[str] = None
-    _author_is_current_user: Optional["api_Empty"] = None
+    _author_is_current_user: Optional[bool] = None
     _author_rids: Optional[List[str]] = None
 
     @builtins.classmethod
@@ -76791,7 +76791,7 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             'draft_state': ConjureFieldDefinition('draftState', bool),
             'archived': ConjureFieldDefinition('archived', bool),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
-            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', api_Empty),
+            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', bool),
             'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
         }
 
@@ -76812,7 +76812,7 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             draft_state: Optional[bool] = None,
             archived: Optional[bool] = None,
             workspace: Optional[str] = None,
-            author_is_current_user: Optional["api_Empty"] = None,
+            author_is_current_user: Optional[bool] = None,
             author_rids: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
@@ -77024,7 +77024,7 @@ To do a partial match, use an "and" on AssetRid queries.
         return self._workspace
 
     @builtins.property
-    def author_is_current_user(self) -> Optional["api_Empty"]:
+    def author_is_current_user(self) -> Optional[bool]:
         return self._author_is_current_user
 
     @builtins.property
@@ -77138,7 +77138,7 @@ class scout_notebook_api_SearchNotebooksQueryVisitor:
         pass
 
     @abstractmethod
-    def _author_is_current_user(self, author_is_current_user: "api_Empty") -> Any:
+    def _author_is_current_user(self, author_is_current_user: bool) -> Any:
         pass
 
     @abstractmethod
@@ -81913,7 +81913,7 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     _is_archived: Optional[bool] = None
     _is_published: Optional[bool] = None
     _workspace: Optional[str] = None
-    _author_is_current_user: Optional["api_Empty"] = None
+    _author_is_current_user: Optional[bool] = None
     _author_rids: Optional[List[str]] = None
 
     @builtins.classmethod
@@ -81930,7 +81930,7 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             'is_archived': ConjureFieldDefinition('isArchived', bool),
             'is_published': ConjureFieldDefinition('isPublished', bool),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
-            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', api_Empty),
+            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', bool),
             'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
         }
 
@@ -81947,7 +81947,7 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             is_archived: Optional[bool] = None,
             is_published: Optional[bool] = None,
             workspace: Optional[str] = None,
-            author_is_current_user: Optional["api_Empty"] = None,
+            author_is_current_user: Optional[bool] = None,
             author_rids: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
@@ -82110,7 +82110,7 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
         return self._workspace
 
     @builtins.property
-    def author_is_current_user(self) -> Optional["api_Empty"]:
+    def author_is_current_user(self) -> Optional[bool]:
         return self._author_is_current_user
 
     @builtins.property
@@ -82200,7 +82200,7 @@ class scout_template_api_SearchTemplatesQueryVisitor:
         pass
 
     @abstractmethod
-    def _author_is_current_user(self, author_is_current_user: "api_Empty") -> Any:
+    def _author_is_current_user(self, author_is_current_user: bool) -> Any:
         pass
 
     @abstractmethod
@@ -91147,16 +91147,18 @@ class themes_api_TimeSeriesChartThemeV1(ConjureBeanType):
             'x_axis_tick_font_size': ConjureFieldDefinition('xAxisTickFontSize', int),
             'x_axis_tick_font_color': ConjureFieldDefinition('xAxisTickFontColor', themes_api_HexColor),
             'y_axis_title_font_size': ConjureFieldDefinition('yAxisTitleFontSize', int),
-            'y_axis_tick_font_size': ConjureFieldDefinition('yAxisTickFontSize', int)
+            'y_axis_tick_font_size': ConjureFieldDefinition('yAxisTickFontSize', int),
+            'threshold_line_width': ConjureFieldDefinition('thresholdLineWidth', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_x_axis_tick_font_size', '_x_axis_tick_font_color', '_y_axis_title_font_size', '_y_axis_tick_font_size']
+    __slots__: List[str] = ['_x_axis_tick_font_size', '_x_axis_tick_font_color', '_y_axis_title_font_size', '_y_axis_tick_font_size', '_threshold_line_width']
 
-    def __init__(self, x_axis_tick_font_color: str, x_axis_tick_font_size: int, y_axis_tick_font_size: int, y_axis_title_font_size: int) -> None:
+    def __init__(self, x_axis_tick_font_color: str, x_axis_tick_font_size: int, y_axis_tick_font_size: int, y_axis_title_font_size: int, threshold_line_width: Optional[int] = None) -> None:
         self._x_axis_tick_font_size = x_axis_tick_font_size
         self._x_axis_tick_font_color = x_axis_tick_font_color
         self._y_axis_title_font_size = y_axis_title_font_size
         self._y_axis_tick_font_size = y_axis_tick_font_size
+        self._threshold_line_width = threshold_line_width
 
     @builtins.property
     def x_axis_tick_font_size(self) -> int:
@@ -91181,6 +91183,12 @@ class themes_api_TimeSeriesChartThemeV1(ConjureBeanType):
         """The font size of the y-axis ticks.
         """
         return self._y_axis_tick_font_size
+
+    @builtins.property
+    def threshold_line_width(self) -> Optional[int]:
+        """The line thickness in px of the threshold line.
+        """
+        return self._threshold_line_width
 
 
 themes_api_TimeSeriesChartThemeV1.__name__ = "TimeSeriesChartThemeV1"

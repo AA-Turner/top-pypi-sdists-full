@@ -6,8 +6,8 @@ use crate::domains::{
     Bounds, ExprDomain, NumericDataType, OuterMetric, SeriesDomain, WildExprDomain,
 };
 use crate::error::*;
+use crate::metrics::MicrodataMetric;
 use crate::traits::Number;
-use crate::transformations::DatasetMetric;
 
 use super::StableExpr;
 
@@ -21,9 +21,9 @@ pub fn make_expr_clip<M: OuterMetric>(
     input_domain: WildExprDomain,
     input_metric: M,
     expr: Expr,
-) -> Fallible<Transformation<WildExprDomain, ExprDomain, M, M>>
+) -> Fallible<Transformation<WildExprDomain, M, ExprDomain, M>>
 where
-    M::InnerMetric: DatasetMetric,
+    M::InnerMetric: MicrodataMetric,
     M::Distance: Clone,
     (WildExprDomain, M): MetricSpace,
     (ExprDomain, M): MetricSpace,
@@ -83,10 +83,10 @@ where
     t_prior
         >> Transformation::new(
             middle_domain.clone(),
-            output_domain,
-            Function::then_expr(move |expr| expr.clip(lower.clone(), upper.clone())),
             middle_metric.clone(),
+            output_domain,
             middle_metric,
+            Function::then_expr(move |expr| expr.clip(lower.clone(), upper.clone())),
             StabilityMap::new(Clone::clone),
         )?
 }

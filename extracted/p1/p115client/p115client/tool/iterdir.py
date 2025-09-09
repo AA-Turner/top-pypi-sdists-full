@@ -14,7 +14,7 @@ __all__ = [
 ]
 __doc__ = "这个模块提供了一些和目录信息罗列有关的函数"
 
-from asyncio import create_task, gather as async_gather, sleep as async_sleep, Task
+from asyncio import create_task, sleep as async_sleep, Task
 from collections.abc import (
     AsyncIterable, AsyncIterator, Callable, Generator, Iterable, 
     Iterator, Mapping, MutableMapping, Sequence, 
@@ -22,7 +22,6 @@ from collections.abc import (
 from contextlib import contextmanager
 from concurrent.futures import Future
 from dataclasses import dataclass
-from errno import EIO, ENOENT
 from functools import partial
 from itertools import batched, cycle
 from math import inf
@@ -35,11 +34,12 @@ from warnings import warn
 
 from asynctools import to_list
 from concurrenttools import run_as_thread, conmap
+from errno2 import errno
 from http_response import is_timeouterror
 from iterutils import (
-    as_gen_step, bfs_gen, chunked, chain, chain_from_iterable, collect, foreach, 
-    run_gen_step, run_gen_step_iter, through, with_iter_next, map as do_map, 
-    filter as do_filter, Yield, YieldFrom, 
+    bfs_gen, chunked, chain, chain_from_iterable, collect, foreach, 
+    run_gen_step, run_gen_step_iter, through, with_iter_next, 
+    map as do_map, filter as do_filter, Yield, YieldFrom, 
 )
 from iter_collect import iter_keyed_dups, SupportsLT
 from orjson import loads
@@ -187,7 +187,7 @@ def update_resp_ancestors(
     resp: dict, 
     id_to_dirnode: None | EllipsisType | MutableMapping[int, tuple[str, int]] = None, 
     /, 
-    error: None | OSError = FileNotFoundError(ENOENT, "not found"), 
+    error: None | OSError = FileNotFoundError(errno.ENOENT, "not found"), 
 ) -> dict:
     ancestors: list[dict] = []
     add_ancestor = ancestors.append
@@ -229,10 +229,12 @@ def update_resp_ancestors(
             if need_update_id_to_dirnode:
                 cast(MutableMapping, id_to_dirnode)[id] = (name, pid)
             pid = id
-        name = resp["file_name"]
-        id = resp["file_id"]
+        resp["parent_id"] = pid
+        id = resp["id"] = resp["file_id"]
+        name = resp["name"] = resp["file_name"]
+        is_dir = resp["is_dir"] = not resp["sha1"]
         add_ancestor({"id": id, "parent_id": pid, "name": name})
-        if need_update_id_to_dirnode and not resp["sha1"]:
+        if need_update_id_to_dirnode and is_dir:
             cast(MutableMapping, id_to_dirnode)[id] = (name, pid)
     return resp
 
@@ -1981,6 +1983,7 @@ def traverse_tree(
     return run_gen_step_iter(gen_step, async_)
 
 
+# TODO: 需要优化到 10 万条 2 秒内
 @overload
 def traverse_tree_with_path(
     client: str | PathLike | P115Client, 
@@ -3113,13 +3116,13 @@ def iter_media_files(
             resp = yield fs_files(payload, async_=async_, **request_kwargs)
             check_response(resp)
             if int(resp["cid"]) != cid:
-                raise FileNotFoundError(ENOENT, cid)
+                raise FileNotFoundError(errno.ENOENT, cid)
             if count == 0:
                 count = int(resp.get("count") or 0)
             elif count != int(resp.get("count") or 0):
                 message = f"cid={cid} detected count changes during traversing: {count} => {resp['count']}"
                 if raise_for_changed_count:
-                    raise P115OSError(EIO, message)
+                    raise P115OSError(errno.EIO, message)
                 else:
                     warn(message, category=P115Warning)
                 count = int(resp.get("count") or 0)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: minecraft-datapack-language
-Version: 16.0.4
+Version: 16.0.13
 Summary: Compile MDL language with explicit scoping into a Minecraft datapack (1.21+ ready). Features variables, control flow, error handling, and VS Code extension.
 Project-URL: Homepage, https://www.mcmdl.com
 Project-URL: Documentation, https://www.mcmdl.com/docs

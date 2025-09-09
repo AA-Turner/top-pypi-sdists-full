@@ -222,6 +222,18 @@ class ResourceConfig(metaclass=ConfigMeta):
         parsing_fn=UnitParser("disk").parse,
     )
 
+    shared_memory = ConfigField(
+        cli_meta=CLIOption(
+            name="shared_memory",
+            cli_option_str="--shared-memory",
+            help="Shared memory resource request and limit.",
+        ),
+        field_type=str,
+        example="1Gi",
+        validation_fn=UnitParser.validation_wrapper_fn("memory"),
+        parsing_fn=UnitParser("memory").parse,
+    )
+
 
 class HealthCheckConfig(metaclass=ConfigMeta):
     """Health check configuration."""
@@ -541,14 +553,16 @@ class DependencyConfig(metaclass=ConfigMeta):
 class PackageConfig(metaclass=ConfigMeta):
     """Package configuration."""
 
-    src_path = ConfigField(
+    src_paths = ConfigField(
         cli_meta=CLIOption(
             name="package_src_path",
             cli_option_str="--package-src-path",
+            multiple=True,
             help="The path to the source code to deploy with the App.",
+            click_type=str,
         ),
-        field_type=str,
-        example="./",
+        field_type=list,
+        example=["./"],
     )
     suffixes = ConfigField(
         cli_meta=CLIOption(
@@ -559,6 +573,28 @@ class PackageConfig(metaclass=ConfigMeta):
         field_type=list,
         example=[".py", ".ipynb"],
     )
+
+    @staticmethod
+    def validate(package_config: "PackageConfig"):
+        if package_config.src_paths is None:
+            return True
+        if package_config.src_paths:
+            for path in package_config.src_paths:
+                if not os.path.exists(path):
+                    raise ConfigValidationFailedException(
+                        field_name="src_paths",
+                        field_info=package_config._get_field("src_paths"),  # type: ignore
+                        current_value=package_config.src_paths,
+                        message=f"Path does not exist : `{path}`",
+                    )
+                if not os.path.isdir(path):
+                    raise ConfigValidationFailedException(
+                        field_name="src_paths",
+                        field_info=package_config._get_field("src_paths"),  # type: ignore
+                        current_value=package_config.src_paths,
+                        message=f"Path is not a directory : `{path}`",
+                    )
+        return True
 
 
 def everything_is_string(*args):
@@ -852,6 +888,7 @@ How to read this schema:
         cli_meta=None,  # No top-level CLI option, only nested fields have CLI options
         field_type=PackageConfig,
         help="Configurations associated with packaging the app.",
+        validation_fn=PackageConfig.validate,
     )
 
     no_deps = ConfigField(

@@ -3,15 +3,23 @@ from inspect import signature
 
 from opendp._lib import *
 from opendp.mod import (
+    ApproximateDivergence,
+    ChangeOneIdDistance,
     Domain,
+    ExtrinsicDistance,
     ExtrinsicDomain,
     LazyFrameDomain,
+    Measure,
+    Metric,
+    FrameDistance,
     SeriesDomain,
+    SymmetricIdDistance,
     UnknownTypeException,
     Transformation,
     Measurement,
     PrivacyProfile,
     Queryable,
+    OdometerQueryable,
     Function,
     AtomDomain,
     OptionDomain,
@@ -60,7 +68,7 @@ def _check_and_cast_scalar(expected, value):
     # relax checks in the case of an int
     if isinstance(value, int) and expected in ["f32", "f64"] and not isinstance(value, bool):
         return float(value)
-    
+
     inferred = str(RuntimeType.infer(value))
 
     if expected not in ATOM_EQUIVALENCE_CLASSES.get(inferred, [inferred]):
@@ -94,7 +102,7 @@ def py_to_c(value: Any, c_type, type_name: RuntimeTypeDescriptor = None) -> Any:
 
     if c_type == CallbackFnPtr:
         return _wrap_py_func(value, type_name)
-    
+
     if c_type == TransitionFnPtr:
         return _wrap_py_transition(value, type_name)
 
@@ -102,7 +110,7 @@ def py_to_c(value: Any, c_type, type_name: RuntimeTypeDescriptor = None) -> Any:
         # since the memory is allocated by python, 
         #    don't actually return an ExtrinsicObjectPtr, 
         #    which would call rust to free the Python-allocated ExtrinsicObject
-        return ctypes.pointer(ExtrinsicObject(ctypes.py_object(value), c_counter))
+        return ctypes.pointer(ExtrinsicObject(ctypes.py_object(value)))
 
     # check that the type name is consistent with the value
     if type_name is not None:
@@ -117,7 +125,7 @@ def py_to_c(value: Any, c_type, type_name: RuntimeTypeDescriptor = None) -> Any:
             raise ValueError("type_name must be known")  # pragma: no cover
 
         rust_type = str(type_name)
-        
+
         value = _check_and_cast_scalar(rust_type, value)
 
         if rust_type in ATOM_MAP:
@@ -129,6 +137,9 @@ def py_to_c(value: Any, c_type, type_name: RuntimeTypeDescriptor = None) -> Any:
         raise UnknownTypeException(rust_type)  # pragma: no cover
 
     if c_type == AnyObjectPtr:
+        if isinstance(value, ctypes.POINTER(AnyObject)):
+            return value
+        
         from opendp._data import slice_as_object
         return slice_as_object(value, type_name) # type: ignore[arg-type]
 
@@ -160,23 +171,29 @@ def c_to_py(value: Any) -> Any:
     :param value: data in ctypes format
     :return: copy of data in Python representation
     """
-    if isinstance(value, AnyObjectPtr):
+    if isinstance(value, ctypes.POINTER(AnyObject)):
         from opendp._data import object_type, object_as_slice, slice_free
+
         obj_type = object_type(value)
-        
-        if "PrivacyProfile" == obj_type:
+
+        if obj_type == PrivacyProfile.__name__:
             return PrivacyProfile(value)
         
-        if "Queryable" in obj_type:
+        if obj_type == "AnyOdometerQueryable":
+            return OdometerQueryable(value)
+
+        if obj_type == "AnyQueryable":
             from opendp.core import queryable_query_type
+
             query_type = RuntimeType.parse(queryable_query_type(value))
-            
+
             if query_type == "OnceFrameQuery":
                 from opendp.extras.polars import OnceFrame
+
                 return OnceFrame(value)
-            
+
             return Queryable(value, query_type)
-        
+
         ffi_slice = object_as_slice(value)
         try:
             return _slice_to_py(ffi_slice, RuntimeType.parse(obj_type))
@@ -204,20 +221,47 @@ def c_to_py(value: Any) -> Any:
         rt_type = RuntimeType.parse(domain_type(value))
 
         if isinstance(rt_type, RuntimeType):
-            if rt_type.origin == "OptionDomain":
+            if rt_type.origin == OptionDomain.__name__:
                 value.__class__ = OptionDomain
-            elif rt_type.origin == "AtomDomain":
+            elif rt_type.origin == AtomDomain.__name__:
                 value.__class__ = AtomDomain
-            elif rt_type.origin == "VectorDomain":
+            elif rt_type.origin == VectorDomain.__name__:
                 value.__class__ = VectorDomain
         else:
-            if rt_type == "SeriesDomain":
+            if rt_type == SeriesDomain.__name__:
                 value.__class__ = SeriesDomain
-            elif rt_type == "LazyFrameDomain":
+            elif rt_type == LazyFrameDomain.__name__:
                 value.__class__ = LazyFrameDomain
-            elif rt_type == "ExtrinsicDomain":
+            elif rt_type == ExtrinsicDomain.__name__:
                 value.__class__ = ExtrinsicDomain
-        # otherwise falls through to the default case, where isinstance(value, Domain) 
+        # if you fall through these cases, then it is just treated as a generic Domain
+
+    if isinstance(value, Metric):
+        from opendp.metrics import metric_type
+
+        rt_type = RuntimeType.parse(metric_type(value))
+
+        if isinstance(rt_type, RuntimeType):
+            if rt_type.origin == FrameDistance.__name__:
+                value.__class__ = FrameDistance
+        else:
+            if rt_type == SymmetricIdDistance.__name__:
+                value.__class__ = SymmetricIdDistance
+            elif rt_type == ChangeOneIdDistance.__name__:
+                value.__class__ = ChangeOneIdDistance
+            elif rt_type == ExtrinsicDistance.__name__:
+                value.__class__ = ExtrinsicDistance
+        # if you fall through these cases, then it is just treated as a generic Metric
+
+    if isinstance(value, Measure):
+        from opendp.measures import measure_type
+
+        rt_type = RuntimeType.parse(measure_type(value))
+
+        if isinstance(rt_type, RuntimeType):
+            if rt_type.origin == "Approximate":
+                value.__class__ = ApproximateDivergence
+        # if you fall through these cases, then it is just treated as a generic Measure
 
     if isinstance(value, ctypes.c_void_p):
         # returned void pointers are interpreted as None
@@ -239,41 +283,47 @@ def _slice_to_py(raw: FfiSlicePtr, type_name: Union[RuntimeType, str]) -> Any:
     if isinstance(type_name, str):
         if type_name in ATOM_MAP:
             return _slice_to_scalar(raw, type_name)
-        
+
         if type_name == "BitVector":
             return _slice_to_bitvector(raw)
-        
+
         if type_name == "ExtrinsicObject":
             return _slice_to_extrinsic(raw)
-        
+
         if type_name == "String":
             return _slice_to_string(raw)
-        
+
         if type_name == "LazyFrame":
             return _slice_to_lazyframe(raw)
-        
+
         if type_name == "DataFrame":
             return _slice_to_dataframe(raw)
-            
+
         if type_name == "Series":
             return _slice_to_series(raw)
-        
+
         if type_name == "Expr":
             return _slice_to_expr(raw)
-        
+
         if type_name == "ExprPlan":
             return _slice_to_exprplan(raw)
+
+        if type_name == "Bound":
+            return _slice_to_group_bound(raw)
         
         if type_name == "Margin":
             return _slice_to_margin(raw)
         
+        if type_name == "Bounds":
+            return _slice_to_vector(raw, RuntimeType("Vec", ["Bound"]))
+
         if type_name == "AnyObject":
             return _slice_to_anyobject(raw)
 
     if isinstance(type_name, RuntimeType):
         if type_name.origin == "Vec":
             return _slice_to_vector(raw, type_name)
-        
+
         if type_name.origin == "Function":
             return _slice_to_function(raw)
 
@@ -282,7 +332,7 @@ def _slice_to_py(raw: FfiSlicePtr, type_name: Union[RuntimeType, str]) -> Any:
 
         if type_name.origin == "Tuple":
             return _slice_to_tuple(raw, type_name)
-        
+
         if type_name.origin == "Option":
             return _slice_to_option(raw, type_name)
 
@@ -301,25 +351,25 @@ def _py_to_slice(value: Any, type_name: Union[RuntimeType, str]) -> FfiSlicePtr:
     if isinstance(type_name, str):
         if type_name in ATOM_MAP:
             return _scalar_to_slice(value, type_name)
-        
+
         if type_name == "BitVector":
             return _bitvector_to_slice(value)
-    
+
         if type_name == "ExtrinsicObject":
             return _extrinsic_to_slice(value)
-        
+
         if type_name == "AnyMeasurement":
             return _wrap_in_slice(value, 1)
 
         if type_name == "String":
             return _string_to_slice(value)
-        
+
         if type_name == "Series":
             return _series_to_slice(value)
-        
+
         if type_name in {"LazyFrame", "DslPlan"}:
             return _lazyframe_to_slice(value)
-        
+
         if type_name == "DataFrame":
             return _dataframe_to_slice(value)
         
@@ -328,14 +378,20 @@ def _py_to_slice(value: Any, type_name: Union[RuntimeType, str]) -> FfiSlicePtr:
             
         if type_name == "Expr":
             return _expr_to_slice(value)
-    
+
+        if type_name == "Bound":
+            return _bound_to_slice(value)
+        
+        if type_name == "Bounds":
+            return _vector_to_slice(value, RuntimeType("Vec", ["Bound"]))
+
     if isinstance(type_name, RuntimeType):
         if type_name.origin == "Vec":
             return _vector_to_slice(value, type_name)
 
         if type_name.origin == "HashMap":
             return _hashmap_to_slice(value, type_name)
-        
+
         if type_name.origin == "Function":
             return _function_to_slice(value, type_name)
 
@@ -357,21 +413,8 @@ def _scalar_to_slice(val, type_name: str) -> FfiSlicePtr:
 def _slice_to_scalar(raw: FfiSlicePtr, type_name: str):
     return ctypes.cast(raw.contents.ptr, ctypes.POINTER(ATOM_MAP[type_name])).contents.value # type: ignore[attr-defined]
 
-
-def _refcounter(ptr, increment):
-    try:
-        if increment:
-            ctypes.pythonapi.Py_IncRef(ctypes.py_object(ptr))
-        else:
-            ctypes.pythonapi.Py_DecRef(ctypes.py_object(ptr))
-    except Exception: # pragma: no cover
-        return False
-    return True
-
-c_counter = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.py_object, ctypes.c_bool)(_refcounter)
-
 def _extrinsic_to_slice(val) -> FfiSlicePtr:
-    return _wrap_in_slice(ctypes.pointer(ExtrinsicObject(ctypes.py_object(val), c_counter)), 1)
+    return _wrap_in_slice(ctypes.pointer(ExtrinsicObject(ctypes.py_object(val))), 1)
 
 def _slice_to_extrinsic(raw: FfiSlicePtr):
     return ctypes.cast(raw.contents.ptr, ctypes.POINTER(ExtrinsicObject)).contents.ptr
@@ -423,15 +466,15 @@ def _vector_to_slice(val: Sequence[Any], type_name: RuntimeType) -> FfiSlicePtr:
 
     inner_type_name = type_name.args[0]
 
-    if isinstance(inner_type_name, RuntimeType) or inner_type_name == "Expr":
+    if isinstance(inner_type_name, RuntimeType) or inner_type_name in {"Expr", "Bound"}:
         c_repr = [py_to_c(v, c_type=AnyObjectPtr, type_name=inner_type_name) for v in val]
         array = (AnyObjectPtr * len(val))(*c_repr) # type: ignore[operator]
         ffislice = _wrap_in_slice(array, len(val))
         ffislice.depends_on(*c_repr)
         return ffislice
-    
+
     if inner_type_name == "ExtrinsicObject":
-        c_repr = [ExtrinsicObject(ctypes.py_object(v), c_counter) for v in val]
+        c_repr = [ExtrinsicObject(ctypes.py_object(v)) for v in val]
         array = (ExtrinsicObject * len(val))(*c_repr)
         ffi_slice = _wrap_in_slice(array, len(val))
         ffi_slice.depends_on(c_repr)
@@ -452,21 +495,21 @@ def _vector_to_slice(val: Sequence[Any], type_name: RuntimeType) -> FfiSlicePtr:
             return ctypes.c_char_p(val.encode())
         array = (ctypes.c_char_p * len(val))(*map(str_to_slice, val))
         return _wrap_in_slice(array, len(val))
-    
+
     if inner_type_name not in ATOM_MAP:
         raise TypeError(f"Members must be one of {tuple(ATOM_MAP.keys())}. Found {inner_type_name}.")  # pragma: no cover
 
-    array = (ATOM_MAP[inner_type_name] * len(val))(*val) # type: ignore[operator]
+    array = (ATOM_MAP[inner_type_name] * len(val))(*val)  # type: ignore[operator]
     return _wrap_in_slice(array, len(val))
 
 
 def _slice_to_vector(raw: FfiSlicePtr, type_name: RuntimeType) -> Sequence[Any]:
     if type_name.origin != 'Vec' or len(type_name.args) != 1:
         raise ValueError("type_name must be a Vec<_>")  # pragma: no cover
-    
+
     inner_type_name = type_name.args[0]
 
-    if inner_type_name in {'AnyObject', 'Expr'}:
+    if inner_type_name in {'AnyObject', 'Expr', 'Bound'}:
         from opendp._data import ffislice_of_anyobjectptrs
         raw = ffislice_of_anyobjectptrs(raw)
         array = ctypes.cast(raw.contents.ptr, ctypes.POINTER(AnyObjectPtr))[0:raw.contents.len]
@@ -500,7 +543,7 @@ def _tuple_to_slice(val: tuple[Any, ...], type_name: Union[RuntimeType, str]) ->
 
     if inner_type_names == ['f64', 'ExtrinsicObject']:
         score_ptr = ctypes.pointer(ctypes.c_double(val[0]))
-        ext_obj = ctypes.pointer(ExtrinsicObject(ctypes.py_object(val[1]), c_counter))
+        ext_obj = ctypes.pointer(ExtrinsicObject(ctypes.py_object(val[1])))
 
         cand_ptr = py_to_c(ext_obj, c_type=AnyObjectPtr, type_name="ExtrinsicObject")
         array = (ctypes.c_void_p * 2)(
@@ -518,7 +561,7 @@ def _tuple_to_slice(val: tuple[Any, ...], type_name: Union[RuntimeType, str]) ->
         _check_and_cast_scalar(inner_type_name, val[i])
         for i, inner_type_name in zip(range(len(val)), inner_type_names)
     )
-    
+
     # ctypes.byref has edge-cases that cause use-after-free errors. ctypes.pointer fixes these edge-cases
     ptr_data = (
         ctypes.cast(ctypes.pointer(ATOM_MAP[name](v)), ctypes.c_void_p) # type: ignore[index]
@@ -544,7 +587,7 @@ def _slice_to_tuple(raw: FfiSlicePtr, type_name: RuntimeType) -> tuple[Any, ...]
         candidate = c_to_py(c_to_py(candidate_obj))
         candidate_obj.__class__ = ctypes.POINTER(AnyObject) # type: ignore[assignment]
         return score.contents.value, candidate
-    
+
     # tuple of instances of Python types
     return tuple(ctypes.cast(void_p, ctypes.POINTER(ATOM_MAP[name])).contents.value # type: ignore[index,attr-defined]
                  for void_p, name in zip(ptr_data, inner_type_names))
@@ -610,7 +653,7 @@ def _lazyframe_to_slice(val) -> FfiSlicePtr:
     pl = import_optional_dependency('polars')
     if not isinstance(val, pl.LazyFrame):
         raise ValueError("expected Polars LazyFrame")
-    
+
     state = val.__getstate__()
     raw = _wrap_in_slice(state, len(state))
     raw.depends_on(state)
@@ -629,10 +672,10 @@ def _expr_to_slice(val) -> FfiSlicePtr:
     pl = import_optional_dependency('polars')
     if isinstance(val, str):
         val = pl.col(val)
-        
+
     if not isinstance(val, pl.Expr):
         raise ValueError("expected Polars Expr")
-    
+
     state = val.__getstate__()
     raw = _wrap_in_slice(state, len(state))
     raw.depends_on(state)
@@ -660,6 +703,17 @@ def _slice_to_exprplan(raw: FfiSlicePtr):
     ExprPlan = namedtuple("ExprPlan", ["plan", "expr", "fill"])
     return ExprPlan(plan, expr, fill)
 
+def _to_optional_u32_void_ptr(v):
+    if v is None:
+        return
+    check_c_int_cast(v, "u32")
+    return ctypes.cast(ctypes.pointer(ctypes.c_uint32(v)), ctypes.c_void_p)
+
+
+def _from_optional_u32_void_ptr(ptr):
+    u32_ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_uint32))
+    return u32_ptr[0] if u32_ptr else None
+
 
 def _slice_to_margin(raw: FfiSlicePtr):
     from opendp.extras.polars import Margin
@@ -667,18 +721,12 @@ def _slice_to_margin(raw: FfiSlicePtr):
     void_array_ptr = ctypes.cast(raw.contents.ptr, ctypes.POINTER(ctypes.c_void_p))
     ptr_data: list[ctypes.c_void_p] = void_array_ptr[0: raw.contents.len]
 
-    def optional_u32(ptr):
-        u32_ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_uint32))
-        return u32_ptr[0] if u32_ptr else None
-
-    public_info = ctypes.cast(ptr_data[3], ctypes.c_char_p)
+    invariant = ctypes.cast(ptr_data[3], ctypes.c_char_p)
     return Margin(
         by=c_to_py(ctypes.cast(ptr_data[0], AnyObjectPtr)),
-        max_partition_length=optional_u32(ptr_data[1]),
-        max_num_partitions=optional_u32(ptr_data[2]),
-        public_info=public_info.value.decode() if public_info.value else None, # type: ignore[arg-type]
-        max_partition_contributions=optional_u32(ptr_data[4]),
-        max_influenced_partitions=optional_u32(ptr_data[5]),
+        max_length=_from_optional_u32_void_ptr(ptr_data[1]),
+        max_groups=_from_optional_u32_void_ptr(ptr_data[2]),
+        invariant=invariant.value.decode() if invariant.value else None, # type: ignore[arg-type]
     )
 
 def _check_polars_by(by):
@@ -690,27 +738,49 @@ def _check_polars_by(by):
 
 
 def _margin_to_slice(val) -> FfiSlicePtr:
+    from opendp.extras.polars import Margin
+    if not isinstance(val, Margin):
+        raise ValueError(f"expected Polars Margin, got {val}") # pragma: no cover
+    
     _check_polars_by(val.by)
     by = ctypes.cast(py_to_c(val.by, c_type=AnyObjectPtr, type_name="Vec<Expr>"), ctypes.c_void_p)
 
-    def optional_u32(v):
-        if v is None:
-            return
-        check_c_int_cast(v, "u32")
-        return ctypes.cast(ctypes.pointer(ctypes.c_uint32(v)), ctypes.c_void_p)
-    
-    mpl = optional_u32(val.max_partition_length)
-    mnp = optional_u32(val.max_num_partitions)
-    mpc = optional_u32(val.max_partition_contributions)
-    mip = optional_u32(val.max_influenced_partitions)
+    max_length = _to_optional_u32_void_ptr(val.max_length)
+    max_groups = _to_optional_u32_void_ptr(val.max_groups)
 
     def str_to_nullptr(s):
         return ctypes.cast(ctypes.c_char_p(s.encode()), ctypes.c_void_p)
 
-    public_info = str_to_nullptr(val.public_info) if val.public_info else None
+    invariant = str_to_nullptr(val.invariant) if val.invariant else None
 
-    array = (ctypes.c_void_p * 6)(by, mpl, mnp, public_info, mpc, mip)
-    return _wrap_in_slice(ctypes.pointer(array), 6)
+    array = (ctypes.c_void_p * 4)(by, max_length, max_groups, invariant)
+    return _wrap_in_slice(ctypes.pointer(array), 4)
+
+def _slice_to_group_bound(raw: FfiSlicePtr):
+    from opendp.extras.polars import Bound
+
+    void_array_ptr = ctypes.cast(raw.contents.ptr, ctypes.POINTER(ctypes.c_void_p))
+    ptr_data: list[ctypes.c_void_p] = void_array_ptr[0: raw.contents.len]
+
+    return Bound(
+        by=c_to_py(ctypes.cast(ptr_data[0], AnyObjectPtr)),
+        per_group=_from_optional_u32_void_ptr(ptr_data[1]),
+        num_groups=_from_optional_u32_void_ptr(ptr_data[2]),
+    )
+
+
+def _bound_to_slice(val) -> FfiSlicePtr:
+    from opendp.extras.polars import Bound
+    assert isinstance(val, Bound)
+
+    _check_polars_by(val.by)
+    by = ctypes.cast(py_to_c(val.by, c_type=AnyObjectPtr, type_name="Vec<Expr>"), ctypes.c_void_p)
+
+    num_groups = _to_optional_u32_void_ptr(val.num_groups)
+    per_group = _to_optional_u32_void_ptr(val.per_group)
+
+    array = (ctypes.c_void_p * 3)(by, per_group, num_groups)
+    return _wrap_in_slice(ctypes.pointer(array), 3)
 
 
 
@@ -718,7 +788,7 @@ def _dataframe_to_slice(val) -> FfiSlicePtr:
     pl = import_optional_dependency('polars')
     if not isinstance(val, pl.DataFrame):
         raise ValueError("expected Polars DataFrame")  # pragma: no cover
-    
+
     slices = list(_series_to_slice(s) for s in val.get_columns())
     raw = _wrap_in_slice(ctypes.pointer((FfiSlicePtr * val.width)(*slices)), val.width)
     # extend the lifetime of each series' slice to that of the frame slice
@@ -777,7 +847,7 @@ def _slice_to_series(raw: FfiSlicePtr):
 
 def _slice_to_anyobject(raw: FfiSlicePtr):
     """Unpack an AnyObject from a slice.
-    
+
     Used to return an Option<AnyObject> from Rust to Python.
     """
 
@@ -827,7 +897,7 @@ def _wrap_py_func(func, TO):
             )
 
     c_wrapper_func = CallbackFnValue(wrapper_func)
-    lifeline = ExtrinsicObject(ctypes.py_object(c_wrapper_func), c_counter)
+    lifeline = ExtrinsicObject(ctypes.py_object(c_wrapper_func))
 
     return ctypes.pointer(CallbackFn(c_wrapper_func, lifeline))
 
@@ -884,8 +954,8 @@ def _wrap_py_transition(py_transition, A):
                 ctypes.c_char_p("Continued stack trace from Exception in user-defined function".encode()),
                 ctypes.c_char_p(traceback.format_exc().encode()),
             )
-        
+
     c_wrapper_func = TransitionFnValue(wrapper_func)
-    lifeline = ExtrinsicObject(ctypes.py_object(c_wrapper_func), c_counter)
+    lifeline = ExtrinsicObject(ctypes.py_object(c_wrapper_func))
 
     return ctypes.pointer(TransitionFn(c_wrapper_func, lifeline))

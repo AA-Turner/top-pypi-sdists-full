@@ -82,6 +82,7 @@ class BaseArguments(CompatArguments, GenerationArguments, QuantizeArguments, Dat
     load_data_args: bool = False
     # dataset
     packing: bool = False
+    packing_length: Optional[int] = None
     lazy_tokenize: Optional[bool] = None
     cached_dataset: List[str] = field(default_factory=list)
     custom_register_path: List[str] = field(default_factory=list)  # .py
@@ -172,6 +173,10 @@ class BaseArguments(CompatArguments, GenerationArguments, QuantizeArguments, Dat
         QuantizeArguments.__post_init__(self)
         TemplateArguments.__post_init__(self)
         DataArguments.__post_init__(self)
+        if self.max_length is None and self.model_info is not None:
+            self.max_length = self.model_info.max_model_len
+        if self.packing and self.packing_length is None:
+            self.packing_length = self.max_length
         if isinstance(self.cached_dataset, str):
             self.cached_dataset = [self.cached_dataset]
         self._init_lazy_tokenize()
@@ -261,9 +266,6 @@ class BaseArguments(CompatArguments, GenerationArguments, QuantizeArguments, Dat
             'use_chat_template',
             'response_prefix',
         ]
-        if 'megatron' in self.__class__.__name__.lower():
-            force_load_keys = []
-            load_keys.remove('use_chat_template')
         data_keys = list(f.name for f in fields(DataArguments))
         for key, old_value in old_args.items():
             if old_value is None:

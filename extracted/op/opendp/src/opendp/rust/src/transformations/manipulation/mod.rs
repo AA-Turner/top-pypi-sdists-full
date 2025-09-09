@@ -6,9 +6,7 @@ use opendp_derive::bootstrap;
 use crate::core::{Domain, Function, Metric, MetricSpace, StabilityMap, Transformation};
 use crate::domains::{AtomDomain, VectorDomain};
 use crate::error::*;
-use crate::metrics::{
-    ChangeOneDistance, HammingDistance, InsertDeleteDistance, IntDistance, SymmetricDistance,
-};
+use crate::metrics::EventLevelMetric;
 use crate::traits::{CheckAtom, CheckNull};
 
 /// A [`Domain`] representing a dataset.
@@ -26,28 +24,6 @@ pub trait DatasetDomain: Domain {
 
 impl<D: Domain> DatasetDomain for VectorDomain<D> {
     type ElementDomain = D;
-}
-
-pub trait DatasetMetric: Metric<Distance = IntDistance> {
-    const ORDERED: bool;
-    const SIZED: bool;
-}
-
-impl DatasetMetric for SymmetricDistance {
-    const ORDERED: bool = false;
-    const SIZED: bool = false;
-}
-impl DatasetMetric for InsertDeleteDistance {
-    const ORDERED: bool = true;
-    const SIZED: bool = false;
-}
-impl DatasetMetric for ChangeOneDistance {
-    const ORDERED: bool = false;
-    const SIZED: bool = true;
-}
-impl DatasetMetric for HammingDistance {
-    const ORDERED: bool = true;
-    const SIZED: bool = false;
 }
 
 pub trait RowByRowDomain<DO: DatasetDomain>: DatasetDomain {
@@ -90,11 +66,11 @@ pub(crate) fn make_row_by_row<DI, DO, M>(
     ) -> <DO::ElementDomain as Domain>::Carrier
     + Send
     + Sync,
-) -> Fallible<Transformation<DI, DO, M, M>>
+) -> Fallible<Transformation<DI, M, DO, M>>
 where
     DI: RowByRowDomain<DO>,
     DO: DatasetDomain,
-    M: DatasetMetric<Distance = IntDistance>,
+    M: EventLevelMetric,
     (DI, M): MetricSpace,
     (DO, M): MetricSpace,
 {
@@ -113,21 +89,21 @@ pub(crate) fn make_row_by_row_fallible<DI, DO, M>(
     ) -> Fallible<<DO::ElementDomain as Domain>::Carrier>
     + Send
     + Sync,
-) -> Fallible<Transformation<DI, DO, M, M>>
+) -> Fallible<Transformation<DI, M, DO, M>>
 where
     DI: RowByRowDomain<DO>,
     DO: DatasetDomain,
-    M: DatasetMetric<Distance = IntDistance>,
+    M: EventLevelMetric,
     (DI, M): MetricSpace,
     (DO, M): MetricSpace,
 {
     let output_domain = input_domain.translate(output_row_domain);
     Transformation::new(
         input_domain,
-        output_domain,
-        Function::new_fallible(move |arg: &DI::Carrier| DI::apply_rows(arg, &row_function)),
         input_metric.clone(),
+        output_domain,
         input_metric,
+        Function::new_fallible(move |arg: &DI::Carrier| DI::apply_rows(arg, &row_function)),
         StabilityMap::new_from_constant(1),
     )
 }
@@ -157,7 +133,7 @@ where
 /// because the metric cannot be used to measure distances between any two elements of an atom domain.
 /// Whereas, the symmetric distance metric and vector domain,
 /// or absolute distance metric and atom domain on a scalar type, both form valid metric spaces.
-pub fn make_identity<D, M>(domain: D, metric: M) -> Fallible<Transformation<D, D, M, M>>
+pub fn make_identity<D, M>(domain: D, metric: M) -> Fallible<Transformation<D, M, D, M>>
 where
     D: Domain,
     D::Carrier: Clone,
@@ -167,10 +143,10 @@ where
 {
     Transformation::new(
         domain.clone(),
-        domain,
-        Function::new(|arg: &D::Carrier| arg.clone()),
         metric.clone(),
+        domain,
         metric,
+        Function::new(|arg: &D::Carrier| arg.clone()),
         StabilityMap::new(|d_in: &M::Distance| d_in.clone()),
     )
 }
@@ -200,10 +176,10 @@ pub fn make_is_equal<TIA, M>(
     input_domain: VectorDomain<AtomDomain<TIA>>,
     input_metric: M,
     value: TIA,
-) -> Fallible<Transformation<VectorDomain<AtomDomain<TIA>>, VectorDomain<AtomDomain<bool>>, M, M>>
+) -> Fallible<Transformation<VectorDomain<AtomDomain<TIA>>, M, VectorDomain<AtomDomain<bool>>, M>>
 where
     TIA: 'static + PartialEq + CheckAtom,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (VectorDomain<AtomDomain<TIA>>, M): MetricSpace,
     (VectorDomain<AtomDomain<bool>>, M): MetricSpace,
 {
@@ -228,11 +204,11 @@ where
 pub fn make_is_null<M, DIA>(
     input_domain: VectorDomain<DIA>,
     input_metric: M,
-) -> Fallible<Transformation<VectorDomain<DIA>, VectorDomain<AtomDomain<bool>>, M, M>>
+) -> Fallible<Transformation<VectorDomain<DIA>, M, VectorDomain<AtomDomain<bool>>, M>>
 where
     DIA: Domain,
     DIA::Carrier: 'static + CheckNull,
-    M: DatasetMetric,
+    M: EventLevelMetric,
     (VectorDomain<DIA>, M): MetricSpace,
     (VectorDomain<AtomDomain<bool>>, M): MetricSpace,
 {

@@ -7,22 +7,27 @@ The ``opendp.extras.polars`` module adds differential privacy to the
 For convenience, all the members of this module are also available from :py:mod:`opendp.prelude`.
 We suggest importing under the conventional name ``dp``:
 
-.. code:: python
+.. code:: pycon
 
     >>> import opendp.prelude as dp
 
-The methods of this module will then be accessible at ``dp.polars``.
+The members of this module will then be accessible at ``dp.polars``.
 """
 
 from __future__ import annotations
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 import os
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Mapping, Optional, Sequence, Union, cast
 from opendp._lib import lib_path, import_optional_dependency
+from opendp.extras.mbi import ContingencyTable, make_contingency_table, AIM, Algorithm
 from opendp.mod import (
+    ChangeOneIdDistance,
     Domain,
     Measurement,
+    FrameDistance,
+    Metric,
     OpenDPException,
+    SymmetricIdDistance,
     binary_search,
     binary_search_chain,
 )
@@ -37,6 +42,13 @@ from opendp.domains import (
     array_domain,
 )
 from opendp.measurements import make_private_lazyframe
+from deprecated import deprecated
+from opendp.transformations import make_stable_lazyframe
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from opendp.context import Query
+    from opendp.extras.polars.contingency_table import ContingencyTableQuery
 
 
 class DPExpr(object):
@@ -332,7 +344,7 @@ class DPExpr(object):
         ...     privacy_unit=dp.unit_of(contributions=1),
         ...     privacy_loss=dp.loss_of(epsilon=1.),
         ...     split_evenly_over=1,
-        ...     margins=[dp.polars.Margin(max_partition_length=5)]
+        ...     margins=[dp.polars.Margin(max_length=5)]
         ... )
         >>> query = context.query().select(pl.col("visits").fill_null(0).dp.sum((0, 1)))
         >>> query.release().collect()
@@ -370,7 +382,7 @@ class DPExpr(object):
         ...     privacy_unit=dp.unit_of(contributions=1),
         ...     privacy_loss=dp.loss_of(epsilon=1.),
         ...     split_evenly_over=1,
-        ...     margins=[dp.polars.Margin(max_partition_length=5)]
+        ...     margins=[dp.polars.Margin(max_length=5)]
         ... )
         >>> query = context.query().select(pl.col("visits").fill_null(0).dp.mean((0, 1)))
         >>> with pl.Config(float_precision=0): # just to prevent doctest from failing
@@ -406,33 +418,36 @@ class DPExpr(object):
             function_name="discrete_quantile_score",
             args=[self.expr, alpha, Series(candidates)],
             returns_scalar=True,
+            changes_length=True,
         )
 
-    def _report_noisy_max(
-        self, optimize: Literal["min", "max"], scale: float | None = None
+    def _noisy_max(
+        self,
+        scale: float | None = None,
+        negate: bool = False,
     ):
-        """Report the argmax or argmin after adding Gumbel noise.
+        """Report the noisy argmax or argmin.
 
         The scale calibrates the level of entropy when selecting an index.
         If scale is None it is filled by ``global_scale`` in :py:func:`opendp.measurements.make_private_lazyframe`.
 
-        :param optimize: Distinguish between argmax and argmin.
-        :param scale: Noise scale parameter for the Gumbel distribution.
+        :param scale: Noise scale parameter for the Gumbel or Exponential distribution.
+        :param negate: Enable to report noisy min.
         """
         from polars.plugins import register_plugin_function  # type: ignore[import-not-found]
         from polars import lit  # type: ignore[import-not-found]
 
         return register_plugin_function(
             plugin_path=os.environ.get("OPENDP_POLARS_LIB_PATH", lib_path),
-            function_name="report_noisy_max",
-            args=[self.expr, lit(optimize), scale],
+            function_name="noisy_max",
+            args=[self.expr, lit(negate), scale],
             is_elementwise=True,
         )
 
     def _index_candidates(self, candidates: list[float]):
         """Index into a candidate set.
 
-        Typically used after :py:func:`_report_noisy_max` to map selected indices to candidates.
+        Typically used after :py:func:`_noisy_max` to map selected indices to candidates.
 
         :param candidates: The values that each selected index corresponds to.
         """
@@ -465,10 +480,10 @@ class DPExpr(object):
         ...     privacy_unit=dp.unit_of(contributions=1),
         ...     privacy_loss=dp.loss_of(epsilon=1.),
         ...     split_evenly_over=1,
-        ...     margins=[dp.polars.Margin(max_partition_length=100)]
+        ...     margins=[dp.polars.Margin(max_length=100)]
         ... )
         >>> candidates = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
-        >>> query = context.query().select(pl.col("age").fill_null(0).dp.quantile(0.25, candidates))
+        >>> query = context.query().select(pl.col("age").cast(int).fill_null(0).dp.quantile(0.25, candidates))
         >>> query.release().collect()
         shape: (1, 1)
         ┌─────┐
@@ -483,7 +498,7 @@ class DPExpr(object):
         with greater likelihood of being selected the closer the candidate is to the first quartile.
         """
         dq_score = self.expr.dp._discrete_quantile_score(alpha, candidates)
-        noisy_idx = dq_score.dp._report_noisy_max("min", scale)
+        noisy_idx = dq_score.dp._noisy_max(scale=scale, negate=True)
         return noisy_idx.dp._index_candidates(candidates)
 
     def median(self, candidates: list[float], scale: float | None = None):
@@ -503,10 +518,10 @@ class DPExpr(object):
         ...     privacy_unit=dp.unit_of(contributions=1),
         ...     privacy_loss=dp.loss_of(epsilon=1.),
         ...     split_evenly_over=1,
-        ...     margins=[dp.polars.Margin(max_partition_length=100)]
+        ...     margins=[dp.polars.Margin(max_length=100)]
         ... )
         >>> candidates = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
-        >>> query = context.query().select(pl.col("age").fill_null(0).dp.quantile(0.5, candidates))
+        >>> query = context.query().select(pl.col("age").cast(int).fill_null(0).dp.quantile(0.5, candidates))
         >>> query.release().collect()
         shape: (1, 1)
         ┌─────┐
@@ -648,6 +663,7 @@ def _domain_from_dtype(dtype) -> Domain:
 
     return atom_domain(T=T)
 
+
 _LAZY_EXECUTION_METHODS = {
     "collect",
     "collect_async",
@@ -658,6 +674,29 @@ _LAZY_EXECUTION_METHODS = {
     "sink_ndjson",
     "fetch",
 }
+
+
+@dataclass
+class SortBy:
+    """Configuration for ``keep`` in :py:meth:`LazyFrameQuery.truncate_per_group`.
+
+    Follows the arguments in Polars' ``sort_by`` method.
+    """
+
+    by: Any
+    """Column(s) to sort by. Accepts expression input. Strings are parsed as column names."""
+
+    descending: bool | Sequence[bool] = False
+    """Sort in descending order. When sorting by multiple columns, can be specified per column by passing a sequence of booleans."""
+
+    nulls_last: bool | Sequence[bool] = False
+    """Place null values last; can specify a single boolean applying to all columns or a sequence of booleans for per-column control."""
+
+    multithreaded: bool = True
+    """Sort using multiple threads."""
+
+    maintain_order: bool = False
+    """Whether the order should be maintained if elements are equal."""
 
 
 class LazyFrameQuery:
@@ -844,9 +883,88 @@ class LazyFrameQuery:
             on = keys.collect_schema().names()
 
         return LazyFrameQuery(
-            keys.join(self.polars_plan, how="left", on=on),
+            keys.join(self.polars_plan, how="left", on=on, nulls_equal=True),
             self._query,
         )
+
+    def truncate_per_group(
+        self,
+        k: int,
+        by: list[Any] | None = None,
+        keep: Literal["sample", "first", "last"] | SortBy = "sample",
+    ) -> LazyFrameQuery:
+        """
+        Limit the number of contributed rows per group.
+
+        :param k: the number of rows to keep for each identifier and group
+        :param by: optional, additional columns to group by
+        :param keep: which rows to keep for each identifier in each group
+        """
+        input_metric = self._query._chain[1]
+
+        if isinstance(by, str):
+            raise ValueError(
+                "by must be a list of strings or expressions"
+            )  # pragma: no cover
+
+        if isinstance(input_metric, FrameDistance):
+            input_metric = input_metric.inner_metric
+        if not isinstance(input_metric, (SymmetricIdDistance, ChangeOneIdDistance)):
+            raise ValueError("truncation is only valid when identifier is defined")
+
+        if keep == "sample":
+            indexes = pl.int_range(pl.len()).shuffle()
+        elif keep == "first":
+            indexes = pl.int_range(pl.len())
+        elif keep == "last":
+            indexes = pl.int_range(pl.len()).reverse()
+        elif isinstance(keep, SortBy):
+            indexes = pl.int_range(pl.len()).sort_by(**asdict(keep))
+        else:
+            raise ValueError(
+                "keep must be 'sample', 'first', 'last' or SortBy"
+            )  # pragma: no cover
+
+        return self.filter(indexes.over(input_metric.identifier, *by or []) < k)
+
+    def truncate_num_groups(
+        self,
+        k: int,
+        by: list[Any],
+        keep: Literal["sample", "first", "last"] = "sample",
+    ) -> LazyFrameQuery:
+        """
+        Limit the number of groups an individual may influence.
+
+        :param k: the number of groups to keep for each identifier
+        :param by: when grouped by these grouping columns
+        :param keep: which groups to keep for each identifier
+        """
+        input_metric = self._query._chain[1]
+
+        if isinstance(by, str):
+            raise ValueError(
+                "by must be a list of strings or expressions"
+            )  # pragma: no cover
+
+        if isinstance(input_metric, FrameDistance):
+            input_metric = input_metric.inner_metric
+        if not isinstance(input_metric, (SymmetricIdDistance, ChangeOneIdDistance)):
+            raise ValueError("truncation is only valid when identifier is defined")
+
+        struct = pl.struct(*by)
+        if keep == "sample":
+            ranks = pl.struct(struct.hash(), struct).rank("dense")
+        elif keep == "first":
+            ranks = struct.rank("dense", descending=False)
+        elif keep == "last":
+            ranks = struct.rank("dense", descending=True)
+        else:
+            raise ValueError(
+                "keep must be 'sample', 'first' or 'last'"
+            )  # pragma: no cover
+
+        return self.filter(ranks.over(input_metric.identifier) < k)
 
     def resolve(self) -> Measurement:
         """Resolve the query into a measurement."""
@@ -867,9 +985,17 @@ class LazyFrameQuery:
                 threshold=threshold,
             )
 
+        # when the query has sensitivity zero or is behind an invariant
+        try:
+            m_zero = _make(0.0, threshold=None)
+            if m_zero.check(d_in, d_out):
+                # if the zero scale measurement is already private, return it
+                return m_zero
+        except OpenDPException:
+            pass
+
         # when the output measure is δ-approximate, then there are two free parameters to tune
         if getattr(query._output_measure.type, "origin", None) == "Approximate":
-
             # search for a scale parameter. Solve for epsilon first,
             # setting threshold to u32::MAX so as not to interfere with the search for a suitable scale parameter
             scale = binary_search(
@@ -907,7 +1033,7 @@ class LazyFrameQuery:
 
         If ``alpha`` is passed, the resulting data frame includes an ``accuracy`` column.
 
-        If a threshold is configured for censoring small/sensitive partitions,
+        If a threshold is configured for censoring small/sensitive groups,
         a threshold column will be included,
         containing the cutoff for the respective count query being thresholded.
 
@@ -915,48 +1041,100 @@ class LazyFrameQuery:
 
         :example:
 
-        >>> import polars as pl
-        >>> data = pl.LazyFrame([pl.Series("convicted", [0, 1, 1, 0, 1] * 50, dtype=pl.Int32)])
-        >>>
-        >>> context = dp.Context.compositor(
-        ...     data=data,
-        ...     privacy_unit=dp.unit_of(contributions=1),
-        ...     privacy_loss=dp.loss_of(epsilon=1.0),
-        ...     split_evenly_over=1,
-        ...     margins=[dp.polars.Margin(by=(), max_partition_length=1000)],
-        ... )
-        >>>
-        >>> query = context.query().select(
-        ...     dp.len(),
-        ...     pl.col("convicted").fill_null(0).dp.sum((0, 1))
-        ... )
-        >>>
-        >>> query.summarize(alpha=.05)  # type: ignore[union-attr]
-        shape: (2, 5)
-        ┌───────────┬──────────────┬─────────────────┬───────┬──────────┐
-        │ column    ┆ aggregate    ┆ distribution    ┆ scale ┆ accuracy │
-        │ ---       ┆ ---          ┆ ---             ┆ ---   ┆ ---      │
-        │ str       ┆ str          ┆ str             ┆ f64   ┆ f64      │
-        ╞═══════════╪══════════════╪═════════════════╪═══════╪══════════╡
-        │ len       ┆ Frame Length ┆ Integer Laplace ┆ 2.0   ┆ 6.429605 │
-        │ convicted ┆ Sum          ┆ Integer Laplace ┆ 2.0   ┆ 6.429605 │
-        └───────────┴──────────────┴─────────────────┴───────┴──────────┘
+        .. code:: pycon
+
+            >>> import polars as pl
+            >>> data = pl.LazyFrame([pl.Series("convicted", [0, 1, 1, 0, 1] * 50, dtype=pl.Int32)])
+
+            >>> context = dp.Context.compositor(
+            ...     data=data,
+            ...     privacy_unit=dp.unit_of(contributions=1),
+            ...     privacy_loss=dp.loss_of(epsilon=1.0),
+            ...     split_evenly_over=1,
+            ...     margins=[dp.polars.Margin(by=(), max_length=1000)],
+            ... )
+
+            >>> query = context.query().select(
+            ...     dp.len(),
+            ...     pl.col("convicted").fill_null(0).dp.sum((0, 1))
+            ... )
+
+            >>> query.summarize(alpha=.05)  # type: ignore[union-attr]
+            shape: (2, 5)
+            ┌───────────┬──────────────┬─────────────────┬───────┬──────────┐
+            │ column    ┆ aggregate    ┆ distribution    ┆ scale ┆ accuracy │
+            │ ---       ┆ ---          ┆ ---             ┆ ---   ┆ ---      │
+            │ str       ┆ str          ┆ str             ┆ f64   ┆ f64      │
+            ╞═══════════╪══════════════╪═════════════════╪═══════╪══════════╡
+            │ len       ┆ Frame Length ┆ Integer Laplace ┆ 2.0   ┆ 6.429605 │
+            │ convicted ┆ Sum          ┆ Integer Laplace ┆ 2.0   ┆ 6.429605 │
+            └───────────┴──────────────┴─────────────────┴───────┴──────────┘
 
         The accuracy in any given row can be interpreted with:
 
-        >>> def interpret_accuracy(distribution, scale, accuracy, alpha):
-        ...     return (
-        ...         f"When the {distribution} scale is {scale}, "
-        ...         f"the DP estimate differs from the true value by no more than {accuracy} "
-        ...         f"at a statistical significance level alpha of {alpha}, "
-        ...         f"or with (1 - {alpha})100% = {(1 - alpha) * 100}% confidence."
-        ...     )
-        ...
-        >>> interpret_accuracy("Integer Laplace", 2.0, 6.429605, alpha=.05) # doctest:+SKIP
+        .. code:: pycon
+
+            >>> def interpret_accuracy(distribution, scale, accuracy, alpha):
+            ...     return (
+            ...         f"When the {distribution} scale is {scale}, "
+            ...         f"the DP estimate differs from the true value by no more than {accuracy} "
+            ...         f"at a statistical significance level alpha of {alpha}, "
+            ...         f"or with (1 - {alpha})100% = {(1 - alpha) * 100}% confidence."
+            ...     )
+
+            >>> interpret_accuracy("Integer Laplace", 2.0, 6.429605, alpha=.05) # doctest:+SKIP
         """
         from opendp.accuracy import summarize_polars_measurement
 
         return summarize_polars_measurement(self.resolve(), alpha)
+
+        
+    def contingency_table(
+        self,
+        *,
+        keys: Optional[Mapping[str, Sequence]] = None,
+        cuts: Optional[Mapping[str, Sequence[float]]] = None,
+        table: Optional[ContingencyTable] = None,
+        algorithm: Union[Algorithm] = AIM(),
+    ) -> "ContingencyTableQuery":
+        """Release an approximation to a contingency table across all columns.
+
+        :param keys: dictionary of column names and unique categories
+        :param cuts: dictionary of column names and bin edges for numerical columns
+        :param table: ContingencyTable from prior release
+        :param algorithm: configuration for internal estimation algorithm
+        """
+        from .contingency_table import ContingencyTableQuery
+
+        query: Query = object.__getattribute__(self, "_query")
+        input_domain, input_metric = cast(tuple[Domain, Metric], query._chain)
+        d_in, d_out = query._d_in, query._d_out
+
+        t_plan = make_stable_lazyframe(
+            input_domain,
+            input_metric,
+            lazyframe=object.__getattribute__(self, "polars_plan"),
+        )
+
+        m_table, oneway_scale, oneway_threshold = make_contingency_table(
+            input_domain=t_plan.output_domain,
+            input_metric=t_plan.output_metric,
+            output_measure=query._output_measure,
+            d_in=t_plan.map(d_in),
+            d_out=d_out,  # type: ignore[arg-type]
+            keys=keys,
+            cuts=cuts,
+            table=table,
+            algorithm=algorithm,
+        )
+
+        return ContingencyTableQuery(
+            chain=t_plan >> m_table,
+            output_measure=query._output_measure,
+            context=query._context,
+            oneway_scale=oneway_scale,
+            oneway_threshold=oneway_threshold
+        )
 
 
 class LazyGroupByQuery:
@@ -996,37 +1174,99 @@ class Margin:
     Instances of this class are used by :py:func:`opendp.context.Context.compositor`.
     """
 
-    by: Sequence | None = None
+    by: Sequence = field(default_factory=list)
     """Polars expressions describing the grouping columns."""
 
-    public_info: Literal["keys"] | Literal["lengths"] | None = None
-    """Identifies properties of grouped data that are considered public information.
-    
-    * ``"keys"`` designates that keys are not protected
-    * ``"lengths"`` designates that both keys and partition lengths are not protected
-    """
+    max_length: int | None = None
+    """An upper bound on the number of records in any one group.
 
-    max_partition_length: int | None = None
-    """An upper bound on the number of records in any one partition.
-
-    If you don't know how many records are in the data, you can specify a very loose upper bound,
-    for example, the size of the total population you are sampling from.
-
+    Some operations (for instance, for float sums) will error if `max_length` is not provided.
     This is used to resolve issues raised in the paper
     `Widespread Underestimation of Sensitivity in Differentially Private Libraries and How to Fix It <https://arxiv.org/pdf/2207.10635.pdf>`_.
-    """
-
-    max_num_partitions: int | None = None
-    """An upper bound on the number of distinct partitions."""
-
-    max_partition_contributions: int | None = None
-    """The greatest number of records an individual may contribute to any one partition.
     
-    This can significantly reduce the sensitivity of grouped queries under zero-Concentrated DP.
+    If you don't know how many records are in the data, you can specify a very loose upper bound,
+    for example, the size of the total population you are sampling from.
     """
 
-    max_influenced_partitions: int | None = None
-    """The greatest number of partitions any one individual can contribute to."""
+    max_groups: int | None = None
+    """An upper bound on the number of distinct groups."""
+
+    invariant: Literal["keys"] | Literal["lengths"] | None = None
+    """Identifies properties of grouped data that are considered invariant.
+    
+    * ``"keys"`` designates that keys are not protected
+    * ``"lengths"`` designates that both keys and group lengths are not protected
+
+    By the analysis of invariants conducted in
+    `Formal Privacy Guarantees with Invariant Statistics <https://arxiv.org/abs/2410.17468>`_,
+    when invariants are set, the effective privacy guarantees of the library are weaker than advertised.
+    """
+
+    @property
+    @deprecated(version="0.13.0", reason="Use max_length instead.")
+    def max_partition_length(self):
+        return self.max_length  # pragma: no cover
+
+    @max_partition_length.setter
+    @deprecated(reason="Use max_length instead.")
+    def max_partition_length(self, value):
+        self.max_length = value  # pragma: no cover
+
+    @property
+    @deprecated(
+        version="0.13.0",
+        reason="Use max_groups instead. This was renamed to be consistent with Polars terminology."
+    )
+    def max_num_partitions(self):
+        return self.max_groups  # pragma: no cover
+
+    @max_num_partitions.setter
+    @deprecated(
+        version="0.13.0",
+        reason="Use max_groups instead. This was renamed to be consistent with Polars terminology."
+    )
+    def max_num_partitions(self, value):
+        self.max_groups = value  # pragma: no cover
+
+    @property
+    @deprecated(
+        version="0.13.0",
+        reason='Use invariant instead. This was renamed because invariants are not "public information". Invariants are "unprotected information".'
+    )
+    def public_info(self):
+        return self.invariant  # pragma: no cover
+
+    @public_info.setter
+    @deprecated(
+        version="0.13.0",
+        reason='Use invariant instead. This was renamed because invariants are not "public information". Invariants are "unprotected information".'
+    )
+    def public_info(self, value):
+        self.invariant = value  # pragma: no cover
+
+    @property
+    def max_partition_contributions(self):
+        raise NotImplementedError(
+            "max_partition_contributions has been moved. Use `dp.unit_of(contributions=[dp.polars.Bound(per_group=...)])` instead."
+        )  # pragma: no cover
+
+    @max_partition_contributions.setter
+    def max_partition_contributions(self, value):
+        raise NotImplementedError(
+            "max_partition_contributions has been moved. Use `dp.unit_of(contributions=[dp.polars.Bound(per_group=...)])` instead."
+        )  # pragma: no cover
+
+    @property
+    def max_influenced_partitions(self):
+        raise NotImplementedError(
+            "max_influenced_partitions has been moved. Use `dp.unit_of(contributions=[dp.polars.Bound(num_groups=...)])` instead."
+        )  # pragma: no cover
+
+    @max_influenced_partitions.setter
+    def max_influenced_partitions(self, value):
+        raise NotImplementedError(
+            "max_influenced_partitions has been moved. Use `dp.unit_of(contributions=[dp.polars.Bound(num_groups=...)])` instead."
+        )  # pragma: no cover
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Margin):
@@ -1039,9 +1279,47 @@ class Margin:
                 by = pl.col(by)
             return by.meta.serialize()
 
-        self_by = {serialize(col) for col in self.by or []}
-        other_by = {serialize(col) for col in other.by or []}
+        self_by = {serialize(col) for col in self.by}
+        other_by = {serialize(col) for col in other.by}
         if self_by != other_by:
             return False
-        
-        return asdict(replace(self, by=None)) == asdict(replace(other, by=None))
+
+        return asdict(replace(self, by=[])) == asdict(replace(other, by=[]))
+
+
+@dataclass
+class Bound(object):
+    """
+    The ``Bound`` class is used to describe bounds on the number of
+    contributed rows per-group and the number of contributed groups.
+    """
+
+    by: Sequence = field(default_factory=list)
+    """Polars expressions describing the grouping columns."""
+
+    per_group: int | None = None
+    """The greatest number of records an individual may contribute to any one group.
+    
+    This can significantly reduce the sensitivity of grouped queries under zero-Concentrated DP.
+    """
+
+    num_groups: int | None = None
+    """The greatest number of groups any one individual can contribute."""
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Bound):
+            return False
+
+        # special logic for by, which is considered a set (order and dupes don't matter)
+        # and may contain expressions that do not have a boolean equality operator
+        def serialize(by):
+            if isinstance(by, str):
+                by = pl.col(by)
+            return by.meta.serialize()
+
+        self_by = {serialize(col) for col in self.by}
+        other_by = {serialize(col) for col in other.by}
+        if self_by != other_by:
+            return False
+
+        return asdict(replace(self, by=[])) == asdict(replace(other, by=[]))  # type: ignore[arg-type]

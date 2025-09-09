@@ -22,11 +22,13 @@ from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
 
 
-def cast_to_time6(expression: t.Optional[exp.Expression]) -> exp.Cast:
+def cast_to_time6(
+    expression: t.Optional[exp.Expression], time_type: DataType.Type = exp.DataType.Type.TIME
+) -> exp.Cast:
     return exp.Cast(
         this=expression,
         to=exp.DataType.build(
-            exp.DataType.Type.TIME,
+            time_type,
             expressions=[exp.DataTypeParam(this=exp.Literal.number(6))],
         ),
     )
@@ -63,6 +65,7 @@ class SingleStore(MySQL):
             "TIMESTAMP": TokenType.TIMESTAMP,
             "UTC_DATE": TokenType.UTC_DATE,
             "UTC_TIME": TokenType.UTC_TIME,
+            "UTC_TIMESTAMP": TokenType.UTC_TIMESTAMP,
             ":>": TokenType.COLON_GT,
             "!:>": TokenType.NCOLON_GT,
             "::$": TokenType.DCOLONDOLLAR,
@@ -162,6 +165,8 @@ class SingleStore(MySQL):
                 json_type="JSON",
             ),
             "JSON_PRETTY": exp.JSONFormat.from_arg_list,
+            "JSON_BUILD_ARRAY": lambda args: exp.JSONArray(expressions=args),
+            "JSON_BUILD_OBJECT": lambda args: exp.JSONObject(expressions=args),
             "DATE": exp.Date.from_arg_list,
             "DAYNAME": lambda args: exp.TimeToStr(
                 this=seq_get(args, 0),
@@ -199,10 +204,19 @@ class SingleStore(MySQL):
             ),
         }
 
+        FUNCTION_PARSERS: t.Dict[str, t.Callable] = {
+            **MySQL.Parser.FUNCTION_PARSERS,
+            "JSON_AGG": lambda self: exp.JSONArrayAgg(
+                this=self._parse_term(),
+                order=self._parse_order(),
+            ),
+        }
+
         NO_PAREN_FUNCTIONS = {
             **MySQL.Parser.NO_PAREN_FUNCTIONS,
             TokenType.UTC_DATE: exp.UtcDate,
             TokenType.UTC_TIME: exp.UtcTime,
+            TokenType.UTC_TIMESTAMP: exp.UtcTimestamp,
         }
 
         CAST_COLUMN_OPERATORS = {TokenType.COLON_GT, TokenType.NCOLON_GT}
@@ -237,6 +251,8 @@ class SingleStore(MySQL):
 
     class Generator(MySQL.Generator):
         SUPPORTS_UESCAPE = False
+        NULL_ORDERING_SUPPORTED = True
+        MATCH_AGAINST_TABLE_PREFIX = "TABLE "
 
         @staticmethod
         def _unicode_substitute(m: re.Match[str]) -> str:
@@ -339,6 +355,11 @@ class SingleStore(MySQL):
             if e.unit is not None
             else self.func("DATEDIFF", e.this, e.expression),
             exp.TimestampTrunc: unsupported_args("zone")(timestamptrunc_sql()),
+            exp.CurrentDatetime: lambda self, e: self.sql(
+                cast_to_time6(
+                    exp.CurrentTimestamp(this=exp.Literal.number(6)), exp.DataType.Type.DATETIME
+                )
+            ),
             exp.JSONExtract: unsupported_args(
                 "only_json_types",
                 "expressions",
@@ -354,6 +375,21 @@ class SingleStore(MySQL):
             exp.JSONPathSubscript: lambda self, e: self.json_path_part(e.this),
             exp.JSONPathRoot: lambda *_: "",
             exp.JSONFormat: unsupported_args("options", "is_json")(rename_func("JSON_PRETTY")),
+            exp.JSONArrayAgg: unsupported_args("null_handling", "return_type", "strict")(
+                lambda self, e: self.func("JSON_AGG", e.this, suffix=f"{self.sql(e, 'order')})")
+            ),
+            exp.JSONArray: unsupported_args("null_handling", "return_type", "strict")(
+                rename_func("JSON_BUILD_ARRAY")
+            ),
+            exp.JSONBExists: lambda self, e: self.func(
+                "BSON_MATCH_ANY_EXISTS", e.this, e.args.get("path")
+            ),
+            exp.JSONExists: unsupported_args("passing", "on_condition")(
+                lambda self, e: self.func("JSON_MATCH_ANY_EXISTS", e.this, e.args.get("path"))
+            ),
+            exp.JSONObject: unsupported_args(
+                "null_handling", "unique_keys", "return_type", "encoding"
+            )(rename_func("JSON_BUILD_OBJECT")),
             exp.DayOfWeekIso: lambda self, e: f"(({self.func('DAYOFWEEK', e.this)} % 7) + 1)",
             exp.DayOfMonth: rename_func("DAY"),
             exp.Hll: rename_func("APPROX_COUNT_DISTINCT"),
@@ -417,10 +453,19 @@ class SingleStore(MySQL):
                 ),
                 "RLIKE",
             ),
+            exp.Stuff: lambda self, e: self.func(
+                "CONCAT",
+                self.func("SUBSTRING", e.this, exp.Literal.number(1), e.args.get("start") - 1),
+                e.expression,
+                self.func("SUBSTRING", e.this, e.args.get("start") + e.args.get("length")),
+            ),
             exp.Reduce: unsupported_args("finish")(
                 lambda self, e: self.func(
                     "REDUCE", e.args.get("initial"), e.this, e.args.get("merge")
                 )
+            ),
+            exp.MatchAgainst: unsupported_args("modifier")(
+                lambda self, e: super().matchagainst_sql(e)
             ),
         }
         TRANSFORMS.pop(exp.JSONExtractScalar)
@@ -1667,3 +1712,32 @@ class SingleStore(MySQL):
                 self.unsupported("CurrentTime with timezone is not supported in SingleStore")
 
             return self.func("CURRENT_TIME")
+
+        def currenttimestamp_sql(self, expression: exp.CurrentTimestamp) -> str:
+            arg = expression.this
+            if arg:
+                if isinstance(arg, exp.Literal) and arg.name.lower() == "utc":
+                    return self.func("UTC_TIMESTAMP")
+                if isinstance(arg, exp.Literal) and arg.is_number:
+                    return self.func("CURRENT_TIMESTAMP", arg)
+                self.unsupported("CurrentTimestamp with timezone is not supported in SingleStore")
+
+            return self.func("CURRENT_TIMESTAMP")
+
+        def standardhash_sql(self, expression: exp.StandardHash) -> str:
+            hash_function = expression.expression
+            if hash_function is None:
+                return self.func("SHA", expression.this)
+            if isinstance(hash_function, exp.Literal):
+                if hash_function.name.lower() == "sha":
+                    return self.func("SHA", expression.this)
+                if hash_function.name.lower() == "md5":
+                    return self.func("MD5", expression.this)
+
+                self.unsupported(
+                    f"{hash_function.this} hash method is not supported in SingleStore"
+                )
+                return self.func("SHA", expression.this)
+
+            self.unsupported("STANDARD_HASH function is not supported in SingleStore")
+            return self.func("SHA", expression.this)

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-gemini
-Version: 0.6.0
+Version: 0.6.1
 Summary: llama-index llms gemini integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: google-generativeai>=0.5.2
-Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-core<0.15,>=0.13.0
 Requires-Dist: pillow<11,>=10.2.0
 Description-Content-Type: text/markdown
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: graspologic
-Version: 3.4.1
+Version: 3.4.4
 Summary: A set of Python modules for graph statistics
 Home-page: https://github.com/graspologic-org/graspologic
 License: MIT
@@ -20,15 +20,16 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Dist: POT (>=0.9,<0.10)
 Requires-Dist: anytree (>=2.12.1,<3.0.0)
 Requires-Dist: beartype (>=0.18.5,<0.19.0)
-Requires-Dist: gensim (>=4.3.2,<5.0.0)
+Requires-Dist: future (>=1.0.0,<2.0.0)
+Requires-Dist: gensim (>=4.3.3,<5.0.0)
 Requires-Dist: graspologic-native (>=1.2.1,<2.0.0)
-Requires-Dist: hyppo (>=0.4.0,<0.5.0)
+Requires-Dist: hyppo (>=0.5.2,<0.6.0)
 Requires-Dist: joblib (>=1.4.2,<2.0.0)
 Requires-Dist: matplotlib (>=3.8.4,<4.0.0)
 Requires-Dist: networkx (>=3,<4)
 Requires-Dist: numpy (>=1.26.4,<2.0.0)
 Requires-Dist: scikit-learn (>=1.4.2,<2.0.0)
-Requires-Dist: scipy (==1.12.0)
+Requires-Dist: scipy (>=1.12.0,<2.0.0)
 Requires-Dist: seaborn (>=0.13.2,<0.14.0)
 Requires-Dist: statsmodels (>=0.14.2,<0.15.0)
 Requires-Dist: typing-extensions (>=4.4.0,<5.0.0)
@@ -101,7 +102,7 @@ git clone https://github.com/graspologic-org/graspologic
 cd graspologic
 python3 -m venv venv
 source venv/bin/activate
-python3 setup.py install
+pip install .
 ```
 
 # Contributing

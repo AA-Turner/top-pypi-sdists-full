@@ -48,6 +48,18 @@ pub struct Error {
     pub backtrace: _Backtrace,
 }
 
+// don't derive this trait because std's backtrace.display() is much prettier than std backtrace's debug
+impl core::fmt::Debug for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        let message = self
+            .message
+            .as_ref()
+            .map(|v| format!("({:?})", v))
+            .unwrap_or_default();
+        write!(f, "{:?}{}\n{}", self.variant, message, self.backtrace)
+    }
+}
+
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
         self.variant == other.variant && self.message == other.message
@@ -112,30 +124,10 @@ impl fmt::Display for Error {
     }
 }
 
-// simplify error creation from vega_lite_4
-#[cfg(all(test, feature = "test-plot"))]
-impl From<String> for Error {
-    fn from(v: String) -> Self {
-        err!(FailedFunction, "{}", v)
-    }
-}
-
 #[cfg(feature = "polars")]
 impl From<Error> for PolarsError {
     fn from(value: Error) -> Self {
         PolarsError::ComputeError(value.to_string().into())
-    }
-}
-
-impl Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?}: {:?}\n{}",
-            self.variant,
-            self.message.as_ref().cloned().unwrap_or_default(),
-            self.backtrace.to_string()
-        )
     }
 }
 
