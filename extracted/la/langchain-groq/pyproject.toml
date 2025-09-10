@@ -8,11 +8,11 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.72",
+    "langchain-core<1.0.0,>=0.3.75",
     "groq<1,>=0.30.0",
 ]
 name = "langchain-groq"
-version = "0.3.7"
+version = "0.3.8"
 description = "An integration package connecting Groq and LangChain"
 readme = "README.md"
 
@@ -110,6 +110,8 @@ ignore = [
     "D104",
     "D105",
     "D107",
+    "D203",
+    "D213",
     "COM812",
     "ISC001",
     "PERF203",
@@ -122,6 +124,9 @@ ignore = [
 unfixable = [
     "B028",
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [

@@ -7,60 +7,12 @@ from project.sqlalchemy_db_.sqlalchemy_model import OperationDBM
 
 
 class OperationMV(SimpleMV, model=OperationDBM):
-    name = "Operation"
-    name_plural = "Operations"
+    name = OperationDBM.get_cls_entity_name()
+    name_plural = OperationDBM.get_cls_entity_name_plural()
     icon = "fa-solid fa-gears"
-    column_list = [
-        OperationDBM.id,
-        OperationDBM.long_id,
-        OperationDBM.slug,
-        OperationDBM.creation_dt,
-        OperationDBM.status,
-        OperationDBM.type,
-        OperationDBM.marker,
-        OperationDBM.title,
-        OperationDBM.execution_start_dt,
-        OperationDBM.execution_finish_dt,
-        OperationDBM.input_data,
-        OperationDBM.output_data,
-        OperationDBM.error_data,
-        OperationDBM.extra_data,
-
-        OperationDBM.duration.fget.__name__,
-        OperationDBM.duration_as_str.fget.__name__
-    ]
-    column_details_list = [
-        OperationDBM.id,
-        OperationDBM.long_id,
-        OperationDBM.slug,
-        OperationDBM.creation_dt,
-        OperationDBM.status,
-        OperationDBM.type,
-        OperationDBM.marker,
-        OperationDBM.title,
-        OperationDBM.execution_start_dt,
-        OperationDBM.execution_finish_dt,
-        OperationDBM.input_data,
-        OperationDBM.output_data,
-        OperationDBM.error_data,
-        OperationDBM.extra_data,
-
-        OperationDBM.duration.fget.__name__,
-        OperationDBM.duration_as_str.fget.__name__
-    ]
-    form_columns = [
-        OperationDBM.slug,
-        OperationDBM.status,
-        OperationDBM.type,
-        OperationDBM.marker,
-        OperationDBM.title,
-        OperationDBM.execution_start_dt,
-        OperationDBM.execution_finish_dt,
-        OperationDBM.input_data,
-        OperationDBM.output_data,
-        OperationDBM.error_data,
-        OperationDBM.extra_data
-    ]
+    column_list = OperationDBM.get_column_and_relationship_names_()
+    column_details_list = OperationDBM.get_column_and_relationship_names_() + OperationDBM.get_sd_property_names()
+    form_columns = OperationDBM.get_column_and_relationship_names_(include_column_pk=False)
     form_overrides = {
         OperationDBM.status.key: SelectField,
         OperationDBM.type.key: SelectField
@@ -76,26 +28,19 @@ class OperationMV(SimpleMV, model=OperationDBM):
         }
     }
     column_sortable_list = sqlalchemy.inspect(OperationDBM).columns
-    column_default_sort = [
-        (OperationDBM.creation_dt, True)
-    ]
-    column_searchable_list = [
-        OperationDBM.id,
-        OperationDBM.long_id
-    ]
     column_formatters = {
-        OperationDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        **SimpleMV.get_default_column_formatters(),
         OperationDBM.execution_start_dt: lambda m, _: format_datetime_(m.execution_start_dt),
         OperationDBM.execution_finish_dt: lambda m, _: format_datetime_(m.execution_finish_dt),
         OperationDBM.input_data: lambda m, a: format_json_for_preview_(m.input_data),
         OperationDBM.output_data: lambda m, a: format_json_for_preview_(m.output_data),
         OperationDBM.error_data: lambda m, a: format_json_for_preview_(m.error_data),
-        OperationDBM.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
     }
     column_formatters_detail = {
-        OperationDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        **SimpleMV.get_default_column_formatters_detail(),
+        OperationDBM.execution_start_dt: lambda m, _: format_datetime_(m.execution_start_dt),
+        OperationDBM.execution_finish_dt: lambda m, _: format_datetime_(m.execution_finish_dt),
         OperationDBM.input_data: lambda m, a: format_json_(m.input_data),
         OperationDBM.output_data: lambda m, a: format_json_(m.output_data),
         OperationDBM.error_data: lambda m, a: format_json_(m.error_data),
-        OperationDBM.extra_data: lambda m, a: format_json_(m.extra_data),
     }

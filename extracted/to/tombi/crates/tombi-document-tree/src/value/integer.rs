@@ -1,32 +1,32 @@
-use itertools::Itertools;
-use tombi_ast::AstNode;
+use tombi_ast::TombiValueCommentDirective;
 use tombi_toml_version::TomlVersion;
 
 use crate::{
     support::integer::{try_from_binary, try_from_decimal, try_from_hexadecimal, try_from_octal},
-    Comment, DocumentTreeAndErrors, IntoDocumentTreeAndErrors, ValueImpl, ValueType,
+    value::collect_comment_directives_and_errors,
+    DocumentTreeAndErrors, IntoDocumentTreeAndErrors, ValueImpl, ValueType,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntegerKind {
-    Binary(tombi_ast::IntegerBin),
-    Decimal(tombi_ast::IntegerDec),
-    Octal(tombi_ast::IntegerOct),
-    Hexadecimal(tombi_ast::IntegerHex),
+    Binary,
+    Decimal,
+    Octal,
+    Hexadecimal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Integer {
     kind: IntegerKind,
     value: i64,
-    leading_comments: Vec<Comment>,
-    trailing_comment: Option<Comment>,
+    range: tombi_text::Range,
+    pub(crate) comment_directives: Option<Box<Vec<TombiValueCommentDirective>>>,
 }
 
 impl Integer {
     #[inline]
-    pub fn kind(&self) -> &IntegerKind {
-        &self.kind
+    pub fn kind(&self) -> IntegerKind {
+        self.kind
     }
 
     #[inline]
@@ -36,29 +36,23 @@ impl Integer {
 
     #[inline]
     pub fn range(&self) -> tombi_text::Range {
-        match self.kind() {
-            IntegerKind::Binary(node) => node.token(),
-            IntegerKind::Decimal(node) => node.token(),
-            IntegerKind::Octal(node) => node.token(),
-            IntegerKind::Hexadecimal(node) => node.token(),
-        }
-        .unwrap()
-        .range()
+        self.range
     }
 
     #[inline]
     pub fn symbol_range(&self) -> tombi_text::Range {
-        self.range()
+        self.range
     }
 
     #[inline]
-    pub fn leading_comments(&self) -> &[Comment] {
-        self.leading_comments.as_ref()
+    pub fn comment_directives(&self) -> Option<&[TombiValueCommentDirective]> {
+        self.comment_directives.as_deref().map(|v| &**v)
     }
+}
 
-    #[inline]
-    pub fn trailing_comment(&self) -> Option<&Comment> {
-        self.trailing_comment.as_ref()
+impl std::fmt::Display for Integer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -68,7 +62,7 @@ impl ValueImpl for Integer {
     }
 
     fn range(&self) -> tombi_text::Range {
-        self.range()
+        self.range
     }
 }
 
@@ -78,32 +72,35 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::IntegerBin {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
+
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
         match try_from_binary(token.text()) {
-            Ok(value) => {
-                let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-                let trailing_comment = self.trailing_comment().map(Comment::from);
+            Ok(value) => DocumentTreeAndErrors {
+                tree: crate::Value::Integer(crate::Integer {
+                    kind: IntegerKind::Binary,
+                    value,
+                    range: token.range(),
+                    comment_directives,
+                }),
+                errors,
+            },
+            Err(error) => {
+                errors.push(crate::Error::ParseIntError { error, range });
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Integer(crate::Integer {
-                        kind: IntegerKind::Binary(self),
-                        value,
-                        leading_comments,
-                        trailing_comment,
-                    }),
-                    errors: Vec::with_capacity(0),
+                    tree: crate::Value::Incomplete { range },
+                    errors,
                 }
             }
-            Err(error) => DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::ParseIntError { error, range }],
-            },
         }
     }
 }
@@ -114,32 +111,35 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::IntegerOct {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
+
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
         match try_from_octal(token.text()) {
-            Ok(value) => {
-                let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-                let trailing_comment = self.trailing_comment().map(Comment::from);
+            Ok(value) => DocumentTreeAndErrors {
+                tree: crate::Value::Integer(crate::Integer {
+                    kind: IntegerKind::Octal,
+                    value,
+                    range: token.range(),
+                    comment_directives,
+                }),
+                errors,
+            },
+            Err(error) => {
+                errors.push(crate::Error::ParseIntError { error, range });
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Integer(crate::Integer {
-                        kind: IntegerKind::Octal(self),
-                        value,
-                        leading_comments,
-                        trailing_comment,
-                    }),
-                    errors: Vec::with_capacity(0),
+                    tree: crate::Value::Incomplete { range },
+                    errors,
                 }
             }
-            Err(error) => DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::ParseIntError { error, range }],
-            },
         }
     }
 }
@@ -150,32 +150,35 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::IntegerDec {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
+
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
         match try_from_decimal(token.text()) {
-            Ok(value) => {
-                let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-                let trailing_comment = self.trailing_comment().map(Comment::from);
+            Ok(value) => DocumentTreeAndErrors {
+                tree: crate::Value::Integer(crate::Integer {
+                    kind: IntegerKind::Decimal,
+                    value,
+                    range: token.range(),
+                    comment_directives,
+                }),
+                errors,
+            },
+            Err(error) => {
+                errors.push(crate::Error::ParseIntError { error, range });
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Integer(crate::Integer {
-                        kind: IntegerKind::Decimal(self),
-                        value,
-                        leading_comments,
-                        trailing_comment,
-                    }),
-                    errors: Vec::with_capacity(0),
+                    tree: crate::Value::Incomplete { range },
+                    errors,
                 }
             }
-            Err(error) => DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::ParseIntError { error, range }],
-            },
         }
     }
 }
@@ -186,32 +189,35 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::IntegerHex {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
+
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
         match try_from_hexadecimal(token.text()) {
-            Ok(value) => {
-                let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-                let trailing_comment = self.trailing_comment().map(Comment::from);
+            Ok(value) => DocumentTreeAndErrors {
+                tree: crate::Value::Integer(crate::Integer {
+                    kind: IntegerKind::Hexadecimal,
+                    value,
+                    range: token.range(),
+                    comment_directives,
+                }),
+                errors,
+            },
+            Err(error) => {
+                errors.push(crate::Error::ParseIntError { error, range });
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Integer(crate::Integer {
-                        kind: IntegerKind::Hexadecimal(self),
-                        value,
-                        leading_comments,
-                        trailing_comment,
-                    }),
-                    errors: Vec::with_capacity(0),
+                    tree: crate::Value::Incomplete { range },
+                    errors,
                 }
             }
-            Err(error) => DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::ParseIntError { error, range }],
-            },
         }
     }
 }

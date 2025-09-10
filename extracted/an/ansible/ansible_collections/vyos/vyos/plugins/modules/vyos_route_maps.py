@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2021 Red Hat
+# Copyright 2024 Red Hat
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -15,13 +15,13 @@ __metaclass__ = type
 
 DOCUMENTATION = """
 module: vyos_route_maps
-version_added: 2.3.0
-short_description: Route Map Resource Module.
+version_added: "1.0.0"
+short_description: Route Map resource module
 description:
 - This module manages route map configurations on devices running VYOS.
 author: Ashwini Mhatre (@amhatre)
 notes:
-- Tested against vyos 1.2.
+- Tested against VyOS 1.3.8, 1.4.2, the upcoming 1.5, and the rolling release of spring 2025
 - This module works with connection C(network_cli).
 options:
     config:
@@ -103,6 +103,12 @@ options:
                 extcommunity_soo:
                   type: str
                   description: Set Site of Origin value. ASN:nn_or_IP_address:nn VPN extended community
+                extcommunity_bandwidth:
+                  type: str
+                  description: Set Bandwidth of Origin value. 1-25600|cumulative|num-multipaths VPN extended community
+                extcommunity_bandwidth_non_transitive:
+                  type: bool
+                  description: Set the bandwidth extended community encoded as non-transitive True/False VPN extended community
                 ip_next_hop:
                   type: str
                   description: IP address.
@@ -146,6 +152,9 @@ options:
                 weight:
                   type: str
                   description: Border Gateway Protocol (BGP) weight attribute. Example <0-4294967295>
+                table:
+                  type: str
+                  description: Set prefixes to table. Example <1-200>
             match:
               description: Route parameters to match.
               type: dict
@@ -226,6 +235,10 @@ options:
                   type: str
                   description: RPKI validation value.
                   choices: [ "notfound", "invalid", "valid" ]
+                protocol:
+                  type: str
+                  description: Source protocol to match.
+                  choices: [ "babel","bgp","connected","isis","kernel","ospf","ospfv3","rip","ripng","static","table","vnc" ]
             on_match:
               type: dict
               description: Exit policy on matches.
@@ -259,6 +272,7 @@ options:
       - parsed
       default: merged
 """
+
 EXAMPLES = """
 # Using merged
 # Before state
@@ -914,6 +928,53 @@ EXAMPLES = """
 #         "set policy route-map test3 rule 1 match metric 3",
 #         "set policy route-map test3 rule 1 match peer 192.0.2.35"
 #     ],
+"""
+
+RETURN = """
+before:
+  description: The configuration prior to the module execution.
+  returned: when I(state) is C(merged), C(replaced), C(overridden), C(deleted) or C(purged)
+  type: dict
+  sample: >
+    This output will always be in the same format as the
+    module argspec.
+after:
+  description: The resulting configuration after module execution.
+  returned: when changed
+  type: dict
+  sample: >
+    This output will always be in the same format as the
+    module argspec.
+commands:
+  description: The set of commands pushed to the remote device.
+  returned: when I(state) is C(merged), C(replaced), C(overridden), C(deleted) or C(purged)
+  type: list
+  sample:
+  - "set policy route-map test3 rule 1 set local-preference 6"
+  - "set policy route-map test3 rule 1 set metric 4"
+  - "set policy route-map test3 rule 1 set tag 4"
+rendered:
+  description: The provided configuration in the task rendered in device-native format (offline).
+  returned: when I(state) is C(rendered)
+  type: list
+  sample:
+  - "set policy route-map test3 rule 1 set local-preference 6"
+  - "set policy route-map test3 rule 1 set metric 4"
+  - "set policy route-map test3 rule 1 set tag 4"
+gathered:
+  description: Facts about the network resource gathered from the remote device as structured data.
+  returned: when I(state) is C(gathered)
+  type: list
+  sample: >
+    This output will always be in the same format as the
+    module argspec.
+parsed:
+  description: The device native config provided in I(running_config) option parsed into structured data as per module argspec.
+  returned: when I(state) is C(parsed)
+  type: list
+  sample: >
+    This output will always be in the same format as the
+    module argspec.
 """
 
 from ansible.module_utils.basic import AnsibleModule

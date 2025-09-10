@@ -28,14 +28,6 @@ from pulpcore.client.pulpcore.models.nested_open_pgp_user_id_response import Nes
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class OpenPGPPublicKeyResponse(BaseModel):
     """
     A serializer for content types with no Artifact.
@@ -138,19 +130,7 @@ class OpenPGPPublicKeyResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "vuln_report": obj.get("vuln_report"),
-            "fingerprint": obj.get("fingerprint"),
-            "created": obj.get("created"),
-            "user_ids": [NestedOpenPGPUserIDResponse.from_dict(_item) for _item in obj["user_ids"]] if obj.get("user_ids") is not None else None,
-            "user_attributes": [NestedOpenPGPUserAttributeResponse.from_dict(_item) for _item in obj["user_attributes"]] if obj.get("user_attributes") is not None else None,
-            "public_subkeys": [NestedOpenPGPPublicSubkeyResponse.from_dict(_item) for _item in obj["public_subkeys"]] if obj.get("public_subkeys") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

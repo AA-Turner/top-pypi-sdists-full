@@ -22,6 +22,7 @@ from typing import Union
 
 from .literals import (
     AdMarkerDashType,
+    AdMarkerHlsType,
     CmafEncryptionMethodType,
     ContainerTypeType,
     DashCompactnessType,
@@ -274,7 +275,7 @@ class HarvesterScheduleConfigurationOutputTypeDef(TypedDict):
 
 
 class ScteHlsTypeDef(TypedDict):
-    AdMarkerHls: NotRequired[Literal["DATERANGE"]]
+    AdMarkerHls: NotRequired[AdMarkerHlsType]
 
 
 class StartTagTypeDef(TypedDict):

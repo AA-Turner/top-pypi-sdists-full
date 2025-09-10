@@ -26,16 +26,6 @@ author: Denis Magel (@dmagel-netapp) <denis.magel@netapp.com>
 description:
 - Interact with ILM policies on NetApp StorageGRID.
 options:
-  api_url:
-    description:
-    - Rest endpoint for all invocations against the grid
-    required: true
-    type: str
-  auth_token:
-    description:
-    - The authorization token for the API request
-    required: true
-    type: str
   default_rule:
     description:
     - The rule ID of the defailt rule in the policy.
@@ -75,23 +65,23 @@ options:
 """
 
 EXAMPLES = """
-  - name: Create ILM policy
-    na_sg_grid_ilm_policy:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "1 Copy Per Site"
-      state: present
-      reason: "The 1 Copy Per Site policy placves 1 replicated copy at each site"
-      default_rule: r601033236249396421
-      rules:
-        - r601033236249396421
+- name: Create ILM policy
+  na_sg_grid_ilm_policy:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "1 Copy Per Site"
+    state: present
+    reason: "The 1 Copy Per Site policy placves 1 replicated copy at each site"
+    default_rule: r601033236249396421
+    rules:
+      - r601033236249396421
 
-  - name: Delete existing ILM policy
-    na_sg_grid_ilm_policy:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "1 Copy Per Site"
-      state: absent
+- name: Delete existing ILM policy
+  na_sg_grid_ilm_policy:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "1 Copy Per Site"
+    state: absent
 """
 
 RETURN = """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pinecone-plugin-assistant
-Version: 1.8.0
+Version: 2.0.0
 Summary: Assistant plugin for Pinecone SDK
 License: Apache-2.0
 Author: Pinecone Systems, Inc.
@@ -714,7 +714,7 @@ Return:
     - `snippets`: A list of snippets with the following structure:
         - `type`: The type of the content. Can be `text` or `multimodal`.
         - `content`: The content of the snippet.
-        - `reference`: The reference of the snippet. Can be of type `PdfReference`, `TextReference`, `MarkdownReference`, or `JsonReference`.
+        - `reference`: The reference of the snippet. Can be of type `pdf`, `text`, `markdown`, `json`, or `doc_x`.
             - `type`: The type of the reference.
             - `file`: A dictionary with the following properties:
                 - `created_on`: The timestamp of when the file was created.
@@ -727,7 +727,7 @@ Return:
                 - `signed_url`: The signed URL of the file.
                 - `error_message`: A message describing any error during file processing, provided only if an error occurs.
                 - `multimodal`: Indicates whether the file was processed as multimodal.
-            - `pages`: The list of pages that the citation references. (Only available for `PdfReference`)
+            - `pages`: The list of pages that the citation references. (Only available for `PdfReference` and `DocxReference`)
     - `usage`: An object with the following properties:
         - `prompt_tokens`: The number of prompt tokens used.
         - `completion_tokens`: The number of completion tokens used.

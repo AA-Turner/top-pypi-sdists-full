@@ -1493,6 +1493,7 @@ def sagemaker_predict(
     aws_role_arn_override: str | None = None,
     aws_region_override: str | None = None,
     aws_profile_name_override: str | None = None,
+    inference_component: str | None = None,
 ):
     """
     Runs a sagemaker prediction on the specified endpoint, passing in the serialized bytes as a feature.
@@ -1523,6 +1524,8 @@ def sagemaker_predict(
         An optional argument which specifies the AWS region to use for the prediction.
     aws_profile_name_override
         An optional argument which specifies the AWS profile name to use for the prediction
+    inference_component
+        Specify the inference component to use for the prediction.
 
     Examples
     --------
@@ -1552,6 +1555,7 @@ def sagemaker_predict(
         aws_role_arn_override=aws_role_arn_override,
         aws_region_override=aws_region_override,
         aws_profile_name_override=aws_profile_name_override,
+        inference_component=inference_component,
     )
 
 
@@ -1617,6 +1621,29 @@ def json_extract_array(expr: Underscore, path: Union[str, Underscore]):
     return UnderscoreFunction("json_extract_array", expr, path)
 
 
+def jsonify(expr: Underscore):
+    """
+    Convert an arbitrary value into a JSON string.
+
+    Parameters
+    ----------
+    expr
+        The value to jsonify.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    profile: str
+    ...    info_as_json: str = F.jsonify(F.struct_pack({"id": _.id, "profile": _.profile}))
+    """
+
+    return UnderscoreFunction("jsonify", expr)
+
+
 def gunzip(expr: Underscore):
     """
     Decompress a GZIP-compressed bytes feature.
@@ -1672,6 +1699,41 @@ def cosine_similarity(a: Underscore, b: Underscore):
     ...    similarity: float = F.cosine_similarity(_.user.embedding, _.merchant.embedding)
     """
     return UnderscoreFunction("cosine_similarity_vector", a, b)
+
+
+def dot_product(a: Underscore, b: Underscore):
+    """
+    Compute the dot product between two vectors.
+
+    Parameters
+    ----------
+    a
+        The first vector.
+    b
+        The second vector.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    embedding: Vector[1536]
+    >>> @features
+    ... class Merchant:
+    ...    id: str
+    ...    embedding: Vector[1536]
+    >>> @features
+    ... class UserMerchant:
+    ...    id: str
+    ...    user_id: User.id
+    ...    user: User
+    ...    merchant_id: Merchant.id
+    ...    merchant: Merchant
+    ...    dot_product: float = F.dot_product(_.user.embedding, _.merchant.embedding)
+    """
+    return UnderscoreFunction("dot_product_vector", a, b)
 
 
 ########################################################################################################################
@@ -5278,6 +5340,7 @@ __all__ = (
     "contains",
     "cos",
     "cosine_similarity",
+    "dot_product",
     "current_bucket_end",
     "current_bucket_start",
     "date_trunc",
@@ -5322,6 +5385,7 @@ __all__ = (
     "jinja",
     "json_extract_array",
     "json_value",
+    "jsonify",
     "last_day_of_month",
     "least",
     "length",

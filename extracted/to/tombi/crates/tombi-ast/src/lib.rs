@@ -2,14 +2,20 @@ pub mod algo;
 mod comment_directive;
 mod generated;
 mod impls;
+mod literal_value;
 mod node;
 pub mod support;
 
-use std::{fmt::Debug, marker::PhantomData};
-
-pub use comment_directive::{SchemaDocumentCommentDirective, TombiDocumentCommentDirective};
+pub use comment_directive::{
+    SchemaDocumentCommentDirective, TombiDocumentCommentDirective, TombiValueCommentDirective,
+};
 pub use generated::*;
+use itertools::Itertools;
+pub use literal_value::LiteralValue;
 pub use node::*;
+use std::{fmt::Debug, marker::PhantomData};
+use tombi_accessor::Accessor;
+use tombi_toml_version::TomlVersion;
 
 pub trait AstNode
 where
@@ -81,5 +87,57 @@ impl<N: AstNode> Iterator for AstChildren<N> {
     type Item = N;
     fn next(&mut self) -> Option<N> {
         self.inner.find_map(N::cast)
+    }
+}
+
+pub trait GetHeaderSchemarAccessors {
+    fn get_header_accessor(&self, toml_version: TomlVersion) -> Option<Vec<Accessor>>;
+}
+
+impl GetHeaderSchemarAccessors for crate::Table {
+    fn get_header_accessor(&self, toml_version: TomlVersion) -> Option<Vec<Accessor>> {
+        let array_of_tables_keys = self
+            .array_of_tables_keys()
+            .map(|keys| keys.into_iter().collect_vec())
+            .counts();
+
+        let mut accessors = vec![];
+        let mut header_keys = vec![];
+        for key in self.header()?.keys() {
+            accessors.push(Accessor::Key(key.to_raw_text(toml_version)));
+            header_keys.push(key);
+
+            if let Some(new_index) = array_of_tables_keys.get(&header_keys) {
+                accessors.push(Accessor::Index(*new_index));
+            }
+        }
+
+        Some(accessors)
+    }
+}
+
+impl GetHeaderSchemarAccessors for crate::ArrayOfTable {
+    fn get_header_accessor(&self, toml_version: TomlVersion) -> Option<Vec<Accessor>> {
+        let array_of_tables_keys = self
+            .array_of_tables_keys()
+            .map(|keys| keys.into_iter().collect_vec())
+            .counts();
+
+        let mut accessors = vec![];
+        let mut header_keys = vec![];
+        for key in self.header()?.keys() {
+            accessors.push(Accessor::Key(key.to_raw_text(toml_version)));
+            header_keys.push(key);
+
+            if let Some(new_index) = array_of_tables_keys.get(&header_keys) {
+                accessors.push(Accessor::Index(*new_index));
+            }
+        }
+
+        accessors.push(Accessor::Index(
+            *array_of_tables_keys.get(&header_keys).unwrap_or(&0),
+        ));
+
+        Some(accessors)
     }
 }

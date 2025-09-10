@@ -161,4 +161,44 @@ export function schedule_when(func, predicate, timeout = 10) {
     };
     scheduled();
 }
+export const MARK = "--x_x--0_0--";
+const PLACEHOLDER_RE = new RegExp(`^${MARK}([\\s\\S]*?)${MARK}$`);
+const defaultOptions = {
+    mode: "expression",
+    args: [],
+};
+export function compileToFunction(code, options = defaultOptions) {
+    const { mode, args } = { ...defaultOptions, ...options };
+    const body = mode === "expression"
+        ? `\"use strict\";\nreturn (${code});`
+        : `\"use strict\";\n${code}`;
+    return new Function(...args, body)();
+}
+export function transformJsPlaceholders(input, options) {
+    function visit(value) {
+        if (typeof value === "string") {
+            const m = value.match(PLACEHOLDER_RE);
+            if (m) {
+                const code = m[1];
+                return compileToFunction(code, options);
+            }
+            return value;
+        }
+        if (Array.isArray(value)) {
+            return value.map(visit);
+        }
+        // Keep special objects intact
+        if (value &&
+            typeof value === "object" &&
+            Object.getPrototypeOf(value) === Object.prototype) {
+            const out = {};
+            for (const [k, v] of Object.entries(value)) {
+                out[k] = visit(v);
+            }
+            return out;
+        }
+        return value;
+    }
+    return visit(input);
+}
 //# sourceMappingURL=util.js.map

@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class SigningServiceResponse(BaseModel):
     """
     A serializer for the model declaring a signing service.
@@ -104,16 +96,7 @@ class SigningServiceResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "public_key": obj.get("public_key"),
-            "pubkey_fingerprint": obj.get("pubkey_fingerprint"),
-            "script": obj.get("script")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -9,6 +9,7 @@ use super::{
 };
 
 /// A tag data that indicates that only schema information is used for completion.
+#[derive(Debug)]
 pub struct SchemaCompletion;
 
 impl FindCompletionContents for SchemaCompletion {
@@ -201,7 +202,7 @@ impl FindCompletionContents for SchemaCompletion {
 impl tombi_validator::Validate for SchemaCompletion {
     fn validate<'a: 'b, 'b>(
         &'a self,
-        _accessors: &'a [tombi_schema_store::SchemaAccessor],
+        _accessors: &'a [tombi_schema_store::Accessor],
         _current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>> {

@@ -23,14 +23,18 @@ export class TerminalView extends HTMLBoxView {
     _rendered;
     connect_signals() {
         super.connect_signals();
-        const { output, _clears } = this.model.properties;
+        const { width, height, min_height, max_height, margin, sizing_mode, output, _clears } = this.model.properties;
         this.on_change(output, this.write);
         this.on_change(_clears, this.clear);
+        this.on_change([width, height, min_height, max_height, margin, sizing_mode], () => {
+            set_size(this.el, this.model);
+            set_size(this.container, this.model, false);
+        });
     }
     render() {
         super.render();
         this.container = div({ class: "terminal-container" });
-        set_size(this.container, this.model);
+        set_size(this.container, this.model, false);
         this.term = this.getNewTerminal();
         this.term.onData((value) => {
             this.handleOnData(value);

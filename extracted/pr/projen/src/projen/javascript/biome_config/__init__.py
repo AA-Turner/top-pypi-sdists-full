@@ -4498,9 +4498,9 @@ class Source:
         '''(experimental) A list of rules that belong to this group.
 
         :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order.
-        :param recommended: (experimental) It enables the recommended rules for this group.
+        :param recommended: (experimental) Enables the recommended rules for this group.
         :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements.
-        :param use_sorted_keys: (experimental) Sorts the keys of a JSON object in natural order.
+        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order.
         :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules.
 
         :stability: experimental
@@ -4537,7 +4537,7 @@ class Source:
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) It enables the recommended rules for this group.
+        '''(experimental) Enables the recommended rules for this group.
 
         :stability: experimental
         :schema: Source#recommended
@@ -4557,7 +4557,7 @@ class Source:
 
     @builtins.property
     def use_sorted_keys(self) -> typing.Any:
-        '''(experimental) Sorts the keys of a JSON object in natural order.
+        '''(experimental) Sort the keys of a JSON object in natural order.
 
         :stability: experimental
         :schema: Source#useSortedKeys

@@ -8,7 +8,7 @@ description = 'JSONPath, JSON Pointer and JSON Patch for Python.'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
-keywords = []
+keywords = ["JSON", "JSONPath", "JSON Path", "JSON Pointer", "JSON Patch", "RFC 9535"]
 authors = [{ name = "James Prior", email = "jamesgr.prior@gmail.com" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -32,6 +32,9 @@ Documentation = "https://jg-rp.github.io/python-jsonpath/"
 Issues = "https://github.com/jg-rp/python-jsonpath/issues"
 Source = "https://github.com/jg-rp/python-jsonpath"
 
+[project.optional-dependencies]
+strict = ["regex", "iregexp-check>=0.1.4"]
+
 [tool.hatch.version]
 path = "jsonpath/__about__.py"
 
@@ -48,18 +51,25 @@ include = ["/jsonpath"]
 dependencies = [
   "pytest",
   "pytest-cov",
-  "black",
   "mypy",
-  "ipython",
+  "regex",
+  "iregexp-check",
   "pyyaml",
   "types-pyyaml",
+  "types-regex",
   "twine",
   "ruff",
 ]
 
 [tool.hatch.envs.default.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=jsonpath --cov=tests {args}"
-cov-html = "pytest --cov-report=html --cov-config=pyproject.toml --cov=jsonpath --cov=tests {args}"
+cov = [
+  "hatch run no-regex:cov",
+  "pytest --cov-append --cov-report=term-missing --cov-config=pyproject.toml --cov=jsonpath --cov=tests {args}"
+]
+cov-html = [
+  "hatch run no-regex:cov",
+  "pytest --cov-append --cov-report=html --cov-config=pyproject.toml --cov=jsonpath --cov=tests {args}",
+]
 no-cov = "cov --no-cov {args}"
 test = "pytest {args}"
 lint = "ruff check ."
@@ -78,6 +88,13 @@ dependencies = ["black", "mkdocs", "mkdocstrings[python]", "mkdocs-material"]
 build = "mkdocs build --clean --strict"
 serve = "mkdocs serve --dev-addr localhost:8000"
 
+[tool.hatch.envs.no-regex]
+dependencies = ["pytest", "pytest-cov"]
+
+[tool.hatch.envs.no-regex.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=jsonpath --cov=tests tests/test_compliance.py {args}"
+
+
 [tool.coverage.run]
 branch = true
 parallel = true
@@ -87,7 +104,8 @@ omit = ["jsonpath/__about__.py", "tests/compliance.py", "tests/consensus.py"]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.mypy]
-files = "jsonpath"
+files = ["jsonpath", "tests"]
+exclude = ["tests/nts", "tests/cts"]
 python_version = "3.11"
 disallow_subclassing_any = true
 disallow_untyped_calls = true
@@ -185,4 +203,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "jsonpath/__about__.py" = ["D100"]
 "jsonpath/__init__.py" = ["D104"]
+"jsonpath/selectors.py" = ["D102"]
+"jsonpath/filter.py" = ["D102", "PLW1641"]
+"jsonpath/unescape.py" = ["PLR2004"]
 "tests/*" = ["D100", "D101", "D104", "D103"]

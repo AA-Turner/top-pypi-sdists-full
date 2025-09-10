@@ -22,7 +22,7 @@ short_description: NetApp ONTAP NDMP services configuration
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.9.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 
 description:
     - Modify NDMP Services.
@@ -136,6 +136,13 @@ options:
     description:
     - TCP window size.
     type: int
+
+  ndmp_user:
+    description:
+    - The name of the NDMP user.
+    - This field cannot be specified in a PATCH method.
+    type: str
+    version_added: 23.0.0
 '''
 
 EXAMPLES = '''
@@ -162,6 +169,15 @@ EXAMPLES = '''
     secondary_debug_filter: filter
     tcpnodelay: true
     tcpwinsize: 10000
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+
+- name: generate password - REST
+  netapp.ontap.na_ontap_ndmp:
+    ndmp_user: "ndmp_user"
+    vserver: vs0
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"
     password: "{{ netapp_password }}"
@@ -212,7 +228,8 @@ class NetAppONTAPNdmp(object):
             tcpwinsize=dict(required=False, type='int')
         )
         self.argument_spec.update(dict(
-            vserver=dict(required=True, type='str')
+            vserver=dict(required=True, type='str'),
+            ndmp_user=dict(required=False, type='str'),
         ))
 
         self.argument_spec.update(self.modifiable_options)
@@ -233,6 +250,8 @@ class NetAppONTAPNdmp(object):
                                        'offset_map_enable', 'per_qtree_exclude_enable', 'preferred_interface_role',
                                        'restore_vm_cache_size', 'secondary_debug_filter', 'tcpnodelay', 'tcpwinsize']
         self.use_rest = self.rest_api.is_rest_supported_properties(self.parameters, unsupported_rest_properties)
+        if 'ndmp_user' in self.parameters and not self.rest_api.meets_rest_minimum_version(True, 9, 7, 0):
+            self.module.fail_json(msg="Error: ndmp_user %s requires ONTAP 9.7 or later version." % self.parameters['ndmp_user'])
         if not self.use_rest:
             if HAS_NETAPP_LIB is False:
                 self.module.fail_json(msg="the python NetApp-Lib module is required")
@@ -260,6 +279,16 @@ class NetAppONTAPNdmp(object):
             self.module.fail_json(msg=error)
         return message['records'][0]['svm']['uuid']
 
+    def ndmp_get_password(self, uuid, ndmp_user):
+        api = '/protocols/ndmp/svms/%s/passwords/%s' % (uuid, ndmp_user)
+        params = {'fields': 'password'}
+        message, error = self.rest_api.get(api, params)
+        if error:
+            self.module.fail_json(msg=error)
+        if message.get("password"):
+            return message["password"]
+        return None
+
     def ndmp_get_iter(self, uuid=None):
         """
         get current vserver ndmp attributes.
@@ -270,9 +299,11 @@ class NetAppONTAPNdmp(object):
             params = {'fields': 'authentication_types,enabled'}
             api = '/protocols/ndmp/svms/' + uuid
             message, error = self.rest_api.get(api, params)
-            data['enable'] = message['enabled']
-            data['authtype'] = message['authentication_types']
-
+            if message:
+                return {
+                    'enable': message.get('enabled'),
+                    'authtype': message.get('authentication_types')
+                }
             if error:
                 self.module.fail_json(msg=error)
             return data
@@ -323,10 +354,10 @@ class NetAppONTAPNdmp(object):
         if self.use_rest:
             ndmp = dict()
             uuid = self.get_ndmp_svm_uuid()
-            if self.parameters.get('enable'):
-                ndmp['enabled'] = self.parameters['enable']
-            if self.parameters.get('authtype'):
-                ndmp['authentication_types'] = self.parameters['authtype']
+            if 'enable' in modify:
+                ndmp['enabled'] = modify['enable']
+            if 'authtype' in modify:
+                ndmp['authentication_types'] = modify['authtype']
             api = "protocols/ndmp/svms/" + uuid
             dummy, error = self.rest_api.patch(api, ndmp)
             if error:
@@ -370,9 +401,11 @@ class NetAppONTAPNdmp(object):
         if self.use_rest:
             # we only have the svm name, we need to the the uuid for the svm
             uuid = self.get_ndmp_svm_uuid()
+            if 'ndmp_user' in self.parameters:
+                new_password = self.ndmp_get_password(uuid, self.parameters['ndmp_user'])
+                self.module.exit_json(changed=False, password=new_password)
         current = self.ndmp_get_iter(uuid=uuid)
         modify = self.na_helper.get_modified_attributes(current, self.parameters)
-
         if self.na_helper.changed:
             if self.module.check_mode:
                 pass

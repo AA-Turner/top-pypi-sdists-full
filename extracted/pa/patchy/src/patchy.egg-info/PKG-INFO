@@ -1,15 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: patchy
-Version: 2.9.0
+Version: 2.10.0
 Summary: Patch the inner source of python functions at runtime.
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/patchy/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/adamchainz/patchy
 Keywords: patchy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -18,10 +18,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ======
 Patchy
@@ -90,7 +92,7 @@ Use **pip**:
 
     python -m pip install patchy
 
-Python 3.9 to 3.13 supported.
+Python 3.9 to 3.14 supported.
 
 Why?
 ====

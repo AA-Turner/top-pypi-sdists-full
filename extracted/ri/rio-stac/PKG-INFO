@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rio-stac
-Version: 0.11.1
+Version: 0.11.2
 Summary: Create STAC Items from raster datasets.
 Author-email: Vincent Sarago <vincent@developmentseed.com>
 Requires-Python: >=3.9
@@ -19,11 +19,12 @@ Requires-Dist: rasterio>=1.0,!=1.4.2
 Requires-Dist: pystac>=1.0.0,<2.0.0
 Requires-Dist: pre-commit ; extra == "dev"
 Requires-Dist: bump-my-version ; extra == "dev"
-Requires-Dist: mkdocs ; extra == "doc"
-Requires-Dist: mkdocs-material ; extra == "doc"
-Requires-Dist: mkdocs-jupyter ; extra == "doc"
-Requires-Dist: pygments ; extra == "doc"
-Requires-Dist: pdocs ; extra == "doc"
+Requires-Dist: mkdocs ; extra == "docs"
+Requires-Dist: mkdocs-material ; extra == "docs"
+Requires-Dist: mkdocs-jupyter ; extra == "docs"
+Requires-Dist: griffe-inherited-docstrings>=1.0.0 ; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.25.1 ; extra == "docs"
+Requires-Dist: pygments ; extra == "docs"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: requests ; extra == "test"
@@ -31,7 +32,7 @@ Requires-Dist: pystac[validation]>=1.0.0,<2.0.0 ; extra == "test"
 Project-URL: Documentation, https://developmentseed.org/rio-stac/
 Project-URL: Source, https://github.com/developmentseed/rio-stac
 Provides-Extra: dev
-Provides-Extra: doc
+Provides-Extra: docs
 Provides-Extra: test
 
 # rio-stac

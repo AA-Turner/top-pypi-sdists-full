@@ -4,7 +4,7 @@ from typing import Any, List, Mapping, Optional, Type, TypeVar
 
 from bigtree.node import node
 from bigtree.tree.construct.strings import add_path_to_tree
-from bigtree.utils import assertions
+from bigtree.utils import assertions, common
 
 __all__ = [
     "add_dict_to_tree_by_path",
@@ -127,7 +127,7 @@ def add_dict_to_tree_by_name(tree: T, name_attrs: Mapping[str, Mapping[str, Any]
     attr_dict_names = set(name_attrs.keys())
 
     for _node in findall(tree, lambda _node1: _node1.node_name in attr_dict_names):
-        node_attrs = assertions.filter_attributes(
+        node_attrs = common.filter_attributes(
             name_attrs[_node.node_name], omit_keys=["name"], omit_null_values=False
         )
         _node.set_attrs(node_attrs)
@@ -201,7 +201,7 @@ def dict_to_tree(
         or path_attrs.get(root_name + sep, {})
         or path_attrs.get(sep + root_name + sep, {})
     )
-    root_node_attrs = assertions.filter_attributes(
+    root_node_attrs = common.filter_attributes(
         root_node_attrs, omit_keys=["name"], omit_null_values=False
     )
     root_node = node_type(
@@ -212,7 +212,7 @@ def dict_to_tree(
 
     # Convert dictionary to dataframe
     for node_path, node_attrs in path_attrs.items():
-        node_attrs = assertions.filter_attributes(
+        node_attrs = common.filter_attributes(
             node_attrs, omit_keys=["name"], omit_null_values=False
         )
         add_path_to_tree(
@@ -305,10 +305,12 @@ def nested_dict_to_tree(
 
 def nested_dict_key_to_tree(
     node_attrs: Mapping[str, Mapping[str, Any]],
-    child_key: str = "children",
+    child_key: Optional[str] = "children",
     node_type: Type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from nested recursive dictionary, where the keys are node names.
+
+    If child_key is a string
 
     - ``key``: node name
     - ``value``: dict of node attributes and node children (recursive)
@@ -317,6 +319,15 @@ def nested_dict_key_to_tree(
 
     - ``key`` that is not ``child_key`` has node attribute as value
     - ``key`` that is ``child_key`` has dictionary of node children as value (recursive)
+
+    ---
+
+    If child_key is None
+
+    - ``key``: node name
+    - ``value``: dict of node children (recursive), there are no node attributes
+
+    Value dictionary consist of ``key`` that is node names of children
 
     Examples:
         >>> from bigtree import nested_dict_key_to_tree
@@ -345,6 +356,23 @@ def nested_dict_key_to_tree(
             └── e [age=35]
                 └── g [age=10]
 
+        >>> from bigtree import nested_dict_key_to_tree
+        >>> nested_dict = {
+        ...     "a": {
+        ...         "b": {
+        ...             "d": {},
+        ...             "e": {"g": {}},
+        ...         },
+        ...     }
+        ... }
+        >>> root = nested_dict_key_to_tree(nested_dict, child_key=None)
+        >>> root.show()
+        a
+        └── b
+            ├── d
+            └── e
+                └── g
+
     Args:
         node_attrs: node, children, and node attribute information,
             key: node name
@@ -370,8 +398,12 @@ def nested_dict_key_to_tree(
         Returns:
             Node
         """
-        child_dict = dict(child_dict)
-        node_children = child_dict.pop(child_key, {})
+        if child_key:
+            child_dict = dict(child_dict)
+            node_children = child_dict.pop(child_key, {})
+        else:
+            node_children = child_dict
+            child_dict = {}
         if not isinstance(node_children, Mapping):
             raise TypeError(
                 f"child_key {child_key} should be Dict type, received {node_children}"

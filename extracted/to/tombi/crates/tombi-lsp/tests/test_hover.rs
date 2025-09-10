@@ -32,6 +32,20 @@ mod hover_keys_value {
 
         test_hover_keys_value!(
             #[tokio::test]
+            async fn tombi_lint_rules_key_empty(
+                r#"
+                [lint.rules]
+                key-empty = "█warn"
+                "#,
+                tombi_schema_path(),
+            ) -> Ok({
+                "Keys": "lint.rules.key-empty",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
             async fn tombi_schema_catalog_path(
                 r#"
                 [schema.catalog]
@@ -417,6 +431,23 @@ mod hover_keys_value {
         );
     }
 
+    mod non_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn variable_placeholder(
+                r#"
+                [[dependencies.${mod_id}]]
+                modId="create█"
+                "#,
+            ) -> Ok({
+                "Keys": "dependencies.${mod_id}[0].modId",
+                "Value": "String"
+            });
+        );
+    }
+
     #[macro_export]
     macro_rules! test_hover_keys_value {
         (#[tokio::test] async fn $name:ident(
@@ -531,7 +562,7 @@ mod hover_keys_value {
                 )
                 .await;
 
-                let Ok(Some(tombi_lsp::HoverContent::Value(hover_content))) = tombi_lsp::handler::handle_hover(
+                let Ok(Some(tombi_lsp::HoverContent::Value(hover_content) | tombi_lsp::HoverContent::DirectiveContent(hover_content))) = tombi_lsp::handler::handle_hover(
                     &backend,
                     tower_lsp::lsp_types::HoverParams {
                         text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
@@ -546,7 +577,7 @@ mod hover_keys_value {
                     },
                 )
                 .await else {
-                    return Err("failed to handle hover".into());
+                    return Err("failed to handle hover content".into());
                 };
 
                 tracing::debug!("hover_content: {:#?}", hover_content);

@@ -1,5 +1,5 @@
 ---
-requires_ansible: ">=2.15.0"
+requires_ansible: ">=2.16.0"
 action_groups:
   netapp_ontap:
     - na_ontap_active_directory_domain_controllers
@@ -7,6 +7,7 @@ action_groups:
     - na_ontap_aggregate
     - na_ontap_autosupport_invoke
     - na_ontap_autosupport
+    - na_ontap_autoupdate_support
     - na_ontap_bgp_config
     - na_ontap_bgp_peer_group
     - na_ontap_broadcast_domain_ports
@@ -74,6 +75,9 @@ action_groups:
     - na_ontap_lun_map
     - na_ontap_lun_map_reporting_nodes
     - na_ontap_lun
+    - na_ontap_mav_approval_group
+    - na_ontap_mav_config
+    - na_ontap_mav_rule
     - na_ontap_mcc_mediator
     - na_ontap_metrocluster_dr_group
     - na_ontap_metrocluster
@@ -134,6 +138,9 @@ action_groups:
     - na_ontap_ssh_command
     - na_ontap_storage_auto_giveback
     - na_ontap_storage_failover
+    - na_ontap_storage_unit
+    - na_ontap_storage_unit_snapshot
+    - na_ontap_support_config_backup
     - na_ontap_svm_options
     - na_ontap_svm
     - na_ontap_ucadapter

@@ -1,6 +1,6 @@
 """Tracks event resource."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from datetime import datetime
 from typing import Literal, NotRequired, TypedDict
 
@@ -18,7 +18,7 @@ class TracksEvent(BaseModel):
     date: datetime
     id: str
     mechanism: str
-    metadata: dict[str, object]
+    metadata: Mapping[str, object]
     object_id: str
 
 
@@ -36,38 +36,43 @@ class TracksResponse(BaseModel):
     page_info: PageInfo
 
 
+ActionType = Literal["CREATE", "READ", "UPDATE", "DELETE"]
+
+
+MechanismType = Literal[
+    "API",
+    "DESKTOP",
+    "EMAIL",
+    "FIXES",
+    "FORCES",
+    "JIRA",
+    "MCP",
+    "MELTS",
+    "MESSAGING",
+    "MIGRATION",
+    "RETRIEVES",
+    "SCHEDULER",
+    "SMELLS",
+    "TASK",
+    "WEB",
+]
+
+
 class Event(TypedDict):
     """Tracks event."""
 
-    action: Literal["CREATE", "READ", "UPDATE", "DELETE"]
+    action: ActionType
     author_anonymous: NotRequired[bool]
     author_ip: NotRequired[str]
     author_role: NotRequired[str]
     author_user_agent: NotRequired[str]
     author: str
     date: datetime
-    mechanism: Literal[
-        "API",
-        "FIXES",
-        "FORCES",
-        "JIRA",
-        "MELTS",
-        "MIGRATION",
-        "RETRIEVES",
-        "SCHEDULER",
-        "TASK",
-        "WEB",
-        "SMELLS",
-    ]
-    metadata: dict[str, object]
+    mechanism: MechanismType
+    metadata: Mapping[str, object]
     object_id: str
     object: str
     session_id: NotRequired[str]
-
-
-def _serialize_event(event: Event) -> dict[str, object]:
-    """Serialize an event for JSON transmission."""
-    return {**dict(event), "date": event["date"].isoformat()}
 
 
 class EventResource:
@@ -80,13 +85,11 @@ class EventResource:
     @fire_and_forget
     def create(self, event: Event) -> None:
         """Create an event."""
-        self.client.post("/event", json=_serialize_event(event))
+        self.client.post("/event", json=event)
 
-    @fire_and_forget
-    def create_batch(self, events: list[Event]) -> None:
+    async def create_batch_async(self, events: list[Event]) -> None:
         """Create a batch of events."""
-        serialized_events = [_serialize_event(event) for event in events]
-        self.client.post("/events/batch", authenticated=True, json=serialized_events)
+        await self.client.post_async("/events/batch", authenticated=True, json=events)
 
     async def read_pages(  # noqa: PLR0913
         self,

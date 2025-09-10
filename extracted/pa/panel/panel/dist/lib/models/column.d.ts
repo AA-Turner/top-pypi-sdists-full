@@ -24,6 +24,7 @@ export declare class ColumnView extends BkColumnView {
     trigger_auto_scroll(): void;
     record_scroll_position(): void;
     toggle_scroll_button(): void;
+    _update_layout(): void;
     render(): void;
     update_children(): Promise<void>;
     after_render(): void;

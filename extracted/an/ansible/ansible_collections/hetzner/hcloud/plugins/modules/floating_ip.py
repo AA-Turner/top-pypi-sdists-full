@@ -15,6 +15,7 @@ short_description: Create and manage cloud Floating IPs on the Hetzner Cloud.
 
 description:
     - Create, update and manage cloud Floating IPs on the Hetzner Cloud.
+    - To manage the DNS pointer of a Floating IP, use the M(hetzner.hcloud.rdns) module.
 
 author:
     - Lukas Kaemmerling (@lkaemmerling)
@@ -173,7 +174,7 @@ class AnsibleHCloudFloatingIP(AnsibleHCloud):
 
     def _prepare_result(self):
         return {
-            "id": str(self.hcloud_floating_ip.id),
+            "id": self.hcloud_floating_ip.id,
             "name": self.hcloud_floating_ip.name,
             "description": self.hcloud_floating_ip.description,
             "ip": self.hcloud_floating_ip.ip,

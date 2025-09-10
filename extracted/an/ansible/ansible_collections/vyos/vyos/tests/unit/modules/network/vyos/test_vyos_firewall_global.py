@@ -29,11 +29,11 @@ from ansible_collections.vyos.vyos.tests.unit.modules.utils import set_module_ar
 from .vyos_module import TestVyosModule, load_fixture
 
 
-class TestVyosFirewallRulesModule(TestVyosModule):
+class TestVyosFirewallGlobalModule(TestVyosModule):
     module = vyos_firewall_global
 
     def setUp(self):
-        super(TestVyosFirewallRulesModule, self).setUp()
+        super(TestVyosFirewallGlobalModule, self).setUp()
         self.mock_get_config = patch(
             "ansible_collections.ansible.netcommon.plugins.module_utils.network.common.network.Config.get_config",
         )
@@ -58,15 +58,23 @@ class TestVyosFirewallRulesModule(TestVyosModule):
             "ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.firewall_global.firewall_global.Firewall_globalFacts.get_device_data",
         )
 
+        self.mock_get_os_version = patch(
+            "ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.config.firewall_global.firewall_global.get_os_version",
+        )
+        self.get_os_version = self.mock_get_os_version.start()
+        self.get_os_version.return_value = "1.3"
+
         self.execute_show_command = self.mock_execute_show_command.start()
+        self.maxDiff = None
 
     def tearDown(self):
-        super(TestVyosFirewallRulesModule, self).tearDown()
+        super(TestVyosFirewallGlobalModule, self).tearDown()
         self.mock_get_resource_connection_config.stop()
         self.mock_get_resource_connection_facts.stop()
         self.mock_get_config.stop()
         self.mock_load_config.stop()
         self.mock_execute_show_command.stop()
+        self.mock_get_os_version.stop()
 
     def load_fixtures(self, commands=None, filename=None):
         def load_from_file(*args, **kwargs):
@@ -89,6 +97,7 @@ class TestVyosFirewallRulesModule(TestVyosModule):
                             connection_type="established",
                             action="accept",
                             log=True,
+                            log_level="emerg",
                         ),
                         dict(connection_type="invalid", action="reject"),
                     ],
@@ -97,6 +106,11 @@ class TestVyosFirewallRulesModule(TestVyosModule):
                             afi="ipv4",
                             ip_src_route=True,
                             icmp_redirects=dict(send=True, receive=False),
+                        ),
+                        dict(
+                            afi="ipv6",
+                            ip_src_route=True,
+                            icmp_redirects=dict(receive=False),
                         ),
                     ],
                     group=dict(
@@ -170,8 +184,8 @@ class TestVyosFirewallRulesModule(TestVyosModule):
             "set firewall group port-group TELNET",
             "set firewall ip-src-route 'enable'",
             "set firewall receive-redirects 'disable'",
-            "set firewall send-redirects 'enable'",
             "set firewall config-trap 'enable'",
+            "set firewall ipv6-receive-redirects 'disable'",
             "set firewall state-policy established action 'accept'",
             "set firewall state-policy established log 'enable'",
             "set firewall state-policy invalid action 'reject'",
@@ -255,6 +269,84 @@ class TestVyosFirewallRulesModule(TestVyosModule):
                                 ],
                             ),
                             dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                # No members here
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="LOCAL-v6",
+                                description="This group has the hosts address lists of this machine",
+                                members=[
+                                    dict(address="::1"),
+                                    dict(address="fdec:2503:89d6:59b3::2"),
+                                ],
+                            ),
+                        ],
+                        network_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND",
+                                # Deleted the description here.
+                                members=[dict(address="192.0.2.0/24")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="UNIQUE-LOCAL-v6",
+                                description="This group encompasses the ULA address space in IPv6",
+                                members=[dict(address="fc00::/7")],
+                            ),
+                        ],
+                        port_group=[
+                            dict(
+                                name="SSH",
+                                description="This group has the ssh ports",
+                                members=[dict(port="2222")],
+                            ),
+                        ],
+                    ),
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "delete firewall ipv6-src-route",
+            "delete firewall send-redirects",
+            "delete firewall group address-group RND-HOSTS address 192.0.2.3",
+            "delete firewall group address-group RND-HOSTS address 192.0.2.5",
+            "delete firewall group address-group DELETE-HOSTS address",
+            "set firewall group address-group RND-HOSTS address 192.0.2.7",
+            "set firewall group address-group RND-HOSTS address 192.0.2.9",
+            "delete firewall group network-group RND description",
+            "delete firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::1",
+            "set firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::2",
+            "delete firewall group port-group SSH port 22",
+            "set firewall group port-group SSH port 2222",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_set_02_replaced(self):
+        set_module_args(
+            dict(
+                config=dict(
+                    state_policy=[
+                        dict(connection_type="invalid", action="reject"),
+                        dict(connection_type="related", action="drop"),
+                    ],
+                    group=dict(
+                        address_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND-HOSTS",
+                                description="This group has the Management hosts address lists",
+                                members=[
+                                    dict(address="192.0.2.1"),
+                                    dict(address="192.0.2.7"),
+                                    dict(address="192.0.2.9"),
+                                ],
+                            ),
+                            dict(
                                 afi="ipv6",
                                 name="LOCAL-v6",
                                 description="This group has the hosts address lists of this machine",
@@ -291,8 +383,13 @@ class TestVyosFirewallRulesModule(TestVyosModule):
             ),
         )
         commands = [
+            "delete firewall group address-group DELETE-HOSTS",
             "delete firewall group address-group RND-HOSTS address 192.0.2.3",
             "delete firewall group address-group RND-HOSTS address 192.0.2.5",
+            "delete firewall ipv6-src-route",
+            "delete firewall send-redirects",
+            "set firewall state-policy related action 'drop'",
+            "set firewall state-policy invalid action 'reject'",
             "set firewall group address-group RND-HOSTS address 192.0.2.7",
             "set firewall group address-group RND-HOSTS address 192.0.2.9",
             "delete firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::1",
@@ -306,6 +403,10 @@ class TestVyosFirewallRulesModule(TestVyosModule):
         set_module_args(
             dict(
                 config=dict(
+                    route_redirects=[
+                        dict(ip_src_route=True, afi="ipv6"),
+                        dict(icmp_redirects=dict(send=True), afi="ipv4"),
+                    ],
                     group=dict(
                         address_group=[
                             dict(
@@ -317,6 +418,14 @@ class TestVyosFirewallRulesModule(TestVyosModule):
                                     dict(address="192.0.2.3"),
                                     dict(address="192.0.2.5"),
                                 ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                members=[
+                                    dict(address='1.2.3.4'),
+                                ]
                             ),
                             dict(
                                 afi="ipv6",
@@ -358,5 +467,5 @@ class TestVyosFirewallRulesModule(TestVyosModule):
 
     def test_vyos_firewall_global_set_01_deleted(self):
         set_module_args(dict(config=dict(), state="deleted"))
-        commands = ["delete firewall "]
+        commands = ["delete firewall"]
         self.execute_module(changed=True, commands=commands)

@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_suspend import (
         RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleSuspend,
     )
+    from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_timeout_type_0 import (
+        RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0,
+    )
+    from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_timeout_type_1 import (
+        RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule")
@@ -48,7 +54,8 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
         sleep (Union['RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleSleepType0',
             'RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0',
+            'RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleMock]):
@@ -71,7 +78,11 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0",
+        "RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleMock"] = UNSET
@@ -84,6 +95,9 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_sleep_type_0 import (
             RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleSleepType0,
+        )
+        from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_timeout_type_0 import (
+            RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0,
         )
 
         id = self.id
@@ -115,7 +129,20 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -195,6 +222,12 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
         from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_suspend import (
             RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleSuspend,
         )
+        from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_timeout_type_0 import (
+            RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0,
+        )
+        from ..models.run_flow_preview_and_wait_result_json_body_value_preprocessor_module_timeout_type_1 import (
+            RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -271,7 +304,44 @@ class RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0",
+            "RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType0.from_dict(
+                        _timeout_type_0
+                    )
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = RunFlowPreviewAndWaitResultJsonBodyValuePreprocessorModuleTimeoutType1.from_dict(
+                    _timeout_type_1
+                )
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fusesoc
-Version: 2.4.3
+Version: 2.4.4
 Summary: Award-winnning package manager and build abstraction tool for HDL code
 Author-email: Olof Kindgren <olof@award-winning.me>
 Maintainer-email: Olof Kindgren <olof@award-winning.me>
@@ -22,7 +22,6 @@ Requires-Dist: pyparsing>=2.3.1
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: simplesat>=0.9.1
 Requires-Dist: fastjsonschema
-Requires-Dist: jsonschema2md
 Requires-Dist: argcomplete
 Dynamic: license-file
 

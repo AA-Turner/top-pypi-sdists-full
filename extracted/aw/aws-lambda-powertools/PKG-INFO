@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aws_lambda_powertools
-Version: 3.19.0
+Version: 3.20.0
 Summary: Powertools for AWS Lambda (Python) is a developer toolkit to implement Serverless best practices and increase developer velocity.
 License: MIT
 Keywords: aws_lambda_powertools,aws,tracing,logging,lambda,powertools,feature_flags,idempotency,middleware
@@ -122,6 +122,7 @@ The following companies, among others, use Powertools:
 * [LocalStack](https://www.localstack.cloud/)
 * [Propellor.ai](https://www.propellor.ai/)
 * [Pushpay](https://pushpay.com/)
+* [QuasiScience Limited](https://quasiscience.com/)
 * [Recast](https://getrecast.com/)
 * [TopSport](https://www.topsport.com.au/)
 * [Transformity](https://transformity.tech/)

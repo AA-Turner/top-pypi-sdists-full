@@ -128,7 +128,7 @@ class Token(ZabbixBase):
     def get_userid_from_name(self, username):
         try:
             userids = self._zapi.user.get(
-                {"output": "userid", "filter": {"username": username}}
+                {"output": "extend", "filter": {"username": username}}
             )
             if not userids or len(userids) > 1:
                 self._module.fail_json("User '%s' cannot be found" % username)
@@ -158,9 +158,9 @@ class Token(ZabbixBase):
 
             if isinstance(status, bool):
                 if status:
-                    params["status"] = "1"
-                else:
                     params["status"] = "0"
+                else:
+                    params["status"] = "1"
 
             if isinstance(expires_at, str):
                 params["expires_at"] = str(expires_at)
@@ -194,10 +194,10 @@ class Token(ZabbixBase):
 
             if isinstance(status, bool):
                 if status:
-                    if token["status"] != "0":
+                    if token["status"] != "1":
                         params["status"] = "0"
                 else:
-                    if token["status"] != "1":
+                    if token["status"] != "0":
                         params["status"] = "1"
 
             if isinstance(expires_at, int) and str(expires_at) != token["expires_at"]:

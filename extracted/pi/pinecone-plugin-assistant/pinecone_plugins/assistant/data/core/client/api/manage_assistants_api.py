@@ -23,9 +23,9 @@ from pinecone_plugins.assistant.data.core.client.model_utils import (  # noqa: F
     validate_and_convert_types
 )
 from pinecone_plugins.assistant.data.core.client.model.assistant_file_model import AssistantFileModel
-from pinecone_plugins.assistant.data.core.client.model.chat import Chat
 from pinecone_plugins.assistant.data.core.client.model.chat_completion_model import ChatCompletionModel
 from pinecone_plugins.assistant.data.core.client.model.chat_model import ChatModel
+from pinecone_plugins.assistant.data.core.client.model.chat_request import ChatRequest
 from pinecone_plugins.assistant.data.core.client.model.context_model import ContextModel
 from pinecone_plugins.assistant.data.core.client.model.context_request import ContextRequest
 from pinecone_plugins.assistant.data.core.client.model.error_response import ErrorResponse
@@ -48,7 +48,7 @@ class ManageAssistantsApi(object):
         def __chat_assistant(
             self,
             assistant_name,
-            chat,
+            chat_request,
             **kwargs
         ):
             """Chat with an assistant  # noqa: E501
@@ -57,12 +57,12 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.chat_assistant(assistant_name, chat, async_req=True)
+            >>> thread = api.chat_assistant(assistant_name, chat_request, async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to be described.
-                chat (Chat): The desired configuration to chat an assistant.
+                chat_request (ChatRequest): The desired configuration to chat an assistant.
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -111,8 +111,8 @@ class ManageAssistantsApi(object):
             kwargs['_host_index'] = kwargs.get('_host_index')
             kwargs['assistant_name'] = \
                 assistant_name
-            kwargs['chat'] = \
-                chat
+            kwargs['chat_request'] = \
+                chat_request
             return self.call_with_http_info(**kwargs)
 
         self.chat_assistant = _Endpoint(
@@ -129,11 +129,11 @@ class ManageAssistantsApi(object):
             params_map={
                 'all': [
                     'assistant_name',
-                    'chat',
+                    'chat_request',
                 ],
                 'required': [
                     'assistant_name',
-                    'chat',
+                    'chat_request',
                 ],
                 'nullable': [
                 ],
@@ -150,15 +150,15 @@ class ManageAssistantsApi(object):
                 'openapi_types': {
                     'assistant_name':
                         (str,),
-                    'chat':
-                        (Chat,),
+                    'chat_request':
+                        (ChatRequest,),
                 },
                 'attribute_map': {
                     'assistant_name': 'assistant_name',
                 },
                 'location_map': {
                     'assistant_name': 'path',
-                    'chat': 'body',
+                    'chat_request': 'body',
                 },
                 'collection_format_map': {
                 }

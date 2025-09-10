@@ -912,3 +912,87 @@ releases:
     - win_package-checksum.yml
     - win_package-local-file-check.yml
     release_date: '2025-03-14'
+  3.0.0:
+    changes:
+      bugfixes:
+      - win_find - allow users case sensitive match the filename (https://github.com/ansible-collections/ansible.windows/issues/473).
+      - win_powershell - Handle failure on output conversion when the output object
+        uses a custom adapter set that fails to enumerate the method members. This
+        is seen when using the output from ``Get-WmiObject`` - https://github.com/ansible-collections/ansible.windows/issues/767
+      - win_regedit - Handle decimal values with no decimal values which may be the
+        result of a Jinja2 template
+      - win_template - Added support for Ansible 2.19 and the introduction of the
+        data tagging feature.
+      minor_changes:
+      - Set minimum supported Ansible version to 2.16 to align with the versions still
+        supported by Ansible.
+      - win_template - Added ``comment_start_string`` and ``comment_end_string`` as
+        options to align with the builtin ``template`` module.
+      release_summary: Major release of the ansible.windows collection. This release
+        includes fixes for Ansible 2.19 and removes some deprecated modules.
+      removed_features:
+      - win_domain - Removed deprecated module, use ``microsoft.ad.domain`` instead
+      - win_domain_controller - Removed deprecated module, use ``microsoft.ad.domain_controller``
+        instead
+      - win_domain_membership - Removed deprecated module, use ``microsoft.ad.membership``
+        instead
+      - win_feature - Removed deprecated return value ``restart_needed`` in ``feature_result``,
+        use ``reboot_required`` instead
+      - win_updates - Removed deprecated return value ``filtered_reason``, use ``filtered_reasons``
+        instead
+    fragments:
+    - ansible-ver.yml
+    - powershell-wmi-result.yml
+    - release-summary.yml
+    - removal.yml
+    - win_find_case_sensitive.yml
+    - win_regedit-decimal.yml
+    - win_template.yml
+    release_date: '2025-04-28'
+  3.1.0:
+    changes:
+      bugfixes:
+      - win_package - fail to remove package when no product id is provided with path
+        as an URL (https://github.com/ansible-collections/ansible.windows/issues/667).
+      minor_changes:
+      - setup - add "CloudStack KVM Hypervisor" for Windows VM in virtual facts (https://github.com/ansible-collections/ansible.windows/pull/785).
+      - setup - added ``ansible_product_uuid`` to align with Python facts - https://github.com/ansible-collections/ansible.windows/issues/789
+      - win_dns_client - add support for suffixsearchlist (https://github.com/ansible-collections/ansible.windows/issues/656).
+      - win_powershell - Add support for running scripts on a Windows host with an
+        active Windows Application Control policy in place. Scripts that are unsigned
+        will be run in Constrained Language Mode while scripts that are signed and
+        trusted by the remote host's WDAC policy will be run in Full Language Mode.
+      - win_powershell - Added the ``path`` and ``remote_src`` options which can be
+        used to specify a local or remote PowerShell script to run.
+      - win_shell - Add support for running scripts on a Windows host with an active
+        Windows Application Control policy in place. Scripts will always run in Contrained
+        Language Mode as they are executed in memory, use the ``ansible.windows.win_powershell``
+        module to run signed scripts in Full Language Mode on a WDAC enabled host.
+      release_summary: Release summary for v3.1.0
+    fragments:
+    - 785-cloudstack_kvm_to_virtual.yml
+    - release-summary.yml
+    - setup-product_uuid.yml
+    - wdac.yml
+    - win_dns_client.yml
+    - win_package.yml
+    - win_powershell-path.yml
+    release_date: '2025-05-27'
+  3.2.0:
+    changes:
+      bugfixes:
+      - win_copy - report correct information about symlinks in action plugin.
+      - win_service - Fix crash when attempting to create a service with the ``--check``
+        flag.
+      minor_changes:
+      - win_find - add support for 'any' to find both directories and files (https://github.com/ansible-collections/ansible.windows/issues/797).
+      - win_template - Preserve user-supplied value for ``ansible_managed`` when set
+        on Ansible Core 2.19+.
+      release_summary: Release summary for v3.2.0
+    fragments:
+    - copy_fix.yml
+    - release-summary.yml
+    - win_find.yml
+    - win_service_check_flag.yml
+    - win_template_preserve_ansible_managed.yml
+    release_date: '2025-07-22'

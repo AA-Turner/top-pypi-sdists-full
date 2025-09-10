@@ -26,14 +26,6 @@ from pulpcore.client.pulpcore.models.nested_open_pgp_signature_response import N
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class NestedOpenPGPPublicSubkeyResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -100,11 +92,7 @@ class NestedOpenPGPPublicSubkeyResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "fingerprint": obj.get("fingerprint"),
-            "created": obj.get("created"),
-            "signatures": [NestedOpenPGPSignatureResponse.from_dict(_item) for _item in obj["signatures"]] if obj.get("signatures") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

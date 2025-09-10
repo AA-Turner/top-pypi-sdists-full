@@ -89,6 +89,8 @@ class Query:
                 omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
             )
             all_rows = cur.fetchall()
+            if all_rows is None:
+                all_rows = []
             self._commit_if_needed(db_connection, no_transaction)
             col_names = [c[0] for c in cur.description]
             self._log_query_results(col_names, all_rows)
@@ -144,6 +146,8 @@ class Query:
                 omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
             )
             data = cur.fetchall()
+            if data is None:
+                data = []
             self._commit_if_needed(db_connection, no_transaction)
             col_names = [c[0] for c in cur.description]
             if db_connection.module_name in ["sqlite3", "ibm_db", "ibm_db_dbi", "pyodbc", "jaydebeapi"]:
@@ -803,6 +807,10 @@ class Query:
 
         if log_head is None:
             log_head = self.LOG_QUERY_RESULTS_HEAD
+
+        if result_rows is None:
+            result_rows = []
+
         cell_border_and_align = "border: 1px solid rgb(160 160 160);padding: 8px 10px;text-align: center;"
         table_border = "2px solid rgb(140 140 140)"
         row_index_background_color = "#d6ecd4"

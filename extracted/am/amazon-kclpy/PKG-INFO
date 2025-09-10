@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: amazon_kclpy
-Version: 3.1.0
+Version: 3.1.1
 Summary: A python interface for the Amazon Kinesis Client Library MultiLangDaemon
 Home-page: https://github.com/awslabs/amazon-kinesis-client-python
 License: Apache-2.0

@@ -915,3 +915,87 @@ releases:
       - 1769-callback-vault-facts.yml
       - lce-role-state.yml
     release_date: '2024-08-30'
+  5.0.0:
+    changes:
+      breaking_changes:
+        - Drop support for Ansible 2.9.
+        - Drop support for Python 2.7 and 3.5.
+      minor_changes:
+        - host, hostgroup, domain, operatingsystem, subnet, organization, location
+          - support setting hidden parameters
+    fragments:
+      - 1785-hidden_parameters.yml
+      - drop-ansible-29.yaml
+      - drop-python-pre-36.yaml
+    release_date: '2024-11-22'
+  5.1.0:
+    changes:
+      bugfixes:
+        - inventory - Drop fallback to Host API when Reports API fails, as this leads
+          to possibly wrong data being used
+      minor_changes:
+        - templates_import - Support configuring HTTP Proxy behaviour for template
+          import
+    fragments:
+      - drop-host-api-fallback.yml
+    release_date: '2024-12-06'
+  5.2.0:
+    changes:
+      bugfixes:
+        - callback plugin - fix another exception when serializing secrets (https://github.com/theforeman/foreman-ansible-modules/pull/1819)
+      minor_changes:
+        - snapshot - add ``quiesce`` option (https://github.com/theforeman/foreman-ansible-modules/pull/1810)
+    release_date: '2025-03-11'
+  5.3.0:
+    changes:
+      minor_changes:
+        - 'Support Kerberos/GSSAPI authentication by passing ``use_gssapi: true``
+          instead of ``username`` and ``password``.'
+        - Support setting a specific CA file for certificate validation
+        - activation_keys, content_credentials, content_view_publish, content_views,
+          lifecycle_environments, repositories, sync_plans roles - Allow specifying
+          the organization for each item individually (https://github.com/theforeman/foreman-ansible-modules/issues/1653)
+    fragments:
+      - 1653.yml
+      - ca_path.yml
+      - kerberos.yml
+    release_date: '2025-03-20'
+  5.4.0:
+    changes:
+      bugfixes:
+        - content_upload - lower chunk size to 1MB to avoid generating too big requests
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1862)
+        - host - ensure LCE and CV are always sent together when updating one of them
+      minor_changes:
+        - repository - add ``rhel-10`` to os version filter choices
+        - repository - add support for the ``retain_package_versions_count`` parameter
+    fragments:
+      - 1862-content-upload-chunk-size.yml
+      - 1867-host-always-send-lce-cv.yml
+      - repository-retain_package_versions_count.yml
+      - repository-rhel-10.yml
+    release_date: '2025-06-10'
+  5.5.0:
+    changes:
+      bugfixes:
+        - activation_key - ensure LCE and CV are always sent together when updating
+          one of them
+        - hostgroup - fix idempotency of hostgroup module when assigning Ansible roles
+          to a hostgroup with a parent hostgroup (https://github.com/theforeman/foreman-ansible-modules/issues/1865)
+      minor_changes:
+        - content_view - add ``rolling``-flag to create a Rolling Content View
+    fragments:
+      - ak-always-send-lce-cv.yml
+      - content_view-add_rolling.yml
+      - hostgroup_idempotency.yml
+    modules:
+      - description: Manage Flatpak Remotes
+        name: flatpak_remote
+        namespace: ''
+      - description: Mirror a Flatpak Remote Repository
+        name: flatpak_remote_repository_mirror
+        namespace: ''
+      - description: Scan a Flatpak Remote
+        name: flatpak_remote_scan
+        namespace: ''
+    release_date: '2025-08-08'

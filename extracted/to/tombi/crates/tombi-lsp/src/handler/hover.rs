@@ -1,13 +1,13 @@
 use itertools::{Either, Itertools};
 use tombi_ast::{algo::ancestors_at_position, AstNode};
-use tombi_document_tree::{IntoDocumentTreeAndErrors, TryIntoDocumentTree};
+use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_schema_store::SchemaContext;
 use tower_lsp::lsp_types::{HoverParams, TextDocumentPositionParams};
 
 use crate::{
     backend,
     config_manager::ConfigSchemaStore,
-    hover::{get_comment_directive_hover_info, get_hover_content, HoverContent},
+    hover::{get_document_comment_directive_hover_content, get_hover_content, HoverContent},
 };
 
 #[tracing::instrument(level = "debug", skip_all)]
@@ -50,8 +50,11 @@ pub async fn handle_hover(
 
     let position = position.into();
     let Some(root) = backend.get_incomplete_ast(&text_document_uri).await else {
+        tracing::debug!("Failed to get incomplete ast");
         return Ok(None);
     };
+
+    tracing::trace!("root = {:#?}", root);
 
     let source_schema = schema_store
         .resolve_source_schema_from_ast(&root, Some(Either::Left(&text_document_uri)))
@@ -60,7 +63,7 @@ pub async fn handle_hover(
         .flatten();
 
     let tombi_document_comment_directive =
-        tombi_comment_directive::get_tombi_document_comment_directive(&root).await;
+        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
     let (toml_version, _) = backend
         .source_toml_version(
             tombi_document_comment_directive,
@@ -73,22 +76,26 @@ pub async fn handle_hover(
 
     // Check if position is in a #:tombi comment directive
     if let Some(content) =
-        get_comment_directive_hover_info(&root, position, source_path.as_deref()).await
+        get_document_comment_directive_hover_content(&root, position, source_path.as_deref()).await
     {
         return Ok(Some(content));
     }
 
     let Some((keys, range)) = get_hover_keys_with_range(&root, position, toml_version).await else {
+        tracing::debug!("Failed to get hover keys with range");
         return Ok(None);
     };
 
     if keys.is_empty() && range.is_none() {
+        tracing::debug!("Keys and range are empty");
         return Ok(None);
     }
 
     let document_tree = root.into_document_tree_and_errors(toml_version).tree;
 
-    return Ok(get_hover_content(
+    tracing::trace!("document_tree = {:#?}", document_tree);
+
+    let mut hover_content = get_hover_content(
         &document_tree,
         position,
         &keys,
@@ -100,11 +107,12 @@ pub async fn handle_hover(
             strict: None,
         },
     )
-    .await
-    .map(|mut content| {
-        content.range = range;
-        HoverContent::Value(content)
-    }));
+    .await;
+
+    if let Some(HoverContent::Value(hover_value_content)) = &mut hover_content {
+        hover_value_content.range = range;
+    }
+    Ok(hover_content)
 }
 
 pub async fn get_hover_keys_with_range(
@@ -283,18 +291,18 @@ pub async fn get_hover_keys_with_range(
                 .keys()
                 .take_while(|key| key.token().unwrap().range().start <= position)
             {
-                match key.try_into_document_tree(toml_version) {
-                    Ok(Some(key)) => new_keys.push(key),
-                    _ => return None,
+                let document_tree_key = key.into_document_tree_and_errors(toml_version).tree;
+                if let Some(document_tree_key) = document_tree_key {
+                    new_keys.push(document_tree_key);
                 }
             }
             new_keys
         } else {
             let mut new_keys = Vec::with_capacity(keys.keys().count());
             for key in keys.keys() {
-                match key.try_into_document_tree(toml_version) {
-                    Ok(Some(key)) => new_keys.push(key),
-                    _ => return None,
+                let document_tree_key = key.into_document_tree_and_errors(toml_version).tree;
+                if let Some(document_tree_key) = document_tree_key {
+                    new_keys.push(document_tree_key);
                 }
             }
             new_keys

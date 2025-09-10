@@ -95,7 +95,7 @@ pub fn collect_video_metadata(
 
     let fps_rational = video.frame_rate().unwrap_or(Rational(0, 1));
     info.insert("fps_rational", fps_rational.to_string());
-    info.insert("fps", format!("{}", fps));
+    info.insert("fps", format!("{fps}"));
     info.insert("start_time", params.start_time.to_string());
     info.insert("time_base", params.time_base.to_string());
     info.insert("time_base_rational", params.time_base_rational.to_string());
@@ -195,12 +195,12 @@ pub fn get_resized_dim(
     }
 
     // Only case remaining is one is None and the other is Some
-    if resize_shorter_side_to.is_some() {
+    if let Some(res_short_side) = resize_shorter_side_to {
         if shorter_is_height {
-            new_height = resize_shorter_side_to.unwrap();
+            new_height = res_short_side;
             new_width = (width * new_height / height).round();
         } else {
-            new_width = resize_shorter_side_to.unwrap();
+            new_width = res_short_side;
             new_height = (height * new_width / width).round();
         }
     } else {

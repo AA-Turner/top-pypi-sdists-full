@@ -43,7 +43,7 @@ setup(
         C compilers or analysis tools.
     """,
     license='BSD-3-Clause',
-    version='2.22',
+    version='2.23',
     author='Eli Bendersky',
     maintainer='Eli Bendersky',
     author_email='eliben@gmail.com',
@@ -58,6 +58,7 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
     python_requires=">=3.8",
     packages=['pycparser', 'pycparser.ply'],

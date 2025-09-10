@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class ContentSummaryResponse(BaseModel):
     """
     Serializer for the RepositoryVersion content summary
@@ -90,11 +82,7 @@ class ContentSummaryResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "added": obj.get("added"),
-            "removed": obj.get("removed"),
-            "present": obj.get("present")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

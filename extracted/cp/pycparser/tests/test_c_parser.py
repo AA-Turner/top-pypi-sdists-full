@@ -483,6 +483,21 @@ class TestCParser_fundamentals(TestCParser_base):
                     [['Decl', 'p', ['ArrayDecl', '10', ['static'],
                                        ['TypeDecl', ['IdentifierType', ['int']]]]]],
                     ['TypeDecl', ['IdentifierType', ['int']]]]])
+        # anonymous function parameter
+        self.assertEqual(self.get_decl('int zz(int [static 10]);'),
+            ['Decl', 'zz',
+                ['FuncDecl',
+                    [['Typename',
+                      ['ArrayDecl', '10', ['static'],
+                       ['TypeDecl', ['IdentifierType', ['int']]]]]],
+                    ['TypeDecl', ['IdentifierType', ['int']]]]])
+        self.assertEqual(self.get_decl('int zz(int [static const restrict 10]);'),
+            ['Decl', 'zz',
+                ['FuncDecl',
+                    [['Typename',
+                      ['ArrayDecl', '10', ['static', 'const', 'restrict'],
+                       ['TypeDecl', ['IdentifierType', ['int']]]]]],
+                    ['TypeDecl', ['IdentifierType', ['int']]]]])
 
         self.assertEqual(self.get_decl('int zz(int p[const 10]);'),
             ['Decl', 'zz',
@@ -1449,7 +1464,7 @@ class TestCParser_fundamentals(TestCParser_base):
 
         d1_1 = 'float f = 0xEF.56p1;'
         self.assertEqual(self.get_decl_init(d1_1),
-            ['Constant', 'float', '0xEF.56p1'])
+            ['Constant', 'double', '0xEF.56p1'])
 
         d1_2 = 'int bitmask = 0b1001010;'
         self.assertEqual(self.get_decl_init(d1_2),
@@ -1514,7 +1529,23 @@ class TestCParser_fundamentals(TestCParser_base):
 
         d55 = 'float ld = 0xDE.38p0;'
         self.assertEqual(self.get_decl_init(d55),
-            ['Constant', 'float', '0xDE.38p0'])
+            ['Constant', 'double', '0xDE.38p0'])
+
+        d56 = 'float ld = 0xDE.38p0f;'
+        self.assertEqual(self.get_decl_init(d56),
+            ['Constant', 'float', '0xDE.38p0f'])
+
+        d57 = 'float ld = 0xDE.38p0F;'
+        self.assertEqual(self.get_decl_init(d57),
+            ['Constant', 'float', '0xDE.38p0F'])
+
+        d58 = 'float ld = 0xDE.38p0l;'
+        self.assertEqual(self.get_decl_init(d58),
+            ['Constant', 'long double', '0xDE.38p0l'])
+
+        d59 = 'float ld = 0xDE.38p0L;'
+        self.assertEqual(self.get_decl_init(d59),
+            ['Constant', 'long double', '0xDE.38p0L'])
 
         d6 = 'int i = 1;'
         self.assertEqual(self.get_decl_init(d6),
@@ -2474,6 +2505,54 @@ class TestCParser_typenames(TestCParser_base):
             '''
         self.assertRaises(ParseError, self.parse, s2)
 
+    def test_label_empty_statement(self):
+        # Labels with empty statements and no semicolon should be parsed correctly
+        s1 = r'''
+            int main() {
+                int i = 0;
+                label0: i++;
+                label1:
+            }
+            '''
+        s1_ast : FileAST = self.parse(s1)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1], Label)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt, UnaryOp)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[2], Label)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[2].stmt, EmptyStatement)
+
+    def test_case_empty_statement(self):
+        # Labels with empty statements and no semicolon should be parsed correctly
+        s1 = r'''
+            int main() {
+                int i = 0;
+                switch (i) {
+                    case 0:
+                        i = 1;
+                    case 1:
+                }
+                return i;
+            }
+            '''
+        s2 = r'''
+            int main() {
+                int i = 0;
+                switch (i) {
+                    case 0:
+                        i = 1;
+                    default:
+                }
+                return i;
+            }
+            '''
+        s1_ast : FileAST = self.parse(s1)
+        s2_ast : FileAST = self.parse(s2)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1], Switch)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt, Compound)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt.block_items[0], Case)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt.block_items[0].stmts[0], Assignment)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt.block_items[1], Case)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[1].stmt.block_items[1].stmts[0], EmptyStatement)
+        self.assertIsInstance(s2_ast.ext[0].body.block_items[1].stmt.block_items[1].stmts[0], EmptyStatement)
 
 if __name__ == '__main__':
     #~ suite = unittest.TestLoader().loadTestsFromNames(

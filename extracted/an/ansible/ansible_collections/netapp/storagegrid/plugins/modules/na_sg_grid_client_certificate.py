@@ -45,50 +45,50 @@ options:
 """
 
 EXAMPLES = """
-  - name: create client certificate
-    netapp.storagegrid.na_sg_grid_client_certificate:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      display_name: client-cert1
-      public_key: |
-        -----BEGIN CERTIFICATE-----
-        MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
-        BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
-        AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
-        71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
-        S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
-        77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
-        -----END CERTIFICATE-----
-      allow_prometheus: true
+- name: create client certificate
+  netapp.storagegrid.na_sg_grid_client_certificate:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    display_name: client-cert1
+    public_key: |
+      -----BEGIN CERTIFICATE-----
+      MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
+      BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
+      AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
+      71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
+      S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
+      77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
+      -----END CERTIFICATE-----
+    allow_prometheus: true
 
-  - name: rename client certificate
-    netapp.storagegrid.na_sg_grid_client_certificate:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      certificate_id: 00000000-0000-0000-0000-000000000000
-      display_name: client-cert1-rename
-      public_key: |
-        -----BEGIN CERTIFICATE-----
-        MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
-        BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
-        AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
-        71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
-        S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
-        77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
-        -----END CERTIFICATE-----
-      allow_prometheus: true
+- name: rename client certificate
+  netapp.storagegrid.na_sg_grid_client_certificate:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    certificate_id: 00000000-0000-0000-0000-000000000000
+    display_name: client-cert1-rename
+    public_key: |
+      -----BEGIN CERTIFICATE-----
+      MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
+      BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
+      AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
+      71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
+      S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
+      77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
+      -----END CERTIFICATE-----
+    allow_prometheus: true
 
-  - name: delete client certificate
-    netapp.storagegrid.na_sg_grid_client_certificate:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: absent
-      display_name: client-cert1-rename
+- name: delete client certificate
+  netapp.storagegrid.na_sg_grid_client_certificate:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: absent
+    display_name: client-cert1-rename
 """
 
 RETURN = """

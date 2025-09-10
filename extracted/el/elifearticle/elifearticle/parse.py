@@ -189,6 +189,8 @@ def build_ref_list(refs):
     Given parsed references build a list of ref objects
     """
     ref_list = []
+    if not refs:
+        return ref_list
     for reference in refs:
         ref = ea.Citation()
         # Publcation Type
@@ -741,6 +743,7 @@ def build_article_from_xml(
     # references or citations
     if build_part("references"):
         article.ref_list = build_ref_list(parser.refs(soup))
+        article.data_ref_list = build_ref_list(parser.data_refs(soup))
 
     # components with component DOI
     if build_part("components"):

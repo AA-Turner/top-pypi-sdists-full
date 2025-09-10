@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class SetCaptureConfigJsonBodyTriggerKind(str, Enum):
+    DEFAULT_EMAIL = "default_email"
     EMAIL = "email"
     GCP = "gcp"
     HTTP = "http"

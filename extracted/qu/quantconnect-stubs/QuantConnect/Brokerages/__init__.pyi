@@ -3609,6 +3609,21 @@ class BrokerageExtensions(System.Object):
         """
         ...
 
+    @staticmethod
+    def validate_cross_zero_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent], not_supported_types: System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.OrderType] = None) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Determines whether an order that crosses zero holdings is permitted
+        for the specified brokerage model and order type.
+        
+        :param brokerage_model: The brokerage model performing the validation.
+        :param security: The security associated with the order.
+        :param order: The order to validate.
+        :param message: When the method returns false, contains a BrokerageMessageEvent explaining why the order is not supported; otherwise null.
+        :param not_supported_types: The set of order types that cannot cross zero holdings.
+        :returns: true if the order is valid to submit; false if crossing zero is not supported for the given order type.
+        """
+        ...
+
 
 class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """

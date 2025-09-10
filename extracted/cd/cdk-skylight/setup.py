@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-skylight",
-    "version": "1.1.863",
+    "version": "1.1.864",
     "description": "cdk-skylight",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-skylight.git",
@@ -29,7 +29,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_skylight._jsii": [
-            "cdk-skylight@1.1.863.jsii.tgz"
+            "cdk-skylight@1.1.864.jsii.tgz"
         ],
         "cdk_skylight": [
             "py.typed"

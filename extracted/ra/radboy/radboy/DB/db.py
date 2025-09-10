@@ -52,7 +52,37 @@ from decimal import Decimal as TDecimal,getcontext
 from radboy.DB.types import *
 getcontext().prec=4
 
-import scipy
+#libraries for additional calculations
+import scipy as SCIPY
+#import cantera as CANTERA
+#import CoolProp as COOLPROP
+import chemicals as CHEMICALS
+import chempy as CHEMPY
+import chemlib as CHEMLIB
+import magpylib as MAGPYLIB
+
+ENGINEER={
+SCIPY:{
+'module':SCIPY,
+'desc':SCIPY.__doc__},
+MAGPYLIB:{
+'module':MAGPYLIB,
+'desc':MAGPYLIB.__doc__},
+#COOLPROP:{
+#'module':COOLPROP,
+#'desc':COOLPROP.__doc__},
+CHEMICALS:{
+'module':CHEMICALS,
+'desc':CHEMICALS.__doc__},
+CHEMPY:{
+'module':CHEMPY,
+'desc':CHEMPY.__doc__},
+CHEMLIB:{
+'module':CHEMLIB,
+'desc':CHEMLIB.__doc__},
+}
+
+
 def invalidRepeaters():
     mp=[]
     for im in string.printable:
@@ -5689,3 +5719,70 @@ class PhakePhone(stre):
 
         phonenumber=f"""{p1}{p2}{p3}-{p4}{ext}"""
         return phonenumber
+
+#'''
+
+def check_rob(self):
+    ROBS=''
+    ROBE=''
+    with Session(db.ENGINE) as session:
+        READLINE_PREFERECE=session.query(db.SystemPreference).filter(db.SystemPreference.name=='readline').order_by(db.SystemPreference.dtoe.desc()).all()
+        ct=len(READLINE_PREFERECE)
+        if ct <= 0:
+            try:
+                import readline
+                sp=db.SystemPreference(name="readline",value_4_Json2DictString=json.dumps({"readline":True}))
+                session.add(sp)
+                session.commit()
+                ROBS='\001'
+                ROBE='\002'
+            except Exception as e:
+                print("Could not import Readline, you might not have it installed!")
+        else:
+            try:
+                f=None
+                for num,i in enumerate(READLINE_PREFERECE):
+                    if i.default == True:
+                        f=num
+                        break
+                if f == None:
+                    f=0
+                cfg=READLINE_PREFERECE[f].value_4_Json2DictString
+                print(f"Readline is : {cfg}")
+                if cfg =='':
+                    READLINE_PREFERECE[f].value_4_Json2DictString=json.dumps({"readline":True})
+                    import readline
+                    ROBS='\001'
+                    ROBE='\002'
+                    session.commit()
+                    session.refresh(READLINE_PREFERECE[f])
+                else:
+                    try:
+                        x=json.loads(READLINE_PREFERECE[f].value_4_Json2DictString)
+                        if x.get("readline") == True:
+                            try:
+                                import readline
+                                ROBS='\001'
+                                ROBE='\002'
+                            except Exception as e:
+                                print(e)
+                        else:
+                            print("readline is off")
+                    except Exception as e:
+                        try:
+                            import readline
+                            ROBS='\001'
+                            ROBE='\002'
+                            print(e)
+                        except Exception as e:
+                            print(e)
+                return ROBS,ROBE
+            except Exception as e:
+                print(e)
+try:
+    ROBS,ROBE=check_rob(None)
+except Exception as e:
+    print(e,"Rebooting may fix this!")
+    ROBS,ROBE=['','']
+
+#'''

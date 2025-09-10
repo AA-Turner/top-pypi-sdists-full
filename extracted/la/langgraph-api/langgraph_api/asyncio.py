@@ -158,6 +158,7 @@ class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
         self,
         *coros: Coroutine[Any, Any, T],
         cancel: bool = False,
+        cancel_event: asyncio.Event | None = None,
         wait: bool = True,
         taskset: set[asyncio.Task] | None = None,
         taskgroup_name: str | None = None,
@@ -165,6 +166,7 @@ class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
         # Copy the taskset to avoid modifying the original set unintentionally (like in lifespan)
         self.tasks = taskset.copy() if taskset is not None else set()
         self.cancel = cancel
+        self.cancel_event = cancel_event
         self.wait = wait
         if taskset:
             for task in tuple(taskset):
@@ -181,6 +183,8 @@ class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
         try:
             if (exc := task.exception()) and not isinstance(exc, ignore_exceptions):
                 logger.exception("asyncio.task failed in task group", exc_info=exc)
+                if self.cancel_event:
+                    self.cancel_event.set()
         except asyncio.CancelledError:
             pass
 

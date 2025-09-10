@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from ..models.branch_one_default_item_stop_after_all_iters_if import BranchOneDefaultItemStopAfterAllItersIf
     from ..models.branch_one_default_item_stop_after_if import BranchOneDefaultItemStopAfterIf
     from ..models.branch_one_default_item_suspend import BranchOneDefaultItemSuspend
+    from ..models.branch_one_default_item_timeout_type_0 import BranchOneDefaultItemTimeoutType0
+    from ..models.branch_one_default_item_timeout_type_1 import BranchOneDefaultItemTimeoutType1
 
 
 T = TypeVar("T", bound="BranchOneDefaultItem")
@@ -30,7 +32,7 @@ class BranchOneDefaultItem:
         skip_if (Union[Unset, BranchOneDefaultItemSkipIf]):
         sleep (Union['BranchOneDefaultItemSleepType0', 'BranchOneDefaultItemSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['BranchOneDefaultItemTimeoutType0', 'BranchOneDefaultItemTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, BranchOneDefaultItemMock]):
@@ -47,7 +49,7 @@ class BranchOneDefaultItem:
     skip_if: Union[Unset, "BranchOneDefaultItemSkipIf"] = UNSET
     sleep: Union["BranchOneDefaultItemSleepType0", "BranchOneDefaultItemSleepType1", Unset] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union["BranchOneDefaultItemTimeoutType0", "BranchOneDefaultItemTimeoutType1", Unset] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "BranchOneDefaultItemMock"] = UNSET
@@ -59,6 +61,7 @@ class BranchOneDefaultItem:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.branch_one_default_item_sleep_type_0 import BranchOneDefaultItemSleepType0
+        from ..models.branch_one_default_item_timeout_type_0 import BranchOneDefaultItemTimeoutType0
 
         id = self.id
         value = self.value
@@ -89,7 +92,20 @@ class BranchOneDefaultItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, BranchOneDefaultItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -153,6 +169,8 @@ class BranchOneDefaultItem:
         from ..models.branch_one_default_item_stop_after_all_iters_if import BranchOneDefaultItemStopAfterAllItersIf
         from ..models.branch_one_default_item_stop_after_if import BranchOneDefaultItemStopAfterIf
         from ..models.branch_one_default_item_suspend import BranchOneDefaultItemSuspend
+        from ..models.branch_one_default_item_timeout_type_0 import BranchOneDefaultItemTimeoutType0
+        from ..models.branch_one_default_item_timeout_type_1 import BranchOneDefaultItemTimeoutType1
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -213,7 +231,36 @@ class BranchOneDefaultItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union["BranchOneDefaultItemTimeoutType0", "BranchOneDefaultItemTimeoutType1", Unset]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, BranchOneDefaultItemTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = BranchOneDefaultItemTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, BranchOneDefaultItemTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = BranchOneDefaultItemTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

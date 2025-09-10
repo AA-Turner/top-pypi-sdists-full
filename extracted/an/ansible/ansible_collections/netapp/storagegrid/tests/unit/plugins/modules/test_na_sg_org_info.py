@@ -115,7 +115,7 @@ class TestMyModule(unittest.TestCase):
     def set_default_args_fail_check(self):
         return dict(
             {
-                'api_url': 'sgmi.example.com',
+                'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
             }
         )
 

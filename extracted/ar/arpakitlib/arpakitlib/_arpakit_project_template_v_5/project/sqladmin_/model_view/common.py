@@ -19,6 +19,7 @@ def get_default_column_formatters() -> dict[Any, Any]:
         SimpleDBM.ColumnNames.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
     }
 
+
 def get_default_column_formatters_detail() -> dict[Any, Any]:
     return {
         SimpleDBM.ColumnNames.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
@@ -34,7 +35,6 @@ def get_default_column_default_sort() -> tuple[Any, Any]:
 def get_default_column_searchable_list() -> list[str]:
     from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
     return [SimpleDBM.ColumnNames.id, SimpleDBM.ColumnNames.long_id, SimpleDBM.ColumnNames.uuid]
-
 
 
 class SimpleMV(ModelView):
@@ -61,32 +61,6 @@ class SimpleMV(ModelView):
     @classmethod
     def get_default_column_searchable_list(cls) -> list[str]:
         return get_default_column_searchable_list()
-
-    @classmethod
-    def get_default_column_list(cls) -> list[str]:
-        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
-        return SimpleDBM.get_mapped_column_names()
-
-    @classmethod
-    def get_default_column_details_list(cls) -> list[str]:
-        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
-        return SimpleDBM.get_mapped_column_names()
-
-    @classmethod
-    def get_default_form_columns(cls) -> list[str]:
-        from project.sqlalchemy_db_.sqlalchemy_model import SimpleDBM
-        res = SimpleDBM.get_mapped_column_names()
-        if SimpleDBM.ColumnNames.id in res:
-            res.remove(SimpleDBM.ColumnNames.id)
-        if SimpleDBM.ColumnNames.long_id in res:
-            res.remove(SimpleDBM.ColumnNames.long_id)
-        if SimpleDBM.ColumnNames.uuid in res:
-            res.remove(SimpleDBM.ColumnNames.uuid)
-        if SimpleDBM.ColumnNames.slug in res:
-            res.remove(SimpleDBM.ColumnNames.slug)
-        if SimpleDBM.ColumnNames.creation_dt in res:
-            res.remove(SimpleDBM.ColumnNames.creation_dt)
-        return res
 
     @classmethod
     def get_default_column_formatters(cls) -> dict[Any, Any]:

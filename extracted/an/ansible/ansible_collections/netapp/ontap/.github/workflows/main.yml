@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         ansible:
-          - stable-2.15
           - stable-2.16
           - stable-2.17
           - devel
@@ -26,8 +25,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          # Ansible 2.14 requires 3.9 as a minimum
-          python-version: 3.12
+          # Ansible 2.16 requires 3.9 as a minimum
+          python-version: 3.11
 
       - name: Install ansible (${{ matrix.ansible }})
         run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
@@ -44,5 +43,5 @@ jobs:
         working-directory: ansible_collections/netapp/ontap/
 
       - name: Run Unit Tests
-        run: ansible-test units --docker -v --color
+        run: ansible-test units --docker -v --color --python 3.11
         working-directory: ansible_collections/netapp/ontap/

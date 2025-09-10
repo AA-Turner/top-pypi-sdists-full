@@ -56,7 +56,7 @@ export let options = {
   },
   thresholds: {
     'run_duration': [`p(95)<${p95_run_duration[MODE]}`],
-    'successful_runs': [`count>${(PLATEAU_DURATION / (p95_run_duration[MODE] / 1000)) * LOAD_SIZE * LEVELS * 2}`],  // Number of expected successful runs per user worst caseduring plateau * max number of users * 2 cause that feels about right
+    'successful_runs': [`count>${(PLATEAU_DURATION / (p95_run_duration[MODE] / 1000)) * LOAD_SIZE * LEVELS * 2}`],  // Number of expected successful runs per user worst case during plateau * max number of users * 2 cause that feels about right
     'http_req_failed': ['rate<0.01'],   // Error rate should be less than 1%
   },
 };
@@ -109,10 +109,16 @@ export default function() {
 
     // Check the response
     const expected_length = MODE === 'single' ? 1 : EXPAND + 1;
-    const success = check(response, {
-      'Run completed successfully': (r) => r.status === 200,
-      'Response contains expected number of messages': (r) => JSON.parse(r.body)?.messages?.length === expected_length,
-    });
+    let success = false;
+    try {
+      success = check(response, {
+        'Run completed successfully': (r) => r.status === 200,
+        'Response contains expected number of messages': (r) => JSON.parse(r.body)?.messages?.length === expected_length,
+      });
+    } catch (error) {
+      console.log(`Error checking response: ${error}`);
+    }
+
 
     if (success) {
       // Record success metrics
@@ -126,34 +132,23 @@ export default function() {
       if (response.status >= 500) {
         serverErrors.add(1);
         console.log(`Server error: ${response.status}`);
-      } else if (response.status === 408 || response.error === 'timeout') {
+      } else if (response.status === 408 || response.error?.includes('timeout')) {
         timeoutErrors.add(1);
         console.log(`Timeout error: ${response.error}`);
-      } else if (response.status === 200 && response?.body?.messages?.length !== expected_length) {
+      } else if (response.status === 200 && response.body?.messages?.length !== expected_length) {
         missingMessageErrors.add(1);
-        console.log(response);
-        console.log(`Missing message error: Status ${response.status}, ${JSON.stringify(response.body)}`);
+        console.log(`Missing message error: Status ${response.status}, ${JSON.stringify(response.body)}, ${response.headers?.['Content-Location']}`);
       } else {
         otherErrors.add(1);
         console.log(`Other error: Status ${response.status}, ${JSON.stringify(response.body)}`);
       }
     }
   } catch (error) {
-    // Handle exceptions (network errors, etc.)
+    // Handle truly unexpected errors
     failedRuns.add(1);
-
-    if (error.message.includes('timeout')) {
-      timeoutErrors.add(1);
-      console.log(`Timeout error: ${error.message}`);
-    } else if (error.message.includes('connection') || error.message.includes('network')) {
-      connectionErrors.add(1);
-      console.log(`Connection error: ${error.message}`);
-    } else {
-      otherErrors.add(1);
-      // Usually we end up with HTML error pages here
-      console.log(response);
-      console.log(`Unexpected error: ${error.message}, Response Body: ${response?.body}`);
-    }
+    otherErrors.add(1);
+    console.log(response);
+    console.log(`Unexpected error: ${error.message}, Response Body: ${response?.body}`);
   }
 
   // Add a small random sleep between iterations to prevent thundering herd

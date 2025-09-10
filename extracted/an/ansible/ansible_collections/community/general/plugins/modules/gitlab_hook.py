@@ -271,7 +271,7 @@ class GitLabHook(object):
     '''
     def find_hook(self, project, hook_url):
         for hook in project.hooks.list(**list_all_kwargs):
-            if (hook.url == hook_url):
+            if hook.url == hook_url:
                 return hook
 
     '''
@@ -307,7 +307,7 @@ def main():
         job_events=dict(type='bool', default=False),
         pipeline_events=dict(type='bool', default=False),
         wiki_page_events=dict(type='bool', default=False),
-        releases_events=dict(type='bool', default=None),
+        releases_events=dict(type='bool'),
         hook_validate_certs=dict(type='bool', default=False, aliases=['enable_ssl_verification']),
         token=dict(type='str', no_log=True),
     ))

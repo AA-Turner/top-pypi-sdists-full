@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-silk
-Version: 5.4.2
+Version: 5.4.3
 Summary: Silky smooth profiling for the Django Framework
 Home-page: https://github.com/jazzband/django-silk
 Author: Michael Ford

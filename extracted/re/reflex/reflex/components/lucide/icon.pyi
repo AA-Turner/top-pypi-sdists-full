@@ -11,7 +11,7 @@ from reflex.components.core.breakpoints import Breakpoints
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LUCIDE_LIBRARY = "lucide-react@0.541.0"
+LUCIDE_LIBRARY = "lucide-react@0.542.0"
 
 class LucideIconComponent(Component):
     @classmethod
@@ -1067,6 +1067,7 @@ LUCIDE_ICON_LIST = [
     "linkedin",
     "list_check",
     "list_checks",
+    "list_chevrons_down_up",
     "list_collapse",
     "list_end",
     "list_filter_plus",

@@ -74,7 +74,13 @@ DescribeAlarmsPaginatorName = Literal["describe_alarms"]
 DescribeAnomalyDetectorsPaginatorName = Literal["describe_anomaly_detectors"]
 EvaluationStateType = Literal["PARTIAL_DATA"]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
-HistoryItemTypeType = Literal["Action", "ConfigurationUpdate", "StateUpdate"]
+HistoryItemTypeType = Literal[
+    "Action",
+    "AlarmContributorAction",
+    "AlarmContributorStateUpdate",
+    "ConfigurationUpdate",
+    "StateUpdate",
+]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]

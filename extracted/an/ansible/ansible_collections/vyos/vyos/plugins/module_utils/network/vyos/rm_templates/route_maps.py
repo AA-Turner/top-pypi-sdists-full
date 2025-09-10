@@ -310,12 +310,12 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_as_path_prepend",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sas-path-prepend\s(?P<as>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sas-path-prepend\s(?P<as>.*)
+                $""",
                 re.VERBOSE,
             ),
             "compval": "set.as_path_prepend",
-            "setval": "policy route-map {{route_map}} rule {{sequence}} set as-path-prepend {{set.as_path_prepend}}",
+            "setval": "policy route-map {{route_map}} rule {{sequence}} set as-path-prepend '{{set.as_path_prepend}}'",
             "result": {
                 "route_maps": {
                     "{{ route_map }}": {
@@ -337,10 +337,11 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_atomic_aggregate",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\satomic-aggregate(?P<as>)
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\s(?P<as>atomic-aggregate)
                 *$""",
                 re.VERBOSE,
             ),
+            "compval": "set.atomic_aggregate",
             "setval": "policy route-map {{route_map}} rule {{sequence}} set atomic-aggregate",
             "result": {
                 "route_maps": {
@@ -391,13 +392,13 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_comm_list",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\scomm-list\scomm-list\s(?P<comm_list>\S+)
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\scommunity-list\s(?P<comm_list>\S+)
                 *$""",
                 re.VERBOSE,
             ),
-            "compval": "set.comm_list.comm_list",
+            "compval": "match.community.community_list",
             "setval": "policy route-map {{route_map}} rule {{sequence}} "
-                      "set comm-list comm-list {{set.comm_list.comm_list}}",
+                      "match community community-list {{set.comm_list.comm_list}}",
             "result": {
                 "route_maps": {
                     "{{ route_map }}": {
@@ -406,8 +407,8 @@ class Route_mapsTemplate(NetworkTemplate):
                             "{{sequence}}":
                                 {
                                     "sequence": "{{sequence}}",
-                                    "set": {
-                                        "comm_list": {"comm_list": "{{comm_list}}"},
+                                    "match": {
+                                        "community": {"community_list": "{{comm_list}}"},
                                     },
                                 },
                         },
@@ -492,6 +493,62 @@ class Route_mapsTemplate(NetworkTemplate):
                                     "sequence": "{{sequence}}",
                                     "set": {
                                         "extcommunity_soo": "{{set.extcommunity_soo}}",
+                                    },
+                                },
+                        },
+                    },
+                },
+            },
+        },
+        {
+            "name": "set_extcommunity_bandwidth",
+            "getval": re.compile(
+                r"""
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity\sbandwidth\s(?P<extcommunity_bw>\S+)
+                *$""",
+                re.VERBOSE,
+            ),
+            "compval": "set.extcommunity_bandwidth",
+            "setval": "policy route-map {{route_map}} rule {{sequence}} "
+                      "set extcommunity bandwidth {{set.extcommunity_bandwidth}}",
+            "result": {
+                "route_maps": {
+                    "{{ route_map }}": {
+                        "route_map": '{{ route_map }}',
+                        "entries": {
+                            "{{sequence}}":
+                                {
+                                    "sequence": "{{sequence}}",
+                                    "set": {
+                                        "extcommunity_bandwidth": "{{extcommunity_bw}}",
+                                    },
+                                },
+                        },
+                    },
+                },
+            },
+        },
+        {
+            "name": "set_extcommunity_bandwidth_non_transitive",
+            "getval": re.compile(
+                r"""
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity\s(?P<extcommunity_bw_nt>bandwidth-non-transitive)
+                *$""",
+                re.VERBOSE,
+            ),
+            "compval": "set.extcommunity_bandwidth_non_transitive",
+            "setval": "policy route-map {{route_map}} rule {{sequence}} "
+                      "set extcommunity bandwidth-non-transitive",
+            "result": {
+                "route_maps": {
+                    "{{ route_map }}": {
+                        "route_map": '{{ route_map }}',
+                        "entries": {
+                            "{{sequence}}":
+                                {
+                                    "sequence": "{{sequence}}",
+                                    "set": {
+                                        "extcommunity_bandwidth_non_transitive": "{{True if extcommunity_bw_nt is defined}}",
                                     },
                                 },
                         },
@@ -805,6 +862,34 @@ class Route_mapsTemplate(NetworkTemplate):
                                     "sequence": "{{sequence}}",
                                     "set": {
                                         "weight": "{{weight}}",
+                                    },
+                                },
+                        },
+                    },
+                },
+            },
+        },
+        {
+            "name": "set_table",
+            "getval": re.compile(
+                r"""
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\stable\s(?P<table>\S+)
+                *$""",
+                re.VERBOSE,
+            ),
+            "compval": "set.weight",
+            "setval": "policy route-map {{route_map}} rule {{sequence}} "
+                      "set table {{set.table}}",
+            "result": {
+                "route_maps": {
+                    "{{ route_map }}": {
+                        "route_map": '{{ route_map }}',
+                        "entries": {
+                            "{{sequence}}":
+                                {
+                                    "sequence": "{{sequence}}",
+                                    "set": {
+                                        "table": "{{table}}",
                                     },
                                 },
                         },
@@ -1253,6 +1338,33 @@ class Route_mapsTemplate(NetworkTemplate):
                                     "ipv6": {
                                         "next_hop": "{{value}}",
                                     },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        {
+            "name": "match_protocol",
+            "getval": re.compile(
+                r"""
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sprotocol\s(?P<value>\S+)
+                *$""",
+                re.VERBOSE,
+            ),
+            "compval": "match.protocol",
+            "setval": "policy route-map {{route_map}} rule {{sequence}} "
+                      "match protocol {{match.protocol}}",
+            "result": {
+                "route_maps": {
+                    "{{ route_map }}": {
+                        "route_map": '{{ route_map }}',
+                        "entries": {
+                            "{{sequence}}": {
+                                "sequence": "{{sequence}}",
+                                "match": {
+                                    "protocol": "{{value}}",
                                 },
                             },
                         },

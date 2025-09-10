@@ -1,8 +1,12 @@
 import asyncio
 
+from arpakitlib.pydantic_schema_from_sqlalchemy_model import pydantic_schema_from_sqlalchemy_model
+from project.sqlalchemy_db_.sqlalchemy_model import UserDBM
+
 
 def __sandbox():
-    pass
+    a = pydantic_schema_from_sqlalchemy_model(sqlalchemy_model=UserDBM, include_defaults=True)
+    print(a())
 
 
 async def __async_sandbox():

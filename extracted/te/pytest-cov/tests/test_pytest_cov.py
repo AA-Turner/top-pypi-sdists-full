@@ -1,27 +1,20 @@
-# ruff: noqa
 import collections
 import glob
 import os
 import platform
 import re
-import subprocess
 import sys
-from io import StringIO
 from itertools import chain
+from pathlib import Path
+from types import SimpleNamespace
 
 import coverage
-import py
 import pytest
-import virtualenv
-import xdist
-from fields import Namespace
 from process_tests import TestProcess as _TestProcess
 from process_tests import dump_on_error
 from process_tests import wait_for_strings
 
 import pytest_cov.plugin
-
-coverage, platform  # required for skipif mark on test_cov_min_from_coveragerc
 
 max_worker_restart_0 = '--max-worker-restart=0'
 
@@ -168,7 +161,7 @@ xdist_params = pytest.mark.parametrize(
 def adjust_sys_path():
     """Adjust PYTHONPATH during tests to make "helper" importable in SCRIPT."""
     orig_path = os.environ.get('PYTHONPATH', None)
-    new_path = os.path.dirname(__file__)
+    new_path = str(Path(__file__).parent)
     if orig_path is not None:
         new_path = os.pathsep.join([new_path, orig_path])
     os.environ['PYTHONPATH'] = new_path
@@ -191,7 +184,7 @@ def adjust_sys_path():
     ids=['branch2x', 'branch1c', 'branch1a', 'nobranch'],
 )
 def prop(request):
-    return Namespace(
+    return SimpleNamespace(
         code=SCRIPT,
         code2=SCRIPT2,
         conf=request.param[0],
@@ -299,9 +292,8 @@ def test_term_report_does_not_interact_with_html_output(testdir):
     dest_dir = testdir.tmpdir.join(DEST_DIR)
     assert dest_dir.check(dir=True)
     expected = [dest_dir.join('index.html'), dest_dir.join('test_funcarg_py.html')]
-    if coverage.version_info >= (7, 5):
-        expected.insert(0, dest_dir.join('function_index.html'))
-        expected.insert(0, dest_dir.join('class_index.html'))
+    expected.insert(0, dest_dir.join('function_index.html'))
+    expected.insert(0, dest_dir.join('class_index.html'))
     assert sorted(dest_dir.visit('**/*.html')) == expected
     assert dest_dir.join('index.html').check()
     assert result.ret == 0
@@ -349,7 +341,7 @@ def test_xml_output_dir(testdir):
 def test_json_output_dir(testdir):
     script = testdir.makepyfile(SCRIPT)
 
-    result = testdir.runpytest('-v', '--cov=%s' % script.dirpath(), '--cov-report=json:' + JSON_REPORT_NAME, script)
+    result = testdir.runpytest('-v', f'--cov={script.dirpath()}', '--cov-report=json:' + JSON_REPORT_NAME, script)
 
     result.stdout.fnmatch_lines(
         [
@@ -365,7 +357,7 @@ def test_json_output_dir(testdir):
 def test_markdown_output_dir(testdir):
     script = testdir.makepyfile(SCRIPT)
 
-    result = testdir.runpytest('-v', '--cov=%s' % script.dirpath(), '--cov-report=markdown:' + MARKDOWN_REPORT_NAME, script)
+    result = testdir.runpytest('-v', f'--cov={script.dirpath()}', '--cov-report=markdown:' + MARKDOWN_REPORT_NAME, script)
 
     result.stdout.fnmatch_lines(
         [
@@ -381,7 +373,7 @@ def test_markdown_output_dir(testdir):
 def test_markdown_append_output_dir(testdir):
     script = testdir.makepyfile(SCRIPT)
 
-    result = testdir.runpytest('-v', '--cov=%s' % script.dirpath(), '--cov-report=markdown-append:' + MARKDOWN_APPEND_REPORT_NAME, script)
+    result = testdir.runpytest('-v', f'--cov={script.dirpath()}', '--cov-report=markdown-append:' + MARKDOWN_APPEND_REPORT_NAME, script)
 
     result.stdout.fnmatch_lines(
         [
@@ -399,7 +391,7 @@ def test_markdown_and_markdown_append_work_together(testdir):
 
     result = testdir.runpytest(
         '-v',
-        '--cov=%s' % script.dirpath(),
+        f'--cov={script.dirpath()}',
         '--cov-report=markdown:' + MARKDOWN_REPORT_NAME,
         '--cov-report=markdown-append:' + MARKDOWN_APPEND_REPORT_NAME,
         script,
@@ -422,7 +414,7 @@ def test_markdown_and_markdown_append_pointing_to_same_file_throws_error(testdir
 
     result = testdir.runpytest(
         '-v',
-        '--cov=%s' % script.dirpath(),
+        f'--cov={script.dirpath()}',
         '--cov-report=markdown:' + MARKDOWN_REPORT_NAME,
         '--cov-report=markdown-append:' + MARKDOWN_REPORT_NAME,
         script,
@@ -432,7 +424,6 @@ def test_markdown_and_markdown_append_pointing_to_same_file_throws_error(testdir
     assert result.ret == 4
 
 
-@pytest.mark.skipif('coverage.version_info < (6, 3)')
 def test_lcov_output_dir(testdir):
     script = testdir.makepyfile(SCRIPT)
 
@@ -447,23 +438,6 @@ def test_lcov_output_dir(testdir):
     )
     assert testdir.tmpdir.join(LCOV_REPORT_NAME).check()
     assert result.ret == 0
-
-
-@pytest.mark.skipif('coverage.version_info >= (6, 3)')
-def test_lcov_not_supported(testdir):
-    script = testdir.makepyfile('a = 1')
-    result = testdir.runpytest(
-        '-v',
-        f'--cov={script.dirpath()}',
-        '--cov-report=lcov',
-        script,
-    )
-    result.stderr.fnmatch_lines(
-        [
-            '*argument --cov-report: LCOV output is only supported with coverage.py >= 6.3',
-        ]
-    )
-    assert result.ret != 0
 
 
 def test_term_output_dir(testdir):
@@ -486,7 +460,7 @@ def test_term_missing_output_dir(testdir):
 
     result.stderr.fnmatch_lines(
         [
-            '*argument --cov-report: output specifier not supported for: "term-missing:%s"*' % DEST_DIR,
+            f'*argument --cov-report: output specifier not supported for: "term-missing:{DEST_DIR}"*',
         ]
     )
     assert result.ret != 0
@@ -652,7 +626,6 @@ source =
     aliased
 [coverage:run]
 source = mod
-parallel = true
 {prop.conf}
 """
     )
@@ -713,6 +686,75 @@ def test_foobar(bad):
     assert result.ret == 0
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='No redis server on Windows')
+@pytest.mark.skipif(sys.platform == 'darwin', reason='No redis server on OSX')
+def test_celery(pytester):
+    pytester.makepyfile(
+        small_celery="""
+import os
+
+from celery import Celery
+from celery.contrib.testing import worker
+from testcontainers.redis import RedisContainer
+import pytest
+
+app = Celery("tasks", broker="redis://localhost:6379/0", backend="redis://localhost:6379/0")
+
+@app.task
+def add(x, y):
+    return x + y
+
+@pytest.fixture(scope="session")
+def redis_container():
+    with RedisContainer() as container:
+        yield container
+
+
+@pytest.fixture
+def celery_app(redis_container):
+    host = redis_container.get_container_host_ip()
+    port = redis_container.get_exposed_port(6379)
+    redis_url = f"redis://{host}:{port}/0"
+
+    app.conf.update(broker_url=redis_url, result_backend=redis_url)
+    return app
+
+@pytest.fixture
+def celery_worker(celery_app):
+    with worker.start_worker(
+        celery_app,
+        pool="prefork",
+        perform_ping_check=False,
+    ):
+        yield
+        print('CELERY SHUTDOWN')
+    print('CELERY SHUTDOWN DONE')
+    print(os.listdir())
+
+
+def test_add_task(celery_worker):
+    result = add.delay(4, 4)
+    assert result.get() == 8
+"""
+    )
+
+    pytester.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess", "_exit"]
+"""
+    )
+    result = pytester.runpytest('-vv', '-s', '--cov', '--cov-report=term-missing', 'small_celery.py')
+
+    result.stdout.fnmatch_lines(
+        [
+            '*_ coverage: platform *, python * _*',
+            'small_celery* 100%*',
+        ]
+    )
+    assert result.ret == 0
+
+
 def test_subprocess_with_path_aliasing(pytester, testdir, monkeypatch):
     src = testdir.mkdir('src')
     src.join('parent_script.py').write(SCRIPT_PARENT)
@@ -732,7 +774,7 @@ source =
 source =
     parent_script
     child_script
-parallel = true
+patch = subprocess
 """
     )
 
@@ -948,6 +990,12 @@ source =
 
 
 def test_central_subprocess(testdir):
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess"]
+"""
+    )
     scripts = testdir.makepyfile(parent_script=SCRIPT_PARENT, child_script=SCRIPT_CHILD)
     parent_script = scripts.dirpath().join('parent_script.py')
 
@@ -971,7 +1019,7 @@ def test_central_subprocess_change_cwd(testdir):
         coveragerc="""
 [run]
 branch = true
-parallel = true
+patch = subprocess
 """,
     )
 
@@ -998,7 +1046,7 @@ def test_central_subprocess_change_cwd_with_pythonpath(pytester, testdir, monkey
         '',
         coveragerc="""
 [run]
-parallel = true
+patch = subprocess
 """,
     )
 
@@ -1029,7 +1077,7 @@ def test_foo():
         '',
         coveragerc="""
 [run]
-parallel = true
+patch = subprocess
 """,
     )
     result = testdir.runpytest('-v', '--cov-config=coveragerc', f'--cov={script.dirpath()}', '--cov-branch', script)
@@ -1044,6 +1092,12 @@ parallel = true
 
 @pytest.mark.skipif('sys.platform == "win32" and platform.python_implementation() == "PyPy"')
 def test_dist_subprocess_collocated(testdir):
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess"]
+"""
+    )
     scripts = testdir.makepyfile(parent_script=SCRIPT_PARENT, child_script=SCRIPT_CHILD)
     parent_script = scripts.dirpath().join('parent_script.py')
 
@@ -1071,6 +1125,9 @@ def test_dist_subprocess_not_collocated(pytester, testdir, tmpdir):
     dir2 = tmpdir.mkdir('dir2')
     testdir.tmpdir.join('.coveragerc').write(
         f"""
+[run]
+patch = subprocess
+
 [paths]
 source =
     {scripts.dirpath()}
@@ -1124,43 +1181,6 @@ def test_invalid_coverage_source(testdir):
     assert not matching_lines
 
 
-@pytest.mark.skipif("'dev' in pytest.__version__")
-@pytest.mark.skipif('sys.platform == "win32" and platform.python_implementation() == "PyPy"')
-@pytest.mark.skipif(
-    'tuple(map(int, xdist.__version__.split("."))) >= (2, 3, 0)',
-    reason='Since pytest-xdist 2.3.0 the parent sys.path is copied in the child process',
-)
-def test_dist_missing_data(testdir):
-    """Test failure when using a worker without pytest-cov installed."""
-    venv_path = os.path.join(str(testdir.tmpdir), 'venv')
-    virtualenv.cli_run([venv_path])
-    if sys.platform == 'win32':
-        if platform.python_implementation() == 'PyPy':
-            exe = os.path.join(venv_path, 'bin', 'python.exe')
-        else:
-            exe = os.path.join(venv_path, 'Scripts', 'python.exe')
-    else:
-        exe = os.path.join(venv_path, 'bin', 'python')
-    subprocess.check_call(
-        [exe, '-mpip', 'install', f'py=={py.__version__}', f'pytest=={pytest.__version__}', f'pytest_xdist=={xdist.__version__}']
-    )
-    script = testdir.makepyfile(SCRIPT)
-
-    result = testdir.runpytest(
-        '-v',
-        '--assert=plain',
-        f'--cov={script.dirpath()}',
-        '--cov-report=term-missing',
-        '--dist=load',
-        f'--tx=popen//python={exe}',
-        max_worker_restart_0,
-        str(script),
-    )
-    result.stdout.fnmatch_lines(
-        ['The following workers failed to return coverage data, ensure that pytest-cov is installed on these workers.']
-    )
-
-
 def test_funcarg(testdir):
     script = testdir.makepyfile(SCRIPT_FUNCARG)
 
@@ -1179,9 +1199,15 @@ def test_funcarg_not_active(testdir):
     assert result.ret == 0
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason="SIGTERM isn't really supported on Windows")
-@pytest.mark.xfail('platform.python_implementation() == "PyPy"', reason='Interpreter seems buggy')
+@pytest.mark.skipif(sys.platform == 'win32', reason="SIGTERM isn't really supported on Windows")
 def test_cleanup_on_sigterm(testdir):
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess", "_exit"]
+"""
+    )
+
     script = testdir.makepyfile(
         '''
 import os, signal, subprocess, sys, time
@@ -1204,9 +1230,6 @@ captured Exception()
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, cleanup)
 
-    from pytest_cov.embed import cleanup_on_sigterm
-    cleanup_on_sigterm()
-
     try:
         time.sleep(10)
     except BaseException as exc:
@@ -1216,24 +1239,42 @@ if __name__ == "__main__":
 
     result = testdir.runpytest('-vv', f'--cov={script.dirpath()}', '--cov-report=term-missing', script)
 
-    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', 'test_cleanup_on_sigterm* 26-27', '*1 passed*'])
+    result.stdout.fnmatch_lines(
+        [
+            '*_ coverage: platform *, python * _*',
+            'test_cleanup_on_sigterm* 100%',
+            '*1 passed*',
+        ]
+    )
     assert result.ret == 0
 
 
-@pytest.mark.skipif('sys.platform != "win32"')
+@pytest.mark.skipif(sys.platform != 'win32', reason='SIGBREAK is Windows only')
 @pytest.mark.parametrize(
     'setup',
     [
-        ('signal.signal(signal.SIGBREAK, signal.SIG_DFL); cleanup_on_signal(signal.SIGBREAK)', '87%   21-22'),
-        ('cleanup_on_signal(signal.SIGBREAK)', '87%   21-22'),
-        ('cleanup()', '73%   19-22'),
+        (
+            'signal.signal(signal.SIGBREAK, signal.SIG_DFL)',
+            '*%   4, 2*-28' if platform.python_implementation() == 'PyPy' else '62%   4, 23-28',
+        ),
+        ('signal.signal(signal.SIGBREAK, cleanup)', '100%'),
+        ('', '*%   4, 2*-28' if platform.python_implementation() == 'PyPy' else '67%   4, 25-28'),
     ],
 )
 def test_cleanup_on_sigterm_sig_break(pytester, testdir, setup):
     # worth a read: https://stefan.sofa-rockers.org/2013/08/15/handling-sub-process-hierarchies-python-linux-os-x/
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess"]
+"""
+    )
     script = testdir.makepyfile(
         """
 import os, signal, subprocess, sys, time
+
+def cleanup(num, frame):
+    raise Exception()
 
 def test_run():
     proc = subprocess.Popen(
@@ -1245,10 +1286,13 @@ def test_run():
     proc.send_signal(signal.CTRL_BREAK_EVENT)
     stdout, stderr = proc.communicate()
     assert not stderr
-    assert stdout in [b"^C", b"", b"captured IOError(4, 'Interrupted function call')\\n"]
+    assert stdout in [
+        b"^C",
+        b"",
+        b"captured Exception()\\r\\n",
+        b"captured IOError(4, 'Interrupted function call')\\n"]
 
 if __name__ == "__main__":
-    from pytest_cov.embed import cleanup_on_signal, cleanup
     """
         + setup[0]
         + """
@@ -1267,17 +1311,14 @@ if __name__ == "__main__":
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason="SIGTERM isn't really supported on Windows")
-@pytest.mark.xfail('sys.platform == "darwin"', reason='Something weird going on Macs...')
-@pytest.mark.xfail('platform.python_implementation() == "PyPy"', reason='Interpreter seems buggy')
-@pytest.mark.parametrize(
-    'setup',
-    [
-        ('signal.signal(signal.SIGTERM, signal.SIG_DFL); cleanup_on_sigterm()', '88%   18-19'),
-        ('cleanup_on_sigterm()', '88%   18-19'),
-        ('cleanup()', '75%   16-19'),
-    ],
-)
-def test_cleanup_on_sigterm_sig_dfl(pytester, testdir, setup):
+def test_cleanup_on_sigterm_sig_dfl(testdir):
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess"]
+sigterm = true
+"""
+    )
     script = testdir.makepyfile(
         """
 import os, signal, subprocess, sys, time
@@ -1288,15 +1329,13 @@ def test_run():
     proc.terminate()
     stdout, stderr = proc.communicate()
     assert not stderr
+    print([stdout, stderr])
     assert stdout == b""
+
     assert proc.returncode in [128 + signal.SIGTERM, -signal.SIGTERM]
 
 if __name__ == "__main__":
-    from pytest_cov.embed import cleanup_on_sigterm, cleanup
-    """
-        + setup[0]
-        + """
-
+    foobar = 123
     try:
         time.sleep(10)
     except BaseException as exc:
@@ -1304,16 +1343,23 @@ if __name__ == "__main__":
 """
     )
 
-    result = testdir.runpytest('-vv', '--assert=plain', f'--cov={script.dirpath()}', '--cov-report=term-missing', script)
+    result = testdir.runpytest(
+        '-v', '--assert=plain', f'--cov={script.dirpath()}', '--cov-report=term-missing', '--cov-report=html', script
+    )
 
-    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', f'test_cleanup_on_sigterm* {setup[1]}', '*1 passed*'])
+    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', 'test_cleanup_on_sigterm* 88% * 18-19', '*1 passed*'])
     assert result.ret == 0
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SIGINT is subtly broken on Windows')
-@pytest.mark.xfail('sys.platform == "darwin"', reason='Something weird going on Macs...')
-@pytest.mark.xfail('platform.python_implementation() == "PyPy"', reason='Interpreter seems buggy')
 def test_cleanup_on_sigterm_sig_dfl_sigint(testdir):
+    testdir.makepyprojecttoml(
+        """
+[tool.coverage.run]
+patch = ["subprocess"]
+sigterm = true
+"""
+    )
     script = testdir.makepyfile(
         '''
 import os, signal, subprocess, sys, time
@@ -1329,9 +1375,6 @@ def test_run():
     assert proc.returncode == 0
 
 if __name__ == "__main__":
-    from pytest_cov.embed import cleanup_on_signal
-    cleanup_on_signal(signal.SIGINT)
-
     try:
         time.sleep(10)
     except BaseException as exc:
@@ -1341,44 +1384,7 @@ if __name__ == "__main__":
 
     result = testdir.runpytest('-vv', '--assert=plain', f'--cov={script.dirpath()}', '--cov-report=term-missing', script)
 
-    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', 'test_cleanup_on_sigterm* 88%   19-20', '*1 passed*'])
-    assert result.ret == 0
-
-
-@pytest.mark.skipif('sys.platform == "win32"', reason='fork not available on Windows')
-@pytest.mark.xfail('platform.python_implementation() == "PyPy"', reason='Interpreter seems buggy')
-def test_cleanup_on_sigterm_sig_ign(testdir):
-    script = testdir.makepyfile(
-        """
-import os, signal, subprocess, sys, time
-
-def test_run():
-    proc = subprocess.Popen([sys.executable, __file__], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    time.sleep(1)
-    proc.send_signal(signal.SIGINT)
-    time.sleep(1)
-    proc.terminate()
-    stdout, stderr = proc.communicate()
-    assert not stderr
-    assert stdout == b""
-    assert proc.returncode in [128 + signal.SIGTERM, -signal.SIGTERM]
-
-if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-    from pytest_cov.embed import cleanup_on_signal
-    cleanup_on_signal(signal.SIGINT)
-
-    try:
-        time.sleep(10)
-    except BaseException as exc:
-        print("captured %r" % exc)
-    """
-    )
-
-    result = testdir.runpytest('-vv', '--assert=plain', f'--cov={script.dirpath()}', '--cov-report=term-missing', script)
-
-    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', 'test_cleanup_on_sigterm* 89%   22-23', '*1 passed*'])
+    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', 'test_cleanup_on_sigterm* 100%', '*1 passed*'])
     assert result.ret == 0
 
 
@@ -1624,17 +1630,6 @@ def test_foo():
 SCRIPT_SIMPLE_RESULT = '4 * 100%'
 
 
-@pytest.mark.skipif('tuple(map(int, xdist.__version__.split("."))) >= (3, 0, 2)', reason='--boxed option was removed in version 3.0.2')
-@pytest.mark.skipif('sys.platform == "win32"')
-def test_dist_boxed(testdir):
-    script = testdir.makepyfile(SCRIPT_SIMPLE)
-
-    result = testdir.runpytest('-v', '--assert=plain', f'--cov={script.dirpath()}', '--boxed', script)
-
-    result.stdout.fnmatch_lines(['*_ coverage: platform *, python * _*', f'test_dist_boxed* {SCRIPT_SIMPLE_RESULT}*', '*1 passed*'])
-    assert result.ret == 0
-
-
 @pytest.mark.skipif('sys.platform == "win32"')
 @pytest.mark.skipif('platform.python_implementation() == "PyPy"', reason='strange optimization on PyPy3')
 def test_dist_bare_cov(testdir):
@@ -1648,7 +1643,7 @@ def test_dist_bare_cov(testdir):
 
 def test_not_started_plugin_does_not_fail(testdir):
     class ns:
-        cov_source = [True]
+        cov_source = (True,)
         cov_report = ''
 
     plugin = pytest_cov.plugin.CovPlugin(ns, None, start=False)
@@ -1696,14 +1691,13 @@ def test_external_data_file(testdir):
     testdir.tmpdir.join('.coveragerc').write(
         """
 [run]
-data_file = %s
-"""
-        % testdir.tmpdir.join('some/special/place/coverage-data').ensure()
+data_file = {}
+""".format(testdir.tmpdir.join('some/special/place/coverage-data').ensure())
     )
 
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', script)
     assert result.ret == 0
-    assert glob.glob(str(testdir.tmpdir.join('some/special/place/coverage-data*')))
+    assert glob.glob(str(testdir.tmpdir.join('some/special/place/coverage-data*')))  # noqa: PTH207
 
 
 @pytest.mark.skipif('sys.platform == "win32" and platform.python_implementation() == "PyPy"')
@@ -1713,14 +1707,13 @@ def test_external_data_file_xdist(testdir):
         """
 [run]
 parallel = true
-data_file = %s
-"""
-        % testdir.tmpdir.join('some/special/place/coverage-data').ensure()
+data_file = {}
+""".format(testdir.tmpdir.join('some/special/place/coverage-data').ensure())
     )
 
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', '-n', '1', max_worker_restart_0, script)
     assert result.ret == 0
-    assert glob.glob(str(testdir.tmpdir.join('some/special/place/coverage-data*')))
+    assert glob.glob(str(testdir.tmpdir.join('some/special/place/coverage-data*')))  # noqa: PTH207
 
 
 @pytest.mark.skipif('sys.platform == "win32" and platform.python_implementation() == "PyPy"')
@@ -1747,7 +1740,7 @@ def test_external_data_file_negative(testdir):
 
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', script)
     assert result.ret == 0
-    assert glob.glob(str(testdir.tmpdir.join('.coverage*')))
+    assert glob.glob(str(testdir.tmpdir.join('.coverage*')))  # noqa: PTH207
 
 
 @xdist_params
@@ -1804,7 +1797,6 @@ def test_dynamic_context(pytester, testdir, opts, prop):
     testdir.makepyprojecttoml(f"""
 [tool.coverage.run]
 dynamic_context = "test_function"
-parallel = true
 {prop.conf}
 """)
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', script, *opts.split() + prop.args)
@@ -1824,7 +1816,6 @@ def test_simple(pytester, testdir, opts, prop):
     script = testdir.makepyfile(test_1=prop.code)
     testdir.makepyprojecttoml(f"""
 [tool.coverage.run]
-parallel = true
 {prop.conf}
 """)
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', script, *opts.split() + prop.args)
@@ -1857,6 +1848,10 @@ def test_do_not_append_coverage(pytester, testdir, opts, prop):
 
 @pytest.mark.skipif('sys.platform == "win32" and platform.python_implementation() == "PyPy"')
 def test_append_coverage_subprocess(testdir):
+    testdir.makepyprojecttoml("""
+[tool.coverage.run]
+patch = ["subprocess"]
+""")
     scripts = testdir.makepyfile(parent_script=SCRIPT_PARENT, child_script=SCRIPT_CHILD)
     parent_script = scripts.dirpath().join('parent_script.py')
 
@@ -1879,28 +1874,6 @@ def test_append_coverage_subprocess(testdir):
         ]
     )
     assert result.ret == 0
-
-
-def test_pth_failure(monkeypatch):
-    with open('src/pytest-cov.pth') as fh:
-        payload = fh.read()
-
-    class SpecificError(Exception):
-        pass
-
-    def bad_init():
-        raise SpecificError
-
-    buff = StringIO()
-
-    from pytest_cov import embed
-
-    monkeypatch.setattr(embed, 'init', bad_init)
-    monkeypatch.setattr(sys, 'stderr', buff)
-    monkeypatch.setitem(os.environ, 'COV_CORE_SOURCE', 'foobar')
-    exec(payload)
-    expected = "pytest-cov: Failed to setup subprocess coverage. Environ: {'COV_CORE_SOURCE': 'foobar'} Exception: SpecificError()\n"
-    assert buff.getvalue() == expected
 
 
 def test_double_cov(testdir):
@@ -1968,6 +1941,7 @@ EXPECTED_CONTEXTS = {
     'test_contexts.py::test_07|setup': 's7',
     'test_contexts.py::test_07|run': 'r7',
     'test_contexts.py::test_08|run': 'r8',
+    'test_contexts.py::test_08|setup': 's7',
     'test_contexts.py::test_09[1]|setup': 's9-1',
     'test_contexts.py::test_09[1]|run': 'r9-1',
     'test_contexts.py::test_09[2]|setup': 's9-2',
@@ -1986,11 +1960,9 @@ EXPECTED_CONTEXTS = {
 }
 
 
-@pytest.mark.skipif('coverage.version_info < (5, 0)')
-@pytest.mark.skipif('coverage.version_info > (6, 4)')
 @xdist_params
 def test_contexts(pytester, testdir, opts):
-    with open(os.path.join(os.path.dirname(__file__), 'contextful.py')) as f:
+    with Path(__file__).parent.joinpath('contextful.py').open() as f:
         contextful_tests = f.read()
     script = testdir.makepyfile(contextful_tests)
     result = testdir.runpytest('-v', f'--cov={script.dirpath()}', '--cov-context=test', script, *opts.split())
@@ -2007,7 +1979,7 @@ def test_contexts(pytester, testdir, opts):
     measured = data.measured_files()
     assert len(measured) == 1
     test_context_path = next(iter(measured))
-    assert test_context_path.lower() == os.path.abspath('test_contexts.py').lower()
+    assert test_context_path.lower() == os.path.abspath('test_contexts.py').lower()  # noqa: PTH100
 
     line_data = find_labels(contextful_tests, r'[crst]\d+(?:-\d+)?')
     for context, label in EXPECTED_CONTEXTS.items():
@@ -2016,23 +1988,6 @@ def test_contexts(pytester, testdir, opts):
         data.set_query_context(context)
         actual = set(data.lines(test_context_path))
         assert line_data[label] == actual, f'Wrong lines for context {context!r}'
-
-
-@pytest.mark.skipif('coverage.version_info >= (5, 0)')
-def test_contexts_not_supported(testdir):
-    script = testdir.makepyfile('a = 1')
-    result = testdir.runpytest(
-        '-v',
-        f'--cov={script.dirpath()}',
-        '--cov-context=test',
-        script,
-    )
-    result.stderr.fnmatch_lines(
-        [
-            '*argument --cov-context: Contexts are only supported with coverage.py >= 5.x',
-        ]
-    )
-    assert result.ret != 0
 
 
 def test_contexts_no_cover(testdir):

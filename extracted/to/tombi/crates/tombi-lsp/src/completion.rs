@@ -5,41 +5,76 @@ mod value;
 use std::borrow::Cow;
 
 use ahash::AHashMap;
-pub use comment::get_comment_directive_completion_contents;
+pub use comment::get_document_comment_directive_completion_contents;
 use itertools::Itertools;
-use tombi_ast::{algo::ancestors_at_position, AstNode};
+use tombi_ast::{algo::ancestors_at_position, AstNode, AstToken};
 use tombi_config::TomlVersion;
-use tombi_document_tree::TryIntoDocumentTree;
+use tombi_document_tree::{IntoDocumentTreeAndErrors, TryIntoDocumentTree};
 use tombi_extension::{
-    CommaHint, CompletionContent, CompletionEdit, CompletionHint, CompletionKind,
+    CommaHint, CommentContext, CompletionContent, CompletionEdit, CompletionHint, CompletionKind,
 };
 use tombi_future::Boxable;
-use tombi_rg_tree::TokenAtOffset;
+use tombi_rg_tree::{NodeOrToken, TokenAtOffset};
 use tombi_schema_store::{
-    Accessor, CurrentSchema, ReferableValueSchemas, SchemaDefinitions, SchemaStore, SchemaUri,
-    ValueSchema,
+    Accessor, AccessorKeyKind, CurrentSchema, KeyContext, ReferableValueSchemas, SchemaDefinitions,
+    SchemaStore, SchemaUri, ValueSchema,
 };
 use tombi_syntax::{Direction, SyntaxElement, SyntaxKind, SyntaxNode};
+
+pub fn get_comment_context(
+    root: &tombi_ast::Root,
+    position: tombi_text::Position,
+) -> Option<CommentContext> {
+    if let Some(comments) = root.get_document_header_comments() {
+        for comment in comments {
+            if comment.syntax().range().contains(position)
+                && comment.syntax().text()[1..].trim_start().starts_with(":")
+            {
+                return Some(CommentContext::DocumentDirective(comment));
+            }
+        }
+    }
+
+    match root.syntax().token_at_position(position) {
+        TokenAtOffset::Single(token) if token.kind() == SyntaxKind::COMMENT => {
+            if let Some(comment) = tombi_ast::Comment::cast(token) {
+                return _get_comment_context(comment);
+            }
+        }
+        TokenAtOffset::Between(token1, token2)
+            if token1.kind() == SyntaxKind::COMMENT || token2.kind() == SyntaxKind::COMMENT =>
+        {
+            if let Some(comment) = tombi_ast::Comment::cast(token1) {
+                return _get_comment_context(comment);
+            }
+            if let Some(comment) = tombi_ast::Comment::cast(token2) {
+                return _get_comment_context(comment);
+            }
+        }
+        _ => {}
+    }
+
+    None
+}
+
+fn _get_comment_context(comment: tombi_ast::Comment) -> Option<CommentContext> {
+    if comment.get_tombi_value_directive().is_some() {
+        return Some(CommentContext::ValueDirective(comment));
+    } else {
+        return Some(CommentContext::Normal(comment));
+    }
+}
 
 pub fn extract_keys_and_hint(
     root: &tombi_ast::Root,
     position: tombi_text::Position,
     toml_version: TomlVersion,
+    comment_context: Option<&CommentContext>,
 ) -> Option<(Vec<tombi_document_tree::Key>, Option<CompletionHint>)> {
     let mut keys: Vec<tombi_document_tree::Key> = vec![];
     let mut completion_hint = None;
-
-    match root.syntax().token_at_position(position) {
-        TokenAtOffset::Single(token) if token.kind() == SyntaxKind::COMMENT => {
-            return None;
-        }
-        TokenAtOffset::Between(token1, token2)
-            if token1.kind() == SyntaxKind::COMMENT || token2.kind() == SyntaxKind::COMMENT =>
-        {
-            return None;
-        }
-        _ => {}
-    }
+    let is_tombi_value_comment_directive =
+        matches!(comment_context, Some(CommentContext::ValueDirective(_)));
 
     for (index, node) in ancestors_at_position(root.syntax(), position).enumerate() {
         let ast_keys = if tombi_ast::Keys::cast(node.to_owned()).is_some() {
@@ -83,9 +118,10 @@ pub fn extract_keys_and_hint(
                     }
                     _ => return None,
                 };
-            if position < bracket_start_range.start
-                || (bracket_end_range.end <= position
-                    && position.line == bracket_end_range.end.line)
+            if !is_tombi_value_comment_directive
+                && (position < bracket_start_range.start
+                    || (bracket_end_range.end <= position
+                        && position.line == bracket_end_range.end.line))
             {
                 return None;
             } else {
@@ -106,9 +142,10 @@ pub fn extract_keys_and_hint(
                     _ => return None,
                 }
             };
-            if position < double_bracket_start_range.start
-                && (double_bracket_end_range.end <= position
-                    && position.line == double_bracket_end_range.end.line)
+            if !is_tombi_value_comment_directive
+                && (position < double_bracket_start_range.start
+                    && (double_bracket_end_range.end <= position
+                        && position.line == double_bracket_end_range.end.line))
             {
                 return None;
             } else {
@@ -119,45 +156,6 @@ pub fn extract_keys_and_hint(
             }
         } else {
             if index == 0 {
-                fn get_leading_comma(
-                    node: &SyntaxNode,
-                    position: tombi_text::Position,
-                ) -> Option<CommaHint> {
-                    if let Some(child) = node.last_child() {
-                        if child.kind() == SyntaxKind::COMMA {
-                            return Some(CommaHint {
-                                range: child.range(),
-                            });
-                        }
-                    }
-                    if let Some(sibling) = node
-                        .siblings_with_tokens(Direction::Prev)
-                        .skip_while(|node_or_token| node_or_token.range().contains(position))
-                        .next()
-                    {
-                        if sibling.kind() == SyntaxKind::COMMA {
-                            return Some(CommaHint {
-                                range: sibling.range(),
-                            });
-                        }
-                    }
-                    None
-                }
-
-                fn get_trailing_comma(
-                    node: &SyntaxNode,
-                    _position: tombi_text::Position,
-                ) -> Option<CommaHint> {
-                    if let Some(sibling) = node.siblings_with_tokens(Direction::Next).next() {
-                        if sibling.kind() == SyntaxKind::COMMA {
-                            return Some(CommaHint {
-                                range: sibling.range(),
-                            });
-                        }
-                    }
-                    None
-                }
-
                 let leading_comma = get_leading_comma(&node, position);
                 let trailing_comma = get_trailing_comma(&node, position);
                 if leading_comma.is_some() || trailing_comma.is_some() {
@@ -178,9 +176,9 @@ pub fn extract_keys_and_hint(
                 .keys()
                 .take_while(|key| key.token().unwrap().range().start <= position)
             {
-                match key.try_into_document_tree(toml_version) {
-                    Ok(Some(key)) => new_keys.push(key),
-                    _ => return None,
+                let document_tree_key = key.into_document_tree_and_errors(toml_version).tree;
+                if let Some(document_tree_key) = document_tree_key {
+                    new_keys.push(document_tree_key);
                 }
             }
             new_keys
@@ -436,5 +434,178 @@ fn tombi_json_value_to_completion_default_item(
         CompletionEdit::new_literal(&value, position, completion_hint),
         schema_uri,
         None,
+    ))
+}
+
+fn get_leading_comma(node: &SyntaxNode, position: tombi_text::Position) -> Option<CommaHint> {
+    if let Some(child) = node.last_child() {
+        if child.kind() == SyntaxKind::COMMA {
+            return Some(CommaHint {
+                range: child.range(),
+            });
+        }
+    }
+    if let Some(sibling) = node
+        .siblings_with_tokens(Direction::Prev)
+        .skip_while(|node_or_token| node_or_token.range().contains(position))
+        .next()
+    {
+        if sibling.kind() == SyntaxKind::COMMA {
+            return Some(CommaHint {
+                range: sibling.range(),
+            });
+        }
+    }
+    None
+}
+
+fn get_trailing_comma(node: &SyntaxNode, position: tombi_text::Position) -> Option<CommaHint> {
+    if let Some(sibling) = node.siblings_with_tokens(Direction::Next).next() {
+        match sibling.kind() {
+            SyntaxKind::COMMA => {
+                // Case like:
+                //
+                // ```toml
+                // key = ["value" █,]
+                // ```
+                return Some(CommaHint {
+                    range: sibling.range(),
+                });
+            }
+            SyntaxKind::INVALID_TOKEN => {
+                // Case like:
+                //
+                // ```toml
+                // key = [█, "value"]
+                // ```
+                if let NodeOrToken::Node(node) = sibling {
+                    if let Some(SyntaxElement::Token(token)) = node.first_child_or_token() {
+                        if token.kind() == SyntaxKind::COMMA {
+                            return Some(CommaHint {
+                                range: token.range(),
+                            });
+                        }
+                    }
+                }
+            }
+            SyntaxKind::ARRAY => {
+                // Case like:
+                //
+                // ```toml
+                // [dependency-groups]
+                // dev = [  █   , "pytest"]
+                // ```
+
+                if let NodeOrToken::Node(node) = sibling {
+                    if let Some(next_node_or_token) = node
+                        .children_with_tokens()
+                        .skip_while(|sibling| !sibling.range().contains(position))
+                        .skip(1)
+                        .next()
+                    {
+                        match next_node_or_token.kind() {
+                            SyntaxKind::COMMA => {
+                                return Some(CommaHint {
+                                    range: next_node_or_token.range(),
+                                });
+                            }
+                            SyntaxKind::INVALID_TOKEN => {
+                                if let NodeOrToken::Node(node) = next_node_or_token {
+                                    if let Some(SyntaxElement::Token(token)) =
+                                        node.first_child_or_token()
+                                    {
+                                        if token.kind() == SyntaxKind::COMMA {
+                                            return Some(CommaHint {
+                                                range: token.range(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+pub async fn get_completion_keys_with_context(
+    root: &tombi_ast::Root,
+    position: tombi_text::Position,
+    toml_version: tombi_config::TomlVersion,
+) -> Option<(Vec<tombi_document_tree::Key>, Vec<KeyContext>)> {
+    let mut keys_vec = vec![];
+    let mut key_contexts = vec![];
+
+    for node in ancestors_at_position(root.syntax(), position) {
+        if let Some(kv) = tombi_ast::KeyValue::cast(node.to_owned()) {
+            let keys = kv.keys()?;
+            let keys = if keys.range().contains(position) {
+                keys.keys()
+                    .take_while(|key| key.token().unwrap().range().start <= position)
+                    .collect_vec()
+            } else {
+                keys.keys().collect_vec()
+            };
+            for (i, key) in keys.into_iter().rev().enumerate() {
+                match key.try_into_document_tree(toml_version) {
+                    Ok(Some(key_dt)) => {
+                        let kind = if i == 0 {
+                            AccessorKeyKind::KeyValue
+                        } else {
+                            AccessorKeyKind::Dotted
+                        };
+                        keys_vec.push(key_dt.clone());
+                        key_contexts.push(KeyContext {
+                            kind,
+                            range: key_dt.range(),
+                        });
+                    }
+                    _ => return None,
+                }
+            }
+        } else if let Some(table) = tombi_ast::Table::cast(node.to_owned()) {
+            if let Some(header) = table.header() {
+                for key in header.keys().rev() {
+                    match key.try_into_document_tree(toml_version) {
+                        Ok(Some(key_dt)) => {
+                            keys_vec.push(key_dt.clone());
+                            key_contexts.push(KeyContext {
+                                kind: AccessorKeyKind::Header,
+                                range: key_dt.range(),
+                            });
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+        } else if let Some(array_of_table) = tombi_ast::ArrayOfTable::cast(node.to_owned()) {
+            if let Some(header) = array_of_table.header() {
+                for key in header.keys().rev() {
+                    match key.try_into_document_tree(toml_version) {
+                        Ok(Some(key_dt)) => {
+                            keys_vec.push(key_dt.clone());
+                            key_contexts.push(KeyContext {
+                                kind: AccessorKeyKind::Header,
+                                range: key_dt.range(),
+                            });
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+        }
+    }
+
+    if keys_vec.is_empty() {
+        return None;
+    }
+    Some((
+        keys_vec.into_iter().rev().collect(),
+        key_contexts.into_iter().rev().collect(),
     ))
 }

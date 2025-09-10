@@ -24,14 +24,6 @@ from pulpcore.client.pulpcore.models.storage_class_enum import StorageClassEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class DomainBackendMigrator(BaseModel):
     """
     Special serializer for performing a storage backend migration on a Domain.
@@ -90,10 +82,7 @@ class DomainBackendMigrator(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "storage_class": obj.get("storage_class"),
-            "storage_settings": obj.get("storage_settings")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

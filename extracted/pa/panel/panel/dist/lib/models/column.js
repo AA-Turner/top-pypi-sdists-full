@@ -8,6 +8,7 @@ var ScrollToEvent_1;
 import { ModelEvent, server_event } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { Column as BkColumn, ColumnView as BkColumnView } from "@bokehjs/models/layouts/column";
+import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 export class ScrollButtonClick extends ModelEvent {
     static __name__ = "ScrollButtonClick";
     static {
@@ -118,6 +119,18 @@ export class ColumnView extends BkColumnView {
         const exceeds_threshold = this.distance_from_latest >= threshold;
         this.scroll_down_button_el.classList.toggle("visible", exceeds_threshold);
     }
+    _update_layout() {
+        super._update_layout();
+        const is_scrollable = this.model.css_classes.some(cls => ["scroll", "scrollable", "scrollable-vertical"].includes(cls));
+        for (const view of this.child_views) {
+            if (!(view instanceof LayoutDOMView)) {
+                continue;
+            }
+            if (is_scrollable) {
+                view.parent_style.append(":host", { maxHeight: "none" });
+            }
+        }
+    }
     render() {
         super.render();
         this.scroll_down_button_el = div({ class: "scroll-button" });
@@ -193,10 +206,10 @@ export class Column extends BkColumn {
     static {
         this.prototype.default_view = ColumnView;
         this.define(({ Int, Bool, Nullable }) => ({
-            scroll_position: [Int, 0],
-            scroll_index: [Nullable(Int), null],
             auto_scroll_limit: [Int, 0],
             scroll_button_threshold: [Int, 0],
+            scroll_index: [Nullable(Int), null],
+            scroll_position: [Int, 0],
             view_latest: [Bool, false],
         }));
     }

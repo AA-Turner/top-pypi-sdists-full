@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: elifearticle
-Version: 0.24.0
+Version: 0.25.0
 Summary: eLife article objects.
 Home-page: https://github.com/elifesciences/elife-article
 Maintainer: eLife Sciences Publications Ltd.
@@ -12,7 +12,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: elifetools>=0.43.0
+Requires-Dist: elifetools>=0.45.0
 Requires-Dist: GitPython
 
 # elife-article

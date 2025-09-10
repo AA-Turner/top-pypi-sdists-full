@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
 
@@ -158,7 +158,7 @@ jobs:
       - name: Install SQL Server
         continue-on-error: true
         id: mssqlsuite
-        uses: potatoqualitee/mssqlsuite@v1.8
+        uses: potatoqualitee/mssqlsuite@v1.11
         with:
           install: sqlengine
           sa-password: L0wlydb4
@@ -167,7 +167,7 @@ jobs:
       - name: Retry SQL Server install
         id: retry1
         if: steps.mssqlsuite.outcome == 'failure'
-        uses: potatoqualitee/mssqlsuite@v1.8
+        uses: potatoqualitee/mssqlsuite@v1.11
         with:
           install: sqlengine
           sa-password: L0wlydb4
@@ -184,7 +184,7 @@ jobs:
           ansible-test coverage xml -v --requirements
 
       # See the reports at https://codecov.io/gh/lowlydba/lowlydba.sqlserver
-      - uses: codecov/codecov-action@v5.4.2
+      - uses: codecov/codecov-action@v5.4.3
         with:
           fail_ci_if_error: false
         env:

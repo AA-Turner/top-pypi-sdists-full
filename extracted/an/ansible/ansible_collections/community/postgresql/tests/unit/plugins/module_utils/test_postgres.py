@@ -17,7 +17,7 @@ INPUT_DICT = dict(
     login_password=dict(default='test', no_log=True),
     login_host=dict(default='test'),
     login_unix_socket=dict(default=''),
-    port=dict(type='int', default=5432, aliases=['login_port']),
+    login_port=dict(type='int', default=5432, aliases=['port']),
     ssl_mode=dict(
         default='prefer',
         choices=['allow', 'disable', 'prefer', 'require', 'verify-ca', 'verify-full']
@@ -31,7 +31,7 @@ EXPECTED_DICT = dict(
     user=dict(default='postgres'),
     password=dict(default='test', no_log=True),
     host=dict(default='test'),
-    port=dict(type='int', default=5432, aliases=['login_port']),
+    port=dict(type='int', aliases=['port'], default=5432),
     sslmode=dict(
         default='prefer',
         choices=['allow', 'disable', 'prefer', 'require', 'verify-ca', 'verify-full']
@@ -57,11 +57,35 @@ class TestPostgresCommonArgSpec():
         The return and expected dictionaries must be compared.
         """
         expected_dict = dict(
-            login_user=dict(default='postgres', aliases=['login']),
+            login_user=dict(default='postgres', aliases=['login'], deprecated_aliases=[
+                {
+                    'name': 'login',
+                    'version': '5.0.0',
+                    'collection_name': 'community.postgresql',
+                }
+            ]),
             login_password=dict(default='', no_log=True),
-            login_host=dict(default='', aliases=['host']),
-            login_unix_socket=dict(default='', aliases=['unix_socket']),
-            port=dict(type='int', default=5432, aliases=['login_port']),
+            login_host=dict(default='', aliases=['host'], deprecated_aliases=[
+                {
+                    'name': 'host',
+                    'version': '5.0.0',
+                    'collection_name': 'community.postgresql',
+                }
+            ]),
+            login_unix_socket=dict(default='', aliases=['unix_socket'], deprecated_aliases=[
+                {
+                    'name': 'unix_socket',
+                    'version': '5.0.0',
+                    'collection_name': 'community.postgresql',
+                }
+            ]),
+            login_port=dict(type='int', default=5432, aliases=['port'], deprecated_aliases=[
+                {
+                    'collection_name': 'community.postgresql',
+                    'name': 'port',
+                    'version': '5.0.0'
+                }
+            ]),
             ssl_mode=dict(
                 default='prefer',
                 choices=['allow', 'disable', 'prefer', 'require', 'verify-ca', 'verify-full']
@@ -74,7 +98,7 @@ class TestPostgresCommonArgSpec():
         assert pg.postgres_common_argument_spec() == expected_dict
 
         # Setting new values for checking environment variables
-        expected_dict['port']['default'] = 5435
+        expected_dict['login_port']['default'] = 5435
         expected_dict['login_user']['default'] = 'test_user'
 
         # Setting environment variables

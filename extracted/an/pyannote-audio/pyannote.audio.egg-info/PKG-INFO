@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyannote.audio
-Version: 3.3.2
+Version: 3.4.0
 Summary: Neural building blocks for speaker diarization
 Home-page: https://github.com/pyannote/pyannote-audio
 Author: Hervé Bredin
@@ -24,10 +24,10 @@ Requires-Dist: einops>=0.6.0
 Requires-Dist: huggingface_hub>=0.13.0
 Requires-Dist: lightning>=2.0.1
 Requires-Dist: omegaconf<3.0,>=2.1
-Requires-Dist: pyannote.core>=5.0.0
-Requires-Dist: pyannote.database>=5.0.1
-Requires-Dist: pyannote.metrics>=3.2
-Requires-Dist: pyannote.pipeline>=3.0.1
+Requires-Dist: pyannote.core<6.0,>=5.0.0
+Requires-Dist: pyannote.database<6.0,>=5.0.1
+Requires-Dist: pyannote.metrics<4.0,>=3.2
+Requires-Dist: pyannote.pipeline<4.0,>=3.0.1
 Requires-Dist: pytorch_metric_learning>=2.1.0
 Requires-Dist: rich>=12.0.0
 Requires-Dist: semver>=3.0.0
@@ -53,6 +53,15 @@ Requires-Dist: typer<0.5.0,>=0.4.0; extra == "cli"
 Provides-Extra: separation
 Requires-Dist: transformers>=4.39.1; extra == "separation"
 Requires-Dist: asteroid>=0.7.0; extra == "separation"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Using `pyannote.audio` open-source toolkit in production?  
 Consider switching to [pyannoteAI](https://www.pyannote.ai) for better and faster options.

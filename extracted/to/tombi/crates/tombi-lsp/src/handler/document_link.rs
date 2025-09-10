@@ -52,7 +52,7 @@ pub async fn handle_document_link(
         document_links.push(
             tombi_extension::DocumentLink {
                 range,
-                target: get_tombi_github_uri(&schema_uri).unwrap_or(schema_uri),
+                target: get_tombi_github_uri(&schema_uri).unwrap_or(schema_uri.into()),
                 tooltip,
             }
             .into(),
@@ -67,7 +67,7 @@ pub async fn handle_document_link(
         .flatten();
 
     let tombi_document_comment_directive =
-        tombi_comment_directive::get_tombi_document_comment_directive(&root).await;
+        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
     let (toml_version, _) = backend
         .source_toml_version(
             tombi_document_comment_directive,

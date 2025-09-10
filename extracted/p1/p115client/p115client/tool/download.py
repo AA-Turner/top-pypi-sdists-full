@@ -1671,7 +1671,7 @@ def iter_download_files(
         nonlocal top_ancestors, top_path, top_prefix_len
         if not top_prefix_len:
             if cid:
-                top_path = bind.get_path(id_to_dirnode[top_id]) # type: ignore
+                top_path = bind.get_path(top_id) # type: ignore
                 if with_ancestors:
                     top_ancestors = bind.get_ancestors(top_id) # type: ignore
                 top_prefix_len = len(top_path) + 1

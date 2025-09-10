@@ -26,6 +26,7 @@ from datadog_api_client.v2.api.data_deletion_api import DataDeletionApi
 from datadog_api_client.v2.api.datasets_api import DatasetsApi
 from datadog_api_client.v2.api.domain_allowlist_api import DomainAllowlistApi
 from datadog_api_client.v2.api.downtimes_api import DowntimesApi
+from datadog_api_client.v2.api.error_tracking_api import ErrorTrackingApi
 from datadog_api_client.v2.api.events_api import EventsApi
 from datadog_api_client.v2.api.fastly_integration_api import FastlyIntegrationApi
 from datadog_api_client.v2.api.gcp_integration_api import GCPIntegrationApi
@@ -47,6 +48,7 @@ from datadog_api_client.v2.api.okta_integration_api import OktaIntegrationApi
 from datadog_api_client.v2.api.on_call_api import OnCallApi
 from datadog_api_client.v2.api.on_call_paging_api import OnCallPagingApi
 from datadog_api_client.v2.api.opsgenie_integration_api import OpsgenieIntegrationApi
+from datadog_api_client.v2.api.org_connections_api import OrgConnectionsApi
 from datadog_api_client.v2.api.organizations_api import OrganizationsApi
 from datadog_api_client.v2.api.powerpack_api import PowerpackApi
 from datadog_api_client.v2.api.processes_api import ProcessesApi
@@ -62,6 +64,7 @@ from datadog_api_client.v2.api.service_definition_api import ServiceDefinitionAp
 from datadog_api_client.v2.api.service_level_objectives_api import ServiceLevelObjectivesApi
 from datadog_api_client.v2.api.service_scorecards_api import ServiceScorecardsApi
 from datadog_api_client.v2.api.software_catalog_api import SoftwareCatalogApi
+from datadog_api_client.v2.api.spa_api import SpaApi
 from datadog_api_client.v2.api.spans_api import SpansApi
 from datadog_api_client.v2.api.spans_metrics_api import SpansMetricsApi
 from datadog_api_client.v2.api.synthetics_api import SyntheticsApi
@@ -100,6 +103,7 @@ __all__ = [
     "DatasetsApi",
     "DomainAllowlistApi",
     "DowntimesApi",
+    "ErrorTrackingApi",
     "EventsApi",
     "FastlyIntegrationApi",
     "GCPIntegrationApi",
@@ -121,6 +125,7 @@ __all__ = [
     "OnCallApi",
     "OnCallPagingApi",
     "OpsgenieIntegrationApi",
+    "OrgConnectionsApi",
     "OrganizationsApi",
     "PowerpackApi",
     "ProcessesApi",
@@ -136,6 +141,7 @@ __all__ = [
     "ServiceLevelObjectivesApi",
     "ServiceScorecardsApi",
     "SoftwareCatalogApi",
+    "SpaApi",
     "SpansApi",
     "SpansMetricsApi",
     "SyntheticsApi",

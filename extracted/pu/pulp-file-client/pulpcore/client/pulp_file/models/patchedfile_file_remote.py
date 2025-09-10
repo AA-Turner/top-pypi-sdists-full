@@ -25,14 +25,6 @@ from pulpcore.client.pulp_file.models.policy_enum import PolicyEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedfileFileRemote(BaseModel):
     """
     Serializer for File Remotes.
@@ -185,29 +177,7 @@ class PatchedfileFileRemote(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "url": obj.get("url"),
-            "ca_cert": obj.get("ca_cert"),
-            "client_cert": obj.get("client_cert"),
-            "client_key": obj.get("client_key"),
-            "tls_validation": obj.get("tls_validation"),
-            "proxy_url": obj.get("proxy_url"),
-            "proxy_username": obj.get("proxy_username"),
-            "proxy_password": obj.get("proxy_password"),
-            "username": obj.get("username"),
-            "password": obj.get("password"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "download_concurrency": obj.get("download_concurrency"),
-            "max_retries": obj.get("max_retries"),
-            "policy": obj.get("policy"),
-            "total_timeout": obj.get("total_timeout"),
-            "connect_timeout": obj.get("connect_timeout"),
-            "sock_connect_timeout": obj.get("sock_connect_timeout"),
-            "sock_read_timeout": obj.get("sock_read_timeout"),
-            "headers": obj.get("headers"),
-            "rate_limit": obj.get("rate_limit")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

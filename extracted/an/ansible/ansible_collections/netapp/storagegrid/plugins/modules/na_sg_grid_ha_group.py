@@ -65,62 +65,62 @@ options:
 """
 
 EXAMPLES = """
-  - name: create HA Group
-    netapp.storagegrid.na_sg_grid_ha_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: Site1-HA-Group
-      description: "Site 1 HA Group"
-      gateway_cidr: 192.168.50.1/24
-      virtual_ips: 192.168.50.5
-      interfaces:
-        - node: SITE1-ADM1
-          interface: eth2
-        - node: SITE1-G1
-          interface: eth2
+- name: create HA Group
+  netapp.storagegrid.na_sg_grid_ha_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: Site1-HA-Group
+    description: "Site 1 HA Group"
+    gateway_cidr: 192.168.50.1/24
+    virtual_ips: 192.168.50.5
+    interfaces:
+      - node: SITE1-ADM1
+        interface: eth2
+      - node: SITE1-G1
+        interface: eth2
 
-  - name: add VIP to HA Group
-    netapp.storagegrid.na_sg_grid_ha_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: Site1-HA-Group
-      description: "Site 1 HA Group"
-      gateway_cidr: 192.168.50.1/24
-      virtual_ips: 192.168.50.5,192.168.50.6
-      interfaces:
-        - node: SITE1-ADM1
-          interface: eth2
-        - node: SITE1-G1
-          interface: eth2
+- name: add VIP to HA Group
+  netapp.storagegrid.na_sg_grid_ha_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: Site1-HA-Group
+    description: "Site 1 HA Group"
+    gateway_cidr: 192.168.50.1/24
+    virtual_ips: 192.168.50.5,192.168.50.6
+    interfaces:
+      - node: SITE1-ADM1
+        interface: eth2
+      - node: SITE1-G1
+        interface: eth2
 
-  - name: rename HA Group
-    netapp.storagegrid.na_sg_grid_ha_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      ha_group_id: 00000000-0000-0000-0000-000000000000
-      name: Site1-HA-Group-New-Name
-      description: "Site 1 HA Group"
-      gateway_cidr: 192.168.50.1/24
-      virtual_ips: 192.168.50.5
-      interfaces:
-        - node: SITE1-ADM1
-          interface: eth2
-        - node: SITE1-G1
-          interface: eth2
+- name: rename HA Group
+  netapp.storagegrid.na_sg_grid_ha_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    ha_group_id: 00000000-0000-0000-0000-000000000000
+    name: Site1-HA-Group-New-Name
+    description: "Site 1 HA Group"
+    gateway_cidr: 192.168.50.1/24
+    virtual_ips: 192.168.50.5
+    interfaces:
+      - node: SITE1-ADM1
+        interface: eth2
+      - node: SITE1-G1
+        interface: eth2
 
-  - name: delete HA Group
-    netapp.storagegrid.na_sg_grid_ha_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: absent
-      name: Site1-HA-Group
+- name: delete HA Group
+  netapp.storagegrid.na_sg_grid_ha_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: absent
+    name: Site1-HA-Group
 """
 
 RETURN = """
@@ -306,7 +306,18 @@ class SgGridHaGroup:
         result_message = ""
         resp_data = {}
 
-        if self.na_helper.changed and not self.module.check_mode:
+        # check if we are in check mode
+        if self.module.check_mode:
+            if cd_action == "delete":
+                self.module.exit_json(changed=True, msg="HA Group would be deleted.")
+            elif cd_action == "create":
+                self.module.exit_json(changed=True, msg="HA Group would be created.")
+            elif modify:
+                self.module.exit_json(changed=True, msg="HA Group would be updated.")
+            else:
+                self.module.exit_json(changed=False, msg="No changes would be made.")
+
+        if self.na_helper.changed:
             if cd_action == "delete":
                 self.delete_ha_group(ha_group["id"])
                 result_message = "HA Group deleted"

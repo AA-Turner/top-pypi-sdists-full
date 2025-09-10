@@ -72,17 +72,16 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a tenant user
-    netapp.storagegrid.na_sg_org_user:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      full_name: ansibleuser1
-      unique_name: user/ansibleuser1
-      member_of: "group/ansiblegroup1"
-      disable: false
-
+- name: create a tenant user
+  netapp.storagegrid.na_sg_org_user:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    full_name: ansibleuser1
+    unique_name: user/ansibleuser1
+    member_of: "group/ansiblegroup1"
+    disable: false
 """
 
 RETURN = """
@@ -258,8 +257,11 @@ class SgOrgUser(object):
             # let's see if we need to update parameters
             update = False
 
-            if org_user["memberOf"] is None:
-                member_of_diff = []
+            if org_user.get("memberOf") is None:
+                if self.data.get("memberOf"):
+                    member_of_diff = [self.data['memberOf']]
+                else:
+                    member_of_diff = []
             else:
                 member_of_diff = [
                     i

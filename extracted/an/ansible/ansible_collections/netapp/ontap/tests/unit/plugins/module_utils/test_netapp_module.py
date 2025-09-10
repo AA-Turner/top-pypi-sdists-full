@@ -19,6 +19,9 @@ from ansible_collections.netapp.ontap.tests.unit.plugins.module_utils.ansible_mo
 from ansible_collections.netapp.ontap.tests.unit.framework.zapi_factory import build_zapi_response
 from ansible_collections.netapp.ontap.tests.unit.framework import ut_utilities
 
+if not netapp_utils.has_netapp_lib():
+    pytestmark = pytest.mark.skip("skipping as missing required netapp_lib")
+
 if sys.version_info < (3, 11):
     pytestmark = pytest.mark.skip("Skipping Unit Tests on 3.11")
 
@@ -833,8 +836,9 @@ def test_fall_back_to_zapi():
 def test_module_deprecated():
     my_obj = create_ontap_module({'hostname': 'abc'})
     assert my_obj.na_helper.module_deprecated(my_obj.na_helper.ansible_module) is None
-    assert_warning_was_raised('This module only supports ZAPI and is deprecated.   It will no longer work with newer versions of ONTAP.  '
-                              'The final ONTAP version to support ZAPI is ONTAP 9.12.1.')
+    assert_warning_was_raised('This module only supports ZAPI and is deprecated.   '
+                              'After upgrading to ONTAP 9.14 and beyond, ONTAPI (ZAPI) remains active for 30 days.  '
+                              'If no calls are detected, it will be automatically disabled but can be re-enabled via CLI command.')
 
 
 def test_module_replaces():

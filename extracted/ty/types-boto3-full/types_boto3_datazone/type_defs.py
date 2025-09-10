@@ -202,6 +202,8 @@ __all__ = (
     "CreateDomainUnitPolicyGrantDetailTypeDef",
     "CreateEnvironmentActionInputTypeDef",
     "CreateEnvironmentActionOutputTypeDef",
+    "CreateEnvironmentBlueprintInputTypeDef",
+    "CreateEnvironmentBlueprintOutputTypeDef",
     "CreateEnvironmentInputTypeDef",
     "CreateEnvironmentOutputTypeDef",
     "CreateEnvironmentProfileInputTypeDef",
@@ -269,6 +271,7 @@ __all__ = (
     "DeleteDomainUnitInputTypeDef",
     "DeleteEnvironmentActionInputTypeDef",
     "DeleteEnvironmentBlueprintConfigurationInputTypeDef",
+    "DeleteEnvironmentBlueprintInputTypeDef",
     "DeleteEnvironmentInputTypeDef",
     "DeleteEnvironmentProfileInputTypeDef",
     "DeleteFormTypeInputTypeDef",
@@ -744,6 +747,8 @@ __all__ = (
     "UpdateDomainUnitOutputTypeDef",
     "UpdateEnvironmentActionInputTypeDef",
     "UpdateEnvironmentActionOutputTypeDef",
+    "UpdateEnvironmentBlueprintInputTypeDef",
+    "UpdateEnvironmentBlueprintOutputTypeDef",
     "UpdateEnvironmentInputTypeDef",
     "UpdateEnvironmentOutputTypeDef",
     "UpdateEnvironmentProfileInputTypeDef",
@@ -1158,11 +1163,6 @@ class CreateDomainUnitPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
 
 
-class EnvironmentParameterTypeDef(TypedDict):
-    name: NotRequired[str]
-    value: NotRequired[str]
-
-
 class CustomParameterTypeDef(TypedDict):
     fieldType: str
     keyName: str
@@ -1170,11 +1170,17 @@ class CustomParameterTypeDef(TypedDict):
     description: NotRequired[str]
     isEditable: NotRequired[bool]
     isOptional: NotRequired[bool]
+    isUpdateSupported: NotRequired[bool]
 
 
 class DeploymentPropertiesTypeDef(TypedDict):
     endTimeoutMinutes: NotRequired[int]
     startTimeoutMinutes: NotRequired[int]
+
+
+class EnvironmentParameterTypeDef(TypedDict):
+    name: NotRequired[str]
+    value: NotRequired[str]
 
 
 ResourceTypeDef = TypedDict(
@@ -1379,6 +1385,11 @@ class DeleteEnvironmentActionInputTypeDef(TypedDict):
 class DeleteEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     domainIdentifier: str
     environmentBlueprintIdentifier: str
+
+
+class DeleteEnvironmentBlueprintInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
 
 
 class DeleteEnvironmentInputTypeDef(TypedDict):
@@ -3109,54 +3120,6 @@ UpdateDomainOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-
-class CreateEnvironmentInputTypeDef(TypedDict):
-    domainIdentifier: str
-    name: str
-    projectIdentifier: str
-    deploymentOrder: NotRequired[int]
-    description: NotRequired[str]
-    environmentAccountIdentifier: NotRequired[str]
-    environmentAccountRegion: NotRequired[str]
-    environmentBlueprintIdentifier: NotRequired[str]
-    environmentConfigurationId: NotRequired[str]
-    environmentProfileIdentifier: NotRequired[str]
-    glossaryTerms: NotRequired[Sequence[str]]
-    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
-
-class CreateEnvironmentProfileInputTypeDef(TypedDict):
-    domainIdentifier: str
-    environmentBlueprintIdentifier: str
-    name: str
-    projectIdentifier: str
-    awsAccountId: NotRequired[str]
-    awsAccountRegion: NotRequired[str]
-    description: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
-
-class UpdateEnvironmentInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    blueprintVersion: NotRequired[str]
-    description: NotRequired[str]
-    glossaryTerms: NotRequired[Sequence[str]]
-    name: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
-
-class UpdateEnvironmentProfileInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    awsAccountId: NotRequired[str]
-    awsAccountRegion: NotRequired[str]
-    description: NotRequired[str]
-    name: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
-
 CreateEnvironmentProfileOutputTypeDef = TypedDict(
     "CreateEnvironmentProfileOutputTypeDef",
     {
@@ -3211,6 +3174,52 @@ UpdateEnvironmentProfileOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class CreateEnvironmentInputTypeDef(TypedDict):
+    domainIdentifier: str
+    name: str
+    projectIdentifier: str
+    deploymentOrder: NotRequired[int]
+    description: NotRequired[str]
+    environmentAccountIdentifier: NotRequired[str]
+    environmentAccountRegion: NotRequired[str]
+    environmentBlueprintIdentifier: NotRequired[str]
+    environmentConfigurationId: NotRequired[str]
+    environmentProfileIdentifier: NotRequired[str]
+    glossaryTerms: NotRequired[Sequence[str]]
+    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+
+
+class CreateEnvironmentProfileInputTypeDef(TypedDict):
+    domainIdentifier: str
+    environmentBlueprintIdentifier: str
+    name: str
+    projectIdentifier: str
+    awsAccountId: NotRequired[str]
+    awsAccountRegion: NotRequired[str]
+    description: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+
+
+class UpdateEnvironmentInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    blueprintVersion: NotRequired[str]
+    description: NotRequired[str]
+    glossaryTerms: NotRequired[Sequence[str]]
+    name: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+
+
+class UpdateEnvironmentProfileInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    awsAccountId: NotRequired[str]
+    awsAccountRegion: NotRequired[str]
+    description: NotRequired[str]
+    name: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
 
 
 class CreateFormTypeInputTypeDef(TypedDict):
@@ -4621,6 +4630,32 @@ CreateAssetRevisionOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class CreateEnvironmentBlueprintInputTypeDef(TypedDict):
+    domainIdentifier: str
+    name: str
+    provisioningProperties: ProvisioningPropertiesTypeDef
+    description: NotRequired[str]
+    userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+
+
+CreateEnvironmentBlueprintOutputTypeDef = TypedDict(
+    "CreateEnvironmentBlueprintOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "deploymentProperties": DeploymentPropertiesTypeDef,
+        "description": str,
+        "glossaryTerms": List[str],
+        "id": str,
+        "name": str,
+        "provider": str,
+        "provisioningProperties": ProvisioningPropertiesTypeDef,
+        "updatedAt": datetime,
+        "userParameters": List[CustomParameterTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 EnvironmentBlueprintSummaryTypeDef = TypedDict(
     "EnvironmentBlueprintSummaryTypeDef",
     {
@@ -4635,6 +4670,32 @@ EnvironmentBlueprintSummaryTypeDef = TypedDict(
 )
 GetEnvironmentBlueprintOutputTypeDef = TypedDict(
     "GetEnvironmentBlueprintOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "deploymentProperties": DeploymentPropertiesTypeDef,
+        "description": str,
+        "glossaryTerms": List[str],
+        "id": str,
+        "name": str,
+        "provider": str,
+        "provisioningProperties": ProvisioningPropertiesTypeDef,
+        "updatedAt": datetime,
+        "userParameters": List[CustomParameterTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class UpdateEnvironmentBlueprintInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    description: NotRequired[str]
+    provisioningProperties: NotRequired[ProvisioningPropertiesTypeDef]
+    userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+
+
+UpdateEnvironmentBlueprintOutputTypeDef = TypedDict(
+    "UpdateEnvironmentBlueprintOutputTypeDef",
     {
         "createdAt": datetime,
         "deploymentProperties": DeploymentPropertiesTypeDef,
@@ -6041,6 +6102,7 @@ class PutEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     enabledRegions: Sequence[str]
     environmentBlueprintIdentifier: str
     environmentRolePermissionBoundary: NotRequired[str]
+    globalParameters: NotRequired[Mapping[str, str]]
     manageAccessRoleArn: NotRequired[str]
     provisioningConfigurations: NotRequired[Sequence[ProvisioningConfigurationUnionTypeDef]]
     provisioningRoleArn: NotRequired[str]

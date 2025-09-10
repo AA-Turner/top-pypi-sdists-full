@@ -26,16 +26,6 @@ author: Denis Magel (@dmagel-netapp) <denis.magel@netapp.com>
 description:
 - Interact with EC profiles on NetApp StorageGRID.
 options:
-  api_url:
-    description:
-    - Rest endpoint for all invocations against the grid
-    required: true
-    type: str
-  auth_token:
-    description:
-    - The authorization token for the API request
-    required: true
-    type: str
   name:
     description:
     - The EC Profile's name
@@ -67,20 +57,20 @@ options:
 """
 
 EXAMPLES = """
-  - name: Create EC profile
-    na_sg_grid_ec_profile:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "profile1"
-      pool_id: p10771105546308032398
-      scheme_id: "1"
+- name: Create EC profile
+  na_sg_grid_ec_profile:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "profile1"
+    pool_id: p10771105546308032398
+    scheme_id: "1"
 
-  - name: Deactivate existing EC profile
-    na_sg_grid_ec_profile:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "profile1"
-      state: absent
+- name: Deactivate existing EC profile
+  na_sg_grid_ec_profile:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "profile1"
+    state: absent
 """
 
 RETURN = """

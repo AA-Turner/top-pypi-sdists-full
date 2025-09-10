@@ -21,7 +21,6 @@ class Constants:
 
     # dag/construct
     ERROR_DAG_DICT_INVALID_KEY = "Invalid input, check `{parameter}` is not a valid key as it is a reserved keyword"
-    ERROR_DAG_DICT_PARENT_KEY = "Parent key {parent_key} not in dictionary, check `relation_attrs` and `parent_key`"
     ERROR_DAG_DATAFRAME_EMPTY_CHILD = (
         "Child name cannot be empty, check column: {child_col}"
     )
@@ -32,6 +31,7 @@ class Constants:
         "Child column not in data, check `child_col`: {child_col}"
     )
 
+    ERROR_DAG_INVALID_PARENT = "No parent specified, check "
     ERROR_DAG_DATAFRAME_DUPLICATE_PARENT = (
         "There exists duplicate child name with different attributes\nCheck "
     )
@@ -136,6 +136,9 @@ class Constants:
 
     # tree/export
     ERROR_NODE_TYPE = "Tree should be of type `{type}`, or inherit from `{type}`"
+    ERROR_NODE_EXPORT_DICT_NO_ATTRS = (
+        "If child_key is None, no node attributes can be exported"
+    )
     ERROR_NODE_EXPORT_PRINT_ATTR_BRACKET = (
         "Expect open and close brackets in `attr_bracket`, received {attr_bracket}"
     )

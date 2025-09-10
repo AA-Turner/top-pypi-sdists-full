@@ -106,21 +106,26 @@ fn format_comment(
     comment: &tombi_ast::Comment,
     strip_leading_spaces: bool,
 ) -> Result<(), std::fmt::Error> {
-    let comment = comment.to_string();
+    let comment_string = comment.to_string();
     {
         // For the purpose of reading the JSON Schema path defined in the file by taplo,
         // we format in a different style from the tombi comment style.
-        if let Some(schema_uri) = comment.strip_prefix("#:schema ") {
+        if let Some(schema_uri) = comment_string.strip_prefix("#:schema ") {
             return write!(f, "#:schema {}", schema_uri.trim());
         }
 
-        if let Some(content) = comment.strip_prefix("#:tombi ") {
+        if let Some(content) = comment_string.strip_prefix("#:tombi ") {
             let formatted = f.format_tombi_comment_directive_content(content)?;
             return write!(f, "#:tombi {formatted}");
         }
+
+        if let Some(comment_directive) = comment.get_tombi_value_directive() {
+            let formatted = f.format_tombi_comment_directive_content(&comment_directive.content)?;
+            return write!(f, "# tombi: {formatted}");
+        }
     }
 
-    let mut iter = comment.trim_ascii_end().chars();
+    let mut iter = comment_string.trim_ascii_end().chars();
 
     // write '#' character
     write!(f, "{}", iter.next().unwrap())?;
@@ -237,15 +242,15 @@ mod tests {
 
     test_format! {
         #[test]
-        fn schema_comment(r"#:schema ../../schemas/x-tombi-toml-v1.0.0.schema.json") -> Ok(
-            "#:schema ../../schemas/x-tombi-toml-v1.0.0.schema.json"
+        fn schema_comment(r"#:schema https://json.schemastore.org/pyproject.json") -> Ok(
+            "#:schema https://json.schemastore.org/pyproject.json"
         );
     }
 
     test_format! {
         #[test]
-        fn schema_comment_with_space(r"#:schema  ../../schemas/x-tombi-toml-v1.0.0.schema.json  ") -> Ok(
-            "#:schema ../../schemas/x-tombi-toml-v1.0.0.schema.json"
+        fn schema_comment_with_space(r"#:schema  https://json.schemastore.org/pyproject.json  ") -> Ok(
+            "#:schema https://json.schemastore.org/pyproject.json"
         );
     }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: command_runner
-Version: 1.7.4
+Version: 1.7.5
 Summary: Platform agnostic command and shell execution tool, also allows UAC/sudo privilege elevation
 Home-page: https://github.com/netinvent/command_runner
 Author: NetInvent - Orsiris de Jong

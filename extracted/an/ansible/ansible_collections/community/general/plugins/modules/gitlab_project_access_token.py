@@ -193,7 +193,7 @@ class GitLabProjectAccessToken(object):
     def find_access_token(self, project, name):
         access_tokens = [x for x in project.access_tokens.list(all=True) if not getattr(x, 'revoked', False)]
         for access_token in access_tokens:
-            if (access_token.name == name):
+            if access_token.name == name:
                 self.access_token_object = access_token
                 return False
         return False
@@ -243,7 +243,7 @@ def main():
                              'create_runner',
                              'ai_features',
                              'k8s_proxy']),
-        access_level=dict(type='str', required=False, default='maintainer', choices=['guest', 'reporter', 'developer', 'maintainer', 'owner']),
+        access_level=dict(type='str', default='maintainer', choices=['guest', 'reporter', 'developer', 'maintainer', 'owner']),
         expires_at=dict(type='str', required=True),
         recreate=dict(type='str', default='never', choices=['never', 'always', 'state_change'])
     ))

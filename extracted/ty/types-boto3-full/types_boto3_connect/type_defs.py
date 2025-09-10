@@ -556,6 +556,7 @@ __all__ = (
     "InboundAdditionalRecipientsTypeDef",
     "InboundEmailContentTypeDef",
     "InboundRawMessageTypeDef",
+    "InputPredefinedAttributeConfigurationTypeDef",
     "InstanceStatusReasonTypeDef",
     "InstanceStorageConfigTypeDef",
     "InstanceSummaryTypeDef",
@@ -758,6 +759,7 @@ __all__ = (
     "PhoneNumberQuickConnectConfigTypeDef",
     "PhoneNumberStatusTypeDef",
     "PhoneNumberSummaryTypeDef",
+    "PredefinedAttributeConfigurationTypeDef",
     "PredefinedAttributeSearchCriteriaPaginatorTypeDef",
     "PredefinedAttributeSearchCriteriaTypeDef",
     "PredefinedAttributeSummaryTypeDef",
@@ -1677,6 +1679,8 @@ class SegmentAttributeValueOutputTypeDef(TypedDict):
     ValueString: NotRequired[str]
     ValueMap: NotRequired[Dict[str, Dict[str, Any]]]
     ValueInteger: NotRequired[int]
+    ValueList: NotRequired[List[Dict[str, Any]]]
+    ValueArn: NotRequired[str]
 
 
 class WisdomInfoTypeDef(TypedDict):
@@ -1775,6 +1779,10 @@ class CreatePersistentContactAssociationRequestTypeDef(TypedDict):
     RehydrationType: RehydrationTypeType
     SourceContactId: str
     ClientToken: NotRequired[str]
+
+
+class InputPredefinedAttributeConfigurationTypeDef(TypedDict):
+    EnableValueValidationOnAssociation: NotRequired[bool]
 
 
 class CreatePromptRequestTypeDef(TypedDict):
@@ -3187,6 +3195,11 @@ class PhoneNumberQuickConnectConfigTypeDef(TypedDict):
     PhoneNumber: str
 
 
+class PredefinedAttributeConfigurationTypeDef(TypedDict):
+    EnableValueValidationOnAssociation: NotRequired[bool]
+    IsReadOnly: NotRequired[bool]
+
+
 class PredefinedAttributeValuesOutputTypeDef(TypedDict):
     StringList: NotRequired[List[str]]
 
@@ -3355,6 +3368,8 @@ class SegmentAttributeValueTypeDef(TypedDict):
     ValueString: NotRequired[str]
     ValueMap: NotRequired[Mapping[str, Mapping[str, Any]]]
     ValueInteger: NotRequired[int]
+    ValueList: NotRequired[Sequence[Mapping[str, Any]]]
+    ValueArn: NotRequired[str]
 
 
 class SourceCampaignTypeDef(TypedDict):
@@ -5522,6 +5537,8 @@ class ParticipantTimerConfigurationTypeDef(TypedDict):
 class PredefinedAttributeTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[PredefinedAttributeValuesOutputTypeDef]
+    Purposes: NotRequired[List[str]]
+    AttributeConfiguration: NotRequired[PredefinedAttributeConfigurationTypeDef]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedRegion: NotRequired[str]
 
@@ -6264,13 +6281,17 @@ class SearchPredefinedAttributesResponseTypeDef(TypedDict):
 class CreatePredefinedAttributeRequestTypeDef(TypedDict):
     InstanceId: str
     Name: str
-    Values: PredefinedAttributeValuesUnionTypeDef
+    Values: NotRequired[PredefinedAttributeValuesUnionTypeDef]
+    Purposes: NotRequired[Sequence[str]]
+    AttributeConfiguration: NotRequired[InputPredefinedAttributeConfigurationTypeDef]
 
 
 class UpdatePredefinedAttributeRequestTypeDef(TypedDict):
     InstanceId: str
     Name: str
     Values: NotRequired[PredefinedAttributeValuesUnionTypeDef]
+    Purposes: NotRequired[Sequence[str]]
+    AttributeConfiguration: NotRequired[InputPredefinedAttributeConfigurationTypeDef]
 
 
 class CreateQuickConnectRequestTypeDef(TypedDict):

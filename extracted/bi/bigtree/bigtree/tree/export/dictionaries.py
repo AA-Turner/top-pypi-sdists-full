@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, TypeVar
 
 from bigtree.node import node
+from bigtree.utils import common
 
 __all__ = [
     "tree_to_dict",
@@ -71,25 +72,13 @@ def tree_to_dict(
                 and (not skip_depth or _node.depth > skip_depth)
                 and (not leaf_only or _node.is_leaf)
             ):
-                data_child: Dict[str, Any] = {}
-                if name_key:
-                    data_child[name_key] = _node.node_name
-                if parent_key:
-                    parent_name = None
-                    if _node.parent:
-                        parent_name = _node.parent.node_name
-                    data_child[parent_key] = parent_name
-                if all_attrs:
-                    data_child.update(
-                        dict(
-                            _node.describe(
-                                exclude_attributes=["name"], exclude_prefix="_"
-                            )
-                        )
-                    )
-                elif attr_dict:
-                    for k, v in attr_dict.items():
-                        data_child[v] = _node.get_attr(k)
+                data_child = common.assemble_attributes(
+                    _node,
+                    attr_dict,
+                    all_attrs,
+                    name_col=name_key,
+                    parent_col=parent_key,
+                )
                 data_dict[_node.path_name] = data_child
             for _child in _node.children:
                 _recursive_append(_child)
@@ -144,18 +133,9 @@ def tree_to_nested_dict(
         """
         if _node:
             if not max_depth or _node.depth <= max_depth:
-                data_child = {name_key: _node.node_name}
-                if all_attrs:
-                    data_child.update(
-                        dict(
-                            _node.describe(
-                                exclude_attributes=["name"], exclude_prefix="_"
-                            )
-                        )
-                    )
-                elif attr_dict:
-                    for k, v in attr_dict.items():
-                        data_child[v] = _node.get_attr(k)
+                data_child = common.assemble_attributes(
+                    _node, attr_dict, all_attrs, name_col=name_key
+                )
                 if child_key in parent_dict:
                     parent_dict[child_key].append(data_child)
                 else:
@@ -170,7 +150,7 @@ def tree_to_nested_dict(
 
 def tree_to_nested_dict_key(
     tree: T,
-    child_key: str = "children",
+    child_key: Optional[str] = "children",
     attr_dict: Optional[Dict[str, str]] = None,
     all_attrs: bool = False,
     max_depth: int = 0,
@@ -180,6 +160,7 @@ def tree_to_nested_dict_key(
     All descendants from `tree` will be exported, `tree` can be the root node or child node of tree.
 
     Exported dictionary will have key as node names, and children as node attributes and nested recursive dictionary.
+    If child_key is None, the children key is nested recursive dictionary of node names (there will be no attributes).
 
     Examples:
         >>> from bigtree import Node, tree_to_nested_dict_key
@@ -190,6 +171,9 @@ def tree_to_nested_dict_key(
         >>> e = Node("e", age=35, parent=b)
         >>> tree_to_nested_dict_key(root, all_attrs=True)
         {'a': {'age': 90, 'children': {'b': {'age': 65, 'children': {'d': {'age': 40}, 'e': {'age': 35}}}, 'c': {'age': 60}}}}
+
+        >>> tree_to_nested_dict_key(root, child_key=None)
+        {'a': {'b': {'d': {}, 'e': {}}, 'c': {}}}
 
     Args:
         tree: tree to be exported
@@ -210,27 +194,25 @@ def tree_to_nested_dict_key(
             _node: current node
             parent_dict: parent dictionary
         """
+        if child_key is None:
+            if attr_dict or all_attrs:
+                raise ValueError(
+                    "If child_key is None, no node attributes can be exported"
+                )
+
         if _node:
             if not max_depth or _node.depth <= max_depth:
-                data_child = {}
-                if all_attrs:
-                    data_child.update(
-                        dict(
-                            _node.describe(
-                                exclude_attributes=["name"], exclude_prefix="_"
-                            )
-                        )
-                    )
-                elif attr_dict:
-                    for k, v in attr_dict.items():
-                        data_child[v] = _node.get_attr(k)
-                if child_key in parent_dict:
-                    parent_dict[child_key][_node.node_name] = data_child
+                data_child = common.assemble_attributes(_node, attr_dict, all_attrs)
+                if child_key:
+                    if child_key in parent_dict:
+                        parent_dict[child_key][_node.node_name] = data_child
+                    else:
+                        parent_dict[child_key] = {_node.node_name: data_child}
                 else:
-                    parent_dict[child_key] = {_node.node_name: data_child}
+                    parent_dict[_node.node_name] = data_child
 
                 for _child in _node.children:
                     _recursive_append(_child, data_child)
 
     _recursive_append(tree, data_dict)
-    return data_dict[child_key]
+    return data_dict[child_key] if child_key else data_dict

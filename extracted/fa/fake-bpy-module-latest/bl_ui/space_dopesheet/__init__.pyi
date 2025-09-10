@@ -855,16 +855,4 @@ class GreasePencilLayersDopeSheetPanel:
         :param context:
         """
 
-class LayersDopeSheetPanel:
-    bl_category: typing.Any
-    bl_region_type: typing.Any
-    bl_space_type: typing.Any
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 def dopesheet_filter(layout, context) -> None: ...

@@ -12,7 +12,13 @@ use super::{
     all_of::find_all_of_completion_items, any_of::find_any_of_completion_items,
     one_of::find_one_of_completion_items, type_hint_value, CompletionHint, FindCompletionContents,
 };
-use crate::completion::{schema_completion::SchemaCompletion, CompletionContent, CompletionEdit};
+use crate::{
+    comment_directive::get_array_comment_directive_content_with_schema_uri,
+    completion::{
+        comment::get_tombi_comment_directive_content_completion_contents,
+        schema_completion::SchemaCompletion, CompletionContent, CompletionEdit,
+    },
+};
 
 impl FindCompletionContents for tombi_document_tree::Array {
     fn find_completion_contents<'a: 'b, 'b>(
@@ -31,6 +37,22 @@ impl FindCompletionContents for tombi_document_tree::Array {
         tracing::trace!("completion_hint = {:?}", completion_hint);
 
         async move {
+            if keys.is_empty() {
+                if let Some((comment_directive_context, schema_uri)) =
+                    get_array_comment_directive_content_with_schema_uri(self, position, accessors)
+                {
+                    if let Some(completions) =
+                        get_tombi_comment_directive_content_completion_contents(
+                            comment_directive_context,
+                            schema_uri,
+                        )
+                        .await
+                    {
+                        return completions;
+                    }
+                }
+            }
+
             if let Some(Ok(DocumentSchema {
                 value_schema: Some(value_schema),
                 schema_uri,
@@ -66,7 +88,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                 new_item_index = index + 1;
                                 new_item_start_position = Some(value.range().end);
                             }
-                            if value.range().contains(position) {
+                            if value.contains(position) {
                                 let accessor = Accessor::Index(index);
                                 if let Some(items) = &array_schema.items {
                                     if let Ok(Some(current_schema)) = items
@@ -97,6 +119,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                 }
                             }
                         }
+
                         if let Some(items) = &array_schema.items {
                             if let Ok(Some(current_schema)) = items
                                 .write()
@@ -248,7 +271,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                 }
             } else {
                 for (index, value) in self.values().iter().enumerate() {
-                    if value.range().contains(position) {
+                    if value.contains(position) {
                         // Array of tables
                         if let tombi_document_tree::Value::Table(table) = value {
                             if keys.len() == 1
@@ -256,7 +279,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                             {
                                 let key = &keys.first().unwrap();
                                 return vec![CompletionContent::new_type_hint_key(
-                                    &key.to_raw_text(schema_context.toml_version),
+                                    &key.value,
                                     key.range(),
                                     None,
                                     Some(CompletionHint::InArray {
@@ -284,13 +307,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                             .await;
                     }
                 }
-                type_hint_value(
-                    None,
-                    position,
-                    schema_context.toml_version,
-                    None,
-                    completion_hint,
-                )
+                type_hint_value(None, position, None, completion_hint)
             }
         }
         .boxed()
@@ -301,12 +318,19 @@ impl FindCompletionContents for ArraySchema {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
-        _accessors: &'a [Accessor],
+        keys: &'a [tombi_document_tree::Key],
+        accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        tracing::trace!("self = {:?}", self);
+        tracing::trace!("position = {:?}", position);
+        tracing::trace!("keys = {:?}", keys);
+        tracing::trace!("accessors = {:?}", accessors);
+        tracing::trace!("current_schema = {:?}", current_schema);
+        tracing::trace!("completion_hint = {:?}", completion_hint);
+
         async move {
             match completion_hint {
                 Some(CompletionHint::InTableHeader) => Vec::with_capacity(0),

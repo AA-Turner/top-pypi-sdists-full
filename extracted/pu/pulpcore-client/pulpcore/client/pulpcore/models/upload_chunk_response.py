@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UploadChunkResponse(BaseModel):
     """
     A mixin for validating unknown serializers' fields.
@@ -93,10 +85,7 @@ class UploadChunkResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "offset": obj.get("offset"),
-            "size": obj.get("size")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

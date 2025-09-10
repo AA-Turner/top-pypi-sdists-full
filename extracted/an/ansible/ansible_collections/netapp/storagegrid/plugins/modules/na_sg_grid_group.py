@@ -112,18 +112,18 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a StorageGRID group
-    netapp.storagegrid.na_sg_grid_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      display_name: ansiblegroup100
-      unique_name: group/ansiblegroup100
-      management_policy:
-        tenant_accounts: true
-        maintenance: true
-        root_access: false
+- name: create a StorageGRID group
+  netapp.storagegrid.na_sg_grid_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    display_name: ansiblegroup100
+    unique_name: group/ansiblegroup100
+    management_policy:
+    tenant_accounts: true
+    maintenance: true
+    root_access: false
 """
 
 RETURN = """

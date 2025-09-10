@@ -2,7 +2,7 @@
 
 """ this is lun mapping module
 
- (c) 2018-2024, NetApp, Inc
+ (c) 2018-2025, NetApp, Inc
  # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 """
 
@@ -16,7 +16,7 @@ short_description: NetApp ONTAP LUN maps
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.6.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 
 description:
 - Map and unmap LUNs on NetApp ONTAP.
@@ -38,7 +38,8 @@ options:
 
   path:
     description:
-    - Path of the LUN..
+    - Path of the LUN.
+    - For ASA R2 systems, The path should match the format <name>[@<snapshot-name>].
     required: true
     type: str
 
@@ -55,25 +56,25 @@ options:
 """
 
 EXAMPLES = """
-    - name: Create LUN mapping
-      netapp.ontap.na_ontap_lun_map:
-        state: present
-        initiator_group_name: ansibleIgroup3234
-        path: /vol/iscsi_path/iscsi_lun
-        vserver: ci_dev
-        hostname: "{{ netapp_hostname }}"
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
+- name: Create LUN mapping
+  netapp.ontap.na_ontap_lun_map:
+    state: present
+    initiator_group_name: ansibleIgroup3234
+    path: /vol/iscsi_path/iscsi_lun
+    vserver: ci_dev
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
 
-    - name: Unmap LUN
-      netapp.ontap.na_ontap_lun_map:
-        state: absent
-        initiator_group_name: ansibleIgroup3234
-        path: /vol/iscsi_path/iscsi_lun
-        vserver: ci_dev
-        hostname: "{{ netapp_hostname }}"
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
+- name: Unmap LUN
+  netapp.ontap.na_ontap_lun_map:
+    state: absent
+    initiator_group_name: ansibleIgroup3234
+    path: /vol/iscsi_path/iscsi_lun
+    vserver: ci_dev
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
 """
 
 RETURN = """
@@ -118,7 +119,7 @@ import codecs
 from ansible.module_utils._text import to_text, to_bytes
 from ansible_collections.netapp.ontap.plugins.module_utils.netapp_module import NetAppModule
 from ansible_collections.netapp.ontap.plugins.module_utils.netapp import OntapRestAPI
-from ansible_collections.netapp.ontap.plugins.module_utils import rest_generic
+from ansible_collections.netapp.ontap.plugins.module_utils import rest_generic, rest_ontap_personality
 
 HAS_NETAPP_LIB = netapp_utils.has_netapp_lib()
 
@@ -152,6 +153,16 @@ class NetAppOntapLUNMap:
         self.parameters = self.na_helper.set_parameters(self.module.params)
         self.rest_api = OntapRestAPI(self.module)
         self.use_rest = self.rest_api.is_rest()
+        self.asa_r2_system = False
+        if self.use_rest:
+            if self.rest_api.meets_rest_minimum_version(self.use_rest, 9, 16, 0):
+                self.asa_r2_system = rest_ontap_personality.is_asa_r2_system(self.rest_api, self.module)
+                if self.asa_r2_system:
+                    # If the path is passed as vol/vol1/lun_map it will be converted to lun_map for asa r2 systems.
+                    if 'path' in self.parameters:
+                        self.module.warn('For ASA R2 systems, The path should match the format <name>[@<snapshot-name>].'
+                                         'The name must begin with a letter or \"_\" and contain only \"_\" and alphanumeric character')
+                        self.parameters['path'] = self.parameters.get('path').split("/")[-1]
         if not self.use_rest:
             if HAS_NETAPP_LIB is False:
                 self.module.fail_json(msg="the python NetApp-Lib module is required")

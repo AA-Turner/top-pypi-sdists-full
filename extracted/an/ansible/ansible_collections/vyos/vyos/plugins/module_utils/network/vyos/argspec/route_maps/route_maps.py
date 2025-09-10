@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 Red Hat
+# Copyright 2024 Red Hat
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -31,9 +31,6 @@ The arg spec for the vyos_route_maps module
 class Route_mapsArgs(object):  # pylint: disable=R0903
     """The arg spec for the vyos_route_maps module"""
 
-    def __init__(self, **kwargs):
-        pass
-
     argument_spec = {
         "config": {
             "type": "list",
@@ -48,10 +45,7 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                         "sequence": {"type": "int"},
                         "call": {"type": "str"},
                         "description": {"type": "str"},
-                        "action": {
-                            "type": "str",
-                            "choices": ["deny", "permit"],
-                        },
+                        "action": {"type": "str", "choices": ["deny", "permit"]},
                         "continue_sequence": {"type": "int"},
                         "set": {
                             "type": "dict",
@@ -80,6 +74,8 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                 },
                                 "extcommunity_rt": {"type": "str"},
                                 "extcommunity_soo": {"type": "str"},
+                                "extcommunity_bandwidth": {"type": "str"},
+                                "extcommunity_bandwidth_non_transitive": {"type": "bool"},
                                 "ip_next_hop": {"type": "str"},
                                 "ipv6_next_hop": {
                                     "type": "dict",
@@ -106,6 +102,7 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                 "src": {"type": "str"},
                                 "tag": {"type": "str"},
                                 "weight": {"type": "str"},
+                                "table": {"type": "str"},
                             },
                         },
                         "match": {
@@ -184,7 +181,26 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                         "next_hop": {"type": "str"},
                                     },
                                 },
-                                "large_community_large_community_list": {"type": "str"},
+                                "protocol": {
+                                    "type": "str",
+                                    "choices": [
+                                        "babel",
+                                        "bgp",
+                                        "connected",
+                                        "isis",
+                                        "kernel",
+                                        "ospf",
+                                        "ospfv3",
+                                        "rip",
+                                        "ripng",
+                                        "static",
+                                        "table",
+                                        "vnc",
+                                    ],
+                                },
+                                "large_community_large_community_list": {
+                                    "type": "str",
+                                },
                                 "metric": {"type": "int"},
                                 "origin": {
                                     "type": "str",
@@ -193,11 +209,7 @@ class Route_mapsArgs(object):  # pylint: disable=R0903
                                 "peer": {"type": "str"},
                                 "rpki": {
                                     "type": "str",
-                                    "choices": [
-                                        "notfound",
-                                        "invalid",
-                                        "valid",
-                                    ],
+                                    "choices": ["notfound", "invalid", "valid"],
                                 },
                             },
                         },

@@ -275,14 +275,14 @@ def main():
             renotify_interval=dict(),
             escalation_message=dict(),
             notify_audit=dict(default=False, type='bool'),
-            thresholds=dict(type='dict', default=None),
-            tags=dict(type='list', elements='str', default=None),
+            thresholds=dict(type='dict'),
+            tags=dict(type='list', elements='str'),
             locked=dict(default=False, type='bool'),
             require_full_window=dict(type='bool'),
             new_host_delay=dict(),
             evaluation_delay=dict(),
             id=dict(),
-            include_tags=dict(required=False, default=True, type='bool'),
+            include_tags=dict(default=True, type='bool'),
             priority=dict(type='int'),
             notification_preset_name=dict(choices=['show_all', 'hide_query', 'hide_handles', 'hide_all']),
             renotify_occurrences=dict(type='int'),
@@ -435,7 +435,7 @@ def mute_monitor(module):
         module.fail_json(msg="Monitor %s not found!" % module.params['name'])
     elif monitor['options']['silenced']:
         module.fail_json(msg="Monitor is already muted. Datadog does not allow to modify muted alerts, consider unmuting it first.")
-    elif (module.params['silenced'] is not None and len(set(monitor['options']['silenced']) ^ set(module.params['silenced'])) == 0):
+    elif module.params['silenced'] is not None and len(set(monitor['options']['silenced']) ^ set(module.params['silenced'])) == 0:
         module.exit_json(changed=False)
     try:
         if module.params['silenced'] is None or module.params['silenced'] == "":

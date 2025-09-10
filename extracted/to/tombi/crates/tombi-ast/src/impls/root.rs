@@ -1,7 +1,10 @@
 use itertools::Itertools;
 use tombi_syntax::SyntaxKind;
 
-use crate::{support, AstNode, SchemaDocumentCommentDirective, TombiDocumentCommentDirective};
+use crate::{
+    support, AstNode, SchemaDocumentCommentDirective, TombiDocumentCommentDirective,
+    TombiValueCommentDirective,
+};
 
 impl crate::Root {
     pub fn schema_document_comment_directive(
@@ -10,7 +13,7 @@ impl crate::Root {
     ) -> Option<SchemaDocumentCommentDirective> {
         if let Some(comments) = self.get_document_header_comments() {
             for comment in comments {
-                if let Some(schema_directive) = comment.document_schema_directive(source_path) {
+                if let Some(schema_directive) = comment.get_document_schema_directive(source_path) {
                     return Some(schema_directive);
                 }
             }
@@ -18,21 +21,47 @@ impl crate::Root {
         None
     }
 
-    pub fn tombi_document_comment_directives(&self) -> Option<Vec<TombiDocumentCommentDirective>> {
+    pub fn tombi_document_comment_directives(&self) -> Vec<TombiDocumentCommentDirective> {
         let mut tombi_directives = vec![];
         if let Some(comments) = self.get_document_header_comments() {
             for comment in comments {
-                if let Some(tombi_directive) = comment.tombi_document_directive() {
+                if let Some(tombi_directive) = comment.get_tombi_document_directive() {
                     tombi_directives.push(tombi_directive);
                 }
             }
         }
 
-        if tombi_directives.is_empty() {
-            None
+        tombi_directives
+    }
+
+    pub fn comment_directives(&self) -> impl Iterator<Item = TombiValueCommentDirective> {
+        let mut inner_comment_directives = vec![];
+        if self.items().next().is_none() {
+            for comments in self.key_values_dangling_comments() {
+                for comment in comments {
+                    if let Some(comment_directive) = comment.get_tombi_value_directive() {
+                        inner_comment_directives.push(comment_directive);
+                    }
+                }
+            }
         } else {
-            Some(tombi_directives)
+            for comments in self.key_values_begin_dangling_comments() {
+                for comment in comments {
+                    if let Some(comment_directive) = comment.get_tombi_value_directive() {
+                        inner_comment_directives.push(comment_directive);
+                    }
+                }
+            }
+            for comments in self.key_values_end_dangling_comments() {
+                for comment in comments {
+                    if let Some(comment_directive) = comment.get_tombi_value_directive() {
+                        inner_comment_directives.push(comment_directive);
+                    }
+                }
+            }
         }
+
+        inner_comment_directives.into_iter()
     }
 
     #[inline]

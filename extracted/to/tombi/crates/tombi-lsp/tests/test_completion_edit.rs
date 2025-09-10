@@ -161,6 +161,23 @@ mod completion_edit {
 
         test_completion_edit! {
             #[tokio::test]
+            async fn pyproject_project_name_eq_tombi_comment_directive_lint_dot(
+                r#"
+                [project]
+                name = "tombi"  # tombi: lint.█
+                "#,
+                Select("rules"),
+                pyproject_schema_path(),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "tombi"  # tombi: lint.rules
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
             async fn pyproject_dependency_groups_dev_eq_array_select_single_quote(
                 r#"
                 [dependency-groups]
@@ -235,6 +252,40 @@ mod completion_edit {
                   { include-group$1 }$0
                   ,"pydantic"
                 ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_comma_pyright_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[█,"pyright"]
+                "#,
+                Select("include-group"),
+                pyproject_schema_path(),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[{ include-group$1 }$0,"pyright"]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_dev_eq_array_after_comma_include_group_ci_select_include_group(
+                r#"
+                [dependency-groups]
+                dev=[█,{ include-group = "ci" }]
+                "#,
+                Select("include-group"),
+                pyproject_schema_path(),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev=[{ include-group$1 }$0,{ include-group = "ci" }]
                 "#
             );
         }

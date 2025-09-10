@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.dynamodb-mcp-server
-Version: 1.0.8
+Version: 1.0.9
 Summary: The official MCP Server for interacting with AWS DynamoDB
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/dynamodb-mcp-server/
@@ -22,9 +22,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: boto3==1.40.5
+Requires-Dist: dspy-ai>=2.6.27
 Requires-Dist: loguru==0.7.3
 Requires-Dist: mcp[cli]==1.12.4
 Requires-Dist: pydantic==2.11.7
+Requires-Dist: strands-agents>=1.5.0
 Requires-Dist: typing-extensions==4.14.1
 Description-Content-Type: text/markdown
 

@@ -23,6 +23,7 @@ class GetTriggersCountOfScriptResponse200:
         http_routes_count (Union[Unset, float]):
         webhook_count (Union[Unset, float]):
         email_count (Union[Unset, float]):
+        default_email_count (Union[Unset, float]):
         websocket_count (Union[Unset, float]):
         postgres_count (Union[Unset, float]):
         kafka_count (Union[Unset, float]):
@@ -37,6 +38,7 @@ class GetTriggersCountOfScriptResponse200:
     http_routes_count: Union[Unset, float] = UNSET
     webhook_count: Union[Unset, float] = UNSET
     email_count: Union[Unset, float] = UNSET
+    default_email_count: Union[Unset, float] = UNSET
     websocket_count: Union[Unset, float] = UNSET
     postgres_count: Union[Unset, float] = UNSET
     kafka_count: Union[Unset, float] = UNSET
@@ -55,6 +57,7 @@ class GetTriggersCountOfScriptResponse200:
         http_routes_count = self.http_routes_count
         webhook_count = self.webhook_count
         email_count = self.email_count
+        default_email_count = self.default_email_count
         websocket_count = self.websocket_count
         postgres_count = self.postgres_count
         kafka_count = self.kafka_count
@@ -76,6 +79,8 @@ class GetTriggersCountOfScriptResponse200:
             field_dict["webhook_count"] = webhook_count
         if email_count is not UNSET:
             field_dict["email_count"] = email_count
+        if default_email_count is not UNSET:
+            field_dict["default_email_count"] = default_email_count
         if websocket_count is not UNSET:
             field_dict["websocket_count"] = websocket_count
         if postgres_count is not UNSET:
@@ -115,6 +120,8 @@ class GetTriggersCountOfScriptResponse200:
 
         email_count = d.pop("email_count", UNSET)
 
+        default_email_count = d.pop("default_email_count", UNSET)
+
         websocket_count = d.pop("websocket_count", UNSET)
 
         postgres_count = d.pop("postgres_count", UNSET)
@@ -135,6 +142,7 @@ class GetTriggersCountOfScriptResponse200:
             http_routes_count=http_routes_count,
             webhook_count=webhook_count,
             email_count=email_count,
+            default_email_count=default_email_count,
             websocket_count=websocket_count,
             postgres_count=postgres_count,
             kafka_count=kafka_count,

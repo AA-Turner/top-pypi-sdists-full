@@ -10,7 +10,7 @@ __metaclass__ = type
 
 DOCUMENTATION = '''
 short_description: NetApp ONTAP Create/Delete portset
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Create/Delete ONTAP portset, modify ports in a portset.
   - Modify type(protocol) is not supported in ONTAP.
@@ -85,7 +85,7 @@ EXAMPLES = """
     state: absent
     vserver: vserver_name
     name: portset_name
-    force: True
+    force: true
     type: "{{ protocol type }}"
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"

@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class GroupProgressReportResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -107,13 +99,7 @@ class GroupProgressReportResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "message": obj.get("message"),
-            "code": obj.get("code"),
-            "total": obj.get("total"),
-            "done": obj.get("done"),
-            "suffix": obj.get("suffix")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

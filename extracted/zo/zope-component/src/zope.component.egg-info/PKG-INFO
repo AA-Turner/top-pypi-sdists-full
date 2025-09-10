@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: zope.component
-Version: 6.0
+Version: 6.1
 Summary: Zope Component Architecture
 Home-page: https://github.com/zopefoundation/zope.component
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Project-URL: Documentation, https://zopecomponent.readthedocs.io/
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.component/issues
 Project-URL: Sources, https://github.com/zopefoundation/zope.component
@@ -17,25 +17,62 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.9
+License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: zope.event
+Requires-Dist: zope.hookable>=4.2.0
+Requires-Dist: zope.interface>=5.3
 Provides-Extra: hook
 Provides-Extra: persistentregistry
+Requires-Dist: persistent; extra == "persistentregistry"
 Provides-Extra: security
+Requires-Dist: zope.location; extra == "security"
+Requires-Dist: zope.proxy; extra == "security"
+Requires-Dist: zope.security; extra == "security"
 Provides-Extra: zcml
+Requires-Dist: zope.configuration; extra == "zcml"
+Requires-Dist: zope.i18nmessageid; extra == "zcml"
 Provides-Extra: mintests
+Requires-Dist: zope.configuration; extra == "mintests"
+Requires-Dist: zope.i18nmessageid; extra == "mintests"
+Requires-Dist: zope.testing; extra == "mintests"
+Requires-Dist: zope.testrunner; extra == "mintests"
 Provides-Extra: test
+Requires-Dist: zope.configuration; extra == "test"
+Requires-Dist: zope.i18nmessageid; extra == "test"
+Requires-Dist: zope.testing; extra == "test"
+Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: persistent; extra == "test"
+Requires-Dist: zope.location; extra == "test"
+Requires-Dist: zope.proxy; extra == "test"
+Requires-Dist: zope.security; extra == "test"
 Provides-Extra: docs
-License-File: LICENSE.txt
+Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
+Requires-Dist: ZODB; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ================
  zope.component
@@ -80,10 +117,16 @@ documentation.
  Changes
 =========
 
-6.0 (2023-04-14)
+6.1 (2025-09-09)
 ================
 
+- Add support for Python 3.12, 3.13.
 
+- Drop support for Python 3.7, 3.8.
+
+
+6.0 (2023-04-14)
+================
 
 - Drop support for Python 2.7, 3.5, 3.6.
 

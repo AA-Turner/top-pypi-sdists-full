@@ -5,7 +5,7 @@ from .chat_completion import ChatCompletionResponse
 from .file_model import FileModel
 from .evaluation_responses import AlignmentResponse
 from .context_responses import ContextResponse
-from .context_responses import PdfReference, TextReference, JsonReference, MarkdownReference
+from .context_responses import PdfReference, TextReference, JsonReference, MarkdownReference, DocxReference
 
 __all__ = [
     'AssistantModel',
@@ -19,5 +19,6 @@ __all__ = [
     'PdfReference',
     'TextReference',
     'JsonReference',
-    'MarkdownReference'
+    'MarkdownReference',
+    'DocxReference'
 ]

@@ -15,6 +15,7 @@ short_description: Create and manage cloud servers on the Hetzner Cloud.
 
 description:
     - Create, update and manage cloud servers on the Hetzner Cloud.
+    - To manage the DNS pointer of a Server, use the M(hetzner.hcloud.rdns) module.
 
 author:
     - Lukas Kaemmerling (@LKaemmerling)
@@ -118,7 +119,6 @@ options:
             - May power off the server if update is applied.
         type: bool
         default: false
-        aliases: [force_upgrade]
     user_data:
         description:
             - User Data to be passed to the server on creation.
@@ -333,6 +333,11 @@ hcloud_server:
             returned: always
             sample: false
             version_added: "0.1.0"
+root_password:
+    description: Root password for the server
+    returned: when created without ssh_keys
+    type: str
+    sample: YItygq1v3GYjjMomLaKc
 """
 
 from datetime import datetime, timedelta, timezone
@@ -365,7 +370,7 @@ class AnsibleHCloudServer(AnsibleHCloud):
 
     def _prepare_result(self):
         return {
-            "id": str(self.hcloud_server.id),
+            "id": self.hcloud_server.id,
             "name": self.hcloud_server.name,
             "created": self.hcloud_server.created.isoformat(),
             "ipv4_address": (
@@ -564,10 +569,20 @@ class AnsibleHCloudServer(AnsibleHCloud):
         try:
             previous_server_status = self.hcloud_server.status
 
+            update_params = {}
+
+            name = self.module.params.get("name")
+            if name is not None and self.hcloud_server.name != name:
+                self.module.fail_on_missing_params(required_params=["id"])
+                update_params["name"] = name
+
             labels = self.module.params.get("labels")
             if labels is not None and labels != self.hcloud_server.labels:
+                update_params["labels"] = labels
+
+            if update_params:
                 if not self.module.check_mode:
-                    self.hcloud_server.update(labels=labels)
+                    self.hcloud_server.update(**update_params)
                 self._mark_as_changed()
 
             rescue_mode = self.module.params.get("rescue_mode")
@@ -931,14 +946,7 @@ class AnsibleHCloudServer(AnsibleHCloud):
                 ipv4={"type": "str"},
                 ipv6={"type": "str"},
                 private_networks={"type": "list", "elements": "str", "default": None},
-                force={
-                    "type": "bool",
-                    "default": False,
-                    "aliases": ["force_upgrade"],
-                    "deprecated_aliases": [
-                        {"collection_name": "hetzner.hcloud", "name": "force_upgrade", "version": "5.0.0"}
-                    ],
-                },
+                force={"type": "bool", "default": False},
                 rescue_mode={"type": "str"},
                 delete_protection={"type": "bool"},
                 rebuild_protection={"type": "bool"},

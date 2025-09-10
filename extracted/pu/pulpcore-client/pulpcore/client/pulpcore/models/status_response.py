@@ -29,14 +29,6 @@ from pulpcore.client.pulpcore.models.version_response import VersionResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class StatusResponse(BaseModel):
     """
     Serializer for the status information of the app
@@ -142,17 +134,7 @@ class StatusResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "versions": [VersionResponse.from_dict(_item) for _item in obj["versions"]] if obj.get("versions") is not None else None,
-            "online_workers": [AppStatusResponse.from_dict(_item) for _item in obj["online_workers"]] if obj.get("online_workers") is not None else None,
-            "online_api_apps": [AppStatusResponse.from_dict(_item) for _item in obj["online_api_apps"]] if obj.get("online_api_apps") is not None else None,
-            "online_content_apps": [AppStatusResponse.from_dict(_item) for _item in obj["online_content_apps"]] if obj.get("online_content_apps") is not None else None,
-            "database_connection": DatabaseConnectionResponse.from_dict(obj["database_connection"]) if obj.get("database_connection") is not None else None,
-            "redis_connection": RedisConnectionResponse.from_dict(obj["redis_connection"]) if obj.get("redis_connection") is not None else None,
-            "storage": StorageResponse.from_dict(obj["storage"]) if obj.get("storage") is not None else None,
-            "content_settings": ContentSettingsResponse.from_dict(obj["content_settings"]) if obj.get("content_settings") is not None else None,
-            "domain_enabled": obj.get("domain_enabled")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

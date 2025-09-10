@@ -2274,8 +2274,16 @@ class FileUnhideBase(Command):
 
     def _run(self, args):
         b2_uri = self.get_b2_uri_from_arg(args)
-        bucket = self.api.get_bucket_by_name(b2_uri.bucket_name)
-        file_id_and_name = bucket.unhide_file(b2_uri.path, args.bypass_governance)
+
+        if isinstance(b2_uri, B2FileIdURI):
+            file_version = self.api.get_file_info_by_uri(b2_uri)
+            bucket = self.api.get_bucket_by_id(file_version.bucket_id)
+            file_name = file_version.file_name
+        else:
+            bucket = self.api.get_bucket_by_name(b2_uri.bucket_name)
+            file_name = b2_uri.path
+
+        file_id_and_name = bucket.unhide_file(file_name, args.bypass_governance)
         self._print_json(file_id_and_name)
         return 0
 
@@ -4297,6 +4305,11 @@ class License(Command):  # pragma: no cover
             self._print(self.LICENSE_OUTPUT_FILE.read_text(encoding='utf8'))
             return 0
 
+        if not (piplicenses and prettytable):
+            raise CommandError(
+                'In order to run this command, you need to install the `license` extra: pip install b2[license]'
+            )
+
         if args.dump:
             with self.LICENSE_OUTPUT_FILE.open('w', encoding='utf8') as file:
                 self._put_license_text(file, with_packages=args.with_packages)
@@ -4373,7 +4386,6 @@ class License(Command):  # pragma: no cover
 
     @classmethod
     def _get_licenses_dicts(cls) -> list[dict]:
-        assert piplicenses, 'In order to run this command, you need to install the `license` extra: pip install b2[license]'
         pipdeptree_run = subprocess.run(
             ['pipdeptree', '--json', '-p', 'b2'],
             capture_output=True,

@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class ReclaimSpace(BaseModel):
     """
     Serializer for reclaim disk space operation.
@@ -89,10 +81,7 @@ class ReclaimSpace(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "repo_hrefs": obj.get("repo_hrefs"),
-            "repo_versions_keeplist": obj.get("repo_versions_keeplist")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

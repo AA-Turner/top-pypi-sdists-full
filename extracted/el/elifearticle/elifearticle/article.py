@@ -57,6 +57,7 @@ class Article(BaseObject):
         self.author_keywords = []
         self.funding_awards = []
         self.ref_list = []
+        self.data_ref_list = []
         self.component_list = []
         # For PubMed function a hook to specify if article was ever through PoA pipeline
         self.was_ever_poa = None

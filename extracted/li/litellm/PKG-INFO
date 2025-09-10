@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.76.3
+Version: 1.77.0
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -27,7 +27,7 @@ Requires-Dist: azure-storage-blob (>=12.25.1,<13.0.0) ; extra == "proxy"
 Requires-Dist: backoff ; extra == "proxy"
 Requires-Dist: boto3 (==1.36.0) ; extra == "proxy"
 Requires-Dist: click
-Requires-Dist: cryptography (>=43.0.1,<44.0.0) ; extra == "proxy"
+Requires-Dist: cryptography ; extra == "proxy"
 Requires-Dist: diskcache (>=5.6.1,<6.0.0) ; extra == "caching"
 Requires-Dist: fastapi (>=0.115.5,<0.116.0) ; extra == "proxy"
 Requires-Dist: fastapi-sso (>=0.16.0,<0.17.0) ; extra == "proxy"
@@ -417,6 +417,7 @@ curl 'http://0.0.0.0:4000/key/generate' \
 | [Novita AI](https://novita.ai/models/llm?utm_source=github_litellm&utm_medium=github_readme&utm_campaign=github_link)                     | ✅                                                       | ✅                                                                               | ✅                                                                                   | ✅                                                                                 |                                                                               |                                                                         |
 | [Featherless AI](https://docs.litellm.ai/docs/providers/featherless_ai)                              | ✅                                                       | ✅                                                                               | ✅                                                                                   | ✅                                                                                 |                                                                               |                                                                         |
 | [Nebius AI Studio](https://docs.litellm.ai/docs/providers/nebius)                             | ✅                                                       | ✅                                                                               | ✅                                                                                   | ✅                                                                                 | ✅                                                                             |                                                                         |
+| [Heroku](https://docs.litellm.ai/docs/providers/heroku)                             | ✅                                                       | ✅                                                                               |                                                                                    |                                                                                  |                                                                              |                                                                         |
 
 [**Read the Docs**](https://docs.litellm.ai/docs/)
 

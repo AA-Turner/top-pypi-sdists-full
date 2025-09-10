@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PulpExporter(BaseModel):
     """
     Serializer for pulp exporters.
@@ -97,12 +89,7 @@ class PulpExporter(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "path": obj.get("path"),
-            "repositories": obj.get("repositories"),
-            "last_export": obj.get("last_export")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

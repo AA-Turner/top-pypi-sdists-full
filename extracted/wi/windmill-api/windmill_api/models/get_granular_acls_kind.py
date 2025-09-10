@@ -3,6 +3,7 @@ from enum import Enum
 
 class GetGranularAclsKind(str, Enum):
     APP = "app"
+    EMAIL_TRIGGER = "email_trigger"
     FLOW = "flow"
     FOLDER = "folder"
     GCP_TRIGGER = "gcp_trigger"

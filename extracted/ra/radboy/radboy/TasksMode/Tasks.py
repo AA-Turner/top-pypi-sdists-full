@@ -551,6 +551,102 @@ class Formulae:
     {Fore.grey_70}default_bottle_size=={Fore.light_yellow}{default_bottle_size},
     {Fore.light_sea_green}default_purchased_qty=={Fore.turquoise_4}{default_purchased_qty}
     {Style.reset}"""
+                def hashName(name=None):
+                    if name is None:
+                        name=Control(func=FormBuilderMkText,ptext="Text to Hash with time and uuid?",helpText="a string of text",data="string")
+                        if name is None:
+                            return
+
+                    return hashlib.sha512(bytes(f'{name} {datetime.now()} {uuid1()}',"utf-8")).hexdigest()
+
+                def tax_info():
+                    link='https://pub.gloco-sitedocs.com/CoR/BL/Guidelines_for_the_Tax_on_Prepared_Food_and_Beverages.pdf'
+                    MSG=f'''
+SEASIDE TTL SALES TAX: 0.0925
+CARMEL-BY-THE-SEA TTL SALES TAX: 0.0825
+CA CRV>=24 FLOZ = 0.10 per container per package
+CA CRV<24 FLOZ = 0.05 per container per package
+
+GLOUCESTER VA SALES TAX ON FOOD AND HYGIENE = 0.01
+GLOUCESTER VA SALES TAX ON NON-FOOD PRODUCTS and OTHER GENERAL MERCHANDISE = 0.063
+Prepared Food & Beverage Tax Ordinance = 0.04
+So According to {hashName("Cindy Carter")}, it looks like 15% for prepared food. I think its 
+more like 10.1% but a real reciept will answer this.
+
+Please Review the link returned {link}
+
+IF NO CRV, THEN CRV = 0
+SALES TAX ON APPLICABLE TANGIBLE ITEMS = (PRICE + CRV) * TTL TAX RATE
+
+                    '''
+                    print(MSG)
+                    return link,
+
+                def hourlyWageFromSalaryAndHoursWorked():
+                    data={
+                    'Hours Worked':{
+                    'default':28,
+                    'type':'dec.dec'
+                    },
+                    'Annual Salary':{
+                    'default':19200,
+                    'type':'dec.dec'
+                    },
+                    'Monthly Salary':{
+                    'default':None,
+                    'type':'dec.dec'
+                    }
+                    }
+                    fb=FormBuilder(data=data)
+                    if fb is None:
+                        return
+                    if fb['Monthly Salary'] is not None:
+                        fb['Annual Salary']=fb['Monthly Salary']*12
+
+                    wage=(fb['Annual Salary']/52)/fb['Hours Worked']
+                    return wage
+
+                def hoursWorkedFromAnnualSalaryAndWage():
+                    data={
+                    'Wage':{
+                    'default':13,
+                    'type':'dec.dec'
+                    },
+                    'Annual Salary':{
+                    'default':19200,
+                    'type':'dec.dec'
+                    },
+                    'Monthly Salary':{
+                    'default':None,
+                    'type':'dec.dec'
+                    }
+                    }
+                    fb=FormBuilder(data=data)
+                    if fb is None:
+                        return
+                    if fb['Monthly Salary'] is not None:
+                        fb['Annual Salary']=fb['Monthly Salary']*12
+
+                    wage=(fb['Annual Salary']/52)/fb['Wage']
+                    return wage
+
+                def hourlyWageToSalary():
+                    #Hourly Rate × Hours Worked Per Week × 52 Weeks in a Year = Annual Salary
+                    data={
+                    'Hourly Rate':{
+                    'default':13,
+                    'type':'dec.dec'
+                    },
+                    'Hours Worked Per Week':{
+                    'default':32,
+                    'type':'dec.dec'
+                    },
+                    }
+                    fb=FormBuilder(data=data)
+                    if fb is None:
+                        return
+                    annual_salary=fb['Hourly Rate']*fb['Hours Worked Per Week']*decc(52)
+                    return annual_salary
 
                 def beverage_PTCRV_base():
                     result=None
@@ -825,6 +921,32 @@ class Formulae:
                         'desc':f'{Fore.light_yellow}tax rate{Fore.medium_violet_red} from old price and new price{Style.reset}',
                         'exec':tax_rate_from_oldPriceAndNewPrice
                     },
+                    f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['salary','sal','slry'],endCmd=['2hours','2hr','tohr','tohour','-hour','-hr']),
+                        'desc':f'{Fore.light_yellow}Annual Salary{Fore.medium_violet_red} from hourly wage rate and hours worked{Style.reset}',
+                        'exec':hourlyWageToSalary
+                    },
+                    f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['hourly','hrly'],endCmd=['frm salary','frm sal','frm slry','frmsalary','.salary','.slry']),
+                        'desc':f'{Fore.light_yellow}Hourly wage{Fore.medium_violet_red} from hours worked and salary{Style.reset}',
+                        'exec':hourlyWageFromSalaryAndHoursWorked
+                    },
+                    f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['hours worked','hrs wrkd','hrswkd'],endCmd=['frm salary & rate','frm sal & rt','frm slry & rt','frmsalary&rate','.salary&.rate','.slry&.rt']),
+                        'desc':f'{Fore.light_yellow}Hours worked{Fore.medium_violet_red} from wage rate and salary{Style.reset}',
+                        'exec':hoursWorkedFromAnnualSalaryAndWage
+                    },
+                     f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['hash','hsh','checksum','cksm'],endCmd=['text','txt','t',]),
+                        'desc':f'{Fore.light_yellow}Hash a String of Text{Fore.medium_violet_red} as a replacement representation where directly using the text may be an issue sorts.{Style.reset}',
+                        'exec':hashName
+                    },
+                    f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['tax','tx',],endCmd=['information','info.','info','i',]),
+                        'desc':f'{Fore.light_yellow}Display Tax Information for Reference{Fore.medium_violet_red}this is not for everyone, just anyone that\'s been where I have been.{Style.reset}',
+                        'exec':tax_info
+                    },
+
                     
                     }
                 self.options[f'{uuid1()}']={

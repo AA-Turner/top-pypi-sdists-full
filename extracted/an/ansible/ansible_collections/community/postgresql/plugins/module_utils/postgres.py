@@ -81,15 +81,39 @@ def postgres_common_argument_spec():
     return dict(
         login_user=dict(
             default='postgres' if not env_vars.get("PGUSER") else env_vars.get("PGUSER"),
-            aliases=['login']
+            aliases=['login'], deprecated_aliases=[
+                {
+                    'name': 'login',
+                    'version': '5.0.0',
+                    'collection_name': 'community.postgresql',
+                }
+            ],
         ),
         login_password=dict(default='', no_log=True),
-        login_host=dict(default='', aliases=['host']),
-        login_unix_socket=dict(default='', aliases=['unix_socket']),
-        port=dict(
+        login_host=dict(default='', aliases=['host'], deprecated_aliases=[
+            {
+                'name': 'host',
+                'version': '5.0.0',
+                'collection_name': 'community.postgresql',
+            }],
+        ),
+        login_unix_socket=dict(default='', aliases=['unix_socket'], deprecated_aliases=[
+            {
+                'name': 'unix_socket',
+                'version': '5.0.0',
+                'collection_name': 'community.postgresql',
+            }],
+        ),
+        login_port=dict(
             type='int',
             default=int(env_vars.get("PGPORT", 5432)),
-            aliases=['login_port']
+            aliases=['port'], deprecated_aliases=[
+                {
+                    'name': 'port',
+                    'version': '5.0.0',
+                    'collection_name': 'community.postgresql',
+                }
+            ],
         ),
         ssl_mode=dict(
             default='prefer',
@@ -268,7 +292,7 @@ def get_conn_params(module, params_dict, warn_db_default=True):
         "login_host": "host",
         "login_user": "user",
         "login_password": "password",
-        "port": "port",
+        "login_port": "port",
         "ssl_mode": "sslmode",
         "ca_cert": "sslrootcert",
         "ssl_cert": "sslcert",

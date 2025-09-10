@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name='abstract_paths',
-    version='0.0.0.143',
+    version='0.0.0.144',
     author='putkoff',
     author_email='partners@abstractendeavors.com',
     description="",

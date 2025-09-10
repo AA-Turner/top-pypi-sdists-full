@@ -27,16 +27,6 @@ author: Denis Magel (@dmagel-netapp) <denis.magel@netapp.com>
 description:
 - Interact with ILM policy tags on NetApp StorageGRID.
 options:
-  api_url:
-    description:
-    - Rest endpoint for all invocations against the grid, e.g. `https://192.168.0.80`
-    required: true
-    type: str
-  auth_token:
-    description:
-    - The authorization token for the API request
-    required: true
-    type: str
   name:
     description:
     - The unique name of this tag.
@@ -72,20 +62,20 @@ options:
 """
 
 EXAMPLES = """
-  - name: Create ILM policy tag
-    na_sg_grid_ilm_policy_tag:
-      auth_token: 9bcf4902-d5a3-479a-8d5e-8f98ef879f4e
-      api_url: https://192.168.0.80
-      name: tag1
-      description: Applies ILM policy 'mypolicy'
-      policy_id: r601033236249396421
+- name: Create ILM policy tag
+  na_sg_grid_ilm_policy_tag:
+    auth_token: 9bcf4902-d5a3-479a-8d5e-8f98ef879f4e
+    api_url: https://192.168.0.80
+    name: tag1
+    description: Applies ILM policy 'mypolicy'
+    policy_id: r601033236249396421
 
-  - name: Delete existing ILM policy tag
-    na_sg_grid_ILM_policy_tag:
-      auth_token: 9bcf4902-d5a3-479a-8d5e-8f98ef879f4e
-      api_url: https://192.168.0.80
-      name: tag1
-      state: absent
+- name: Delete existing ILM policy tag
+  na_sg_grid_ILM_policy_tag:
+    auth_token: 9bcf4902-d5a3-479a-8d5e-8f98ef879f4e
+    api_url: https://192.168.0.80
+    name: tag1
+    state: absent
 """
 
 RETURN = """

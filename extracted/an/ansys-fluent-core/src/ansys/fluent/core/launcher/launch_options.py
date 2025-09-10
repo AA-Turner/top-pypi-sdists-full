@@ -267,11 +267,12 @@ def _get_fluent_launch_mode(start_container, container_dict, scheduler_options):
     fluent_launch_mode: LaunchMode
         Fluent launch mode.
     """
+    from ansys.fluent.core import config
+
     if pypim.is_configured():
         fluent_launch_mode = LaunchMode.PIM
     elif start_container is True or (
-        start_container is None
-        and (container_dict or os.getenv("PYFLUENT_LAUNCH_CONTAINER") == "1")
+        start_container is None and (container_dict or config.launch_fluent_container)
     ):
         fluent_launch_mode = LaunchMode.CONTAINER
     # Currently, only Slurm scheduler is supported and within SlurmLauncher we check the value of the scheduler
@@ -357,7 +358,7 @@ def _get_standalone_launch_fluent_version(argvals) -> FluentVersion | None:
 
     # (DEV) if "PYFLUENT_FLUENT_ROOT" environment variable is defined, we cannot
     # determine the Fluent version, so returning None.
-    if os.getenv("PYFLUENT_FLUENT_ROOT"):
+    if "PYFLUENT_FLUENT_ROOT" in os.environ:
         return None
 
     # 2. the latest ANSYS version from AWP_ROOT environment variables

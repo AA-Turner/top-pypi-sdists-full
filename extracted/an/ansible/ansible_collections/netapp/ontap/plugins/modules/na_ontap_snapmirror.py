@@ -11,7 +11,7 @@ __metaclass__ = type
 
 
 DOCUMENTATION = '''
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Create/Delete/Update/Initialize/Break/Resync/Resume SnapMirror volume/vserver relationships for ONTAP/ONTAP
   - This includes SVM replication, aka vserver DR
@@ -326,6 +326,14 @@ options:
     type: str
     choices: ['full', 'exclude_network_config', 'exclude_network_and_protocol_config']
     version_added: '22.4.0'
+  quick_resync:
+    description:
+      - Set to true to reduce resync time by not preserving storage efficiency.
+      - This property is applicable only for relationships with FlexVol volume endpoints and SVMDR relationships
+        when the PATCH state is being changed to "snapmirrored".
+      - Only supported with REST.
+    type: bool
+    version_added: 23.1.0
 
 short_description: "NetApp ONTAP or ElementSW Manage SnapMirror"
 version_added: 2.7.0
@@ -464,16 +472,37 @@ EXAMPLES = """
     validate_certs: false
 
 - name: Create SnapMirror relationship - SVM DR (creating and peering destination svm)
+  tags: create_svmdr
   netapp.ontap.na_ontap_snapmirror:
     state: present
     source_endpoint:
-      cluster: "{{ _source_cluster }}"
-      path: "{{ source_vserver + ':' }}"
+    cluster: "{{ _source_cluster }}"
+    path: "{{ source_vserver + ':' }}"
     destination_endpoint:
       cluster: "{{ _destination_cluster }}"
       path: "{{ destination_vserver_SVMDR + ':' }}"
     create_destination:
       enabled: true
+    hostname: "{{ destination_hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    https: true
+    validate_certs: false
+
+- name: Resync SnapMirror relationship - SVM DR
+  tags: resync_svmdr
+  netapp.ontap.na_ontap_snapmirror:
+    state: present
+    source_endpoint:
+    cluster: "{{ _source_cluster }}"
+    path: "{{ source_vserver + ':' }}"
+    destination_endpoint:
+      cluster: "{{ _destination_cluster }}"
+      path: "{{ destination_vserver_SVMDR + ':' }}"
+    create_destination:
+      enabled: true
+    relationship_state: active
+    quick_resync: true
     hostname: "{{ destination_hostname }}"
     username: "{{ username }}"
     password: "{{ password }}"
@@ -571,7 +600,8 @@ class NetAppONTAPSnapmirror(object):
             transferring_time_out=dict(required=False, type='int', default=300),
             quiesced_time_out=dict(required=False, type='int', default=300),
             clean_up_failure=dict(required=False, type='bool', default=False),
-            validate_source_path=dict(required=False, type='bool', default=True)
+            validate_source_path=dict(required=False, type='bool', default=True),
+            quick_resync=dict(required=False, type='bool'),
         ))
 
         self.module = AnsibleModule(
@@ -1032,7 +1062,8 @@ class NetAppONTAPSnapmirror(object):
             current = self.snapmirror_get()
         if self.use_rest:
             if current['mirror_state'] == 'uninitialized' and current['status'] != 'transferring':
-                self.snapmirror_mod_init_resync_break_quiesce_resume_rest(state="snapmirrored")
+                state = 'in_sync' if self.policy_type == 'sync' else 'snapmirrored'
+                self.snapmirror_mod_init_resync_break_quiesce_resume_rest(state=state)
                 self.wait_for_idle_status()
             return
         if current['mirror_state'] != 'snapmirrored':
@@ -1053,13 +1084,16 @@ class NetAppONTAPSnapmirror(object):
                                       exception=traceback.format_exc())
             self.wait_for_idle_status()
 
-    def snapmirror_resync(self):
+    def snapmirror_resync(self, current=None):
         """
         resync SnapMirror based on relationship state
         """
         if self.use_rest:
             state = 'in_sync' if self.policy_type == 'sync' else 'snapmirrored'
-            self.snapmirror_mod_init_resync_break_quiesce_resume_rest(state=state)
+            quick_resync = False
+            if 'quick_resync' in self.parameters:
+                quick_resync = self.parameters.get('quick_resync')
+            self.snapmirror_mod_init_resync_break_quiesce_resume_rest(state=state, quick_resync=quick_resync)
         else:
             options = {'destination-location': self.parameters['destination_path']}
             snapmirror_resync = netapp_utils.zapi.NaElement.create_node_with_children('snapmirror-resync', **options)
@@ -1379,11 +1413,11 @@ class NetAppONTAPSnapmirror(object):
             self.snapmirror_get()
         return self.parameters.get('uuid')
 
-    def snapmirror_mod_init_resync_break_quiesce_resume_rest(self, state=None, modify=None, before_delete=False):
+    def snapmirror_mod_init_resync_break_quiesce_resume_rest(self, state=None, modify=None, before_delete=False, quick_resync=False):
         """
         To perform SnapMirror modify, init, resume, resync and break.
         1. Modify only update SnapMirror policy which passes the policy in body.
-        2. To perform SnapMirror init - state=snapmirrored and mirror_state=uninitialized.
+        2. To perform SnapMirror init - state=in_sync when type=sync otherwise state=snapmirrored and mirror_state=uninitialized.
         3. To perform SnapMirror resync - state=snapmirrored and mirror_state=broken_off.
         4. To perform SnapMirror break -  state=broken_off and transfer_state not transferring.
         5. To perform SnapMirror quiesce - state=pause and mirror_state not broken_off.
@@ -1394,6 +1428,8 @@ class NetAppONTAPSnapmirror(object):
             self.module.fail_json(msg="Error in updating SnapMirror relationship: unable to get UUID for the SnapMirror relationship.")
 
         body = {}
+        if quick_resync:
+            body['quick_resync'] = self.parameters.get('quick_resync')
         if state is not None:
             body["state"] = state
         elif modify:
@@ -1462,12 +1498,20 @@ class NetAppONTAPSnapmirror(object):
         if uuid is None:
             self.module.fail_json(msg='Error in deleting SnapMirror: %s, unable to get UUID for the SnapMirror relationship.' % uuid)
         api = 'snapmirror/relationships'
-        dummy, error = rest_generic.delete_async(self.rest_api, api, uuid)
-        if error:
-            msg = 'Error deleting SnapMirror: %s' % to_native(error)
-            if self.previous_errors:
-                msg += '.  Previous error(s): %s' % ' -- '.join(self.previous_errors)
-            self.module.fail_json(msg=msg, exception=traceback.format_exc())
+        query = dict(return_timeout=120)
+        retry = 3
+        while retry > 0:
+            dummy, error = rest_generic.delete_async(self.rest_api, api, uuid, query)
+            if error and 'Timeout error: Process still running' in error:
+                time.sleep(120)
+                retry -= 1
+            elif error:
+                msg = 'Error deleting SnapMirror: %s' % to_native(error)
+                if self.previous_errors:
+                    msg += '.  Previous error(s): %s' % ' -- '.join(self.previous_errors)
+                self.module.fail_json(msg=msg, exception=traceback.format_exc())
+            else:
+                return
 
     def snapmirror_rest_create(self):
         """
@@ -1709,7 +1753,7 @@ class NetAppONTAPSnapmirror(object):
         if 'resume' in actions:
             self.snapmirror_resume()
         if 'resync' in actions:
-            self.snapmirror_resync()
+            self.snapmirror_resync(current)
 
     def apply(self):
         """

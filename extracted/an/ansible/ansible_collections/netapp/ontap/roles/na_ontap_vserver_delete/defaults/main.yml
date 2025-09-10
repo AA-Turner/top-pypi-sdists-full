@@ -1,11 +1,11 @@
 ---
 # defaults file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
-debug_level: 0
-cifs_force_delete: false
-enable_check_mode: false
-confirm_before_removing_cifs_server: true
-confirm_before_removing_igroups: true
-confirm_before_removing_interfaces: true
-confirm_before_removing_volumes: true
-https: true
-validate_certs: true
+na_ontap_vserver_delete_debug_level: 0
+na_ontap_vserver_delete_cifs_force_delete: false
+na_ontap_vserver_delete_enable_check_mode: false
+na_ontap_vserver_delete_confirm_before_removing_cifs_server: true
+na_ontap_vserver_delete_confirm_before_removing_igroups: true
+na_ontap_vserver_delete_confirm_before_removing_interfaces: true
+na_ontap_vserver_delete_confirm_before_removing_volumes: true
+na_ontap_vserver_delete_https: true
+na_ontap_vserver_delete_validate_certs: true

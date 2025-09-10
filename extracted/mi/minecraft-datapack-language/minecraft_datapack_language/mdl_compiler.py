@@ -819,12 +819,71 @@ class MDLCompiler:
         else:
             return str(expression)
     
+    def _normalize_operator(self, op_in: Any) -> Optional[str]:
+        """Normalize operator tokens/strings to Minecraft execute/scoreboard symbols.
+        Returns one of: '>', '>=', '<', '<=', '==', '!=' or None if unknown.
+        """
+        # Direct symbol passthrough
+        if op_in in ('>', '>=', '<', '<=', '==', '!=', '&&', '||', '!'):
+            return op_in
+        # TokenType instances
+        try:
+            if op_in == TokenType.GREATER:
+                return '>'
+            if op_in == TokenType.GREATER_EQUAL:
+                return '>='
+            if op_in == TokenType.LESS:
+                return '<'
+            if op_in == TokenType.LESS_EQUAL:
+                return '<='
+            if op_in == TokenType.EQUAL:
+                return '=='
+            if op_in == TokenType.NOT_EQUAL:
+                return '!='
+            # Logical
+            if getattr(TokenType, 'AND', None) and op_in == TokenType.AND:
+                return '&&'
+            if getattr(TokenType, 'OR', None) and op_in == TokenType.OR:
+                return '||'
+            if getattr(TokenType, 'NOT', None) and op_in == TokenType.NOT:
+                return '!'
+        except Exception:
+            pass
+        # String names from bindings or parser
+        if isinstance(op_in, str):
+            upper = op_in.upper()
+            if upper == 'GREATER':
+                return '>'
+            if upper == 'GREATER_EQUAL':
+                return '>='
+            if upper == 'LESS':
+                return '<'
+            if upper == 'LESS_EQUAL':
+                return '<='
+            if upper == 'EQUAL' or upper == 'EQ':
+                return '=='
+            if upper == 'NOT_EQUAL' or upper == 'NE':
+                return '!='
+            if upper in ('AND', '&&'):
+                return '&&'
+            if upper in ('OR', '||'):
+                return '||'
+            if upper in ('NOT', '!'):
+                return '!'
+        return None
+    
     def _expression_to_condition(self, expression: Any) -> str:
         """Legacy: Convert expression to a naive condition string (internal use)."""
         if isinstance(expression, BinaryExpression):
             left = self._expression_to_value(expression.left)
             right = self._expression_to_value(expression.right)
-            return f"{left} {expression.operator} {right}"
+            op_sym = self._normalize_operator(expression.operator)
+            # Minecraft scoreboard uses '=' instead of '=='
+            if op_sym == '==':
+                op_text = '='
+            else:
+                op_text = op_sym if op_sym is not None else str(expression.operator)
+            return f"{left} {op_text} {right}"
         else:
             return self._expression_to_value(expression)
 
@@ -835,12 +894,46 @@ class MDLCompiler:
         # Default: generic expression string, no inversion
         invert_then = False
         
+        # Helpers local to this method to keep concerns contained
+        def unwrap(e: Any) -> Any:
+            while isinstance(e, ParenthesizedExpression):
+                e = e.expression
+            return e
+
+        # Handle logical operators by compiling to a boolean temp scoreboard var
+        unwrapped = unwrap(expression)
+        op_sym_unwrapped = None
+        # Import here to avoid top-level cycle
+        from .ast_nodes import UnaryExpression as _UnaryExpr
+        if isinstance(unwrapped, BinaryExpression) or isinstance(unwrapped, _UnaryExpr):
+            op_sym_unwrapped = self._normalize_operator(getattr(unwrapped, 'operator', None))
+        if op_sym_unwrapped in ('&&', '||', '!'):
+            bool_var = self._compile_boolean_expression(unwrapped)
+            return (f"score @s {bool_var} matches 1..", False)
+
         if isinstance(expression, BinaryExpression):
-            left = expression.left
-            right = expression.right
-            op = expression.operator
+            left = unwrap(expression.left)
+            right = unwrap(expression.right)
+            op_sym = self._normalize_operator(expression.operator)
+            # Treat a leading logical NOT on a comparator operand as negating the entire comparison
+            # Example: !$a > 0  =>  NOT ( $a > 0 )
+            if op_sym in (">", ">=", "<", "<=", "==", "!="):
+                try:
+                    from .ast_nodes import UnaryExpression as _UnaryExpr
+                except Exception:
+                    _UnaryExpr = None
+                if _UnaryExpr is not None and isinstance(left, _UnaryExpr) and self._normalize_operator(getattr(left, 'operator', None)) == '!':
+                    # Build condition for (left.operand op right) and invert
+                    inner = BinaryExpression(left=left.operand, operator=expression.operator, right=right)
+                    cond_str, inv = self._build_condition(inner)
+                    return (cond_str, not inv)
+                if _UnaryExpr is not None and isinstance(right, _UnaryExpr) and self._normalize_operator(getattr(right, 'operator', None)) == '!':
+                    # Build condition for (left op right.operand) and invert
+                    inner = BinaryExpression(left=left, operator=expression.operator, right=right.operand)
+                    cond_str, inv = self._build_condition(inner)
+                    return (cond_str, not inv)
             # Variable vs literal
-            if isinstance(left, VariableSubstitution) and isinstance(right, LiteralExpression) and isinstance(right.value, (int, float)):
+            if op_sym and isinstance(left, VariableSubstitution) and isinstance(right, LiteralExpression) and isinstance(right.value, (int, float)):
                 objective = self.variables.get(left.name, left.name)
                 scope = left.scope.strip("<>")
                 # Normalize number
@@ -850,46 +943,118 @@ class MDLCompiler:
                     v = None
                 if v is not None:
                     n = int(v) if float(v).is_integer() else v
-                    if op == TokenType.GREATER:
+                    if op_sym == ">":
                         rng = f"{int(n)+1}.." if isinstance(n, int) else f"{v+1}.."
                         return (f"score {scope} {objective} matches {rng}", False)
-                    if op == TokenType.GREATER_EQUAL:
+                    if op_sym == ">=":
                         rng = f"{int(n)}.."
                         return (f"score {scope} {objective} matches {rng}", False)
-                    if op == TokenType.LESS:
+                    if op_sym == "<":
                         rng = f"..{int(n)-1}"
                         return (f"score {scope} {objective} matches {rng}", False)
-                    if op == TokenType.LESS_EQUAL:
+                    if op_sym == "<=":
                         rng = f"..{int(n)}"
                         return (f"score {scope} {objective} matches {rng}", False)
-                    if op == TokenType.EQUAL:
+                    if op_sym == "==":
                         rng = f"{int(n)}"
                         return (f"score {scope} {objective} matches {rng}", False)
-                    if op == TokenType.NOT_EQUAL:
+                    if op_sym == "!=":
                         rng = f"{int(n)}"
                         return (f"score {scope} {objective} matches {rng}", True)
+            # Literal vs variable (swap sides)
+            if op_sym and isinstance(left, LiteralExpression) and isinstance(left.value, (int, float)) and isinstance(right, VariableSubstitution):
+                # Swap by inverting the operator appropriately, then reuse logic
+                invert_map = {
+                    ">": "<",
+                    ">=": "<=",
+                    "<": ">",
+                    "<=": ">=",
+                    "==": "==",
+                    "!=": "!="
+                }
+                swapped = BinaryExpression(left=right, operator=invert_map.get(op_sym, op_sym), right=left)
+                return self._build_condition(swapped)
             # Variable vs variable
-            if isinstance(left, VariableSubstitution) and isinstance(right, VariableSubstitution):
+            if op_sym and isinstance(left, VariableSubstitution) and isinstance(right, VariableSubstitution):
                 lobj = self.variables.get(left.name, left.name)
                 lscope = left.scope.strip("<>")
                 robj = self.variables.get(right.name, right.name)
                 rscope = right.scope.strip("<>")
-                if op in (TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL, TokenType.EQUAL):
-                    comp_map = {
-                        TokenType.GREATER: ">",
-                        TokenType.GREATER_EQUAL: ">=",
-                        TokenType.LESS: "<",
-                        TokenType.LESS_EQUAL: "<=",
-                        TokenType.EQUAL: "="
-                    }
-                    comp = comp_map[op]
+                if op_sym in (">", ">=", "<", "<=", "=="):
+                    comp = op_sym if op_sym != "==" else "="
                     return (f"score {lscope} {lobj} {comp} {rscope} {robj}", False)
-                if op == TokenType.NOT_EQUAL:
+                if op_sym == "!=":
                     # Use equals with inversion
                     return (f"score {lscope} {lobj} = {rscope} {robj}", True)
+
+            # General scoreboard vs scoreboard (covers temps produced by BinaryExpression)
+            if op_sym:
+                try:
+                    left_val = self._expression_to_value(left)
+                    right_val = self._expression_to_value(right)
+                except Exception:
+                    left_val = None
+                    right_val = None
+                if isinstance(left_val, str) and left_val.startswith("score ") and isinstance(right_val, str) and right_val.startswith("score "):
+                    lparts = left_val.split()
+                    rparts = right_val.split()
+                    if len(lparts) >= 3 and len(rparts) >= 3:
+                        lscope, lobj = lparts[1], lparts[2]
+                        rscope, robj = rparts[1], rparts[2]
+                        if op_sym == "!=":
+                            return (f"score {lscope} {lobj} = {rscope} {robj}", True)
+                        comp = op_sym if op_sym != "==" else "="
+                        return (f"score {lscope} {lobj} {comp} {rscope} {robj}", False)
         
         # Fallback: treat as generic condition string
         return (self._expression_to_condition(expression), False)
+
+    def _compile_boolean_expression(self, expression: Any, out_var: Optional[str] = None) -> str:
+        """Compile a logical expression into a temporary boolean scoreboard variable (1 true, 0 false).
+        Returns the objective name for the boolean temp variable.
+        """
+        from .ast_nodes import BinaryExpression as Bin, UnaryExpression as Un, ParenthesizedExpression as Par
+        if out_var is None:
+            out_var = self._generate_temp_variable_name()
+        # Ensure initialized to 0
+        self._store_temp_command(f"scoreboard players set @s {out_var} 0")
+
+        def emit_set_true_when(cond_expr: Any):
+            cond_str, inv = self._build_condition(cond_expr)
+            prefix = "unless" if inv else "if"
+            self._store_temp_command(f"execute {prefix} {cond_str} run scoreboard players set @s {out_var} 1")
+
+        expr = expression
+        # Parentheses
+        if isinstance(expr, Par):
+            return self._compile_boolean_expression(expr.expression, out_var)
+        # Unary NOT
+        if isinstance(expr, Un):
+            op = self._normalize_operator(expr.operator)
+            if op == '!':
+                inner_var = self._compile_boolean_expression(expr.operand)
+                # out = NOT inner
+                self._store_temp_command(f"execute unless score @s {inner_var} matches 1.. run scoreboard players set @s {out_var} 1")
+                return out_var
+        # Binary logical
+        if isinstance(expr, Bin):
+            op = self._normalize_operator(expr.operator)
+            if op == '&&':
+                left_var = self._compile_boolean_expression(expr.left)
+                right_var = self._compile_boolean_expression(expr.right)
+                # Set true only when both true
+                self._store_temp_command(f"execute if score @s {left_var} matches 1.. if score @s {right_var} matches 1.. run scoreboard players set @s {out_var} 1")
+                return out_var
+            if op == '||':
+                left_var = self._compile_boolean_expression(expr.left)
+                right_var = self._compile_boolean_expression(expr.right)
+                # Set true when either true
+                self._store_temp_command(f"execute if score @s {left_var} matches 1.. run scoreboard players set @s {out_var} 1")
+                self._store_temp_command(f"execute if score @s {right_var} matches 1.. run scoreboard players set @s {out_var} 1")
+                return out_var
+        # Base comparator or non-logical: set true if base condition holds
+        emit_set_true_when(expr)
+        return out_var
     
     def _compile_expression_to_temp(self, expression: BinaryExpression, temp_var: str):
         """Compile a complex expression to a temporary variable using valid Minecraft commands."""

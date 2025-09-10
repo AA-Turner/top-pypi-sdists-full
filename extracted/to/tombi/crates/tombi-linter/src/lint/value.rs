@@ -6,27 +6,32 @@ mod inline_table;
 mod integer;
 mod string;
 
+use tombi_future::Boxable;
+
 use crate::Lint;
 
 impl Lint for tombi_ast::Value {
-    fn lint(&self, l: &mut crate::Linter) {
-        match self {
-            Self::Boolean(value) => value.lint(l),
-            Self::IntegerBin(value) => value.lint(l),
-            Self::IntegerOct(value) => value.lint(l),
-            Self::IntegerDec(value) => value.lint(l),
-            Self::IntegerHex(value) => value.lint(l),
-            Self::Float(value) => value.lint(l),
-            Self::BasicString(value) => value.lint(l),
-            Self::LiteralString(value) => value.lint(l),
-            Self::MultiLineBasicString(value) => value.lint(l),
-            Self::MultiLineLiteralString(value) => value.lint(l),
-            Self::OffsetDateTime(value) => value.lint(l),
-            Self::LocalDateTime(value) => value.lint(l),
-            Self::LocalDate(value) => value.lint(l),
-            Self::LocalTime(value) => value.lint(l),
-            Self::Array(value) => value.lint(l),
-            Self::InlineTable(value) => value.lint(l),
+    fn lint<'a: 'b, 'b>(&'a self, l: &'a mut crate::Linter<'_>) -> tombi_future::BoxFuture<'b, ()> {
+        async move {
+            match self {
+                Self::Boolean(value) => value.lint(l).await,
+                Self::IntegerBin(value) => value.lint(l).await,
+                Self::IntegerOct(value) => value.lint(l).await,
+                Self::IntegerDec(value) => value.lint(l).await,
+                Self::IntegerHex(value) => value.lint(l).await,
+                Self::Float(value) => value.lint(l).await,
+                Self::BasicString(value) => value.lint(l).await,
+                Self::LiteralString(value) => value.lint(l).await,
+                Self::MultiLineBasicString(value) => value.lint(l).await,
+                Self::MultiLineLiteralString(value) => value.lint(l).await,
+                Self::OffsetDateTime(value) => value.lint(l).await,
+                Self::LocalDateTime(value) => value.lint(l).await,
+                Self::LocalDate(value) => value.lint(l).await,
+                Self::LocalTime(value) => value.lint(l).await,
+                Self::Array(value) => value.lint(l).await,
+                Self::InlineTable(value) => value.lint(l).await,
+            }
         }
+        .boxed()
     }
 }

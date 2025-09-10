@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-08T21:00:14.542885                                                            #
+# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-09T09:20:35.707572                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class StepFunctionsSchedulingException(metaflow.exception.MetaflowException, met
     ...
 
 class StepFunctions(object, metaclass=type):
-    def __init__(self, name, graph, flow, code_package_metadata, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, aws_batch_tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, is_project = False, use_distributed_map = False):
+    def __init__(self, name, graph, flow, code_package_metadata, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, aws_batch_tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, is_project = False, use_distributed_map = False, compress_state_machine = False):
         ...
     def to_json(self):
         ...

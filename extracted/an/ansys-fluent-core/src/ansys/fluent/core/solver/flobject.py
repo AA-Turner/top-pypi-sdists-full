@@ -1730,6 +1730,8 @@ class BaseCommand(Action):
 
     def _execute_command(self, *args, **kwds):
         """Execute a command with the specified positional and keyword arguments."""
+        from ansys.fluent.core import config
+
         if self.flproxy.is_interactive_mode():
             prompt = self.flproxy.get_command_confirmation_prompt(
                 self._parent.path, self.obj_name, **kwds
@@ -1747,7 +1749,7 @@ class BaseCommand(Action):
         with self._while_executing_command():
             ret = self.flproxy.execute_cmd(self._parent.path, self.obj_name, **kwds)
             if (
-                os.getenv("PYFLUENT_NO_FIX_PARAMETER_LIST_RETURN") != "1"
+                not config.disable_parameter_list_return_fix
                 and FluentVersion(self._version) <= FluentVersion.v252
                 and self.path
                 in [
@@ -2280,6 +2282,10 @@ def get_cls(name, info, parent=None, version=None, parent_taboo=None):
                 )
             cls._allowed_values = allowed_values
 
+        has_migration_adapter = info.get("has-migration-adapter?", False)
+        if has_migration_adapter:
+            cls._has_migration_adapter = True
+
     except Exception:
         print(
             f"Unable to construct class for '{name}' of "
@@ -2326,16 +2332,16 @@ def get_root(
     RuntimeError
         If hash values are inconsistent.
     """
-    from ansys.fluent.core import CODEGEN_OUTDIR, utils
+    from ansys.fluent.core import config, utils
 
-    if os.getenv("PYFLUENT_USE_RUNTIME_PYTHON_CLASSES") == "1":
+    if config.use_runtime_python_classes:
         obj_info = flproxy.get_static_info()
         root_cls, _ = get_cls("", obj_info, version=version)
     else:
         try:
             settings = utils.load_module(
                 f"settings_{version}",
-                CODEGEN_OUTDIR / "solver" / f"settings_{version}.py",
+                config.codegen_outdir / "solver" / f"settings_{version}.py",
             )
             root_cls = settings.root
             warning_for_fluent_dev_version(version)

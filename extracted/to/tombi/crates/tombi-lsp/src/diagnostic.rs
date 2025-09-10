@@ -65,12 +65,12 @@ pub async fn get_diagnostics_result(
             MatchResult::Matched => {}
             MatchResult::IncludeNotMatched => {
                 tracing::info!(
-                    "skip {text_document_path:?} because it is not in config.files.include"
+                    "Skip {text_document_path:?} because it is not in config.files.include"
                 );
                 return None;
             }
             MatchResult::ExcludeMatched => {
-                tracing::info!("skip {text_document_path:?} because it is in config.files.exclude");
+                tracing::info!("Skip {text_document_path:?} because it is in config.files.exclude");
                 return None;
             }
         }
@@ -85,7 +85,7 @@ pub async fn get_diagnostics_result(
         .flatten();
 
     let tombi_document_comment_directive =
-        tombi_comment_directive::get_tombi_document_comment_directive(&root).await;
+        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
     let (toml_version, _) = backend
         .source_toml_version(
             tombi_document_comment_directive,

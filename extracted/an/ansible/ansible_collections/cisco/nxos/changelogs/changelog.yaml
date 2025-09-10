@@ -457,6 +457,75 @@ releases:
         name: nxos_bgp_global
         namespace: ""
     release_date: "2021-01-29"
+  10.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.16.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.16.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.16` is v5.1.2.
+      removed_features:
+        - "This release removes all deprecated plugins that have reached their end-of-life,
+          including:"
+        - nxos_snmp_community
+        - nxos_snmp_contact
+        - nxos_snmp_host
+        - nxos_snmp_location
+        - nxos_snmp_user
+    fragments:
+      - bump_216.yaml
+    release_date: "2025-04-11"
+  10.1.0:
+    changes:
+      deprecated_features:
+        - nxos_hsrp - deprecate nxos.nxos.nxos_hsrp in favor of nxos.nxos.nxos_hsrp_interfaces.
+        - nxos_vrf_interface - deprecate nxos.nxos.nxos_vrf_interface in favor of nxos.nxos.nxos_vrf_interfaces.
+      minor_changes:
+        - hsrp_interfaces - Fixes and enhances capability of the module to deal with
+          entire hsrp configuration under interfaces.
+    fragments:
+      - fix_downstream.yml
+      - fix_tests.yml
+      - update_hsrp_interfaces.yml
+    release_date: "2025-05-29"
+  10.2.0:
+    changes:
+      bugfixes:
+        - nxos_acls - Fix issue where Not sufficient TCAM bank error not being captured
+          by error regex.
+      minor_changes:
+        - nxos_interfaces - Added service-policy, logging, mac-address and snmp configuration
+          options for interface.
+        - nxos_l2_interfaces - Enhances capability of the module to deal with addition
+          attributes under l2 interfaces. Adds support for CDP, Link flap and beacon.
+    fragments:
+      - acls_fix.yml
+      - add_attr_interfaces.yaml
+      - fix_ci.yaml
+      - fix_sanity.yaml
+      - rewrite_l2_interfaces.yml
+    release_date: "2025-07-01"
+  11.0.0:
+    changes:
+      bugfixes:
+        - cisco.nxos.nxos_vrf_global - Added support for rd attribute for nxos_vrf_global
+          module.
+      major_changes:
+        - Bumping `dependencies` of ansible.netcommon to `>=8.1.0`, since previous versions
+          of the dependency had compatibility issues with `ansible-core>=2.19`.
+      minor_changes:
+        - cisco.nxos.nxos_l3_interfaces - Rewrite of l3_interfaces with bug fixes and
+          enhancements.
+      release_summary:
+        With this release, the minimum required version of `ansible.netcommon`
+        for this collection is `>=8.1.0`. The last version known to be compatible
+        with `ansible-core<=2.18.x` is ansible.netcommon `v8.0.1` and cisco.nxos `v10.2.0`.
+    fragments:
+      - l3_interface_refactor.yaml
+      - vrf_global_rd_attribute.yaml
+    release_date: "2025-08-19"
   2.0.0:
     changes:
       bugfixes:

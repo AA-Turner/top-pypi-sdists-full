@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class MultipleArtifactContentResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -105,15 +97,7 @@ class MultipleArtifactContentResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "vuln_report": obj.get("vuln_report"),
-            "artifacts": obj.get("artifacts")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

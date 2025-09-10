@@ -1,5 +1,8 @@
 # This is pyproject.toml for neptune_fetcher
-# neptune_query's pyproject.toml is located in the repository root
+
+# IMPORTANT: This package is deprecated. Please use neptune-query instead.
+# Repository: https://github.com/neptune-ai/neptune-query
+# PyPI: https://pypi.org/project/neptune-query
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
@@ -15,7 +18,7 @@ pattern = "default-unprefixed"
 python = "^3.9"
 
 # Base neptune package
-neptune-api = ">=0.17.0,<0.20.0"
+neptune-api = ">=0.17.0,<0.23.0"
 azure-storage-blob = "^12.7.0"
 pandas = [
     { version = ">=1.4.0,<2.3.0", python = "<3.10" },
@@ -27,16 +30,16 @@ tqdm = { version = ">=4.66.0" }
 
 [tool.poetry]
 authors = ["neptune.ai <contact@neptune.ai>"]
-description = "Neptune Fetcher"
+description = "Neptune Fetcher (DEPRECATED - use neptune-query instead)"
 repository = "https://github.com/neptune-ai/neptune-fetcher"
 homepage = "https://neptune.ai/"
-documentation = "https://docs.neptune.ai/"
+documentation = "https://docs.neptune.ai/fetcher_setup"
 license = "Apache License 2.0"
 name = "neptune-fetcher"
 readme = "README.md"
-version = "0.20.1"
+version = "0.21.0"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 7 - Inactive",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -63,7 +66,8 @@ packages = [
 
 [tool.poetry.urls]
 "Tracker" = "https://github.com/neptune-ai/neptune-fetcher/issues"
-"Documentation" = "https://docs.neptune.ai/"
+"Documentation" = "https://docs.neptune.ai/fetcher_setup"
+"Replacement Package" = "https://pypi.org/project/neptune-query"
 
 [tool.black]
 line-length = 120
@@ -90,7 +94,7 @@ max-line-length = 120
 extend-ignore = "E203"
 
 [tool.mypy]
-mypy_path = "neptune_fetcher/src/"
+mypy_path = "src/"
 packages = "neptune_fetcher.alpha,neptune_fetcher.internal"
 follow_imports = "silent"
 install_types = "True"

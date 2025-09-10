@@ -1192,7 +1192,10 @@ fn parse_maybe_string(input: &str) -> Result<Maybe<String>, String> {
 #[derive(Args)]
 #[command(group = clap::ArgGroup::new("sources").required(true).multiple(true))]
 pub struct PipCompileArgs {
-    /// Include all packages listed in the given `requirements.in` files.
+    /// Include the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg`.
     ///
     /// If a `pyproject.toml`, `setup.py`, or `setup.cfg` file is provided, uv will extract the
     /// requirements for the relevant project.
@@ -1446,8 +1449,14 @@ pub struct PipCompileArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     #[arg(long)]
     pub python_platform: Option<TargetTriple>,
 
@@ -1538,7 +1547,10 @@ pub struct PipCompileArgs {
 
 #[derive(Args)]
 pub struct PipSyncArgs {
-    /// Include all packages listed in the given `requirements.txt` files.
+    /// Include the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg`.
     ///
     /// If a `pyproject.toml`, `setup.py`, or `setup.cfg` file is provided, uv will
     /// extract the requirements for the relevant project.
@@ -1772,8 +1784,14 @@ pub struct PipSyncArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -1824,7 +1842,10 @@ pub struct PipInstallArgs {
     #[arg(group = "sources")]
     pub package: Vec<String>,
 
-    /// Install all packages listed in the given `requirements.txt` or `pylock.toml` files.
+    /// Install the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg`.
     ///
     /// If a `pyproject.toml`, `setup.py`, or `setup.cfg` file is provided, uv will extract the
     /// requirements for the relevant project.
@@ -2075,8 +2096,14 @@ pub struct PipInstallArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -2137,7 +2164,10 @@ pub struct PipUninstallArgs {
     #[arg(group = "sources")]
     pub package: Vec<String>,
 
-    /// Uninstall all packages listed in the given requirements files.
+    /// Uninstall the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg`.
     #[arg(long, short, alias = "requirement", group = "sources", value_parser = parse_file_path)]
     pub requirements: Vec<PathBuf>,
 
@@ -2398,8 +2428,14 @@ pub struct PipCheckArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     #[arg(long)]
     pub python_platform: Option<TargetTriple>,
 }
@@ -3131,9 +3167,14 @@ pub struct RunArgs {
     #[arg(long, conflicts_with_all = ["group", "all_groups", "no_dev"])]
     pub only_dev: bool,
 
+    /// Install any non-editable dependencies, including the project and any workspace members, as
+    /// editable.
+    #[arg(long, overrides_with = "no_editable", hide = true)]
+    pub editable: bool,
+
     /// Install any editable dependencies, including the project and any workspace members, as
     /// non-editable.
-    #[arg(long, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
+    #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
     pub no_editable: bool,
 
     /// Do not remove extraneous packages present in the environment.
@@ -3181,7 +3222,10 @@ pub struct RunArgs {
     #[arg(long)]
     pub with_editable: Vec<comma::CommaSeparatedRequirements>,
 
-    /// Run with all packages listed in the given `requirements.txt` files.
+    /// Run with the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// and `pylock.toml`.
     ///
     /// The same environment semantics as `--with` apply.
     ///
@@ -3323,8 +3367,14 @@ pub struct RunArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -3432,9 +3482,14 @@ pub struct SyncArgs {
     #[arg(long, conflicts_with_all = ["only_group", "only_dev"])]
     pub all_groups: bool,
 
+    /// Install any non-editable dependencies, including the project and any workspace members, as
+    /// editable.
+    #[arg(long, overrides_with = "no_editable", hide = true)]
+    pub editable: bool,
+
     /// Install any editable dependencies, including the project and any workspace members, as
     /// non-editable.
-    #[arg(long, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
+    #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
     pub no_editable: bool,
 
     /// Do not remove extraneous packages present in the environment.
@@ -3600,8 +3655,14 @@ pub struct SyncArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -3688,7 +3749,10 @@ pub struct AddArgs {
     #[arg(group = "sources")]
     pub packages: Vec<String>,
 
-    /// Add all packages listed in the given `requirements.txt` files.
+    /// Add the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg`.
     #[arg(long, short, alias = "requirement", group = "sources", value_parser = parse_file_path)]
     pub requirements: Vec<PathBuf>,
 
@@ -4270,9 +4334,14 @@ pub struct ExportArgs {
     #[arg(long, overrides_with("no_header"), hide = true)]
     pub header: bool,
 
+    /// Export any non-editable dependencies, including the project and any workspace members, as
+    /// editable.
+    #[arg(long, overrides_with = "no_editable", hide = true)]
+    pub editable: bool,
+
     /// Export any editable dependencies, including the project and any workspace members, as
     /// non-editable.
-    #[arg(long, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
+    #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
     pub no_editable: bool,
 
     /// Include hashes for all dependencies.
@@ -4392,6 +4461,14 @@ pub struct FormatArgs {
     /// `uv format -- src/module/foo.py` to format a specific file.
     #[arg(last = true)]
     pub extra_args: Vec<String>,
+
+    /// Avoid discovering a project or workspace.
+    ///
+    /// Instead of running the formatter in the context of the current project, run it in the
+    /// context of the current directory. This is useful when the current directory is not a
+    /// project.
+    #[arg(long)]
+    pub no_project: bool,
 }
 
 #[derive(Args)]
@@ -4539,7 +4616,10 @@ pub struct ToolRunArgs {
     #[arg(long)]
     pub with_editable: Vec<comma::CommaSeparatedRequirements>,
 
-    /// Run with all packages listed in the given `requirements.txt` files.
+    /// Run with the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// and `pylock.toml`.
     #[arg(long, value_delimiter = ',', value_parser = parse_maybe_file_path)]
     pub with_requirements: Vec<Maybe<PathBuf>>,
 
@@ -4623,8 +4703,14 @@ pub struct ToolRunArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -4663,7 +4749,10 @@ pub struct ToolInstallArgs {
     #[arg(short = 'w', long)]
     pub with: Vec<comma::CommaSeparatedRequirements>,
 
-    /// Include all requirements listed in the given `requirements.txt` files.
+    /// Run with the packages listed in the given files.
+    ///
+    /// The following formats are supported: `requirements.txt`, `.py` files with inline metadata,
+    /// and `pylock.toml`.
     #[arg(long, value_delimiter = ',', value_parser = parse_maybe_file_path)]
     pub with_requirements: Vec<Maybe<PathBuf>>,
 
@@ -4745,8 +4834,14 @@ pub struct ToolInstallArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -4842,8 +4937,14 @@ pub struct ToolUpgradeArgs {
     /// its CPU, vendor, and operating system name, like `x86_64-unknown-linux-gnu` or
     /// `aarch64-apple-darwin`.
     ///
-    /// When targeting macOS (Darwin), the default minimum version is `12.0`. Use
-    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `13.0`.
+    /// When targeting macOS (Darwin), the default minimum version is `13.0`. Use
+    /// `MACOSX_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting iOS, the default minimum version is `13.0`. Use
+    /// `IPHONEOS_DEPLOYMENT_TARGET` to specify a different minimum version, e.g., `14.0`.
+    ///
+    /// When targeting Android, the default minimum Android API level is `24`. Use
+    /// `ANDROID_API_LEVEL` to specify a different minimum version, e.g., `26`.
     ///
     /// WARNING: When specified, uv will select wheels that are compatible with the _target_
     /// platform; as a result, the installed distributions may not be compatible with the _current_
@@ -5538,7 +5639,7 @@ pub struct PythonPinArgs {
 
 #[derive(Args)]
 pub struct AuthLogoutArgs {
-    /// The service to logout of.
+    /// The domain or URL of the service to logout from.
     pub service: Service,
 
     /// The username to logout.
@@ -5559,7 +5660,7 @@ pub struct AuthLogoutArgs {
 
 #[derive(Args)]
 pub struct AuthLoginArgs {
-    /// The service to log into.
+    /// The domain or URL of the service to log into.
     pub service: Service,
 
     /// The username to use for the service.
@@ -5594,7 +5695,7 @@ pub struct AuthLoginArgs {
 
 #[derive(Args)]
 pub struct AuthTokenArgs {
-    /// The service to lookup.
+    /// The domain or URL of the service to lookup.
     pub service: Service,
 
     /// The username to lookup.
@@ -5612,7 +5713,7 @@ pub struct AuthTokenArgs {
 
 #[derive(Args)]
 pub struct AuthDirArgs {
-    /// The service to lookup.
+    /// The domain or URL of the service to lookup.
     pub service: Option<Service>,
 }
 

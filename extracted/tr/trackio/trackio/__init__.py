@@ -9,6 +9,7 @@ from gradio.blocks import BUILT_IN_THEMES
 from gradio.themes import Default as DefaultTheme
 from gradio.themes import ThemeClass
 from gradio_client import Client
+from huggingface_hub import SpaceStorage
 
 from trackio import context_vars, deploy, utils
 from trackio.imports import import_csv, import_tf_events
@@ -44,6 +45,7 @@ def init(
     project: str,
     name: str | None = None,
     space_id: str | None = None,
+    space_storage: SpaceStorage | None = None,
     dataset_id: str | None = None,
     config: dict | None = None,
     resume: str = "never",
@@ -65,6 +67,8 @@ def init(
             case the Space will be created in the currently-logged-in Hugging Face
             user's namespace. If the Space does not exist, it will be created. If the
             Space already exists, the project will be logged to it.
+        space_storage ([`~huggingface_hub.SpaceStorage`] or `None`, *optional*, defaults to `None`):
+            Choice of persistent storage tier.
         dataset_id (`str` or `None`, *optional*, defaults to `None`):
             If a `space_id` is provided, a persistent Hugging Face Dataset will be
             created and the metrics will be synced to it every 5 minutes. Specify a
@@ -127,7 +131,7 @@ def init(
             print(f"* Trackio metrics logged to: {TRACKIO_DIR}")
             utils.print_dashboard_instructions(project)
         else:
-            deploy.create_space_if_not_exists(space_id, dataset_id)
+            deploy.create_space_if_not_exists(space_id, space_storage, dataset_id)
             print(
                 f"* View dashboard by going to: {deploy.SPACE_URL.format(space_id=space_id)}"
             )
@@ -142,12 +146,18 @@ def init(
             raise ValueError("Must provide a run name when resume='must'")
         if name not in SQLiteStorage.get_runs(project):
             raise ValueError(f"Run '{name}' does not exist in project '{project}'")
+        resumed = True
     elif resume == "allow":
-        if name is not None and name in SQLiteStorage.get_runs(project):
-            print(f"* Resuming existing run: {name}")
+        resumed = name is not None and name in SQLiteStorage.get_runs(project)
     elif resume == "never":
         if name is not None and name in SQLiteStorage.get_runs(project):
+            warnings.warn(
+                f"* Warning: resume='never' but a run '{name}' already exists in "
+                f"project '{project}'. Generating a new name and instead. If you want "
+                "to resume this run, call init() with resume='must' or resume='allow'."
+            )
             name = None
+        resumed = False
     else:
         raise ValueError("resume must be one of: 'must', 'allow', or 'never'")
 
@@ -159,6 +169,12 @@ def init(
         config=config,
         space_id=space_id,
     )
+
+    if resumed:
+        print(f"* Resumed existing run: {run.name}")
+    else:
+        print(f"* Created new run: {run.name}")
+
     context_vars.current_run.set(run)
     globals()["config"] = run.config
     return run

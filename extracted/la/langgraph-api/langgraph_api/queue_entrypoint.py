@@ -86,6 +86,7 @@ async def health_and_metrics_server():
         log_level="error",
         access_log=False,
     )
+    # Server will run indefinitely until the process is terminated
     server = uvicorn.Server(config)
 
     logger.info(f"Health and metrics server started at http://0.0.0.0:{port}")
@@ -93,14 +94,15 @@ async def health_and_metrics_server():
 
 
 async def entrypoint(
-    grpc_port: int | None = None, entrypoint_name: str = "python-queue"
+    grpc_port: int | None = None,
+    entrypoint_name: str = "python-queue",
+    cancel_event: asyncio.Event | None = None,
 ):
     from langgraph_api import logging as lg_logging
     from langgraph_api.api import user_router
 
     lg_logging.set_logging_context({"entrypoint": entrypoint_name})
     tasks: set[asyncio.Task] = set()
-    tasks.add(asyncio.create_task(health_and_metrics_server()))
 
     original_lifespan = user_router.router.lifespan_context if user_router else None
 
@@ -113,6 +115,7 @@ async def entrypoint(
             with_cron_scheduler=with_cron_scheduler,
             grpc_port=grpc_port,
             taskset=taskset,
+            cancel_event=cancel_event,
         ):
             if original_lifespan:
                 async with original_lifespan(app):
@@ -123,6 +126,7 @@ async def entrypoint(
     async with combined_lifespan(
         None, with_cron_scheduler=False, grpc_port=grpc_port, taskset=tasks
     ):
+        tasks.add(asyncio.create_task(health_and_metrics_server()))
         await asyncio.gather(*tasks)
 
 
@@ -141,8 +145,14 @@ async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queu
         signal.signal(signal.SIGTERM, lambda *_: _handle_signal())
 
     entry_task = asyncio.create_task(
-        entrypoint(grpc_port=grpc_port, entrypoint_name=entrypoint_name)
+        entrypoint(
+            grpc_port=grpc_port,
+            entrypoint_name=entrypoint_name,
+            cancel_event=stop_event,
+        )
     )
+    # Handle the case where the entrypoint errors out
+    entry_task.add_done_callback(lambda _: stop_event.set())
     await stop_event.wait()
 
     logger.warning("Cancelling queue entrypoint task")

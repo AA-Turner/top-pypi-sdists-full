@@ -24,14 +24,6 @@ from pulpcore.client.pulp_file.models.file_file_repository_response import FileF
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PaginatedfileFileRepositoryResponseList(BaseModel):
     """
     PaginatedfileFileRepositoryResponseList
@@ -99,12 +91,7 @@ class PaginatedfileFileRepositoryResponseList(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "count": obj.get("count"),
-            "next": obj.get("next"),
-            "previous": obj.get("previous"),
-            "results": [FileFileRepositoryResponse.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

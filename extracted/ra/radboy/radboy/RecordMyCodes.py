@@ -197,6 +197,8 @@ async def protect():
 import asyncio
 asyncio.run(protect())
 #ensure readline on boot
+ROBS=''
+ROBE=''
 with Session(ENGINE) as session:
     READLINE_PREFERECE=session.query(SystemPreference).filter(SystemPreference.name=='readline').order_by(SystemPreference.dtoe.desc()).all()
     ct=len(READLINE_PREFERECE)
@@ -206,6 +208,8 @@ with Session(ENGINE) as session:
             sp=SystemPreference(name="readline",value_4_Json2DictString=json.dumps({"readline":True}))
             session.add(sp)
             session.commit()
+            ROBS='\001'
+            ROBE='\002'
         except Exception as e:
             print("Could not import Readline, you might not have it installed!")
     else:
@@ -222,6 +226,8 @@ with Session(ENGINE) as session:
             if cfg =='':
                 READLINE_PREFERECE[f].value_4_Json2DictString=json.dumps({"readline":True})
                 import readline
+                ROBS='\001'
+                ROBE='\002'
                 session.commit()
                 session.refresh(READLINE_PREFERECE[f])
             else:
@@ -230,6 +236,8 @@ with Session(ENGINE) as session:
                     if x.get("readline") == True:
                         try:
                             import readline
+                            ROBS='\001'
+                            ROBE='\002'
                         except Exception as e:
                             print(e)
                     else:
@@ -237,6 +245,8 @@ with Session(ENGINE) as session:
                 except Exception as e:
                     try:
                         import readline
+                        ROBS='\001'
+                        ROBE='\002'
                         print(e)
                     except Exception as e:
                         print(e)

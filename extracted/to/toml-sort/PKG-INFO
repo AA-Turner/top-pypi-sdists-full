@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: toml-sort
-Version: 0.24.2
+Version: 0.24.3
 Summary: Toml sorting library
-Home-page: https://github.com/pappasam/toml-sort
 License: MIT
 Keywords: toml,sort,cli,unix,utility
 Author: Sam Roeca
 Author-email: samuel.roeca@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
@@ -21,6 +20,7 @@ Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Dist: tomlkit (>=0.13.2)
+Project-URL: Homepage, https://github.com/pappasam/toml-sort
 Project-URL: Repository, https://github.com/pappasam/toml-sort
 Description-Content-Type: text/markdown
 
@@ -28,7 +28,7 @@ Description-Content-Type: text/markdown
 
 [![pypi-version](https://img.shields.io/pypi/v/toml-sort.svg)](https://python.org/pypi/toml-sort)
 [![license](https://img.shields.io/pypi/l/toml-sort.svg)](https://python.org/pypi/toml-sort)
-[![image-python-versions](https://img.shields.io/badge/python->=3.9-blue)](https://python.org/pypi/jedi-language-server)
+[![image-python-versions](https://img.shields.io/pypi/pyversions/toml-sort)](https://python.org/pypi/toml-sort)
 [![image-pypi-downloads](https://pepy.tech/badge/toml-sort)](https://pepy.tech/project/toml-sort)
 
 A command line utility to sort and format [toml](https://toml.io/en/) files.

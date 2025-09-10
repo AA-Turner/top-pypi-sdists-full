@@ -12,7 +12,7 @@ name: logstash
 type: notification
 short_description: Sends events to Logstash
 description:
-  - This callback will report facts and task events to Logstash U(https://www.elastic.co/products/logstash).
+  - This callback reports facts and task events to Logstash U(https://www.elastic.co/products/logstash).
 requirements:
   - whitelisting in configuration
   - logstash (Python library)
@@ -180,7 +180,7 @@ class CallbackModule(CallbackBase):
         data['status'] = "OK"
         data['ansible_playbook'] = playbook._file_name
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info(
                 "START PLAYBOOK | %s", data['ansible_playbook'], extra=data
             )
@@ -205,7 +205,7 @@ class CallbackModule(CallbackBase):
         data['ansible_playbook_duration'] = runtime.total_seconds()
         data['ansible_result'] = json.dumps(summarize_stat)  # deprecated field
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info(
                 "FINISH PLAYBOOK | %s", json.dumps(summarize_stat), extra=data
             )
@@ -224,7 +224,7 @@ class CallbackModule(CallbackBase):
         data['ansible_play_id'] = self.play_id
         data['ansible_play_name'] = self.play_name
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info("START PLAY | %s", self.play_name, extra=data)
         else:
             self.logger.info("ansible play", extra=data)
@@ -249,7 +249,7 @@ class CallbackModule(CallbackBase):
             data['ansible_task'] = task_name
             data['ansible_facts'] = self._dump_results(result._result)
 
-            if (self.ls_format_version == "v2"):
+            if self.ls_format_version == "v2":
                 self.logger.info(
                     "SETUP FACTS | %s", self._dump_results(result._result), extra=data
                 )
@@ -270,7 +270,7 @@ class CallbackModule(CallbackBase):
             data['ansible_task_id'] = self.task_id
             data['ansible_result'] = self._dump_results(result._result)
 
-            if (self.ls_format_version == "v2"):
+            if self.ls_format_version == "v2":
                 self.logger.info(
                     "TASK OK | %s | RESULT | %s",
                     task_name, self._dump_results(result._result), extra=data
@@ -291,7 +291,7 @@ class CallbackModule(CallbackBase):
         data['ansible_task_id'] = self.task_id
         data['ansible_result'] = self._dump_results(result._result)
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info("TASK SKIPPED | %s", task_name, extra=data)
         else:
             self.logger.info("ansible skipped", extra=data)
@@ -305,7 +305,7 @@ class CallbackModule(CallbackBase):
         data['ansible_play_name'] = self.play_name
         data['imported_file'] = imported_file
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info("IMPORT | %s", imported_file, extra=data)
         else:
             self.logger.info("ansible import", extra=data)
@@ -319,7 +319,7 @@ class CallbackModule(CallbackBase):
         data['ansible_play_name'] = self.play_name
         data['imported_file'] = missing_file
 
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.info("NOT IMPORTED | %s", missing_file, extra=data)
         else:
             self.logger.info("ansible import", extra=data)
@@ -343,7 +343,7 @@ class CallbackModule(CallbackBase):
         data['ansible_result'] = self._dump_results(result._result)
 
         self.errors += 1
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.error(
                 "TASK FAILED | %s | HOST | %s | RESULT | %s",
                 task_name, self.hostname,
@@ -366,7 +366,7 @@ class CallbackModule(CallbackBase):
         data['ansible_result'] = self._dump_results(result._result)
 
         self.errors += 1
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.error(
                 "UNREACHABLE | %s | HOST | %s | RESULT | %s",
                 task_name, self.hostname,
@@ -389,7 +389,7 @@ class CallbackModule(CallbackBase):
         data['ansible_result'] = self._dump_results(result._result)
 
         self.errors += 1
-        if (self.ls_format_version == "v2"):
+        if self.ls_format_version == "v2":
             self.logger.error(
                 "ASYNC FAILED | %s | HOST | %s | RESULT | %s",
                 task_name, self.hostname,

@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_suspend import (
         DeleteCompletedJobResponse200RawFlowPreprocessorModuleSuspend,
     )
+    from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_0 import (
+        DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0,
+    )
+    from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_1 import (
+        DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="DeleteCompletedJobResponse200RawFlowPreprocessorModule")
@@ -48,7 +54,8 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
         sleep (Union['DeleteCompletedJobResponse200RawFlowPreprocessorModuleSleepType0',
             'DeleteCompletedJobResponse200RawFlowPreprocessorModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0',
+            'DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, DeleteCompletedJobResponse200RawFlowPreprocessorModuleMock]):
@@ -71,7 +78,11 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0",
+        "DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "DeleteCompletedJobResponse200RawFlowPreprocessorModuleMock"] = UNSET
@@ -84,6 +95,9 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_sleep_type_0 import (
             DeleteCompletedJobResponse200RawFlowPreprocessorModuleSleepType0,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_0 import (
+            DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0,
         )
 
         id = self.id
@@ -115,7 +129,20 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -195,6 +222,12 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
         from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_suspend import (
             DeleteCompletedJobResponse200RawFlowPreprocessorModuleSuspend,
         )
+        from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_0 import (
+            DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module_timeout_type_1 import (
+            DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -265,7 +298,44 @@ class DeleteCompletedJobResponse200RawFlowPreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0",
+            "DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType0.from_dict(
+                        _timeout_type_0
+                    )
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = DeleteCompletedJobResponse200RawFlowPreprocessorModuleTimeoutType1.from_dict(
+                    _timeout_type_1
+                )
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

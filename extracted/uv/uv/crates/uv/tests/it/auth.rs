@@ -616,9 +616,25 @@ fn login_native_auth_url() {
     ----- stdout -----
 
     ----- stderr -----
-    error: invalid value 'http://example.com' for '<SERVICE>': only HTTPS is supported
+    error: invalid value 'http://example.com' for '<SERVICE>': only HTTPS (or HTTP on localhost) is supported
 
     For more information, try '--help'.
+    ");
+
+    // HTTP URLs are fine for localhost
+    uv_snapshot!(context.auth_login()
+        .arg("http://localhost:1324")
+        .arg("--username")
+        .arg("test")
+        .arg("--password")
+        .arg("test")
+        .env(EnvVars::UV_PREVIEW_FEATURES, "native-auth"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Stored credentials for test@http://localhost:1324/
     ");
 
     uv_snapshot!(context.auth_login()
@@ -774,6 +790,38 @@ fn login_text_store() {
     Stored credentials for https://example.com/
     "
     );
+
+    // Empty username should fail
+    uv_snapshot!(context.auth_login()
+        .arg("https://example.com/simple")
+        .arg("--username")
+        .arg("")
+        .arg("--password")
+        .arg("testpass"), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Username cannot be empty
+    "
+    );
+
+    // Empty password should fail
+    uv_snapshot!(context.auth_login()
+        .arg("https://example.com/simple")
+        .arg("--username")
+        .arg("testuser")
+        .arg("--password")
+        .arg(""), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Password cannot be empty
+    "
+    );
 }
 
 #[test]
@@ -907,6 +955,20 @@ fn token_text_store() {
     ----- stderr -----
     "
     );
+
+    // Empty username should fail
+    uv_snapshot!(context.auth_token()
+        .arg("https://example.com/simple")
+        .arg("--username")
+        .arg(""), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Username cannot be empty
+    "
+    );
 }
 
 #[test]
@@ -955,6 +1017,20 @@ fn logout_text_store() {
 
     ----- stderr -----
     Removed credentials for https://example.com/
+    "
+    );
+
+    // Empty username should fail
+    uv_snapshot!(context.auth_logout()
+        .arg("https://example.com/simple")
+        .arg("--username")
+        .arg(""), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Username cannot be empty
     "
     );
 }

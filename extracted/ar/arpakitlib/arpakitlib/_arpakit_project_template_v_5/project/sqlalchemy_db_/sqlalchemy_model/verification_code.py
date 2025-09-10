@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from random import randint
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import sqlalchemy
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -55,13 +55,6 @@ class VerificationCodeDBM(SimpleDBM):
         insert_default=True,
         server_default="true"
     )
-    detail_data: Mapped[dict[str, Any]] = mapped_column(
-        sqlalchemy.JSON,
-        nullable=False,
-        index=False,
-        insert_default={},
-        server_default="{}",
-    )
 
     # one to many
     user: Mapped[UserDBM | None] = relationship(
@@ -81,6 +74,8 @@ class VerificationCodeDBM(SimpleDBM):
         elif self.user_id is not None:
             parts.append(f"user_id={self.user_id}")
         return f"{self.entity_name} ({', '.join(parts)})"
+
+    # ---validators---
 
     @validates("type")
     def _validate_type(self, key, value, *args, **kwargs):
@@ -102,13 +97,9 @@ class VerificationCodeDBM(SimpleDBM):
         value = make_none_if_blank(value.strip())
         return value
 
-    @validates("detail_data")
-    def _validate_detail_data(self, key, value, *args, **kwargs):
-        if value is None:
-            value = {}
-        if not isinstance(value, dict):
-            raise ValueError(f"{key=}, {value=}, value is not dict")
-        return value
+    # ---more---
+
+    # ---SDP---
 
     @property
     def sdp_allowed_types(self) -> list[str]:

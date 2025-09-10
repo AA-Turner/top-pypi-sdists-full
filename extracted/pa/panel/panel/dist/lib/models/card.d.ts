@@ -13,6 +13,7 @@ export declare class CardView extends ColumnView {
     get header_background(): string | null;
     render(): void;
     update_children(): Promise<void>;
+    _update_layout(): void;
     _toggle_button(e: MouseEvent): void;
     _collapse(): void;
     protected _create_element(): HTMLElement;

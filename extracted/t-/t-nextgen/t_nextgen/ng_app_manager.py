@@ -228,6 +228,67 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
         except (TimeoutError, ElementNotFoundError, IndexError):
             return False
 
+    def click_ok_popup_getting_message(
+        self, call_count: int = 0, max_calls: int = 3, modal_exists_timeout: int = 3, sleep: float = 5
+    ) -> str:
+        """Clicks the "OK" button on a modal if it is the only option and checks for additional modals.
+
+        This function searches for a modal dialog with the title "NextGen". If found, it looks for "OK",
+        "CLOSE", and "CANCEL" buttons. If "OK" is the only available button, it clicks it. The function
+        will recursively check for additional modals up to a maximum of `max_calls`. And return the message
+        in the modal.
+
+        Args:
+            call_count (int, optional): _description_. Defaults to 0.
+            max_calls (int, optional): _description_. Defaults to 3.
+            modal_exists_timeout (int, optional): _description_. Defaults to 3.
+            sleep (float, optional): _description_. Defaults to 5.
+
+        Returns:
+            str: The text message from the modal dialog, or an empty string if modal was not found.
+        """
+        if call_count >= max_calls:
+            return ""
+        try:
+            modal = self.dialog.child_window(title="NextGen", control_type="Window")
+            if modal.exists(timeout=modal_exists_timeout, retry_interval=0.001):
+                wrapper_object = modal.wrapper_object()
+                buttons_list = wrapper_object.descendants(control_type="Button")
+
+                ok_button = None
+                close_button = None
+                more_buttons = False
+                for button in buttons_list:
+                    button_text = button.texts()[0].upper()
+                    if button_text == "OK":
+                        ok_button = button
+                    elif button_text in ["CLOSE", "CANCEL"]:
+                        close_button = button
+                    else:
+                        more_buttons = True
+                if more_buttons:
+                    return ""
+                if ok_button and close_button:
+                    self.logger.debug("Ok button found. Clicking on it.")
+                    texts = wrapper_object.descendants(control_type="Text")
+                    modal_text = None
+                    if texts:
+                        modal_text = texts[0].texts()
+                        self.logger.debug(f"Text in the modal: {modal_text}")
+                    with contextlib.suppress(_ctypes.COMError):
+                        ok_button.click()
+                    time.sleep(sleep)
+                    self.click_ok_popup_getting_message(
+                        call_count=call_count + 1, max_calls=max_calls
+                    )  # Recursive call with incremented call_count
+                    return modal_text[0] if modal_text else ""
+            else:
+                return ""
+        except _ctypes.COMError:
+            return ""
+        except (TimeoutError, ElementNotFoundError, IndexError):
+            return ""
+
     def click_no_button_in_next_gen_alert(self) -> None:
         """Clicks the "No" button on the NextGen alert window if it exists."""
         no_button = self.dialog.child_window(title="NextGen", control_type="Window").child_window(

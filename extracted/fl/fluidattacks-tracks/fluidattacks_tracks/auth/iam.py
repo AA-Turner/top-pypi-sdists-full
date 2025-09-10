@@ -38,7 +38,11 @@ class TracksIAMAuth(TracksAuthInterface):
         if credentials:
             # Must be frozen to avoid SigV4Auth from triggering a blocking refresh call.
             frozen_credentials = await credentials.get_frozen_credentials()
-            aws_request = AWSRequest(method=request.method, url=url)
+            aws_request = AWSRequest(
+                data=await request.body.as_bytes() if request.body else None,
+                method=request.method,
+                url=url,
+            )
             SigV4Auth(frozen_credentials, "execute-api", "us-east-1").add_auth(aws_request)
             headers = dict(aws_request.headers.items())
             request.headers.update(headers)

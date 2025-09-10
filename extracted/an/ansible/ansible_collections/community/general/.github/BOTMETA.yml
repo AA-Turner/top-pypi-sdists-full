@@ -92,6 +92,8 @@ files:
     maintainers: ryancurrah
   $callbacks/syslog_json.py:
     maintainers: imjoseangel
+  $callbacks/tasks_only.py:
+    maintainers: felixfontein
   $callbacks/timestamp.py:
     maintainers: kurokobo
   $callbacks/unixy.py:
@@ -113,9 +115,6 @@ files:
   $connections/lxd.py:
     labels: lxd
     maintainers: mattclay
-  $connections/proxmox_pct_remote.py:
-    labels: proxmox
-    maintainers: mietzen
   $connections/qubes.py:
     maintainers: kushaldas
   $connections/saltstack.py:
@@ -127,8 +126,6 @@ files:
     maintainers: $team_ansible_core
   $doc_fragments/:
     labels: docs_fragments
-  $doc_fragments/clc.py:
-    maintainers: clc-runner russoz
   $doc_fragments/django.py:
     maintainers: russoz
   $doc_fragments/hpe3par.py:
@@ -249,18 +246,16 @@ files:
     keywords: opennebula dynamic inventory script
     labels: cloud opennebula
     maintainers: feldsam
-  $inventories/proxmox.py:
-    maintainers: $team_virt ilijamt krauthosting
   $inventories/scaleway.py:
     labels: cloud scaleway
     maintainers: $team_scaleway
-  $inventories/stackpath_compute.py:
-    maintainers: shayrybak
   $inventories/virtualbox.py: {}
   $inventories/xen_orchestra.py:
     maintainers: ddelnano shinuza
   $lookups/:
     labels: lookups
+  $lookups/binary_file.py:
+    maintainers: felixfontein
   $lookups/bitwarden_secrets_manager.py:
     maintainers: jantari
   $lookups/bitwarden.py:
@@ -299,9 +294,6 @@ files:
   $lookups/lastpass.py: {}
   $lookups/lmdb_kv.py:
     maintainers: jpmens
-  $lookups/manifold.py:
-    labels: manifold
-    maintainers: galanoff
   $lookups/merge_variables.py:
     maintainers: rlenferink m-a-r-k-e alpex8
   $lookups/onepass:
@@ -510,8 +502,6 @@ files:
     maintainers: NickatEpic
   $modules/cisco_webex.py:
     maintainers: drew-russell
-  $modules/clc_:
-    maintainers: clc-runner
   $modules/cloud_init_data_facts.py:
     maintainers: resmo
   $modules/cloudflare_dns.py:
@@ -670,8 +660,6 @@ files:
     maintainers: marns93
   $modules/hg.py:
     maintainers: yeukhon
-  $modules/hipchat.py:
-    maintainers: pb8226 shirou
   $modules/homebrew.py:
     ignore: ryansb
     keywords: brew cask darwin homebrew macosx macports osx
@@ -797,6 +785,8 @@ files:
     maintainers: brettmilford unnecessary-username juanmcasanova
   $modules/jenkins_build_info.py:
     maintainers: juanmcasanova
+  $modules/jenkins_credential.py:
+    maintainers: YoussefKhalidAli
   $modules/jenkins_job.py:
     maintainers: sermilrod
   $modules/jenkins_job_info.py:
@@ -913,6 +903,10 @@ files:
     maintainers: nerzhul
   $modules/lvg.py:
     maintainers: abulimov
+  $modules/lvm_pv.py:
+    maintainers: klention
+  $modules/lvm_pv_move_data.py:
+    maintainers: klention
   $modules/lvg_rename.py:
     maintainers: lszomor
   $modules/lvol.py:
@@ -1067,7 +1061,9 @@ files:
   $modules/ovh_monthly_billing.py:
     maintainers: fraff
   $modules/pacemaker_cluster.py:
-    maintainers: matbu
+    maintainers: matbu munchtoast
+  $modules/pacemaker_info.py:
+    maintainers: munchtoast
   $modules/pacemaker_resource.py:
     maintainers: munchtoast
   $modules/packet_:
@@ -1145,36 +1141,6 @@ files:
     maintainers: $team_bsd berenddeboer
   $modules/pritunl_:
     maintainers: Lowess
-  $modules/profitbricks:
-    maintainers: baldwinSPC
-  $modules/proxmox:
-    keywords: kvm libvirt proxmox qemu
-    labels: proxmox virt
-    maintainers: $team_virt UnderGreen krauthosting
-    ignore: tleguern
-  $modules/proxmox.py:
-    ignore: skvidal
-    maintainers: UnderGreen krauthosting
-  $modules/proxmox_disk.py:
-    maintainers: castorsky krauthosting
-  $modules/proxmox_kvm.py:
-    ignore: skvidal
-    maintainers: helldorado krauthosting
-  $modules/proxmox_backup.py:
-    maintainers: IamLunchbox
-  $modules/proxmox_backup_info.py:
-    maintainers: raoufnezhad mmayabi
-  $modules/proxmox_nic.py:
-    maintainers: Kogelvis krauthosting
-  $modules/proxmox_node_info.py:
-    maintainers: jwbernin krauthosting
-  $modules/proxmox_storage_contents_info.py:
-    maintainers: l00ptr krauthosting
-  $modules/proxmox_tasks_info:
-    maintainers: paginabianca krauthosting
-  $modules/proxmox_template.py:
-    ignore: skvidal
-    maintainers: UnderGreen krauthosting
   $modules/pubnub_blocks.py:
     maintainers: parfeon pubnub
   $modules/pulp_repo.py:
@@ -1489,6 +1455,8 @@ files:
     maintainers: natefoo
   $modules/znode.py:
     maintainers: treyperry
+  $modules/zpool.py:
+    maintainers: tomhesse
   $modules/zpool_facts:
     keywords: beadm dladm illumos ipadm nexenta omnios openindiana pfexec smartos solaris sunos zfs zpool
     labels: solaris
@@ -1555,6 +1523,22 @@ files:
     maintainers: russoz
   docs/docsite/rst/guide_deps.rst:
     maintainers: russoz
+  docs/docsite/rst/guide_iocage.rst:
+    maintainers: russoz felixfontein
+  docs/docsite/rst/guide_iocage_inventory.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_aliases.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_basics.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_dhcp.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_hooks.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_properties.rst:
+    maintainers: vbotka
+  docs/docsite/rst/guide_iocage_inventory_tags.rst:
+    maintainers: vbotka
   docs/docsite/rst/guide_modulehelper.rst:
     maintainers: russoz
   docs/docsite/rst/guide_online.rst:

@@ -25,14 +25,6 @@ from pulpcore.client.pulp_file.models.content_summary_response import ContentSum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class RepositoryVersionResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -117,17 +109,7 @@ class RepositoryVersionResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "number": obj.get("number"),
-            "repository": obj.get("repository"),
-            "base_version": obj.get("base_version"),
-            "content_summary": ContentSummaryResponse.from_dict(obj["content_summary"]) if obj.get("content_summary") is not None else None,
-            "vuln_report": obj.get("vuln_report")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

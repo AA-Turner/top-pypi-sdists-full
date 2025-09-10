@@ -10,7 +10,7 @@ authors = [
 license = {file = "license.txt"}
 dynamic = ["description", "version"]
 readme = "README.rst"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers=[
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -18,11 +18,12 @@ classifiers=[
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 keywords = [
     'hebrew', 'calendar', 'jewish', 'luach', 'gregorian', 'julian',
@@ -44,3 +45,8 @@ Source = "https://github.com/simlist/pyluach"
 
 [tool.flit.sdist]
 exclude = ["tests", "docs", ".github", "requirements.txt", ".gitignore"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov=src/pyluach"
+testpaths = ["tests",]

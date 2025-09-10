@@ -9200,6 +9200,7 @@ class DomainSettingsOutputTypeDef(TypedDict):
     DockerSettings: NotRequired[DockerSettingsOutputTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 class DomainSettingsTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
@@ -9209,6 +9210,7 @@ class DomainSettingsTypeDef(TypedDict):
     DockerSettings: NotRequired[DockerSettingsTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 class CodeEditorAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
@@ -9632,6 +9634,7 @@ class DomainSettingsForUpdateTypeDef(TypedDict):
     DockerSettings: NotRequired[DockerSettingsUnionTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 class DriftCheckBaselinesTypeDef(TypedDict):
     Bias: NotRequired[DriftCheckBiasTypeDef]

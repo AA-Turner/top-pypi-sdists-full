@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedfileFileRepository(BaseModel):
     """
     Serializer for File Repositories.
@@ -115,15 +107,7 @@ class PatchedfileFileRepository(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_labels": obj.get("pulp_labels"),
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "retain_repo_versions": obj.get("retain_repo_versions"),
-            "remote": obj.get("remote"),
-            "autopublish": obj.get("autopublish") if obj.get("autopublish") is not None else False,
-            "manifest": obj.get("manifest") if obj.get("manifest") is not None else 'PULP_MANIFEST'
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, cast
 
 from pydantic import BaseModel
 
-from vellum.client.types.function_definition import FunctionDefinition
 from vellum.client.types.logical_operator import LogicalOperator
+from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.expressions.accessor import AccessorExpression
 from vellum.workflows.expressions.add import AddExpression
@@ -244,7 +244,14 @@ def serialize_key(key: Any) -> str:
         return str(key)
 
 
+# Sentinel value to indicate a value should be omitted from serialization
+_UNDEFINED_SENTINEL: JsonObject = {"__undefined__": True}
+
+
 def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> JsonObject:
+    if value is undefined:
+        return _UNDEFINED_SENTINEL
+
     if isinstance(value, ConstantValueReference):
         return serialize_value(display_context, value._value)
 
@@ -315,7 +322,12 @@ def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> Js
         }
 
     if isinstance(value, list):
-        serialized_items = [serialize_value(display_context, item) for item in value]
+        serialized_items = []
+        for item in value:
+            serialized_item = serialize_value(display_context, item)
+            if serialized_item != _UNDEFINED_SENTINEL:
+                serialized_items.append(serialized_item)
+
         if all(isinstance(item, dict) and item["type"] == "CONSTANT_VALUE" for item in serialized_items):
             constant_values = []
             for item in serialized_items:
@@ -346,14 +358,17 @@ def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> Js
         return serialize_value(display_context, dict_value)
 
     if isinstance(value, dict):
-        serialized_entries: List[Dict[str, Any]] = [
-            {
-                "id": str(uuid4_from_hash(f"{key}|{val}")),
-                "key": serialize_key(key),
-                "value": serialize_value(display_context, val),
-            }
-            for key, val in value.items()
-        ]
+        serialized_entries: List[Dict[str, Any]] = []
+        for key, val in value.items():
+            serialized_val = serialize_value(display_context, val)
+            if serialized_val != _UNDEFINED_SENTINEL:
+                serialized_entries.append(
+                    {
+                        "id": str(uuid4_from_hash(f"{key}|{val}")),
+                        "key": serialize_key(key),
+                        "value": serialized_val,
+                    }
+                )
 
         # Check if all entries have constant values
         if all(entry["value"]["type"] == "CONSTANT_VALUE" for entry in serialized_entries):
@@ -423,6 +438,10 @@ def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> Js
 
     if callable(value):
         function_definition = compile_function_definition(value)
+
+        name = function_definition.name
+        description = function_definition.description or ""
+
         inputs = getattr(value, "__vellum_inputs__", {})
 
         if inputs:
@@ -432,7 +451,9 @@ def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> Js
 
             model_data = function_definition.model_dump()
             model_data["inputs"] = serialized_inputs
-            function_definition = FunctionDefinition.model_validate(model_data)
+            function_definition_data = model_data
+        else:
+            function_definition_data = function_definition.model_dump()
 
         source_path = inspect.getsourcefile(value)
         if source_path is not None:
@@ -447,9 +468,9 @@ def serialize_value(display_context: "WorkflowDisplayContext", value: Any) -> Js
                 "type": "JSON",
                 "value": {
                     "type": "CODE_EXECUTION",
-                    "name": function_definition.name,
-                    "description": function_definition.description,
-                    "definition": function_definition.model_dump(),
+                    "name": name,
+                    "description": description,
+                    "definition": function_definition_data,
                     "src": source_code,
                 },
             },

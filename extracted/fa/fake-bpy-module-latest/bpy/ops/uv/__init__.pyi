@@ -82,6 +82,74 @@ def align_rotation(
         :type correct_aspect: bool | None
     """
 
+def arrange_islands(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    initial_position: typing.Literal["BOUNDING_BOX", "UV_GRID", "ACTIVE_UDIM", "CURSOR"]
+    | None = "BOUNDING_BOX",
+    axis: typing.Literal["X", "Y"] | None = "Y",
+    align: typing.Literal["MIN", "MAX", "CENTER", "NONE"] | None = "MIN",
+    order: typing.Literal["LARGE_TO_SMALL", "SMALL_TO_LARGE", "Fixed"]
+    | None = "LARGE_TO_SMALL",
+    margin: float | None = 0.05,
+) -> None:
+    """Arrange selected UV islands on a line
+
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param initial_position: Initial Position, Initial position to arrange islands from
+
+    BOUNDING_BOX
+    Bounding Box -- Initial alignment based on the islands bounding box.
+
+    UV_GRID
+    UV Grid -- Initial alignment based on UV Tile Grid.
+
+    ACTIVE_UDIM
+    Active UDIM -- Initial alignment based on Active UDIM.
+
+    CURSOR
+    2D Cursor -- Initial alignment based on 2D cursor.
+        :type initial_position: typing.Literal['BOUNDING_BOX','UV_GRID','ACTIVE_UDIM','CURSOR'] | None
+        :param axis: Axis, Axis to arrange UV islands on
+
+    X
+    X -- Align UV islands along the X axis.
+
+    Y
+    Y -- Align UV islands along the Y axis.
+        :type axis: typing.Literal['X','Y'] | None
+        :param align: Align, Location to align islands on
+
+    MIN
+    Min -- Align the islands to the min of the island.
+
+    MAX
+    Max -- Align the islands to the left side of the island.
+
+    CENTER
+    Center -- Align the islands to the center of the largest island.
+
+    NONE
+    None -- Preserve island alignment.
+        :type align: typing.Literal['MIN','MAX','CENTER','NONE'] | None
+        :param order: Order, Order of islands
+
+    LARGE_TO_SMALL
+    Largest to Smallest -- Sort Islands from Largest to Smallest.
+
+    SMALL_TO_LARGE
+    Smallest to Largest -- Sort Islands from Smallest to Largest.
+
+    Fixed
+    Fixed -- Preserve island order.
+        :type order: typing.Literal['LARGE_TO_SMALL','SMALL_TO_LARGE','Fixed'] | None
+        :param margin: Margin, Space between islands
+        :type margin: float | None
+    """
+
 def average_islands_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,

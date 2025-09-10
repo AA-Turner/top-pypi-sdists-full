@@ -110,9 +110,9 @@ options:
     type: str
   update_password:
     description:
-    - Choose when to update the password.
-    - When set to C(always), the password will always be updated.
-    - When set to C(on_create) the password will only be set upon a new user creation.
+    - Choose when to update the tenant password.
+    - When set to C(always), the tenant password will always be updated.
+    - When set to C(on_create) the tenant password will only be set upon a new user creation.
     default: on_create
     choices:
     - on_create
@@ -121,46 +121,46 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a tenant account
-    netapp.storagegrid.na_sg_grid_account:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: storagegrid-tenant-1
-      protocol: s3
-      management: true
-      allow_compliance_mode: true
-      max_retention_days: 365
-      use_own_identity_source: false
-      allow_platform_services: false
-      password: "tenant-password"
-      quota_size: 0
+- name: create a tenant account
+  netapp.storagegrid.na_sg_grid_account:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: storagegrid-tenant-1
+    protocol: s3
+    management: true
+    allow_compliance_mode: true
+    max_retention_days: 365
+    use_own_identity_source: false
+    allow_platform_services: false
+    password: "tenant-password"
+    quota_size: 0
 
-  - name: update a tenant account
-    netapp.storagegrid.na_sg_grid_account:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: storagegrid-tenant-1
-      protocol: s3
-      management: true
-      allow_compliance_mode: true
-      max_retention_days: 500
-      use_own_identity_source: false
-      allow_platform_services: true
-      password: "tenant-password"
-      quota_size: 10240
+- name: update a tenant account
+  netapp.storagegrid.na_sg_grid_account:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: storagegrid-tenant-1
+    protocol: s3
+    management: true
+    allow_compliance_mode: true
+    max_retention_days: 500
+    use_own_identity_source: false
+    allow_platform_services: true
+    password: "tenant-password"
+    quota_size: 10240
 
-  - name: delete a tenant account
-    netapp.storagegrid.na_sg_grid_account:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: absent
-      name: storagegrid-tenant-1
-      protocol: s3
+- name: delete a tenant account
+  netapp.storagegrid.na_sg_grid_account:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: absent
+    name: storagegrid-tenant-1
+    protocol: s3
 """
 
 RETURN = """
@@ -432,13 +432,13 @@ class SgGridAccount(object):
                     resp_data = self.update_tenant_account(tenant_account["id"])
                     result_message = "Tenant Account updated"
 
-        # If a password has been set
+        # If a tenant password has been set
         if self.pw_change:
             if self.module.check_mode:
                 pass
             else:
-                # Only update the password if update_password is always
-                # On a create action, the password is set directly by the POST /grid/accounts method
+                # Only update the tenant password if update_password is always
+                # On a create action, the tenant password is set directly by the POST /grid/accounts method
                 if self.parameters["update_password"] == "always" and cd_action != "create":
                     self.set_tenant_root_password(tenant_account["id"])
                     self.na_helper.changed = True

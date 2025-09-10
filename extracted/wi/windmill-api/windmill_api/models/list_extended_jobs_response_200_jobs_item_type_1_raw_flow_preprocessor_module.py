@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_suspend import (
         ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleSuspend,
     )
+    from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_0 import (
+        ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0,
+    )
+    from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_1 import (
+        ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule")
@@ -48,7 +54,8 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
         sleep (Union['ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleSleepType0',
             'ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0',
+            'ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleMock]):
@@ -71,7 +78,11 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0",
+        "ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleMock"] = UNSET
@@ -84,6 +95,9 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_sleep_type_0 import (
             ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleSleepType0,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_0 import (
+            ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0,
         )
 
         id = self.id
@@ -115,7 +129,20 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -195,6 +222,12 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
         from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_suspend import (
             ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleSuspend,
         )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_0 import (
+            ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_1_raw_flow_preprocessor_module_timeout_type_1 import (
+            ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -273,7 +306,50 @@ class ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0",
+            "ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[
+                    Unset, ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0
+                ]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = (
+                        ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType0.from_dict(
+                            _timeout_type_0
+                        )
+                    )
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = (
+                    ListExtendedJobsResponse200JobsItemType1RawFlowPreprocessorModuleTimeoutType1.from_dict(
+                        _timeout_type_1
+                    )
+                )
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

@@ -12,7 +12,7 @@ vendor-check:
 
 venv:
 	python3 -m venv venv
-	venv/bin/pip install -r requirements.txt
+	venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 
 lint: venv
 	venv/bin/pylint plugins
@@ -21,6 +21,7 @@ lint-docs: venv
 	venv/bin/antsibull-docs lint-collection-docs \
 		--plugin-docs \
 		--validate-collection-refs self \
+		--check-extra-docs-refs \
 		.
 
 clean:

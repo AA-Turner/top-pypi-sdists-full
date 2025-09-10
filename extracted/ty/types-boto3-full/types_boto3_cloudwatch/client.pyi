@@ -40,6 +40,8 @@ from .type_defs import (
     DeleteInsightRulesInputTypeDef,
     DeleteInsightRulesOutputTypeDef,
     DeleteMetricStreamInputTypeDef,
+    DescribeAlarmContributorsInputTypeDef,
+    DescribeAlarmContributorsOutputTypeDef,
     DescribeAlarmHistoryInputTypeDef,
     DescribeAlarmHistoryOutputTypeDef,
     DescribeAlarmsForMetricInputTypeDef,
@@ -209,6 +211,17 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_metric_stream.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#delete_metric_stream)
+        """
+
+    def describe_alarm_contributors(
+        self, **kwargs: Unpack[DescribeAlarmContributorsInputTypeDef]
+    ) -> DescribeAlarmContributorsOutputTypeDef:
+        """
+        Returns the information of the current alarm contributors that are in
+        <code>ALARM</code> state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/describe_alarm_contributors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#describe_alarm_contributors)
         """
 
     def describe_alarm_history(

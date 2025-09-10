@@ -8,15 +8,22 @@ from ...client import AuthenticatedClient, Client
 from ...models.list_flow_paths_from_workspace_runnable_runnable_kind import (
     ListFlowPathsFromWorkspaceRunnableRunnableKind,
 )
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     runnable_kind: ListFlowPathsFromWorkspaceRunnableRunnableKind,
     path: str,
+    *,
+    match_path_start: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["match_path_start"] = match_path_start
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
@@ -25,6 +32,7 @@ def _get_kwargs(
             runnable_kind=runnable_kind,
             path=path,
         ),
+        "params": params,
     }
 
 
@@ -54,6 +62,7 @@ def sync_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    match_path_start: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """list flow paths from workspace runnable
 
@@ -61,6 +70,7 @@ def sync_detailed(
         workspace (str):
         runnable_kind (ListFlowPathsFromWorkspaceRunnableRunnableKind):
         path (str):
+        match_path_start (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -74,6 +84,7 @@ def sync_detailed(
         workspace=workspace,
         runnable_kind=runnable_kind,
         path=path,
+        match_path_start=match_path_start,
     )
 
     response = client.get_httpx_client().request(
@@ -89,6 +100,7 @@ def sync(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    match_path_start: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """list flow paths from workspace runnable
 
@@ -96,6 +108,7 @@ def sync(
         workspace (str):
         runnable_kind (ListFlowPathsFromWorkspaceRunnableRunnableKind):
         path (str):
+        match_path_start (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,6 +123,7 @@ def sync(
         runnable_kind=runnable_kind,
         path=path,
         client=client,
+        match_path_start=match_path_start,
     ).parsed
 
 
@@ -119,6 +133,7 @@ async def asyncio_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    match_path_start: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """list flow paths from workspace runnable
 
@@ -126,6 +141,7 @@ async def asyncio_detailed(
         workspace (str):
         runnable_kind (ListFlowPathsFromWorkspaceRunnableRunnableKind):
         path (str):
+        match_path_start (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,6 +155,7 @@ async def asyncio_detailed(
         workspace=workspace,
         runnable_kind=runnable_kind,
         path=path,
+        match_path_start=match_path_start,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -152,6 +169,7 @@ async def asyncio(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    match_path_start: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """list flow paths from workspace runnable
 
@@ -159,6 +177,7 @@ async def asyncio(
         workspace (str):
         runnable_kind (ListFlowPathsFromWorkspaceRunnableRunnableKind):
         path (str):
+        match_path_start (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,5 +193,6 @@ async def asyncio(
             runnable_kind=runnable_kind,
             path=path,
             client=client,
+            match_path_start=match_path_start,
         )
     ).parsed

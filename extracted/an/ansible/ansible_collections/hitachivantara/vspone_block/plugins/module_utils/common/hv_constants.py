@@ -46,6 +46,8 @@ class StateValue:
     CLONE = "clone"
     SWAP_RESYNC = "swap_resync"
     SWAP_SPLIT = "swap_split"
+    EXPAND_JOURNAL = "expand_journal"
+    SHRINK_JOURNAL = "shrink_journal"
     EXPAND_JOURNAL_VOLUME = "expand_journal_volume"
     SHRINK_JOURNAL_VOLUME = "shrink_journal_volume"
     MIGRATE = "migrate"
@@ -56,6 +58,19 @@ class StateValue:
     REGISTER_EXTERNAL_ISCSI_TARGET = "register_external_iscsi_target"
     UNREGISTER_EXTERNAL_ISCSI_TARGET = "unregister_external_iscsi_target"
     DISCONNECT = "disconnect"
+    TAKEOVER = "takeover"
+    INIT_CAPACITY = "init_capacity_saving"
+    RELOCATE = "tier_relocate"
+    MONITOR = "monitor_performance"
+    ASSIGN_LDEV = "assign_ldev"
+    ASSIGN_CLPR_ID = "assign_clpr_id"
+    TEST = "test"
+    ASSIGN_EXTERNAL_PARITY_GROUP = "assign_external_parity_group"
+    CHANGE_MP_BLADE = "change_mp_blade"
+    MAINTENANCE = "maintenance"
+    ADD_STORAGE_NODE = "add_storage_node"
+    REMOVE_STORAGE_NODE = "remove_storage_node"
+    DOWNLOAD_CONFIG_FILE = "download_config_file"
 
 
 class CommonConstants:
@@ -101,18 +116,29 @@ class GatewayClassTypes:
         "vsp_remote_copy_groups"  # TODO: sng1104 use VSP_COPY_GROUPS
     )
     VSP_LOCAL_COPY_GROUP = "vsp_local_copy_group"
+    VSP_CLPR = "vsp_clpr"
     VSP_CMD_DEV = "vsp_cmd_dev"
     VSP_RG_LOCK = "vsp_rg_lock"
     VSP_CONFIG_MAP = "vsp_config_map"
 
     SDSB_CHAP_USER = "sdsb_chap_user"
+    SDSB_EVENT_LOGS = "sdsb_event_logs"
+    SDSB_BLOCK_DRIVES = "sdsb_block_drives"
+    SDSB_FAULT_DOMAIN = "sdsb_fault_domain"
+    SDSB_USER = "sdsb_user"
+    SDSB_STORAGE_CONTROLLER = "sdsb_storage_controller"
+    SDSB_CONTROL_PORT = "sdsb_control_port"
     SDSB_COMPUTE_NODE = "sdsb_compute_node"
     SDSB_VOLUME = "sdsb_volume"
     SDSB_STORAGE_SYSTEM = "sdsb_storage_system"
-    SDSB_POOL = "sdsb_pool"
     SDSB_PORT_AUTH = "sdsb_port_auth"
     SDSB_PORT = "sdsb_port"
     SDSB_VPS = "sdsb_vps"
+    SDSB_STORAGE_NODE = "sdsb_storage_node"
+    SDSB_STORAGE_POOL = "sdsb_storage_pool"
+    SDSB_CLUSTER = "sdsb_cluster"
+    SDSB_CLUSTER_INFORMATION = "sdsb_cluster_information"
+    SDSB_JOB = "sdsb_job"
 
     UAIG_SUBSCRIBER = "uaig_subscriber"
     UAIG_PASSWORD = "uaig_password"
@@ -124,7 +150,10 @@ class GatewayClassTypes:
     VSP_REMOTE_CONNECTION = "vsp_remote_connection"
     VSP_ISCSI_REMOTE_CONNECTION = "vsp_iscsi_remote_connection"
     VSP_DYNAMIC_POOL = "vsp_dynamic_pool"
-    VSP_UVM = "vsp_uvm"
+    VSP_UVM = "vsp_universal_volume_manager"
+    VSP_EXT_PARITY_GROUP = "vsp_external_parity_group"
+    VSP_SPM = "vsp_server_priority_manager"
+    VSP_STORAGE_MONITOR = "vsp storage system monitor"
 
 
 class VSPHostGroupConstant:

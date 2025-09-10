@@ -43,6 +43,8 @@ from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
+from instructor.core.exceptions import InstructorError
+
 from ..dsl.iterable import IterableBase
 from ..dsl.parallel import ParallelBase
 from ..dsl.partial import PartialBase
@@ -491,54 +493,112 @@ def handle_reask_kwargs(
     mode: Mode,
     response: Any,
     exception: Exception,
+    failed_attempts: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Handle validation errors by reformatting the request for retry (reask).
 
-    When a response fails validation (e.g., missing required fields, wrong types),
-    this function prepares a new request that includes information about the error.
-    This allows the LLM to understand what went wrong and correct its response.
+    This function serves as the central dispatcher for handling validation failures
+    across all supported LLM providers. When a response fails validation, it prepares
+    a new request that includes detailed error information and retry context, allowing
+    the LLM to understand what went wrong and generate a corrected response.
 
-    The reask logic is provider-specific because each provider has different ways
-    of handling function/tool calls and different message formats.
+    The reask process involves:
+    1. Analyzing the validation error and failed response
+    2. Selecting the appropriate provider-specific reask handler
+    3. Enriching the exception with retry history (failed_attempts)
+    4. Formatting error feedback in the provider's expected message format
+    5. Preserving original request parameters while adding retry context
 
     Args:
         kwargs (dict[str, Any]): The original request parameters that resulted in
-            a validation error. Includes messages, tools, temperature, etc.
+            a validation error. Contains all parameters passed to the LLM API:
+            - messages: conversation history
+            - tools/functions: available function definitions
+            - temperature, max_tokens: generation parameters
+            - model, provider-specific settings
         mode (Mode): The provider/format mode that determines which reask handler
-            to use. Each mode has a specific strategy for formatting error feedback.
+            to use. Each mode implements a specific strategy for formatting error
+            feedback and retry messages. Examples:
+            - Mode.TOOLS: OpenAI function calling
+            - Mode.ANTHROPIC_TOOLS: Anthropic tool use
+            - Mode.JSON: JSON-only responses
         response (Any): The raw response from the LLM that failed validation.
-            Type varies by provider:
-            - OpenAI: ChatCompletion with tool_calls
-            - Anthropic: Message with tool_use blocks
+            Type and structure varies by provider:
+            - OpenAI: ChatCompletion with tool_calls or content
+            - Anthropic: Message with tool_use blocks or text content
             - Google: GenerateContentResponse with function calls
-        exception (Exception): The validation error that occurred. Usually a
-            Pydantic ValidationError with details about which fields failed.
+            - Cohere: NonStreamedChatResponse with tool calls
+        exception (Exception): The validation error that occurred, typically:
+            - Pydantic ValidationError: field validation failures
+            - JSONDecodeError: malformed JSON responses
+            - Custom validation errors from response processors
+            The exception will be enriched with failed_attempts data.
+        failed_attempts (list[FailedAttempt] | None): Historical record of previous
+            retry attempts for this request. Each FailedAttempt contains:
+            - attempt_number: sequential attempt counter
+            - exception: the validation error for that attempt
+            - completion: the raw LLM response that failed
+            Used to provide retry context and prevent repeated mistakes.
 
     Returns:
-        dict[str, Any]: Modified kwargs for the retry request, typically including:
-            - Updated messages with error context
-            - Same tool/function definitions
-            - Preserved generation parameters
-            - Provider-specific formatting
+        dict[str, Any]: Modified kwargs for the retry request with:
+            - Updated messages including error feedback
+            - Original tool/function definitions preserved
+            - Generation parameters maintained (temperature, etc.)
+            - Provider-specific error formatting applied
+            - Retry context embedded in appropriate message format
 
-    Reask Strategies by Provider:
-        Each provider has a specific strategy for handling retries:
+    Provider-Specific Reask Strategies:
+        **OpenAI Modes:**
+        - TOOLS/FUNCTIONS: Adds tool response messages with validation errors
+        - JSON modes: Appends user message with correction instructions
+        - Preserves function schemas and conversation context
 
-        **JSON Modes:**
-        - Adds assistant message with failed attempt
-        - Adds user message with error details
+        **Anthropic Modes:**
+        - TOOLS: Creates tool_result blocks with error details
+        - JSON: Adds user message with structured error feedback
+        - Maintains conversation flow with proper message roles
 
-        **Tool Calls:**
-        - Preserves tool definitions
-        - Formats the errors as tool calls responses
+        **Google/Gemini Modes:**
+        - TOOLS: Formats as function response with error content
+        - JSON: Appends user message with validation feedback
+
+        **Other Providers (Cohere, Mistral, etc.):**
+        - Provider-specific message formatting
+        - Consistent error reporting patterns
+        - Maintained conversation context
+
+    Error Enrichment:
+        The exception parameter is enriched with retry metadata:
+        - exception.failed_attempts: list of previous failures
+        - exception.retry_attempt_number: current attempt number
+        This allows downstream handlers to access full retry context.
+
+    Example:
+        ```python
+        # After a ValidationError occurs during retry attempt #2
+        new_kwargs = handle_reask_kwargs(
+            kwargs=original_request,
+            mode=Mode.TOOLS,
+            response=failed_completion,
+            exception=validation_error,  # Will be enriched with failed_attempts
+            failed_attempts=[attempt1, attempt2]  # Previous failures
+        )
+        # new_kwargs now contains retry messages with error context
+        ```
 
     Note:
-        This function is typically called internally by the retry logic when
-        max_retries > 1. It ensures that each retry attempt includes context
-        about previous failures, helping the LLM learn from its mistakes.
+        This function is called internally by retry_sync() and retry_async()
+        when max_retries > 1. It ensures each retry includes progressively
+        more context about previous failures, helping the LLM learn from
+        mistakes and avoid repeating the same errors.
     """
     # Create a shallow copy of kwargs to avoid modifying the original
     kwargs_copy = kwargs.copy()
+
+    exception = InstructorError.from_exception(
+        exception, failed_attempts=failed_attempts
+    )
 
     # Organized by provider (matching process_response.py structure)
     REASK_HANDLERS = {

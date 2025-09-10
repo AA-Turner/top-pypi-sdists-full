@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class EvaluationResponse(BaseModel):
     """
     Results from evaluating a proposed parameter to a PulpImport call.
@@ -90,11 +82,7 @@ class EvaluationResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "context": obj.get("context"),
-            "is_valid": obj.get("is_valid"),
-            "messages": obj.get("messages")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

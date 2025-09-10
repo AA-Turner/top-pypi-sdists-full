@@ -47,14 +47,14 @@ options:
 """
 
 EXAMPLES = """
-  - name: update NTP servers
-    netapp.storagegrid.na_sg_grid_ntp:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      passphrase: "{{ grid_pass }}"
-      ntp_servers: "x.x.x.x,xx.x.xx.x"
+- name: update NTP servers
+  netapp.storagegrid.na_sg_grid_ntp:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    passphrase: "{{ grid_pass }}"
+    ntp_servers: "x.x.x.x,xx.x.xx.x"
 """
 
 RETURN = """

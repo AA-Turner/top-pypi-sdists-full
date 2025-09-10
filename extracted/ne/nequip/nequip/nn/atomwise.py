@@ -283,7 +283,7 @@ class PerTypeScaleShift(GraphModuleMixin, torch.nn.Module):
         data[self.out_field] = in_field
         return data
 
-    @model_modifier(persistent=True)
+    @model_modifier(persistent=True, private=False)
     @classmethod
     def modify_PerTypeScaleShift(
         cls,
@@ -307,6 +307,8 @@ class PerTypeScaleShift(GraphModuleMixin, torch.nn.Module):
               O: 2.13
 
         In this case, the per-type atomic energy shifts of the original model will be used for every other atom type, except for atom types with the new shifts specified.
+
+        For more details on fine-tuning, see https://nequip.readthedocs.io/en/latest/guide/training-techniques/fine_tuning.html
 
         Args:
             scales: the new per-type atomic energy scales

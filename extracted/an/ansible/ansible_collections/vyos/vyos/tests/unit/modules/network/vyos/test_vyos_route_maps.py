@@ -50,6 +50,18 @@ class TestVyosRouteMapsModule(TestVyosModule):
         )
 
         self.execute_show_command = self.mock_execute_show_command.start()
+        self.mock_get_os_version = patch(
+            "ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.config.route_maps.route_maps.get_os_version",
+        )
+        self.test_version = "1.2"
+        self.get_os_version = self.mock_get_os_version.start()
+        self.get_os_version.return_value = self.test_version
+        self.mock_facts_get_os_version = patch(
+            "ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.route_maps.route_maps.get_os_version",
+        )
+        self.get_facts_os_version = self.mock_facts_get_os_version.start()
+        self.get_facts_os_version.return_value = self.test_version
+        self.maxDiff = None
 
     def tearDown(self):
         super(TestVyosRouteMapsModule, self).tearDown()
@@ -176,6 +188,97 @@ class TestVyosRouteMapsModule(TestVyosModule):
 
         self.execute_module(changed=True, commands=commands)
 
+    def test_route_maps_extras_merged(self):
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        route_map="test2",
+                        entries=[
+                            dict(
+                                sequence=1,
+                                action="permit",
+                                call="2",
+                                continue_sequence=2,
+                                match=dict(
+                                    rpki="invalid",
+                                    interface="eth2",
+                                    metric=1,
+                                    peer="1.1.1.3",
+                                    ipv6=dict(next_hop="fdda:5cc1:23:4::1f"),
+                                    community=dict(community_list="235"),
+                                ),
+                                set=dict(
+                                    ipv6_next_hop=dict(
+                                        ip_type="global",
+                                        value="fdda:5cc1:23:4::1f",
+                                    ),
+                                    community=dict(value="internet"),
+                                    extcommunity_rt="22:11",
+                                    extcommunity_soo="220:110",
+                                    extcommunity_bandwidth="100",
+                                    extcommunity_bandwidth_non_transitive=True,
+                                    atomic_aggregate=True,
+                                    aggregator={"ip": "10.20.11.22", "as": "245"},
+                                    bgp_extcommunity_rt="22:11",
+                                    ip_next_hop="10.20.10.22",
+                                    large_community="10:20:21",
+                                    as_path_prepend="100 200 350",
+                                    as_path_exclude="150",
+                                    local_preference=4,
+                                    metric=5,
+                                    metric_type="type-2",
+                                    origin="egp",
+                                    originator_id="10.0.2.2",
+                                    src="10.0.2.15",
+                                    tag=4,
+                                    weight=4,
+                                    table=7,
+                                ),
+                            ),
+                        ],
+                    ),
+                ],
+                state="merged",
+            ),
+        )
+        commands = [
+            "set policy route-map test2 rule 1 action permit",
+            "set policy route-map test2 rule 1 call 2",
+            "set policy route-map test2 rule 1 set bgp-extcommunity-rt 22:11",
+            "set policy route-map test2 rule 1 set ip-next-hop 10.20.10.22",
+            "set policy route-map test2 rule 1 set ipv6-next-hop global fdda:5cc1:23:4::1f",
+            "set policy route-map test2 rule 1 set large-community 10:20:21",
+            "set policy route-map test2 rule 1 set as-path-prepend '100 200 350'",
+            "set policy route-map test2 rule 1 set as-path-exclude 150",
+            "set policy route-map test2 rule 1 set local-preference 4",
+            "set policy route-map test2 rule 1 set metric 5",
+            "set policy route-map test2 rule 1 set metric-type type-2",
+            "set policy route-map test2 rule 1 set origin egp",
+            "set policy route-map test2 rule 1 set originator-id 10.0.2.2",
+            "set policy route-map test2 rule 1 set src 10.0.2.15",
+            "set policy route-map test2 rule 1 set tag 4",
+            "set policy route-map test2 rule 1 set weight 4",
+            "set policy route-map test2 rule 1 set table 7",
+            "set policy route-map test2 rule 1 set community internet",
+            "set policy route-map test2 rule 1 set extcommunity-rt 22:11",
+            "set policy route-map test2 rule 1 set extcommunity-soo 220:110",
+            "set policy route-map test2 rule 1 set extcommunity bandwidth 100",
+            "set policy route-map test2 rule 1 set extcommunity bandwidth-non-transitive",
+            "set policy route-map test2 rule 1 set atomic-aggregate",
+            "set policy route-map test2 rule 1 set aggregator as 245",
+            "set policy route-map test2 rule 1 set aggregator ip 10.20.11.22",
+            "set policy route-map test2 rule 1 match interface eth2",
+            "set policy route-map test2 rule 1 match metric 1",
+            "set policy route-map test2 rule 1 match peer 1.1.1.3",
+            "set policy route-map test2 rule 1 match ipv6 nexthop fdda:5cc1:23:4::1f",
+            "set policy route-map test2 rule 1 match rpki invalid",
+            "set policy route-map test2 rule 1 match community community-list 235",
+            "set policy route-map test2 rule 1 continue 2",
+        ]
+
+        self.execute_module(changed=True, commands=commands)
+
     def test_route_maps_replaced(self):
         set_module_args(
             dict(
@@ -197,7 +300,7 @@ class TestVyosRouteMapsModule(TestVyosModule):
                                         ip_type="global",
                                         value="fdda:5cc1:23:4::1f",
                                     ),
-                                    community=dict(value="internet"),
+                                    community=dict(value="100:100"),
                                     bgp_extcommunity_rt="22:11",
                                     ip_next_hop="10.20.10.22",
                                     large_community="10:20:21",
@@ -206,7 +309,7 @@ class TestVyosRouteMapsModule(TestVyosModule):
                                     metric_type="type-2",
                                     origin="egp",
                                     originator_id="10.0.2.2",
-                                    src="10.0.2.15",
+                                    src="fdda:5cc1:23:4::12",
                                     tag=4,
                                     weight=4,
                                 ),
@@ -220,10 +323,12 @@ class TestVyosRouteMapsModule(TestVyosModule):
         commands = [
             "delete policy route-map test3 rule 1 match interface eth2",
             "set policy route-map test3 rule 1 set ip-next-hop 10.20.10.22",
+            "set policy route-map test3 rule 1 set community 100:100",
             "set policy route-map test3 rule 1 set large-community 10:20:21",
             "set policy route-map test3 rule 1 set metric-type type-2",
             "set policy route-map test3 rule 1 set originator-id 10.0.2.2",
             "set policy route-map test3 rule 1 set tag 4",
+            "set policy route-map test3 rule 1 set src fdda:5cc1:23:4::12",
             "set policy route-map test3 rule 1 match peer 1.1.1.3",
         ]
         self.execute_module(changed=True, commands=commands)
@@ -324,6 +429,32 @@ class TestVyosRouteMapsModule(TestVyosModule):
             "set policy route-map test2 rule 1 set weight 4",
             "set policy route-map test2 rule 1 set community internet",
             "set policy route-map test2 rule 1 match peer 1.1.1.3",
+            "set policy route-map test2 rule 1 match rpki invalid",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_route_maps__deny_overridden(self):
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        route_map="test2",
+                        entries=[
+                            dict(
+                                sequence=1,
+                                action="deny",
+                                match=dict(rpki="invalid", peer="1.1.1.5"),
+                            ),
+                        ],
+                    ),
+                ],
+                state="overridden",
+            ),
+        )
+        commands = [
+            "delete policy route-map test3",
+            "set policy route-map test2 rule 1 action deny",
+            "set policy route-map test2 rule 1 match peer 1.1.1.5",
             "set policy route-map test2 rule 1 match rpki invalid",
         ]
         self.execute_module(changed=True, commands=commands)

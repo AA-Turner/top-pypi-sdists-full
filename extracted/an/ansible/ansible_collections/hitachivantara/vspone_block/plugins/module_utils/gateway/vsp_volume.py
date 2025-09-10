@@ -81,11 +81,29 @@ class VSPVolumeDirectGateway:
 
     @log_entry_exit
     def get_volumes(
-        self, start_ldev=0, ldev_option="defined", count=0
+        self,
+        start_ldev=0,
+        ldev_option="defined",
+        count=0,
+        pool_id=None,
+        resource_group_id=None,
+        journal_id=None,
+        parity_group_id=None,
     ) -> VSPVolumesInfo:
 
-        path = VolumePayloadConst.HEAD_LDEV_ID.format(start_ldev)
-        path += VolumePayloadConst.LDEV_OPTION.format(ldev_option)
+        if pool_id is None:
+            path = VolumePayloadConst.LDEV_OPTION.format(ldev_option)
+            path += VolumePayloadConst.HEAD_LDEV_ID_NEXT.format(start_ldev)
+        else:
+            path = VolumePayloadConst.POOL_ID_PARAM.format(pool_id)
+
+        if resource_group_id:
+            path = VolumePayloadConst.RESOURCE_GROUP_ID.format(resource_group_id)
+        if journal_id:
+            path = VolumePayloadConst.JOURNAL_ID.format(journal_id)
+        if parity_group_id:
+            path = VolumePayloadConst.PARITY_GROUP_ID.format(parity_group_id)
+
         path += VolumePayloadConst.COUNT.format(
             count if count > 0 else AutomationConstants.LDEV_MAX_NUMBER
         )
@@ -222,9 +240,10 @@ class VSPVolumeDirectGateway:
                             VolumePayloadConst.IS_DATA_REDUCTION_SHARED_VOLUME_ENABLED
                         ] = is_true
             else:
-                payload[VolumePayloadConst.IS_DATA_REDUCTION_SHARED_VOLUME_ENABLED] = (
-                    spec.data_reduction_share
-                )
+                if spec.data_reduction_share is not None:
+                    payload[
+                        VolumePayloadConst.IS_DATA_REDUCTION_SHARED_VOLUME_ENABLED
+                    ] = spec.data_reduction_share
             # if spec.capacity_saving.lower() != VolumePayloadConst.DISABLED:
             #     if spec.is_compression_acceleration_enabled is not None:
             #         payload[VolumePayloadConst.IS_COMPRESSION_ACCELERATION_ENABLED] = (
@@ -276,6 +295,21 @@ class VSPVolumeDirectGateway:
         end_point = self.end_points.GET_FREE_LDEV_FROM_META
         vol_data = self.rest_api.get(end_point)
         return VSPVolumesInfo(dicts_to_dataclass_list(vol_data["data"], VSPVolumeInfo))
+
+    @log_entry_exit
+    def get_free_ldevs_from_meta(self, start_ldev=0, resource_group_id=0):
+
+        end_point = self.end_points.GET_FREE_LDEVS_FROM_META_RES.format(
+            resource_group_id
+        )
+        if start_ldev and start_ldev > 0:
+            end_point = self.end_points.GET_FREE_LDEVS_FROM_META_HEAD_LDEV.format(
+                start_ldev, resource_group_id
+            )
+        vol_data = self.rest_api.get(end_point)
+        return VSPUndefinedVolumeInfoList(
+            dicts_to_dataclass_list(vol_data["data"], VSPUndefinedVolumeInfo)
+        )
 
     @log_entry_exit
     def get_free_ldev_matching_svol_range(self, begin_ldev_id, end_ldev_id):
@@ -472,7 +506,6 @@ class VSPVolumeDirectGateway:
         volume.isCommandDevice = True
         if not self.is_vsp_5000_series() and not self.is_svp_present():
             # VSP One does not support detailInfoType=class
-            logger.writeDebug(f"fill_cmd_device_info: vol_data for no SVP= {volume}")
             return volume
 
         end_point = self.end_points.GET_CMD_DEVICE.format(volume.ldevId)
@@ -588,3 +621,27 @@ class VSPVolumeDirectGateway:
         pegasus_model = any(sub in storage_info.model for sub in PEGASUS_MODELS)
         logger.writeDebug(f"Storage Model: {storage_info.model}")
         return pegasus_model
+
+    @log_entry_exit
+    def assign_ldev_to_clpr(self, ldev_id, clpr_id):
+        payload = {
+            VolumePayloadConst.PARAMS: {
+                VolumePayloadConst.CLPR_ID: clpr_id,
+            }
+        }
+        end_point = self.end_points.ASSIGN_LDEV.format(ldev_id)
+        return self.rest_api.post(end_point, payload)
+
+    @log_entry_exit
+    def get_all_ldevs_using_filter(self, filter_dict):
+        """
+        Get all LDEVs using filter parameters.
+        :param filter_params: Dictionary containing filter parameters.
+        :return: VSPVolumesInfo object containing the filtered LDEVs.
+        """
+        query_params = "&".join(
+            f"{key}={value}" for key, value in filter_dict.items() if value is not None
+        )
+        end_point = self.end_points.GET_LDEVS.format(query_params)
+        vol_data = self.rest_api.get(end_point)
+        return VSPVolumesInfo(dicts_to_dataclass_list(vol_data["data"], VSPVolumeInfo))

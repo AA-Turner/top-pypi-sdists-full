@@ -27,14 +27,6 @@ from pulpcore.client.pulpcore.models.user_group_response import UserGroupRespons
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UserResponse(BaseModel):
     """
     Serializer for User.
@@ -125,20 +117,7 @@ class UserResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "id": obj.get("id"),
-            "username": obj.get("username"),
-            "first_name": obj.get("first_name"),
-            "last_name": obj.get("last_name"),
-            "email": obj.get("email"),
-            "is_staff": obj.get("is_staff") if obj.get("is_staff") is not None else False,
-            "is_active": obj.get("is_active") if obj.get("is_active") is not None else True,
-            "date_joined": obj.get("date_joined"),
-            "groups": [UserGroupResponse.from_dict(_item) for _item in obj["groups"]] if obj.get("groups") is not None else None,
-            "hidden_fields": [GenericRemoteResponseHiddenFieldsInner.from_dict(_item) for _item in obj["hidden_fields"]] if obj.get("hidden_fields") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

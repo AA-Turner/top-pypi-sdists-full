@@ -488,7 +488,7 @@ def check_evaluation_flow(flow_src):
 
 def get_metaflow_branch():
     if is_main_branch():
-        return "production"
+        return "prod"
     else:
         return f"test.{BRANCH}"
 

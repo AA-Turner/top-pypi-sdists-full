@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: slack_bolt
-Version: 1.24.0
+Version: 1.25.0
 Summary: The Bolt Framework for Python
 Home-page: https://github.com/slackapi/bolt-python
 Author: Slack Technologies, LLC
 Author-email: opensource@slack.com
 License: MIT
 Project-URL: Documentation, https://slack.dev/bolt-python
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: slack_sdk<4,>=3.35.0
@@ -45,7 +44,7 @@ A Python framework to build Slack apps in a flash with the latest platform featu
 ## Setup
 
 ```bash
-# Python 3.6+ required
+# Python 3.7+ required
 python -m venv .venv
 source .venv/bin/activate
 
@@ -179,7 +178,7 @@ Most of the app's functionality will be inside listener functions (the `fn` para
 If you'd prefer to build your app with [asyncio](https://docs.python.org/3/library/asyncio.html), you can import the [AIOHTTP](https://docs.aiohttp.org/en/stable/) library and call the `AsyncApp` constructor. Within async apps, you can use the async/await pattern.
 
 ```bash
-# Python 3.6+ required
+# Python 3.7+ required
 python -m venv .venv
 source .venv/bin/activate
 

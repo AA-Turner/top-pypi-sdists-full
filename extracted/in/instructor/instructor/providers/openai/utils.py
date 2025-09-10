@@ -23,6 +23,7 @@ def reask_tools(
     kwargs: dict[str, Any],
     response: Any,
     exception: Exception,
+    failed_attempts: list[Any] | None = None,  # noqa: ARG001
 ):
     """
     Handle reask for OpenAI tools mode when validation fails.
@@ -51,6 +52,7 @@ def reask_responses_tools(
     kwargs: dict[str, Any],
     response: Any,
     exception: Exception,
+    failed_attempts: list[Any] | None = None,  # noqa: ARG001
 ):
     """
     Handle reask for OpenAI responses tools mode when validation fails.
@@ -79,6 +81,7 @@ def reask_md_json(
     kwargs: dict[str, Any],
     response: Any,
     exception: Exception,
+    failed_attempts: list[Any] | None = None,  # noqa: ARG001
 ):
     """
     Handle reask for OpenAI JSON modes when validation fails.
@@ -88,6 +91,7 @@ def reask_md_json(
     """
     kwargs = kwargs.copy()
     reask_msgs = [dump_message(response.choices[0].message)]
+
     reask_msgs.append(
         {
             "role": "user",
@@ -102,6 +106,7 @@ def reask_default(
     kwargs: dict[str, Any],
     response: Any,
     exception: Exception,
+    failed_attempts: list[Any] | None = None,  # noqa: ARG001
 ):
     """
     Handle reask for OpenAI default mode when validation fails.
@@ -111,6 +116,7 @@ def reask_default(
     """
     kwargs = kwargs.copy()
     reask_msgs = [dump_message(response.choices[0].message)]
+
     reask_msgs.append(
         {
             "role": "user",

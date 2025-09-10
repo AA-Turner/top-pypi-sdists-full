@@ -25,6 +25,7 @@
 from concurrent import futures
 import logging
 import socket
+import ssl
 from typing import Any
 import urllib.request
 
@@ -79,7 +80,7 @@ def find_remoting_ip() -> str:
     str
         remoting ip address
     """
-    from ansys.fluent.core import INFER_REMOTING_IP_TIMEOUT_PER_IP
+    from ansys.fluent.core import config
 
     all_ips = [
         addrinfo[-1][0]
@@ -108,7 +109,7 @@ def find_remoting_ip() -> str:
                     if (
                         stub.Check(
                             health_pb2.HealthCheckRequest(),
-                            timeout=INFER_REMOTING_IP_TIMEOUT_PER_IP,
+                            timeout=config.infer_remoting_ip_timeout_per_ip,
                         ).status
                         == health_pb2.HealthCheckResponse.ServingStatus.SERVING
                     ):
@@ -130,12 +131,20 @@ def check_url_exists(url: str) -> bool:
     -------
     bool
         True if the URL exists, False otherwise
+
+    Raises
+    ------
+    ssl.SSLError
+        If there is an SSL error while checking the URL
     """
     try:
         with urllib.request.urlopen(url) as response:
             return response.status == 200
-    except Exception:
-        return False
+    except urllib.error.URLError as ex:
+        if ex.__context__ and isinstance(ex.__context__, ssl.SSLError):
+            raise ex.__context__
+        else:
+            return False
 
 
 def get_url_content(url: str) -> str:

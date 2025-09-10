@@ -21,6 +21,10 @@ class VolumeFactSpec:
     start_ldev_id: Optional[int] = None
     is_detailed: Optional[bool] = None
     query: Optional[List[str]] = None
+    pool_id: Optional[int] = None
+    resource_group_id: Optional[int] = None
+    journal_id: Optional[int] = None
+    parity_group_id: Optional[str] = None
 
 
 @dataclass
@@ -84,6 +88,7 @@ class CreateVolumeSpec:
     should_shred_volume_enable: Optional[bool] = None
     qos_settings: Optional[VolumeQosParamsSpec] = None
     mp_blade_id: Optional[int] = None
+    clpr_id: Optional[int] = None
     should_reclaim_zero_pages: Optional[bool] = None
     # Added for UCA-3302
     is_parallel_execution_enabled: Optional[bool] = None

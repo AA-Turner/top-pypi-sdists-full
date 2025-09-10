@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class RepositoryAddRemoveContent(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -91,11 +83,7 @@ class RepositoryAddRemoveContent(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "add_content_units": obj.get("add_content_units"),
-            "remove_content_units": obj.get("remove_content_units"),
-            "base_version": obj.get("base_version")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

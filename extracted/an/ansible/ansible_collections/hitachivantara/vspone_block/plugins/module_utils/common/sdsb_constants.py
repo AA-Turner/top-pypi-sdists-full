@@ -56,6 +56,60 @@ class SDSBlockEndpoints(object):
     DELETE_PORT_AUTH_SETTINGS_CHAP_USERS = (
         "v1/objects/port-auth-settings/{}/chap-users/{}"
     )
+
+    # Base endpoint
+    GET_BLOCK_DRIVES = "v1/objects/drives"
+
+    # Single parameter queries
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY = "/v1/objects/drives?statusSummary={}"
+    GET_BLOCK_DRIVES_QUERY_STATUS = "/v1/objects/drives?status={}"
+    GET_BLOCK_DRIVES_QUERY_STORAGE_NODE_ID = "/v1/objects/drives?storageNodeId={}"
+    GET_BLOCK_DRIVES_QUERY_LOCATOR_LED_STATUS = "/v1/objects/drives?locatorLedStatus={}"
+
+    # Two parameter combinations
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_STATUS = (
+        "/v1/objects/drives?statusSummary={}&status={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_NODE = (
+        "/v1/objects/drives?statusSummary={}&storageNodeId={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_LED = (
+        "/v1/objects/drives?statusSummary={}&locatorLedStatus={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_NODE = "/v1/objects/drives?status={}&storageNodeId={}"
+    GET_BLOCK_DRIVES_QUERY_STATUS_LED = (
+        "/v1/objects/drives?status={}&locatorLedStatus={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_NODE_LED = (
+        "/v1/objects/drives?storageNodeId={}&locatorLedStatus={}"
+    )
+
+    # Three parameter combinations
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_STATUS_NODE = (
+        "/v1/objects/drives?statusSummary={}&status={}&storageNodeId={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_STATUS_LED = (
+        "/v1/objects/drives?statusSummary={}&status={}&locatorLedStatus={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_SUMMARY_NODE_LED = (
+        "/v1/objects/drives?statusSummary={}&storageNodeId={}&locatorLedStatus={}"
+    )
+    GET_BLOCK_DRIVES_QUERY_STATUS_NODE_LED = (
+        "/v1/objects/drives?status={}&storageNodeId={}&locatorLedStatus={}"
+    )
+
+    # All parameters
+    GET_BLOCK_DRIVES_QUERY_ALL = "/v1/objects/drives?statusSummary={}&status={}&storageNodeId={}&locatorLedStatus={}"
+    GET_FAULT_DOMAINS = "v1/objects/fault-domains"
+    GET_FAULT_DOMAINS_ID = "v1/objects/fault-domains/{}"
+    GET_STORAGE_CONTROLLERS = "v1/objects/storage-controllers"
+    GET_STORAGE_CONTROLLERS_ID = "v1/objects/storage-controllers/{}"
+    GET_CONTROL_PORTS = "v1/objects/control-ports"
+    GET_CONTROL_PORTS_ID = "v1/objects/control-ports/{}"
+    GET_INTERNODE_PORTS = "v1/objects/internode-ports"
+    GET_INTERNODE_PORTS_ID = "v1/objects/internode-ports/{}"
+    GET_STORAGE_NODE_NETWORK_SETTINGS = "v1/objects/storage-node-network-settings"
+    GET_STORAGE_NODE_NETWORK_SETTINGS_ID = "v1/objects/storage-node-network-settings/{}"
     GET_JOBS = "v1/objects/jobs/{}"
     GET_STORAGE_NODES_AND_QUERY = "v1/objects/storage-nodes?protectionDomainId={}"
     GET_DRIVES = "v1/objects/drives"
@@ -63,12 +117,28 @@ class SDSBlockEndpoints(object):
     GET_STORAGE_CONTROLLERS = "v1/objects/storage-controllers"
     GET_STORAGE_CLUSTER = "v1/objects/storage"
     GET_HEALTH_STATUS = "v1/objects/health-status"
+    GET_STORAGE_TIME_SETTINGS = "v1/objects/storage-time-setting"
+    GET_STORAGE_NETWORK_SETTING = "v1/objects/storage-network-setting"
+    GET_PROCTECTION_DOMAINS = "v1/objects/protection-domains"
+    GET_USERS = "v1/objects/users"
+    GET_USERS_BY_ID = "v1/objects/users/{}"
 
     GET_VPS = "v1/objects/virtual-private-storages"
     GET_VPS_BY_ID = "v1/objects/virtual-private-storages/{}"
     DELETE_VPS = "v1/objects/virtual-private-storages/{}"
     POST_VPS = "v1/objects/virtual-private-storages"
     UPDATE_VPS = "v1/objects/virtual-private-storages/{}"
+
+    # Ticket Management Endpoints
+    POST_TICKET = "v1/objects/tickets"
+    DISCARD_TICKETS = "v1/objects/tickets/actions/revoke-all/invoke"
+
+    # snapshot Endpoints
+    GET_SNAPSHOTS_VOLUMES = "v1/objects/volumes/{}/snapshot-volumes"
+    CREATE_SNAPSHOT = "v1/objects/volumes/actions/create-snapshot/invoke"
+    DELETE_SNAPSHOT = "v1/objects/volumes/actions/delete-snapshot/invoke"
+    RESTORE_SNAPSHOT = "v1/objects/volumes/actions/restore-snapshot/invoke"
+    GET_MASTER_VOLUME = "v1/objects/volumes/{}/master-volume"
 
 
 class Http(object):
@@ -144,6 +214,8 @@ class AutomationConstants(object):
     QOS_UPPER_LIMIT_XFER_RATE_MAX = 2097151
     QOS_UPPER_ALERT_ALLOWABLE_TIME_OUT_MIN = 1
     QOS_UPPER_ALERT_ALLOWABLE_TIME_OUT_MAX = 600
+    JOB_COUNT_MIN = 1
+    JOB_COUNT_MAX = 100
 
 
 class ErrorMessages(object):

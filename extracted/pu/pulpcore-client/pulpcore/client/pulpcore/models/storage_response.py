@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class StorageResponse(BaseModel):
     """
     Serializer for information about the storage system
@@ -105,11 +97,7 @@ class StorageResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "total": obj.get("total"),
-            "used": obj.get("used"),
-            "free": obj.get("free")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

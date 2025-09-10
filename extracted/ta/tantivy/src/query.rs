@@ -1,12 +1,12 @@
 use crate::{
-    get_field, make_term, make_term_for_type, schema::FieldType, to_pyerr,
-    DocAddress, Schema,
+    explanation::Explanation, get_field, make_term, make_term_for_type,
+    schema::FieldType, searcher::Searcher, to_pyerr, DocAddress, Schema,
 };
 use core::ops::Bound as OpsBound;
 use pyo3::{
     exceptions,
     prelude::*,
-    types::{PyAny, PyFloat, PyString, PyTuple},
+    types::{PyAny, PyFloat, PyString},
 };
 use tantivy as tv;
 
@@ -127,7 +127,7 @@ impl Query {
     /// * `schema` - Schema of the target index.
     /// * `field_name` - Field name to be searched.
     /// * `text` - String representation of the query term.
-    /// * `distance` - (Optional) Edit distance you are going to alow. When not specified, the default is 1.
+    /// * `distance` - (Optional) Edit distance you are going to allow. When not specified, the default is 1.
     /// * `transposition_cost_one` - (Optional) If true, a transposition (swapping) cost will be 1; otherwise it will be 2. When not specified, the default is true.
     /// * `prefix` - (Optional) If true, prefix levenshtein distance is applied. When not specified, the default is false.
     #[staticmethod]
@@ -416,5 +416,28 @@ impl Query {
         Ok(Query {
             inner: Box::new(inner),
         })
+    }
+
+    /// Explain how this query matches a given document.
+    ///
+    /// # Arguments
+    /// * `searcher` (Searcher): The searcher used to perform the search.
+    /// * `doc_address` (DocAddress): The address of the document to explain.
+    ///
+    /// # Returns
+    /// * `Explanation`: An object containing detailed information about how
+    ///                  the document matched the query, with a to_json() method.
+    ///
+    pub(crate) fn explain(
+        &self,
+        searcher: &Searcher,
+        doc_address: &DocAddress,
+    ) -> PyResult<Explanation> {
+        let tantivy_doc_address = doc_address.into();
+        let explanation = self
+            .inner
+            .explain(&searcher.inner, tantivy_doc_address)
+            .map_err(to_pyerr)?;
+        Ok(Explanation::new(explanation))
     }
 }

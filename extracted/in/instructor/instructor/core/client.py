@@ -312,6 +312,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]: ...
 
@@ -324,6 +325,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> T: ...
 
@@ -336,6 +338,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Awaitable[Any]: ...
 
@@ -348,6 +351,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Any: ...
 
@@ -359,9 +363,15 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> T | Any | Awaitable[T] | Awaitable[Any]:
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
 
         return self.create_fn(
             response_model=response_model,
@@ -370,7 +380,7 @@ class Instructor:
             validation_context=validation_context,
             context=context,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
 
@@ -383,6 +393,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]: ...
 
@@ -395,6 +406,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None]: ...
 
@@ -406,11 +418,17 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None] | AsyncGenerator[T, None]:
         kwargs["stream"] = True
 
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
 
         response_model = instructor.Partial[response_model]  # type: ignore
         return self.create_fn(
@@ -420,7 +438,7 @@ class Instructor:
             validation_context=validation_context,
             context=context,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
 
@@ -433,6 +451,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]: ...
 
@@ -445,6 +464,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None]: ...
 
@@ -456,10 +476,16 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None] | AsyncGenerator[T, None]:
         kwargs["stream"] = True
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
 
         response_model = Iterable[response_model]  # type: ignore
         return self.create_fn(
@@ -469,7 +495,7 @@ class Instructor:
             validation_context=validation_context,
             context=context,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
 
@@ -482,6 +508,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Awaitable[tuple[T, Any]]: ...
 
@@ -494,6 +521,7 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> tuple[T, Any]: ...
 
@@ -505,9 +533,16 @@ class Instructor:
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> tuple[T, Any] | Awaitable[tuple[T, Any]]:
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
+
         model = self.create_fn(
             messages=messages,
             response_model=response_model,
@@ -515,7 +550,7 @@ class Instructor:
             validation_context=validation_context,
             context=context,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
         return model, model._raw_response
@@ -578,9 +613,15 @@ class AsyncInstructor(Instructor):
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> T | Any:
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
 
         # Check if the response model is an iterable type
         if (
@@ -601,6 +642,7 @@ class AsyncInstructor(Instructor):
                 validation_context=validation_context,
                 context=context,
                 strict=strict,
+                hooks=hooks,  # Pass the per-call hooks to create_iterable
                 **kwargs,
             )
 
@@ -611,7 +653,7 @@ class AsyncInstructor(Instructor):
             max_retries=max_retries,
             messages=messages,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
 
@@ -623,10 +665,17 @@ class AsyncInstructor(Instructor):
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]:
         kwargs = self.handle_kwargs(kwargs)
         kwargs["stream"] = True
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
+
         async for item in await self.create_fn(
             response_model=instructor.Partial[response_model],  # type: ignore
             validation_context=validation_context,
@@ -634,7 +683,7 @@ class AsyncInstructor(Instructor):
             max_retries=max_retries,
             messages=messages,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         ):
             yield item
@@ -647,10 +696,17 @@ class AsyncInstructor(Instructor):
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]:
         kwargs = self.handle_kwargs(kwargs)
         kwargs["stream"] = True
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
+
         async for item in await self.create_fn(
             response_model=Iterable[response_model],
             validation_context=validation_context,
@@ -658,7 +714,7 @@ class AsyncInstructor(Instructor):
             max_retries=max_retries,
             messages=messages,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         ):
             yield item
@@ -671,9 +727,16 @@ class AsyncInstructor(Instructor):
         validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
         context: dict[str, Any] | None = None,
         strict: bool = True,
+        hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> tuple[T, Any]:
         kwargs = self.handle_kwargs(kwargs)
+
+        # Combine client hooks with per-call hooks
+        combined_hooks = self.hooks
+        if hooks is not None:
+            combined_hooks = self.hooks + hooks
+
         response = await self.create_fn(
             response_model=response_model,
             validation_context=validation_context,
@@ -681,7 +744,7 @@ class AsyncInstructor(Instructor):
             max_retries=max_retries,
             messages=messages,
             strict=strict,
-            hooks=self.hooks,
+            hooks=combined_hooks,
             **kwargs,
         )
         return response, response._raw_response
@@ -773,13 +836,15 @@ def from_openai(
         return Instructor(
             client=client,
             create=instructor.patch(
-                create=client.chat.completions.create
-                if mode
-                not in {
-                    instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-                    instructor.Mode.RESPONSES_TOOLS,
-                }
-                else partial(map_chat_completion_to_response, client=client),
+                create=(
+                    client.chat.completions.create
+                    if mode
+                    not in {
+                        instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+                        instructor.Mode.RESPONSES_TOOLS,
+                    }
+                    else partial(map_chat_completion_to_response, client=client)
+                ),
                 mode=mode,
             ),
             mode=mode,
@@ -791,13 +856,15 @@ def from_openai(
         return AsyncInstructor(
             client=client,
             create=instructor.patch(
-                create=client.chat.completions.create
-                if mode
-                not in {
-                    instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-                    instructor.Mode.RESPONSES_TOOLS,
-                }
-                else partial(async_map_chat_completion_to_response, client=client),
+                create=(
+                    client.chat.completions.create
+                    if mode
+                    not in {
+                        instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+                        instructor.Mode.RESPONSES_TOOLS,
+                    }
+                    else partial(async_map_chat_completion_to_response, client=client)
+                ),
                 mode=mode,
             ),
             mode=mode,

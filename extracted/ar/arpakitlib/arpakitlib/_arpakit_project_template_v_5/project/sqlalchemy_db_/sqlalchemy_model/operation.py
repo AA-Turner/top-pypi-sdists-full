@@ -30,7 +30,7 @@ class OperationDBM(SimpleDBM):
         raise_fake_error_ = "raise_fake_error"
 
     class Markers(Enumeration):
-        nothing = "nothing"
+        pass
 
     status: Mapped[str] = mapped_column(
         sqlalchemy.TEXT,
@@ -180,43 +180,7 @@ class OperationDBM(SimpleDBM):
             return None
         return self.execution_finish_dt - self.execution_start_dt
 
-    @property
-    def duration_as_str(self) -> str | None:
-        if self.duration is None:
-            return None
-        return str(self.duration)
-
-    @property
-    def duration_total_seconds(self) -> float | None:
-        if self.duration is None:
-            return None
-        return self.duration.total_seconds()
-
     # ---SDP---
-
-    @property
-    def sdp_duration(self) -> timedelta | None:
-        """
-        При использовании у данной модели .simple_dict данное свойство будет представлено как поле.
-        То есть префикс sdp_ и даёт этот бонус.
-        """
-        return self.duration
-
-    @property
-    def sdp_duration_as_str(self) -> str | None:
-        """
-        При использовании у данной модели .simple_dict данное свойство будет представлено как поле.
-        То есть префикс sdp_ и даёт этот бонус.
-        """
-        return self.duration_as_str
-
-    @property
-    def sdp_duration_total_seconds(self) -> float | None:
-        """
-        При использовании у данной модели .simple_dict данное свойство будет представлено как поле.
-        То есть префикс sdp_ и даёт этот бонус.
-        """
-        return self.duration_total_seconds
 
     @property
     def sdp_allowed_statuses(self) -> list[str]:
@@ -225,3 +189,47 @@ class OperationDBM(SimpleDBM):
     @property
     def sdp_allowed_types(self) -> list[str]:
         return self.Types.values_list()
+
+    @property
+    def sdp_allowed_markers(self) -> list[str]:
+        return self.Markers.values_list()
+
+    @property
+    def sdp_has_input_data(self) -> bool:
+        return bool(self.input_data)
+
+    @property
+    def sdp_has_output_data(self) -> bool:
+        return bool(self.output_data)
+
+    @property
+    def sdp_has_error_data(self) -> bool:
+        return bool(self.error_data)
+
+    @property
+    def sdp_duration(self) -> timedelta | None:
+        return self.duration
+
+    @property
+    def sdp_duration_as_str(self) -> str | None:
+        if self.duration is None:
+            return None
+        return str(self.duration)
+
+    @property
+    def sdp_duration_total_seconds(self) -> float | None:
+        if self.duration is None:
+            return None
+        return self.duration.total_seconds()
+
+    @property
+    def sdp_duration_total_minutes(self) -> float | None:
+        if self.duration is None:
+            return None
+        return self.duration.total_seconds() / 60
+
+    @property
+    def sdp_duration_total_hours(self) -> float | None:
+        if self.duration is None:
+            return None
+        return self.duration.total_seconds() / 60 / 60

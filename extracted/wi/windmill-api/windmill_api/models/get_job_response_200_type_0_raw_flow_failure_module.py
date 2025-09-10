@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.get_job_response_200_type_0_raw_flow_failure_module_suspend import (
         GetJobResponse200Type0RawFlowFailureModuleSuspend,
     )
+    from ..models.get_job_response_200_type_0_raw_flow_failure_module_timeout_type_0 import (
+        GetJobResponse200Type0RawFlowFailureModuleTimeoutType0,
+    )
+    from ..models.get_job_response_200_type_0_raw_flow_failure_module_timeout_type_1 import (
+        GetJobResponse200Type0RawFlowFailureModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="GetJobResponse200Type0RawFlowFailureModule")
@@ -47,7 +53,8 @@ class GetJobResponse200Type0RawFlowFailureModule:
         sleep (Union['GetJobResponse200Type0RawFlowFailureModuleSleepType0',
             'GetJobResponse200Type0RawFlowFailureModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['GetJobResponse200Type0RawFlowFailureModuleTimeoutType0',
+            'GetJobResponse200Type0RawFlowFailureModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleMock]):
@@ -68,7 +75,11 @@ class GetJobResponse200Type0RawFlowFailureModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "GetJobResponse200Type0RawFlowFailureModuleTimeoutType0",
+        "GetJobResponse200Type0RawFlowFailureModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "GetJobResponse200Type0RawFlowFailureModuleMock"] = UNSET
@@ -81,6 +92,9 @@ class GetJobResponse200Type0RawFlowFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_job_response_200_type_0_raw_flow_failure_module_sleep_type_0 import (
             GetJobResponse200Type0RawFlowFailureModuleSleepType0,
+        )
+        from ..models.get_job_response_200_type_0_raw_flow_failure_module_timeout_type_0 import (
+            GetJobResponse200Type0RawFlowFailureModuleTimeoutType0,
         )
 
         id = self.id
@@ -112,7 +126,20 @@ class GetJobResponse200Type0RawFlowFailureModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, GetJobResponse200Type0RawFlowFailureModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -192,6 +219,12 @@ class GetJobResponse200Type0RawFlowFailureModule:
         from ..models.get_job_response_200_type_0_raw_flow_failure_module_suspend import (
             GetJobResponse200Type0RawFlowFailureModuleSuspend,
         )
+        from ..models.get_job_response_200_type_0_raw_flow_failure_module_timeout_type_0 import (
+            GetJobResponse200Type0RawFlowFailureModuleTimeoutType0,
+        )
+        from ..models.get_job_response_200_type_0_raw_flow_failure_module_timeout_type_1 import (
+            GetJobResponse200Type0RawFlowFailureModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -258,7 +291,40 @@ class GetJobResponse200Type0RawFlowFailureModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "GetJobResponse200Type0RawFlowFailureModuleTimeoutType0",
+            "GetJobResponse200Type0RawFlowFailureModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, GetJobResponse200Type0RawFlowFailureModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = GetJobResponse200Type0RawFlowFailureModuleTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, GetJobResponse200Type0RawFlowFailureModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = GetJobResponse200Type0RawFlowFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

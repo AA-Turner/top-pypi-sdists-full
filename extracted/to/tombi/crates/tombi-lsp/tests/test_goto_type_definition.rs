@@ -1,10 +1,9 @@
-use tombi_test_lib::{cargo_schema_path, pyproject_schema_path, tombi_schema_path};
-
 mod goto_type_definition_tests {
     use super::*;
 
     mod tombi_schema {
         use super::*;
+        use tombi_test_lib::tombi_schema_path;
 
         test_goto_type_definition!(
             #[tokio::test]
@@ -13,7 +12,7 @@ mod goto_type_definition_tests {
                 toml-version = "█v1.0.0"
                 "#,
                 tombi_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(tombi_schema_path());
         );
 
         test_goto_type_definition!(
@@ -24,7 +23,7 @@ mod goto_type_definition_tests {
                 path = "█https://json.schemastore.org/api/json/catalog.json"
                 "#,
                 tombi_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(tombi_schema_path());
         );
 
         test_goto_type_definition!(
@@ -34,12 +33,13 @@ mod goto_type_definition_tests {
                 [[schemas█]]
                 "#,
                 tombi_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(tombi_schema_path());
         );
     }
 
     mod cargo_schema {
         use super::*;
+        use tombi_test_lib::cargo_schema_path;
 
         test_goto_type_definition!(
             #[tokio::test]
@@ -49,7 +49,7 @@ mod goto_type_definition_tests {
                 name█ = "tombi"
                 "#,
                 cargo_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(cargo_schema_path());
         );
 
         test_goto_type_definition!(
@@ -60,7 +60,7 @@ mod goto_type_definition_tests {
                 readme = "█README.md"
                 "#,
                 cargo_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(cargo_schema_path());
         );
 
         test_goto_type_definition!(
@@ -71,7 +71,7 @@ mod goto_type_definition_tests {
                 serde█ = { workspace = true }
                 "#,
                 cargo_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(cargo_schema_path());
         );
 
         test_goto_type_definition!(
@@ -82,12 +82,14 @@ mod goto_type_definition_tests {
                 strip = "debuginfo█"
                 "#,
                 cargo_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(cargo_schema_path());
         );
     }
 
     mod pyproject_schema {
         use super::*;
+
+        use tombi_test_lib::pyproject_schema_path;
 
         test_goto_type_definition!(
             #[tokio::test]
@@ -97,7 +99,7 @@ mod goto_type_definition_tests {
                 readme = "█1.0.0"
                 "#,
                 pyproject_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(pyproject_schema_path());
         );
 
         test_goto_type_definition!(
@@ -110,7 +112,296 @@ mod goto_type_definition_tests {
                 ]
                 "#,
                 pyproject_schema_path(),
-            ) -> Ok(_);
+            ) -> Ok(pyproject_schema_path());
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn pyproject_tool_taskipy_tasks_format(
+                r#"
+                [tool.taskipy.tasks]
+                format█ = "ruff"
+                "#,
+                pyproject_schema_path(),
+            ) -> Ok("https://json.schemastore.org/partial-taskipy.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn pyproject_tombi_document_directive_toml_version(
+                r#"
+                #:tombi toml-version█ = "v1.0.0"
+                [project]
+                name = "tombi"
+                "#,
+                pyproject_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+        );
+    }
+
+    mod type_test_schema {
+        use super::*;
+
+        use tombi_test_lib::type_test_schema_path;
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_document_directive(
+                r#"
+                #:tombi schema.strict█ = true
+
+                [table]
+                integer = 42
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_document_directive_in_integer_scope(
+                r#"
+                #:tombi schema.strict█ = true
+                integer = 42
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_document_directive_in_table_scope(
+                r#"
+                #:tombi schema.strict█ = true
+
+                [table]
+                integer = 42
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_root_table_directive(
+                r#"
+                # tombi: lint.rules.const-value.disabled█ = true
+
+                key = "value"
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-root-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_root_table_directive_at_end(
+                r#"
+                key = "value"
+
+                # tombi: lint.rules.const-value.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-root-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_string_directive(
+                r#"
+                # tombi: lint.rules.key-empty█ = "off"
+                string = "string"
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_comment_directive_array_newline_string(
+                r#"
+                # tombi: lint.rules.array-min-items█ = "off"
+                array = [
+
+                  "string"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_comment_directive_newline_string(
+                r#"
+                array = [
+                  # tombi: lint.rules.array-min-items█ = "off"
+
+                  "string"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-array-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_comment_directive_string(
+                r#"
+                array = [
+                  # tombi: lint.rules.string-min-length█ = "off"
+                  "string"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_string_directive(
+                r#"
+                array = [
+                  "string" # tombi: lint.rules.string-min-length█ = "off"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_string_comma_directive(
+                r#"
+                array = [
+                  "string", # tombi: lint.rules.string-min-length█ = "off"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_string_newline_comma_directive(
+                r#"
+                array = [
+                  "string"
+                  , # tombi: lint.rules.string-min-length█ = "off"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_string_comma_newline_bracket_directive(
+                r#"
+                array = [
+                  "string",
+                  # tombi: lint.rules.array-min-items█ = "off"
+                ]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-array-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_string_newline_comma_bracket_directive(
+                r#"
+                array = [
+                  "string"
+                  ,
+                ] # tombi: lint.rules.array-min-items█ = "off"
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_inline_table_directive(
+                r#"
+                inline-table = { key = "value", } # tombi: lint.rules.table-min-properties█ = "off"
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-inline-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_table_directive(
+                r#"
+                # tombi: lint.rules.const-value.disabled█ = true
+                [table]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_table_directive(
+                r#"
+                [table]
+                # tombi: lint.rules.const-value.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_key_array_of_table_directive(
+                r#"
+                # tombi: lint.rules.const-value.disabled█ = true
+                [[array]]
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-of-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_table_key_array_of_table_directive(
+                r#"
+                [[array]] # tombi: lint.rules.const-value.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-of-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn type_test_tombi_array_of_table_directive(
+                r#"
+                [[array]]
+                # tombi: lint.rules.const-value.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-table-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn key_eq_value_with_comment_directive(
+                r#"
+                key = "value"  # tombi: lint.rules.string-pattern.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
+        );
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn key1_key2_eq_value_with_comment_directive(
+                r#"
+                key1.key2 = "value"  # tombi: lint.rules.string-pattern.disabled█ = true
+                "#,
+                type_test_schema_path(),
+            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
         );
     }
 
@@ -245,11 +536,40 @@ mod goto_type_definition_tests {
 
                 let expected_path = $expected_schema_path.to_owned();
 
+                trait IntoPathString {
+                    fn into_path_string(self) -> String;
+                }
+
+                impl IntoPathString for String {
+                    fn into_path_string(self) -> String {
+                        self
+                    }
+                }
+
+                impl IntoPathString for std::path::PathBuf {
+                    fn into_path_string(self) -> String {
+                        self.to_string_lossy().to_string()
+                    }
+                }
+
                 match result {
                     Some(definition_links) => {
+                        let definition_urls = definition_links.into_iter().map(|mut link| {
+                                match link.uri.scheme() {
+                                    "file" => link.uri.to_file_path().unwrap().into_path_string(),
+                                    "tombi" | "http" | "https" => {
+                                        link.uri.set_fragment(None);
+                                        link.uri.to_string()
+                                    },
+                                    _ => panic!("unexpected schema: {}", link.uri.scheme()),
+                                }
+                            }).collect_vec();
+
+                        tracing::debug!("definition_urls: {:#?}", definition_urls);
+
                         pretty_assertions::assert_eq!(
-                            definition_links.into_iter().map(|link| link.uri.to_file_path().unwrap()).collect_vec(),
-                            vec![expected_path],
+                            definition_urls,
+                            vec![expected_path.into_path_string()],
                         );},
                     None => {
                         panic!("No type definition link was returned, but expected path: {:?}", expected_path);

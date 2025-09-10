@@ -79,20 +79,20 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a group
-    netapp.storagegrid.na_sg_org_group:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      display_name: ansiblegroup1
-      unique_name: group/ansiblegroup1
-      management_policy:
-        manage_all_containers: true
-        manage_endpoints: true
-        manage_own_s3_credentials: false
-        root_access: false
-      s3_policy: {"Statement":[{"Effect":"Deny","Action":"s3:*","Resource":"arn:aws:s3:::*"}]}
+- name: create a group
+  netapp.storagegrid.na_sg_org_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    display_name: ansiblegroup1
+    unique_name: group/ansiblegroup1
+    management_policy:
+    manage_all_containers: true
+    manage_endpoints: true
+    manage_own_s3_credentials: false
+    root_access: false
+    s3_policy: {"Statement":[{"Effect":"Deny", "Action":"s3:*", "Resource":"arn:aws:s3:::*"}]}
 """
 
 RETURN = """

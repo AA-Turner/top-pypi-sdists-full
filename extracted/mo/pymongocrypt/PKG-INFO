@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymongocrypt
-Version: 1.15.1
+Version: 1.16.0
 Summary: Python bindings for libmongocrypt
 Project-URL: Homepage, https://github.com/mongodb/libmongocrypt/tree/master/bindings/python
 Author-email: Shane Harvey <mongodb-user@googlegroups.com>

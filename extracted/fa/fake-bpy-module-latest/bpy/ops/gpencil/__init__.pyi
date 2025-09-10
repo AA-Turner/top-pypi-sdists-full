@@ -159,14 +159,3 @@ def layer_annotation_remove(
     :type execution_context: int | str | None
     :type undo: bool | None
     """
-
-def tint_flip(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Switch tint colors
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """

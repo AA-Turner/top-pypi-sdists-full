@@ -22,6 +22,7 @@ from typing import Any
 
 from .literals import (
     AccountJoinedMethodType,
+    AccountStateType,
     AccountStatusType,
     ActionTypeType,
     ChildTypeType,
@@ -209,6 +210,7 @@ class AccountTypeDef(TypedDict):
     Email: NotRequired[str]
     Name: NotRequired[str]
     Status: NotRequired[AccountStatusType]
+    State: NotRequired[AccountStateType]
     JoinedMethod: NotRequired[AccountJoinedMethodType]
     JoinedTimestamp: NotRequired[datetime]
 

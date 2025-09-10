@@ -10,7 +10,7 @@ DOCUMENTATION = r"""
 author: Unknown (!UNKNOWN)
 name: log_plays
 type: notification
-short_description: write playbook output to log file
+short_description: Write playbook output to log file
 description:
   - This callback writes playbook output to a file per host in the C(/var/log/ansible/hosts) directory.
 requirements:
@@ -19,7 +19,7 @@ requirements:
 options:
   log_folder:
     default: /var/log/ansible/hosts
-    description: The folder where log files will be created.
+    description: The folder where log files are created.
     type: str
     env:
       - name: ANSIBLE_LOG_FOLDER
@@ -34,7 +34,7 @@ import json
 
 from ansible.utils.path import makedirs_safe
 from ansible.module_utils.common.text.converters import to_bytes
-from ansible.module_utils.common._collections_compat import MutableMapping
+from collections.abc import MutableMapping
 from ansible.parsing.ajson import AnsibleJSONEncoder
 from ansible.plugins.callback import CallbackBase
 

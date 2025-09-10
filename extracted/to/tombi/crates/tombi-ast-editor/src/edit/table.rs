@@ -1,16 +1,17 @@
 use std::borrow::Cow;
 
 use itertools::Itertools;
+use tombi_ast::GetHeaderSchemarAccessors;
 use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_future::{BoxFuture, Boxable};
-use tombi_schema_store::{GetHeaderSchemarAccessors, SchemaAccessor};
+use tombi_schema_store::Accessor;
 
 use crate::{edit::get_schema, rule::table_keys_order};
 
 impl crate::Edit for tombi_ast::Table {
     fn edit<'a: 'b, 'b>(
         &'a self,
-        _accessors: &'a [tombi_schema_store::SchemaAccessor],
+        _accessors: &'a [tombi_schema_store::Accessor],
         source_path: Option<&'a std::path::Path>,
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
@@ -19,8 +20,7 @@ impl crate::Edit for tombi_ast::Table {
 
         async move {
             let mut changes = vec![];
-            let Some(header_accessors) =
-                self.get_header_schema_accessor(schema_context.toml_version)
+            let Some(header_accessors) = self.get_header_accessor(schema_context.toml_version)
             else {
                 return changes;
             };
@@ -45,13 +45,13 @@ impl crate::Edit for tombi_ast::Table {
 
             for header_accessor in &header_accessors {
                 match (value, header_accessor) {
-                    (tombi_document_tree::Value::Table(table), SchemaAccessor::Key(key)) => {
+                    (tombi_document_tree::Value::Table(table), Accessor::Key(key)) => {
                         let Some(v) = table.get(key) else {
                             return changes;
                         };
                         value = v;
                     }
-                    (tombi_document_tree::Value::Array(array), SchemaAccessor::Index) => {
+                    (tombi_document_tree::Value::Array(array), Accessor::Index(_)) => {
                         let Some(v) = array.get(0) else {
                             return changes;
                         };

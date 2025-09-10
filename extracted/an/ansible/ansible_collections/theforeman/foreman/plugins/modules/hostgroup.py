@@ -42,7 +42,9 @@ options:
     required: false
     type: str
   parent:
-    description: Hostgroup parent name
+    description:
+      - Title of the parent Hostgroup.
+      - Can be nested in the form "Main Group/Sub Group".
     required: false
     type: str
   organization:
@@ -125,9 +127,7 @@ EXAMPLES = '''
     content_source: capsule.example.com
     lifecycle_environment: "Production"
     content_view: "My content view"
-    parameters:
-      - name: "kt_activation_keys"
-        value: "my_prod_ak"
+    activation_keys: "my_prod_ak"
 
 - name: "Delete a Hostgroup"
   theforeman.foreman.hostgroup:
@@ -183,7 +183,7 @@ def main():
 
     module_params = module.foreman_params
     with module.api_connection():
-        old_entity = module.lookup_entity('entity')
+        old_entity = module.lookup_entity('entity', params={'show_hidden_parameters': True})
         if not module.desired_absent:
             if 'organization' in module_params:
                 if 'organizations' in module_params:
@@ -198,15 +198,31 @@ def main():
             ensure_puppetclasses(module, 'hostgroup', entity, expected_puppetclasses)
 
         ansible_roles = module_params.get('ansible_roles')
+
+        parent_ansible_role_ids = []
+
         if not module.desired_absent and ansible_roles is not None:
             desired_ansible_role_ids = [item['id'] for item in ansible_roles]
+
+            if entity.get('parent_id') is not None:
+                parent_ansible_role_ids = [
+                    item['id']
+                    for item in module.resource_action(
+                        'hostgroups',
+                        'ansible_roles',
+                        {'id': entity['parent_id']},
+                        ignore_check_mode=True,
+                        record_change=False,
+                    )
+                ]
+
             current_ansible_role_ids = [
                 item['id'] for item in module.resource_action(
                     'hostgroups', 'ansible_roles', {'id': entity['id']},
                     ignore_check_mode=True, record_change=False,
                 )
             ] if old_entity else []
-            if set(current_ansible_role_ids) != set(desired_ansible_role_ids):
+            if set(current_ansible_role_ids) != set(desired_ansible_role_ids + parent_ansible_role_ids):
                 module.resource_action(
                     'hostgroups', 'assign_ansible_roles',
                     {'id': entity['id'], 'ansible_role_ids': desired_ansible_role_ids},

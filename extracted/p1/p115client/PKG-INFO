@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: p115client
-Version: 0.0.6.11.5
+Version: 0.0.6.11.8
 Summary: Python 115 webdisk client.
 Home-page: https://github.com/ChenyangGao/p115client
 License: MIT
@@ -22,6 +22,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: ed2k (>=0.0.2.2)
 Requires-Dist: errno2 (>=0.0.1)
+Requires-Dist: http_client_request (>=0.0.10)
 Requires-Dist: http_response (>=0.0.9)
 Requires-Dist: httpcore_request (>=0.0.6.2)
 Requires-Dist: integer_tool (>=0.0.6)
@@ -49,7 +50,7 @@ Requires-Dist: python-startfile (>=0.0.2)
 Requires-Dist: python-temporary (>=0.0.1)
 Requires-Dist: python-undefined (>=0.0.3)
 Requires-Dist: qrcode
-Requires-Dist: sqlitetools (>=0.0.3.2)
+Requires-Dist: sqlitetools (>=0.0.4)
 Requires-Dist: yarl
 Project-URL: Documentation, https://p115client.readthedocs.io
 Project-URL: Repository, https://github.com/ChenyangGao/p115client

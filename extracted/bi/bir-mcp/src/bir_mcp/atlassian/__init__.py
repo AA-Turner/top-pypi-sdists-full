@@ -8,6 +8,7 @@ import markdownify
 import pydantic
 
 from bir_mcp.atlassian.utils import (
+    confluence_highlight_to_markdown_bold,
     generate_directed_linked_issues,
     infer_jira_field_representation,
     normalize_line_breaks,
@@ -17,6 +18,7 @@ from bir_mcp.utils import (
     araise_for_status,
     build_url,
     filter_dict_by_keys,
+    format_datetime_for_ai,
     prepend_url_path_prefix_if_not_present,
     to_maybe_ssl_context,
 )
@@ -294,46 +296,84 @@ class Confluence(BaseMcp, AhttpxMixin):
         """
         return prepend_url_path_prefix_if_not_present("rest/api", path)
 
+    def markdownify(self, html: str) -> str:
+        """See docs https://pypi.org/project/markdownify/"""
+        markdown = markdownify.markdownify(
+            html,
+            autolinks=False,
+            strip=["a"],
+            heading_style="ATX",
+            bullets="-",
+            escape_asterisks=False,
+            escape_underscores=False,
+        )
+        return markdown
+
     async def search(
         self,
         cql_query: str,
+        include_whole_page_content: Annotated[
+            bool,
+            pydantic.Field(
+                description=inspect.cleandoc("""
+                    Whether to include the whole body content for each search result.
+                    Note that this can make the search results prohibitively long.
+                """),
+            ),
+        ] = False,
         convert_html_to_markdown: Annotated[
             bool,
             pydantic.Field(
                 description=inspect.cleandoc("""
-                    Whether to convert the HTML content of the search into
+                    Whether to convert the HTML content of the search results into
                     more concise and readable Markdown format.
                 """),
             ),
         ] = True,
+        limit_results: int = 10,
     ) -> dict:
         """
         Perform search in Confluence using Confluence Query Language (CQL).
         Note that to include only pages in the search results, the CQL should contain
         a "type=page" condition.
         """
+        expand = "content.body.storage" if include_whole_page_content else None
         response = await self.ahttpx_get(
             "search",
             cql=cql_query,
-            limit=10,
-            expand="content.body.view",
+            limit=limit_results,
+            excerpt="highlight",
+            expand=expand,
         )
         results = []
         for result in response.json()["results"]:
-            result = filter_dict_by_keys(result, ["title", "lastModified", "content"])
-            result["content"] = filter_dict_by_keys(result["content"], ["id", "type", "body"])
-            body = result["content"]["body"]["view"]["value"]
-            if convert_html_to_markdown:
-                body = markdownify.markdownify(body)
+            result = filter_dict_by_keys(result, ["title", "lastModified", "content", "excerpt"])
+            for field in ["excerpt", "title"]:
+                result[field] = confluence_highlight_to_markdown_bold(result[field])
 
-            result["content"]["body"] = body
+            result["lastModified"] = format_datetime_for_ai(
+                result["lastModified"], timespec="hours"
+            )
+            result["content"] = filter_dict_by_keys(result["content"], ["id", "type", "body"])
+            if expand:
+                body = result
+                for path in expand.split(","):
+                    body = body.get(path)
+                    if not body:
+                        break
+                else:
+                    if convert_html_to_markdown:
+                        body = self.markdownify(body)
+
+                    result["content"]["body"] = body
+
             results.append(result)
 
         return {"results": results}
 
     async def list_all_spaces(self) -> dict:
-        """List all spaces in Confluence."""
-        response = await self.ahttpx_get("space")
+        """List all global (non-personal) spaces in Confluence."""
+        response = await self.ahttpx_get("space", type="global", limit=1000)
         spaces = response.json()["results"]
-        spaces = [filter_dict_by_keys(space, ["key", "name", "type"]) for space in spaces]
+        spaces = [filter_dict_by_keys(space, ["key", "name"]) for space in spaces]
         return {"spaces": spaces}

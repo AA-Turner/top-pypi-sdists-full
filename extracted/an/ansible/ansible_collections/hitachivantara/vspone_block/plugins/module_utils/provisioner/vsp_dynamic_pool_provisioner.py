@@ -63,11 +63,11 @@ class VspDynamicPoolProvisioner:
         dynamic_pool = None
         # Check if the dynamic pool already exists
 
-        if spec.pool_id:
+        if spec.pool_id is not None:
             dynamic_pool = self.gateway.get_dynamic_pool_by_id(spec.pool_id)
         elif spec.pool_name:
             dynamic_pool = self.get_dynamic_pool_using_name_or_id(name=spec.pool_name)
-
+        logger.writeDebug(f"ddp = {dynamic_pool}")
         if not dynamic_pool:
             self.validate_ddp_drives(spec)
             # if spec.drives is None:
@@ -116,7 +116,7 @@ class VspDynamicPoolProvisioner:
         """
 
         logger.writeDebug("Expanding dynamic pool.")
-        if spec.pool_id:
+        if spec.pool_id is not None:
             dynamic_pool = self.gateway.get_dynamic_pool_by_id(spec.pool_id)
         elif spec.pool_name:
             dynamic_pool = self.get_dynamic_pool_using_name_or_id(name=spec.pool_name)

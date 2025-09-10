@@ -1,18 +1,21 @@
 Metadata-Version: 2.4
 Name: pytest-cov
-Version: 6.3.0
+Version: 7.0.0
 Summary: Pytest plugin for measuring coverage.
-Home-page: https://github.com/pytest-dev/pytest-cov
-Author: Marc Schlaich
-Author-email: marc.schlaich@gmail.com
-License: MIT
+Project-URL: Sources, https://github.com/pytest-dev/pytest-cov
 Project-URL: Documentation, https://pytest-cov.readthedocs.io/
 Project-URL: Changelog, https://pytest-cov.readthedocs.io/en/latest/changelog.html
 Project-URL: Issue Tracker, https://github.com/pytest-dev/pytest-cov/issues
-Keywords: cover,coverage,pytest,py.test,distributed,parallel
+Author-email: Marc Schlaich <marc.schlaich@gmail.com>
+Maintainer-email: Ionel Cristian Mărieș <contact@ionelmc.ro>
+License-Expression: MIT
+License-File: AUTHORS.rst
+License-File: LICENSE
+Keywords: cover,coverage,distributed,parallel,py.test,pytest
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
@@ -23,35 +26,20 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
-License-File: LICENSE
-License-File: AUTHORS.rst
-Requires-Dist: pytest>=6.2.5
-Requires-Dist: coverage[toml]>=7.5
+Requires-Dist: coverage[toml]>=7.10.6
 Requires-Dist: pluggy>=1.2
+Requires-Dist: pytest>=7
 Provides-Extra: testing
-Requires-Dist: fields; extra == "testing"
-Requires-Dist: hunter; extra == "testing"
-Requires-Dist: process-tests; extra == "testing"
-Requires-Dist: pytest-xdist; extra == "testing"
-Requires-Dist: virtualenv; extra == "testing"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: process-tests; extra == 'testing'
+Requires-Dist: pytest-xdist; extra == 'testing'
+Requires-Dist: virtualenv; extra == 'testing'
+Description-Content-Type: text/x-rst
 
 ========
 Overview
@@ -68,6 +56,7 @@ Overview
       - |github-actions|
     * - package
       - |version| |conda-forge| |wheel| |supported-versions| |supported-implementations| |commits-since|
+
 .. |docs| image:: https://readthedocs.org/projects/pytest-cov/badge/?style=flat
     :target: https://readthedocs.org/projects/pytest-cov/
     :alt: Documentation Status
@@ -94,16 +83,17 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/pytest-cov
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/pytest-dev/pytest-cov/v6.3.0.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/pytest-dev/pytest-cov/v7.0.0.svg
     :alt: Commits since latest release
-    :target: https://github.com/pytest-dev/pytest-cov/compare/v6.3.0...master
+    :target: https://github.com/pytest-dev/pytest-cov/compare/v7.0.0...master
 
 .. end-badges
 
-This plugin produces coverage reports. Compared to just using ``coverage run`` this plugin does some extras:
+This plugin provides coverage functionality as a pytest plugin. Compared to just using ``coverage run`` this plugin does some extras:
 
-* Subprocess support: you can fork or run stuff in a subprocess and will get covered without any fuss.
-* Xdist support: you can use all of pytest-xdist's features and still get coverage.
+* Automatic erasing and combination of .coverage files and default reporting.
+* Support for detailed coverage contexts (add ``--cov-context=test`` to have the full test name including parametrization as the context).
+* Xdist support: you can use all of pytest-xdist's features including remote interpreters and still get coverage.
 * Consistent pytest behavior. If you run ``coverage run -m pytest`` you will have slightly different ``sys.path`` (CWD will be
   in it, unlike when running ``pytest``).
 
@@ -123,11 +113,10 @@ For distributed testing support install pytest-xdist::
 
     pip install pytest-xdist
 
-Upgrading from ancient pytest-cov
----------------------------------
+Upgrading from pytest-cov 6.3
+-----------------------------
 
-`pytest-cov 2.0` is using a new ``.pth`` file (``pytest-cov.pth``). You may want to manually remove the older
-``init_cov_core.pth`` from site-packages as it's not automatically removed.
+`pytest-cov 6.3` and older were using a ``.pth`` file to enable coverage measurements in subprocesses. This was removed in `pytest-cov 7` - use `coverage's patch options <https://coverage.readthedocs.io/en/latest/config.html#run-patch>`_ to enable subprocess measurements.
 
 Uninstalling
 ------------
@@ -166,10 +155,6 @@ Documentation
 https://pytest-cov.readthedocs.io/en/latest/
 
 
-
-
-
-
 Coverage Data File
 ==================
 
@@ -186,12 +171,6 @@ Limitations
 For distributed testing the workers must have the pytest-cov package installed. This is needed since
 the plugin must be registered through setuptools for pytest to start the plugin on the
 worker.
-
-For subprocess measurement environment variables must make it from the main process to the
-subprocess. The python used by the subprocess must have pytest-cov installed. The subprocess must
-do normal site initialisation so that the environment variables can be detected and coverage
-started. See the `subprocess support docs <https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html>`_
-for more details of how this works.
 
 Security
 ========
@@ -216,9 +195,32 @@ Michael Foord for unittest2.
 
 No doubt others have contributed to these tools as well.
 
-
 Changelog
 =========
+
+7.0.0 (2025-09-09)
+------------------
+
+* Dropped support for subprocesses measurement.
+
+  It was a feature added long time ago when coverage lacked a nice way to measure subprocesses created in tests.
+  It relied on a ``.pth`` file, there was no way to opt-out and it created bad interations
+  with `coverage's new patch system <https://coverage.readthedocs.io/en/latest/config.html#run-patch>`_ added
+  in `7.10 <https://coverage.readthedocs.io/en/7.10.6/changes.html#version-7-10-0-2025-07-24>`_.
+
+  To migrate to this release you might need to enable the suprocess patch, example for ``.coveragerc``:
+
+  .. code-block:: ini
+
+    [run]
+    patch = subprocess
+
+  This release also requires at least coverage 7.10.6.
+* Switched packaging to have metadata completely in ``pyproject.toml`` and use `hatchling <https://pypi.org/project/hatchling/>`_ for
+  building.
+  Contributed by Ofek Lev in `#551 <https://github.com/pytest-dev/pytest-cov/pull/551>`_
+  with some extras in `#716 <https://github.com/pytest-dev/pytest-cov/pull/716>`_.
+* Removed some not really necessary testing deps like ``six``.
 
 6.3.0 (2025-09-06)
 ------------------
@@ -476,8 +478,8 @@ Changelog
 ------------------
 
 * Fixed ``RecursionError`` that can occur when using
-  `cleanup_on_signal <https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-got-custom-signal-handling>`__ or
-  `cleanup_on_sigterm <https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html#if-you-got-custom-signal-handling>`__.
+  `cleanup_on_signal <https://pytest-cov.readthedocs.io/en/v2.8.0/subprocess-support.html#if-you-got-custom-signal-handling>`__ or
+  `cleanup_on_sigterm <https://pytest-cov.readthedocs.io/en/v2.8.0/subprocess-support.html#if-you-got-custom-signal-handling>`__.
   See: `#294 <https://github.com/pytest-dev/pytest-cov/issues/294>`_.
   The 2.7.x releases of pytest-cov should be considered broken regarding aforementioned cleanup API.
 * Added compatibility with future xdist release that deprecates some internals

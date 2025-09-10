@@ -34,7 +34,7 @@ version_added: 1.0.0
 extends_documentation_fragment:
 - vyos.vyos.vyos
 notes:
-- Tested against VyOS 1.1.8 (helium).
+- Tested against VyOS 1.3.8, 1.4.2, the upcoming 1.5, and the rolling release of spring 2025.
 - This module works with connection C(ansible.netcommon.network_cli). See L(the VyOS OS Platform Options,../network/user_guide/platform_vyos.html).
 - To ensure idempotency and correct diff the configuration lines in the relevant module options should be similar to how they
   appear if present in the running configuration on device including the indentation.
@@ -286,6 +286,7 @@ def sanitize_config(config, result):
 def run(module, result):
     # get the current active config from the node or passed in via
     # the config param
+
     config = module.params["config"] or get_config(module)
 
     # create the candidate config object from the arguments
@@ -358,7 +359,10 @@ def main():
 
     if module.params["save"]:
         diff = run_commands(module, commands=["configure", "compare saved"])[1]
-        if diff != "[edit]":
+        if diff not in {
+            "[edit]",
+            "No changes between working and saved configurations.\n\n[edit]",
+        }:
             if not module.check_mode:
                 run_commands(module, commands=["save"])
             result["changed"] = True

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-08T21:00:14.330621                                                            #
+# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-09T09:20:35.501620                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -173,6 +173,8 @@ SFN_EXECUTION_LOG_GROUP_ARN: None
 
 SFN_S3_DISTRIBUTED_MAP_OUTPUT_PATH: None
 
+SFN_COMPRESS_STATE_MACHINE: bool
+
 KUBERNETES_NAMESPACE: str
 
 KUBERNETES_SERVICE_ACCOUNT: None
@@ -236,6 +238,8 @@ ARGO_EVENTS_WEBHOOK_URL: None
 ARGO_EVENTS_INTERNAL_WEBHOOK_URL: None
 
 ARGO_EVENTS_WEBHOOK_AUTH: str
+
+ARGO_EVENTS_SENSOR_NAMESPACE: str
 
 ARGO_WORKFLOWS_UI_URL: None
 

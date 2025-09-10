@@ -17,6 +17,20 @@ from vellum import (
     VellumVariable,
 )
 from vellum.client import ApiError, RequestOptions
+from vellum.client.types import (
+    PromptRequestAudioInput,
+    PromptRequestDocumentInput,
+    PromptRequestImageInput,
+    PromptRequestVideoInput,
+    VellumAudio,
+    VellumAudioRequest,
+    VellumDocument,
+    VellumDocumentRequest,
+    VellumImage,
+    VellumImageRequest,
+    VellumVideo,
+    VellumVideoRequest,
+)
 from vellum.client.types.chat_message_request import ChatMessageRequest
 from vellum.client.types.prompt_exec_config import PromptExecConfig
 from vellum.client.types.prompt_settings import PromptSettings
@@ -101,6 +115,7 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
         request_options = self.request_options or RequestOptions()
 
         processed_parameters = self.process_parameters(self.parameters)
+        processed_blocks = self.process_blocks(self.blocks)
 
         request_options["additional_body_parameters"] = {
             "execution_context": execution_context.model_dump(mode="json"),
@@ -139,7 +154,7 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                 input_values=input_values,
                 input_variables=input_variables,
                 parameters=processed_parameters,
-                blocks=self.blocks,
+                blocks=processed_blocks,
                 settings=self.settings,
                 functions=normalized_functions,
                 expand_meta=self.expand_meta,
@@ -152,7 +167,7 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                 input_values=input_values,
                 input_variables=input_variables,
                 parameters=processed_parameters,
-                blocks=self.blocks,
+                blocks=processed_blocks,
                 settings=self.settings,
                 functions=normalized_functions,
                 expand_meta=self.expand_meta,
@@ -272,6 +287,78 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                         value=chat_history,
                     )
                 )
+            elif isinstance(input_value, (VellumAudio, VellumAudioRequest)):
+                input_variables.append(
+                    VellumVariable(
+                        id=str(uuid4()),
+                        key=input_name,
+                        type="AUDIO",
+                    )
+                )
+                input_values.append(
+                    PromptRequestAudioInput(
+                        key=input_name,
+                        value=(
+                            input_value
+                            if isinstance(input_value, VellumAudio)
+                            else VellumAudio.model_validate(input_value.model_dump())
+                        ),
+                    )
+                )
+            elif isinstance(input_value, (VellumVideo, VellumVideoRequest)):
+                input_variables.append(
+                    VellumVariable(
+                        id=str(uuid4()),
+                        key=input_name,
+                        type="VIDEO",
+                    )
+                )
+                input_values.append(
+                    PromptRequestVideoInput(
+                        key=input_name,
+                        value=(
+                            input_value
+                            if isinstance(input_value, VellumVideo)
+                            else VellumVideo.model_validate(input_value.model_dump())
+                        ),
+                    )
+                )
+            elif isinstance(input_value, (VellumImage, VellumImageRequest)):
+                input_variables.append(
+                    VellumVariable(
+                        id=str(uuid4()),
+                        key=input_name,
+                        type="IMAGE",
+                    )
+                )
+                input_values.append(
+                    PromptRequestImageInput(
+                        key=input_name,
+                        value=(
+                            input_value
+                            if isinstance(input_value, VellumImage)
+                            else VellumImage.model_validate(input_value.model_dump())
+                        ),
+                    )
+                )
+            elif isinstance(input_value, (VellumDocument, VellumDocumentRequest)):
+                input_variables.append(
+                    VellumVariable(
+                        id=str(uuid4()),
+                        key=input_name,
+                        type="DOCUMENT",
+                    )
+                )
+                input_values.append(
+                    PromptRequestDocumentInput(
+                        key=input_name,
+                        value=(
+                            input_value
+                            if isinstance(input_value, VellumDocument)
+                            else VellumDocument.model_validate(input_value.model_dump())
+                        ),
+                    )
+                )
             else:
                 try:
                     input_value = default_serializer(input_value)
@@ -310,3 +397,9 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
         processed_custom_params = normalize_json(parameters.custom_parameters)
 
         return parameters.model_copy(update={"custom_parameters": processed_custom_params})
+
+    def process_blocks(self, blocks: List[PromptBlock]) -> List[PromptBlock]:
+        """
+        Override this method to process the blocks before they are executed.
+        """
+        return blocks

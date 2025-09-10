@@ -23,6 +23,7 @@ class AnalyticsEventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ROOM_ENDED: _ClassVar[AnalyticsEventType]
     PARTICIPANT_JOINED: _ClassVar[AnalyticsEventType]
     PARTICIPANT_LEFT: _ClassVar[AnalyticsEventType]
+    PARTICIPANT_CONNECTION_ABORTED: _ClassVar[AnalyticsEventType]
     TRACK_PUBLISHED: _ClassVar[AnalyticsEventType]
     TRACK_PUBLISH_REQUESTED: _ClassVar[AnalyticsEventType]
     TRACK_UNPUBLISHED: _ClassVar[AnalyticsEventType]
@@ -59,6 +60,7 @@ class AnalyticsEventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SIP_CALL_ENDED: _ClassVar[AnalyticsEventType]
     SIP_TRANSFER_REQUESTED: _ClassVar[AnalyticsEventType]
     SIP_TRANSFER_COMPLETE: _ClassVar[AnalyticsEventType]
+    SIP_CALL_UPDATE: _ClassVar[AnalyticsEventType]
     REPORT: _ClassVar[AnalyticsEventType]
     API_CALL: _ClassVar[AnalyticsEventType]
     WEBHOOK: _ClassVar[AnalyticsEventType]
@@ -68,6 +70,7 @@ ROOM_CREATED: AnalyticsEventType
 ROOM_ENDED: AnalyticsEventType
 PARTICIPANT_JOINED: AnalyticsEventType
 PARTICIPANT_LEFT: AnalyticsEventType
+PARTICIPANT_CONNECTION_ABORTED: AnalyticsEventType
 TRACK_PUBLISHED: AnalyticsEventType
 TRACK_PUBLISH_REQUESTED: AnalyticsEventType
 TRACK_UNPUBLISHED: AnalyticsEventType
@@ -104,6 +107,7 @@ SIP_CALL_STARTED: AnalyticsEventType
 SIP_CALL_ENDED: AnalyticsEventType
 SIP_TRANSFER_REQUESTED: AnalyticsEventType
 SIP_TRANSFER_COMPLETE: AnalyticsEventType
+SIP_CALL_UPDATE: AnalyticsEventType
 REPORT: AnalyticsEventType
 API_CALL: AnalyticsEventType
 WEBHOOK: AnalyticsEventType

@@ -105,6 +105,17 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
+vm:
+    description:
+        - Identifying information about the vm
+    returned: always
+    type: dict
+    sample: {
+        "vm": {
+            "moid": "vm-111111",
+            "name": "my-vm"
+        },
+    }
 '''
 
 import traceback
@@ -114,11 +125,11 @@ from ansible_collections.vmware.vmware.plugins.module_utils._module_deploy_vm_ba
     ModuleVmDeployBase,
     vm_deploy_module_argument_spec
 )
-from ansible_collections.vmware.vmware.plugins.module_utils._vmware_argument_spec import (
+from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import (
     base_argument_spec
 )
-from ansible_collections.vmware.vmware.plugins.module_utils._vmware_folder_paths import format_folder_path_as_vm_fq_path
-from ansible_collections.vmware.vmware.plugins.module_utils._vmware_tasks import RunningTaskMonitor, TaskError
+from ansible_collections.vmware.vmware.plugins.module_utils._folder_paths import format_folder_path_as_vm_fq_path
+from ansible_collections.vmware.vmware.plugins.module_utils._vsphere_tasks import RunningTaskMonitor, TaskError
 
 PYVMOMI_IMP_ERR = None
 try:
@@ -138,9 +149,12 @@ class VmwareFolderTemplate(ModuleVmDeployBase):
         if self.params['template_folder_id']:
             folder = self.get_folders_by_name_or_moid(self.params['template_folder_id'], fail_on_missing=True)[0]
         else:
-            fq_folder_path = format_folder_path_as_vm_fq_path(
-                self.params.get("template_folder"), self.params.get("datacenter")
-            )
+            if self.params.get("folder_paths_are_absolute"):
+                fq_folder_path = self.params.get("template_folder")
+            else:
+                fq_folder_path = format_folder_path_as_vm_fq_path(
+                    self.params.get("template_folder"), self.params.get("datacenter")
+                )
             folder = self.get_folder_by_absolute_path(fq_folder_path, fail_on_missing=True)
         return folder
 

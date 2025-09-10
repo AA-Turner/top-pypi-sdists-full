@@ -22,7 +22,7 @@ from zope.interface.tests.test_adapter import \
 def skipIfNoPersistent(testfunc):
     try:
         import persistent  # noqa: F401 imported but unused
-    except ImportError:  # pragma: no cover
+    except ModuleNotFoundError:  # pragma: no cover
         return unittest.skip("persistent not installed")(testfunc)
     return testfunc
 
@@ -41,6 +41,7 @@ class PersistentAdapterRegistryTests(unittest.TestCase):
         # Borrowed from persistent.tests.test_pyPersistence.
 
         class _Cache:
+
             def __init__(self, jar):
                 self._jar = jar
                 self._mru = []
@@ -63,6 +64,7 @@ class PersistentAdapterRegistryTests(unittest.TestCase):
 
         @implementer(IPersistentDataManager)
         class _Jar:
+
             def __init__(self):
                 self._loaded = []
                 self._registered = []
@@ -120,16 +122,16 @@ class PersistentAdapterRegistryTests(unittest.TestCase):
     def test___getstate___skips_delegated_names(self):
         registry, jar, OID = self._makeOneWithJar()
         registry.names = lambda *args: ['a', 'b', 'c']
-        self.assertFalse('names' in registry.__getstate__())
+        self.assertNotIn('names', registry.__getstate__())
 
     def test___setstate___rebuilds__v_lookup(self):
         registry, jar, OID = self._makeOneWithJar()
         state = registry.__getstate__()
-        self.assertTrue('_v_lookup' in registry.__dict__)
+        self.assertIn('_v_lookup', registry.__dict__)
         registry._p_changed = None  # clears volatile '_v_lookup'
-        self.assertFalse('_v_lookup' in registry.__dict__)
+        self.assertNotIn('_v_lookup', registry.__dict__)
         registry.__setstate__(state)
-        self.assertTrue('_v_lookup' in registry.__dict__)
+        self.assertIn('_v_lookup', registry.__dict__)
 
     def test___setstate___rebuilds__ro(self):
         from zope.component import globalSiteManager
@@ -144,7 +146,7 @@ class PersistentAdapterRegistryTests(unittest.TestCase):
         from persistent.list import PersistentList
         registry = self._makeOne()
         # It converts when the tuple is not empty...
-        result = registry._addValueToLeaf(('a',), 'b')
+        result = registry._addValueToLeaf(('a', ), 'b')
         self.assertIsInstance(result, PersistentList)
         self.assertEqual(result, ['a', 'b'])
         # ...and when it is empty...
@@ -164,7 +166,7 @@ class PersistentAdapterRegistryTests(unittest.TestCase):
         self.assertIsInstance(result, PersistentList)
         self.assertEqual(result, ['a'])
         # ...and when it is not found
-        result = registry._removeValueFromLeaf(('a',), 'b')
+        result = registry._removeValueFromLeaf(('a', ), 'b')
         self.assertIsInstance(result, PersistentList)
         self.assertEqual(result, ['a'])
 
@@ -203,18 +205,30 @@ class PersistentComponentsTests(unittest.TestCase):
 
         from zope.component.persistentregistry import PersistentAdapterRegistry
         registry = self._makeOne()
-        self.assertTrue(isinstance(registry.adapters,
-                                   PersistentAdapterRegistry))
-        self.assertTrue(isinstance(registry.utilities,
-                                   PersistentAdapterRegistry))
-        self.assertTrue(isinstance(registry._adapter_registrations,
-                                   PersistentMapping))
-        self.assertTrue(isinstance(registry._utility_registrations,
-                                   PersistentMapping))
-        self.assertTrue(isinstance(registry._subscription_registrations,
-                                   PersistentList))
-        self.assertTrue(isinstance(registry._handler_registrations,
-                                   PersistentList))
+        self.assertIsInstance(
+            registry.adapters,
+            PersistentAdapterRegistry
+        )
+        self.assertIsInstance(
+            registry.utilities,
+            PersistentAdapterRegistry
+        )
+        self.assertIsInstance(
+            registry._adapter_registrations,
+            PersistentMapping
+        )
+        self.assertIsInstance(
+            registry._utility_registrations,
+            PersistentMapping
+        )
+        self.assertIsInstance(
+            registry._subscription_registrations,
+            PersistentList
+        )
+        self.assertIsInstance(
+            registry._handler_registrations,
+            PersistentList
+        )
 
 
 def _makeOctets(s):

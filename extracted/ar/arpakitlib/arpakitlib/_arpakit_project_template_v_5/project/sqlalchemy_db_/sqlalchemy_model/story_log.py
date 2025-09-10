@@ -75,6 +75,8 @@ class StoryLogDBM(SimpleDBM):
         value = make_none_if_blank(value.strip())
         return value
 
+    # ---more---
+
     # ---SDP---
 
     @property

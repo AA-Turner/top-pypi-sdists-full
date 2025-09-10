@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.88.0"
+version = "3.89.0"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
@@ -52,7 +52,7 @@ dependencies = [
   "opentelemetry-sdk>=1.27.0,<1.37",
   "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.37",
   "protobuf>=4.21.1,<7.0",
-  "pulp-glue>=0.28.0,<0.36",
+  "pulp-glue>=0.28.0,<0.37",
   "pygtrie>=2.5,<=2.5.0",
   "psycopg[binary]>=3.1.8,<3.3",  # SemVer, not explicitely stated, but mentioned on multiple changes.
   "pyparsing>=3.1.0,<3.3",    # Looks like only bugfixes in z-Stream.
@@ -204,7 +204,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.88.0"
+current_version = "3.89.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

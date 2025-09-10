@@ -59,10 +59,9 @@ def get_tools(tools_list: list, alita_client, llm, memory_store: BaseStore = Non
                 llm=llm
             ))
         elif tool['type'] == 'memory':
-            if memory_store is None:
-                raise ToolException(f"Memory store is not provided for memory tool: {tool.get('name', tool.get('toolkit_name', 'unknown'))}")
             tools += MemoryToolkit.get_toolkit(
                 namespace=tool['settings'].get('namespace', str(tool['id'])),
+                pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
                 store=memory_store,
             ).get_tools()
         elif tool['type'] == 'artifact':
@@ -176,7 +175,7 @@ def _init_single_mcp_tool(toolkit_name, available_tool, alita, toolkit_settings)
         tool_name = available_tool["name"]
         return McpServerTool(
             name=tool_name,
-            description=available_tool.get("description", ""),
+            description=f"MCP for a tool '{tool_name}': {available_tool.get("description", "")}",
             args_schema=McpServerTool.create_pydantic_model_from_schema(
                 available_tool.get("inputSchema", {})
             ),

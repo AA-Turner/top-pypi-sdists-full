@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: audiomentations
-Version: 0.42.0
+Version: 0.43.0
 Summary: A Python library for audio data augmentation. Inspired by albumentations. Useful for machine learning.
 Home-page: https://github.com/iver56/audiomentations
 Author: Iver Jordal
@@ -9,7 +9,6 @@ Project-URL: Homepage, https://github.com/iver56/audiomentations
 Project-URL: Documentation, https://iver56.github.io/audiomentations/
 Project-URL: Changelog, https://iver56.github.io/audiomentations/changelog/
 Project-URL: Issue Tracker, https://github.com/iver56/audiomentations/issues
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,7 +21,7 @@ Classifier: Topic :: Multimedia
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<3,>=1.22.0
@@ -33,11 +32,9 @@ Requires-Dist: python-stretch<1,>=0.3.1
 Requires-Dist: scipy<2,>=1.4
 Requires-Dist: soxr<1.0.0,>=0.3.2
 Provides-Extra: extras
-Requires-Dist: fast_mp3_augment<1; extra == "extras"
-Requires-Dist: lameenc<2,>=1.2.0; extra == "extras"
+Requires-Dist: fast-mp3-augment<1; extra == "extras"
+Requires-Dist: loudness<1; extra == "extras"
 Requires-Dist: numpy-audio-limiter<1; extra == "extras"
-Requires-Dist: pydub<1,>=0.22.0; extra == "extras"
-Requires-Dist: pyloudnorm>=0.1.0; extra == "extras"
 Requires-Dist: pyroomacoustics>=0.7.4; extra == "extras"
 
 # Audiomentations
@@ -46,7 +43,7 @@ Requires-Dist: pyroomacoustics>=0.7.4; extra == "extras"
 [![Code coverage](https://img.shields.io/codecov/c/github/iver56/audiomentations/main.svg)](https://codecov.io/gh/iver56/audiomentations)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/psf/black)
 [![Licence: MIT](https://img.shields.io/pypi/l/audiomentations)](https://github.com/iver56/audiomentations/blob/main/LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15806235.svg)](https://doi.org/10.5281/zenodo.15806235)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17088180.svg)](https://doi.org/10.5281/zenodo.17088180)
 
 Audiomentations is a Python library for audio data augmentation, built to be fast and easy to use - its API is inspired by
 [albumentations](https://github.com/albu/albumentations). It's useful for making audio deep learning models work well in the real world, not just in the lab.
@@ -133,21 +130,23 @@ The API documentation, along with guides, example code, illustrations and exampl
 
 # Changelog
 
-## [0.42.0] - 2025-07-04
-
-### Added
-
-* Add support for Python 3.13
-* Add support for librosa 0.11.0
+## [0.43.0] - 2025-09-09
 
 ### Changed
 
-* Make `Mp3Compression` **25-300% faster** (depending on hardware, audio properties like duration and number of channels and various params, like bitrate) with the new `backend="fast-mp3-augment"` (now default). The extra dependency for this is [fast-mp3-augment](https://github.com/iver56/fast-mp3-augment), which pulls a few useful tricks for faster execution.
-* Make `Limiter` **30% faster** and easier to install (extra dependency is now [numpy-audio-limiter](https://github.com/iver56/numpy-audio-limiter) instead of [cylimiter](https://github.com/pzelasko/cylimiter/)). The `Limiter` behavior has not changed, although there are minor numerical differences.
+* Make `LoudnessNormalization` **400% faster** by switching from pyloudnorm to the new and faster alternative [loudness](https://github.com/iver56/loudness)
+* Improve `AddBackgroundNoise` performance: Only load/decode the part of the noise file that is needed, instead of the entire file.
+* Bump min Python version to 3.10
+* Switch to a more modern type hint style
 
-### Fixed
+### Deprecated
 
-* Handle non-contiguous audio ndarray input to `PitchShift` and `TimeStretch` properly
+* Deprecate `"pydub"` backend in `Mp3Compression`, because pydub isn't maintained anymore, and depends on audioop, which got removed in Python 3.13. The recommended alternative is `"fast-mp3-augment"`
+
+### Removed
+
+* Remove upper Python version limit to avoid hindering early adopters
+* Remove LRU cache in `AddBackgroundNoise`, due to the changed way of loading audio, and because such audio datasets are commonly larger than RAM anyway
 
 For the full changelog, including older versions, see [https://iver56.github.io/audiomentations/changelog/](https://iver56.github.io/audiomentations/changelog/)
 

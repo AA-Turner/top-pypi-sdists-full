@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.26
+Version: 0.6.27
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
@@ -56,7 +56,7 @@ Requires-Dist: apscheduler==3.10.4
 Requires-Dist: argon2-cffi==23.1.0
 Requires-Dist: asgiref==3.8.1
 Requires-Dist: async-timeout
-Requires-Dist: authlib==1.6.1
+Requires-Dist: authlib==1.6.3
 Requires-Dist: azure-ai-documentintelligence==1.0.2
 Requires-Dist: azure-identity==1.20.0
 Requires-Dist: azure-storage-blob==12.24.1
@@ -84,7 +84,7 @@ Requires-Dist: google-genai==1.32.0
 Requires-Dist: google-generativeai==0.8.5
 Requires-Dist: googleapis-common-protos==1.63.2
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
-Requires-Dist: langchain-community==0.3.26
+Requires-Dist: langchain-community==0.3.27
 Requires-Dist: langchain==0.3.26
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
@@ -115,7 +115,7 @@ Requires-Dist: pymdown-extensions==10.14.2
 Requires-Dist: pymilvus==2.5.0
 Requires-Dist: pymysql==1.1.1
 Requires-Dist: pypandoc==1.15
-Requires-Dist: pypdf==4.3.1
+Requires-Dist: pypdf==6.0.0
 Requires-Dist: python-jose==3.4.0
 Requires-Dist: python-multipart==0.0.20
 Requires-Dist: python-pptx==1.0.2

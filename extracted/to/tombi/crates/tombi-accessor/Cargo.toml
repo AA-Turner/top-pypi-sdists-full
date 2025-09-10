@@ -1,0 +1,17 @@
+[package]
+name = "tombi-accessor"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+indexmap.workspace = true
+itertools.workspace = true
+tombi-text.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+rstest.workspace = true

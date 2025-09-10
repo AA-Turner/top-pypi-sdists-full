@@ -3,7 +3,7 @@
 import argparse
 from time import time
 
-from ansys.fluent.core import CODEGEN_OUTDIR, FluentMode, FluentVersion, launch_fluent
+from ansys.fluent.core import FluentMode, FluentVersion, config, launch_fluent
 from ansys.fluent.core.codegen import StaticInfoType, allapigen
 from ansys.fluent.core.codegen.print_fluent_version import print_fluent_version
 from ansys.fluent.core.search import _generate_api_data
@@ -11,6 +11,7 @@ from ansys.fluent.core.utils.fluent_version import get_version_for_file_name
 
 if __name__ == "__main__":
     t0 = time()
+    config.fluent_automatic_transcript = True
     meshing = launch_fluent(mode=FluentMode.MESHING)
     version = get_version_for_file_name(session=meshing)
     gt_222 = FluentVersion(version) > FluentVersion.v222
@@ -61,7 +62,7 @@ if __name__ == "__main__":
         )
     t1 = time()
     print(f"\nTime to fetch static info: {t1 - t0:.2f} seconds")
-    CODEGEN_OUTDIR.mkdir(parents=True, exist_ok=True)
+    config.codegen_outdir.mkdir(parents=True, exist_ok=True)
     print_fluent_version(solver._app_utilities)
     solver.exit()
     parser = argparse.ArgumentParser(

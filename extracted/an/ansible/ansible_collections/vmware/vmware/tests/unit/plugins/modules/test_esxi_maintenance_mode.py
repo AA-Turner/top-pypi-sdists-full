@@ -8,11 +8,11 @@ from ansible_collections.vmware.vmware.plugins.modules.esxi_maintenance_mode imp
     EsxiMaintenanceModeModule,
     main as module_main
 )
-from ansible_collections.vmware.vmware.plugins.module_utils.clients._pyvmomi import (
+from ansible_collections.vmware.vmware.plugins.module_utils.clients.pyvmomi import (
     PyvmomiClient
 )
 from ...common.utils import (
-    AnsibleExitJson, ModuleTestCase, set_module_args,
+    run_module, ModuleTestCase
 )
 from ...common.vmware_object_mocks import (
     MockEsxiHost
@@ -34,68 +34,46 @@ class TestEsxiMaintenanceMode(ModuleTestCase):
     def test_no_change(self, mocker):
         self.__prepare(mocker)
 
-        set_module_args(
-            hostname="127.0.0.1",
-            username="administrator@local",
-            password="123456",
-            add_cluster=False,
+        module_args = dict(
             name=self.test_esxi.name,
             enable_maintenance_mode=False
         )
         self.test_esxi.runtime.inMaintenanceMode = False
 
-        with pytest.raises(AnsibleExitJson) as c:
-            module_main()
+        result = run_module(module_entry=module_main, module_args=module_args)
 
-        assert c.value.args[0]["changed"] is False
+        assert result["changed"] is False
 
-        set_module_args(
-            hostname="127.0.0.1",
-            username="administrator@local",
-            password="123456",
-            add_cluster=False,
+        module_args = dict(
             name=self.test_esxi.name,
             enable_maintenance_mode=True
         )
         self.test_esxi.runtime.inMaintenanceMode = True
 
-        with pytest.raises(AnsibleExitJson) as c:
-            module_main()
+        result = run_module(module_entry=module_main, module_args=module_args)
 
-        assert c.value.args[0]["changed"] is False
+        assert result["changed"] is False
 
     def test_enable(self, mocker):
         self.__prepare(mocker)
 
-        set_module_args(
-            hostname="127.0.0.1",
-            username="administrator@local",
-            password="123456",
-            add_cluster=False,
+        module_args = dict(
             name=self.test_esxi.name,
             enable_maintenance_mode=True
         )
         self.test_esxi.runtime.inMaintenanceMode = False
 
-        with pytest.raises(AnsibleExitJson) as c:
-            module_main()
-
-        assert c.value.args[0]["changed"] is True
+        result = run_module(module_entry=module_main, module_args=module_args)
+        assert result["changed"] is True
 
     def test_disable(self, mocker):
         self.__prepare(mocker)
 
-        set_module_args(
-            hostname="127.0.0.1",
-            username="administrator@local",
-            password="123456",
-            add_cluster=False,
+        module_args = dict(
             name=self.test_esxi.name,
             enable_maintenance_mode=False
         )
         self.test_esxi.runtime.inMaintenanceMode = True
 
-        with pytest.raises(AnsibleExitJson) as c:
-            module_main()
-
-        assert c.value.args[0]["changed"] is True
+        result = run_module(module_entry=module_main, module_args=module_args)
+        assert result["changed"] is True

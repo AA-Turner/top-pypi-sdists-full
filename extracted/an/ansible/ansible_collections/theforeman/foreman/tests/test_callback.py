@@ -7,12 +7,13 @@ try:
 except ImportError:
     from distutils.version import LooseVersion
 
-from .conftest import run_playbook, get_ansible_version
+from .conftest import run_playbook, get_ansible_version, assert_no_warnings
+
+ansible_version = get_ansible_version()
 
 
 def run_playbook_callback(tmpdir, report_type):
     extra_env = {}
-    ansible_version = get_ansible_version()
     if LooseVersion(ansible_version) < LooseVersion('2.11'):
         extra_env['ANSIBLE_CALLBACK_WHITELIST'] = "theforeman.foreman.foreman"
         extra_env['ANSIBLE_COMMAND_WARNINGS'] = "0"
@@ -41,7 +42,7 @@ def drop_incompatible_items(d):
     for k, v in d.items():
         if k in ['msg', 'start', 'end', 'delta', 'uuid', 'timeout', '_ansible_no_log', 'warn', 'connection',
                  'extended_allitems', 'loop_control', 'expand_argument_vars', 'retries', 'parent', 'parent_type', 'finalized', 'squashed', 'no_log',
-                 'listen']:
+                 'listen', '_ansible_internal_redirect_list', 'exception', 'resolved_action', 'delay']:
             continue
 
         if isinstance(v, dict):
@@ -59,6 +60,9 @@ def run_callback(tmpdir, report_type, vcrmode):
     run = run_playbook_callback(tmpdir, report_type)
     assert run.rc == 0
     assert len(tmpdir.listdir()) > 0, "Directory with results is empty"
+    fixture_directory = os.path.join(os.getcwd(), 'tests', 'fixtures', 'callback', 'dir_store', report_type)
+    assert len(tmpdir.listdir()) == len(os.listdir(fixture_directory)), "Fixture directory and output directory have a different number of files"
+    assert_no_warnings(run)
     for real_file in tmpdir.listdir(sort=True):
         contents = real_file.read()
         contents = re.sub(r"\d+-\d+-\d+ \d+:\d+:\d+\+\d+:\d+", "2000-01-01 12:00:00+00:00", contents)
@@ -70,6 +74,8 @@ def run_callback(tmpdir, report_type, vcrmode):
             contents = re.sub(r"\\\"_ansible_no_log\\\": [^,]+, ", "", contents)
             contents = re.sub(r", \\\"warn\\\": false", "", contents)
             contents = re.sub(r", \\\"expand_argument_vars\\\": true", "", contents)
+            contents = re.sub(r", \\\"cmd\\\": null", "", contents)
+            contents = re.sub(r", \\\"exception\\\": [^,]+", "", contents)
         real_contents = json.loads(contents)
         if report_type == "foreman":
             try:
@@ -80,14 +86,17 @@ def run_callback(tmpdir, report_type, vcrmode):
             real_contents['metrics']['time']['total'] = 1
             real_contents = drop_incompatible_items(real_contents)
         fixture_name = real_file.basename
-        fixture = os.path.join(os.getcwd(), 'tests', 'fixtures', 'callback', 'dir_store', report_type, fixture_name)
+        fixture = os.path.join(fixture_directory, fixture_name)
         if vcrmode == "record":
             print("Writing: ", str(fixture))
             with open(fixture, 'w') as f:
                 json.dump(real_contents, f, indent=2, sort_keys=True)
         else:
             with open(fixture, 'r') as f:
-                expected_contents = json.load(f)
+                fixture_data = f.read()
+                if LooseVersion(ansible_version) >= LooseVersion('2.19'):
+                    fixture_data = fixture_data.replace('ENCRYPTED_VAULT_VALUE_NOT_REPORTED', 'admin')
+                expected_contents = json.loads(fixture_data)
                 expected_contents = drop_incompatible_items(expected_contents)
                 real_contents = drop_incompatible_items(real_contents)
                 assert expected_contents == real_contents, "Fixture {fixture_name} differs, run with -vvvv to see the diff".format(fixture_name=fixture_name)

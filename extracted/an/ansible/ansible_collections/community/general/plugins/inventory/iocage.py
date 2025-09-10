@@ -8,29 +8,25 @@ from __future__ import annotations
 
 DOCUMENTATION = r"""
 name: iocage
-short_description: iocage inventory source
+short_description: C(iocage) inventory source
 version_added: 10.2.0
 author:
   - Vladimir Botka (@vbotka)
 requirements:
   - iocage >= 1.8
 description:
-  - Get inventory hosts from the iocage jail manager running on O(host).
-  - By default, O(host) is V(localhost). If O(host) is not V(localhost) it
-    is expected that the user running Ansible on the controller can
-    connect to the O(host) account O(user) with SSH non-interactively and
-    execute the command C(iocage list).
-  - Uses a configuration file as an inventory source, it must end
-    in C(.iocage.yml) or C(.iocage.yaml).
+  - Get inventory hosts from the C(iocage) jail manager running on O(host).
+  - By default, O(host) is V(localhost). If O(host) is not V(localhost) it is expected that the user running Ansible on the
+    controller can connect to the O(host) account O(user) with SSH non-interactively and execute the command C(iocage list).
+  - Uses a configuration file as an inventory source, it must end in C(.iocage.yml) or C(.iocage.yaml).
 extends_documentation_fragment:
   - ansible.builtin.constructed
   - ansible.builtin.inventory_cache
 options:
   plugin:
     description:
-      - The name of this plugin, it should always be set to
-        V(community.general.iocage) for this plugin to recognize
-        it as its own.
+      - The name of this plugin, it should always be set to V(community.general.iocage) for this plugin to recognize it as
+        its own.
     required: true
     choices: ['community.general.iocage']
     type: str
@@ -40,10 +36,8 @@ options:
     default: localhost
   user:
     description:
-      - C(iocage) user.
-        It is expected that the O(user) is able to connect to the
-        O(host) with SSH and execute the command C(iocage list).
-        This option is not required if O(host) is V(localhost).
+      - C(iocage) user. It is expected that the O(user) is able to connect to the O(host) with SSH and execute the command
+        C(iocage list). This option is not required if O(host=localhost).
     type: str
   sudo:
     description:
@@ -61,8 +55,7 @@ options:
     version_added: 10.3.0
   get_properties:
     description:
-      - Get jails' properties.
-        Creates dictionary C(iocage_properties) for each added host.
+      - Get jails' properties. Creates dictionary C(iocage_properties) for each added host.
     type: bool
     default: false
   env:
@@ -80,22 +73,31 @@ options:
     type: list
     elements: path
     version_added: 10.4.0
+  inventory_hostname_tag:
+    description:
+      - The name of the tag in the C(iocage properties notes) that contains the jails alias.
+      - By default, the C(iocage list -l) column C(NAME) is used to name the jail.
+      - This option requires the notes format C("t1=v1 t2=v2 ...").
+      - The option O(get_properties) must be enabled.
+    type: str
+    version_added: 11.0.0
+  inventory_hostname_required:
+    description:
+      - If enabled, the tag declared in O(inventory_hostname_tag) is required.
+    type: bool
+    default: false
+    version_added: 11.0.0
 notes:
-  - You might want to test the command C(ssh user@host iocage list -l) on
-    the controller before using this inventory plugin with O(user) specified
-    and with O(host) other than V(localhost).
-  - If you run this inventory plugin on V(localhost) C(ssh) is not used.
-    In this case, test the command C(iocage list -l).
+  - You might want to test the command C(ssh user@host iocage list -l) on the controller before using this inventory plugin
+    with O(user) specified and with O(host) other than V(localhost).
+  - If you run this inventory plugin on V(localhost) C(ssh) is not used. In this case, test the command C(iocage list -l).
   - This inventory plugin creates variables C(iocage_*) for each added host.
-  - The values of these variables are collected from the output of the
-    command C(iocage list -l).
+  - The values of these variables are collected from the output of the command C(iocage list -l).
   - The names of these variables correspond to the output columns.
   - The column C(NAME) is used to name the added host.
-  - The option O(hooks_results) expects the C(poolname) of a jail is mounted to
-    C(/poolname). For example, if you activate the pool C(iocage) this plugin
-    expects to find the O(hooks_results) items in the path
-    C(/iocage/iocage/jails/<name>/root). If you mount the C(poolname) to a
-    different path the easiest remedy is to create a symlink.
+  - The option O(hooks_results) expects the C(poolname) of a jail is mounted to C(/poolname). For example, if you activate
+    the pool C(iocage) this plugin expects to find the O(hooks_results) items in the path C(/iocage/iocage/jails/<name>/root).
+    If you mount the C(poolname) to a different path the easiest remedy is to create a symlink.
 """
 
 EXAMPLES = r"""
@@ -253,6 +255,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         env = self.get_option('env')
         get_properties = self.get_option('get_properties')
         hooks_results = self.get_option('hooks_results')
+        inventory_hostname_tag = self.get_option('inventory_hostname_tag')
+        inventory_hostname_required = self.get_option('inventory_hostname_required')
 
         cmd = []
         my_env = os.environ.copy()
@@ -334,7 +338,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             for hostname, host_vars in results['_meta']['hostvars'].items():
                 iocage_hooks = []
                 for hook in hooks_results:
-                    path = "/" + iocage_pool + "/iocage/jails/" + hostname + "/root" + hook
+                    path = f"/{iocage_pool}/iocage/jails/{hostname}/root{hook}"
                     cmd_cat_hook = cmd.copy()
                     cmd_cat_hook.append('cat')
                     cmd_cat_hook.append(path)
@@ -356,6 +360,21 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
                         iocage_hooks.append(iocage_hook)
 
                 results['_meta']['hostvars'][hostname]['iocage_hooks'] = iocage_hooks
+
+        # Optionally, get the jails names from the properties notes.
+        # Requires the notes format "t1=v1 t2=v2 ..."
+        if inventory_hostname_tag:
+            if not get_properties:
+                raise AnsibleError('Jail properties are needed to use inventory_hostname_tag. Enable get_properties')
+            update = {}
+            for hostname, host_vars in results['_meta']['hostvars'].items():
+                tags = dict(tag.split('=', 1) for tag in host_vars['iocage_properties']['notes'].split() if '=' in tag)
+                if inventory_hostname_tag in tags:
+                    update[hostname] = tags[inventory_hostname_tag]
+                elif inventory_hostname_required:
+                    raise AnsibleError(f'Mandatory tag {inventory_hostname_tag!r} is missing in the properties notes.')
+            for hostname, alias in update.items():
+                results['_meta']['hostvars'][alias] = results['_meta']['hostvars'].pop(hostname)
 
         return results
 

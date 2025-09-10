@@ -4,7 +4,7 @@
   block:
     - name: Scrape Github API endpoint to obtain latest Alloy version
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/grafana/alloy/releases/latest"
+        url: "{{ alloy_github_api_url }}"
         method: GET
         body_format: json
       become: false
@@ -34,12 +34,12 @@
 - name: Include RedHat/Rocky setup
   ansible.builtin.include_tasks:
     file: setup-RedHat.yml
-  when: ansible_os_family in ['RedHat', 'Rocky']
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
 
 - name: Include Debian/Ubuntu setup
   ansible.builtin.include_tasks:
     file: setup-Debian.yml
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Alloy systemd override
   when: alloy_systemd_override | length > 0
@@ -128,8 +128,9 @@
 
 - name: Verify that Alloy URL is responding
   ansible.builtin.uri:
-    url: "http://{{ __alloy_server_http_listen_address }}:{{ __alloy_server_http_listen_port }}/-/ready"
+    url: "{{ alloy_readiness_check_use_https | ansible.builtin.ternary('https', 'http') }}://{{ __alloy_server_http_listen_address }}:{{ __alloy_server_http_listen_port }}/-/ready"
     method: GET
+    use_proxy: "{{ alloy_readiness_check_use_proxy | bool }}"
   register: __alloy_verify_url_status_code
   retries: 5
   delay: 8

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "testcontainers"
-version = "4.12.0"  # auto-incremented by release-please
+version = "4.13.0"  # auto-incremented by release-please
 description = "Python library for throwaway instances of anything that can run in a Docker container"
 authors = ["Sergey Pirogov <automationremarks@gmail.com>"]
 maintainers = [
@@ -211,6 +211,12 @@ log_cli = true
 log_cli_level = "INFO"
 markers = [
     "inside_docker_check: mark test to be used to validate DinD/DooD is working as expected",
+]
+filterwarnings = [
+    # Suppress expected deprecation warnings for backwards compatibility testing
+    "ignore:The @wait_container_is_ready decorator is deprecated.*:DeprecationWarning",
+    "ignore:The wait_for function is deprecated and will be removed in a future version.*:DeprecationWarning",
+    "ignore:The wait_for_logs function with string or callable predicates is deprecated.*:DeprecationWarning",
 ]
 
 [tool.coverage.run]

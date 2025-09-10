@@ -1,6 +1,6 @@
 [project]
 name = "pulp_file-client"
-version = "3.88.0"
+version = "3.89.0"
 description = "Pulp 3 API"
 authors = [
   {name = "Pulp Team",email = "pulp-list@redhat.com"},

@@ -59,7 +59,7 @@ __all__ = (
 
 
 AdMarkerDashType = Literal["BINARY", "XML"]
-AdMarkerHlsType = Literal["DATERANGE"]
+AdMarkerHlsType = Literal["DATERANGE", "SCTE35_ENHANCED"]
 CmafEncryptionMethodType = Literal["CBCS", "CENC"]
 ContainerTypeType = Literal["CMAF", "ISM", "TS"]
 DashCompactnessType = Literal["NONE", "STANDARD"]

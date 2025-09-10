@@ -20,7 +20,8 @@ import logging
 import os
 import os.path
 import shutil
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from glob import iglob
 from pathlib import Path
 from typing import Any, cast
@@ -139,14 +140,14 @@ class _Squasher:
                     dst_partition=dst_partition,
                 )
                 # If the sub path was really a sub path, record it.
-                if sub_path != Path("."):
+                if sub_path != Path():
                     self._distributed_paths.add(sub_path)
         else:
             # Ignore the filesystem mounts and migrate from/to the same partition
             self._migrate(
                 srcdir=srcdir,
                 destdir=destdirs[self._src_partition],
-                sub_path=Path(""),
+                sub_path=Path(),
                 dst_partition=self._src_partition,
             )
 
@@ -446,16 +447,13 @@ class PartHandler:
             )
 
         # Perform the build step
-        if has_overlay_visibility(self._part, part_list=self._part_list):
-            with overlays.LayerMount(self._overlay_manager, top_part=self._part):
-                self._run_step(
-                    step_info=step_info,
-                    scriptlet_name="override-build",
-                    work_dir=self._part.part_build_dir,
-                    stdout=stdout,
-                    stderr=stderr,
-                )
-        else:
+        needs_overlay = (
+            has_overlay_visibility(self._part, part_list=self._part_list)
+            or self._part.organizes_to_overlay
+        )
+        with _conditional_layer_mount(
+            self._overlay_manager, top_part=self._part, condition=needs_overlay
+        ):
             self._run_step(
                 step_info=step_info,
                 scriptlet_name="override-build",
@@ -464,28 +462,28 @@ class PartHandler:
                 stderr=stderr,
             )
 
-        # Organize the installed files as requested. We do this in the build step for
-        # two reasons:
-        #
-        #   1. So cleaning and re-running the stage step works even if `organize` is
-        #      used
-        #   2. So collision detection takes organization into account, i.e. we can use
-        #      organization to get around file collisions between parts when staging.
-        #
-        # If `update` is true, we give permission to overwrite files that already exist.
-        # Typically we do NOT want this, so that parts don't accidentally clobber e.g.
-        # files brought in from stage-packages, but in the case of updating build, we
-        # want the part to have the ability to organize over the files it organized last
-        # time around. We can be confident that this won't overwrite anything else,
-        # because to do so would require changing the `organize` keyword, which will
-        # make the build step dirty and require a clean instead of an update.
-        organize_files(
-            part_name=self._part.name,
-            file_map=self._part.spec.organize_files,
-            install_dir_map=self._part.part_install_dirs,
-            overwrite=update,
-            default_partition=step_info.default_partition,
-        )
+            # Organize the installed files as requested. We do this in the build step for
+            # two reasons:
+            #
+            #   1. So cleaning and re-running the stage step works even if `organize` is
+            #      used
+            #   2. So collision detection takes organization into account, i.e. we can use
+            #      organization to get around file collisions between parts when staging.
+            #
+            # If `update` is true, we give permission to overwrite files that already exist.
+            # Typically we do NOT want this, so that parts don't accidentally clobber e.g.
+            # files brought in from stage-packages, but in the case of updating build, we
+            # want the part to have the ability to organize over the files it organized last
+            # time around. We can be confident that this won't overwrite anything else,
+            # because to do so would require changing the `organize` keyword, which will
+            # make the build step dirty and require a clean instead of an update.
+            organize_files(
+                part_name=self._part.name,
+                file_map=self._part.spec.organize_files,
+                install_dir_map=self._part.part_install_dirs,
+                overwrite=update,
+                default_partition=step_info.default_partition,
+            )
 
         assets = {
             "build-packages": self.build_packages,
@@ -1023,7 +1021,7 @@ class PartHandler:
                 primed_whiteout.unlink()
                 logger.debug("unlinked '%s'", str(primed_whiteout))
             except OSError as err:
-                # XXX: fuse-overlayfs creates a .wh..opq file in part layer dir?
+                # XXX: fuse-overlayfs creates a .wh..opq file in part layer dir?  # noqa: FIX003
                 logger.debug("error unlinking '%s': %s", str(primed_whiteout), err)
 
     def clean_step(self, step: Step) -> None:
@@ -1192,7 +1190,7 @@ class PartHandler:
             *self._part.overlay_dirs.values(),
         ]
         for dir_name in dirs:
-            os.makedirs(dir_name, exist_ok=True)
+            os.makedirs(dir_name, exist_ok=True)  # noqa: PTH103
 
         self._symlink_alias_to_default()
 
@@ -1278,7 +1276,7 @@ class PartHandler:
 
         logger.debug("Unpacking stage-snaps to %s", install_dir)
 
-        snap_files = iglob(os.path.join(snaps_dir, "*.snap"))
+        snap_files = iglob(os.path.join(snaps_dir, "*.snap"))  # noqa: PTH118, PTH207
         snap_sources = (
             sources.SnapSource(
                 source=s,
@@ -1486,3 +1484,15 @@ def _consolidate_states(
         if not consolidated_states.get(partition):
             consolidated_states[partition] = MigrationState(partition=partition)
         consolidated_states[partition].add(directories=dst_dirs)
+
+
+@contextmanager
+def _conditional_layer_mount(
+    overlay_manager: OverlayManager, *, top_part: Part, condition: bool
+) -> Iterator:
+    """Conditionally execute the enclosed code block with the overlay mounted."""
+    if condition:
+        with overlays.LayerMount(overlay_manager, top_part=top_part):
+            yield
+    else:
+        yield

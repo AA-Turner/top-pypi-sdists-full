@@ -30,6 +30,7 @@ PARSHIOS_HEBREW : list of str
 
 from collections import deque, OrderedDict
 from functools import lru_cache
+from enum import Enum, IntEnum, auto
 
 from pyluach.dates import HebrewDate
 from pyluach.utils import _is_leap
@@ -59,6 +60,86 @@ PARSHIOS_HEBREW = [
 ]
 
 
+class _Parshios_Enum(IntEnum):
+    BEREISHIS = 0
+    NOACH = 1
+    LECH_LECHA = auto()
+    VAYEIRA = auto()
+    CHAYEI_SARAH = auto()
+    TOLDOS = auto()
+    VAYEITZEI = auto()
+    VAYISHLACH = auto()
+    VAYEISHEV = auto()
+    MIKEITZ = auto()
+    VAYIGASH = auto()
+    VAYECHI = auto()
+    SHEMOS = auto()
+    VAEIRA = auto()
+    BO = auto()
+    BESHALACH = auto()
+    YISRO = auto()
+    MISHPATIM = auto()
+    TERUMAH = auto()
+    TETZAVEH = auto()
+    KI_SISA = auto()
+    VAYAKHEL = auto()
+    PEKUDEI = auto()
+    VAYIKRA = auto()
+    TZAV = auto()
+    SHEMINI = auto()
+    TAZRIA = auto()
+    METZORA = auto()
+    ACHAREI_MOS = auto()
+    KEDOSHIM = auto()
+    EMOR = auto()
+    BEHAR = auto()
+    BECHUKOSAI = auto()
+    BAMIDBAR = auto()
+    NASSO = auto()
+    BEHAALOSCHA = auto()
+    SHELACH = auto()
+    KORACH = auto()
+    CHUKAS = auto()
+    BALAK = auto()
+    PINCHAS = auto()
+    MATTOS = auto()
+    MASEI = auto()
+    DEVARIM = auto()
+    VAESCHANAN = auto()
+    EIKEV = auto()
+    REEH = auto()
+    SHOFTIM = auto()
+    KI_SEITZEI = auto()
+    KI_SAVO = auto()
+    NITZAVIM = auto()
+    VAYEILECH = auto()
+    HAAZINU = auto()
+    VEZOS_HABERACHAH = auto()
+
+
+class _FourParshiosEnum(Enum):
+    SHEKALIM = auto()
+    ZACHOR = auto()
+    PARAH = auto()
+    HACHODESH = auto()
+
+
+_FOUR_PARSHIOS = {
+    _FourParshiosEnum.ZACHOR: 'Zachor',
+    _FourParshiosEnum.SHEKALIM: 'Shekalim',
+    _FourParshiosEnum.HACHODESH: 'Hachodesh',
+    _FourParshiosEnum.PARAH: 'Parah',
+}
+
+
+_FOUR_PARSHIOS_HEBREW = {
+    _FourParshiosEnum.ZACHOR: 'זכור',
+    _FourParshiosEnum.SHEKALIM: 'שקלים',
+    _FourParshiosEnum.PARAH: 'פרה',
+    _FourParshiosEnum.HACHODESH: 'החודש'
+}
+
+
 def _parshaless(date, israel=False):
     if israel and date.tuple()[1:] in [(7, 23), (1, 22), (3, 7)]:
         return False
@@ -71,7 +152,7 @@ def _parshaless(date, israel=False):
     return False
 
 
-@lru_cache(maxsize=50)
+@lru_cache(maxsize=10)
 def _gentable(year, israel=False):
     """Return OrderedDict mapping date of Shabbos to list of parsha numbers.
 
@@ -94,15 +175,31 @@ def _gentable(year, israel=False):
             parsha = parshalist.popleft()
             table[shabbos] = [parsha]
             if (
-                (parsha == 21 and (HebrewDate(year, 1, 14) - shabbos) // 7 < 3)
-                or (parsha in [26, 28] and not leap)
+                (
+                    parsha == _Parshios_Enum.VAYAKHEL
+                    and (HebrewDate(year, 1, 14) - shabbos) // 7 < 3
+                )
                 or (
-                    parsha == 31 and not leap
+                    parsha in [
+                        _Parshios_Enum.TAZRIA, _Parshios_Enum.ACHAREI_MOS
+                    ] and not leap
+                )
+                or (
+                    parsha == _Parshios_Enum.BEHAR and not leap
                     and (not israel or pesachday != 7)
                 )
-                or (parsha == 38 and not israel and pesachday == 5)
-                or (parsha == 41 and (HebrewDate(year, 5, 9)-shabbos) // 7 < 2)
-                or (parsha == 50 and HebrewDate(year+1, 7, 1).weekday() > 4)
+                or (
+                    parsha == _Parshios_Enum.CHUKAS
+                    and not israel and pesachday == 5
+                )
+                or (
+                    parsha == _Parshios_Enum.MATTOS
+                    and (HebrewDate(year, 5, 9)-shabbos) // 7 < 2
+                )
+                or (
+                    parsha == _Parshios_Enum.NITZAVIM
+                    and HebrewDate(year+1, 7, 1).weekday() > 4
+                )
             ):
                 #  If any of that then it's a double parsha.
                 table[shabbos].append(parshalist.popleft())
@@ -216,3 +313,61 @@ def parshatable(year, israel=False):
       Shabbos with no parsha.
     """
     return _gentable(year, israel)
+
+
+def _get_hachodesh(date):
+    """Return Hachodesh given Hebrew date."""
+    year = date.year
+    shabbos = date.shabbos()
+    rc_nissan = HebrewDate(year, 1, 1)
+    if shabbos <= rc_nissan and shabbos - rc_nissan < 7:
+        return _FourParshiosEnum.HACHODESH
+    return None
+
+
+def _get_four_parshios(date):
+    """Return the special parsha given Hebrew date."""
+    year = date.year
+    adar = 12
+    if _is_leap(year):
+        adar = 13
+    shabbos = date.shabbos()
+    rc_adar = HebrewDate(year, adar, 1)
+    if shabbos <= rc_adar and rc_adar - shabbos < 7:
+        return _FourParshiosEnum.SHEKALIM
+    if shabbos.month == adar:
+        purim = HebrewDate(year, adar, 14)
+        if shabbos < purim and (purim - shabbos) < 7:
+            return _FourParshiosEnum.ZACHOR
+        if _get_hachodesh(date + 7):
+            return _FourParshiosEnum.PARAH
+    if _get_hachodesh(date):
+        return _FourParshiosEnum.HACHODESH
+    return None
+
+
+def four_parshios(date, hebrew=False):
+    """Return which of the four parshios is given date's Shabbos.
+
+    Parameters
+    ----------
+    date : ~pyluach.dates.BaseDate
+      Any subclass of ``BaseDate``. This date does not have to be a Shabbos.
+
+    hebrew : bool
+      ``True`` if you want the name of the parsha in Hebrew.
+      Default is ``False``.
+
+    Returns
+    -------
+    str
+      The name of the one of the four parshios or an empty string
+      if that shabbos is not one of them.
+    """
+    date = date.to_heb()
+    special_parsha = _get_four_parshios(date)
+    if special_parsha is None:
+        return ''
+    if hebrew:
+        return _FOUR_PARSHIOS_HEBREW[special_parsha]
+    return _FOUR_PARSHIOS[special_parsha]

@@ -37,14 +37,22 @@ class TensorProductScatter(torch.nn.Module):
         x = scatter(edge_features, edge_dst, dim=0, dim_size=x.size(0))
         return x
 
-    @model_modifier(persistent=False)
+    @model_modifier(
+        persistent=False,
+        private=False,
+        unsupported_devices=["cpu"],
+        supported_compile_modes=["torchscript"],
+    )
     @classmethod
     def enable_OpenEquivariance(cls, model):
-        """Enable OpenEquivariance tensor product kernel for accelerated NequIP training and inference."""
+        """
+        Enable OpenEquivariance tensor product kernel for accelerated NequIP training and inference.
+        For usage instructions, see https://nequip.readthedocs.io/en/latest/guide/accelerations/openequivariance.html
+        """
 
         from ._tp_scatter_oeq import OpenEquivarianceTensorProductScatter
         from nequip.utils.dtype import torch_default_dtype
-        from nequip.utils.versions.torch_versions import _TORCH_GE_2_4, _TORCH_GE_2_8
+        from nequip.utils.versions.torch_versions import _TORCH_GE_2_4
 
         if not _TORCH_GE_2_4:
             raise RuntimeError("OpenEquivariance requires PyTorch >= 2.4.")
@@ -58,16 +66,24 @@ class TensorProductScatter(torch.nn.Module):
                     irreps_edge_attr=old.irreps_edge_attr,
                     irreps_mid=old.irreps_mid,
                     instructions=old.instructions,
-                    use_opaque=_TRAIN_TIME_COMPILE and not _TORCH_GE_2_8,
+                    use_opaque=_TRAIN_TIME_COMPILE,
                 )
             return new
 
         return replace_submodules(model, cls, factory)
 
-    @model_modifier(persistent=False)
+    @model_modifier(
+        persistent=False,
+        private=False,
+        unsupported_devices=["cpu"],
+        supported_compile_modes=["torchscript", "aotinductor"],
+    )
     @classmethod
     def enable_CuEquivariance(cls, model):
-        """Enable CuEquivariance tensor product kernel for accelerated NequIP training and inference."""
+        """
+        [ALPHA SUPPORT] Enable CuEquivariance tensor product kernel for accelerated NequIP inference.
+        For usage instructions, see https://nequip.readthedocs.io/en/latest/guide/accelerations/cuequivariance.html
+        """
 
         from ._tp_scatter_cueq import CuEquivarianceTensorProductScatter
         from nequip.utils.dtype import torch_default_dtype

@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class AppStatusResponse(BaseModel):
     """
     AppStatusResponse
@@ -97,11 +89,7 @@ class AppStatusResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "last_heartbeat": obj.get("last_heartbeat"),
-            "versions": obj.get("versions")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

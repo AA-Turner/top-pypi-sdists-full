@@ -2,15 +2,18 @@ use std::{borrow::Cow, sync::Arc};
 
 use ahash::AHashMap;
 use indexmap::IndexMap;
+use itertools::Itertools;
 use tombi_future::{BoxFuture, Boxable};
-use tombi_json::StringNode;
-use tombi_x_keyword::{StringFormat, TableKeysOrder, X_TOMBI_TABLE_KEYS_ORDER};
+use tombi_x_keyword::{StringFormat, X_TOMBI_TABLE_KEYS_ORDER};
 
 use super::{
     CurrentSchema, FindSchemaCandidates, PropertySchema, SchemaAccessor, SchemaDefinitions,
     SchemaItem, SchemaPatternProperties, SchemaUri, ValueSchema,
 };
-use crate::{Accessor, Referable, SchemaProperties, SchemaStore};
+use crate::{
+    schema::table_keys_order_schema::TableKeysOrderSpec, Accessor, Referable, SchemaProperties,
+    SchemaStore,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct TableSchema {
@@ -24,7 +27,7 @@ pub struct TableSchema {
     pub required: Option<Vec<String>>,
     pub min_properties: Option<usize>,
     pub max_properties: Option<usize>,
-    pub keys_order: Option<TableKeysOrder>,
+    pub keys_order: Option<TableKeysOrderSpec>,
     pub default: Option<tombi_json::Object>,
     pub const_value: Option<tombi_json::Object>,
     pub enumerate: Option<Vec<tombi_json::Object>>,
@@ -91,22 +94,9 @@ impl TableSchema {
                 _ => (None, None),
             };
 
-        let keys_order = match object_node.get(X_TOMBI_TABLE_KEYS_ORDER) {
-            Some(tombi_json::ValueNode::String(StringNode { value: order, .. })) => {
-                match TableKeysOrder::try_from(order.as_str()) {
-                    Ok(val) => Some(val),
-                    Err(_) => {
-                        tracing::error!("invalid {X_TOMBI_TABLE_KEYS_ORDER}: {order}");
-                        None
-                    }
-                }
-            }
-            Some(order) => {
-                tracing::error!("invalid {X_TOMBI_TABLE_KEYS_ORDER}: {}", order.to_string());
-                None
-            }
-            None => None,
-        };
+        let keys_order = object_node
+            .get(X_TOMBI_TABLE_KEYS_ORDER)
+            .and_then(TableKeysOrderSpec::new);
 
         Self {
             title: object_node
@@ -196,6 +186,18 @@ impl TableSchema {
     #[inline]
     pub fn check_strict_additional_properties_violation(&self, strict: bool) -> bool {
         strict && self.additional_properties.is_none() && self.pattern_properties.is_none()
+    }
+
+    pub async fn accessors(&self) -> Vec<Accessor> {
+        self.properties
+            .read()
+            .await
+            .keys()
+            .map(|accessor| match accessor {
+                SchemaAccessor::Key(key) => Accessor::Key(key.clone()),
+                SchemaAccessor::Index => unreachable!("Table keys should not be index"),
+            })
+            .collect_vec()
     }
 }
 

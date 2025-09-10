@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UserRoleResponse(BaseModel):
     """
     Serializer for UserRole.
@@ -123,18 +115,7 @@ class UserRoleResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "role": obj.get("role"),
-            "content_object": obj.get("content_object"),
-            "content_object_prn": obj.get("content_object_prn"),
-            "description": obj.get("description"),
-            "permissions": obj.get("permissions"),
-            "domain": obj.get("domain")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

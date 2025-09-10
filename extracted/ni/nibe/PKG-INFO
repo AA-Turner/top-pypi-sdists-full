@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: nibe
-Version: 2.17.0
+Version: 2.18.0
 Summary: Nibe heatpump communication library
 Home-page: https://github.com/yozik04/nibe
 Author: Jevgeni Kiski
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -30,6 +32,7 @@ Requires-Dist: pandas>=1.0.5; extra == "convert"
 Requires-Dist: python-slugify>=4.0.0; extra == "convert"
 Provides-Extra: cli
 Requires-Dist: asyncclick>=8.1.3.4; extra == "cli"
+Dynamic: license-file
 
 [![Test and Lint](https://github.com/yozik04/nibe/actions/workflows/test.yml/badge.svg)](https://github.com/yozik04/nibe/actions/workflows/test.yml)
 ![PyPI - Status](https://img.shields.io/pypi/status/nibe)
@@ -74,8 +77,8 @@ Library for communication with Nibe heatpumps.
 ## Connection methods
 
 - RS485 hardwired using NibeGW on Arduino or RPi. NibeGW was developed by Pauli Anttila for [Openhab's integration](https://www.openhab.org/addons/bindings/nibeheatpump/).
-- **(Not yet tested)** TCP Modbus for S Models
-- **(Not yet tested)** Serial Modbus for Nibe Modbus 40)
+- TCP Modbus for S Models
+- Serial Modbus for Nibe Modbus 40)
 
 ### NibeGW
 
@@ -220,6 +223,8 @@ Nibe is registered mark of NIBE Energy Systems.
 The code was developed as a way of integrating personally owned Nibe heatpump, and it cannot be used for other purposes. It is not affiliated with any company, and it doesn't have commercial intent.
 
 The code is provided AS IS and the developers will not be held responsible for failures in the heatpump operation or any other malfunction.
+
+**IMPORTANT**: Using this library to control your heatpump is done at your own risk. The developers assume no responsibility for any damage that may occur to your heating system, property, or for any unsafe conditions that may result from improper use. Changing heatpump parameters can potentially damage your equipment or create hazardous conditions. Users should have sufficient knowledge of their heating system before attempting to control it.
 
 # HOWTOs for developers
 

@@ -895,7 +895,7 @@ class CustomJsAuthBackend(AuthenticationBackend):
         if self.cache_keys:
             cache_key = tuple((k, headers[k]) for k in self.cache_keys if k in headers)
             if cache_key and self.ttl_cache is not None:
-                cached = self.ttl_cache.get(cache_key)
+                cached = await self.ttl_cache.get(cache_key)
                 if cached:
                     return cached
 

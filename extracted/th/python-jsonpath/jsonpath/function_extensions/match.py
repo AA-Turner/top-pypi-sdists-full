@@ -1,21 +1,19 @@
 """The standard `match` function extension."""
 
-import re
-
-from jsonpath.function_extensions import ExpressionType
-from jsonpath.function_extensions import FilterFunction
+from ._pattern import AbstractRegexFilterFunction
 
 
-class Match(FilterFunction):
-    """A type-aware implementation of the standard `match` function."""
+class Match(AbstractRegexFilterFunction):
+    """The standard `match` function."""
 
-    arg_types = [ExpressionType.VALUE, ExpressionType.VALUE]
-    return_type = ExpressionType.LOGICAL
-
-    def __call__(self, string: str, pattern: str) -> bool:
-        """Return `True` if _string_ matches _pattern_, or `False` otherwise."""
-        try:
-            # re.fullmatch caches compiled patterns internally
-            return bool(re.fullmatch(pattern, string))
-        except (TypeError, re.error):
+    def __call__(self, value: object, pattern: object) -> bool:
+        """Return `True` if _value_ matches _pattern_, or `False` otherwise."""
+        if not isinstance(value, str) or not isinstance(pattern, str):
             return False
+
+        _pattern = self.check_cache(pattern)
+
+        if _pattern is None:
+            return False
+
+        return bool(_pattern.fullmatch(value))

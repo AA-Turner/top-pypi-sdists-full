@@ -26,14 +26,6 @@ from pulpcore.client.pulpcore.models.group_user_response import GroupUserRespons
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class RBACContentGuardResponse(BaseModel):
     """
     Base class for content guard serializers.
@@ -125,16 +117,7 @@ class RBACContentGuardResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "users": [GroupUserResponse.from_dict(_item) for _item in obj["users"]] if obj.get("users") is not None else None,
-            "groups": [GroupResponse.from_dict(_item) for _item in obj["groups"]] if obj.get("groups") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

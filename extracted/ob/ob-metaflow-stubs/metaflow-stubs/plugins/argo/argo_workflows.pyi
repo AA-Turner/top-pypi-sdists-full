@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-08T21:00:14.529603                                                            #
+# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-09T09:20:35.704761                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.graph
     import metaflow.exception
+    import metaflow.graph
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current
@@ -35,6 +35,8 @@ ARGO_EVENTS_EVENT_BUS: str
 ARGO_EVENTS_EVENT_SOURCE: None
 
 ARGO_EVENTS_INTERNAL_WEBHOOK_URL: None
+
+ARGO_EVENTS_SENSOR_NAMESPACE: str
 
 ARGO_EVENTS_SERVICE_ACCOUNT: None
 
@@ -103,6 +105,9 @@ UBF_TASK: str
 class ArgoWorkflowsException(metaflow.exception.MetaflowException, metaclass=type):
     ...
 
+class ArgoWorkflowsSensorCleanupException(metaflow.exception.MetaflowException, metaclass=type):
+    ...
+
 class ArgoWorkflowsSchedulingException(metaflow.exception.MetaflowException, metaclass=type):
     ...
 
@@ -112,6 +117,8 @@ class ArgoWorkflows(object, metaclass=type):
     def __str__(self):
         ...
     def deploy(self):
+        ...
+    def cleanup_previous_sensors(self):
         ...
     @staticmethod
     def list_templates(flow_name, all = False, page_size = 100):

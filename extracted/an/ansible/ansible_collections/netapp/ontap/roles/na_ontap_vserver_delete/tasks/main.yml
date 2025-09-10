@@ -40,16 +40,16 @@
 
 - name: Collect and delete volume clones for vserver
   ansible.builtin.import_tasks: find_and_delete_volumes.yml
+  failed_when: false     # delete may fail if a clone is attached to a clone
   vars:
-    ignore_errors: true     # delete may fail if a clone is attached to a clone
     is_flexclone: true
     retry_count: 3          # 3 levels of clones, looks like a lot
   when: svm_exists
 
 - name: Collect and delete all volumes for vserver
   ansible.builtin.import_tasks: find_and_delete_volumes.yml
+  failed_when: false     # so we can delete as many as possible
   vars:
-    ignore_errors: true     # so we can delete as many as possible
     retry_count: 2          # retry any error
   when: svm_exists
 
@@ -63,8 +63,7 @@
 
 - name: Collect and delete all volumes for vserver
   ansible.builtin.include_tasks: find_and_delete_volumes.yml
-  vars:
-    ignore_errors: false     # so we can report errors
+  ignore_errors: false     # so we can report errors
   when: svm_exists
 
 - name: Collect CIFS server

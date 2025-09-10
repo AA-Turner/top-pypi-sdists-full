@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import re
 import uuid
 from base64 import b64encode
@@ -178,21 +177,3 @@ class Serializer(JsonPlusSerializer):
 
 mpack_keys = {"method", "value"}
 SERIALIZER = Serializer()
-
-
-# TODO: Make more performant (by removing)
-async def reserialize_message(message: bytes) -> bytes:
-    # Stream messages from golang runtime are a byte dict of StreamChunks.
-    loaded = await ajson_loads(message)
-    converted = {}
-    for k, v in loaded.items():
-        if isinstance(v, dict) and v.keys() == mpack_keys:
-            if v["method"] == "missing":
-                converted[k] = v["value"]  # oops
-            else:
-                converted[k] = SERIALIZER.loads_typed(
-                    (v["method"], base64.b64decode(v["value"]))
-                )
-        else:
-            converted[k] = v
-    return json_dumpb(converted)

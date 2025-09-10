@@ -10,7 +10,7 @@ from pinecone_plugins.assistant.models.shared import TokenCounts
 
 RefType = TypeVar(
     "RefType",
-    bound=Union["TextReference", "PdfReference", "MarkdownReference", "JsonReference"],
+    bound=Union["TextReference", "PdfReference", "MarkdownReference", "JsonReference", "DocxReference"],
 )
 
 
@@ -58,7 +58,7 @@ class DocxReference(BaseReference):
     file: FileModel
 
     @classmethod
-    def from_openapi(cls, ref_dict: dict) -> "PdfReference":
+    def from_openapi(cls, ref_dict: dict) -> "DocxReference":
         return cls(
             type=ref_dict["type"],
             pages=ref_dict["pages"],

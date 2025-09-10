@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: craft-parts
-Version: 2.21.0
+Version: 2.22.0
 Summary: Craft parts tooling
 Author-email: "Canonical Ltd." <snapcraft@lists.snapcraft.io>
 Project-URL: Homepage, https://github.com/canonical/craft-parts
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -15,7 +14,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lxml>=5.3.0
-Requires-Dist: overrides!=7.6.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyxdg
 Requires-Dist: PyYAML
@@ -23,61 +21,6 @@ Requires-Dist: requests-unixsocket2>=0.4.0
 Requires-Dist: requests<3.0,>=2.32.4
 Requires-Dist: semver>=3.0.4
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
-Provides-Extra: apt-jammy
-Requires-Dist: python-apt~=2.4.0; sys_platform == "linux" and extra == "apt-jammy"
-Provides-Extra: apt-noble
-Requires-Dist: python-apt~=2.7.0; sys_platform == "linux" and extra == "apt-noble"
-Provides-Extra: apt-oracular
-Requires-Dist: python-apt<2.9.9,~=2.9.0; sys_platform == "linux" and extra == "apt-oracular"
-Provides-Extra: apt-plucky
-Requires-Dist: python-apt~=2.9.9; sys_platform == "linux" and extra == "apt-plucky"
-Provides-Extra: apt-questing
-Requires-Dist: python-apt~=3.0.0; sys_platform == "linux" and extra == "apt-questing"
-Provides-Extra: docs
-Requires-Dist: canonical-sphinx; extra == "docs"
-Requires-Dist: pydantic-kitbash==0.0.7; extra == "docs"
-Requires-Dist: setuptools; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
-Requires-Dist: sphinx-lint; extra == "docs"
-Requires-Dist: sphinx-pydantic; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
-Requires-Dist: sphinxcontrib-details-directive; extra == "docs"
-Provides-Extra: dev
-Requires-Dist: build; extra == "dev"
-Requires-Dist: coverage[toml]~=7.4; extra == "dev"
-Requires-Dist: pyfakefs~=5.3; extra == "dev"
-Requires-Dist: pytest~=8.0; extra == "dev"
-Requires-Dist: pytest-cov~=5.0; extra == "dev"
-Requires-Dist: pytest-mock~=3.12; extra == "dev"
-Requires-Dist: yamllint~=1.34; extra == "dev"
-Requires-Dist: mypy[reports]~=1.14.1; extra == "dev"
-Requires-Dist: pyright==1.1.391; extra == "dev"
-Requires-Dist: types-Pygments; extra == "dev"
-Requires-Dist: types-colorama; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: autoflake; extra == "dev"
-Requires-Dist: codespell; extra == "dev"
-Requires-Dist: pydocstyle; extra == "dev"
-Requires-Dist: tox; extra == "dev"
-Requires-Dist: hypothesis; extra == "dev"
-Requires-Dist: jsonschema; extra == "dev"
-Requires-Dist: pytest-check<2.5.0; extra == "dev"
-Requires-Dist: pytest-subprocess; extra == "dev"
-Requires-Dist: requests-mock; extra == "dev"
-Requires-Dist: types-colorama; extra == "dev"
-Requires-Dist: types-docutils; extra == "dev"
-Requires-Dist: types-jsonschema; extra == "dev"
-Requires-Dist: types-Pillow; extra == "dev"
-Requires-Dist: types-Pygments; extra == "dev"
-Requires-Dist: types-pytz; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: types-lxml>=2025.3.30; extra == "dev"
-Provides-Extra: tics
-Requires-Dist: flake8; extra == "tics"
-Requires-Dist: pylint; extra == "tics"
 Dynamic: license-file
 
 # Craft Parts
@@ -86,7 +29,7 @@ Dynamic: license-file
 [![Codecov Status][codecov-badge]][codecov-status]
 [![Code Style][ruff-badge]][ruff-site]
 
-Craft Parts supports the *parts* mechanism common to all craft applications. It
+Craft Parts supports the _parts_ mechanism common to all craft applications. It
 provides a declarative way to obtain, process, and organize data from different sources
 before it is packaged into the final artifact.
 

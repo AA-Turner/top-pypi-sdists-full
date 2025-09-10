@@ -26,16 +26,6 @@ author: Denis Magel (@dmagel-netapp) <denis.magel@netapp.com>
 description:
 - Interact with ILM pools on NetApp StorageGRID.
 options:
-  api_url:
-    description:
-    - Rest endpoint for all invocations against the grid
-    required: true
-    type: str
-  auth_token:
-    description:
-    - The authorization token for the API request
-    required: true
-    type: str
   name:
     description:
     - The name of the storage pool
@@ -118,21 +108,21 @@ options:
 """
 
 EXAMPLES = """
-  - name: Create ILM pool
-    na_sg_grid_ilm_pool:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "Data Center 1"
-      disks:
-        - group: 10
-      archives: []
+- name: Create ILM pool
+  na_sg_grid_ilm_pool:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "Data Center 1"
+    disks:
+      - group: 10
+    archives: []
 
-  - name: Delete existing ILM pool
-    na_sg_grid_ilm_pool:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "profile1"
-      state: absent
+- name: Delete existing ILM pool
+  na_sg_grid_ilm_pool:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "profile1"
+    state: absent
 """
 
 RETURN = """

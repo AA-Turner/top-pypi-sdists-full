@@ -25,6 +25,7 @@ import warnings
 import pytest
 from pytest import WarningsRecorder
 
+from ansys.fluent.core import config
 from ansys.fluent.core.examples import download_file
 from ansys.fluent.core.pyfluent_warnings import PyFluentUserWarning
 from ansys.fluent.core.solver import Viscous
@@ -514,6 +515,9 @@ def test_child_alias_with_parent_path(mixing_elbow_settings_session):
     )
 
     solver.settings.solution.initialization.hybrid_initialize()
+    if solver.get_fluent_version() >= FluentVersion.v261:
+        solver.settings.setup.models.multiphase.model = "eulerian"
+        solver.tui.define.models.multiphase.hybrid_models.ddpm("yes")
     assert (
         solver.settings.setup.models.discrete_phase.numerics.node_based_averaging.kernel._child_aliases
         == {
@@ -746,7 +750,7 @@ def test_settings_with_deprecated_flag(mixing_elbow_settings_session):
 
 @pytest.fixture
 def use_runtime_python_classes(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("PYFLUENT_USE_RUNTIME_PYTHON_CLASSES", "1")
+    monkeypatch.setattr(config, "use_runtime_python_classes", True)
 
 
 @pytest.mark.fluent_version(">=24.2")
@@ -766,7 +770,7 @@ def test_runtime_python_classes(
     )
 
 
-@pytest.mark.skip
+@pytest.mark.fluent_version(">=26.1")
 def test_setting_string_constants(mixing_elbow_settings_session):
     solver = mixing_elbow_settings_session
     viscous = Viscous(solver)

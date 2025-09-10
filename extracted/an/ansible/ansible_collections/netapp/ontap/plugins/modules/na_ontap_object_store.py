@@ -18,7 +18,7 @@ short_description: NetApp ONTAP manage object store config.
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.9.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 
 description:
 - Create or delete object store config on ONTAP.
@@ -103,26 +103,26 @@ options:
 '''
 
 EXAMPLES = """
-    - name: Object store Create
-      netapp.ontap.na_ontap_object_store:
-        state: present
-        name: ansible
-        provider_type: SGWS
-        server: abc
-        container: abc
-        access_key: s3.amazonaws.com
-        secret_password: abc
-        hostname: "{{ netapp_hostname }}"
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
+- name: Object store Create
+  netapp.ontap.na_ontap_object_store:
+    state: present
+    name: ansible
+    provider_type: SGWS
+    server: abc
+    container: abc
+    access_key: s3.amazonaws.com
+    secret_password: abc
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
 
-    - name: Object store delete
-      netapp.ontap.na_ontap_object_store:
-        state: absent
-        name: ansible
-        hostname: "{{ netapp_hostname }}"
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
+- name: Object store delete
+  netapp.ontap.na_ontap_object_store:
+    state: absent
+    name: ansible
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
 """
 
 RETURN = """

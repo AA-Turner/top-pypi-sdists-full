@@ -1,6 +1,5 @@
 use itertools::Either;
 use tombi_document_tree::IntoDocumentTreeAndErrors;
-use tombi_schema_store::get_accessors;
 use tower_lsp::lsp_types::{GotoDefinitionParams, TextDocumentPositionParams};
 
 use crate::config_manager::ConfigSchemaStore;
@@ -56,7 +55,7 @@ pub async fn handle_goto_definition(
         .flatten();
 
     let tombi_document_comment_directive =
-        tombi_comment_directive::get_tombi_document_comment_directive(&root).await;
+        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
     let (toml_version, _) = backend
         .source_toml_version(
             tombi_document_comment_directive,
@@ -71,7 +70,7 @@ pub async fn handle_goto_definition(
     };
 
     let document_tree = root.into_document_tree_and_errors(toml_version).tree;
-    let accessors = get_accessors(&document_tree, &keys, position);
+    let accessors = tombi_document_tree::get_accessors(&document_tree, &keys, position);
 
     if let Some(locations) = tombi_extension_cargo::goto_definition(
         &text_document_uri,

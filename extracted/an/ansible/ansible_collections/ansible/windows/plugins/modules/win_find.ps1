@@ -11,7 +11,7 @@ $spec = @{
         paths = @{ type = "list"; elements = "str"; required = $true }
         age = @{ type = "str" }
         age_stamp = @{ type = "str"; default = "mtime"; choices = "mtime", "ctime", "atime" }
-        file_type = @{ type = "str"; default = "file"; choices = "file", "directory" }
+        file_type = @{ type = "str"; default = "file"; choices = "file", "directory", "any" }
         follow = @{ type = "bool"; default = $false }
         hidden = @{ type = "bool"; default = $false }
         patterns = @{ type = "list"; elements = "str"; aliases = "regex", "regexp" }
@@ -21,6 +21,7 @@ $spec = @{
         get_checksum = @{ type = "bool"; default = $true }
         checksum_algorithm = @{ type = "str"; default = "sha1"; choices = "md5", "sha1", "sha256", "sha384", "sha512" }
         depth = @{ type = "int" }
+        case_sensitive = @{ type = "bool"; default = $false }
     }
     supports_check_mode = $true
 }
@@ -40,6 +41,7 @@ $use_regex = $module.Params.use_regex
 $get_checksum = $module.Params.get_checksum
 $checksum_algorithm = $module.Params.checksum_algorithm
 $depth = $module.Params.depth
+$case_sensitive = $module.Params.case_sensitive
 
 $module.Result.examined = 0
 $module.Result.files = @()
@@ -78,6 +80,9 @@ Function Assert-FileType {
         [System.String]$FileType
     )
 
+    if ($FileType -eq 'any') {
+        return $true
+    }
     $is_dir = $File.Attributes.HasFlag([System.IO.FileAttributes]::Directory)
     return ($FileType -eq 'directory' -and $is_dir) -or ($FileType -eq 'file' -and -not $is_dir)
 }
@@ -105,9 +110,17 @@ Function Assert-FileNamePattern {
     $valid_match = $false
     foreach ($pattern in $Patterns) {
         if ($UseRegex) {
-            if ($File.Name -match $pattern) {
-                $valid_match = $true
-                break
+            if ($case_sensitive) {
+                if ($File.Name -cmatch $pattern) {
+                    $valid_match = $true
+                    break
+                }
+            }
+            else {
+                if ($File.Name -match $pattern) {
+                    $valid_match = $true
+                    break
+                }
             }
         }
         else {

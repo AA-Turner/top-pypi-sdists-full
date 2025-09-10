@@ -240,7 +240,6 @@ except ImportError:
 try:
     from enum import Enum
     from azure.mgmt.core.tools import parse_resource_id, resource_id, is_valid_resource_id
-    from azure.cli.core import cloud as azure_cloud
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.network import models as NetworkModels
     from azure.mgmt.resource.resources import ResourceManagementClient
@@ -304,6 +303,7 @@ from base64 import b64encode, b64decode
 from hashlib import sha256
 from hmac import HMAC
 from time import time
+import subprocess
 
 try:
     from urllib import (urlencode, quote_plus)
@@ -312,8 +312,7 @@ except ImportError:
 
 try:
     from azure.cli.core.util import CLIError
-    from azure.common.credentials import get_cli_profile
-    from azure.common.cloud import get_cli_active_cloud
+    from azure.cli.core import cloud as azure_cloud
 except ImportError:
     HAS_AZURE_CLI_CORE = False
     HAS_AZURE_CLI_CORE_EXC = None
@@ -465,6 +464,8 @@ class AzureRMModuleBase(object):
         self._monitor_diagnostic_settings_client = None
         self._monitor_data_collection_rules_client = None
         self._monitor_management_client_action_groups = None
+        self._monitor_management_client_activity_log_alerts = None
+        self._monitor_management_client_metric_alerts = None
         self._resource = None
         self._log_analytics_client = None
         self._servicebus_client = None
@@ -1409,6 +1410,15 @@ class AzureRMModuleBase(object):
         return self._monitor_management_client_action_groups
 
     @property
+    def monitor_management_client_activity_log_alerts(self):
+        self.log('Getting monitor client for diagnostic_settings')
+        if not self._monitor_management_client_activity_log_alerts:
+            self._monitor_management_client_activity_log_alerts = self.get_mgmt_svc_client(MonitorManagementClient,
+                                                                                           base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                                           api_version='2020-10-01')
+        return self._monitor_management_client_activity_log_alerts
+
+    @property
     def monitor_management_client_data_collection_rules(self):
         self.log('Getting monitor client for diagnostic_settings')
         if not self._monitor_data_collection_rules_client:
@@ -1416,6 +1426,15 @@ class AzureRMModuleBase(object):
                                                                                   base_url=self._cloud_environment.endpoints.resource_manager,
                                                                                   api_version='2022-06-01')
         return self._monitor_data_collection_rules_client
+
+    @property
+    def monitor_management_client_metric_alerts(self):
+        self.log('Getting monitor client for diagnostic_settings')
+        if not self._monitor_management_client_metric_alerts:
+            self._monitor_management_client_metric_alerts = self.get_mgmt_svc_client(MonitorManagementClient,
+                                                                                     base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                                     api_version='2018-03-01')
+        return self._monitor_management_client_metric_alerts
 
     @property
     def log_analytics_client(self):
@@ -1648,10 +1667,10 @@ class AzureRMAuth(object):
                 except Exception as e:
                     self.fail("cloud_environment {0} could not be resolved: {1}".format(raw_cloud_env, e.message), exception=traceback.format_exc())
 
-        if self.credentials.get('subscription_id', None) is None and self.credentials.get('credentials') is None:
+        if self.credentials.get('subscription_id', None) is None and not self.is_ad_resource:
             self.fail("Credentials did not include a subscription_id value.")
         self.log("setting subscription_id")
-        self.subscription_id = self.credentials['subscription_id']
+        self.subscription_id = self.credentials.get('subscription_id')
 
         # get authentication authority
         # for adfs, user could pass in authority or not.
@@ -1739,10 +1758,10 @@ class AzureRMAuth(object):
             except Exception:
                 pass
 
-        if credentials.get('subscription_id'):
+        if credentials.get('subscription_id') is None and not self.is_ad_resource:
+            return None
+        else:
             return credentials
-
-        return None
 
     def _get_msi_credentials(self, subscription_id=None, client_id=None, _cloud_environment=None, **kwargs):
         # Get object `cloud_environment` from string `_cloud_environment`
@@ -1784,24 +1803,30 @@ class AzureRMAuth(object):
             'auth_source': 'msi'
         }
 
-    def _get_azure_cli_credentials(self, subscription_id=None, resource=None):
-        if self.is_ad_resource:
-            resource = 'https://graph.windows.net/'
+    def _get_azure_cli_credentials(self, subscription_id=None):
         subscription_id = subscription_id or self._get_env('subscription_id')
+        if not subscription_id:
+            try:
+                cmd = ["az", "account", "show", "--query", "id"]
+                subscription_id = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')
+            except Exception as ec:
+                raise CLIError("Obtain the az login's subscription occurred exception as {0}".format(ec))
+
         try:
-            profile = get_cli_profile()
-        except Exception as exc:
-            self.fail("Failed to load CLI profile {0}.".format(str(exc)))
+            cmd = ["az", "cloud", "show", "--query", "name"]
+            cloud_name = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')
+            all_clouds = [x[1] for x in inspect.getmembers(azure_cloud) if isinstance(x[1], azure_cloud.Cloud)]
+            matched_clouds = [x for x in all_clouds if x.name == cloud_name]
+        except Exception as ec:
+            raise CLIError("Obtain the az login's active cloud occurred exception as {0}".format(ec))
 
-        cred, subscription_id, tenant = profile.get_login_credentials(
-            subscription_id=subscription_id)
-        cloud_environment = get_cli_active_cloud()
+        if len(matched_clouds) != 1:
+            raise CLIError("Obtain the active cloud failed, There is no or multiple matching clouds")
 
-        az_cli = AzureCliCredential()
         cli_credentials = {
-            'credentials': az_cli if self.is_ad_resource else cred,
+            'credentials': AzureCliCredential(),
             'subscription_id': subscription_id,
-            'cloud_environment': cloud_environment
+            'cloud_environment': matched_clouds[0],
         }
         return cli_credentials
 
@@ -1814,10 +1839,10 @@ class AzureRMAuth(object):
             credentials = self._get_profile(env_credentials['profile'])
             return credentials
 
-        if env_credentials.get('subscription_id') is not None:
+        if env_credentials.get('subscription_id') is None and not self.is_ad_resource:
+            return None
+        else:
             return env_credentials
-
-        return None
 
     def _get_credentials(self, auth_source=None, **params):
         # Get authentication credentials.

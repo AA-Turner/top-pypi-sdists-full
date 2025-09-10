@@ -26,14 +26,6 @@ from pulpcore.client.pulpcore.models.policy357_enum import Policy357Enum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UpstreamPulpResponse(BaseModel):
     """
     Serializer for a Server.
@@ -142,23 +134,7 @@ class UpstreamPulpResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "base_url": obj.get("base_url"),
-            "api_root": obj.get("api_root"),
-            "domain": obj.get("domain"),
-            "ca_cert": obj.get("ca_cert"),
-            "client_cert": obj.get("client_cert"),
-            "tls_validation": obj.get("tls_validation"),
-            "hidden_fields": [GenericRemoteResponseHiddenFieldsInner.from_dict(_item) for _item in obj["hidden_fields"]] if obj.get("hidden_fields") is not None else None,
-            "q_select": obj.get("q_select"),
-            "last_replication": obj.get("last_replication"),
-            "policy": obj.get("policy")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: guidance
-Version: 0.2.5
+Version: 0.3.0
 Summary: A guidance language for controlling large language models.
 Home-page: https://github.com/guidance-ai/guidance
 Author: Guidance Maintainers
 Author-email: maintainers@guidance-ai.org
 Requires-Python: >=3.9
 License-File: LICENSE.md
+Requires-Dist: jinja2
 Requires-Dist: numpy
 Requires-Dist: pydantic
 Requires-Dist: requests
@@ -14,8 +15,8 @@ Requires-Dist: psutil
 Requires-Dist: guidance-stitch==0.1.5
 Requires-Dist: llguidance==1.1.0
 Provides-Extra: all
-Requires-Dist: azure-ai-inference; extra == "all"
 Requires-Dist: openai>=1.0; extra == "all"
+Requires-Dist: azure-ai-inference; extra == "all"
 Provides-Extra: unittest
 Requires-Dist: anytree; extra == "unittest"
 Requires-Dist: jsonschema; extra == "unittest"
@@ -24,9 +25,9 @@ Requires-Dist: pytest-cov; extra == "unittest"
 Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: tokenizers; extra == "unittest"
 Provides-Extra: llamacpp
-Requires-Dist: llama-cpp-python==0.3.12; extra == "llamacpp"
+Requires-Dist: llama-cpp-python==0.3.14; extra == "llamacpp"
 Provides-Extra: transformers
-Requires-Dist: transformers==4.51.3; extra == "transformers"
+Requires-Dist: transformers==4.53.3; extra == "transformers"
 Provides-Extra: test
 Requires-Dist: types-regex; extra == "test"
 Requires-Dist: types-requests; extra == "test"

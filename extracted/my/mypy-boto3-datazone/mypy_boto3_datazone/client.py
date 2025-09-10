@@ -101,6 +101,8 @@ from .type_defs import (
     CreateDomainUnitOutputTypeDef,
     CreateEnvironmentActionInputTypeDef,
     CreateEnvironmentActionOutputTypeDef,
+    CreateEnvironmentBlueprintInputTypeDef,
+    CreateEnvironmentBlueprintOutputTypeDef,
     CreateEnvironmentInputTypeDef,
     CreateEnvironmentOutputTypeDef,
     CreateEnvironmentProfileInputTypeDef,
@@ -144,6 +146,7 @@ from .type_defs import (
     DeleteDomainUnitInputTypeDef,
     DeleteEnvironmentActionInputTypeDef,
     DeleteEnvironmentBlueprintConfigurationInputTypeDef,
+    DeleteEnvironmentBlueprintInputTypeDef,
     DeleteEnvironmentInputTypeDef,
     DeleteEnvironmentProfileInputTypeDef,
     DeleteFormTypeInputTypeDef,
@@ -342,6 +345,8 @@ from .type_defs import (
     UpdateDomainUnitOutputTypeDef,
     UpdateEnvironmentActionInputTypeDef,
     UpdateEnvironmentActionOutputTypeDef,
+    UpdateEnvironmentBlueprintInputTypeDef,
+    UpdateEnvironmentBlueprintOutputTypeDef,
     UpdateEnvironmentInputTypeDef,
     UpdateEnvironmentOutputTypeDef,
     UpdateEnvironmentProfileInputTypeDef,
@@ -639,6 +644,16 @@ class DataZoneClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#create_environment_action)
         """
 
+    def create_environment_blueprint(
+        self, **kwargs: Unpack[CreateEnvironmentBlueprintInputTypeDef]
+    ) -> CreateEnvironmentBlueprintOutputTypeDef:
+        """
+        Creates a Amazon DataZone blueprint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_environment_blueprint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#create_environment_blueprint)
+        """
+
     def create_environment_profile(
         self, **kwargs: Unpack[CreateEnvironmentProfileInputTypeDef]
     ) -> CreateEnvironmentProfileOutputTypeDef:
@@ -883,6 +898,16 @@ class DataZoneClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#delete_environment_action)
         """
 
+    def delete_environment_blueprint(
+        self, **kwargs: Unpack[DeleteEnvironmentBlueprintInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a blueprint in Amazon DataZone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_environment_blueprint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#delete_environment_blueprint)
+        """
+
     def delete_environment_blueprint_configuration(
         self, **kwargs: Unpack[DeleteEnvironmentBlueprintConfigurationInputTypeDef]
     ) -> Dict[str, Any]:
@@ -905,7 +930,7 @@ class DataZoneClient(BaseClient):
 
     def delete_form_type(self, **kwargs: Unpack[DeleteFormTypeInputTypeDef]) -> Dict[str, Any]:
         """
-        Delets and metadata form type in Amazon DataZone.
+        Deletes and metadata form type in Amazon DataZone.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_form_type.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#delete_form_type)
@@ -1933,6 +1958,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_environment_action.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#update_environment_action)
+        """
+
+    def update_environment_blueprint(
+        self, **kwargs: Unpack[UpdateEnvironmentBlueprintInputTypeDef]
+    ) -> UpdateEnvironmentBlueprintOutputTypeDef:
+        """
+        Updates an environment blueprint in Amazon DataZone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_environment_blueprint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#update_environment_blueprint)
         """
 
     def update_environment_profile(

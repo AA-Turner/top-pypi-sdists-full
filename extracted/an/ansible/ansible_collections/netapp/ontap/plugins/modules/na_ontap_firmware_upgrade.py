@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 DOCUMENTATION = '''
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Update ONTAP service-prosessor firmware
   - The recommend procedure is to
@@ -254,7 +254,7 @@ EXAMPLES = """
     state: present
     package_url: "{{ web_link }}"
     firmware_type: service-processor
-    reboot_sp_: true
+    reboot_sp: true
     reboot_sp_after_download: true
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"

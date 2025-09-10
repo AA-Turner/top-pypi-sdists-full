@@ -50,13 +50,13 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a s3 key
-    netapp.storagegrid.na_sg_org_user_s3_key:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      unique_user_name: user/ansibleuser1
+- name: create a s3 key
+  netapp.storagegrid.na_sg_org_user_s3_key:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    unique_user_name: user/ansibleuser1
 """
 
 RETURN = """

@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedGroup(BaseModel):
     """
     Serializer for Group.
@@ -89,9 +81,7 @@ class PatchedGroup(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

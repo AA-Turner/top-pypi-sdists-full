@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.list_queue_response_200_item_raw_flow_failure_module_suspend import (
         ListQueueResponse200ItemRawFlowFailureModuleSuspend,
     )
+    from ..models.list_queue_response_200_item_raw_flow_failure_module_timeout_type_0 import (
+        ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0,
+    )
+    from ..models.list_queue_response_200_item_raw_flow_failure_module_timeout_type_1 import (
+        ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="ListQueueResponse200ItemRawFlowFailureModule")
@@ -47,7 +53,8 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         sleep (Union['ListQueueResponse200ItemRawFlowFailureModuleSleepType0',
             'ListQueueResponse200ItemRawFlowFailureModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0',
+            'ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleMock]):
@@ -68,7 +75,11 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0",
+        "ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "ListQueueResponse200ItemRawFlowFailureModuleMock"] = UNSET
@@ -81,6 +92,9 @@ class ListQueueResponse200ItemRawFlowFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_queue_response_200_item_raw_flow_failure_module_sleep_type_0 import (
             ListQueueResponse200ItemRawFlowFailureModuleSleepType0,
+        )
+        from ..models.list_queue_response_200_item_raw_flow_failure_module_timeout_type_0 import (
+            ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0,
         )
 
         id = self.id
@@ -112,7 +126,20 @@ class ListQueueResponse200ItemRawFlowFailureModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -192,6 +219,12 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         from ..models.list_queue_response_200_item_raw_flow_failure_module_suspend import (
             ListQueueResponse200ItemRawFlowFailureModuleSuspend,
         )
+        from ..models.list_queue_response_200_item_raw_flow_failure_module_timeout_type_0 import (
+            ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0,
+        )
+        from ..models.list_queue_response_200_item_raw_flow_failure_module_timeout_type_1 import (
+            ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -258,7 +291,40 @@ class ListQueueResponse200ItemRawFlowFailureModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0",
+            "ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = ListQueueResponse200ItemRawFlowFailureModuleTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = ListQueueResponse200ItemRawFlowFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

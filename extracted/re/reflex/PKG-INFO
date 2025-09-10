@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.8.9
+Version: 0.8.10
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
 Project-URL: documentation, https://reflex.dev/docs/getting-started/introduction
-Author-email: Nikhil Rao <nikhil@reflex.dev>, Alek Petuskey <alek@reflex.dev>, Masen Furer <masen@reflex.dev>, Elijah Ahianyo <elijahahianyo@gmail.com>, Thomas Brandeho <thomas@reflex.dev>, Khaleel Al-Adhami <khaleel@reflex.dev>
-Maintainer-email: Masen Furer <masen@reflex.dev>, Thomas Brandeho <thomas@reflex.dev>, Khaleel Al-Adhami <khaleel@reflex.dev>
+Author: Nikhil Rao, Alek Petuskey, Masen Furer, Elijah Ahianyo, Thomas Brandeho, Khaleel Al-Adhami
+Maintainer: Masen Furer, Khaleel Al-Adhami
+Maintainer-email: maintainers@reflex.dev
 License: Apache-2.0
 License-File: LICENSE
 Keywords: framework,web

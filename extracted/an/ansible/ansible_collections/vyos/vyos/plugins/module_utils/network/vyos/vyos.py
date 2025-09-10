@@ -69,8 +69,13 @@ def get_config(module, flags=None, format=None):
     flags = [] if flags is None else flags
     global _DEVICE_CONFIGS
 
-    if _DEVICE_CONFIGS != {}:
-        return _DEVICE_CONFIGS
+    # If _DEVICE_CONFIGS is non-empty and module.params["match"] is "none",
+    # return the cached device configurations. This avoids redundant calls
+    # to the connection when no specific match criteria are provided.
+    if _DEVICE_CONFIGS != {} and (
+        module.params["match"] is not None and module.params["match"] == "none"
+    ):
+        return to_text(_DEVICE_CONFIGS)
     else:
         connection = get_connection(module)
         try:
@@ -100,3 +105,10 @@ def load_config(module, commands, commit=False, comment=None):
         module.fail_json(msg=to_text(exc, errors="surrogate_then_replace"))
 
     return response.get("diff")
+
+
+def get_os_version(module):
+    connection = get_connection(module)
+    if connection.get_device_info():
+        os_version = connection.get_device_info()["network_os_major_version"]
+    return os_version

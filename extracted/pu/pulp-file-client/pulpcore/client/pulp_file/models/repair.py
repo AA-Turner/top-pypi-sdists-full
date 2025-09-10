@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class Repair(BaseModel):
     """
     Repair
@@ -88,9 +80,7 @@ class Repair(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "verify_checksums": obj.get("verify_checksums") if obj.get("verify_checksums") is not None else True
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

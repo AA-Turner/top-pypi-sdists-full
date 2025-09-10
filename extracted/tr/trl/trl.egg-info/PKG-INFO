@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.22.2
+Version: 0.23.0
 Summary: Train transformer language models with reinforcement learning.
 Home-page: https://github.com/huggingface/trl
 Author: Leandro von Werra
@@ -22,7 +22,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: accelerate>=1.4.0
 Requires-Dist: datasets>=3.0.0
-Requires-Dist: transformers>=4.55.0
+Requires-Dist: transformers>=4.56.1
 Provides-Extra: bco
 Requires-Dist: scikit-learn; extra == "bco"
 Requires-Dist: joblib; extra == "bco"
@@ -38,6 +38,9 @@ Provides-Extra: liger
 Requires-Dist: liger-kernel>=0.6.2; extra == "liger"
 Provides-Extra: peft
 Requires-Dist: peft>=0.8.0; extra == "peft"
+Provides-Extra: quality
+Requires-Dist: pre-commit; extra == "quality"
+Requires-Dist: hf-doc-builder; extra == "quality"
 Provides-Extra: quantization
 Requires-Dist: bitsandbytes; extra == "quantization"
 Provides-Extra: scikit
@@ -68,6 +71,8 @@ Requires-Dist: openai>=1.23.2; extra == "dev"
 Requires-Dist: llm-blender>=0.0.2; extra == "dev"
 Requires-Dist: liger-kernel>=0.6.2; extra == "dev"
 Requires-Dist: peft>=0.8.0; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: bitsandbytes; extra == "dev"
 Requires-Dist: scikit-learn; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"

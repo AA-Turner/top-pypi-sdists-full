@@ -700,6 +700,7 @@ from datadog_api_client.v2.model.component_grid_properties_is_visible import Com
 from datadog_api_client.v2.model.component_grid_type import ComponentGridType
 from datadog_api_client.v2.model.component_properties import ComponentProperties
 from datadog_api_client.v2.model.component_properties_is_visible import ComponentPropertiesIsVisible
+from datadog_api_client.v2.model.component_recommendation import ComponentRecommendation
 from datadog_api_client.v2.model.component_type import ComponentType
 from datadog_api_client.v2.model.config_cat_credentials import ConfigCatCredentials
 from datadog_api_client.v2.model.config_cat_credentials_update import ConfigCatCredentialsUpdate
@@ -783,6 +784,7 @@ from datadog_api_client.v2.model.cost_by_org import CostByOrg
 from datadog_api_client.v2.model.cost_by_org_attributes import CostByOrgAttributes
 from datadog_api_client.v2.model.cost_by_org_response import CostByOrgResponse
 from datadog_api_client.v2.model.cost_by_org_type import CostByOrgType
+from datadog_api_client.v2.model.cpu import Cpu
 from datadog_api_client.v2.model.create_action_connection_request import CreateActionConnectionRequest
 from datadog_api_client.v2.model.create_action_connection_response import CreateActionConnectionResponse
 from datadog_api_client.v2.model.create_app_request import CreateAppRequest
@@ -801,6 +803,9 @@ from datadog_api_client.v2.model.create_data_deletion_request_body_data_type imp
     CreateDataDeletionRequestBodyDataType,
 )
 from datadog_api_client.v2.model.create_data_deletion_response_body import CreateDataDeletionResponseBody
+from datadog_api_client.v2.model.create_incident_notification_template_request import (
+    CreateIncidentNotificationTemplateRequest,
+)
 from datadog_api_client.v2.model.create_notification_rule_parameters import CreateNotificationRuleParameters
 from datadog_api_client.v2.model.create_notification_rule_parameters_data import CreateNotificationRuleParametersData
 from datadog_api_client.v2.model.create_notification_rule_parameters_data_attributes import (
@@ -1048,6 +1053,7 @@ from datadog_api_client.v2.model.dataset_request import DatasetRequest
 from datadog_api_client.v2.model.dataset_response import DatasetResponse
 from datadog_api_client.v2.model.dataset_response_multi import DatasetResponseMulti
 from datadog_api_client.v2.model.dataset_response_single import DatasetResponseSingle
+from datadog_api_client.v2.model.dataset_type import DatasetType
 from datadog_api_client.v2.model.dataset_update_request import DatasetUpdateRequest
 from datadog_api_client.v2.model.delete_app_response import DeleteAppResponse
 from datadog_api_client.v2.model.delete_app_response_data import DeleteAppResponseData
@@ -1269,6 +1275,7 @@ from datadog_api_client.v2.model.escalation_relationships_responders_data_items_
 from datadog_api_client.v2.model.escalation_target import EscalationTarget
 from datadog_api_client.v2.model.escalation_targets import EscalationTargets
 from datadog_api_client.v2.model.escalation_type import EscalationType
+from datadog_api_client.v2.model.estimation import Estimation
 from datadog_api_client.v2.model.event import Event
 from datadog_api_client.v2.model.event_attributes import EventAttributes
 from datadog_api_client.v2.model.event_category import EventCategory
@@ -1429,6 +1436,7 @@ from datadog_api_client.v2.model.get_device_response import GetDeviceResponse
 from datadog_api_client.v2.model.get_finding_response import GetFindingResponse
 from datadog_api_client.v2.model.get_interfaces_data import GetInterfacesData
 from datadog_api_client.v2.model.get_interfaces_response import GetInterfacesResponse
+from datadog_api_client.v2.model.get_issue_include_query_parameter_item import GetIssueIncludeQueryParameterItem
 from datadog_api_client.v2.model.get_resource_evaluation_filters_response import GetResourceEvaluationFiltersResponse
 from datadog_api_client.v2.model.get_resource_evaluation_filters_response_data import (
     GetResourceEvaluationFiltersResponseData,
@@ -1449,6 +1457,8 @@ from datadog_api_client.v2.model.gitlab_credentials_update import GitlabCredenti
 from datadog_api_client.v2.model.gitlab_integration import GitlabIntegration
 from datadog_api_client.v2.model.gitlab_integration_type import GitlabIntegrationType
 from datadog_api_client.v2.model.gitlab_integration_update import GitlabIntegrationUpdate
+from datadog_api_client.v2.model.google_meet_configuration_reference import GoogleMeetConfigurationReference
+from datadog_api_client.v2.model.google_meet_configuration_reference_data import GoogleMeetConfigurationReferenceData
 from datadog_api_client.v2.model.grey_noise_api_key import GreyNoiseAPIKey
 from datadog_api_client.v2.model.grey_noise_api_key_type import GreyNoiseAPIKeyType
 from datadog_api_client.v2.model.grey_noise_api_key_update import GreyNoiseAPIKeyUpdate
@@ -1564,6 +1574,38 @@ from datadog_api_client.v2.model.incident_integration_metadata_type import Incid
 from datadog_api_client.v2.model.incident_integration_relationships import IncidentIntegrationRelationships
 from datadog_api_client.v2.model.incident_non_datadog_creator import IncidentNonDatadogCreator
 from datadog_api_client.v2.model.incident_notification_handle import IncidentNotificationHandle
+from datadog_api_client.v2.model.incident_notification_template import IncidentNotificationTemplate
+from datadog_api_client.v2.model.incident_notification_template_array import IncidentNotificationTemplateArray
+from datadog_api_client.v2.model.incident_notification_template_array_meta import IncidentNotificationTemplateArrayMeta
+from datadog_api_client.v2.model.incident_notification_template_array_meta_page import (
+    IncidentNotificationTemplateArrayMetaPage,
+)
+from datadog_api_client.v2.model.incident_notification_template_attributes import IncidentNotificationTemplateAttributes
+from datadog_api_client.v2.model.incident_notification_template_create_attributes import (
+    IncidentNotificationTemplateCreateAttributes,
+)
+from datadog_api_client.v2.model.incident_notification_template_create_data import (
+    IncidentNotificationTemplateCreateData,
+)
+from datadog_api_client.v2.model.incident_notification_template_create_data_relationships import (
+    IncidentNotificationTemplateCreateDataRelationships,
+)
+from datadog_api_client.v2.model.incident_notification_template_included_items import (
+    IncidentNotificationTemplateIncludedItems,
+)
+from datadog_api_client.v2.model.incident_notification_template_relationships import (
+    IncidentNotificationTemplateRelationships,
+)
+from datadog_api_client.v2.model.incident_notification_template_response_data import (
+    IncidentNotificationTemplateResponseData,
+)
+from datadog_api_client.v2.model.incident_notification_template_type import IncidentNotificationTemplateType
+from datadog_api_client.v2.model.incident_notification_template_update_attributes import (
+    IncidentNotificationTemplateUpdateAttributes,
+)
+from datadog_api_client.v2.model.incident_notification_template_update_data import (
+    IncidentNotificationTemplateUpdateData,
+)
 from datadog_api_client.v2.model.incident_postmortem_type import IncidentPostmortemType
 from datadog_api_client.v2.model.incident_related_object import IncidentRelatedObject
 from datadog_api_client.v2.model.incident_responders_type import IncidentRespondersType
@@ -1655,6 +1697,7 @@ from datadog_api_client.v2.model.incident_type_list_response import IncidentType
 from datadog_api_client.v2.model.incident_type_object import IncidentTypeObject
 from datadog_api_client.v2.model.incident_type_patch_data import IncidentTypePatchData
 from datadog_api_client.v2.model.incident_type_patch_request import IncidentTypePatchRequest
+from datadog_api_client.v2.model.incident_type_relationships import IncidentTypeRelationships
 from datadog_api_client.v2.model.incident_type_response import IncidentTypeResponse
 from datadog_api_client.v2.model.incident_type_type import IncidentTypeType
 from datadog_api_client.v2.model.incident_type_update_attributes import IncidentTypeUpdateAttributes
@@ -1673,6 +1716,62 @@ from datadog_api_client.v2.model.input_schema_parameters_type import InputSchema
 from datadog_api_client.v2.model.intake_payload_accepted import IntakePayloadAccepted
 from datadog_api_client.v2.model.interface_attributes import InterfaceAttributes
 from datadog_api_client.v2.model.interface_attributes_status import InterfaceAttributesStatus
+from datadog_api_client.v2.model.issue import Issue
+from datadog_api_client.v2.model.issue_assignee_relationship import IssueAssigneeRelationship
+from datadog_api_client.v2.model.issue_attributes import IssueAttributes
+from datadog_api_client.v2.model.issue_case import IssueCase
+from datadog_api_client.v2.model.issue_case_attributes import IssueCaseAttributes
+from datadog_api_client.v2.model.issue_case_insight import IssueCaseInsight
+from datadog_api_client.v2.model.issue_case_jira_issue import IssueCaseJiraIssue
+from datadog_api_client.v2.model.issue_case_jira_issue_result import IssueCaseJiraIssueResult
+from datadog_api_client.v2.model.issue_case_reference import IssueCaseReference
+from datadog_api_client.v2.model.issue_case_relationship import IssueCaseRelationship
+from datadog_api_client.v2.model.issue_case_relationships import IssueCaseRelationships
+from datadog_api_client.v2.model.issue_case_resource_type import IssueCaseResourceType
+from datadog_api_client.v2.model.issue_included import IssueIncluded
+from datadog_api_client.v2.model.issue_language import IssueLanguage
+from datadog_api_client.v2.model.issue_platform import IssuePlatform
+from datadog_api_client.v2.model.issue_reference import IssueReference
+from datadog_api_client.v2.model.issue_relationships import IssueRelationships
+from datadog_api_client.v2.model.issue_response import IssueResponse
+from datadog_api_client.v2.model.issue_state import IssueState
+from datadog_api_client.v2.model.issue_team import IssueTeam
+from datadog_api_client.v2.model.issue_team_attributes import IssueTeamAttributes
+from datadog_api_client.v2.model.issue_team_owners_relationship import IssueTeamOwnersRelationship
+from datadog_api_client.v2.model.issue_team_reference import IssueTeamReference
+from datadog_api_client.v2.model.issue_team_type import IssueTeamType
+from datadog_api_client.v2.model.issue_type import IssueType
+from datadog_api_client.v2.model.issue_update_assignee_request import IssueUpdateAssigneeRequest
+from datadog_api_client.v2.model.issue_update_assignee_request_data import IssueUpdateAssigneeRequestData
+from datadog_api_client.v2.model.issue_update_assignee_request_data_type import IssueUpdateAssigneeRequestDataType
+from datadog_api_client.v2.model.issue_update_state_request import IssueUpdateStateRequest
+from datadog_api_client.v2.model.issue_update_state_request_data import IssueUpdateStateRequestData
+from datadog_api_client.v2.model.issue_update_state_request_data_attributes import IssueUpdateStateRequestDataAttributes
+from datadog_api_client.v2.model.issue_update_state_request_data_type import IssueUpdateStateRequestDataType
+from datadog_api_client.v2.model.issue_user import IssueUser
+from datadog_api_client.v2.model.issue_user_attributes import IssueUserAttributes
+from datadog_api_client.v2.model.issue_user_reference import IssueUserReference
+from datadog_api_client.v2.model.issue_user_type import IssueUserType
+from datadog_api_client.v2.model.issues_search_request import IssuesSearchRequest
+from datadog_api_client.v2.model.issues_search_request_data import IssuesSearchRequestData
+from datadog_api_client.v2.model.issues_search_request_data_attributes import IssuesSearchRequestDataAttributes
+from datadog_api_client.v2.model.issues_search_request_data_attributes_order_by import (
+    IssuesSearchRequestDataAttributesOrderBy,
+)
+from datadog_api_client.v2.model.issues_search_request_data_attributes_persona import (
+    IssuesSearchRequestDataAttributesPersona,
+)
+from datadog_api_client.v2.model.issues_search_request_data_attributes_track import (
+    IssuesSearchRequestDataAttributesTrack,
+)
+from datadog_api_client.v2.model.issues_search_request_data_type import IssuesSearchRequestDataType
+from datadog_api_client.v2.model.issues_search_response import IssuesSearchResponse
+from datadog_api_client.v2.model.issues_search_result import IssuesSearchResult
+from datadog_api_client.v2.model.issues_search_result_attributes import IssuesSearchResultAttributes
+from datadog_api_client.v2.model.issues_search_result_included import IssuesSearchResultIncluded
+from datadog_api_client.v2.model.issues_search_result_issue_relationship import IssuesSearchResultIssueRelationship
+from datadog_api_client.v2.model.issues_search_result_relationships import IssuesSearchResultRelationships
+from datadog_api_client.v2.model.issues_search_result_type import IssuesSearchResultType
 from datadog_api_client.v2.model.jsonapi_error_item import JSONAPIErrorItem
 from datadog_api_client.v2.model.jsonapi_error_item_source import JSONAPIErrorItemSource
 from datadog_api_client.v2.model.jsonapi_error_response import JSONAPIErrorResponse
@@ -1956,6 +2055,10 @@ from datadog_api_client.v2.model.microsoft_teams_channel_info_response_attribute
 )
 from datadog_api_client.v2.model.microsoft_teams_channel_info_response_data import MicrosoftTeamsChannelInfoResponseData
 from datadog_api_client.v2.model.microsoft_teams_channel_info_type import MicrosoftTeamsChannelInfoType
+from datadog_api_client.v2.model.microsoft_teams_configuration_reference import MicrosoftTeamsConfigurationReference
+from datadog_api_client.v2.model.microsoft_teams_configuration_reference_data import (
+    MicrosoftTeamsConfigurationReferenceData,
+)
 from datadog_api_client.v2.model.microsoft_teams_create_tenant_based_handle_request import (
     MicrosoftTeamsCreateTenantBasedHandleRequest,
 )
@@ -2177,6 +2280,12 @@ from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source import 
 from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source_type import (
     ObservabilityPipelineAmazonS3SourceType,
 )
+from datadog_api_client.v2.model.observability_pipeline_amazon_security_lake_destination import (
+    ObservabilityPipelineAmazonSecurityLakeDestination,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_security_lake_destination_type import (
+    ObservabilityPipelineAmazonSecurityLakeDestinationType,
+)
 from datadog_api_client.v2.model.observability_pipeline_aws_auth import ObservabilityPipelineAwsAuth
 from datadog_api_client.v2.model.observability_pipeline_config import ObservabilityPipelineConfig
 from datadog_api_client.v2.model.observability_pipeline_config_destination_item import (
@@ -2186,6 +2295,28 @@ from datadog_api_client.v2.model.observability_pipeline_config_processor_item im
     ObservabilityPipelineConfigProcessorItem,
 )
 from datadog_api_client.v2.model.observability_pipeline_config_source_item import ObservabilityPipelineConfigSourceItem
+from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination import (
+    ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
+)
+from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination_compression import (
+    ObservabilityPipelineCrowdStrikeNextGenSiemDestinationCompression,
+)
+from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination_compression_algorithm import (
+    ObservabilityPipelineCrowdStrikeNextGenSiemDestinationCompressionAlgorithm,
+)
+from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination_encoding import (
+    ObservabilityPipelineCrowdStrikeNextGenSiemDestinationEncoding,
+)
+from datadog_api_client.v2.model.observability_pipeline_crowd_strike_next_gen_siem_destination_type import (
+    ObservabilityPipelineCrowdStrikeNextGenSiemDestinationType,
+)
+from datadog_api_client.v2.model.observability_pipeline_custom_processor import ObservabilityPipelineCustomProcessor
+from datadog_api_client.v2.model.observability_pipeline_custom_processor_remap import (
+    ObservabilityPipelineCustomProcessorRemap,
+)
+from datadog_api_client.v2.model.observability_pipeline_custom_processor_type import (
+    ObservabilityPipelineCustomProcessorType,
+)
 from datadog_api_client.v2.model.observability_pipeline_data import ObservabilityPipelineData
 from datadog_api_client.v2.model.observability_pipeline_data_attributes import ObservabilityPipelineDataAttributes
 from datadog_api_client.v2.model.observability_pipeline_datadog_agent_source import (
@@ -2199,6 +2330,18 @@ from datadog_api_client.v2.model.observability_pipeline_datadog_logs_destination
 )
 from datadog_api_client.v2.model.observability_pipeline_datadog_logs_destination_type import (
     ObservabilityPipelineDatadogLogsDestinationType,
+)
+from datadog_api_client.v2.model.observability_pipeline_datadog_tags_processor import (
+    ObservabilityPipelineDatadogTagsProcessor,
+)
+from datadog_api_client.v2.model.observability_pipeline_datadog_tags_processor_action import (
+    ObservabilityPipelineDatadogTagsProcessorAction,
+)
+from datadog_api_client.v2.model.observability_pipeline_datadog_tags_processor_mode import (
+    ObservabilityPipelineDatadogTagsProcessorMode,
+)
+from datadog_api_client.v2.model.observability_pipeline_datadog_tags_processor_type import (
+    ObservabilityPipelineDatadogTagsProcessorType,
 )
 from datadog_api_client.v2.model.observability_pipeline_decoding import ObservabilityPipelineDecoding
 from datadog_api_client.v2.model.observability_pipeline_dedupe_processor import ObservabilityPipelineDedupeProcessor
@@ -2541,6 +2684,73 @@ from datadog_api_client.v2.model.observability_pipeline_sentinel_one_destination
 from datadog_api_client.v2.model.observability_pipeline_sentinel_one_destination_type import (
     ObservabilityPipelineSentinelOneDestinationType,
 )
+from datadog_api_client.v2.model.observability_pipeline_socket_destination import ObservabilityPipelineSocketDestination
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_encoding import (
+    ObservabilityPipelineSocketDestinationEncoding,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing import (
+    ObservabilityPipelineSocketDestinationFraming,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_bytes import (
+    ObservabilityPipelineSocketDestinationFramingBytes,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_bytes_method import (
+    ObservabilityPipelineSocketDestinationFramingBytesMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_character_delimited import (
+    ObservabilityPipelineSocketDestinationFramingCharacterDelimited,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_character_delimited_method import (
+    ObservabilityPipelineSocketDestinationFramingCharacterDelimitedMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_newline_delimited import (
+    ObservabilityPipelineSocketDestinationFramingNewlineDelimited,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_framing_newline_delimited_method import (
+    ObservabilityPipelineSocketDestinationFramingNewlineDelimitedMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_mode import (
+    ObservabilityPipelineSocketDestinationMode,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_destination_type import (
+    ObservabilityPipelineSocketDestinationType,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source import ObservabilityPipelineSocketSource
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing import (
+    ObservabilityPipelineSocketSourceFraming,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_bytes import (
+    ObservabilityPipelineSocketSourceFramingBytes,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_bytes_method import (
+    ObservabilityPipelineSocketSourceFramingBytesMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_character_delimited import (
+    ObservabilityPipelineSocketSourceFramingCharacterDelimited,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_character_delimited_method import (
+    ObservabilityPipelineSocketSourceFramingCharacterDelimitedMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_chunked_gelf import (
+    ObservabilityPipelineSocketSourceFramingChunkedGelf,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_chunked_gelf_method import (
+    ObservabilityPipelineSocketSourceFramingChunkedGelfMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_newline_delimited import (
+    ObservabilityPipelineSocketSourceFramingNewlineDelimited,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_newline_delimited_method import (
+    ObservabilityPipelineSocketSourceFramingNewlineDelimitedMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_octet_counting import (
+    ObservabilityPipelineSocketSourceFramingOctetCounting,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_framing_octet_counting_method import (
+    ObservabilityPipelineSocketSourceFramingOctetCountingMethod,
+)
+from datadog_api_client.v2.model.observability_pipeline_socket_source_mode import ObservabilityPipelineSocketSourceMode
+from datadog_api_client.v2.model.observability_pipeline_socket_source_type import ObservabilityPipelineSocketSourceType
 from datadog_api_client.v2.model.observability_pipeline_spec import ObservabilityPipelineSpec
 from datadog_api_client.v2.model.observability_pipeline_spec_data import ObservabilityPipelineSpecData
 from datadog_api_client.v2.model.observability_pipeline_splunk_hec_destination import (
@@ -2646,6 +2856,28 @@ from datadog_api_client.v2.model.org_config_type import OrgConfigType
 from datadog_api_client.v2.model.org_config_write import OrgConfigWrite
 from datadog_api_client.v2.model.org_config_write_attributes import OrgConfigWriteAttributes
 from datadog_api_client.v2.model.org_config_write_request import OrgConfigWriteRequest
+from datadog_api_client.v2.model.org_connection import OrgConnection
+from datadog_api_client.v2.model.org_connection_attributes import OrgConnectionAttributes
+from datadog_api_client.v2.model.org_connection_create import OrgConnectionCreate
+from datadog_api_client.v2.model.org_connection_create_attributes import OrgConnectionCreateAttributes
+from datadog_api_client.v2.model.org_connection_create_relationships import OrgConnectionCreateRelationships
+from datadog_api_client.v2.model.org_connection_create_request import OrgConnectionCreateRequest
+from datadog_api_client.v2.model.org_connection_list_response import OrgConnectionListResponse
+from datadog_api_client.v2.model.org_connection_list_response_meta import OrgConnectionListResponseMeta
+from datadog_api_client.v2.model.org_connection_list_response_meta_page import OrgConnectionListResponseMetaPage
+from datadog_api_client.v2.model.org_connection_org_relationship import OrgConnectionOrgRelationship
+from datadog_api_client.v2.model.org_connection_org_relationship_data import OrgConnectionOrgRelationshipData
+from datadog_api_client.v2.model.org_connection_org_relationship_data_type import OrgConnectionOrgRelationshipDataType
+from datadog_api_client.v2.model.org_connection_relationships import OrgConnectionRelationships
+from datadog_api_client.v2.model.org_connection_response import OrgConnectionResponse
+from datadog_api_client.v2.model.org_connection_type import OrgConnectionType
+from datadog_api_client.v2.model.org_connection_type_enum import OrgConnectionTypeEnum
+from datadog_api_client.v2.model.org_connection_update import OrgConnectionUpdate
+from datadog_api_client.v2.model.org_connection_update_attributes import OrgConnectionUpdateAttributes
+from datadog_api_client.v2.model.org_connection_update_request import OrgConnectionUpdateRequest
+from datadog_api_client.v2.model.org_connection_user_relationship import OrgConnectionUserRelationship
+from datadog_api_client.v2.model.org_connection_user_relationship_data import OrgConnectionUserRelationshipData
+from datadog_api_client.v2.model.org_connection_user_relationship_data_type import OrgConnectionUserRelationshipDataType
 from datadog_api_client.v2.model.organization import Organization
 from datadog_api_client.v2.model.organization_attributes import OrganizationAttributes
 from datadog_api_client.v2.model.organizations_type import OrganizationsType
@@ -2677,6 +2909,9 @@ from datadog_api_client.v2.model.partial_api_key_attributes import PartialAPIKey
 from datadog_api_client.v2.model.partial_application_key import PartialApplicationKey
 from datadog_api_client.v2.model.partial_application_key_attributes import PartialApplicationKeyAttributes
 from datadog_api_client.v2.model.partial_application_key_response import PartialApplicationKeyResponse
+from datadog_api_client.v2.model.patch_incident_notification_template_request import (
+    PatchIncidentNotificationTemplateRequest,
+)
 from datadog_api_client.v2.model.patch_notification_rule_parameters import PatchNotificationRuleParameters
 from datadog_api_client.v2.model.patch_notification_rule_parameters_data import PatchNotificationRuleParametersData
 from datadog_api_client.v2.model.patch_notification_rule_parameters_data_attributes import (
@@ -2757,12 +2992,17 @@ from datadog_api_client.v2.model.rum_compute import RUMCompute
 from datadog_api_client.v2.model.rum_compute_type import RUMComputeType
 from datadog_api_client.v2.model.rum_event import RUMEvent
 from datadog_api_client.v2.model.rum_event_attributes import RUMEventAttributes
+from datadog_api_client.v2.model.rum_event_processing_scale import RUMEventProcessingScale
+from datadog_api_client.v2.model.rum_event_processing_state import RUMEventProcessingState
 from datadog_api_client.v2.model.rum_event_type import RUMEventType
 from datadog_api_client.v2.model.rum_events_response import RUMEventsResponse
 from datadog_api_client.v2.model.rum_group_by import RUMGroupBy
 from datadog_api_client.v2.model.rum_group_by_histogram import RUMGroupByHistogram
 from datadog_api_client.v2.model.rum_group_by_missing import RUMGroupByMissing
 from datadog_api_client.v2.model.rum_group_by_total import RUMGroupByTotal
+from datadog_api_client.v2.model.rum_product_analytics_retention_scale import RUMProductAnalyticsRetentionScale
+from datadog_api_client.v2.model.rum_product_analytics_retention_state import RUMProductAnalyticsRetentionState
+from datadog_api_client.v2.model.rum_product_scales import RUMProductScales
 from datadog_api_client.v2.model.rum_query_filter import RUMQueryFilter
 from datadog_api_client.v2.model.rum_query_options import RUMQueryOptions
 from datadog_api_client.v2.model.rum_query_page_options import RUMQueryPageOptions
@@ -2776,6 +3016,10 @@ from datadog_api_client.v2.model.rum_sort_order import RUMSortOrder
 from datadog_api_client.v2.model.rum_warning import RUMWarning
 from datadog_api_client.v2.model.readiness_gate import ReadinessGate
 from datadog_api_client.v2.model.readiness_gate_threshold_type import ReadinessGateThresholdType
+from datadog_api_client.v2.model.recommendation_attributes import RecommendationAttributes
+from datadog_api_client.v2.model.recommendation_data import RecommendationData
+from datadog_api_client.v2.model.recommendation_document import RecommendationDocument
+from datadog_api_client.v2.model.recommendation_type import RecommendationType
 from datadog_api_client.v2.model.register_app_key_response import RegisterAppKeyResponse
 from datadog_api_client.v2.model.relation_attributes import RelationAttributes
 from datadog_api_client.v2.model.relation_entity import RelationEntity
@@ -2802,6 +3046,8 @@ from datadog_api_client.v2.model.relationship_to_incident_postmortem import Rela
 from datadog_api_client.v2.model.relationship_to_incident_postmortem_data import RelationshipToIncidentPostmortemData
 from datadog_api_client.v2.model.relationship_to_incident_responder_data import RelationshipToIncidentResponderData
 from datadog_api_client.v2.model.relationship_to_incident_responders import RelationshipToIncidentResponders
+from datadog_api_client.v2.model.relationship_to_incident_type import RelationshipToIncidentType
+from datadog_api_client.v2.model.relationship_to_incident_type_data import RelationshipToIncidentTypeData
 from datadog_api_client.v2.model.relationship_to_incident_user_defined_field_data import (
     RelationshipToIncidentUserDefinedFieldData,
 )
@@ -3045,6 +3291,7 @@ from datadog_api_client.v2.model.schedule_user import ScheduleUser
 from datadog_api_client.v2.model.schedule_user_attributes import ScheduleUserAttributes
 from datadog_api_client.v2.model.schedule_user_type import ScheduleUserType
 from datadog_api_client.v2.model.scorecard_type import ScorecardType
+from datadog_api_client.v2.model.search_issues_include_query_parameter_item import SearchIssuesIncludeQueryParameterItem
 from datadog_api_client.v2.model.security_filter import SecurityFilter
 from datadog_api_client.v2.model.security_filter_attributes import SecurityFilterAttributes
 from datadog_api_client.v2.model.security_filter_create_attributes import SecurityFilterCreateAttributes
@@ -3628,6 +3875,12 @@ from datadog_api_client.v2.model.team_routing_rules_request_data import TeamRout
 from datadog_api_client.v2.model.team_routing_rules_request_data_attributes import TeamRoutingRulesRequestDataAttributes
 from datadog_api_client.v2.model.team_routing_rules_request_data_type import TeamRoutingRulesRequestDataType
 from datadog_api_client.v2.model.team_routing_rules_request_rule import TeamRoutingRulesRequestRule
+from datadog_api_client.v2.model.team_sync_attributes import TeamSyncAttributes
+from datadog_api_client.v2.model.team_sync_attributes_source import TeamSyncAttributesSource
+from datadog_api_client.v2.model.team_sync_attributes_type import TeamSyncAttributesType
+from datadog_api_client.v2.model.team_sync_bulk_type import TeamSyncBulkType
+from datadog_api_client.v2.model.team_sync_data import TeamSyncData
+from datadog_api_client.v2.model.team_sync_request import TeamSyncRequest
 from datadog_api_client.v2.model.team_target import TeamTarget
 from datadog_api_client.v2.model.team_target_type import TeamTargetType
 from datadog_api_client.v2.model.team_type import TeamType
@@ -3676,6 +3929,11 @@ from datadog_api_client.v2.model.update_custom_framework_response import UpdateC
 from datadog_api_client.v2.model.update_open_api_response import UpdateOpenAPIResponse
 from datadog_api_client.v2.model.update_open_api_response_attributes import UpdateOpenAPIResponseAttributes
 from datadog_api_client.v2.model.update_open_api_response_data import UpdateOpenAPIResponseData
+from datadog_api_client.v2.model.update_outcomes_async_attributes import UpdateOutcomesAsyncAttributes
+from datadog_api_client.v2.model.update_outcomes_async_request import UpdateOutcomesAsyncRequest
+from datadog_api_client.v2.model.update_outcomes_async_request_data import UpdateOutcomesAsyncRequestData
+from datadog_api_client.v2.model.update_outcomes_async_request_item import UpdateOutcomesAsyncRequestItem
+from datadog_api_client.v2.model.update_outcomes_async_type import UpdateOutcomesAsyncType
 from datadog_api_client.v2.model.update_resource_evaluation_filters_request import (
     UpdateResourceEvaluationFiltersRequest,
 )
@@ -3817,6 +4075,8 @@ from datadog_api_client.v2.model.worklflow_get_instance_response_data_attributes
 from datadog_api_client.v2.model.x_ray_services_include_all import XRayServicesIncludeAll
 from datadog_api_client.v2.model.x_ray_services_include_only import XRayServicesIncludeOnly
 from datadog_api_client.v2.model.x_ray_services_list import XRayServicesList
+from datadog_api_client.v2.model.zoom_configuration_reference import ZoomConfigurationReference
+from datadog_api_client.v2.model.zoom_configuration_reference_data import ZoomConfigurationReferenceData
 
 __all__ = [
     "APIErrorResponse",
@@ -4349,6 +4609,7 @@ __all__ = [
     "ComponentGridType",
     "ComponentProperties",
     "ComponentPropertiesIsVisible",
+    "ComponentRecommendation",
     "ComponentType",
     "ConfigCatCredentials",
     "ConfigCatCredentialsUpdate",
@@ -4426,6 +4687,7 @@ __all__ = [
     "CostByOrgAttributes",
     "CostByOrgResponse",
     "CostByOrgType",
+    "Cpu",
     "CreateActionConnectionRequest",
     "CreateActionConnectionResponse",
     "CreateAppRequest",
@@ -4440,6 +4702,7 @@ __all__ = [
     "CreateDataDeletionRequestBodyData",
     "CreateDataDeletionRequestBodyDataType",
     "CreateDataDeletionResponseBody",
+    "CreateIncidentNotificationTemplateRequest",
     "CreateNotificationRuleParameters",
     "CreateNotificationRuleParametersData",
     "CreateNotificationRuleParametersDataAttributes",
@@ -4603,6 +4866,7 @@ __all__ = [
     "DatasetResponse",
     "DatasetResponseMulti",
     "DatasetResponseSingle",
+    "DatasetType",
     "DatasetUpdateRequest",
     "DeleteAppResponse",
     "DeleteAppResponseData",
@@ -4774,6 +5038,7 @@ __all__ = [
     "EscalationTarget",
     "EscalationTargets",
     "EscalationType",
+    "Estimation",
     "Event",
     "EventAttributes",
     "EventCategory",
@@ -4926,6 +5191,7 @@ __all__ = [
     "GetFindingResponse",
     "GetInterfacesData",
     "GetInterfacesResponse",
+    "GetIssueIncludeQueryParameterItem",
     "GetResourceEvaluationFiltersResponse",
     "GetResourceEvaluationFiltersResponseData",
     "GetRuleVersionHistoryData",
@@ -4944,6 +5210,8 @@ __all__ = [
     "GitlabIntegration",
     "GitlabIntegrationType",
     "GitlabIntegrationUpdate",
+    "GoogleMeetConfigurationReference",
+    "GoogleMeetConfigurationReferenceData",
     "GreyNoiseAPIKey",
     "GreyNoiseAPIKeyType",
     "GreyNoiseAPIKeyUpdate",
@@ -5039,6 +5307,20 @@ __all__ = [
     "IncidentIntegrationRelationships",
     "IncidentNonDatadogCreator",
     "IncidentNotificationHandle",
+    "IncidentNotificationTemplate",
+    "IncidentNotificationTemplateArray",
+    "IncidentNotificationTemplateArrayMeta",
+    "IncidentNotificationTemplateArrayMetaPage",
+    "IncidentNotificationTemplateAttributes",
+    "IncidentNotificationTemplateCreateAttributes",
+    "IncidentNotificationTemplateCreateData",
+    "IncidentNotificationTemplateCreateDataRelationships",
+    "IncidentNotificationTemplateIncludedItems",
+    "IncidentNotificationTemplateRelationships",
+    "IncidentNotificationTemplateResponseData",
+    "IncidentNotificationTemplateType",
+    "IncidentNotificationTemplateUpdateAttributes",
+    "IncidentNotificationTemplateUpdateData",
     "IncidentPostmortemType",
     "IncidentRelatedObject",
     "IncidentRespondersType",
@@ -5118,6 +5400,7 @@ __all__ = [
     "IncidentTypeObject",
     "IncidentTypePatchData",
     "IncidentTypePatchRequest",
+    "IncidentTypeRelationships",
     "IncidentTypeResponse",
     "IncidentTypeType",
     "IncidentTypeUpdateAttributes",
@@ -5136,6 +5419,56 @@ __all__ = [
     "IntakePayloadAccepted",
     "InterfaceAttributes",
     "InterfaceAttributesStatus",
+    "Issue",
+    "IssueAssigneeRelationship",
+    "IssueAttributes",
+    "IssueCase",
+    "IssueCaseAttributes",
+    "IssueCaseInsight",
+    "IssueCaseJiraIssue",
+    "IssueCaseJiraIssueResult",
+    "IssueCaseReference",
+    "IssueCaseRelationship",
+    "IssueCaseRelationships",
+    "IssueCaseResourceType",
+    "IssueIncluded",
+    "IssueLanguage",
+    "IssuePlatform",
+    "IssueReference",
+    "IssueRelationships",
+    "IssueResponse",
+    "IssueState",
+    "IssueTeam",
+    "IssueTeamAttributes",
+    "IssueTeamOwnersRelationship",
+    "IssueTeamReference",
+    "IssueTeamType",
+    "IssueType",
+    "IssueUpdateAssigneeRequest",
+    "IssueUpdateAssigneeRequestData",
+    "IssueUpdateAssigneeRequestDataType",
+    "IssueUpdateStateRequest",
+    "IssueUpdateStateRequestData",
+    "IssueUpdateStateRequestDataAttributes",
+    "IssueUpdateStateRequestDataType",
+    "IssueUser",
+    "IssueUserAttributes",
+    "IssueUserReference",
+    "IssueUserType",
+    "IssuesSearchRequest",
+    "IssuesSearchRequestData",
+    "IssuesSearchRequestDataAttributes",
+    "IssuesSearchRequestDataAttributesOrderBy",
+    "IssuesSearchRequestDataAttributesPersona",
+    "IssuesSearchRequestDataAttributesTrack",
+    "IssuesSearchRequestDataType",
+    "IssuesSearchResponse",
+    "IssuesSearchResult",
+    "IssuesSearchResultAttributes",
+    "IssuesSearchResultIncluded",
+    "IssuesSearchResultIssueRelationship",
+    "IssuesSearchResultRelationships",
+    "IssuesSearchResultType",
     "JSONAPIErrorItem",
     "JSONAPIErrorItemSource",
     "JSONAPIErrorResponse",
@@ -5399,6 +5732,8 @@ __all__ = [
     "MicrosoftTeamsChannelInfoResponseAttributes",
     "MicrosoftTeamsChannelInfoResponseData",
     "MicrosoftTeamsChannelInfoType",
+    "MicrosoftTeamsConfigurationReference",
+    "MicrosoftTeamsConfigurationReferenceData",
     "MicrosoftTeamsCreateTenantBasedHandleRequest",
     "MicrosoftTeamsCreateWorkflowsWebhookHandleRequest",
     "MicrosoftTeamsGetChannelByNameResponse",
@@ -5516,17 +5851,31 @@ __all__ = [
     "ObservabilityPipelineAmazonS3DestinationType",
     "ObservabilityPipelineAmazonS3Source",
     "ObservabilityPipelineAmazonS3SourceType",
+    "ObservabilityPipelineAmazonSecurityLakeDestination",
+    "ObservabilityPipelineAmazonSecurityLakeDestinationType",
     "ObservabilityPipelineAwsAuth",
     "ObservabilityPipelineConfig",
     "ObservabilityPipelineConfigDestinationItem",
     "ObservabilityPipelineConfigProcessorItem",
     "ObservabilityPipelineConfigSourceItem",
+    "ObservabilityPipelineCrowdStrikeNextGenSiemDestination",
+    "ObservabilityPipelineCrowdStrikeNextGenSiemDestinationCompression",
+    "ObservabilityPipelineCrowdStrikeNextGenSiemDestinationCompressionAlgorithm",
+    "ObservabilityPipelineCrowdStrikeNextGenSiemDestinationEncoding",
+    "ObservabilityPipelineCrowdStrikeNextGenSiemDestinationType",
+    "ObservabilityPipelineCustomProcessor",
+    "ObservabilityPipelineCustomProcessorRemap",
+    "ObservabilityPipelineCustomProcessorType",
     "ObservabilityPipelineData",
     "ObservabilityPipelineDataAttributes",
     "ObservabilityPipelineDatadogAgentSource",
     "ObservabilityPipelineDatadogAgentSourceType",
     "ObservabilityPipelineDatadogLogsDestination",
     "ObservabilityPipelineDatadogLogsDestinationType",
+    "ObservabilityPipelineDatadogTagsProcessor",
+    "ObservabilityPipelineDatadogTagsProcessorAction",
+    "ObservabilityPipelineDatadogTagsProcessorMode",
+    "ObservabilityPipelineDatadogTagsProcessorType",
     "ObservabilityPipelineDecoding",
     "ObservabilityPipelineDedupeProcessor",
     "ObservabilityPipelineDedupeProcessorMode",
@@ -5654,6 +6003,31 @@ __all__ = [
     "ObservabilityPipelineSentinelOneDestination",
     "ObservabilityPipelineSentinelOneDestinationRegion",
     "ObservabilityPipelineSentinelOneDestinationType",
+    "ObservabilityPipelineSocketDestination",
+    "ObservabilityPipelineSocketDestinationEncoding",
+    "ObservabilityPipelineSocketDestinationFraming",
+    "ObservabilityPipelineSocketDestinationFramingBytes",
+    "ObservabilityPipelineSocketDestinationFramingBytesMethod",
+    "ObservabilityPipelineSocketDestinationFramingCharacterDelimited",
+    "ObservabilityPipelineSocketDestinationFramingCharacterDelimitedMethod",
+    "ObservabilityPipelineSocketDestinationFramingNewlineDelimited",
+    "ObservabilityPipelineSocketDestinationFramingNewlineDelimitedMethod",
+    "ObservabilityPipelineSocketDestinationMode",
+    "ObservabilityPipelineSocketDestinationType",
+    "ObservabilityPipelineSocketSource",
+    "ObservabilityPipelineSocketSourceFraming",
+    "ObservabilityPipelineSocketSourceFramingBytes",
+    "ObservabilityPipelineSocketSourceFramingBytesMethod",
+    "ObservabilityPipelineSocketSourceFramingCharacterDelimited",
+    "ObservabilityPipelineSocketSourceFramingCharacterDelimitedMethod",
+    "ObservabilityPipelineSocketSourceFramingChunkedGelf",
+    "ObservabilityPipelineSocketSourceFramingChunkedGelfMethod",
+    "ObservabilityPipelineSocketSourceFramingNewlineDelimited",
+    "ObservabilityPipelineSocketSourceFramingNewlineDelimitedMethod",
+    "ObservabilityPipelineSocketSourceFramingOctetCounting",
+    "ObservabilityPipelineSocketSourceFramingOctetCountingMethod",
+    "ObservabilityPipelineSocketSourceMode",
+    "ObservabilityPipelineSocketSourceType",
     "ObservabilityPipelineSpec",
     "ObservabilityPipelineSpecData",
     "ObservabilityPipelineSplunkHecDestination",
@@ -5731,6 +6105,28 @@ __all__ = [
     "OrgConfigWrite",
     "OrgConfigWriteAttributes",
     "OrgConfigWriteRequest",
+    "OrgConnection",
+    "OrgConnectionAttributes",
+    "OrgConnectionCreate",
+    "OrgConnectionCreateAttributes",
+    "OrgConnectionCreateRelationships",
+    "OrgConnectionCreateRequest",
+    "OrgConnectionListResponse",
+    "OrgConnectionListResponseMeta",
+    "OrgConnectionListResponseMetaPage",
+    "OrgConnectionOrgRelationship",
+    "OrgConnectionOrgRelationshipData",
+    "OrgConnectionOrgRelationshipDataType",
+    "OrgConnectionRelationships",
+    "OrgConnectionResponse",
+    "OrgConnectionType",
+    "OrgConnectionTypeEnum",
+    "OrgConnectionUpdate",
+    "OrgConnectionUpdateAttributes",
+    "OrgConnectionUpdateRequest",
+    "OrgConnectionUserRelationship",
+    "OrgConnectionUserRelationshipData",
+    "OrgConnectionUserRelationshipDataType",
     "Organization",
     "OrganizationAttributes",
     "OrganizationsType",
@@ -5760,6 +6156,7 @@ __all__ = [
     "PartialApplicationKey",
     "PartialApplicationKeyAttributes",
     "PartialApplicationKeyResponse",
+    "PatchIncidentNotificationTemplateRequest",
     "PatchNotificationRuleParameters",
     "PatchNotificationRuleParametersData",
     "PatchNotificationRuleParametersDataAttributes",
@@ -5836,12 +6233,17 @@ __all__ = [
     "RUMComputeType",
     "RUMEvent",
     "RUMEventAttributes",
+    "RUMEventProcessingScale",
+    "RUMEventProcessingState",
     "RUMEventType",
     "RUMEventsResponse",
     "RUMGroupBy",
     "RUMGroupByHistogram",
     "RUMGroupByMissing",
     "RUMGroupByTotal",
+    "RUMProductAnalyticsRetentionScale",
+    "RUMProductAnalyticsRetentionState",
+    "RUMProductScales",
     "RUMQueryFilter",
     "RUMQueryOptions",
     "RUMQueryPageOptions",
@@ -5855,6 +6257,10 @@ __all__ = [
     "RUMWarning",
     "ReadinessGate",
     "ReadinessGateThresholdType",
+    "RecommendationAttributes",
+    "RecommendationData",
+    "RecommendationDocument",
+    "RecommendationType",
     "RegisterAppKeyResponse",
     "RelationAttributes",
     "RelationEntity",
@@ -5877,6 +6283,8 @@ __all__ = [
     "RelationshipToIncidentPostmortemData",
     "RelationshipToIncidentResponderData",
     "RelationshipToIncidentResponders",
+    "RelationshipToIncidentType",
+    "RelationshipToIncidentTypeData",
     "RelationshipToIncidentUserDefinedFieldData",
     "RelationshipToIncidentUserDefinedFields",
     "RelationshipToOrganization",
@@ -6094,6 +6502,7 @@ __all__ = [
     "ScheduleUserAttributes",
     "ScheduleUserType",
     "ScorecardType",
+    "SearchIssuesIncludeQueryParameterItem",
     "SecurityFilter",
     "SecurityFilterAttributes",
     "SecurityFilterCreateAttributes",
@@ -6511,6 +6920,12 @@ __all__ = [
     "TeamRoutingRulesRequestDataAttributes",
     "TeamRoutingRulesRequestDataType",
     "TeamRoutingRulesRequestRule",
+    "TeamSyncAttributes",
+    "TeamSyncAttributesSource",
+    "TeamSyncAttributesType",
+    "TeamSyncBulkType",
+    "TeamSyncData",
+    "TeamSyncRequest",
     "TeamTarget",
     "TeamTargetType",
     "TeamType",
@@ -6559,6 +6974,11 @@ __all__ = [
     "UpdateOpenAPIResponse",
     "UpdateOpenAPIResponseAttributes",
     "UpdateOpenAPIResponseData",
+    "UpdateOutcomesAsyncAttributes",
+    "UpdateOutcomesAsyncRequest",
+    "UpdateOutcomesAsyncRequestData",
+    "UpdateOutcomesAsyncRequestItem",
+    "UpdateOutcomesAsyncType",
     "UpdateResourceEvaluationFiltersRequest",
     "UpdateResourceEvaluationFiltersRequestData",
     "UpdateResourceEvaluationFiltersResponse",
@@ -6686,4 +7106,6 @@ __all__ = [
     "XRayServicesIncludeAll",
     "XRayServicesIncludeOnly",
     "XRayServicesList",
+    "ZoomConfigurationReference",
+    "ZoomConfigurationReferenceData",
 ]

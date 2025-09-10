@@ -326,6 +326,58 @@ class SFTTrainerTester(TrlTestCase):
             new_param = trainer.model.get_parameter(n)
             self.assertFalse(torch.allclose(param, new_param), f"Parameter {n} has not changed")
 
+    def test_train_dft_loss(self):
+        # Get the dataset
+        dataset = load_dataset("trl-internal-testing/zen", "standard_language_modeling", split="train")
+
+        # Initialize the trainer
+        training_args = SFTConfig(output_dir=self.tmp_dir, loss_type="dft", report_to="none")
+        trainer = SFTTrainer(
+            model="trl-internal-testing/tiny-Qwen2ForCausalLM-2.5", args=training_args, train_dataset=dataset
+        )
+
+        # Save the initial parameters to compare them later
+        previous_trainable_params = {n: param.clone() for n, param in trainer.model.named_parameters()}
+
+        # Train the model
+        trainer.train()
+
+        # Check that the training loss is not None
+        self.assertIsNotNone(trainer.state.log_history[-1]["train_loss"])
+
+        # Check the params have changed
+        for n, param in previous_trainable_params.items():
+            new_param = trainer.model.get_parameter(n)
+            self.assertFalse(torch.allclose(param, new_param), f"Parameter {n} has not changed")
+
+    def test_train_moe_model_with_aux_loss(self):
+        # Get the dataset
+        dataset = load_dataset("trl-internal-testing/zen", "standard_language_modeling", split="train")
+
+        # Initialize the trainer
+        training_args = SFTConfig(
+            output_dir=self.tmp_dir,
+            report_to="none",
+            model_init_kwargs={"output_router_logits": True},
+        )
+        trainer = SFTTrainer(
+            model="trl-internal-testing/tiny-Qwen3MoeForCausalLM", args=training_args, train_dataset=dataset
+        )
+        # Save the initial parameters to compare them later
+        previous_trainable_params = {n: param.clone() for n, param in trainer.model.named_parameters()}
+
+        # Train the model
+        trainer.train()
+
+        # Check that the training loss and aux loss are not None
+        self.assertIsNotNone(trainer.state.log_history[-1]["train_loss"])
+        self.assertIsNotNone(trainer.state.log_history[-1]["aux_loss"])
+
+        # Check the params have changed
+        for n, param in previous_trainable_params.items():
+            new_param = trainer.model.get_parameter(n)
+            self.assertFalse(torch.allclose(param, new_param), f"Parameter {n} has not changed")
+
     def test_train_with_formatting_func(self):
         # Dummy formatting function
         def formatting_prompts_func(example):
@@ -358,14 +410,14 @@ class SFTTrainerTester(TrlTestCase):
             new_param = trainer.model.get_parameter(n)
             self.assertFalse(torch.allclose(param, new_param), f"Parameter {n} has not changed")
 
-    def test_train_model_torch_dtype(self):
+    def test_train_model_dtype(self):
         # Get the dataset
         dataset = load_dataset("trl-internal-testing/zen", "standard_language_modeling", split="train")
 
         # Initialize the trainer
         training_args = SFTConfig(
             output_dir=self.tmp_dir,
-            model_init_kwargs={"torch_dtype": torch.float16},
+            model_init_kwargs={"dtype": torch.float16},
             learning_rate=0.1,
             report_to="none",
         )
@@ -1294,7 +1346,7 @@ class SFTTrainerTester(TrlTestCase):
             max_length=None,
             per_device_train_batch_size=1,
             gradient_checkpointing=True,
-            model_init_kwargs={"torch_dtype": "bfloat16"},
+            model_init_kwargs={"dtype": "bfloat16"},
             report_to="none",
         )
         trainer = SFTTrainer(model="google/gemma-3n-E2B-it", args=training_args, train_dataset=dataset)

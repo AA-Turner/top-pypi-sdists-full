@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# (c) 2021, NetApp Inc
+# (c) 2021-2025, NetApp Inc
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """NetApp StorageGRID - Manage Tenant Identity Federation"""
@@ -97,49 +97,49 @@ options:
 """
 
 EXAMPLES = """
-  - name: test identity federation configuration
-    netapp.storagegrid.na_sg_org_identity_federation:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      ldap_service_type: "Active Directory"
-      hostname: "ad.example.com"
-      port: 389
-      username: "binduser"
-      password: "bindpass"
-      base_group_dn: "DC=example,DC=com"
-      base_user_dn: "DC=example,DC=com"
-      tls: "Disabled"
-    check_mode: yes
+- name: test identity federation configuration
+  netapp.storagegrid.na_sg_org_identity_federation:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    ldap_service_type: "Active Directory"
+    hostname: "ad.example.com"
+    port: 389
+    username: "binduser"
+    password: "bindpass"
+    base_group_dn: "DC=example,DC=com"
+    base_user_dn: "DC=example,DC=com"
+    tls: "Disabled"
+  check_mode: true
 
-  - name: configure identity federation with AD and TLS
-    netapp.storagegrid.na_sg_org_identity_federation:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      ldap_service_type: "Active Directory"
-      hostname: "ad.example.com"
-      port: 636,
-      username: "binduser"
-      password: "bindpass"
-      base_group_dn: "DC=example,DC=com"
-      base_user_dn: "DC=example,DC=com"
-      tls: "LDAPS"
-      ca_cert: |
-          -----BEGIN CERTIFICATE-----
-          MIIC+jCCAeICCQDmn9Gow08LTzANBgkqhkiG9w0BAQsFADA/..swCQYDVQQGEwJV
-          bXBsZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB..JFzNIXQEGnsgjV
-          JGU4giuvOLOZ8Q3gyuUbkSUQDjmjpMR8PliwJ6iW2Ity89Dv..dl1TaIYI/ansyZ
-          Uxk4YXeN6kUkrDtNxCg1McALzXVAfxMTtj2SFlLxne4Z6rX2..UyftQrfM13F1vY
-          gK8dBPz+l+X/Uozo/xNm7gxe68p9le9/pcULst1CQn5/sPqq..kgWcSvlKUItu82
-          lq3B2169rovdIaNdcvaQjMPhrDGo5rvLfMN35U3Hgbz41PL5..x2BcUE6/0ab5T4
-          qKBxKa3t9twj+zpUqOzyL0PFfCE+SK5fEXAS1ow4eAcLN+eB..gR/PuvGAyIPCtE
-          1+X4GrECAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAFpO+04Ra..FMJPH6dBmzfb7l
-          k04BWTvSlur6HiQdXY+oFQMJZzyI7MQ8v9HBIzS0ZAzYWLp4..VZhHmRxnrWyxVs
-          u783V5YfQH2L4QnBDoiDefgxyfDs2PcoF5C+X9CGXmPqzst2..y/6tdOVJzdiA==
-          -----END CERTIFICATE-----
+- name: configure identity federation with AD and TLS
+  netapp.storagegrid.na_sg_org_identity_federation:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    ldap_service_type: "Active Directory"
+    hostname: "ad.example.com"
+    port: 636
+    username: "binduser"
+    password: "bindpass"
+    base_group_dn: "DC=example,DC=com"
+    base_user_dn: "DC=example,DC=com"
+    tls: "LDAPS"
+    ca_cert: |
+        -----BEGIN CERTIFICATE-----
+        MIIC+jCCAeICCQDmn9Gow08LTzANBgkqhkiG9w0BAQsFADA/..swCQYDVQQGEwJV
+        bXBsZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB..JFzNIXQEGnsgjV
+        JGU4giuvOLOZ8Q3gyuUbkSUQDjmjpMR8PliwJ6iW2Ity89Dv..dl1TaIYI/ansyZ
+        Uxk4YXeN6kUkrDtNxCg1McALzXVAfxMTtj2SFlLxne4Z6rX2..UyftQrfM13F1vY
+        gK8dBPz+l+X/Uozo/xNm7gxe68p9le9/pcULst1CQn5/sPqq..kgWcSvlKUItu82
+        lq3B2169rovdIaNdcvaQjMPhrDGo5rvLfMN35U3Hgbz41PL5..x2BcUE6/0ab5T4
+        qKBxKa3t9twj+zpUqOzyL0PFfCE+SK5fEXAS1ow4eAcLN+eB..gR/PuvGAyIPCtE
+        1+X4GrECAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAFpO+04Ra..FMJPH6dBmzfb7l
+        k04BWTvSlur6HiQdXY+oFQMJZzyI7MQ8v9HBIzS0ZAzYWLp4..VZhHmRxnrWyxVs
+        u783V5YfQH2L4QnBDoiDefgxyfDs2PcoF5C+X9CGXmPqzst2..y/6tdOVJzdiA==
+        -----END CERTIFICATE-----
 """
 
 RETURN = """

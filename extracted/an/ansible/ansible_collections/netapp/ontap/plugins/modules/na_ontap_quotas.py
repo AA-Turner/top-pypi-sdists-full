@@ -17,7 +17,7 @@ short_description: NetApp ONTAP Quotas
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.8.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Set/Modify/Delete quota on ONTAP
 options:
@@ -238,7 +238,7 @@ EXAMPLES = """
     vserver: ansible
     volume: ansible
     quota_target: qtree1
-    type: qtree
+    type: tree
     file_limit: 2
     disk_limit: 3
     set_quota_status: true

@@ -301,7 +301,9 @@ EXAMPLES = r"""
 # Attributes
           name: Scumm bar
           location: Monkey island
-# Subnodes
+          # Value
+          +value: unreal
+          # Subnodes
           _:
             - floor: Pirate hall
             - floor: Grog storage
@@ -375,8 +377,8 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, json_dict_bytes_to_unicode, missing_required_lib
 from ansible.module_utils.six import iteritems, string_types
+from ansible.module_utils.six.moves.collections_abc import MutableMapping
 from ansible.module_utils.common.text.converters import to_bytes, to_native
-from ansible.module_utils.common._collections_compat import MutableMapping
 
 _IDENT = r"[a-zA-Z-][a-zA-Z0-9_\-\.]*"
 _NSIDENT = _IDENT + "|" + _IDENT + ":" + _IDENT
@@ -632,7 +634,7 @@ def check_or_make_target(module, tree, xpath, namespaces):
                 # module.fail_json(msg="now tree=%s" % etree.tostring(tree, pretty_print=True))
             elif eoa == "":
                 for node in tree.xpath(inner_xpath, namespaces=namespaces):
-                    if (node.text != eoa_value):
+                    if node.text != eoa_value:
                         node.text = eoa_value
                         changed = True
 
@@ -755,6 +757,7 @@ def child_to_element(module, child, in_type):
             (key, value) = next(iteritems(child))
             if isinstance(value, MutableMapping):
                 children = value.pop('_', None)
+                child_value = value.pop('+value', None)
 
                 node = etree.Element(key, value)
 
@@ -764,6 +767,9 @@ def child_to_element(module, child, in_type):
 
                     subnodes = children_to_nodes(module, children)
                     node.extend(subnodes)
+
+                if child_value is not None:
+                    node.text = child_value
             else:
                 node = etree.Element(key)
                 node.text = value

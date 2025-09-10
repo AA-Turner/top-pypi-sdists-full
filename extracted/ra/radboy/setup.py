@@ -1,7 +1,7 @@
 from setuptools import setup,find_packages
 from datetime import datetime
 from pathlib import Path
-VERSION="0.0.625"
+VERSION="0.0.646"
 long_description=Path('README.md')
 if long_description.exists():
   long_description=long_description.open("r").read()

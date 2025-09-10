@@ -8,7 +8,7 @@ use tombi_ast::AstToken;
 impl crate::Edit for tombi_ast::Root {
     fn edit<'a: 'b, 'b>(
         &'a self,
-        _accessors: &'a [tombi_schema_store::SchemaAccessor],
+        _accessors: &'a [tombi_schema_store::Accessor],
         source_path: Option<&'a std::path::Path>,
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
@@ -22,7 +22,7 @@ impl crate::Edit for tombi_ast::Root {
             if self
                 .schema_document_comment_directive(source_path)
                 .is_some()
-                || self.tombi_document_comment_directives().is_some()
+                || !self.tombi_document_comment_directives().is_empty()
             {
                 changes.push(crate::Change::AppendTop {
                     new: self

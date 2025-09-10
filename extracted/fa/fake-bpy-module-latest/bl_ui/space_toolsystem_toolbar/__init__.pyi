@@ -168,8 +168,6 @@ class _defs_edit_mesh:
 class _defs_edit_text:
     select_text: typing.Any
 
-class _defs_gpencil_weight: ...
-
 class _defs_grease_pencil_edit:
     interpolate: typing.Any
     pen: typing.Any

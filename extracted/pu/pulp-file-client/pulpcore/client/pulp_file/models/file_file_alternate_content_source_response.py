@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class FileFileAlternateContentSourceResponse(BaseModel):
     """
     Serializer for File alternate content source.
@@ -109,16 +101,7 @@ class FileFileAlternateContentSourceResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "last_refreshed": obj.get("last_refreshed"),
-            "paths": obj.get("paths"),
-            "remote": obj.get("remote")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

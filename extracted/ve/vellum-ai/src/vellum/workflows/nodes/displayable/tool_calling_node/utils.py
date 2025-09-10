@@ -14,6 +14,7 @@ from vellum.client.types.prompt_output import PromptOutput
 from vellum.client.types.prompt_parameters import PromptParameters
 from vellum.client.types.string_chat_message_content import StringChatMessageContent
 from vellum.client.types.variable_prompt_block import VariablePromptBlock
+from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.expressions.concat import ConcatExpression
@@ -330,6 +331,7 @@ def create_tool_prompt_node(
     parameters: PromptParameters,
     max_prompt_iterations: Optional[int] = None,
     process_parameters_method: Optional[Callable] = None,
+    process_blocks_method: Optional[Callable] = None,
 ) -> Type[ToolPromptNode]:
     if functions and len(functions) > 0:
         prompt_functions: List[Union[Tool, FunctionDefinition]] = []
@@ -400,6 +402,7 @@ def create_tool_prompt_node(
                 "parameters": parameters,
                 "max_prompt_iterations": max_prompt_iterations,
                 **({"process_parameters": process_parameters_method} if process_parameters_method is not None else {}),
+                **({"process_blocks": process_blocks_method} if process_blocks_method is not None else {}),
                 "__module__": __name__,
             },
         ),
@@ -529,7 +532,10 @@ def create_function_node(
                 inputs = getattr(func, "__vellum_inputs__", {})
                 if inputs:
                     for param_name, param_ref in inputs.items():
-                        resolved_value = param_ref.resolve(self.state)
+                        if isinstance(param_ref, BaseDescriptor):
+                            resolved_value = param_ref.resolve(self.state)
+                        else:
+                            resolved_value = param_ref
                         merged_kwargs[param_name] = resolved_value
 
                 return func(**merged_kwargs)

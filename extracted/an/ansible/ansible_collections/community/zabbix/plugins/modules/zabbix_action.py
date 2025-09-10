@@ -7,7 +7,6 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-
 DOCUMENTATION = """
 ---
 module: zabbix_action
@@ -661,7 +660,7 @@ options:
         description:
             - Whether to pause escalation if event is a symptom event.
             - I(supported) if C(event_source) is set to C(trigger)
-            - Works only with >= Zabbix 6.4
+            - Works only with >= Zabbix 7.0
         default: true
 
 
@@ -808,6 +807,7 @@ from ansible_collections.community.zabbix.plugins.module_utils.base import Zabbi
 from ansible.module_utils.compat.version import LooseVersion
 
 import ansible_collections.community.zabbix.plugins.module_utils.helpers as zabbix_utils
+import re
 
 
 class Zapi(ZabbixBase):
@@ -982,7 +982,15 @@ class Zapi(ZabbixBase):
 
         """
         try:
-            discovery_rule_name, dcheck_type = discovery_check_name.split(": ")
+            dcheck_pattern = r'^([^:]+)\:\s([\w\s]+)(\s\(([\d,-]+)\))?(\s\"(.+)\")?$'
+            match = re.match(dcheck_pattern, discovery_check_name)
+            if match:
+                discovery_rule_name = match.group(1)
+                dcheck_type = match.group(2)
+                dcheck_ports = match.group(4)
+                dcheck_key = match.group(6)
+            else:
+                self._module.fail_json(msg="Discovery check name: %s does not set" % discovery_check_name)
             dcheck_type_to_number = {
                 "SSH": "0",
                 "LDAP": "1",
@@ -1002,11 +1010,6 @@ class Zapi(ZabbixBase):
                 "Telnet": "15"
             }
 
-            if dcheck_type.startswith('SNMP'):
-                # Extract type correctly from Discovery rule name
-                # <Discovery name>: SNMPv2 agent "<IOD>"
-                dcheck_type = dcheck_type.split(" \"")[0]
-
             if dcheck_type not in dcheck_type_to_number:
                 self._module.fail_json(msg="Discovery check type: %s does not exist" % dcheck_type)
 
@@ -1017,15 +1020,19 @@ class Zapi(ZabbixBase):
             })
             if len(discovery_rule_list) < 1:
                 self._module.fail_json(msg="Discovery check not found: %s" % discovery_check_name)
-
             for dcheck in discovery_rule_list[0]["dchecks"]:
-                if dcheck_type.startswith('SNMP'):
-                    if (dcheck_type_to_number[dcheck_type] == dcheck["type"]
-                            and discovery_check_name.split("\"")[1] == dcheck["key_"]):
+                if dcheck_key is not None and dcheck_ports is not None:
+                    if dcheck_type_to_number[dcheck_type] == dcheck["type"] and dcheck_key == dcheck["key_"] and dcheck_ports == dcheck["ports"]:
+                        return dcheck
+                elif dcheck_key is not None and dcheck_ports is None:
+                    if dcheck_type_to_number[dcheck_type] == dcheck["type"] and dcheck_key == dcheck["key_"]:
+                        return dcheck
+                elif dcheck_key is None and dcheck_ports is not None:
+                    if dcheck_type_to_number[dcheck_type] == dcheck["type"] and dcheck_ports == dcheck["ports"]:
                         return dcheck
                 elif dcheck_type_to_number[dcheck_type] == dcheck["type"]:
                     return dcheck
-            self._module.fail_json(msg="Discovery check not found: %s" % discovery_check_name)
+            self._module.fail_json(msg="Discovery check not found in condition: %s" % discovery_check_name)
         except Exception as e:
             self._module.fail_json(msg="Failed to get discovery check '%s': %s" % (discovery_check_name, e))
 
@@ -1173,7 +1180,8 @@ class Action(Zapi):
                 "trigger",
                 "discovery",
                 "auto_registration",
-                "internal"], kwargs["event_source"]),
+                "internal",
+                "services"], kwargs["event_source"]),
             "esc_period": kwargs.get("esc_period"),
             "filter": kwargs["conditions"],
             "operations": kwargs["operations"],
@@ -1186,7 +1194,7 @@ class Action(Zapi):
 
         if kwargs["event_source"] == "trigger":
             _params["pause_suppressed"] = "1" if kwargs["pause_in_maintenance"] else "0"
-            if LooseVersion(self._zbx_api_version) >= LooseVersion("6.4"):
+            if LooseVersion(self._zbx_api_version) >= LooseVersion("7.0"):
                 _params["pause_symptoms"] = "1" if kwargs["pause_symptoms"] else "0"
             _params["notify_if_canceled"] = "1" if kwargs["notify_if_canceled"] else "0"
 
@@ -1210,7 +1218,7 @@ class Action(Zapi):
             if isinstance(_params.get("update_operations", None), type(None)) or len(_params.get("update_operations", [])) == 0:
                 _params.pop("update_operations")
 
-        if _params["eventsource"] not in [0, 3]:
+        if _params["eventsource"] not in [0, 4]:
             _params.pop("esc_period")
 
         return _params
@@ -2287,7 +2295,7 @@ def main():
                 notify_if_canceled=notify_if_canceled
             )
 
-            if LooseVersion(zapi_wrapper._zbx_api_version) >= LooseVersion("6.4"):
+            if LooseVersion(zapi_wrapper._zbx_api_version) >= LooseVersion("7.0"):
                 kwargs["pause_symptoms"] = pause_symptoms
 
             kwargs[argument_spec["acknowledge_operations"]["aliases"][0]] = acknowledge_ops.construct_the_data(acknowledge_operations)
@@ -2320,7 +2328,7 @@ def main():
 
             kwargs[argument_spec["acknowledge_operations"]["aliases"][0]] = acknowledge_ops.construct_the_data(acknowledge_operations)
 
-            if LooseVersion(zapi_wrapper._zbx_api_version) >= LooseVersion("6.4"):
+            if LooseVersion(zapi_wrapper._zbx_api_version) >= LooseVersion("7.0"):
                 kwargs["pause_symptoms"] = pause_symptoms
 
             action_id = action.add_action(**kwargs)

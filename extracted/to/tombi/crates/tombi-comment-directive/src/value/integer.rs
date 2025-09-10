@@ -1,23 +1,79 @@
-use tombi_severity_level::SeverityLevelDefaultError;
+use std::str::FromStr;
+
+use tombi_uri::SchemaUri;
+
+use crate::value::{
+    ErrorRuleOptions, TombiValueDirectiveContent, WithCommonRules, WithKeyTableRules,
+};
+use crate::TombiCommentDirectiveImpl;
+
+pub type KeyIntegerCommonRules = WithKeyTableRules<WithCommonRules<IntegerRules>>;
+
+pub type IntegerCommonRules = WithCommonRules<IntegerRules>;
+
+impl TombiCommentDirectiveImpl for TombiValueDirectiveContent<KeyIntegerCommonRules> {
+    fn comment_directive_schema_url() -> SchemaUri {
+        SchemaUri::from_str("tombi://json.tombi.dev/tombi-key-integer-directive.json").unwrap()
+    }
+}
+
+impl TombiCommentDirectiveImpl for TombiValueDirectiveContent<IntegerCommonRules> {
+    fn comment_directive_schema_url() -> SchemaUri {
+        SchemaUri::from_str("tombi://json.tombi.dev/tombi-integer-directive.json").unwrap()
+    }
+}
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "jsonschema", schemars(extend("$id" = "tombi://json.tombi.dev/integer-tombi-directive.json")))]
-pub struct IntegerTombiCommentDirective {
-    /// Controls the severity level for maximum integer errors
-    pub maximum_integer: Option<SeverityLevelDefaultError>,
+pub struct IntegerRules {
+    /// # Maximum integer
+    ///
+    /// Check if the integer is less than or equal to the maximum.
+    ///
+    /// ```rust
+    /// integer <= maximum
+    /// ```
+    ///
+    pub integer_maximum: Option<ErrorRuleOptions>,
 
-    /// Controls the severity level for minimum integer errors
-    pub minimum_integer: Option<SeverityLevelDefaultError>,
+    /// # Minimum integer
+    ///
+    /// Check if the integer is greater than or equal to the minimum.
+    ///
+    /// ```rust
+    /// integer >= minimum
+    /// ```
+    ///
+    pub integer_minimum: Option<ErrorRuleOptions>,
 
-    /// Controls the severity level for exclusive maximum integer errors
-    pub exclusive_maximum_integer: Option<SeverityLevelDefaultError>,
+    /// # Exclusive maximum integer
+    ///
+    /// Check if the integer is less than the maximum.
+    ///
+    /// ```rust
+    /// integer < maximum
+    /// ```
+    ///
+    pub integer_exclusive_maximum: Option<ErrorRuleOptions>,
 
-    /// Controls the severity level for exclusive minimum integer errors
-    pub exclusive_minimum_integer: Option<SeverityLevelDefaultError>,
+    /// # Exclusive minimum integer
+    ///
+    /// Check if the integer is greater than the minimum.
+    ///
+    /// ```rust
+    /// integer > minimum
+    /// ```
+    ///
+    pub integer_exclusive_minimum: Option<ErrorRuleOptions>,
 
-    /// Controls the severity level for multiple of integer errors
-    pub multiple_of_integer: Option<SeverityLevelDefaultError>,
+    /// # Multiple of integer
+    ///
+    /// Check if the integer is a multiple of the value.
+    ///
+    /// ```rust
+    /// integer % multiple_of == 0
+    /// ```
+    ///
+    pub integer_multiple_of: Option<ErrorRuleOptions>,
 }

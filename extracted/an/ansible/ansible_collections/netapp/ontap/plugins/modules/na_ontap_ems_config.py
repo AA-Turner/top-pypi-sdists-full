@@ -13,7 +13,7 @@ short_description: NetApp ONTAP module to modify EMS configuration.
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap_rest
 version_added: '22.8.0'
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Configure event notification and logging for the cluster.
 options:
@@ -112,7 +112,7 @@ class NetAppOntapEmsConfig:
         ))
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
-            supports_check_mode=False
+            supports_check_mode=True
         )
         self.uuid = None
         self.na_helper = NetAppModule(self.module)

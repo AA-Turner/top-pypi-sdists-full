@@ -1,6 +1,6 @@
 [package]
 name = "uv"
-version = "0.8.15"
+version = "0.8.16"
 edition = { workspace = true }
 rust-version = { workspace = true }
 homepage = { workspace = true }
@@ -119,7 +119,6 @@ zip = { workspace = true }
 arrayvec = { workspace = true }
 self-replace = { workspace = true }
 windows = { workspace = true }
-windows-result = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

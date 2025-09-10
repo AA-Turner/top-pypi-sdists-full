@@ -1022,7 +1022,7 @@ class WallBoundary(
     type(settings_root_222.setup.boundary_conditions.wall.child_object_type),
 ): ...
 
-class NonReflectingBoundaries(
+class NonReflectingBoundary(
     type(settings_root_261.setup.boundary_conditions.non_reflecting_bc),
     type(settings_root_252.setup.boundary_conditions.non_reflecting_bc),
     type(settings_root_251.setup.boundary_conditions.non_reflecting_bc),
@@ -1030,28 +1030,12 @@ class NonReflectingBoundaries(
     type(settings_root_241.setup.boundary_conditions.non_reflecting_bc),
 ): ...
 
-class NonReflectingBoundary(
-    type(settings_root_261.setup.boundary_conditions.non_reflecting_bc.child_object_type),
-    type(settings_root_252.setup.boundary_conditions.non_reflecting_bc.child_object_type),
-    type(settings_root_251.setup.boundary_conditions.non_reflecting_bc.child_object_type),
-    type(settings_root_242.setup.boundary_conditions.non_reflecting_bc.child_object_type),
-    type(settings_root_241.setup.boundary_conditions.non_reflecting_bc.child_object_type),
-): ...
-
-class PerforatedWallBoundaries(
+class PerforatedWallBoundary(
     type(settings_root_261.setup.boundary_conditions.perforated_wall),
     type(settings_root_252.setup.boundary_conditions.perforated_wall),
     type(settings_root_251.setup.boundary_conditions.perforated_wall),
     type(settings_root_242.setup.boundary_conditions.perforated_wall),
     type(settings_root_241.setup.boundary_conditions.perforated_wall),
-): ...
-
-class PerforatedWallBoundary(
-    type(settings_root_261.setup.boundary_conditions.perforated_wall.child_object_type),
-    type(settings_root_252.setup.boundary_conditions.perforated_wall.child_object_type),
-    type(settings_root_251.setup.boundary_conditions.perforated_wall.child_object_type),
-    type(settings_root_242.setup.boundary_conditions.perforated_wall.child_object_type),
-    type(settings_root_241.setup.boundary_conditions.perforated_wall.child_object_type),
 ): ...
 
 class MeshInterfaces(

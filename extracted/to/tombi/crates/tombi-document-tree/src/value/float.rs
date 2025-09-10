@@ -1,18 +1,16 @@
-use itertools::Itertools;
-use tombi_ast::AstNode;
+use tombi_ast::TombiValueCommentDirective;
 use tombi_toml_version::TomlVersion;
 
 use crate::{
-    support::float::try_from_float, Comment, DocumentTreeAndErrors, IntoDocumentTreeAndErrors,
-    ValueImpl, ValueType,
+    support::float::try_from_float, value::collect_comment_directives_and_errors,
+    DocumentTreeAndErrors, IntoDocumentTreeAndErrors, ValueImpl, ValueType,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float {
     value: f64,
-    node: tombi_ast::Float,
-    leading_comments: Vec<Comment>,
-    trailing_comment: Option<Comment>,
+    range: tombi_text::Range,
+    pub(crate) comment_directives: Option<Box<Vec<TombiValueCommentDirective>>>,
 }
 
 impl Float {
@@ -22,28 +20,24 @@ impl Float {
     }
 
     #[inline]
-    pub fn node(&self) -> &tombi_ast::Float {
-        &self.node
-    }
-
-    #[inline]
     pub fn range(&self) -> tombi_text::Range {
-        self.node.token().unwrap().range()
+        self.range
     }
 
     #[inline]
     pub fn symbol_range(&self) -> tombi_text::Range {
-        self.range()
+        self.range
     }
 
     #[inline]
-    pub fn leading_comments(&self) -> &[Comment] {
-        self.leading_comments.as_ref()
+    pub fn comment_directives(&self) -> Option<&[TombiValueCommentDirective]> {
+        self.comment_directives.as_deref().map(|v| &**v)
     }
+}
 
-    #[inline]
-    pub fn trailing_comment(&self) -> Option<&Comment> {
-        self.trailing_comment.as_ref()
+impl std::fmt::Display for Float {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -53,7 +47,7 @@ impl ValueImpl for Float {
     }
 
     fn range(&self) -> tombi_text::Range {
-        self.range()
+        self.range
     }
 }
 
@@ -63,32 +57,34 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::Float {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
+
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
         match try_from_float(token.text()) {
-            Ok(value) => {
-                let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-                let trailing_comment = self.trailing_comment().map(Comment::from);
+            Ok(value) => DocumentTreeAndErrors {
+                tree: crate::Value::Float(crate::Float {
+                    value,
+                    range: token.range(),
+                    comment_directives,
+                }),
+                errors,
+            },
+            Err(error) => {
+                errors.push(crate::Error::ParseFloatError { error, range });
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Float(crate::Float {
-                        value,
-                        node: self,
-                        leading_comments,
-                        trailing_comment,
-                    }),
-                    errors: Vec::with_capacity(0),
+                    tree: crate::Value::Incomplete { range },
+                    errors,
                 }
             }
-            Err(error) => DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::ParseFloatError { error, range }],
-            },
         }
     }
 }

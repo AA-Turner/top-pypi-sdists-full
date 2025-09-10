@@ -1,10 +1,15 @@
+use tombi_comment_directive::value::StringCommonRules;
 use tombi_extension::CompletionKind;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaUri, StringSchema};
 
-use crate::completion::{
-    schema_completion::SchemaCompletion, CompletionContent, CompletionEdit, CompletionHint,
-    FindCompletionContents,
+use crate::{
+    comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
+    completion::{
+        comment::get_tombi_comment_directive_content_completion_contents,
+        schema_completion::SchemaCompletion, CompletionContent, CompletionEdit, CompletionHint,
+        FindCompletionContents,
+    },
 };
 
 impl FindCompletionContents for tombi_document_tree::String {
@@ -17,7 +22,30 @@ impl FindCompletionContents for tombi_document_tree::String {
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        tracing::trace!("self = {:?}", self);
+        tracing::trace!("keys = {:?}", keys);
+        tracing::trace!("accessors = {:?}", accessors);
+        tracing::trace!("current_schema = {:?}", current_schema);
+        tracing::trace!("completion_hint = {:?}", completion_hint);
+
         async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_key_table_value_comment_directive_content_and_schema_uri::<StringCommonRules>(
+                    self.comment_directives(),
+                    position,
+                    accessors,
+                )
+            {
+                if let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                    comment_directive_context,
+                    schema_uri,
+                )
+                .await
+                {
+                    return completions;
+                }
+            }
+
             if !self.range().contains(position) {
                 return Vec::with_capacity(0);
             }

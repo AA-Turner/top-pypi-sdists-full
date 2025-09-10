@@ -32,7 +32,9 @@ from pinecone_plugins.assistant.data.core.client.exceptions import PineconeApiAt
 
 def lazy_import():
     from pinecone_plugins.assistant.data.core.client.model.multi_modal_content_blocks_model import MultiModalContentBlocksModel
+    from pinecone_plugins.assistant.data.core.client.model.typed_reference_model import TypedReferenceModel
     globals()['MultiModalContentBlocksModel'] = MultiModalContentBlocksModel
+    globals()['TypedReferenceModel'] = TypedReferenceModel
 
 
 class MultiModalSnippetModel(ModelNormal):
@@ -91,7 +93,7 @@ class MultiModalSnippetModel(ModelNormal):
             'type': (str,),  # noqa: E501
             'content': ([MultiModalContentBlocksModel],),  # noqa: E501
             'score': (float,),  # noqa: E501
-            'reference': ({str: (bool, date, datetime, dict, float, int, list, str, none_type)},),  # noqa: E501
+            'reference': (TypedReferenceModel,),  # noqa: E501
         }
 
     @cached_property
@@ -120,7 +122,7 @@ class MultiModalSnippetModel(ModelNormal):
             type (str): The type of context snippet.
             content ([MultiModalContentBlocksModel]):
             score (float):
-            reference ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Represents a reference for the information provided.
+            reference (TypedReferenceModel):
 
         Keyword Args:
             _check_type (bool): if True, values for parameters in openapi_types
@@ -211,7 +213,7 @@ class MultiModalSnippetModel(ModelNormal):
             type (str): The type of context snippet.
             content ([MultiModalContentBlocksModel]):
             score (float):
-            reference ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Represents a reference for the information provided.
+            reference (TypedReferenceModel):
 
         Keyword Args:
             _check_type (bool): if True, values for parameters in openapi_types

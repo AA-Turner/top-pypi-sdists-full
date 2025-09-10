@@ -647,6 +647,7 @@ class AssetFilterType(sgqlc.types.Enum):
 
     * `ACTIVITY_READ`None
     * `ACTIVITY_READ_WRITE`None
+    * `ACTIVITY_VOLUME_CHANGE`None
     * `ACTIVITY_WRITE`None
     * `TABLE_NAME`None
     * `TABLE_TAG`None
@@ -657,6 +658,7 @@ class AssetFilterType(sgqlc.types.Enum):
     __choices__ = (
         "ACTIVITY_READ",
         "ACTIVITY_READ_WRITE",
+        "ACTIVITY_VOLUME_CHANGE",
         "ACTIVITY_WRITE",
         "TABLE_NAME",
         "TABLE_TAG",
@@ -1698,11 +1700,18 @@ class DenialReason(sgqlc.types.Enum):
     * `AI_FEATURES_OFF`None
     * `ENTITLEMENTS`None
     * `INVALID_USER`None
+    * `TROUBLESHOOTING_AGENT_OFF`None
     * `TSA_FEATURE_FLAG_OFF`None
     """
 
     __schema__ = schema
-    __choices__ = ("AI_FEATURES_OFF", "ENTITLEMENTS", "INVALID_USER", "TSA_FEATURE_FLAG_OFF")
+    __choices__ = (
+        "AI_FEATURES_OFF",
+        "ENTITLEMENTS",
+        "INVALID_USER",
+        "TROUBLESHOOTING_AGENT_OFF",
+        "TSA_FEATURE_FLAG_OFF",
+    )
 
 
 class DetectorStatus(sgqlc.types.Enum):
@@ -5818,6 +5827,7 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         "read_days",
         "write_days",
         "read_write_days",
+        "volume_change_days",
         "type",
         "negated",
     )
@@ -5842,6 +5852,8 @@ class AssetFilterUnionInput(sgqlc.types.Input):
     write_days = sgqlc.types.Field(Int, graphql_name="writeDays")
 
     read_write_days = sgqlc.types.Field(Int, graphql_name="readWriteDays")
+
+    volume_change_days = sgqlc.types.Field(Int, graphql_name="volumeChangeDays")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
 
@@ -9077,9 +9089,12 @@ class SparkHttpInput(sgqlc.types.Input):
 
 class SslInputOptions(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("ca", "cert", "key", "mechanism", "skip_verification")
+    __field_names__ = ("ca", "ca_data", "cert", "key", "mechanism", "skip_verification")
     ca = sgqlc.types.Field(String, graphql_name="ca")
     """CA bundle file"""
+
+    ca_data = sgqlc.types.Field(String, graphql_name="caData")
+    """CA certificate data to use for the connection"""
 
     cert = sgqlc.types.Field(String, graphql_name="cert")
     """Certificate file"""
@@ -13044,6 +13059,7 @@ class AssetUsageNode(sgqlc.types.Type):
         "last_activity",
         "last_read",
         "last_write",
+        "last_volume_change",
         "object_properties",
         "table_type",
     )
@@ -13111,6 +13127,9 @@ class AssetUsageNode(sgqlc.types.Type):
     """The last write date of the table. When was the last time the table
     was written to .
     """
+
+    last_volume_change = sgqlc.types.Field(DateTime, graphql_name="lastVolumeChange")
+    """The last time a significant write was executed on the table"""
 
     object_properties = sgqlc.types.Field(
         sgqlc.types.list_of("PartialObjectProperty"), graphql_name="objectProperties"
@@ -38078,6 +38097,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 ("external_id", sgqlc.types.Arg(String, graphql_name="externalId", default=None)),
+                (
+                    "ssl_options",
+                    sgqlc.types.Arg(SslInputOptions, graphql_name="sslOptions", default=None),
+                ),
             )
         ),
     )
@@ -38092,6 +38115,8 @@ class Mutation(sgqlc.types.Type):
       for integration tests
     * `external_id` (`String`): An external id, per assumable role
       conditions
+    * `ssl_options` (`SslInputOptions`): Specify any SSL options (e.g.
+      certs)
     """
 
     test_athena_credentials = sgqlc.types.Field(
@@ -67916,6 +67941,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "feedback",
         "name",
         "uuid",
+        "url",
     )
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
 
@@ -67975,6 +68001,9 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """DEPRECATED. Use id instead"""
 
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """URL of the alert"""
+
 
 class AssetFilterActivityRead(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
@@ -67986,6 +68015,14 @@ class AssetFilterActivityReadWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("read_write_days",)
     read_write_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readWriteDays")
+
+
+class AssetFilterActivityVolumeChange(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("volume_change_days",)
+    volume_change_days = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="volumeChangeDays"
+    )
 
 
 class AssetFilterActivityWrite(sgqlc.types.Type, AssetFilterInterface):

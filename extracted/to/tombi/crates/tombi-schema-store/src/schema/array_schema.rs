@@ -71,8 +71,8 @@ impl ArraySchema {
                         match ArrayValuesOrder::try_from(string.value.as_ref()) {
                             Ok(val) => Some(val),
                             Err(_) => {
-                                tracing::error!(
-                                    "invalid {X_TOMBI_ARRAY_VALUES_ORDER}: {}",
+                                tracing::warn!(
+                                    "Invalid {X_TOMBI_ARRAY_VALUES_ORDER}: {}",
                                     string.value
                                 );
                                 None
@@ -80,8 +80,8 @@ impl ArraySchema {
                         }
                     }
                     _ => {
-                        tracing::error!(
-                            "invalid {X_TOMBI_ARRAY_VALUES_ORDER}: {}",
+                        tracing::warn!(
+                            "Invalid {X_TOMBI_ARRAY_VALUES_ORDER}: {}",
                             order.to_string()
                         );
                         None

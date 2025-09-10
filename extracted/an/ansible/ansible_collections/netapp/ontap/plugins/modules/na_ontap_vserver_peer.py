@@ -7,7 +7,7 @@ __metaclass__ = type
 
 
 DOCUMENTATION = '''
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Create/Delete vserver peer
 extends_documentation_fragment:
@@ -88,7 +88,7 @@ EXAMPLES = """
     username: "{{ netapp_username }}"
     password: "{{ netapp_password }}"
     peer_options:
-        hostname: "{{ netapp_dest_hostname }}"
+      hostname: "{{ netapp_dest_hostname }}"
 
 - name: vserver peer delete
   netapp.ontap.na_ontap_vserver_peer:
@@ -112,9 +112,9 @@ EXAMPLES = """
     username: "{{ netapp_username }}"
     password: "{{ netapp_password }}"
     peer_options:
-        hostname: "{{ netapp_dest_hostname }}"
-        cert_filepath: "{{ cert_filepath }}"
-        key_filepath: "{{ key_filepath }}"
+      hostname: "{{ netapp_dest_hostname }}"
+      cert_filepath: "{{ cert_filepath }}"
+      key_filepath: "{{ key_filepath }}"
 """
 
 RETURN = """

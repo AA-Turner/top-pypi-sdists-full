@@ -182,15 +182,7 @@ class ComprehensionChecker:
                     and not has_star_args(node)
                     and not has_double_star_args(node)
                     and node.func.id == "dict"
-                ):
-                    yield (
-                        node.lineno,
-                        node.col_offset,
-                        self.messages["C408"].format(type=node.func.id),
-                        type(self),
-                    )
-
-                elif (
+                ) or (
                     num_positional_args == 0
                     and num_keyword_args == 0
                     and node.func.id in ("tuple", "list")
@@ -215,10 +207,8 @@ class ComprehensionChecker:
                         for keyword in node.args[0].keywords:
                             if keyword.arg != "reverse":
                                 continue
-                            if isinstance(keyword.value, ast.NameConstant):
-                                reverse_flag_value = keyword.value.value
-                            elif isinstance(keyword.value, ast.Num):
-                                reverse_flag_value = bool(keyword.value.n)
+                            if isinstance(keyword.value, ast.Constant):
+                                reverse_flag_value = bool(keyword.value.value)
                             else:
                                 # Complex value
                                 reverse_flag_value = None
@@ -226,9 +216,7 @@ class ComprehensionChecker:
                         if reverse_flag_value is None:
                             remediation = " - toggle reverse argument to sorted()"
                         else:
-                            remediation = " - use sorted(..., reverse={!r})".format(
-                                not reverse_flag_value
-                            )
+                            remediation = f" - use sorted(..., reverse={not reverse_flag_value!r})"
 
                     msg = self.messages["C413"].format(
                         inner=node.args[0].func.id,
@@ -277,8 +265,8 @@ class ComprehensionChecker:
                     and node.args[0].slice.upper is None
                     and isinstance(node.args[0].slice.step, ast.UnaryOp)
                     and isinstance(node.args[0].slice.step.op, ast.USub)
-                    and isinstance(node.args[0].slice.step.operand, ast.Num)
-                    and node.args[0].slice.step.operand.n == 1
+                    and isinstance(node.args[0].slice.step.operand, ast.Constant)
+                    and node.args[0].slice.step.operand.value == 1
                 ):
                     yield (
                         node.lineno,

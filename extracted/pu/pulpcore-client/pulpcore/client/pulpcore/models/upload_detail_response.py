@@ -25,14 +25,6 @@ from pulpcore.client.pulpcore.models.upload_chunk_response import UploadChunkRes
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UploadDetailResponse(BaseModel):
     """
     Serializer for chunked uploads.
@@ -113,15 +105,7 @@ class UploadDetailResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "size": obj.get("size"),
-            "completed": obj.get("completed"),
-            "chunks": [UploadChunkResponse.from_dict(_item) for _item in obj["chunks"]] if obj.get("chunks") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

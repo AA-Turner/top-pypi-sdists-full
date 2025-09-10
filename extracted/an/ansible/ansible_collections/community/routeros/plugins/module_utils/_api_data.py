@@ -441,8 +441,8 @@ PATHS = {
             fully_understood=True,
             fields={
                 'comment': KeyInfo(can_disable=True, remove_value=''),
-                'exclude': KeyInfo(),
-                'include': KeyInfo(),
+                'exclude': KeyInfo(default=''),
+                'include': KeyInfo(default=''),
                 'name': KeyInfo(),
             },
         ),
@@ -4421,6 +4421,9 @@ PATHS = {
         unversioned=VersionedAPIData(
             single_value=True,
             fully_understood=True,
+            versioned_fields=[
+                ([('7.14', '>=')], 'show-at-cli-login', KeyInfo(default=False)),
+            ],
             fields={
                 'note': KeyInfo(default=''),
                 'show-at-login': KeyInfo(default=True),

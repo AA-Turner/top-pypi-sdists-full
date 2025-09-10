@@ -1,5 +1,5 @@
 from decimal import Decimal as TDecimal,getcontext
-import string,random
+import string,random,re
 class decc(TDecimal):
     ''' defines a decimal of 'cf\''''
     def __new__(self,value,cf=3):
@@ -14,8 +14,23 @@ class decc(TDecimal):
         value=f"{value:.{cf}f}"
         print(value)
         '''
-
-        value=f"{value:.{cf}f}"
+        #print(value,type(value))
+        if isinstance(value,str):
+            scientific=re.findall(r'[-+]?[0-9]+\.?[0-9]*[Ee](?:\ *[-+]?\ *[0-9]+)?',value)
+            if len(scientific) < 1:
+                try:
+                    whole,part=value.split(".")
+                except Exception as e:
+                    whole,part=value,"0"*cf
+                if len(part) > cf:
+                    part=part[:cf-1]
+                    value=f"{whole}.{part}"
+                    #print(value)
+            else:
+                pass
+            
+        else:
+            value=f"{value:.{cf}f}"
         return super().__new__(self,value)
 
 class dec3(TDecimal):

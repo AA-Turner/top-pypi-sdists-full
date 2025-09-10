@@ -58,7 +58,7 @@ class LangsmithAuthBackend(AuthenticationBackend):
 
         # Check cache first
         cache_key = self._get_cache_key(headers)
-        if cached_entry := self._cache.get(cache_key):
+        if cached_entry := await self._cache.get(cache_key):
             return cached_entry["credentials"], cached_entry["user"]
 
         async with auth_client() as auth:

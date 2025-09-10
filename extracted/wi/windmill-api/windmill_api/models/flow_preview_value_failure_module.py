@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     )
     from ..models.flow_preview_value_failure_module_stop_after_if import FlowPreviewValueFailureModuleStopAfterIf
     from ..models.flow_preview_value_failure_module_suspend import FlowPreviewValueFailureModuleSuspend
+    from ..models.flow_preview_value_failure_module_timeout_type_0 import FlowPreviewValueFailureModuleTimeoutType0
+    from ..models.flow_preview_value_failure_module_timeout_type_1 import FlowPreviewValueFailureModuleTimeoutType1
 
 
 T = TypeVar("T", bound="FlowPreviewValueFailureModule")
@@ -32,7 +34,8 @@ class FlowPreviewValueFailureModule:
         skip_if (Union[Unset, FlowPreviewValueFailureModuleSkipIf]):
         sleep (Union['FlowPreviewValueFailureModuleSleepType0', 'FlowPreviewValueFailureModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['FlowPreviewValueFailureModuleTimeoutType0', 'FlowPreviewValueFailureModuleTimeoutType1',
+            Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, FlowPreviewValueFailureModuleMock]):
@@ -49,7 +52,9 @@ class FlowPreviewValueFailureModule:
     skip_if: Union[Unset, "FlowPreviewValueFailureModuleSkipIf"] = UNSET
     sleep: Union["FlowPreviewValueFailureModuleSleepType0", "FlowPreviewValueFailureModuleSleepType1", Unset] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "FlowPreviewValueFailureModuleTimeoutType0", "FlowPreviewValueFailureModuleTimeoutType1", Unset
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "FlowPreviewValueFailureModuleMock"] = UNSET
@@ -61,6 +66,7 @@ class FlowPreviewValueFailureModule:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.flow_preview_value_failure_module_sleep_type_0 import FlowPreviewValueFailureModuleSleepType0
+        from ..models.flow_preview_value_failure_module_timeout_type_0 import FlowPreviewValueFailureModuleTimeoutType0
 
         id = self.id
         value = self.value
@@ -91,7 +97,20 @@ class FlowPreviewValueFailureModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, FlowPreviewValueFailureModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -157,6 +176,8 @@ class FlowPreviewValueFailureModule:
         )
         from ..models.flow_preview_value_failure_module_stop_after_if import FlowPreviewValueFailureModuleStopAfterIf
         from ..models.flow_preview_value_failure_module_suspend import FlowPreviewValueFailureModuleSuspend
+        from ..models.flow_preview_value_failure_module_timeout_type_0 import FlowPreviewValueFailureModuleTimeoutType0
+        from ..models.flow_preview_value_failure_module_timeout_type_1 import FlowPreviewValueFailureModuleTimeoutType1
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -219,7 +240,36 @@ class FlowPreviewValueFailureModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union["FlowPreviewValueFailureModuleTimeoutType0", "FlowPreviewValueFailureModuleTimeoutType1", Unset]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, FlowPreviewValueFailureModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = FlowPreviewValueFailureModuleTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, FlowPreviewValueFailureModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = FlowPreviewValueFailureModuleTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

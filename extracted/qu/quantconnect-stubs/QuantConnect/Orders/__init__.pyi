@@ -1959,13 +1959,23 @@ class EzeOrderProperties(QuantConnect.Orders.OrderProperties):
     def notes(self, value: str) -> None:
         ...
 
-    def __init__(self, route: str = ..., account: str = ..., notes: str = ...) -> None:
+    @property
+    def account_type(self) -> str:
+        """Gets or sets the account type for the order."""
+        ...
+
+    @account_type.setter
+    def account_type(self, value: str) -> None:
+        ...
+
+    def __init__(self, route: str = ..., account: str = ..., notes: str = ..., account_type: str = ...) -> None:
         """
         Initializes a new instance with optional route, account, and notes.
         
         :param route: The trading route name (optional).
         :param account: The trading account with specific permissions (optional).
         :param notes: Optional notes about the order.
+        :param account_type: The account type for the order (e.g., "119" for margin orders) (optional).
         """
         ...
 

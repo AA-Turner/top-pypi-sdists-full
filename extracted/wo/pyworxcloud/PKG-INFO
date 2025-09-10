@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyworxcloud
-Version: 4.1.46
+Version: 5.0.0
 Summary: Landroid cloud (Positec) API library
 License: MIT
 Author: Malene Trab
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: paho-mqtt (>=1.6.1)
+Requires-Dist: awsiotsdk (==1.24.0)
 Requires-Dist: requests (>=2.32.0,<3.0.0)
 Requires-Dist: urllib3 (>=1.26.5)
 Project-URL: Bug Tracker, https://github.com/mtrab/pyworxcloud/issues

@@ -1,7 +1,7 @@
 use bitline::BitLine;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::PyType;
 use pyo3::{basic::CompareOp, types::PyBytes, types::PyTuple, PyTraverseError, PyVisit};
 use std::fs::File;
@@ -10,7 +10,6 @@ use std::mem;
 use std::path::PathBuf;
 
 #[pyclass(module = "rbloom")]
-#[derive(Clone)]
 struct Bloom {
     filter: BitLine,
     k: u64, // Number of hash functions (implemented via a LCG that uses
@@ -21,6 +20,7 @@ struct Bloom {
 #[pymethods]
 impl Bloom {
     #[new]
+    #[pyo3(signature = (expected_items, false_positive_rate, hash_func = None))]
     fn new(
         expected_items: u64,
         false_positive_rate: f64,
@@ -49,7 +49,7 @@ impl Bloom {
 
         // Calculate the parameters for the filter
         let size_in_bits =
-            -1.0 * (expected_items as f64) * false_positive_rate.ln() / 2.0f64.ln().powi(2);
+            -(expected_items as f64) * false_positive_rate.ln() / 2.0f64.ln().powi(2);
         let k = (size_in_bits / expected_items as f64) * 2.0f64.ln();
 
         // Create the filter
@@ -128,17 +128,19 @@ impl Bloom {
 
     /// Return a new set with elements from the set and all others.
     #[pyo3(signature = (*others))]
-    fn union(&self, others: &Bound<'_, PyTuple>) -> PyResult<Self> {
-        let mut result = self.clone();
-        result.update(others)?;
+    fn union<'py>(&self, others: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, Self>> {
+        let result = self.clone_ref(others.py());
+        let result = Bound::new(others.py(), result)?;
+        Self::update(&result, others)?;
         Ok(result)
     }
 
     /// Return a new set with elements common to the set and all others.
     #[pyo3(signature = (*others))]
-    fn intersection(&self, others: &Bound<'_, PyTuple>) -> PyResult<Self> {
-        let mut result = self.clone();
-        result.intersection_update(others)?;
+    fn intersection<'py>(&self, others: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, Self>> {
+        let result = self.clone_ref(others.py());
+        let result = Bound::new(others.py(), result)?;
+        Self::intersection_update(&result, others)?;
         Ok(result)
     }
 
@@ -172,42 +174,58 @@ impl Bloom {
         Ok(())
     }
 
+    // This function has a somewhat unusual signature (taking "self" as a &Bound). This is so it can
+    // check if attempting to call `update` with itself and continue rather than failing because
+    // self cannot be both borrowed mutably for self and in others.
     #[pyo3(signature = (*others))]
-    fn update(&mut self, others: &Bound<'_, PyTuple>) -> PyResult<()> {
-        for other in others.iter() {
+    fn update(self_bound: &Bound<'_, Self>, others: &Bound<'_, PyTuple>) -> PyResult<()> {
+        let mut self_: PyRefMut<'_, Self> = self_bound.try_borrow_mut()?;
+        for other in others.iter_borrowed() {
+            if other.is(self_bound) {
+                // OR with self is a no-op
+                continue;
+            }
             // If the other object is a Bloom, use the bitwise union
             if let Ok(other) = other.downcast::<Bloom>() {
                 let other = other.try_borrow()?;
-                self.__ior__(&other)?;
+                self_.__ior__(&other)?;
             }
             // Otherwise, iterate over the other object and add each item
             else {
-                for obj in other.iter()? {
-                    self.add(&obj?)?;
+                for obj in other.try_iter()? {
+                    self_.add(&obj?)?;
                 }
             }
         }
         Ok(())
     }
 
+    // This function has a somewhat unusual signature (taking "self" as a &Bound). This is so it can
+    // check if attempting to call `update` with itself and continue rather than failing because
+    // self cannot be both borrowed mutably for self and in others.
     #[pyo3(signature = (*others))]
-    fn intersection_update(&mut self, others: &Bound<'_, PyTuple>) -> PyResult<()> {
+    fn intersection_update(self_bound: &Bound<'_, Self>, others: &Bound<'_, PyTuple>) -> PyResult<()> {
+        let mut self_: PyRefMut<'_, Self> = self_bound.try_borrow_mut()?;
         // Lazily allocated temp bitset
         let mut temp: Option<Self> = None;
-        for other in others.iter() {
+        for other in others.iter_borrowed() {
+            // If the other object is self, AND with self is a no-op
+            if other.is(self_bound) {
+                continue;
+            }
             // If the other object is a Bloom, use the bitwise intersection
             if let Ok(other) = other.downcast::<Bloom>() {
                 let other = other.try_borrow()?;
-                self.__iand__(&other)?;
+                self_.__iand__(&other)?;
             }
             // Otherwise, iterate over the other object and add each item
             else {
-                let temp = temp.get_or_insert_with(|| self.clone());
+                let temp = temp.get_or_insert_with(|| self_.clone_ref(others.py()));
                 temp.clear();
-                for obj in other.iter()? {
+                for obj in other.try_iter()? {
                     temp.add(&obj?)?;
                 }
-                self.__iand__(temp)?;
+                self_.__iand__(temp)?;
             }
         }
         Ok(())
@@ -217,8 +235,8 @@ impl Bloom {
         self.filter.clear();
     }
 
-    fn copy(&self) -> Bloom {
-        self.clone()
+    fn copy(&self, py: Python<'_>) -> Bloom {
+        self.clone_ref(py)
     }
 
     fn __repr__(&self) -> String {
@@ -267,7 +285,7 @@ impl Bloom {
                 "Cannot load a bloom filter that uses the built-in hash function",
             ));
         }
-        let hash_func = Some(hash_func.to_object(hash_func.py()));
+        let hash_func = Some(hash_func.clone().unbind());
 
         let mut file = File::open(filepath)?;
 
@@ -301,7 +319,7 @@ impl Bloom {
                 "Cannot load a bloom filter that uses the built-in hash function",
             ));
         }
-        let hash_func = Some(hash_func.to_object(hash_func.py()));
+        let hash_func = Some(hash_func.clone().unbind());
 
         let k_bytes: [u8; mem::size_of::<u64>()] = bytes[0..mem::size_of::<u64>()]
             .try_into()
@@ -341,7 +359,7 @@ impl Bloom {
 
         debug_assert_eq!(K_SIZE, self.k.to_le_bytes().len());
         let len = K_SIZE + self.filter.bits().len();
-        PyBytes::new_bound_with(py, len, |data| {
+        PyBytes::new_with(py, len, |data| {
             data[..K_SIZE].copy_from_slice(&self.k.to_le_bytes());
             data[K_SIZE..].copy_from_slice(self.filter.bits());
             Ok(())
@@ -358,6 +376,14 @@ impl Bloom {
 impl Bloom {
     fn hash_fn_clone(&self, py: Python<'_>) -> Option<Py<PyAny>> {
         self.hash_func.as_ref().map(|f| f.clone_ref(py))
+    }
+
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        Bloom {
+            filter: self.filter.clone(),
+            k: self.k,
+            hash_func: self.hash_fn_clone(py),
+        }
     }
 
     fn zeroed_clone(&self, py: Python<'_>) -> Bloom {
@@ -382,7 +408,7 @@ impl Bloom {
             }
             Err(_) => {
                 let mut other_bloom = self.zeroed_clone(other.py());
-                for obj in other.iter()? {
+                for obj in other.try_iter()? {
                     other_bloom.add(&obj?)?;
                 }
                 f(&other_bloom)
@@ -639,10 +665,10 @@ fn check_compatible(a: &Bloom, b: &Bloom) -> PyResult<()> {
 }
 
 fn builtin_hash_func(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
-    static HASH_FUNC: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    static HASH_FUNC: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
     let res = HASH_FUNC.get_or_try_init(py, || -> PyResult<_> {
-        let builtins = PyModule::import_bound(py, "builtins")?;
+        let builtins = PyModule::import(py, "builtins")?;
         Ok(builtins.getattr("hash")?.unbind())
     })?;
 

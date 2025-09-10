@@ -14,9 +14,16 @@ module: hv_journal_volume
 short_description: Create, update, expand, shrink, delete journal volume from Hitachi VSP storage systems.
 description:
   - This module creates, update, expand, shrink, delete journal volume from Hitachi VSP storage systems.
+  - DEPRECATED - Use hv_journal instead.
+  - This module will be removed in a future release.
   - For examples, go to URL
     U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/vsp_direct/journal_volume.yml)
+    U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/vsp_direct/journal.yml)
 version_added: '3.2.0'
+deprecated:
+    alternative: hv_journal
+    why: Replaced by improved module with consistent naming
+    removed_in: '5.0.0'
 author:
   - Hitachi Vantara LTD (@hitachi-vantara)
 requirements:
@@ -27,6 +34,7 @@ attributes:
     support: none
 extends_documentation_fragment:
 - hitachivantara.vspone_block.common.gateway_note
+- hitachivantara.vspone_block.common.connection_with_type
 options:
   state:
     description: State of the Journal Volume.
@@ -43,33 +51,6 @@ options:
         description: The serial number of the storage system.
         type: str
         required: false
-  connection_info:
-    description: Information required to establish a connection to the storage system.
-    type: dict
-    required: true
-    suboptions:
-      address:
-        description: IP address or hostname of the storage system.
-        type: str
-        required: true
-      username:
-        description: Username for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      password:
-        description: Password for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      api_token:
-        description: This field is used to pass the value of the lock token to operate on locked resources.
-        type: str
-        required: false
-      connection_type:
-        description: Type of connection to the storage system.
-        type: str
-        required: false
-        choices: ['direct']
-        default: 'direct'
   spec:
     description: Specification for creating Journal Volume.
     type: dict
@@ -270,6 +251,12 @@ class VSPJournalVolumeManager:
         self.logger.writeInfo("=== Start of Journal Volume operation. ===")
         try:
             registration_message = validate_ansible_product_registration()
+            deprecation_message = (
+                "The Ansible module hv_journal_volume is deprecated "
+                "and has been replaced by the new hv_journal module. "
+                "hv_journal_volume will be removed in a future release. "
+                "Please use the hv_journal module instead."
+            )
             result, res_msg = vsp_journal_volume.VSPJournalVolumeReconciler(
                 self.params_manager.connection_info, self.serial
             ).journal_volume_reconcile(self.state, self.spec)
@@ -280,6 +267,7 @@ class VSPJournalVolumeManager:
                 "changed": self.connection_info.changed,
                 "data": result,
                 "msg": msg,
+                "warning_deprecated_module": deprecation_message,
             }
             if registration_message:
                 response_dict["user_consent_required"] = registration_message

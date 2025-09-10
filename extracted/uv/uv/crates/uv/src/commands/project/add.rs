@@ -18,8 +18,7 @@ use uv_cache_key::RepositoryUrl;
 use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
     Concurrency, Constraints, DependencyGroups, DependencyGroupsWithDefaults, DevMode, DryRun,
-    EditableMode, ExtrasSpecification, ExtrasSpecificationWithDefaults, InstallOptions,
-    SourceStrategy,
+    ExtrasSpecification, ExtrasSpecificationWithDefaults, InstallOptions, SourceStrategy,
 };
 use uv_dispatch::BuildDispatch;
 use uv_distribution::{DistributionDatabase, LoweredExtraBuildDependencies};
@@ -124,6 +123,9 @@ pub(crate) async fn add(
             }
             RequirementsSource::SetupPy(_) => {
                 bail!("Adding requirements from a `setup.py` is not supported in `uv add`");
+            }
+            RequirementsSource::Pep723Script(_) => {
+                bail!("Adding requirements from a PEP 723 script is not supported in `uv add`");
             }
             RequirementsSource::SetupCfg(_) => {
                 bail!("Adding requirements from a `setup.cfg` is not supported in `uv add`");
@@ -1146,7 +1148,7 @@ async fn lock_and_sync(
         venv,
         extras,
         groups,
-        EditableMode::Editable,
+        None,
         InstallOptions::new(
             no_install_project,
             no_install_workspace,
@@ -1388,7 +1390,7 @@ impl AddTarget {
                 let project = project
                     .with_pyproject_toml(
                         toml::from_str(content).map_err(ProjectError::PyprojectTomlParse)?,
-                    )
+                    )?
                     .ok_or(ProjectError::PyprojectTomlUpdate)?;
                 Ok(Self::Project(project, venv))
             }

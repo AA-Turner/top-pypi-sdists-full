@@ -4,9 +4,10 @@
 
 # This file tests the secretstorage.Collection class.
 
-import unittest
 import time
-from secretstorage import dbus_init, search_items, get_any_collection
+import unittest
+
+from secretstorage import dbus_init, get_any_collection, search_items
 
 ATTRIBUTES = {'application': 'secretstorage-test', 'attribute': 'qwerty'}
 NEW_ATTRIBUTES = {'application': 'secretstorage-test',
@@ -74,7 +75,7 @@ class ItemTest(unittest.TestCase):
         # string passwords are encoded as bytes
         self.item.set_secret('test тест')  # type: ignore
         self.assertEqual(self.item.get_secret(),
-                         'test тест'.encode('utf-8'))
+                         'test тест'.encode())
         # other types are not allowed
         with self.assertRaises(TypeError):
             self.item.set_secret(None)  # type: ignore
@@ -96,3 +97,9 @@ class ItemTest(unittest.TestCase):
 
     def test_unlock(self) -> None:
         self.item.unlock()
+
+    def test_repr(self) -> None:
+        self.assertEqual(
+            repr(self.item),
+            f"<Item 'My item' path='{self.item.item_path}'>",
+        )

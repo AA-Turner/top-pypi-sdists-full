@@ -32,7 +32,7 @@ __metaclass__ = type
 
 from ansible.module_utils.basic import missing_required_lib
 
-COLLECTION_VERSION = "21.14.0"
+COLLECTION_VERSION = "21.15.0"
 
 try:
     import requests
@@ -79,7 +79,7 @@ class SGRestAPI(object):
         if not HAS_REQUESTS:
             self.module.fail_json(msg=missing_required_lib("requests"))
 
-    def send_request(self, method, api, params, json=None):
+    def send_request(self, method, api, params=None, json=None, files=None):
         """send http request and process reponse, including error conditions"""
         url = "%s/%s" % (self.api_url, api)
         status_code = None
@@ -88,8 +88,7 @@ class SGRestAPI(object):
         json_error = None
         error_details = None
         headers = {
-            "Content-type": "application/json",
-            "Authorization": self.auth_token,
+            "Authorization": "Bearer {}".format(self.auth_token),
             "Cache-Control": "no-cache",
         }
 
@@ -108,18 +107,41 @@ class SGRestAPI(object):
             return json, error
 
         try:
-            response = requests.request(
-                method,
-                url,
-                headers=headers,
-                timeout=self.timeout,
-                json=json,
-                verify=self.verify,
-                params=params,
-            )
-            status_code = response.status_code
+            if files:
+                headers["Content-Type"] = "multipart/form-data"
+                response = requests.request(
+                    method,
+                    url,
+                    headers=headers,
+                    timeout=self.timeout,
+                    json=json,
+                    files=files,
+                    verify=self.verify,
+                    params=params,
+                )
+            else:
+                headers["Content-Type"] = "application/json"
+                response = requests.request(
+                    method,
+                    url,
+                    headers=headers,
+                    timeout=self.timeout,
+                    json=json,
+                    verify=self.verify,
+                    params=params,
+                )
+
+            # check if response is binary file
+            content_type = response.headers.get("content-type", "").lower()
+            if "application/zip" in content_type or "octet-stream" in content_type:
+                return response.content, None
+
             # If the response was successful, no Exception will be raised
+            # Add status_code to the json_dict
             json_dict, json_error = get_json(response)
+            if json_dict is None:
+                json_dict = {}
+            json_dict["status_code"] = response.status_code
         except requests.exceptions.HTTPError as err:
             __, json_error = get_json(response)
             if json_error is None:
@@ -138,9 +160,9 @@ class SGRestAPI(object):
         method = "GET"
         return self.send_request(method, api, params)
 
-    def post(self, api, data, params=None):
+    def post(self, api, data=None, params=None, files=None):
         method = "POST"
-        return self.send_request(method, api, params, json=data)
+        return self.send_request(method, api, params, json=data, files=files)
 
     def patch(self, api, data, params=None):
         method = "PATCH"

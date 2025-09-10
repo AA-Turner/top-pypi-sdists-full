@@ -34,9 +34,11 @@ def lazy_import():
     from pinecone_plugins.assistant.data.core.client.model.multi_modal_content_blocks_model import MultiModalContentBlocksModel
     from pinecone_plugins.assistant.data.core.client.model.multi_modal_snippet_model import MultiModalSnippetModel
     from pinecone_plugins.assistant.data.core.client.model.text_snippet_model import TextSnippetModel
+    from pinecone_plugins.assistant.data.core.client.model.typed_reference_model import TypedReferenceModel
     globals()['MultiModalContentBlocksModel'] = MultiModalContentBlocksModel
     globals()['MultiModalSnippetModel'] = MultiModalSnippetModel
     globals()['TextSnippetModel'] = TextSnippetModel
+    globals()['TypedReferenceModel'] = TypedReferenceModel
 
 
 class SnippetModel(ModelComposed):
@@ -95,7 +97,7 @@ class SnippetModel(ModelComposed):
             'type': (str,),  # noqa: E501
             'content': ([MultiModalContentBlocksModel],),  # noqa: E501
             'score': (float,),  # noqa: E501
-            'reference': ({str: (bool, date, datetime, dict, float, int, list, str, none_type)},),  # noqa: E501
+            'reference': (TypedReferenceModel,),  # noqa: E501
         }
 
     @cached_property
@@ -160,7 +162,7 @@ class SnippetModel(ModelComposed):
                                 _visited_composed_classes = (Animal,)
             content ([MultiModalContentBlocksModel]): [optional]  # noqa: E501
             score (float): [optional]  # noqa: E501
-            reference ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Represents a reference for the information provided. [optional]  # noqa: E501
+            reference (TypedReferenceModel): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -263,7 +265,7 @@ class SnippetModel(ModelComposed):
                                 _visited_composed_classes = (Animal,)
             content ([MultiModalContentBlocksModel]): [optional]  # noqa: E501
             score (float): [optional]  # noqa: E501
-            reference ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Represents a reference for the information provided. [optional]  # noqa: E501
+            reference (TypedReferenceModel): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

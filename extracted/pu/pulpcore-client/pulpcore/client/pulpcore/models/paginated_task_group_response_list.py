@@ -24,14 +24,6 @@ from pulpcore.client.pulpcore.models.task_group_response import TaskGroupRespons
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PaginatedTaskGroupResponseList(BaseModel):
     """
     PaginatedTaskGroupResponseList
@@ -99,12 +91,7 @@ class PaginatedTaskGroupResponseList(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "count": obj.get("count"),
-            "next": obj.get("next"),
-            "previous": obj.get("previous"),
-            "results": [TaskGroupResponse.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -1,12 +1,17 @@
 use std::borrow::Cow;
 
 use itertools::Itertools;
+
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, ArraySchema, CurrentSchema, DocumentSchema, ValueSchema};
 
-use crate::goto_type_definition::{
-    all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
-    one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+use crate::{
+    comment_directive::get_array_comment_directive_content_with_schema_uri,
+    goto_type_definition::{
+        all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
+        comment::get_tombi_value_comment_directive_type_definition,
+        one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+    },
 };
 
 impl GetTypeDefinition for tombi_document_tree::Array {
@@ -24,6 +29,19 @@ impl GetTypeDefinition for tombi_document_tree::Array {
         tracing::trace!("current_schema = {:?}", current_schema);
 
         async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_array_comment_directive_content_with_schema_uri(self, position, accessors)
+            {
+                if let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
+                    comment_directive_context,
+                    schema_uri,
+                )
+                .await
+                {
+                    return Some(hover_content);
+                }
+            }
+
             if let Some(Ok(DocumentSchema {
                 value_schema,
                 schema_uri,
@@ -54,7 +72,7 @@ impl GetTypeDefinition for tombi_document_tree::Array {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::Array(array_schema) => {
                         for (index, value) in self.values().iter().enumerate() {
-                            if value.range().contains(position) {
+                            if value.contains(position) {
                                 let accessor = Accessor::Index(index);
 
                                 if let Some(items) = &array_schema.items {
@@ -152,7 +170,7 @@ impl GetTypeDefinition for tombi_document_tree::Array {
             }
 
             for (index, value) in self.values().iter().enumerate() {
-                if value.range().contains(position) {
+                if value.contains(position) {
                     let accessor = Accessor::Index(index);
                     return value
                         .get_type_definition(

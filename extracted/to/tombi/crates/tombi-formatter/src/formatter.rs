@@ -57,7 +57,8 @@ impl<'a> Formatter<'a> {
                     .await
                     .ok()
                     .flatten(),
-                tombi_comment_directive::get_tombi_document_comment_directive(&root).await,
+                tombi_validator::comment_directive::get_tombi_document_comment_directive(&root)
+                    .await,
             )
         } else {
             (None, None)
@@ -65,7 +66,7 @@ impl<'a> Formatter<'a> {
 
         if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive {
             if let Some(format) = &tombi_document_comment_directive.format {
-                if format.disable == Some(true) {
+                if format.disabled() == Some(true) {
                     match self.source_uri_or_path.map(|path| match path {
                         Either::Left(url) => url.to_string(),
                         Either::Right(path) => path.to_string_lossy().to_string(),

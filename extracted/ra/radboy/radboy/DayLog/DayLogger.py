@@ -1077,7 +1077,7 @@ fxtbl - update table with correct columns
                     if orderByTotalValue:
                         query=self.f_orderByTotalValue(query)
                     query=query.all()
-                
+            
             totals=OrderedDict({})
             totals_dl=OrderedDict({})
             total_price=OrderedDict({})
@@ -1093,24 +1093,31 @@ fxtbl - update table with correct columns
             for num,i in enumerate(query):
                 print(num,len(query))
                 if num >= len(query):
+                    
                     break
+
                 try:
+                    #print(num,i,'#HERE1')
                     if i.EntryId not in totals:
+                        #print(num,'#HERE1.1')
                         #total from fields not occurances
-                        totals[i.EntryId]=0
+                        totals[i.EntryId]=decc(0,cf=ROUNDTO)
+                        #print(num,'#HERE1.2')
                         totals_dl[i.EntryId]=i
-                        
-                        total_crv[i.EntryId]=i.CRV*0
-                        total_tax[i.EntryId]=i.Tax*0
-                        total_price[i.EntryId]=i.Price*0
+                        #print(num,'#HERE2')
+                        total_crv[i.EntryId]=decc(i.CRV)*decc(0,cf=ROUNDTO)
+                        #print(num,'#HERE2.1')
+                        total_tax[i.EntryId]=decc(i.Tax)*decc(0,cf=ROUNDTO)
+                        #print(num,'#HERE2.2')
+                        total_price[i.EntryId]=decc(i.Price)*decc(0,cf=ROUNDTO)
+                        #print(num,'#HERE3')
                     for x in fields_for_total:
                         try:
-                            
-                            totals[i.EntryId]+=round(getattr(i,x),ROUNDTO)
-                            crv=round(i.CRV*getattr(i,x),ROUNDTO)
-                            tax=round(i.Tax*getattr(i,x),ROUNDTO)
-                            price=round(i.Price*getattr(i,x),ROUNDTO)
-                            msg=f"{num}/{num+1} of {len(query)}{i.seeShort()}\t{Fore.light_sea_green}CRV:{Fore.light_steel_blue}{crv}\n\t{Fore.light_sea_green}TAX:{Fore.light_steel_blue}{tax}\n\t{Fore.light_sea_green}Price:{Fore.light_steel_blue}{price}\n\t{Fore.light_green}Total:{Fore.light_steel_blue}{round(crv+tax+price,ROUNDTO)}\n{Fore.light_sea_green}For Date:{Fore.dark_goldenrod}{i.DayLogDate}({datetime(i.DayLogDate.year,i.DayLogDate.month,i.DayLogDate.day).strftime('%B[Mnth]/%A[DayNm]/%V[WK#]')}){Style.reset}"
+                            totals[i.EntryId]+=decc(getattr(i,x),cf=ROUNDTO)
+                            crv=decc(i.CRV*getattr(i,x),cf=ROUNDTO)
+                            tax=decc(i.Tax*getattr(i,x),cf=ROUNDTO)
+                            price=decc(i.Price*getattr(i,x),cf=ROUNDTO)
+                            msg=f"{num}/{num+1} of {len(query)}{i.seeShort()}\t{Fore.light_sea_green}CRV:{Fore.light_steel_blue}{crv}\n\t{Fore.light_sea_green}TAX:{Fore.light_steel_blue}{tax}\n\t{Fore.light_sea_green}Price:{Fore.light_steel_blue}{price}\n\t{Fore.light_green}Total:{Fore.light_steel_blue}{decc(crv+tax+price,cf=ROUNDTO)}\n{Fore.light_sea_green}For Date:{Fore.dark_goldenrod}{i.DayLogDate}({datetime(i.DayLogDate.year,i.DayLogDate.month,i.DayLogDate.day).strftime('%B[Mnth]/%A[DayNm]/%V[WK#]')}){Style.reset}"
                             print(msg)
                             if export:
                                 logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=text_cr_export)
@@ -1121,19 +1128,19 @@ fxtbl - update table with correct columns
                                 logInput(msg2,user=False,filter_colors=True,maxed_hfl=False,ofile=text_cr_export)
 
                             total_crv[i.EntryId]+=crv
-                            total_crv[i.EntryId]=round(total_crv[i.EntryId],ROUNDTO)
                             
                             total_tax[i.EntryId]+=tax
-                            total_tax[i.EntryId]=round(total_tax[i.EntryId],ROUNDTO)
                             
                             total_price[i.EntryId]+=price
-                            total_price[i.EntryId]=round(total_price[i.EntryId],ROUNDTO)
+
                             total_expense+=(tax+price+crv)
-                            total_expense=round(total_expense,ROUNDTO)
+                            total_expense=decc(total_expense,cf=ROUNDTO)
                         except Exception as ee:
                             print(ee,repr(ee),x,i.seeShort())
                 except Exception as e:
                     print(e,repr(e),num,i,len(query))
+                    #exit(repr(e))
+                    print(i)
                     break
                 #next2=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"{i}\n{Fore.light_magenta}Final Total:{Fore.light_steel_blue}{totals[i.EntryId]}{Style.reset} next?",helpText="yes or no(f will result in yes for str reasons)",data="boolean")
                 #if next2 in [None,]:
@@ -1143,10 +1150,14 @@ fxtbl - update table with correct columns
                 #else:
                 #    pass
         #
+        #print('HERE4')
         if orderByTotalValue:
             totals_ordered_keys=OrderedDict({})
             for key in totals:
-                totals_ordered_keys[key]=round(((total_crv[key]+total_tax[key]+total_price[key])/total_expense)*100,ROUNDTO)
+                try:
+                    totals_ordered_keys[key]=decc(((total_crv[key]+total_tax[key]+total_price[key])/total_expense)*100,cf=ROUNDTO)
+                except Exception as e:
+                    totals_ordered_keys[key]=0
             #need to sort dictionary
             #according to -> round(((total_crv[key]+total_tax[key]+total_price[key])/total_expense)*100,ROUNDTO)
             totals_ordered_keys=OrderedDict(sorted(totals_ordered_keys.items(),key=lambda item:item[1],reverse=not reverse))
@@ -1154,7 +1165,7 @@ fxtbl - update table with correct columns
             for key in totals_ordered_keys.keys():
                 tmp[key]=totals[key]
             totals=tmp
-
+        #print('HERE5')
         totals_len=len(totals)
         for num,key in enumerate(totals):
             if LookUpState == True:
@@ -1168,10 +1179,16 @@ fxtbl - update table with correct columns
                         counter+=1
                 if counter >= len(fields_for_total):
                     continue
-                msg=f"{Fore.orange_red_1}{round(((total_crv[key]+total_tax[key]+total_price[key])/total_expense)*100,ROUNDTO)}% of {round(total_expense,ROUNDTO)} ** {Fore.light_cyan}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{totals_len}{Fore.light_sea_green} '{dl.Name}' = {Fore.grey_70}{round(totals[key],ROUNDTO)} acquired,{Fore.dark_goldenrod} From {date_from} {Fore.dark_green}To {date_to},{Fore.spring_green_3a}for a period of {date_to-date_from},{Fore.medium_violet_red} for a total cost of {round(total_crv[key]+total_tax[key]+total_price[key],ROUNDTO)} [{Fore.light_steel_blue}DayLogId({Fore.green_yellow}{dl.DayLogId}{Fore.light_steel_blue}),{Fore.cadet_blue_1}EntryId({Fore.light_sea_green}{dl.EntryId}{Fore.cadet_blue_1}){Fore.medium_violet_red}].{Style.reset}\n"
+                #print('HERE6')
+                #print(decc(total_crv[key],cf=ROUNDTO),decc(total_tax[key],cf=ROUNDTO),decc(total_price[key],cf=ROUNDTO),decc(total_expense,cf=ROUNDTO))
+                try:
+                    msg=f"{Fore.orange_red_1}{(decc((decc(total_crv[key],cf=ROUNDTO)+decc(total_tax[key],cf=ROUNDTO)+decc(total_price[key])),cf=ROUNDTO)/decc(total_expense,cf=ROUNDTO))*100}% of {decc(total_expense,cf=ROUNDTO)} ** {Fore.light_cyan}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{totals_len}{Fore.light_sea_green} '{dl.Name}' = {Fore.grey_70}{decc(totals[key],cf=ROUNDTO)} acquired,{Fore.dark_goldenrod} From {date_from} {Fore.dark_green}To {date_to},{Fore.spring_green_3a}for a period of {date_to-date_from},{Fore.medium_violet_red} for a total cost of {decc(total_crv[key]+total_tax[key]+total_price[key],cf=ROUNDTO)} [{Fore.light_steel_blue}DayLogId({Fore.green_yellow}{dl.DayLogId}{Fore.light_steel_blue}),{Fore.cadet_blue_1}EntryId({Fore.light_sea_green}{dl.EntryId}{Fore.cadet_blue_1}){Fore.medium_violet_red}].{Style.reset}\n"
+                except Exception as e:
+                    msg=f"{Fore.orange_red_1}0% of {decc(total_expense,cf=ROUNDTO)} ** {Fore.light_cyan}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{totals_len}{Fore.light_sea_green} '{dl.Name}' = {Fore.grey_70}{decc(totals[key],cf=ROUNDTO)} acquired,{Fore.dark_goldenrod} From {date_from} {Fore.dark_green}To {date_to},{Fore.spring_green_3a}for a period of {date_to-date_from},{Fore.medium_violet_red} for a total cost of {decc(total_crv[key]+total_tax[key]+total_price[key],cf=ROUNDTO)} [{Fore.light_steel_blue}DayLogId({Fore.green_yellow}{dl.DayLogId}{Fore.light_steel_blue}),{Fore.cadet_blue_1}EntryId({Fore.light_sea_green}{dl.EntryId}{Fore.cadet_blue_1}){Fore.medium_violet_red}].{Style.reset}\n"
                 if export:
                     logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=text_cr_export)
                 print(msg)
+                #print('HERE7')
         ex=f"{Fore.light_red}Duration:{Fore.light_steel_blue}{datetime.now()-local_start}|{Fore.light_cyan}OrderByFinalValue[{Fore.deep_pink_4c}{orderByTotalValue}{Fore.light_cyan}]|GraphIt[{Fore.deep_pink_4c}{graph_it}{Fore.light_cyan}]|Export[{Fore.deep_pink_4c}{export}{Fore.light_cyan}]"
         if orderByTotalValue:
             reverse_state={False:'False - Desc. (First Line Oldest/Biggest,Last Line Newest/Smallest)',True:'True - Asc. (Firt Line Newest/Smallest,Last Line Newest/Biggest)'}

@@ -1,6 +1,6 @@
 from dataclasses import field
 import inspect
-from typing import Any, Generic, Iterator, Set, Tuple, Type, TypeVar, Union, cast
+from typing import Any, Dict, Generic, Iterator, Set, Tuple, Type, TypeVar, Union, cast
 from typing_extensions import dataclass_transform
 
 from pydantic import GetCoreSchemaHandler
@@ -10,6 +10,7 @@ from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
+from vellum.workflows.executable import BaseExecutable
 from vellum.workflows.references.output import OutputReference
 from vellum.workflows.types.generics import is_node_instance
 from vellum.workflows.types.utils import get_class_attr_names, infer_types
@@ -99,6 +100,10 @@ class BaseOutput(Generic[_Delta, _Accumulated]):
 
 @dataclass_transform(kw_only_default=True)
 class _BaseOutputsMeta(type):
+    def __new__(cls, name: str, bases: Tuple[Type, ...], dct: Dict[str, Any]) -> Any:
+        dct["__parent_class__"] = type(None)
+        return super().__new__(cls, name, bases, dct)
+
     def __eq__(cls, other: Any) -> bool:
         """
         We need to include custom eq logic to prevent infinite loops during ipython reloading.
@@ -119,7 +124,13 @@ class _BaseOutputsMeta(type):
         if self_outputs_class.__parent_class__ is None or other_outputs_class.__parent_class__ is None:
             return super().__eq__(other)
 
-        return self_outputs_class.__parent_class__.__qualname__ == other_outputs_class.__parent_class__.__qualname__
+        if self_outputs_class.__parent_class__ is type(None) or other_outputs_class.__parent_class__ is type(None):
+            return super().__eq__(other)
+
+        return (
+            self_outputs_class.__parent_class__.__qualname__ == other_outputs_class.__parent_class__.__qualname__
+            and self_outputs_class.__parent_class__.__module__ == other_outputs_class.__parent_class__.__module__
+        )
 
     def __setattr__(cls, name: str, value: Any) -> None:
         if isinstance(value, OutputReference):
@@ -183,9 +194,7 @@ class _BaseOutputsMeta(type):
 
 
 class BaseOutputs(metaclass=_BaseOutputsMeta):
-    # TODO: Uncomment once we figure out why this causes a failure in `infer_types`
-    # __parent_class__: Type[Union["BaseNode", "BaseWorkflow"]] = field(init=False)
-    __parent_class__: Type = field(init=False)
+    __parent_class__: Type[BaseExecutable] = field(init=False)
 
     def __init__(self, **kwargs: Any) -> None:
         declared_fields = {descriptor.name for descriptor in self.__class__}

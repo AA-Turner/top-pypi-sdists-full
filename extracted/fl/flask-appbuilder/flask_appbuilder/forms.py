@@ -22,7 +22,6 @@ from .fieldwidgets import (
     Select2ManyWidget,
     Select2Widget,
 )
-from .models.mongoengine.fields import MongoFileField, MongoImageField
 from .upload import (
     BS3FileUploadFieldWidget,
     BS3ImageUploadFieldWidget,
@@ -39,7 +38,7 @@ except Exception:
 log = logging.getLogger(__name__)
 
 
-class FieldConverter(object):
+class FieldConverter:
     """
     Helper class that converts model fields into WTForm fields
 
@@ -50,8 +49,6 @@ class FieldConverter(object):
     conversion_table = (
         ("is_image", ImageUploadField, BS3ImageUploadFieldWidget),
         ("is_file", FileUploadField, BS3FileUploadFieldWidget),
-        ("is_gridfs_file", MongoFileField, BS3FileUploadFieldWidget),
-        ("is_gridfs_image", MongoImageField, BS3ImageUploadFieldWidget),
         ("is_text", TextAreaField, BS3TextAreaFieldWidget),
         ("is_binary", TextAreaField, BS3TextAreaFieldWidget),
         ("is_string", StringField, BS3TextFieldWidget),
@@ -107,7 +104,7 @@ class FieldConverter(object):
         log.error("Column %s Type not supported", self.colname)
 
 
-class GeneralModelConverter(object):
+class GeneralModelConverter:
     """
     Returns a form from a model only one public exposed
     method 'create_form'

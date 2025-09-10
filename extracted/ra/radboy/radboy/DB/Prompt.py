@@ -34,6 +34,8 @@ from uuid import uuid1
 import zipfile,pydoc
 import math
 import enum
+from radboy.DB.types import *
+
 try:
     import resource
 except Exception as e:
@@ -187,23 +189,23 @@ def getExtras(entryId,extras):
 def getSuperTotal(results,location_fields,colormapped):
     with db.Session(db.ENGINE) as session:
         ROUNDTO=int(db.detectGetOrSet("lsbld ROUNDTO default",3,setValue=False,literal=True))
-        master_total=Decimal("0.00")
-        master_total_crv=Decimal("0.00")
-        master_total_tax=Decimal("0.00")
-        master_total_tax_crv=Decimal("0.00")
+        master_total=decc("0.00",cf=ROUNDTO)
+        master_total_crv=decc("0.00",cf=ROUNDTO)
+        master_total_tax=decc("0.00",cf=ROUNDTO)
+        master_total_tax_crv=decc("0.00",cf=ROUNDTO)
         for num,i in enumerate(results):
-            total=Decimal("0.00")
-            crv=Decimal("0.00")
-            tax=Decimal("0.00")
-            tax_crv=Decimal("0.00")
-            i.Tax=Decimal(i.Tax)
-            i.CRV=Decimal(i.CRV)
-            i.Price=Decimal(i.Price)
+            total=decc("0.00",cf=ROUNDTO)
+            crv=decc("0.00",cf=ROUNDTO)
+            tax=decc("0.00",cf=ROUNDTO)
+            tax_crv=decc("0.00",cf=ROUNDTO)
+            i.Tax=decc(i.Tax,cf=ROUNDTO)
+            i.CRV=decc(i.CRV,cf=ROUNDTO)
+            i.Price=decc(i.Price,cf=ROUNDTO)
             session.commit()
             for n2,f in enumerate(location_fields):
                 try:
                     if getattr(i,f) > 0:
-                        total+=Decimal(getattr(i,f))
+                        total+=decc(getattr(i,f),cf=ROUNDTO)
                 except Exception as e:
                     print(e)
             
@@ -264,6 +266,7 @@ class Obfuscate:
             print(e)
 
     def __init__(self):
+
         self.FILE=db.detectGetOrSet("OBFUSCATED MSG FILE",value="MSG.txt",setValue=False,literal=True)
         while True:
             self.password=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Password",helpText="Protect your data",data="string")
@@ -873,7 +876,7 @@ class Prompt(object):
     bld_file="./BLD.txt"
     def __init__(self,func,ptext='do what',helpText='',data={},noHistory=False):
         while True:
-            cmd=input(f'{Fore.light_yellow}{ptext}{Style.reset}:{Fore.light_green} ')
+            cmd=input(f'{db.ROBS}{Fore.light_yellow}{ptext}{Style.reset}{db.ROBE}:{db.ROBS}{Fore.light_green} {db.ROBE}')
             db.logInput(cmd)
             print(Style.reset,end='')
             
@@ -942,6 +945,7 @@ class Prompt(object):
             
 
     def __init2__(self,func,ptext='do what',helpText='',data={},noHistory=False,qc=None,replace_ptext=None,alt_input=None):
+        ROUNDTO=int(db.detectGetOrSet("TotalSpent ROUNDTO default",4,setValue=False,literal=True))
         '''
         lsbld - bldls()
         lsbld- - bldls(minus=True)
@@ -1131,10 +1135,12 @@ class Prompt(object):
                         return
                     #start
                     ROUNDTO=int(db.detectGetOrSet("lsbld ROUNDTO default",3,setValue=False,literal=True))
-                    master_total=Decimal("0.0000")
-                    master_total_crv=Decimal("0.00")
-                    master_total_tax=Decimal("0.0000")
-                    master_total_tax_crv=Decimal("0.0000")
+
+                    master_total=decc("0.0000",cf=ROUNDTO)
+                    master_total_crv=decc("0.00",cf=ROUNDTO)
+                    master_total_tax=decc("0.0000",cf=ROUNDTO)
+                    master_total_tax_crv=decc("0.0000",cf=ROUNDTO)
+
                     reRunRequired=False
                     for num,i in enumerate(results):
                         getExtras(i.EntryId,extras)
@@ -1166,38 +1172,39 @@ class Prompt(object):
                         Fore.orange_3,
                         ]
                         #print("#0")
-                        total=Decimal("0.0000")
-                        crv=Decimal("0.0000")
-                        tax=Decimal("0.0000")
-                        tax_crv=Decimal("0.0000")
-                        i.Tax=Decimal(i.Tax)
-                        i.CRV=Decimal(i.CRV)
-                        i.Price=Decimal(i.Price)
+                        total=decc("0.0000",cf=ROUNDTO)
+                        crv=decc("0.0000",cf=ROUNDTO)
+                        tax=decc("0.0000",cf=ROUNDTO)
+                        tax_crv=decc("0.0000",cf=ROUNDTO)
+                        i.Tax=decc(i.Tax,cf=ROUNDTO)
+                        i.CRV=decc(i.CRV,cf=ROUNDTO)
+                        i.Price=decc(i.Price,cf=ROUNDTO)
                         try:
                             if (i.Price+i.CRV) > 0:
-                                taxRate=Decimal(i.Tax/(i.Price+i.CRV))
+                                taxRate=decc(i.Tax/(i.Price+i.CRV),cf=ROUNDTO)
                             else:
-                                taxRate=Decimal('0.00000')
+                                taxRate=decc('0.00000',cf=ROUNDTO)
 
                         except Exception as e:
-                            taxRate=Decimal('0.00000')
-                            i.Tax=Decimal('0.0000')
-                            i.Price=Decimal('0.0000')
-                            i.CRV=Decimal('0.0000')
+                            taxRate=decc('0.00000',cf=ROUNDTO)
+                            i.Tax=decc('0.0000',cf=ROUNDTO)
+                            i.Price=decc('0.0000',cf=ROUNDTO)
+                            i.CRV=decc('0.0000',cf=ROUNDTO)
                             session.commit()
                             session.refresh(i)
 
                         #print("#1")
+
                         if not minus:
                             for n2,f in enumerate(location_fields):
                                 try:
                                     if getattr(i,f) > 0:
-                                        total+=Decimal(getattr(i,f))
+                                        total+=decc(getattr(i,f),cf=ROUNDTO)
                                 except Exception as e:
                                     print(e)
                             for n2,f in enumerate(location_fields):
                                 if getattr(i,f) > 0:
-                                    msg2=f'{colormapped[n2]}{f} = {Decimal(getattr(i,f))}{Style.reset}'
+                                    msg2=f'{colormapped[n2]}{f} = {decc(getattr(i,f),cf=ROUNDTO)}{Style.reset}'
                                     if n2 < len(location_fields):
                                         msg2+=","
                                     msg+=msg2
@@ -1205,19 +1212,20 @@ class Prompt(object):
                             for n2,f in enumerate(location_fields):
                                 try:
                                     if getattr(i,f) != 0:
-                                        total+=Decimal(getattr(i,f))
+                                        total+=decc(getattr(i,f),cf=ROUNDTO)
                                 except Exception as e:
                                     print(e)
                             for n2,f in enumerate(location_fields):
                                 if getattr(i,f) != 0:
-                                    msg2=f'{colormapped[n2]}{f} = {Decimal(str(getattr(i,f)))}{Style.reset}'
+                                    msg2=f'{colormapped[n2]}{f} = {decc(str(getattr(i,f)),cf=ROUNDTO)}{Style.reset}'
                                     if n2 < len(location_fields):
                                         msg2+=","
                                     msg+=msg2
-                        master_total+=total*Decimal(i.Price)
 
-                        crv+=(Decimal(i.CRV)*total)
-                        tax+=(Decimal(i.Tax)*total)
+                        master_total+=total*decc(i.Price,cf=ROUNDTO)
+
+                        crv+=(decc(i.CRV,cf=ROUNDTO)*total)
+                        tax+=(decc(i.Tax,cf=ROUNDTO)*total)
 
                         tax_crv=(crv+tax)
                         master_total_tax+=tax
@@ -1225,42 +1233,43 @@ class Prompt(object):
                         master_total_tax_crv+=tax_crv
                         #print("#exegen",type(total),type(tax_crv))
                         try:
-                            #print((total*Decimal(i.Price)+tax_crv),"s1")
-                            #print(Decimal(getSuperTotal(results,location_fields,colormapped)['final total']).quantize(Decimal("00.00")),"s2")
+                            #print((total*decc(i.Price)+tax_crv),"s1")
+                            #print(decc(getSuperTotal(results,location_fields,colormapped)['final total']).quantize(decc("00.00")),"s2")
                             #print(tax_crv,"s3")
                             #super_total=(round(round(round(total*i.Price,ROUNDTO)+tax_crv,ROUNDTO)/getSuperTotal(results,location_fields,colormapped)['final total'],ROUNDTO))*100
-                            if (total*Decimal(i.Price)+tax+crv) > 0:
-                                super_total=(total*Decimal(i.Price)+tax+crv)/Decimal(getSuperTotal(results,location_fields,colormapped)['final total'])
+                            if (total*decc(i.Price,cf=ROUNDTO)+tax+crv) > 0:
+                                super_total=(total*decc(i.Price)+tax+crv)/decc(getSuperTotal(results,location_fields,colormapped)['final total'],cf=ROUNDTO)
                                 super_total=super_total*100
                             else:
                                 super_total=0
                         except Exception as e:
-                            p1=total*Decimal(i.Price)+tax_crv
-                            p2=Decimal(getSuperTotal(results,location_fields,colormapped)['final total'])
+                            p1=total*decc(i.Price,cf=ROUNDTO)+tax_crv
+                            p2=decc(getSuperTotal(results,location_fields,colormapped)['final total'],cf=ROUNDTO)
                             print(e)
                             print(p1,"p1")
                             print(p2,"p2")
                             super_total=0
                         #print("#exegen2")
-                        super_total=Decimal(super_total)
+                        super_total=decc(super_total,cf=ROUNDTO)
                         #print(super_total)
+
                         if simple:
                             msg+=f""" Total = {total}"""
                             print(db.strip_colors(msg))
                         else:
                             msg+=f"""{Fore.light_magenta} |-|{Fore.light_green} Total = {Fore.light_sea_green}{total}
-{Fore.light_magenta}Price({Decimal(i.Price):.{getcontext().prec}f}){Fore.medium_violet_red}*{Fore.light_slate_blue}Total({total}):{Decimal(i.Price)*total:.{getcontext().prec}f}
-{Fore.grey_70}+CRV({Decimal(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
-{Fore.medium_spring_green}= {Fore.slate_blue_1}TotalCRV({crv:.{getcontext().prec}f})+TotalPrice({total*Decimal(i.Price):.{getcontext().prec}f})
-{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*Decimal(i.Price)+crv:.{getcontext().prec}f}){Style.reset}
-{Fore.grey_70}+Tax({Decimal(i.Tax):.{getcontext().prec}f}) w/o CRV({Decimal(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
+{Fore.light_magenta}Price({decc(i.Price):.{getcontext().prec}f}){Fore.medium_violet_red}*{Fore.light_slate_blue}Total({total}):{decc(i.Price)*total:.{getcontext().prec}f}
+{Fore.grey_70}+CRV({decc(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
+{Fore.medium_spring_green}= {Fore.slate_blue_1}TotalCRV({crv:.{getcontext().prec}f})+TotalPrice({total*decc(i.Price):.{getcontext().prec}f})
+{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*decc(i.Price)+crv:.{getcontext().prec}f}){Style.reset}
+{Fore.grey_70}+Tax({decc(i.Tax):.{getcontext().prec}f}) w/o CRV({decc(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
 {Fore.medium_spring_green}= {Fore.slate_blue_1}TaxNoCRVTotal({tax:.{getcontext().prec}f})+TotalPrice({total*i.Price:.{getcontext().prec}f})
-{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*Decimal(i.Price)+tax:.{getcontext().prec}f}){Style.reset}
-{Fore.grey_70}+Tax({Decimal(i.Tax):.{getcontext().prec}f}) w/ CRV({Decimal(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
+{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*decc(i.Price)+tax:.{getcontext().prec}f}){Style.reset}
+{Fore.grey_70}+Tax({decc(i.Tax):.{getcontext().prec}f}) w/ CRV({decc(i.CRV):.{getcontext().prec}f})*Total({total}){Fore.slate_blue_1}
 {Fore.medium_spring_green}= {Fore.slate_blue_1}TaxCRVTotal({tax_crv:.{getcontext().prec}f})+TotalPrice({total*i.Price:.{getcontext().prec}f})
-{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*Decimal(i.Price)+tax+crv:.{getcontext().prec}f}){Style.reset}
+{Fore.medium_spring_green}= {Fore.green_3a}NetPrice({total*decc(i.Price)+tax+crv:.{getcontext().prec}f}){Style.reset}
 {Fore.medium_violet_red}PercentOfTotal({super_total:.{getcontext().prec}f}%) of FinalTotal({getSuperTotal(results,location_fields,colormapped)['final total']})
-{Fore.orange_red_1}TaxRate({taxRate:.{getcontext().prec}f})={Decimal(taxRate*100):.{getcontext().prec}f}%{Style.reset}
+{Fore.orange_red_1}TaxRate({taxRate:.{getcontext().prec}f})={decc(taxRate*100):.{getcontext().prec}f}%{Style.reset}
 {'*'*os.get_terminal_size().columns}{Style.reset}"""
                         if bldlse:
                             db.logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=Prompt.bld_file)
@@ -1292,10 +1301,11 @@ class Prompt(object):
                                 cse(i.Barcode)
                                 continue
 
-                    master_total=Decimal(str(master_total))
-                    master_total_crv=Decimal(str(master_total_crv))
-                    master_total_tax=Decimal(str(master_total_tax))
-                    master_total_tax_crv=Decimal(str(master_total_tax_crv))
+                    #exit(f"here {master_total} {master_total_crv} {master_total_tax} {master_total_tax_crv}")
+                    master_total=decc(str(master_total),cf=ROUNDTO)
+                    master_total_crv=decc(str(master_total_crv),cf=ROUNDTO)
+                    master_total_tax=decc(str(master_total_tax),cf=ROUNDTO)
+                    master_total_tax_crv=decc(str(master_total_tax_crv),cf=ROUNDTO)
 
                     actual=(master_total_crv+master_total)+master_total_tax
                         
@@ -1447,9 +1457,9 @@ class Prompt(object):
 {Fore.light_red+os.get_terminal_size().columns*'.'}
 {Fore.rgb(55,191,78)}HFL:{Fore.rgb(55,130,191)}{lineTotal()}{Fore.light_red}{Fore.light_green}{Back.grey_15}'''
                     if alt_input is not None and callable(alt_input):
-                        cmd=alt_input(f"{Fore.light_yellow}{'.'*os.get_terminal_size().columns}\n{Back.grey_15}{Fore.light_yellow}{ptext}{Fore.light_steel_blue}\n[{Fore.light_green}cheat/cht=brief cmd helpt{Fore.light_steel_blue}] ({Fore.orange_red_1}Exec{Fore.light_steel_blue})\n ->{Style.reset}")
+                        cmd=alt_input(f"{db.ROBS}{Fore.light_yellow}{db.ROBE}{'.'*os.get_terminal_size().columns}\n{db.ROBS}{Back.grey_15}{Fore.light_yellow}{db.ROBE}{ptext}{db.ROBS}{Fore.light_steel_blue}{db.ROBE}\n[{db.ROBS}{Fore.light_green}{db.ROBE}cheat/cht=brief cmd helpt{db.ROBS}{Fore.light_steel_blue}{db.ROBE}] ({db.ROBS}{Fore.orange_red_1}{db.ROBE}Exec{db.ROBS}{Fore.light_steel_blue}{db.ROBE})\n ->{db.ROBS}{Style.reset}{db.ROBE}")
                     else:
-                        cmd=input(f"{Fore.light_yellow}{'.'*os.get_terminal_size().columns}\n{Back.grey_15}{Fore.light_yellow}{ptext}{Fore.light_steel_blue}\n[{Fore.light_green}cheat/cht=brief cmd helpt{Fore.light_steel_blue}] ({Fore.orange_red_1}Exec{Fore.light_steel_blue})\n ->{Style.reset}")
+                        cmd=input(f"{db.ROBS}{Fore.light_yellow}{db.ROBE}{'.'*os.get_terminal_size().columns}\n{db.ROBS}{Back.grey_15}{Fore.light_yellow}{db.ROBE}{ptext}{db.ROBS}{Fore.light_steel_blue}{db.ROBE}\n[{db.ROBS}{Fore.light_green}{db.ROBE}cheat/cht=brief cmd helpt{db.ROBS}{Fore.light_steel_blue}{db.ROBE}] ({db.ROBS}{Fore.orange_red_1}{db.ROBE}Exec{db.ROBS}{Fore.light_steel_blue}{db.ROBE})\n ->{db.ROBS}{Style.reset}{db.ROBE}")
                     
                     def strip_null(text):
                         if '\0' in text:

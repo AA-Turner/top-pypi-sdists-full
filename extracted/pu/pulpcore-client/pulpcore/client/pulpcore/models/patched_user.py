@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedUser(BaseModel):
     """
     Serializer for User.
@@ -100,15 +92,7 @@ class PatchedUser(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "username": obj.get("username"),
-            "password": obj.get("password"),
-            "first_name": obj.get("first_name"),
-            "last_name": obj.get("last_name"),
-            "email": obj.get("email"),
-            "is_staff": obj.get("is_staff") if obj.get("is_staff") is not None else False,
-            "is_active": obj.get("is_active") if obj.get("is_active") is not None else True
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

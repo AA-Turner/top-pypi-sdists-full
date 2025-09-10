@@ -9,15 +9,20 @@ secret is possible only when the :doc:`collection <collection>` storing
 the item is unlocked. The collection can be unlocked using collection's
 :meth:`~secretstorage.collection.Collection.unlock` method."""
 
-from typing import Dict, Optional
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from jeepney.io.blocking import DBusConnection
+
 from secretstorage.defines import SS_PREFIX
 from secretstorage.dhcrypto import Session
 from secretstorage.exceptions import LockedException, PromptDismissedException
-from secretstorage.util import DBusAddressWrapper, \
- exec_prompt, open_session, format_secret, unlock_objects
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from secretstorage.util import (
+    DBusAddressWrapper,
+    exec_prompt,
+    format_secret,
+    open_session,
+    unlock_objects,
+)
 
 ITEM_IFACE = SS_PREFIX + 'Item'
 
@@ -26,7 +31,7 @@ class Item:
     """Represents a secret item."""
 
     def __init__(self, connection: DBusConnection,
-                 item_path: str, session: Optional[Session] = None) -> None:
+                 item_path: str, session: Session | None = None) -> None:
         self.item_path = item_path
         self._item = DBusAddressWrapper(item_path, ITEM_IFACE, connection)
         self._item.get_property('Label')
@@ -63,12 +68,12 @@ class Item:
         """
         return unlock_objects(self.connection, [self.item_path])
 
-    def get_attributes(self) -> Dict[str, str]:
+    def get_attributes(self) -> dict[str, str]:
         """Returns item attributes (dictionary)."""
         attrs = self._item.get_property('Attributes')
         return dict(attrs)
 
-    def set_attributes(self, attributes: Dict[str, str]) -> None:
+    def set_attributes(self, attributes: dict[str, str]) -> None:
         """Sets item attributes to `attributes` (dictionary)."""
         self._item.set_property('Attributes', 'a{ss}', attributes)
 
@@ -143,3 +148,6 @@ class Item:
         modified = self._item.get_property('Modified')
         assert isinstance(modified, int)
         return modified
+
+    def __repr__(self) -> str:
+        return f"<Item {self.get_label()!r} path={self.item_path!r}>"

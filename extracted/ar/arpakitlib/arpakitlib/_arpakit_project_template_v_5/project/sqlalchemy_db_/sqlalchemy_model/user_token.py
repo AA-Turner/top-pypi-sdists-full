@@ -60,6 +60,8 @@ class UserTokenDBM(SimpleDBM):
         ]
         return f"{self.entity_name} ({', '.join(parts)})"
 
+    # ---validators---
+
     @validates("value")
     def _validate_value(self, key, value, *args, **kwargs):
         if not isinstance(value, str):
@@ -68,3 +70,7 @@ class UserTokenDBM(SimpleDBM):
         if not value:
             raise ValueError(f"{key=}, {value=}, value is empty")
         return value
+
+    # ---more---
+
+    # ---SDP---

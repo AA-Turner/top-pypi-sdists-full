@@ -42,13 +42,13 @@ options:
 """
 
 EXAMPLES = """
-  - name: update Regions
-    netapp.storagegrid.na_sg_grid_regions:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      regions: "us-east-1"
+- name: update Regions
+  netapp.storagegrid.na_sg_grid_regions:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    regions: "us-east-1"
 """
 
 RETURN = """

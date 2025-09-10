@@ -8,8 +8,9 @@ mod value;
 
 use std::{borrow::Cow, fmt::Debug, ops::Deref};
 
-pub use comment::get_comment_directive_hover_info;
+pub use comment::get_document_comment_directive_hover_content;
 use constraints::ValueConstraints;
+
 use tombi_extension::get_tombi_github_uri;
 use tombi_schema_store::{
     get_schema_name, Accessor, Accessors, CurrentSchema, SchemaUri, ValueType,
@@ -20,7 +21,7 @@ pub async fn get_hover_content(
     position: tombi_text::Position,
     keys: &[tombi_document_tree::Key],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
-) -> Option<HoverValueContent> {
+) -> Option<HoverContent> {
     let table = tree.deref();
     match schema_context.root_schema {
         Some(document_schema) => {
@@ -53,20 +54,22 @@ trait GetHoverContent {
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<HoverValueContent>>;
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>>;
 }
 
 #[derive(Debug, Clone)]
 pub enum HoverContent {
-    Directive(HoverDirectiveContent),
     Value(HoverValueContent),
+    Directive(HoverDirectiveContent),
+    DirectiveContent(HoverValueContent),
 }
 
 impl From<HoverContent> for tower_lsp::lsp_types::Hover {
     fn from(value: HoverContent) -> Self {
         match value {
-            HoverContent::Directive(content) => content.into(),
             HoverContent::Value(content) => content.into(),
+            HoverContent::Directive(content) => content.into(),
+            HoverContent::DirectiveContent(content) => content.into(),
         }
     }
 }
@@ -101,13 +104,6 @@ pub struct HoverValueContent {
     pub constraints: Option<ValueConstraints>,
     pub schema_uri: Option<SchemaUri>,
     pub range: Option<tombi_text::Range>,
-}
-
-impl HoverValueContent {
-    pub fn into_nullable(mut self) -> HoverValueContent {
-        self.value_type = self.value_type.into_nullable();
-        self
-    }
 }
 
 impl PartialEq for HoverValueContent {
@@ -187,6 +183,8 @@ impl From<HoverValueContent> for tower_lsp::lsp_types::Hover {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use rstest::rstest;
     use tombi_schema_store::SchemaUri;
 
@@ -198,7 +196,7 @@ mod test {
     #[case("file://./tombi.schema.json")]
     #[case("file://tombi.schema.json")]
     fn url_content(#[case] url: &str) {
-        let url = SchemaUri::parse(url).unwrap();
+        let url = SchemaUri::from_str(url).unwrap();
         pretty_assertions::assert_eq!(get_schema_name(&url).unwrap(), "tombi.schema.json");
     }
 }

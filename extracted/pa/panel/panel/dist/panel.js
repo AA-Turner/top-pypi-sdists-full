@@ -68,13 +68,13 @@
     __esExport("ButtonIcon", button_icon_1.ButtonIcon);
     var icon_1 = require("6c7fbea0ef") /* ./icon */;
     __esExport("ClickableIcon", icon_1.ClickableIcon);
-    var card_1 = require("330f4a8735") /* ./card */;
+    var card_1 = require("d7035097d8") /* ./card */;
     __esExport("Card", card_1.Card);
     var checkbox_button_group_1 = require("51fbe9e2d0") /* ./checkbox_button_group */;
     __esExport("CheckboxButtonGroup", checkbox_button_group_1.CheckboxButtonGroup);
     var chatarea_input_1 = require("27a077673d") /* ./chatarea_input */;
     __esExport("ChatAreaInput", chatarea_input_1.ChatAreaInput);
-    var column_1 = require("dd255421d9") /* ./column */;
+    var column_1 = require("b273e5b2fb") /* ./column */;
     __esExport("Column", column_1.Column);
     var comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     __esExport("CommManager", comm_manager_1.CommManager);
@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("7934c11cba") /* ./tabulator */;
+    var tabulator_1 = require("53b5147b3d") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -92,7 +92,7 @@
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
     var discrete_player_1 = require("0dca2cd4f6") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
-    var echarts_1 = require("315eb8f63a") /* ./echarts */;
+    var echarts_1 = require("1da56f3c52") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
     var feed_1 = require("4cfe0841a5") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
@@ -130,7 +130,7 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("e31ba19a89") /* ./react_component */;
+    var react_component_1 = require("ace9331ee1") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
@@ -144,7 +144,7 @@
     __esExport("State", state_1.State);
     var tabs_1 = require("2231cdc549") /* ./tabs */;
     __esExport("Tabs", tabs_1.Tabs);
-    var terminal_1 = require("121f00bd6f") /* ./terminal */;
+    var terminal_1 = require("a961b5ae5e") /* ./terminal */;
     __esExport("Terminal", terminal_1.Terminal);
     var textarea_input_1 = require("b7d595d74a") /* ./textarea_input */;
     __esExport("TextAreaInput", textarea_input_1.TextAreaInput);
@@ -175,7 +175,7 @@
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
+    const util_1 = require("a3669a897a") /* ./util */;
     class AcePlotView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
@@ -526,7 +526,7 @@
     exports.HTMLBox = HTMLBox;
     HTMLBox.__name__ = "HTMLBox";
 },
-"6ae1cb3800": /* models/util.js */ function _(require, module, exports, __esModule, __esExport) {
+"a3669a897a": /* models/util.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.throttle = throttle;
     exports.deepCopy = deepCopy;
@@ -537,6 +537,8 @@
     exports.formatError = formatError;
     exports.find_attributes = find_attributes;
     exports.schedule_when = schedule_when;
+    exports.compileToFunction = compileToFunction;
+    exports.transformJsPlaceholders = transformJsPlaceholders;
     const array_1 = require("@bokehjs/core/util/array");
     const types_1 = require("@bokehjs/core/util/types");
     const get = (obj, path, defaultValue = undefined) => {
@@ -700,6 +702,46 @@
             }
         };
         scheduled();
+    }
+    exports.MARK = "--x_x--0_0--";
+    const PLACEHOLDER_RE = new RegExp(`^${exports.MARK}([\\s\\S]*?)${exports.MARK}$`);
+    const defaultOptions = {
+        mode: "expression",
+        args: [],
+    };
+    function compileToFunction(code, options = defaultOptions) {
+        const { mode, args } = { ...defaultOptions, ...options };
+        const body = mode === "expression"
+            ? `\"use strict\";\nreturn (${code});`
+            : `\"use strict\";\n${code}`;
+        return new Function(...args, body)();
+    }
+    function transformJsPlaceholders(input, options) {
+        function visit(value) {
+            if (typeof value === "string") {
+                const m = value.match(PLACEHOLDER_RE);
+                if (m) {
+                    const code = m[1];
+                    return compileToFunction(code, options);
+                }
+                return value;
+            }
+            if (Array.isArray(value)) {
+                return value.map(visit);
+            }
+            // Keep special objects intact
+            if (value &&
+                typeof value === "object" &&
+                Object.getPrototypeOf(value) === Object.prototype) {
+                const out = {};
+                for (const [k, v] of Object.entries(value)) {
+                    out[k] = visit(v);
+                }
+                return out;
+            }
+            return value;
+        }
+        return visit(input);
     }
 },
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
@@ -895,7 +937,7 @@ export default {render}`;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
+    const util_1 = require("a3669a897a") /* ./util */;
     const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* ../styles/models/esm.css */);
     const MODULE_CACHE = new Map();
     class DataEvent extends bokeh_events_1.ModelEvent {
@@ -17971,7 +18013,7 @@ ${namesToRegister
     const markup_1 = require("@bokehjs/models/widgets/markup");
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
+    const util_1 = require("a3669a897a") /* ./util */;
     const html_css_1 = tslib_1.__importDefault(require("8694ed3f61") /* ../styles/models/html.css */);
     const COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/></svg>`;
     const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10"/></svg>`;
@@ -18719,13 +18761,16 @@ ${namesToRegister
         }));
     })();
 },
-"330f4a8735": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
+"d7035097d8": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const tslib_1 = require("tslib");
     const DOM = tslib_1.__importStar(require("@bokehjs/core/dom"));
-    const column_1 = require("dd255421d9") /* ./column */;
-    const card_css_1 = tslib_1.__importDefault(require("edc7ee0090") /* ../styles/models/card.css */);
+    const grid_1 = require("@bokehjs/core/layout/grid");
+    const alignments_1 = require("@bokehjs/models/layouts/alignments");
+    const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
+    const column_1 = require("b273e5b2fb") /* ./column */;
+    const card_css_1 = tslib_1.__importDefault(require("6342ac8e26") /* ../styles/models/card.css */);
     const CHEVRON_RIGHT = `
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-right"><path stroke="none" d="M0 0h12v12H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
 `;
@@ -18819,6 +18864,74 @@ ${namesToRegister
             this.render();
             this.invalidate_layout();
         }
+        _update_layout() {
+            super._update_layout();
+            this.style.append(":host", {
+                flex_direction: this._direction,
+                gap: DOM.px(this.model.spacing),
+            });
+            const layoutable = new grid_1.Container();
+            let r0 = 0;
+            let c0 = 0;
+            for (let i = 0; i < this.child_views.length; i++) {
+                const view = this.child_views[i];
+                if (!(view instanceof layout_dom_1.LayoutDOMView)) {
+                    continue;
+                }
+                const is_row = i == 0;
+                const sizing = view.box_sizing();
+                const flex = (() => {
+                    const policy = is_row ? sizing.width_policy : sizing.height_policy;
+                    const size = is_row ? sizing.width : sizing.height;
+                    const basis = size != null ? DOM.px(size) : "auto";
+                    switch (policy) {
+                        case "auto":
+                        case "fixed": return `0 0 ${basis}`;
+                        case "fit": return "1 1 auto";
+                        case "min": return "0 1 auto";
+                        case "max": return "1 0 0px";
+                    }
+                })();
+                const align_self = (() => {
+                    const policy = is_row ? sizing.height_policy : sizing.width_policy;
+                    switch (policy) {
+                        case "auto":
+                        case "fixed":
+                        case "fit":
+                        case "min": return is_row ? sizing.valign : sizing.halign;
+                        case "max": return "stretch";
+                    }
+                })();
+                view.parent_style.append(":host", { flex, align_self });
+                // undo `width/height: 100%` and let `align-self: stretch` do the work
+                if (is_row) {
+                    if (sizing.height_policy == "max") {
+                        view.parent_style.append(":host", { height: "auto" });
+                    }
+                }
+                else {
+                    if (sizing.width_policy == "max") {
+                        view.parent_style.append(":host", { width: "auto" });
+                    }
+                }
+                if (view.layout != null) {
+                    layoutable.add({ r0, c0, r1: r0 + 1, c1: c0 + 1 }, view);
+                    if (is_row) {
+                        c0 += 1;
+                    }
+                    else {
+                        r0 += 1;
+                    }
+                }
+            }
+            if (layoutable.size != 0) {
+                this.layout = new alignments_1.GridAlignmentLayout(layoutable);
+                this.layout.set_sizing();
+            }
+            else {
+                delete this.layout;
+            }
+        }
         _toggle_button(e) {
             for (const path of e.composedPath()) {
                 if (path instanceof HTMLInputElement) {
@@ -18883,7 +18996,7 @@ ${namesToRegister
         }));
     })();
 },
-"dd255421d9": /* models/column.js */ function _(require, module, exports, __esModule, __esExport) {
+"b273e5b2fb": /* models/column.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -18900,6 +19013,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const column_1 = require("@bokehjs/models/layouts/column");
+    const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     class ScrollButtonClick extends bokeh_events_1.ModelEvent {
     }
     exports.ScrollButtonClick = ScrollButtonClick;
@@ -19014,6 +19128,18 @@ ${namesToRegister
             const exceeds_threshold = this.distance_from_latest >= threshold;
             this.scroll_down_button_el.classList.toggle("visible", exceeds_threshold);
         }
+        _update_layout() {
+            super._update_layout();
+            const is_scrollable = this.model.css_classes.some(cls => ["scroll", "scrollable", "scrollable-vertical"].includes(cls));
+            for (const view of this.child_views) {
+                if (!(view instanceof layout_dom_1.LayoutDOMView)) {
+                    continue;
+                }
+                if (is_scrollable) {
+                    view.parent_style.append(":host", { maxHeight: "none" });
+                }
+            }
+        }
         render() {
             super.render();
             this.scroll_down_button_el = (0, dom_1.div)({ class: "scroll-button" });
@@ -19097,17 +19223,17 @@ ${namesToRegister
     (() => {
         _c.prototype.default_view = ColumnView;
         _c.define(({ Int, Bool, Nullable }) => ({
-            scroll_position: [Int, 0],
-            scroll_index: [Nullable(Int), null],
             auto_scroll_limit: [Int, 0],
             scroll_button_threshold: [Int, 0],
+            scroll_index: [Nullable(Int), null],
+            scroll_position: [Int, 0],
             view_latest: [Bool, false],
         }));
     })();
 },
-"edc7ee0090": /* styles/models/card.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"6342ac8e26": /* styles/models/card.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.default = `:host(.card){border-radius:0.25rem;box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;flex:auto;outline:1px solid rgba(0, 0, 0, 0.125);}:host(.accordion){box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;outline:1px solid rgba(0, 0, 0, 0.125);width:100%;}.card-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;border-radius:0.25rem;display:inline-flex;justify-content:start;outline:unset;position:sticky;width:100%;margin-right:0.5em;padding-inline:0.5em;cursor:pointer;}.card-header:hover{box-shadow:0 0 3px rgba(0, 0, 0, 0.3);}.card-header:not(:hover){box-shadow:0 0 3px rgba(0, 0, 0, 0);}.accordion-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;outline:1px solid;border-radius:0;display:flex;justify-content:start;position:sticky;width:100%;cursor:pointer;}.card-button{background-color:transparent;margin-left:0em;margin-right:0.25em;height:12px;width:12px;}.card-header-row{position:relative !important;}.card-title{align-items:center;font-size:1.4em;font-weight:bold;overflow-wrap:break-word;}.card-header-row > .bk{overflow-wrap:break-word;text-align:center;}`;
+    exports.default = `:host(.card){border-radius:0.25rem;box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;outline:1px solid rgba(0, 0, 0, 0.125);}:host(.accordion){box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;outline:1px solid rgba(0, 0, 0, 0.125);width:100%;}.card-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;border-radius:0.25rem;display:inline-flex;justify-content:start;outline:unset;position:sticky;width:100%;margin-right:0.5em;padding-inline:0.5em;cursor:pointer;}.card-header:hover{box-shadow:0 0 3px rgba(0, 0, 0, 0.3);}.card-header:not(:hover){box-shadow:0 0 3px rgba(0, 0, 0, 0);}.accordion-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;outline:1px solid;border-radius:0;display:flex;justify-content:start;position:sticky;width:100%;cursor:pointer;}.card-button{background-color:transparent;margin-left:0em;margin-right:0.25em;height:12px;width:12px;}.card-header-row{position:relative !important;}.card-title{align-items:center;font-size:1.4em;font-weight:bold;overflow-wrap:break-word;}.card-header-row > .bk{overflow-wrap:break-word;text-align:center;}`;
 },
 "51fbe9e2d0": /* models/checkbox_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -19604,7 +19730,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"7934c11cba": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"53b5147b3d": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19620,8 +19746,8 @@ ${namesToRegister
     const comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
-    const tabulator_css_1 = tslib_1.__importDefault(require("b0e650c65c") /* ../styles/models/tabulator.css */);
+    const util_1 = require("a3669a897a") /* ./util */;
+    const tabulator_css_1 = tslib_1.__importDefault(require("cb7ce3ba00") /* ../styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
         constructor(column, row, pre) {
             super();
@@ -20363,7 +20489,7 @@ ${namesToRegister
             // Only use selectable mode if explicitly requested otherwise manually handle selections
             const selectableRows = this.model.select_mode === "toggle" ? true : NaN;
             const configuration = {
-                ...this.model.configuration,
+                ...(0, util_1.transformJsPlaceholders)(this.model.configuration),
                 index: "_index",
                 nestedFieldSeparator: false,
                 movableColumns: false,
@@ -20375,6 +20501,7 @@ ${namesToRegister
                 paginationMode: this.model.pagination,
                 paginationSize: this.model.page_size || 20,
                 paginationInitialPage: 1,
+                popupContainer: this.container,
                 groupBy: this.groupBy,
                 frozenRows: (row) => {
                     return (this.model.frozen_rows.length > 0) ? this.model.frozen_rows.includes(row._row.data._index) : false;
@@ -20538,7 +20665,7 @@ ${namesToRegister
         }
         getColumns() {
             this.columns = new Map();
-            const config_columns = this.model.configuration?.columns;
+            const config_columns = (0, util_1.transformJsPlaceholders)(this.model.configuration?.columns);
             const columns = [];
             columns.push({ field: "_index", frozen: true, visible: false });
             if (config_columns != null) {
@@ -20710,6 +20837,9 @@ ${namesToRegister
                 };
                 columns.push(button_column);
             }
+            // We insert an empty last column to ensure select editor is rendered in correct position
+            // see: https://github.com/holoviz/panel/issues/7295
+            columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
             return columns;
         }
         renderEditor(column, cell, onRendered, success, cancel) {
@@ -21217,10 +21347,10 @@ ${namesToRegister
         return records;
     }
 },
-"b0e650c65c": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"cb7ce3ba00": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.panel_models_markup_HTML = "bk-panel-models-markup-HTML";
-    exports.default = `.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}`;
+    exports.default = `.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:0px !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
 },
 "100965d6f3": /* models/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -26117,13 +26247,14 @@ ${namesToRegister
         _a.override({ width: 400 });
     })();
 },
-"315eb8f63a": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
+"1da56f3c52": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const util_1 = require("a3669a897a") /* ./util */;
     const mouse_events = [
         "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
         "globalout", "contextmenu",
@@ -26171,7 +26302,10 @@ ${namesToRegister
         }
         render() {
             if (this._chart != null) {
-                window.echarts.dispose(this._chart);
+                try {
+                    window.echarts.dispose(this._chart);
+                }
+                catch (e) { }
             }
             super.render();
             this.container = (0, dom_1.div)({ style: { height: "100%", width: "100%" } });
@@ -26197,7 +26331,8 @@ ${namesToRegister
             if (window.echarts == null) {
                 return;
             }
-            this._chart.setOption(this.model.data, this.model.options);
+            const data = (0, util_1.transformJsPlaceholders)(this.model.data);
+            this._chart.setOption(data, this.model.options);
         }
         _resize() {
             this._chart.resize({ width: this.model.width, height: this.model.height });
@@ -26290,7 +26425,7 @@ ${namesToRegister
         return c > 3 && r && Object.defineProperty(target, key, r), r;
     };
     var ScrollLatestEvent_1;
-    const column_1 = require("dd255421d9") /* ./column */;
+    const column_1 = require("b273e5b2fb") /* ./column */;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const build_views_1 = require("@bokehjs/core/build_views");
     const column_2 = require("@bokehjs/models/layouts/column");
@@ -27967,8 +28102,8 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
-    const plotly_css_1 = tslib_1.__importDefault(require("ce7c8e2a4f") /* ../styles/models/plotly.css */);
+    const util_1 = require("a3669a897a") /* ./util */;
+    const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* ../styles/models/plotly.css */);
     class PlotlyEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
             super();
@@ -28419,9 +28554,9 @@ ${namesToRegister
         }));
     })();
 },
-"ce7c8e2a4f": /* styles/models/plotly.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"3d56c75186": /* styles/models/plotly.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.default = `.js-plotly-plot .plotly,.js-plotly-plot .plotly div{direction:ltr;font-family:'Open Sans', verdana, arial, sans-serif;margin:0;padding:0;}.js-plotly-plot .plotly input,.js-plotly-plot .plotly button{font-family:'Open Sans', verdana, arial, sans-serif;}.js-plotly-plot .plotly input:focus,.js-plotly-plot .plotly button:focus{outline:none;}.js-plotly-plot .plotly a{text-decoration:none;}.js-plotly-plot .plotly a:hover{text-decoration:none;}.js-plotly-plot .plotly .crisp{shape-rendering:crispEdges;}.js-plotly-plot .plotly .user-select-none{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}.js-plotly-plot .plotly svg{overflow:hidden;}.js-plotly-plot .plotly svg a{fill:#447adb;}.js-plotly-plot .plotly svg a:hover{fill:#3c6dc5;}.js-plotly-plot .plotly .main-svg{position:absolute;top:0;left:0;pointer-events:none;}.js-plotly-plot .plotly .main-svg .draglayer{pointer-events:all;}.js-plotly-plot .plotly .cursor-default{cursor:default;}.js-plotly-plot .plotly .cursor-pointer{cursor:pointer;}.js-plotly-plot .plotly .cursor-crosshair{cursor:crosshair;}.js-plotly-plot .plotly .cursor-move{cursor:move;}.js-plotly-plot .plotly .cursor-col-resize{cursor:col-resize;}.js-plotly-plot .plotly .cursor-row-resize{cursor:row-resize;}.js-plotly-plot .plotly .cursor-ns-resize{cursor:ns-resize;}.js-plotly-plot .plotly .cursor-ew-resize{cursor:ew-resize;}.js-plotly-plot .plotly .cursor-sw-resize{cursor:sw-resize;}.js-plotly-plot .plotly .cursor-s-resize{cursor:s-resize;}.js-plotly-plot .plotly .cursor-se-resize{cursor:se-resize;}.js-plotly-plot .plotly .cursor-w-resize{cursor:w-resize;}.js-plotly-plot .plotly .cursor-e-resize{cursor:e-resize;}.js-plotly-plot .plotly .cursor-nw-resize{cursor:nw-resize;}.js-plotly-plot .plotly .cursor-n-resize{cursor:n-resize;}.js-plotly-plot .plotly .cursor-ne-resize{cursor:ne-resize;}.js-plotly-plot .plotly .cursor-grab{cursor:-webkit-grab;cursor:grab;}.js-plotly-plot .plotly .modebar{position:absolute;top:2px;right:2px;}.js-plotly-plot .plotly .ease-bg{-webkit-transition:background-color 0.3s ease 0s;-moz-transition:background-color 0.3s ease 0s;-ms-transition:background-color 0.3s ease 0s;-o-transition:background-color 0.3s ease 0s;transition:background-color 0.3s ease 0s;}.js-plotly-plot .plotly .modebar--hover > :not(.watermark){opacity:0;-webkit-transition:opacity 0.3s ease 0s;-moz-transition:opacity 0.3s ease 0s;-ms-transition:opacity 0.3s ease 0s;-o-transition:opacity 0.3s ease 0s;transition:opacity 0.3s ease 0s;}.js-plotly-plot .plotly:hover .modebar--hover .modebar-group{opacity:1;}.js-plotly-plot .plotly .modebar-group{float:left;display:inline-block;box-sizing:border-box;padding-left:8px;position:relative;vertical-align:middle;white-space:nowrap;}.js-plotly-plot .plotly .modebar-btn{fill:var(--plotly-icon-color);position:relative;font-size:16px;padding:3px 4px;height:22px;cursor:pointer;line-height:normal;box-sizing:border-box;}.js-plotly-plot .plotly .modebar-btn.active{fill:var(--plotly-active-icon-color);}.js-plotly-plot .plotly .modebar-btn svg{position:relative;top:2px;}.js-plotly-plot .plotly .modebar.vertical{display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-end;max-height:100%;}.js-plotly-plot .plotly .modebar.vertical svg{top:-1px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group{display:block;float:none;padding-left:0px;padding-bottom:8px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group .modebar-btn{display:block;text-align:center;}.js-plotly-plot .plotly [data-title]{}.js-plotly-plot .plotly [data-title]:before,.js-plotly-plot .plotly [data-title]:after{position:absolute;-webkit-transform:translate3d(0, 0, 0);-moz-transform:translate3d(0, 0, 0);-ms-transform:translate3d(0, 0, 0);-o-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);display:none;opacity:0;z-index:1001;pointer-events:none;top:110%;right:50%;}.js-plotly-plot .plotly [data-title]:hover:before,.js-plotly-plot .plotly [data-title]:hover:after{display:block;opacity:1;}.js-plotly-plot .plotly [data-title]:before{content:'';position:absolute;background:transparent;border:6px solid transparent;z-index:1002;margin-top:-12px;border-bottom-color:#69738a;margin-right:-6px;}.js-plotly-plot .plotly [data-title]:after{content:attr(data-title);background:#69738a;color:white;padding:8px 10px;font-size:12px;line-height:12px;white-space:nowrap;margin-right:-18px;border-radius:2px;}.js-plotly-plot .plotly .vertical [data-title]:before,.js-plotly-plot .plotly .vertical [data-title]:after{top:0%;right:200%;}.js-plotly-plot .plotly .vertical [data-title]:before{border:6px solid transparent;border-left-color:#69738a;margin-top:8px;margin-right:-30px;}.plotly-notifier{font-family:'Open Sans', verdana, arial, sans-serif;position:fixed;top:50px;right:20px;z-index:10000;font-size:10pt;max-width:180px;}.plotly-notifier p{margin:0;}.plotly-notifier .notifier-note{min-width:180px;max-width:250px;border:1px solid #fff;z-index:3000;margin:0;background-color:#8c97af;background-color:rgba(140, 151, 175, 0.9);color:#fff;padding:10px;overflow-wrap:break-word;word-wrap:break-word;-ms-hyphens:auto;-webkit-hyphens:auto;hyphens:auto;}.plotly-notifier .notifier-close{color:#fff;opacity:0.8;float:right;padding:0 5px;background:none;border:none;font-size:20px;font-weight:bold;line-height:20px;}.plotly-notifier .notifier-close:hover{color:#444;text-decoration:none;cursor:pointer;}`;
+    exports.default = `.js-plotly-plot .plotly,.js-plotly-plot .plotly div{direction:ltr;font-family:'Open Sans', verdana, arial, sans-serif;margin:0;padding:0;}.js-plotly-plot .plotly input,.js-plotly-plot .plotly button{font-family:'Open Sans', verdana, arial, sans-serif;}.js-plotly-plot .plotly input:focus,.js-plotly-plot .plotly button:focus{outline:none;}.js-plotly-plot .plotly a{text-decoration:none;}.js-plotly-plot .plotly a:hover{text-decoration:none;}.js-plotly-plot .plotly .crisp{shape-rendering:crispEdges;}.js-plotly-plot .plotly .user-select-none{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}.js-plotly-plot .plotly svg{overflow:hidden;}.js-plotly-plot .plotly svg a{fill:#447adb;}.js-plotly-plot .plotly svg a:hover{fill:#3c6dc5;}.js-plotly-plot .plotly .main-svg{position:absolute;top:0;left:0;pointer-events:none;}.js-plotly-plot .plotly .main-svg .draglayer{pointer-events:all;}.js-plotly-plot .plotly .cursor-default{cursor:default;}.js-plotly-plot .plotly .cursor-pointer{cursor:pointer;}.js-plotly-plot .plotly .cursor-crosshair{cursor:crosshair;}.js-plotly-plot .plotly .cursor-move{cursor:move;}.js-plotly-plot .plotly .cursor-col-resize{cursor:col-resize;}.js-plotly-plot .plotly .cursor-row-resize{cursor:row-resize;}.js-plotly-plot .plotly .cursor-ns-resize{cursor:ns-resize;}.js-plotly-plot .plotly .cursor-ew-resize{cursor:ew-resize;}.js-plotly-plot .plotly .cursor-sw-resize{cursor:sw-resize;}.js-plotly-plot .plotly .cursor-s-resize{cursor:s-resize;}.js-plotly-plot .plotly .cursor-se-resize{cursor:se-resize;}.js-plotly-plot .plotly .cursor-w-resize{cursor:w-resize;}.js-plotly-plot .plotly .cursor-e-resize{cursor:e-resize;}.js-plotly-plot .plotly .cursor-nw-resize{cursor:nw-resize;}.js-plotly-plot .plotly .cursor-n-resize{cursor:n-resize;}.js-plotly-plot .plotly .cursor-ne-resize{cursor:ne-resize;}.js-plotly-plot .plotly .cursor-grab{cursor:-webkit-grab;cursor:grab;}.js-plotly-plot .plotly .modebar{position:absolute;top:2px;right:2px;}.js-plotly-plot .plotly .ease-bg{-webkit-transition:background-color 0.3s ease 0s;-moz-transition:background-color 0.3s ease 0s;-ms-transition:background-color 0.3s ease 0s;-o-transition:background-color 0.3s ease 0s;transition:background-color 0.3s ease 0s;}.js-plotly-plot .plotly .modebar--hover > :not(.watermark){opacity:0;-webkit-transition:opacity 0.3s ease 0s;-moz-transition:opacity 0.3s ease 0s;-ms-transition:opacity 0.3s ease 0s;-o-transition:opacity 0.3s ease 0s;transition:opacity 0.3s ease 0s;}.js-plotly-plot .plotly:hover .modebar--hover .modebar-group{opacity:1;}.js-plotly-plot .plotly .modebar-group{float:left;display:inline-block;box-sizing:border-box;padding-left:8px;position:relative;vertical-align:middle;white-space:nowrap;}.js-plotly-plot .plotly .modebar-btn{fill:var(--plotly-icon-color);background-color:unset;border:none;position:relative;font-size:16px;padding:3px 4px;height:22px;cursor:pointer;line-height:normal;box-sizing:border-box;}.js-plotly-plot .plotly .modebar-btn.active{fill:var(--plotly-active-icon-color);}.js-plotly-plot .plotly .modebar-btn svg{position:relative;top:2px;}.js-plotly-plot .plotly .modebar.vertical{display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-end;max-height:100%;}.js-plotly-plot .plotly .modebar.vertical svg{top:-1px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group{display:block;float:none;padding-left:0px;padding-bottom:8px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group .modebar-btn{display:block;text-align:center;}.js-plotly-plot .plotly [data-title]{}.js-plotly-plot .plotly [data-title]:before,.js-plotly-plot .plotly [data-title]:after{position:absolute;-webkit-transform:translate3d(0, 0, 0);-moz-transform:translate3d(0, 0, 0);-ms-transform:translate3d(0, 0, 0);-o-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);display:none;opacity:0;z-index:1001;pointer-events:none;top:110%;right:50%;}.js-plotly-plot .plotly [data-title]:hover:before,.js-plotly-plot .plotly [data-title]:hover:after{display:block;opacity:1;}.js-plotly-plot .plotly [data-title]:before{content:'';position:absolute;background:transparent;border:6px solid transparent;z-index:1002;margin-top:-12px;border-bottom-color:#69738a;margin-right:-6px;}.js-plotly-plot .plotly [data-title]:after{content:attr(data-title);background:#69738a;color:white;padding:8px 10px;font-size:12px;line-height:12px;white-space:nowrap;margin-right:-18px;border-radius:2px;}.js-plotly-plot .plotly .vertical [data-title]:before,.js-plotly-plot .plotly .vertical [data-title]:after{top:0%;right:200%;}.js-plotly-plot .plotly .vertical [data-title]:before{border:6px solid transparent;border-left-color:#69738a;margin-top:8px;margin-right:-30px;}.plotly-notifier{font-family:'Open Sans', verdana, arial, sans-serif;position:fixed;top:50px;right:20px;z-index:10000;font-size:10pt;max-width:180px;}.plotly-notifier p{margin:0;}.plotly-notifier .notifier-note{min-width:180px;max-width:250px;border:1px solid #fff;z-index:3000;margin:0;background-color:#8c97af;background-color:rgba(140, 151, 175, 0.9);color:#fff;padding:10px;overflow-wrap:break-word;word-wrap:break-word;-ms-hyphens:auto;-webkit-hyphens:auto;hyphens:auto;}.plotly-notifier .notifier-close{color:#fff;opacity:0.8;float:right;padding:0 5px;background:none;border:none;font-size:20px;font-weight:bold;line-height:20px;}.plotly-notifier .notifier-close:hover{color:#444;text-decoration:none;cursor:pointer;}`;
 },
 "b1f4d68596": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -28775,7 +28910,7 @@ ${namesToRegister
         }));
     })();
 },
-"e31ba19a89": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"ace9331ee1": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -29021,7 +29156,7 @@ import { CacheProvider } from "@emotion/react"`;
                 init_code = `
   if (view.use_shadow_dom) {
     const css_key = id.replace("-", "").replace(/\d/g, (digit) => String.fromCharCode(digit.charCodeAt(0) + 49)).toLowerCase()
-    this.mui_cache = createCache({
+    view.mui_cache = createCache({
       key: 'css-'+css_key,
       prepend: true,
       container: view.style_cache,
@@ -29029,7 +29164,7 @@ import { CacheProvider } from "@emotion/react"`;
   }`;
                 render_code = `
   if (rendered && ((view.parent?.react_root === undefined) || view.model.use_shadow_dom)) {
-    rendered = React.createElement(CacheProvider, {value: this.mui_cache}, rendered)
+    rendered = React.createElement(CacheProvider, {value: view.mui_cache}, rendered)
   }`;
             }
             return `
@@ -29345,7 +29480,7 @@ ${compiled}`;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const util_1 = require("6ae1cb3800") /* ./util */;
+    const util_1 = require("a3669a897a") /* ./util */;
     function serialize_attrs(attrs) {
         const serialized = {};
         for (const [attr, value] of (0, object_1.entries)(attrs)) {
@@ -30841,7 +30976,7 @@ ${compiled}`;
         _a.prototype.default_view = TabsView;
     })();
 },
-"121f00bd6f": /* models/terminal.js */ function _(require, module, exports, __esModule, __esExport) {
+"a961b5ae5e": /* models/terminal.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -30865,14 +31000,18 @@ ${compiled}`;
     class TerminalView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
-            const { output, _clears } = this.model.properties;
+            const { width, height, min_height, max_height, margin, sizing_mode, output, _clears } = this.model.properties;
             this.on_change(output, this.write);
             this.on_change(_clears, this.clear);
+            this.on_change([width, height, min_height, max_height, margin, sizing_mode], () => {
+                (0, layout_1.set_size)(this.el, this.model);
+                (0, layout_1.set_size)(this.container, this.model, false);
+            });
         }
         render() {
             super.render();
             this.container = (0, dom_1.div)({ class: "terminal-container" });
-            (0, layout_1.set_size)(this.container, this.model);
+            (0, layout_1.set_size)(this.container, this.model, false);
             this.term = this.getNewTerminal();
             this.term.onData((value) => {
                 this.handleOnData(value);
@@ -40521,5 +40660,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"e31ba19a89","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"53b5147b3d","models/data":"be689f0377","styles/models/tabulator.css":"cb7ce3ba00","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"ace9331ee1","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

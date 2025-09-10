@@ -278,23 +278,23 @@ class Acls(ConfigBase):
                                         config_cmds.append(
                                             list(itertools.chain(*cmds)),
                                         )
-                            if name not in ace_names:
-                                for w_ace in want_ace:
-                                    w = [
-                                        {
-                                            "afi": afi,
-                                            "acls": [
-                                                {
-                                                    "name": name,
-                                                    "aces": [w_ace],
-                                                },
-                                            ],
-                                        },
-                                    ]
-                                    cmds = set_commands(w, have)
-                                    config_cmds.append(
-                                        list(itertools.chain(*cmds)),
-                                    )
+                        if name not in ace_names:
+                            for w_ace in want_ace:
+                                w = [
+                                    {
+                                        "afi": afi,
+                                        "acls": [
+                                            {
+                                                "name": name,
+                                                "aces": [w_ace],
+                                            },
+                                        ],
+                                    },
+                                ]
+                                cmds = set_commands(w, have)
+                                config_cmds.append(
+                                    list(itertools.chain(*cmds)),
+                                )
 
         if remove_cmds:
             remove_cmds = list(itertools.chain(*remove_cmds))
@@ -554,6 +554,8 @@ def add_commands(want):
                                 # if socket.getservbyport is unable to resolve the port name then directly use the port number
                                 # eg: 50702
                                 command = command + " " + op + " " + to_text(val)
+                        elif val:
+                            command = command + " " + op + " " + val.replace("_", "-")
             if "destination" in ace.keys():
                 if "any" in ace["destination"].keys():
                     command = command + " any"

@@ -171,7 +171,7 @@ async def _validate_supports_messages(
     """
     assistant_id = assistant["assistant_id"]
 
-    cached_schemas = _assistant_schemas_cache.get(assistant_id)
+    cached_schemas = await _assistant_schemas_cache.get(assistant_id)
     if cached_schemas is not None:
         schemas = cached_schemas
     else:

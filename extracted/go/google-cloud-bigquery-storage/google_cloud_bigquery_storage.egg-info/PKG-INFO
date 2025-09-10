@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery-storage
-Version: 2.33.0
+Version: 2.33.1
 Summary: Google Cloud Bigquery Storage API client library
 Home-page: https://github.com/googleapis/python-bigquery-storage
 Author: Google LLC
@@ -23,12 +23,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0
-Requires-Dist: google-auth<3.0.0,>=2.14.1
-Requires-Dist: proto-plus<2.0.0,>=1.22.0
-Requires-Dist: proto-plus<2.0.0,>=1.22.2; python_version >= "3.11"
+Requires-Dist: google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.1
+Requires-Dist: google-auth!=2.24.0,!=2.25.0,<3.0.0,>=2.14.1
+Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
-Requires-Dist: protobuf!=3.20.0,!=3.20.1,!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
+Requires-Dist: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
 Provides-Extra: pandas
 Requires-Dist: pandas>=0.21.1; extra == "pandas"
 Requires-Dist: importlib-metadata>=1.0.0; python_version < "3.8" and extra == "pandas"

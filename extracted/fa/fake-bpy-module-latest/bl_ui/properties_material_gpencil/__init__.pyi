@@ -9,31 +9,6 @@ import bl_ui.utils
 import bpy.types
 import rna_prop_ui
 
-class GPENCIL_MT_material_context_menu(_bpy_types.Menu):
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
 class GPENCIL_UL_matslots(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
@@ -85,6 +60,31 @@ class GPMaterialButtonsPanel:
         """
 
         :param context:
+        """
+
+class GREASE_PENCIL_MT_material_context_menu(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
         """
 
 class MATERIAL_PT_gpencil_animation(

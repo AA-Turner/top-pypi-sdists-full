@@ -1,6 +1,8 @@
 import datetime
 from enum import Enum
+from types import TracebackType
 from typing import Any, Optional, Sequence, TypeVar, Union
+from typing_extensions import Self
 
 
 class Schema:
@@ -136,6 +138,9 @@ class Document:
     def __new__(cls, **kwargs) -> Document:
         pass
 
+    def __getitem__(self, key: str) -> list[Any]:
+        pass
+
     def extend(self, py_dict: dict, schema: Optional[Schema]) -> None:
         pass
 
@@ -143,7 +148,7 @@ class Document:
     def from_dict(py_dict: dict, schema: Optional[Schema] = None) -> Document:
         pass
 
-    def to_dict(self) -> Any:
+    def to_dict(self) -> dict[str, list[Any]]:
         pass
 
     def add_text(self, field_name: str, text: str) -> None:
@@ -303,6 +308,14 @@ class Query:
     ) -> Query:
         pass
 
+    def explain(self, searcher: Searcher, doc_address: DocAddress) -> Explanation:
+        pass
+
+
+class Explanation:
+    def to_json(self) -> str:
+        pass
+
 
 class Order(Enum):
     Asc = 1
@@ -361,6 +374,9 @@ class Searcher:
     def doc_freq(self, field_name: str, field_value: Any) -> int:
         pass
 
+    def cardinality(self, query: Query, field_name: str) -> float:
+        pass
+
 
 class IndexWriter:
     def add_document(self, doc: Document) -> int:
@@ -388,7 +404,24 @@ class IndexWriter:
     def delete_documents(self, field_name: str, field_value: Any) -> int:
         pass
 
+    def delete_documents_by_term(self, field_name: str, field_value: Any) -> int:
+        pass
+
+    def delete_documents_by_query(self, query: Query) -> int:
+        pass
+
     def wait_merging_threads(self) -> None:
+        pass
+
+    def __enter__(self: Self) -> Self:
+        pass
+
+    def __exit__(
+        self: Self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         pass
 
 
@@ -439,7 +472,7 @@ class Index:
         default_field_names: Optional[list[str]] = None,
         field_boosts: Optional[dict[str, float]] = None,
         fuzzy_fields: Optional[dict[str, tuple[bool, int, bool]]] = None,
-    ) -> Query:
+    ) -> tuple[Query, list[Any]]:
         pass
 
     def register_tokenizer(
@@ -466,6 +499,7 @@ class Snippet:
 
     def fragment(self) -> str:
         pass
+
 
 class SnippetGenerator:
     @staticmethod
@@ -510,7 +544,6 @@ class Tokenizer:
 
 
 class Filter:
-
     @staticmethod
     def alphanum_only() -> Filter:
         pass
@@ -542,16 +575,14 @@ class Filter:
     @staticmethod
     def split_compound(constituent_words: list[str]) -> Filter:
         pass
-    
+
 
 class TextAnalyzer:
-
     def analyze(self, text: str) -> list[str]:
         pass
 
 
 class TextAnalyzerBuilder:
-
     def __init__(self, tokenizer: Tokenizer):
         pass
 

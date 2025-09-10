@@ -64,7 +64,9 @@ except ImportError:
 if typing.TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
-    ClientType: TypeAlias = botocore.client.BaseClient
+    from .retries import RetryingBotoClientWrapper
+
+    ClientType: TypeAlias = Union[botocore.client.BaseClient, RetryingBotoClientWrapper]
     ResourceType: TypeAlias = boto3.resources.base.ServiceResource
     BotoConn = Union[ClientType, ResourceType, Tuple[ClientType, ResourceType]]
     from .modules import AnsibleAWSModule
@@ -86,8 +88,8 @@ from .common import get_collection_info
 from .exceptions import AnsibleBotocoreError
 from .retries import AWSRetry
 
-MINIMUM_BOTOCORE_VERSION = "1.31.0"
-MINIMUM_BOTO3_VERSION = "1.28.0"
+MINIMUM_BOTOCORE_VERSION = "1.34.0"
+MINIMUM_BOTO3_VERSION = "1.34.0"
 
 
 def _get_user_agent_string():

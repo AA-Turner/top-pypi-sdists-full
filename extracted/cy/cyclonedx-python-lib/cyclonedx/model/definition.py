@@ -93,6 +93,10 @@ class CreId(serializable.helpers.BaseHelper):
 class Requirement:
     """
     A requirement comprising a standard.
+
+    .. note::
+        See the CycloneDX Schema for hashType:
+        https://cyclonedx.org/docs/1.6/json/#definitions_standards_items_requirements
     """
 
     def __init__(
@@ -286,6 +290,9 @@ class Requirement:
 class Level:
     """
     Level of compliance for a standard.
+
+    .. note::
+        See the CycloneDX Schema for hashType: https://cyclonedx.org/docs/1.6/json/#definitions_standards_items_levels
     """
 
     def __init__(
@@ -402,6 +409,9 @@ class Standard:
     """
     A standard of regulations, industry or organizational-specific standards, maturity models, best practices,
     or any other requirements.
+
+    .. note::
+        See the CycloneDX Schema for hashType: https://cyclonedx.org/docs/1.6/xml/#type_standard
     """
 
     def __init__(
@@ -581,6 +591,9 @@ class Standard:
 class Definitions:
     """
     The repository for definitions
+
+    .. note::
+        See the CycloneDX Schema for hashType: https://cyclonedx.org/docs/1.6/xml/#type_definitionsType
     """
 
     def __init__(

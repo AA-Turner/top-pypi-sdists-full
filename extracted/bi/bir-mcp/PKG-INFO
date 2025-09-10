@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bir_mcp
-Version: 0.3.13
+Version: 0.3.14
 Summary: MCP server for BirBank
 Requires-Python: <3.14,>=3.12
 Description-Content-Type: text/markdown
@@ -19,6 +19,7 @@ Requires-Dist: oracledb>=3.2.0
 Requires-Dist: pandas>=2.3.1
 Requires-Dist: py-consul>=1.6.0
 Requires-Dist: python-gitlab[graphql]>=6.1.0
+Requires-Dist: tiktoken>=0.11.0
 Requires-Dist: typer>=0.16.0
 Requires-Dist: vl-convert-python>=1.8.0
 

@@ -24,14 +24,6 @@ from pulpcore.client.pulpcore.models.evaluation_response import EvaluationRespon
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PulpImportCheckResponse(BaseModel):
     """
     Return the response to a PulpImport import-check call.
@@ -100,11 +92,7 @@ class PulpImportCheckResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "toc": EvaluationResponse.from_dict(obj["toc"]) if obj.get("toc") is not None else None,
-            "path": EvaluationResponse.from_dict(obj["path"]) if obj.get("path") is not None else None,
-            "repo_mapping": EvaluationResponse.from_dict(obj["repo_mapping"]) if obj.get("repo_mapping") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

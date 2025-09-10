@@ -1,13 +1,12 @@
 use crate::{
     code_action::{dot_keys_to_inline_table_code_action, inline_table_to_dot_keys_code_action},
+    completion::get_completion_keys_with_context,
     config_manager::ConfigSchemaStore,
     Backend,
 };
 use itertools::Either;
-use tombi_document_tree::TryIntoDocumentTree;
-use tombi_schema_store::{
-    build_accessor_contexts, get_accessors, get_completion_keys_with_context,
-};
+use tombi_document_tree::{get_accessors, TryIntoDocumentTree};
+use tombi_schema_store::build_accessor_contexts;
 use tower_lsp::lsp_types::{CodeActionOrCommand, CodeActionParams};
 
 pub async fn handle_code_action(
@@ -57,7 +56,7 @@ pub async fn handle_code_action(
         .flatten();
 
     let tombi_document_comment_directive =
-        tombi_comment_directive::get_tombi_document_comment_directive(&root).await;
+        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
     let (toml_version, _) = backend
         .source_toml_version(
             tombi_document_comment_directive,

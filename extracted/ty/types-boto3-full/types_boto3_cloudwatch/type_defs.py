@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_cloudwatch.type_defs import AlarmHistoryItemTypeDef
+    from types_boto3_cloudwatch.type_defs import AlarmContributorTypeDef
 
-    data: AlarmHistoryItemTypeDef = ...
+    data: AlarmContributorTypeDef = ...
     ```
 """
 
@@ -48,6 +48,7 @@ else:
 
 
 __all__ = (
+    "AlarmContributorTypeDef",
     "AlarmHistoryItemTypeDef",
     "AnomalyDetectorConfigurationOutputTypeDef",
     "AnomalyDetectorConfigurationTypeDef",
@@ -70,6 +71,8 @@ __all__ = (
     "DeleteInsightRulesInputTypeDef",
     "DeleteInsightRulesOutputTypeDef",
     "DeleteMetricStreamInputTypeDef",
+    "DescribeAlarmContributorsInputTypeDef",
+    "DescribeAlarmContributorsOutputTypeDef",
     "DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef",
     "DescribeAlarmHistoryInputPaginateTypeDef",
     "DescribeAlarmHistoryInputTypeDef",
@@ -192,13 +195,22 @@ __all__ = (
 )
 
 
+class AlarmContributorTypeDef(TypedDict):
+    ContributorId: str
+    ContributorAttributes: Dict[str, str]
+    StateReason: str
+    StateTransitionedTimestamp: NotRequired[datetime]
+
+
 class AlarmHistoryItemTypeDef(TypedDict):
     AlarmName: NotRequired[str]
+    AlarmContributorId: NotRequired[str]
     AlarmType: NotRequired[AlarmTypeType]
     Timestamp: NotRequired[datetime]
     HistoryItemType: NotRequired[HistoryItemTypeType]
     HistorySummary: NotRequired[str]
     HistoryData: NotRequired[str]
+    AlarmContributorAttributes: NotRequired[Dict[str, str]]
 
 
 class RangeOutputTypeDef(TypedDict):
@@ -304,6 +316,11 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class DeleteMetricStreamInputTypeDef(TypedDict):
     Name: str
+
+
+class DescribeAlarmContributorsInputTypeDef(TypedDict):
+    AlarmName: str
+    NextToken: NotRequired[str]
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -566,6 +583,12 @@ class DeleteInsightRulesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeAlarmContributorsOutputTypeDef(TypedDict):
+    AlarmContributors: List[AlarmContributorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DescribeAlarmHistoryOutputTypeDef(TypedDict):
     AlarmHistoryItems: List[AlarmHistoryItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -626,6 +649,7 @@ class PutMetricStreamOutputTypeDef(TypedDict):
 
 
 class DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef(TypedDict):
+    AlarmContributorId: NotRequired[str]
     AlarmTypes: NotRequired[Sequence[AlarmTypeType]]
     HistoryItemType: NotRequired[HistoryItemTypeType]
     StartDate: NotRequired[TimestampTypeDef]
@@ -637,6 +661,7 @@ class DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef(TypedDict):
 
 class DescribeAlarmHistoryInputTypeDef(TypedDict):
     AlarmName: NotRequired[str]
+    AlarmContributorId: NotRequired[str]
     AlarmTypes: NotRequired[Sequence[AlarmTypeType]]
     HistoryItemType: NotRequired[HistoryItemTypeType]
     StartDate: NotRequired[TimestampTypeDef]
@@ -685,6 +710,7 @@ class RangeTypeDef(TypedDict):
 
 class DescribeAlarmHistoryInputPaginateTypeDef(TypedDict):
     AlarmName: NotRequired[str]
+    AlarmContributorId: NotRequired[str]
     AlarmTypes: NotRequired[Sequence[AlarmTypeType]]
     HistoryItemType: NotRequired[HistoryItemTypeType]
     StartDate: NotRequired[TimestampTypeDef]

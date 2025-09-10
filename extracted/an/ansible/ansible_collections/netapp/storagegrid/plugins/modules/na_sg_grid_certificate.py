@@ -48,34 +48,33 @@ options:
 """
 
 EXAMPLES = """
-  - name: set storage API certificate
-    netapp.storagegrid.na_sg_grid_certificate:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      type: storage-api
-      server_certificate: |
-        -----BEGIN CERTIFICATE-----
-        MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2MQswCQYDVQQGEwJB
-        BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCCASIwDQYJKoZIhvcN
-        AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ/klvdkbfZCUQrfdy
-        71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFkcJm0ffyEYrcx24qu
-        S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqKJD+hIFffX6u3Jy+B
-        77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
-        -----END CERTIFICATE-----
-      private_key: |
-        -----BEGIN PRIVATE KEY-----
-        MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDL45vSN+ZZinAu
-        L25W0+cz1Oi69AKkI7d9nbFics2ay5+7o+4rKqf3en2R4MSxiJvy+iDlOmATib5O
-        x8TN5pJ9AgMBAAECggEADDLM8tHXXUoUFihzv+BUwff8p8YcbHcXFcSes+xTd5li
-        po8lNsx/v2pQx4ByBkuaYLZGIEXOWS6gkp44xhIXgQKBgQD4Hq7862u5HLbmhrV3
-        vs8nC69b3QKBgQDacCD8d8JpwPbg8t2VjXM3UvdmgAaLUfU7O1DWV+W3jqzmDOoN
-        zWVgPbPNj0UmzvLDbgxLoxe77wjn2BHsAJVAfJ9VeQKBgGqFAegYO+wHR8lJUoa5
-        ZEe8Upy2oBtvND/0dnwO2ym2FGsBJN0Gr4NKdG5vkzLsthKkcwRm0ikwEUOUZQKE
-        K8J5yEVeo9K2v3wggtq8fYn6
-        -----END PRIVATE KEY-----
-
+- name: set storage API certificate
+  netapp.storagegrid.na_sg_grid_certificate:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    type: storage-api
+    server_certificate: |
+      -----BEGIN CERTIFICATE-----
+      MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2MQswCQYDVQQGEwJB
+      BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCCASIwDQYJKoZIhvcN
+      AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ/klvdkbfZCUQrfdy
+      71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFkcJm0ffyEYrcx24qu
+      S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqKJD+hIFffX6u3Jy+B
+      77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
+      -----END CERTIFICATE-----
+    private_key: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDL45vSN+ZZinAu
+      L25W0+cz1Oi69AKkI7d9nbFics2ay5+7o+4rKqf3en2R4MSxiJvy+iDlOmATib5O
+      x8TN5pJ9AgMBAAECggEADDLM8tHXXUoUFihzv+BUwff8p8YcbHcXFcSes+xTd5li
+      po8lNsx/v2pQx4ByBkuaYLZGIEXOWS6gkp44xhIXgQKBgQD4Hq7862u5HLbmhrV3
+      vs8nC69b3QKBgQDacCD8d8JpwPbg8t2VjXM3UvdmgAaLUfU7O1DWV+W3jqzmDOoN
+      zWVgPbPNj0UmzvLDbgxLoxe77wjn2BHsAJVAfJ9VeQKBgGqFAegYO+wHR8lJUoa5
+      ZEe8Upy2oBtvND/0dnwO2ym2FGsBJN0Gr4NKdG5vkzLsthKkcwRm0ikwEUOUZQKE
+      K8J5yEVeo9K2v3wggtq8fYn6
+      -----END PRIVATE KEY-----
 """
 
 RETURN = """

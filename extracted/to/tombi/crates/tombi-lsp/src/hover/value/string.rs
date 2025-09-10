@@ -1,12 +1,18 @@
+use tombi_comment_directive::value::StringCommonRules;
 use tombi_schema_store::{Accessor, CurrentSchema, StringSchema, ValueSchema};
 
-use crate::hover::{
-    all_of::get_all_of_hover_content,
-    any_of::get_any_of_hover_content,
-    constraints::{build_enumerate_values, ValueConstraints},
-    display_value::DisplayValue,
-    one_of::get_one_of_hover_content,
-    GetHoverContent, HoverValueContent,
+use crate::{
+    comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
+    hover::{
+        all_of::get_all_of_hover_content,
+        any_of::get_any_of_hover_content,
+        comment::get_value_comment_directive_hover_content,
+        constraints::{build_enumerate_values, ValueConstraints},
+        display_value::DisplayValue,
+        one_of::get_one_of_hover_content,
+        GetHoverContent, HoverValueContent,
+    },
+    HoverContent,
 };
 use tombi_future::Boxable;
 
@@ -18,8 +24,23 @@ impl GetHoverContent for tombi_document_tree::String {
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<HoverValueContent>> {
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
         async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_key_table_value_comment_directive_content_and_schema_uri::<StringCommonRules>(
+                    self.comment_directives(),
+                    position,
+                    accessors,
+                )
+            {
+                if let Some(hover_content) =
+                    get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
+                        .await
+                {
+                    return Some(hover_content);
+                }
+            }
+
             if let Some(current_schema) = current_schema {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::String(string_schema) => {
@@ -29,7 +50,7 @@ impl GetHoverContent for tombi_document_tree::String {
                             }
                         }
 
-                        string_schema
+                        let mut hover_content = string_schema
                             .get_hover_content(
                                 position,
                                 keys,
@@ -37,11 +58,15 @@ impl GetHoverContent for tombi_document_tree::String {
                                 Some(current_schema),
                                 schema_context,
                             )
-                            .await
-                            .map(|mut hover_content| {
-                                hover_content.range = Some(self.range());
-                                hover_content
-                            })
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.range = Some(self.range());
+                        }
+
+                        hover_content
                     }
                     ValueSchema::OneOf(one_of_schema) => {
                         get_one_of_hover_content(
@@ -85,15 +110,15 @@ impl GetHoverContent for tombi_document_tree::String {
                     _ => None,
                 }
             } else {
-                Some(HoverValueContent {
+                Some(HoverContent::Value(HoverValueContent {
                     title: None,
                     description: None,
-                    accessors: tombi_schema_store::Accessors::new(accessors.to_vec()),
+                    accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
                     value_type: tombi_schema_store::ValueType::String,
                     constraints: None,
                     schema_uri: None,
                     range: Some(self.range()),
-                })
+                }))
             }
         }
         .boxed()
@@ -108,12 +133,12 @@ impl GetHoverContent for StringSchema {
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<HoverValueContent>> {
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
         async move {
-            Some(HoverValueContent {
+            Some(HoverContent::Value(HoverValueContent {
                 title: self.title.clone(),
                 description: self.description.clone(),
-                accessors: tombi_schema_store::Accessors::new(accessors.to_vec()),
+                accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
                 value_type: tombi_schema_store::ValueType::String,
                 constraints: Some(ValueConstraints {
                     enumerate: build_enumerate_values(
@@ -139,7 +164,7 @@ impl GetHoverContent for StringSchema {
                 }),
                 schema_uri: current_schema.map(|schema| schema.schema_uri.as_ref().clone()),
                 range: None,
-            })
+            }))
         }
         .boxed()
     }

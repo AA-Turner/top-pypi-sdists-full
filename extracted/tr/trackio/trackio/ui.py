@@ -29,14 +29,11 @@ except:  # noqa: E722
 def get_project_info() -> str | None:
     dataset_id = os.environ.get("TRACKIO_DATASET_ID")
     space_id = os.environ.get("SPACE_ID")
-    persistent_storage_enabled = os.environ.get(
-        "PERSISTANT_STORAGE_ENABLED"
-    )  # Space env name has a typo
-    if persistent_storage_enabled:
+    if utils.persistent_storage_enabled():
         return "&#10024; Persistent Storage is enabled, logs are stored directly in this Space."
     if dataset_id:
         sync_status = utils.get_sync_status(SQLiteStorage.get_scheduler())
-        upgrade_message = f"New changes are synced every 5 min <span class='info-container'><input type='checkbox' class='info-checkbox' id='upgrade-info'><label for='upgrade-info' class='info-icon'>&#9432;</label><span class='info-expandable'> To avoid losing data between syncs, <a href='https://huggingface.co/spaces/{space_id}/settings' class='accent-link'>click here</a> to open this Space's settings and add Persistent Storage.</span></span>"
+        upgrade_message = f"New changes are synced every 5 min <span class='info-container'><input type='checkbox' class='info-checkbox' id='upgrade-info'><label for='upgrade-info' class='info-icon'>&#9432;</label><span class='info-expandable'> To avoid losing data between syncs, <a href='https://huggingface.co/spaces/{space_id}/settings' class='accent-link'>click here</a> to open this Space's settings and add Persistent Storage. Make sure data is synced prior to enabling.</span></span>"
         if sync_status is not None:
             info = f"&#x21bb; Backed up {sync_status} min ago to <a href='https://huggingface.co/datasets/{dataset_id}' target='_blank' class='accent-link'>{dataset_id}</a> | {upgrade_message}"
         else:
@@ -114,7 +111,7 @@ def extract_images(logs: list[dict]) -> dict[str, list[TrackioImage]]:
 def load_run_data(
     project: str | None,
     run: str | None,
-    smoothing: bool,
+    smoothing_granularity: int,
     x_axis: str,
     log_scale: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
@@ -148,7 +145,7 @@ def load_run_data(
         else:
             df[x_column] = np.log10(x_vals)
 
-    if smoothing:
+    if smoothing_granularity > 0:
         numeric_cols = df.select_dtypes(include="number").columns
         numeric_cols = [c for c in numeric_cols if c not in utils.RESERVED_KEYS]
 
@@ -157,7 +154,7 @@ def load_run_data(
         df_original["data_type"] = "original"
 
         df_smoothed = df.copy()
-        window_size = max(3, min(10, len(df) // 10))  # Adaptive window size
+        window_size = max(3, min(smoothing_granularity, len(df)))
         df_smoothed[numeric_cols] = (
             df_smoothed[numeric_cols]
             .rolling(window=window_size, center=True, min_periods=1)
@@ -176,7 +173,9 @@ def load_run_data(
         return df, images
 
 
-def update_runs(project, filter_text, user_interacted_with_runs=False):
+def update_runs(
+    project, filter_text, user_interacted_with_runs=False, selected_runs_from_url=None
+):
     if project is None:
         runs = []
         num_runs = 0
@@ -185,8 +184,13 @@ def update_runs(project, filter_text, user_interacted_with_runs=False):
         num_runs = len(runs)
         if filter_text:
             runs = [r for r in runs if filter_text in r]
+
     if not user_interacted_with_runs:
-        return gr.CheckboxGroup(choices=runs, value=runs), gr.Textbox(
+        if selected_runs_from_url:
+            value = [r for r in runs if r in selected_runs_from_url]
+        else:
+            value = runs
+        return gr.CheckboxGroup(choices=runs, value=value), gr.Textbox(
             label=f"Runs ({num_runs})"
         )
     else:
@@ -355,10 +359,11 @@ def configure(request: gr.Request):
         case _:
             sidebar = gr.Sidebar(open=True, visible=True)
 
-    if metrics := request.query_params.get("metrics"):
-        return metrics.split(","), sidebar
-    else:
-        return [], sidebar
+    metrics_param = request.query_params.get("metrics", "")
+    runs_param = request.query_params.get("runs", "")
+    selected_runs = runs_param.split(",") if runs_param else []
+
+    return [], sidebar, metrics_param, selected_runs
 
 
 def create_image_section(images_by_run: dict[str, dict[str, list[TrackioImage]]]):
@@ -428,13 +433,28 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
             """
         )
         project_dd = gr.Dropdown(label="Project", allow_custom_value=True)
+
+        embed_code = gr.Code(
+            label="Embed this view",
+            max_lines=2,
+            lines=2,
+            language="html",
+            visible=bool(os.environ.get("SPACE_HOST")),
+        )
         run_tb = gr.Textbox(label="Runs", placeholder="Type to filter...")
         run_cb = gr.CheckboxGroup(
             label="Runs", choices=[], interactive=True, elem_id="run-cb"
         )
         gr.HTML("<hr>")
         realtime_cb = gr.Checkbox(label="Refresh metrics realtime", value=True)
-        smoothing_cb = gr.Checkbox(label="Smooth metrics", value=True)
+        smoothing_slider = gr.Slider(
+            label="Smoothing Factor",
+            minimum=0,
+            maximum=20,
+            value=10,
+            step=1,
+            info="0 = no smoothing",
+        )
         x_axis_dd = gr.Dropdown(
             label="X-axis",
             choices=["step", "time"],
@@ -451,8 +471,13 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
     timer = gr.Timer(value=1)
     metrics_subset = gr.State([])
     user_interacted_with_run_cb = gr.State(False)
+    selected_runs_from_url = gr.State([])
 
-    gr.on([demo.load], fn=configure, outputs=[metrics_subset, sidebar])
+    gr.on(
+        [demo.load],
+        fn=configure,
+        outputs=[metrics_subset, sidebar, metric_filter_tb, selected_runs_from_url],
+    )
     gr.on(
         [demo.load],
         fn=get_projects,
@@ -462,7 +487,12 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
     gr.on(
         [timer.tick],
         fn=update_runs,
-        inputs=[project_dd, run_tb, user_interacted_with_run_cb],
+        inputs=[
+            project_dd,
+            run_tb,
+            user_interacted_with_run_cb,
+            selected_runs_from_url,
+        ],
         outputs=[run_cb, run_tb],
         show_progress="hidden",
     )
@@ -475,7 +505,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
     gr.on(
         [demo.load, project_dd.change],
         fn=update_runs,
-        inputs=[project_dd, run_tb],
+        inputs=[project_dd, run_tb, gr.State(False), selected_runs_from_url],
         outputs=[run_cb, run_tb],
         show_progress="hidden",
     )
@@ -501,6 +531,15 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
         fn=filter_runs,
         inputs=[project_dd, run_tb],
         outputs=run_cb,
+    )
+
+    gr.on(
+        [demo.load, project_dd.change, metric_filter_tb.change, run_cb.change],
+        fn=utils.generate_embed_code,
+        inputs=[project_dd, metric_filter_tb, run_cb],
+        outputs=embed_code,
+        show_progress="hidden",
+        queue=False,
     )
 
     gr.api(
@@ -545,7 +584,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
             demo.load,
             run_cb.change,
             last_steps.change,
-            smoothing_cb.change,
+            smoothing_slider.change,
             x_lim.change,
             x_axis_dd.change,
             log_scale_cb.change,
@@ -554,7 +593,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
         inputs=[
             project_dd,
             run_cb,
-            smoothing_cb,
+            smoothing_slider,
             metrics_subset,
             x_lim,
             x_axis_dd,
@@ -566,7 +605,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
     def update_dashboard(
         project,
         runs,
-        smoothing,
+        smoothing_granularity,
         metrics_subset,
         x_lim_value,
         x_axis,
@@ -579,7 +618,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
 
         for run in runs:
             df, images_by_key = load_run_data(
-                project, run, smoothing, x_axis, log_scale
+                project, run, smoothing_granularity, x_axis, log_scale
             )
             if df is not None:
                 dfs.append(df)
@@ -598,6 +637,9 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
 
         numeric_cols = master_df.select_dtypes(include="number").columns
         numeric_cols = [c for c in numeric_cols if c not in utils.RESERVED_KEYS]
+        if x_column and x_column in numeric_cols:
+            numeric_cols.remove(x_column)
+
         if metrics_subset:
             numeric_cols = [c for c in numeric_cols if c in metrics_subset]
 
@@ -605,7 +647,7 @@ with gr.Blocks(theme="citrus", title="Trackio Dashboard", css=css) as demo:
             numeric_cols = filter_metrics_by_regex(list(numeric_cols), metric_filter)
 
         nested_metric_groups = utils.group_metrics_with_subprefixes(list(numeric_cols))
-        color_map = utils.get_color_mapping(original_runs, smoothing)
+        color_map = utils.get_color_mapping(original_runs, smoothing_granularity > 0)
 
         metric_idx = 0
         for group_name in sorted(nested_metric_groups.keys()):

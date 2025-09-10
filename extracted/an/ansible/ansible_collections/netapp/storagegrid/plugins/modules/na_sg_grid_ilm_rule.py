@@ -27,16 +27,6 @@ author: Denis Magel (@dmagel-netapp) <denis.magel@netapp.com>
 description:
 - Interact with ILM rules on NetApp StorageGRID.
 options:
-  api_url:
-    description:
-    - Rest endpoint for all invocations against the grid
-    required: true
-    type: str
-  auth_token:
-    description:
-    - The authorization token for the API request
-    required: true
-    type: str
   bucket_filter:
     description:
     - S3 or Swift bucket(s) to which the ILM rule applies.
@@ -218,28 +208,28 @@ options:
 """
 
 EXAMPLES = """
-  - name: Create ILM rule with existing EC pool
-    na_sg_grid_ilm_rule:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "1 Copy Per Site"
-      state: present
-      reference_time: "ingestTime"
-      ingest_behavior: "balanced"
-      filters: []
-      placements:
-          - retention:
-              after: 0
-            erasureCoded:
-                - profileId: "1"
-                  poolId: "p10771105546308032398"
+- name: Create ILM rule with existing EC pool
+  na_sg_grid_ilm_rule:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "1 Copy Per Site"
+    state: present
+    reference_time: "ingestTime"
+    ingest_behavior: "balanced"
+    filters: []
+    placements:
+      - retention:
+          after: 0
+        erasureCoded:
+          - profileId: "1"
+            poolId: "p10771105546308032398"
 
-  - name: Delete existing ILM rule
-    na_sg_grid_ilm_rule:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      name: "1 Copy Per Site"
-      state: absent
+- name: Delete existing ILM rule
+  na_sg_grid_ilm_rule:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    name: "1 Copy Per Site"
+    state: absent
 """
 
 RETURN = """

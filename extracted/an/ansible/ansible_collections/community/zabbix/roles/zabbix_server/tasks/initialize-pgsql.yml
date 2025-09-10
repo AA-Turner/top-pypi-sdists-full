@@ -89,7 +89,8 @@
         port: "{{ zabbix_server_dbport }}"
         db: "{{ zabbix_server_dbname }}"
         state: restore
-        target: "{{ zabbix_server_database_file_dir }}postgresql/server.sql.gz"
+        target: "{{ item }}"
+      loop: "{{ zabbix_server_database_schemas }}"
 
 - name: "Configure Timescale"
   when: zabbix_server_database_timescaledb
@@ -103,8 +104,12 @@
         login_host: "{{ zabbix_server_dbhost }}"
         port: "{{ zabbix_server_dbport }}"
         db: "{{ zabbix_server_dbname }}"
-        query: "SELECT db_extension FROM config WHERE db_extension = 'timescaledb'"
+        query: "{{ _is_pre74 | ternary(legacy_qry, modern_qry) }}"
       register: _config_db_extension
+      vars:
+        _is_pre74: "{{ zabbix_server_version is version('7.4', '<') }}"
+        legacy_qry: "SELECT db_extension FROM config WHERE db_extension = 'timescaledb'"
+        modern_qry: "SELECT value_str FROM settings WHERE name = 'db_extension' AND value_str = 'timescaledb'"
 
     # NOTE: Zabbix 7.0 adds a hypertable for auditlog.
     - name: "PostgreSQL | Check for auditlog hypertable"
@@ -127,8 +132,8 @@
         port: "{{ zabbix_server_dbport }}"
         db: "{{ zabbix_server_dbname }}"
         state: restore
-        target: "{{ is_legacy_version | ternary(legacy_path, modern_path) }}"
+        target: "{{ _zabbix_server_database_scripts_dir }}/{{ _is_pre70 | ternary(legacy_path, modern_path) }}"
       vars:
-        is_legacy_version: "{{ zabbix_server_version is version('7.0', '<') }}"
-        legacy_path: /usr/share/zabbix-sql-scripts/postgresql/timescaledb.sql
-        modern_path: "{{ zabbix_server_database_file_dir }}postgresql/timescaledb/schema.sql" 
+        _is_pre70: "{{ zabbix_server_version is version('7.0', '<') }}"
+        legacy_path: postgresql/timescaledb.sql
+        modern_path: postgresql/timescaledb/schema.sql

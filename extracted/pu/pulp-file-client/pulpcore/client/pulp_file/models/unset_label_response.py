@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class UnsetLabelResponse(BaseModel):
     """
     Serializer for synchronously UNsetting a label.
@@ -99,10 +91,7 @@ class UnsetLabelResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "key": obj.get("key"),
-            "value": obj.get("value")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

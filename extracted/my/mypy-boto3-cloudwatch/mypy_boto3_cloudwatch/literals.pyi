@@ -72,7 +72,13 @@ DescribeAlarmsPaginatorName = Literal["describe_alarms"]
 DescribeAnomalyDetectorsPaginatorName = Literal["describe_anomaly_detectors"]
 EvaluationStateType = Literal["PARTIAL_DATA"]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
-HistoryItemTypeType = Literal["Action", "ConfigurationUpdate", "StateUpdate"]
+HistoryItemTypeType = Literal[
+    "Action",
+    "AlarmContributorAction",
+    "AlarmContributorStateUpdate",
+    "ConfigurationUpdate",
+    "StateUpdate",
+]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
@@ -138,6 +144,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -149,8 +156,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -392,8 +401,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -526,16 +533,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_alarm_history",
@@ -560,6 +558,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

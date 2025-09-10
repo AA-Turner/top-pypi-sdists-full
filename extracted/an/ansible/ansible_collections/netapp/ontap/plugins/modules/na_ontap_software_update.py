@@ -12,7 +12,7 @@ __metaclass__ = type
 
 
 DOCUMENTATION = '''
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Update ONTAP software
   - Requires an https connection and is not supported over http
@@ -29,6 +29,11 @@ options:
       - When state is absent, the package is deleted from disk.
     default: present
     type: str
+  https:
+    description:
+      - Enable and disable https.
+    type: bool
+    default: true
   nodes:
     description:
       - List of nodes to be updated, the nodes have to be a part of a HA Pair.
@@ -147,6 +152,7 @@ class NetAppONTAPSoftwareUpdate:
         self.argument_spec = netapp_utils.na_ontap_host_argument_spec()
         self.argument_spec.update(dict(
             state=dict(required=False, type='str', choices=['present', 'absent'], default='present'),
+            https=dict(required=False, type='bool', default=True),
             nodes=dict(required=False, type='list', elements='str', aliases=["node", "nodes_to_update"]),
             package_version=dict(required=True, type='str'),
             package_url=dict(required=False, type='str'),

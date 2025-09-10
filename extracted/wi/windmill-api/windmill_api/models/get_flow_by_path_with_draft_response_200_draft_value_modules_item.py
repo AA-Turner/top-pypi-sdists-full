@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_suspend import (
         GetFlowByPathWithDraftResponse200DraftValueModulesItemSuspend,
     )
+    from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_timeout_type_0 import (
+        GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0,
+    )
+    from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_timeout_type_1 import (
+        GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="GetFlowByPathWithDraftResponse200DraftValueModulesItem")
@@ -48,7 +54,8 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
         sleep (Union['GetFlowByPathWithDraftResponse200DraftValueModulesItemSleepType0',
             'GetFlowByPathWithDraftResponse200DraftValueModulesItemSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0',
+            'GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, GetFlowByPathWithDraftResponse200DraftValueModulesItemMock]):
@@ -71,7 +78,11 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0",
+        "GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "GetFlowByPathWithDraftResponse200DraftValueModulesItemMock"] = UNSET
@@ -84,6 +95,9 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_sleep_type_0 import (
             GetFlowByPathWithDraftResponse200DraftValueModulesItemSleepType0,
+        )
+        from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_timeout_type_0 import (
+            GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0,
         )
 
         id = self.id
@@ -115,7 +129,20 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -195,6 +222,12 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
         from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_suspend import (
             GetFlowByPathWithDraftResponse200DraftValueModulesItemSuspend,
         )
+        from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_timeout_type_0 import (
+            GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0,
+        )
+        from ..models.get_flow_by_path_with_draft_response_200_draft_value_modules_item_timeout_type_1 import (
+            GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -265,7 +298,44 @@ class GetFlowByPathWithDraftResponse200DraftValueModulesItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0",
+            "GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType0.from_dict(
+                        _timeout_type_0
+                    )
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = GetFlowByPathWithDraftResponse200DraftValueModulesItemTimeoutType1.from_dict(
+                    _timeout_type_1
+                )
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

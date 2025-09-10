@@ -1,21 +1,27 @@
 mod array;
 mod boolean;
-mod date_time;
 mod float;
 mod integer;
+mod local_date;
+mod local_date_time;
+mod local_time;
+mod offset_date_time;
 mod string;
 mod table;
 
 pub use array::{Array, ArrayKind};
 pub use boolean::Boolean;
-pub use date_time::{LocalDate, LocalDateTime, LocalTime, OffsetDateTime};
 pub use float::Float;
 pub use integer::{Integer, IntegerKind};
+pub use local_date::LocalDate;
+pub use local_date_time::LocalDateTime;
+pub use local_time::LocalTime;
+pub use offset_date_time::OffsetDateTime;
 pub use string::{String, StringKind};
 pub use table::{Table, TableKind};
-use tombi_ast::AstNode;
+use tombi_ast::{AstNode, TombiValueCommentDirective};
 
-use crate::{support::comment::try_new_comment, DocumentTreeAndErrors, IntoDocumentTreeAndErrors};
+use crate::{DocumentTreeAndErrors, IntoDocumentTreeAndErrors};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -68,36 +74,121 @@ impl Value {
     }
 
     #[inline]
-    pub fn leading_comments(&self) -> &[crate::Comment] {
+    pub fn comment_directives(&self) -> Option<&[TombiValueCommentDirective]> {
         match self {
-            Value::Boolean(boolean) => boolean.leading_comments(),
-            Value::Integer(integer) => integer.leading_comments(),
-            Value::Float(float) => float.leading_comments(),
-            Value::String(string) => string.leading_comments(),
-            Value::OffsetDateTime(offset_date_time) => offset_date_time.leading_comments(),
-            Value::LocalDateTime(local_date_time) => local_date_time.leading_comments(),
-            Value::LocalDate(local_date) => local_date.leading_comments(),
-            Value::LocalTime(local_time) => local_time.leading_comments(),
-            Value::Array(array) => array.leading_comments(),
-            Value::Table(table) => table.leading_comments(),
-            Value::Incomplete { .. } => &[],
+            Value::Boolean(value) => value.comment_directives(),
+            Value::Integer(value) => value.comment_directives(),
+            Value::Float(value) => value.comment_directives(),
+            Value::String(value) => value.comment_directives(),
+            Value::OffsetDateTime(value) => value.comment_directives(),
+            Value::LocalDateTime(value) => value.comment_directives(),
+            Value::LocalDate(value) => value.comment_directives(),
+            Value::LocalTime(value) => value.comment_directives(),
+            Value::Array(value) => value.comment_directives(),
+            Value::Table(value) => value.comment_directives(),
+            Value::Incomplete { .. } => None,
         }
     }
 
-    #[inline]
-    pub fn trailing_comment(&self) -> Option<&crate::Comment> {
+    pub fn is_inline(&self) -> bool {
         match self {
-            Value::Boolean(boolean) => boolean.trailing_comment(),
-            Value::Integer(integer) => integer.trailing_comment(),
-            Value::Float(float) => float.trailing_comment(),
-            Value::String(string) => string.trailing_comment(),
-            Value::OffsetDateTime(offset_date_time) => offset_date_time.trailing_comment(),
-            Value::LocalDateTime(local_date_time) => local_date_time.trailing_comment(),
-            Value::LocalDate(local_date) => local_date.trailing_comment(),
-            Value::LocalTime(local_time) => local_time.trailing_comment(),
-            Value::Array(array) => array.trailing_comment(),
-            Value::Table(table) => table.trailing_comment(),
-            Value::Incomplete { .. } => None,
+            Value::Boolean(_)
+            | Value::Integer(_)
+            | Value::Float(_)
+            | Value::String(_)
+            | Value::OffsetDateTime(_)
+            | Value::LocalDateTime(_)
+            | Value::LocalDate(_)
+            | Value::LocalTime(_) => true,
+            Value::Array(array) if array.kind() == ArrayKind::Array => true,
+            Value::Table(table) if matches!(table.kind(), TableKind::InlineTable { .. }) => true,
+            Value::Array(_) | Value::Table(_) | Value::Incomplete { .. } => false,
+        }
+    }
+
+    pub(crate) fn set_comment_directives(
+        &mut self,
+        comment_directives: Vec<TombiValueCommentDirective>,
+    ) {
+        match self {
+            Value::Boolean(boolean) => {
+                boolean.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::Integer(integer) => {
+                integer.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::Float(float) => float.comment_directives = Some(Box::new(comment_directives)),
+            Value::String(string) => string.comment_directives = Some(Box::new(comment_directives)),
+            Value::OffsetDateTime(offset_date_time) => {
+                offset_date_time.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::LocalDateTime(local_date_time) => {
+                local_date_time.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::LocalDate(local_date) => {
+                local_date.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::LocalTime(local_time) => {
+                local_time.comment_directives = Some(Box::new(comment_directives))
+            }
+            Value::Array(array) => array.comment_directives = Some(Box::new(comment_directives)),
+            Value::Table(table) => table.comment_directives = Some(Box::new(comment_directives)),
+            Value::Incomplete { .. } => return,
+        }
+    }
+
+    pub(crate) fn extend_comment_directives(
+        &mut self,
+        comment_directives: Vec<TombiValueCommentDirective>,
+    ) {
+        let value_comment_directives = match self {
+            Value::Boolean(boolean) => &mut boolean.comment_directives,
+            Value::Integer(integer) => &mut integer.comment_directives,
+            Value::Float(float) => &mut float.comment_directives,
+            Value::String(string) => &mut string.comment_directives,
+            Value::OffsetDateTime(offset_date_time) => &mut offset_date_time.comment_directives,
+            Value::LocalDateTime(local_date_time) => &mut local_date_time.comment_directives,
+            Value::LocalDate(local_date) => &mut local_date.comment_directives,
+            Value::LocalTime(local_time) => &mut local_time.comment_directives,
+            Value::Array(array) => &mut array.comment_directives,
+            Value::Table(table) => &mut table.comment_directives,
+            Value::Incomplete { .. } => return,
+        };
+
+        if let Some(value_comment_directives) = value_comment_directives {
+            value_comment_directives.extend(comment_directives);
+        } else {
+            *value_comment_directives = Some(Box::new(comment_directives));
+        }
+    }
+
+    pub fn contains(&self, position: tombi_text::Position) -> bool {
+        self.range().contains(position)
+            || self
+                .comment_directives()
+                .map(|comment_directives| {
+                    comment_directives
+                        .iter()
+                        .any(|comment_directive| comment_directive.range().contains(position))
+                })
+                .unwrap_or_default()
+    }
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Boolean(boolean) => write!(f, "{}", boolean),
+            Value::Integer(integer) => write!(f, "{}", integer),
+            Value::Float(float) => write!(f, "{}", float),
+            Value::String(string) => write!(f, "{}", string),
+            Value::OffsetDateTime(offset_date_time) => write!(f, "{}", offset_date_time),
+            Value::LocalDateTime(local_date_time) => write!(f, "{}", local_date_time),
+            Value::LocalDate(local_date) => write!(f, "{}", local_date),
+            Value::LocalTime(local_time) => write!(f, "{}", local_time),
+            Value::Array(array) => write!(f, "{}", array),
+            Value::Table(table) => write!(f, "{}", table),
+            Value::Incomplete { .. } => write!(f, "null"),
         }
     }
 }
@@ -130,15 +221,17 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::Value {
         toml_version: tombi_toml_version::TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let mut errors = Vec::new();
+        let mut comment_directives = vec![];
+
         for comment in self.leading_comments() {
-            if let Err(error) = try_new_comment(comment.as_ref()) {
-                errors.push(error);
+            if let Some(comment_directive) = comment.get_tombi_value_directive() {
+                comment_directives.push(comment_directive);
             }
         }
 
         if let Some(comment) = self.trailing_comment() {
-            if let Err(error) = try_new_comment(comment.as_ref()) {
-                errors.push(error);
+            if let Some(comment_directive) = comment.get_tombi_value_directive() {
+                comment_directives.push(comment_directive);
             }
         }
 
@@ -185,5 +278,41 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::Value {
         document_tree_result.errors = errors;
 
         document_tree_result
+    }
+}
+
+fn collect_comment_directives_and_errors(
+    node: &impl AstNode,
+) -> (
+    Option<Box<Vec<TombiValueCommentDirective>>>,
+    Vec<crate::Error>,
+) {
+    let mut comment_directives = vec![];
+    let mut errors = vec![];
+
+    for comment in node.leading_comments() {
+        if let Err(error) = crate::support::comment::try_new_comment(&comment) {
+            errors.push(error);
+        }
+
+        if let Some(comment_directive) = comment.get_tombi_value_directive() {
+            comment_directives.push(comment_directive);
+        }
+    }
+
+    if let Some(comment) = node.trailing_comment() {
+        if let Err(error) = crate::support::comment::try_new_comment(&comment) {
+            errors.push(error);
+        }
+
+        if let Some(comment_directive) = comment.get_tombi_value_directive() {
+            comment_directives.push(comment_directive);
+        }
+    }
+
+    if !comment_directives.is_empty() {
+        (Some(Box::new(comment_directives)), errors)
+    } else {
+        (None, errors)
     }
 }

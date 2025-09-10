@@ -30,6 +30,7 @@ sanity: upgrade-collections
 
 .PHONY: eco-vcenter-ci
 eco-vcenter-ci: tests/integration/integration_config.yml install-integration-reqs upgrade-collections
+	rm -rf ~/.ansible/collections/ansible_collections/cloud/common; \
 	cd ~/.ansible/collections/ansible_collections/vmware/vmware_rest; \
 	ansible --version; \
 	ansible-test --version; \

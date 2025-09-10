@@ -12,7 +12,7 @@ from pinecone_plugins.assistant.data.core.client.api.manage_assistants_api impor
 from pinecone_plugins.assistant.data.core.client.model.search_completions import (
     SearchCompletions as ChatCompletionsRequest,
 )
-from pinecone_plugins.assistant.data.core.client.model.chat import Chat as ChatRequest
+from pinecone_plugins.assistant.data.core.client.model.chat_request import ChatRequest
 from pinecone_plugins.assistant.data.core.client.model.message_model import MessageModel
 from pinecone_plugins.assistant.data.core.client.model.context_options_model import ContextOptionsModel
 from pinecone_plugins.assistant.control.core.client.models import (
@@ -758,7 +758,7 @@ class AssistantModel:
 
         chat_request = ChatRequest(**kwargs)
         chat_result = self._assistant_data_api.chat_assistant(
-            assistant_name=self.name, chat=chat_request
+            assistant_name=self.name, chat_request=chat_request
         )
         return ChatResponse.from_openapi(chat_result)
 

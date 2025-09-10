@@ -40,3 +40,9 @@ def collect_jira_issue_keys_in_text(text: str) -> list[str]:
     issue_keys = re.findall(r"[a-zA-Z]+-\d+", text)
     issue_keys = sorted({i.upper() for i in issue_keys})
     return issue_keys
+
+
+def confluence_highlight_to_markdown_bold(text: str) -> str:
+    pattern = r"@@@hl@@@(.*?)@@@endhl@@@"
+    text = re.sub(pattern, r"**\1**", text, flags=re.DOTALL)
+    return text

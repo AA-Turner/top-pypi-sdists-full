@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 DOCUMENTATION = '''
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Create/Delete NVME subsystem
   - Associate(modify) host/map to NVME subsystem
@@ -56,6 +56,7 @@ options:
   paths:
     description:
       - List of Namespace paths to be associated with the subsystem.
+      - For ASA R2 systems, The paths should match the format <name>[@<snapshot-name>].
     type: list
     elements: str
 short_description: "NetApp ONTAP Manage NVME Subsystem"
@@ -117,7 +118,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
 import ansible_collections.netapp.ontap.plugins.module_utils.netapp as netapp_utils
 from ansible_collections.netapp.ontap.plugins.module_utils.netapp_module import NetAppModule
-from ansible_collections.netapp.ontap.plugins.module_utils import rest_generic
+from ansible_collections.netapp.ontap.plugins.module_utils import rest_generic, rest_ontap_personality
 
 
 class NetAppONTAPNVMESubsystem:
@@ -150,7 +151,16 @@ class NetAppONTAPNVMESubsystem:
         self.parameters = self.na_helper.set_parameters(self.module.params)
         self.rest_api = netapp_utils.OntapRestAPI(self.module)
         self.use_rest = self.rest_api.is_rest()
-
+        self.asa_r2_system = False
+        if self.use_rest:
+            if self.rest_api.meets_rest_minimum_version(True, 9, 16, 0):
+                self.asa_r2_system = rest_ontap_personality.is_asa_r2_system(self.rest_api, self.module)
+                if self.asa_r2_system:
+                    if 'paths' in self.parameters:
+                        self.module.warn('For ASA R2 systems, The paths should match the format <name>[@<snapshot-name>].'
+                                         'The name must begin with a letter or \"_\" and contain only \"_\" and alphanumeric character')
+                        # If the path is passed as vol/vol1/ns it will be converted to ns for asa r2 systems.
+                        self.parameters['paths'] = [item.split("/")[-1] for item in self.parameters['paths']]
         if not self.use_rest:
             if not netapp_utils.has_netapp_lib():
                 self.module.fail_json(msg=netapp_utils.netapp_lib_is_required())

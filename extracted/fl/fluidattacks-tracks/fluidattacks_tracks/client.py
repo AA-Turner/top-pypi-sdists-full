@@ -2,6 +2,10 @@
 
 import asyncio
 import atexit
+import json
+from datetime import UTC, datetime
+from enum import Enum
+from functools import partial
 from typing import TypedDict, Unpack
 
 import aiohttp
@@ -48,6 +52,17 @@ class TracksClient:
     def _get_session(self) -> aiohttp.ClientSession:
         """Get the Tracks session."""
         if self._session is None:
+
+            def _serialize(obj: object) -> object:
+                if isinstance(obj, datetime):
+                    return obj.astimezone(UTC).isoformat()
+                if isinstance(obj, Enum):
+                    return obj.value  # type: ignore[misc]
+                if isinstance(obj, set):
+                    return list(obj)  # type: ignore[misc]
+                msg = f"Object of type {obj.__class__.__name__} is not JSON serializable"
+                raise TypeError(msg)
+
             self._session = aiohttp.ClientSession(
                 base_url=TRACKS_API_URL,
                 connector=aiohttp.TCPConnector(
@@ -55,6 +70,7 @@ class TracksClient:
                     limit=self._config["concurrency_limit"],
                 ),
                 headers={"Accept-Encoding": "gzip"},
+                json_serialize=partial(json.dumps, default=_serialize),  # type: ignore[misc]
             )
         return self._session
 

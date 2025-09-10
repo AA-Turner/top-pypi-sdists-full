@@ -8,12 +8,10 @@ import torch
 from .lmp_mliap_wrapper import NequIPLAMMPSMLIAPWrapper
 from nequip.train.lightning import _SOLE_MODEL_KEY
 from nequip.utils.logger import RankedLogger
+from nequip.model.saved_models.load_utils import _get_model_file_path
 
 
 logger = RankedLogger(__name__, rank_zero_only=True)
-
-# common help suffix for absolute paths
-_ABS_PATH_TIP = " (tip: use $PWD)"
 
 
 def main(args=None):
@@ -25,15 +23,13 @@ def main(args=None):
     # positional arguments:
     parser.add_argument(
         "model_path",
-        help="absolute path to a checkpoint model or packaged model file"
-        + _ABS_PATH_TIP,
+        help="path to a checkpoint model or packaged model file",
         type=pathlib.Path,
     )
 
     parser.add_argument(
         "output_path",
-        help="absolute path to write NequIP LAMMPS ML-IAP interface file (must end with `.nequip.lmp.pt`)"
-        + _ABS_PATH_TIP,
+        help="path to write NequIP LAMMPS ML-IAP interface file (must end with `.nequip.lmp.pt`)",
         type=pathlib.Path,
     )
 
@@ -70,16 +66,6 @@ def main(args=None):
     args = parser.parse_args(args=args)
 
     # === validate paths ===
-    if not args.model_path.is_absolute():
-        raise ValueError(
-            f"Model path must be absolute{_ABS_PATH_TIP}, got: {args.model_path}"
-        )
-
-    if not args.output_path.is_absolute():
-        raise ValueError(
-            f"Output path must be absolute{_ABS_PATH_TIP}, got: {args.output_path}"
-        )
-
     if not str(args.output_path).endswith(".nequip.lmp.pt"):
         raise ValueError(
             f"Output path must end with `.nequip.lmp.pt`, got: {args.output_path}"
@@ -87,13 +73,16 @@ def main(args=None):
 
     # === create and save ML-IAP module ===
     logger.info(f"Creating LAMMPS ML-IAP artefact from {args.model_path} ...")
-    mliap_module = NequIPLAMMPSMLIAPWrapper(
-        model_path=str(args.model_path),
-        model_key=args.model,
-        modifiers=args.modifiers,
-        compile=not args.no_compile,
-        tf32=args.tf32,
-    )
+
+    # use `_get_model_file_path` to handle both local and nequip.net models
+    with _get_model_file_path(str(args.model_path)) as model_file_path:
+        mliap_module = NequIPLAMMPSMLIAPWrapper(
+            model_path=str(model_file_path),
+            model_key=args.model,
+            modifiers=args.modifiers,
+            compile=not args.no_compile,
+            tf32=args.tf32,
+        )
     torch.save(mliap_module, args.output_path)
     logger.info(f"LAMMPS ML-IAP artefact saved to {args.output_path}")
 

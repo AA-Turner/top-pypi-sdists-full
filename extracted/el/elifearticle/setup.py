@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=["elifearticle"],
     license="MIT",
-    install_requires=["elifetools>=0.43.0", "GitPython"],
+    install_requires=["elifetools>=0.45.0", "GitPython"],
     url="https://github.com/elifesciences/elife-article",
     maintainer="eLife Sciences Publications Ltd.",
     maintainer_email="tech-team@elifesciences.org",

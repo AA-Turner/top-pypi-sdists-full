@@ -36,11 +36,26 @@ class VSPVolumeProvisioner:
             VSPStorageSystemProvisioner(connection_info).populate_basic_storage_info()
 
     @log_entry_exit
-    def get_volumes(self, start_ldev=None, count=None):
+    def get_volumes(
+        self,
+        start_ldev=None,
+        count=None,
+        pool_id=None,
+        resource_group_id=None,
+        journal_id=None,
+        parity_group_id=None,
+    ):
 
         count = 0 if not count else int(count)
         start_ldev = 0 if not start_ldev else int(start_ldev)
-        volumes = self.gateway.get_volumes(start_ldev=start_ldev, count=count)
+        volumes = self.gateway.get_volumes(
+            start_ldev=start_ldev,
+            count=count,
+            pool_id=pool_id,
+            resource_group_id=resource_group_id,
+            journal_id=journal_id,
+            parity_group_id=parity_group_id,
+        )
         return volumes
 
     @log_entry_exit
@@ -150,6 +165,32 @@ class VSPVolumeProvisioner:
         return ldevs.data[0].ldevId
 
     @log_entry_exit
+    def get_free_ldevs_from_meta(
+        self, count=10, start_ldev=None, end_ldev=None, resource_grp_id=0
+    ):
+        count = 10 if not count else int(count)
+        resource_grp_id = 0 if not resource_grp_id else int(resource_grp_id)
+        ldevs = self.gateway.get_free_ldevs_from_meta(start_ldev, resource_grp_id)
+        if not ldevs.data:
+            err_msg = VSPVolValidationMsg.NO_FREE_LDEV.value
+            logger.writeError(err_msg)
+            return err_msg
+        ldevs = [
+            ldev.ldevId
+            for ldev in ldevs.data
+            if ldev.resourceGroupId == resource_grp_id
+        ]
+        ldevs = sorted(ldevs)
+
+        if start_ldev is not None:
+            ldevs = [ldev for ldev in ldevs if ldev >= start_ldev]
+        if end_ldev is not None:
+            ldevs = [ldev for ldev in ldevs if ldev <= end_ldev]
+        if count > 0:
+            ldevs = ldevs[:count]
+        return ldevs
+
+    @log_entry_exit
     def expand_volume_capacity(self, ldev_id, payload, enhanced_expansion):
 
         return self.gateway.expand_volume(ldev_id, payload, enhanced_expansion)
@@ -212,6 +253,10 @@ class VSPVolumeProvisioner:
         return self.gateway.change_mp_blade(ldev_id, mp_blade_id)
 
     @log_entry_exit
+    def assign_ldev_to_clpr(self, ldev_id, clpr_id):
+        return self.gateway.assign_ldev_to_clpr(ldev_id, clpr_id)
+
+    @log_entry_exit
     def reclaim_zero_pages(self, ldev_id):
         try:
             return self.gateway.reclaim_zero_pages(ldev_id)
@@ -236,3 +281,14 @@ class VSPVolumeProvisioner:
     @log_entry_exit
     def fill_cmd_device_info(self, volume):
         return self.gateway.fill_cmd_device_info(volume)
+
+    @log_entry_exit
+    def get_all_ldevs_using_filter(self, filter_spec):
+        """
+        Get all LDEVs using the provided filter specification.
+        """
+        query_dict = {}
+        if filter_spec.pool_id is None:
+            query_dict["poolId"] = filter_spec.pool_id
+
+        return self.gateway.get_all_ldevs_using_filter(filter_spec)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panel
-Version: 1.7.5
+Version: 1.8.0
 Summary: The powerful data exploration & web app framework for Python.
 Project-URL: Homepage, https://panel.holoviz.org
 Project-URL: Source, https://github.com/holoviz/panel
@@ -33,7 +33,7 @@ Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Requires-Dist: bleach
-Requires-Dist: bokeh<3.8.0,>=3.5.0
+Requires-Dist: bokeh<3.9.0,>=3.7.0
 Requires-Dist: linkify-it-py
 Requires-Dist: markdown
 Requires-Dist: markdown-it-py
@@ -70,7 +70,7 @@ Provides-Extra: tests
 Requires-Dist: psutil; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-asyncio; extra == 'tests'
-Requires-Dist: pytest-rerunfailures; extra == 'tests'
+Requires-Dist: pytest-rerunfailures<16.0; extra == 'tests'
 Requires-Dist: pytest-xdist; extra == 'tests'
 Description-Content-Type: text/markdown
 

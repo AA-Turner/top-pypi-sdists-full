@@ -18,6 +18,7 @@ class GetUsedTriggersResponse200:
         mqtt_used (bool):
         gcp_used (bool):
         sqs_used (bool):
+        email_used (bool):
     """
 
     http_routes_used: bool
@@ -28,6 +29,7 @@ class GetUsedTriggersResponse200:
     mqtt_used: bool
     gcp_used: bool
     sqs_used: bool
+    email_used: bool
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -39,6 +41,7 @@ class GetUsedTriggersResponse200:
         mqtt_used = self.mqtt_used
         gcp_used = self.gcp_used
         sqs_used = self.sqs_used
+        email_used = self.email_used
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -52,6 +55,7 @@ class GetUsedTriggersResponse200:
                 "mqtt_used": mqtt_used,
                 "gcp_used": gcp_used,
                 "sqs_used": sqs_used,
+                "email_used": email_used,
             }
         )
 
@@ -76,6 +80,8 @@ class GetUsedTriggersResponse200:
 
         sqs_used = d.pop("sqs_used")
 
+        email_used = d.pop("email_used")
+
         get_used_triggers_response_200 = cls(
             http_routes_used=http_routes_used,
             websocket_used=websocket_used,
@@ -85,6 +91,7 @@ class GetUsedTriggersResponse200:
             mqtt_used=mqtt_used,
             gcp_used=gcp_used,
             sqs_used=sqs_used,
+            email_used=email_used,
         )
 
         get_used_triggers_response_200.additional_properties = d

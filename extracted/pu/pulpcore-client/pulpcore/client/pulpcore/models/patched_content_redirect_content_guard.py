@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedContentRedirectContentGuard(BaseModel):
     """
     A serializer for ContentRedirectContentGuard.
@@ -95,10 +87,7 @@ class PatchedContentRedirectContentGuard(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "description": obj.get("description")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -24,14 +24,6 @@ from pulpcore.client.pulpcore.models.nested_role_response import NestedRoleRespo
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class ObjectRolesResponse(BaseModel):
     """
     ObjectRolesResponse
@@ -96,9 +88,7 @@ class ObjectRolesResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "roles": [NestedRoleResponse.from_dict(_item) for _item in obj["roles"]] if obj.get("roles") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

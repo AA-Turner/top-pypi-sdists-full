@@ -340,6 +340,21 @@ nav:
   - Blog:
       - "blog/index.md"
 plugins:
+  - llmstxt:
+      markdown_description: >
+        Instructor is a Python library that makes it easy to work with structured outputs 
+        from large language models (LLMs). Built on top of Pydantic, it provides a simple, 
+        type-safe way to extract structured data from LLM responses across multiple providers 
+        including OpenAI, Anthropic, Google, and many others.
+      sections:
+        Getting Started:
+          - index.md: Introduction to structured outputs with LLMs
+          - getting-started.md: Quick start guide
+          - installation.md: Installation instructions
+        Core Concepts:
+          - concepts/*.md
+        Integrations:
+          - integrations/*.md
   - redirects:
       redirect_maps:
          jobs.md: https://jobs.applied-llms.org/

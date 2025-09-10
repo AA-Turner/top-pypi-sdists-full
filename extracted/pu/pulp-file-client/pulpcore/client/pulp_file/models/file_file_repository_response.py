@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class FileFileRepositoryResponse(BaseModel):
     """
     Serializer for File Repositories.
@@ -133,21 +125,7 @@ class FileFileRepositoryResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "versions_href": obj.get("versions_href"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "latest_version_href": obj.get("latest_version_href"),
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "retain_repo_versions": obj.get("retain_repo_versions"),
-            "remote": obj.get("remote"),
-            "autopublish": obj.get("autopublish") if obj.get("autopublish") is not None else False,
-            "manifest": obj.get("manifest") if obj.get("manifest") is not None else 'PULP_MANIFEST'
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

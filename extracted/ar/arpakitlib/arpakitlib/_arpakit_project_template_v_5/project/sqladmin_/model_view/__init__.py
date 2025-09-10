@@ -7,6 +7,5 @@ from project.sqladmin_.model_view.user import UserMV
 from project.sqladmin_.model_view.user_token import UserTokenMV
 from project.sqladmin_.model_view.verification_code import VerificationCodeMV
 
-
 if __name__ == '__main__':
     print(get_string_info_from_model_view(class_=SimpleMV))

@@ -13,7 +13,7 @@ short_description: NetApp ONTAP manage volumes.
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.6.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 
 description:
   - Create or destroy or modify volumes on NetApp ONTAP.
@@ -487,6 +487,16 @@ options:
     type: str
     version_added: 2.9.0
 
+  tiering_object_tags:
+    description:
+      - This parameter specifies tags of a volume for objects stored on a FabricPool-enabled aggregate.
+      - Each tag is a key,value pair and should be in the format "key=value".
+      - A maximum of 4 tags are allowed per volume.
+      - To remove all existing tiering object tags, specify an empty list as the parameter value.
+    type: list
+    elements: str
+    version_added: 23.1.0
+
   space_slo:
     description:
       - Specifies the space SLO type for the volume. The space SLO type is the Service Level Objective for space management for the volume.
@@ -522,27 +532,49 @@ options:
   snapshot_auto_delete:
     description:
       - A dictionary for the auto delete options and values.
-      - Supported options include 'state', 'commitment', 'trigger', 'target_free_space', 'delete_order', 'defer_delete',
-        'prefix', 'destroy_list'.
       - All the above mentioned options except 'destroy_list' are supported in REST for ONTAP 9.13.1 or later with ONTAP collection version 22.8.0 or later.
-      - Option 'state' determines if the snapshot autodelete is currently enabled for the volume. Possible values are 'on' and 'off'.
-      - Option 'commitment' determines the snapshots which snapshot autodelete is allowed to delete to get back space.
-        Possible values are 'try', 'disrupt' and 'destroy'.
-      - Option 'trigger' determines the condition which starts the automatic deletion of snapshots.
-        Possible values are 'volume', 'snap_reserve' and DEPRECATED 'space_reserve'.
-      - Option 'target_free_space' determines when snapshot autodelete should stop deleting snapshots. Depending on the trigger,
-        snapshots are deleted till we reach the target free space percentage. Accepts int type.
-      - Option 'delete_order' determines if the oldest or newest snapshot is deleted first. Possible values are 'newest_first' and 'oldest_first'.
-      - Option 'defer_delete' determines which kind of snapshots to delete in the end. Possible values are 'scheduled', 'user_created',
-        'prefix' and 'none'.
-      - Option 'prefix' can be set to provide the prefix string for the 'prefix' value of the 'defer_delete' option.
-        The prefix string length can be 15 char long.
-      - Option 'destroy_list' is a comma seperated list of services which can be destroyed if the snapshot backing that service is deleted.
-        For 7-mode, the possible values for this option are a combination of 'lun_clone', 'vol_clone', 'cifs_share', 'file_clone' or 'none'.
-        For cluster-mode, the possible values for this option are a combination of 'lun_clone,file_clone' (for LUN clone and/or file clone),
-        'lun_clone,sfsr' (for LUN clone and/or sfsr), 'vol_clone', 'cifs_share', or 'none'.
     type: dict
     version_added: '20.4.0'
+    suboptions:
+      state:
+        description: Determines if the snapshot autodelete is currently enabled for the volume.
+        type: str
+        choices: ['on', 'off']
+      commitment:
+        description: Determines the snapshots that the snapshot autodelete is allowed to delete to get back space.
+        type: str
+        choices: [try, disrupt, destroy]
+      trigger:
+        description:
+          - Determines the condition which starts the automatic deletion of snapshots.
+          - Note - C(space_reserve) option is deprecated and may be removed in the future.
+        type: str
+        choices: [volume, snap_reserve, space_reserve]
+      target_free_space:
+        description:
+          - Determines when snapshot autodelete should stop deleting snapshots.
+          - Depending on the trigger, snapshots are deleted until the target free space percentage is reached.
+        type: int
+      delete_order:
+        description: Determines if the oldest or newest snapshot is deleted first.
+        type: str
+        choices: [newest_first, oldest_first]
+      defer_delete:
+        description: Determines what kind of snapshot to delete in the end.
+        type: str
+        choices: [scheduled, user_created, prefix, 'none']
+      prefix:
+        description:
+          - Can be set to provide the prefix string for the 'prefix' value of the 'defer_delete' option.
+          - The prefix string can be 15 characters long.
+        type: str
+      destroy_list:
+        description:
+          - A comma seperated list of services which can be destroyed if the snapshot backing that service is deleted.
+          - For 7-mode, the possible values for this option are a combination of 'lun_clone', 'vol_clone', 'cifs_share', 'file_clone' or 'none'.
+          - For cluster-mode, the possible values for this option are a combination of 'lun_clone,file_clone' (for LUN clone and/or file clone),
+            'lun_clone,sfsr' (for LUN clone and/or sfsr), 'vol_clone', 'cifs_share', or 'none'.
+        type: str
 
   cutover_action:
     description:
@@ -769,6 +801,7 @@ EXAMPLES = """
     space_slo: none
     nvfail_enabled: false
     comment: ansible created volume
+    tiering_object_tags: ['tag1=one', 'tag2=two', 'tag3=3', 'tag4=4']
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"
     password: "{{ netapp_password }}"
@@ -867,12 +900,12 @@ EXAMPLES = """
     state: present
     name: vol_auto_delete
     snapshot_auto_delete:
-        state: "on"
-        commitment: try
-        defer_delete: scheduled
-        target_free_space: 30
-        destroy_list: lun_clone,vol_clone
-        delete_order: newest_first
+      state: "on"
+      commitment: try
+      defer_delete: scheduled
+      target_free_space: 30
+      destroy_list: lun_clone,vol_clone
+      delete_order: newest_first
     aggregate_name: "{{ aggr }}"
     vserver: "{{ vserver }}"
     hostname: "{{ netapp_hostname }}"
@@ -941,11 +974,11 @@ EXAMPLES = """
     efficiency_policy: default
     comment: testing
     nas_application_template:
-        nfs_access:   # the mere presence of a suboption is enough to enable this new feature
-          - access: ro
-          - access: rw
-            host: 10.0.0.0/8
-        exclude_aggregates: aggr0
+      nfs_access:   # the mere presence of a suboption is enough to enable this new feature
+        - access: ro
+        - access: rw
+          host: 10.0.0.0/8
+      exclude_aggregates: aggr0
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"
     password: "{{ netapp_password }}"
@@ -964,8 +997,8 @@ EXAMPLES = """
     policy: default
     type: rw
     snaplock:
-        type: enterprise
-        retention:
+      type: enterprise
+      retention:
         default: "{{ 60 | netapp.ontap.iso8601_duration_from_seconds }}"
 
 - name: Create volume with snapshot-auto-delete options - REST
@@ -976,13 +1009,13 @@ EXAMPLES = """
     size: 20
     size_unit: mb
     snapshot_auto_delete:
-        state: 'on'
-        trigger: volume
-        delete_order: "oldest_first"
-        defer_delete: "user_created"
-        commitment: "try"
-        target_free_space: 30
-        prefix: "my_prefix"
+      state: 'on'
+      trigger: volume
+      delete_order: "oldest_first"
+      defer_delete: "user_created"
+      commitment: "try"
+      target_free_space: 30
+      prefix: "my_prefix"
     wait_for_completion: true
 
 - name: Modify volume - REST
@@ -992,8 +1025,15 @@ EXAMPLES = """
     aggregate_name: "{{ aggr }}"
     snapdir_access: false
     snapshot_auto_delete:
-        state: 'on'
-        target_free_space: 25
+      state: 'on'
+      target_free_space: 25
+
+- name: Modify volume tiering onject_tags - REST
+  netapp.ontap.na_ontap_volume:
+    state: present
+    name: test_vol
+    aggregate_name: "{{ aggr }}"
+    tiering_object_tags: ['tag1=one', 'tag2=two']
 """
 
 RETURN = """
@@ -1056,6 +1096,7 @@ class NetAppOntapVolume:
             nvfail_enabled=dict(type='bool', required=False),
             space_slo=dict(type='str', required=False, choices=['none', 'thick', 'semi-thick']),
             tiering_policy=dict(type='str', required=False, choices=['snapshot-only', 'auto', 'backup', 'none', 'all']),
+            tiering_object_tags=dict(type='list', elements='str', required=False),
             vserver_dr_protection=dict(type='str', required=False, choices=['protected', 'unprotected']),
             comment=dict(type='str', required=False),
             snapshot_auto_delete=dict(type='dict', required=False),
@@ -1162,14 +1203,14 @@ class NetAppOntapVolume:
                                        'space_slo',
                                        'vserver_dr_protection']
         partially_supported_rest_properties = [['efficiency_policy', (9, 7)], ['tiering_minimum_cooling_days', (9, 8)],
-                                               ['analytics', (9, 8)], ['atime_update', (9, 8)],
+                                               ['analytics', (9, 8)], ['atime_update', (9, 8)], ['tiering_object_tags', (9, 8)],
                                                ['vol_nearly_full_threshold_percent', (9, 9)], ['vol_full_threshold_percent', (9, 9)],
                                                ['activity_tracking', (9, 10, 1)], ['snapshot_locking', (9, 12, 1)],
                                                ['granular_data', (9, 12, 1)], ['large_size_enabled', (9, 12, 1)],
                                                ['tags', (9, 13, 1)], ['snapdir_access', (9, 13, 1)], ['snapshot_auto_delete', (9, 13, 1)]]
         self.unsupported_zapi_properties = ['sizing_method', 'logical_space_enforcement', 'logical_space_reporting', 'snaplock',
                                             'analytics', 'activity_tracking', 'tags', 'vol_nearly_full_threshold_percent',
-                                            'vol_full_threshold_percent', 'large_size_enabled', 'snapshot_locking', 'granular_data']
+                                            'vol_full_threshold_percent', 'large_size_enabled', 'snapshot_locking', 'granular_data', 'tiering_object_tags']
         self.use_rest = self.rest_api.is_rest_supported_properties(self.parameters, unsupported_rest_properties, partially_supported_rest_properties)
 
         if not self.use_rest:
@@ -2097,7 +2138,7 @@ class NetAppOntapVolume:
             self.volume_unmount()
         attributes = modify.keys()
         for attribute in attributes:
-            if attribute in ['space_guarantee', 'export_policy', 'unix_permissions', 'group_id', 'user_id', 'tiering_policy',
+            if attribute in ['space_guarantee', 'export_policy', 'unix_permissions', 'group_id', 'user_id', 'tiering_policy', 'tiering_object_tags',
                              'snapshot_policy', 'percent_snapshot_space', 'snapdir_access', 'atime_update', 'volume_security_style',
                              'nvfail_enabled', 'space_slo', 'qos_policy_group', 'qos_adaptive_policy_group', 'vserver_dr_protection',
                              'comment', 'logical_space_enforcement', 'logical_space_reporting', 'tiering_minimum_cooling_days',
@@ -2518,6 +2559,7 @@ class NetAppOntapVolume:
                   'svm.name': self.parameters['vserver'],
                   'fields': 'encryption.enabled,'
                             'tiering.policy,'
+                            'tiering.object_tags,'
                             'nas.export_policy.name,'
                             'aggregates.name,'
                             'aggregates.uuid,'
@@ -2649,6 +2691,8 @@ class NetAppOntapVolume:
             body['qos.policy.name'] = self.get_qos_policy_group()
         if self.parameters.get('tiering_policy') is not None:
             body['tiering.policy'] = self.parameters['tiering_policy']
+        if self.parameters.get('tiering_object_tags') is not None:
+            body['tiering.object_tags'] = self.parameters['tiering_object_tags']
         if self.parameters.get('encrypt') is not None:
             body['encryption.enabled'] = self.parameters['encrypt']
         if self.parameters.get('logical_space_enforcement') is not None:
@@ -2739,6 +2783,7 @@ class NetAppOntapVolume:
         for key, option, transform in [
             ('nas.security_style', 'volume_security_style', None),
             ('tiering.policy', 'tiering_policy', None),
+            ('tiering.object_tags', 'tiering_object_tags', None),
             ('files.maximum', 'max_files', None),
         ]:
             if params and params.get(option) is not None:
@@ -2939,6 +2984,7 @@ class NetAppOntapVolume:
             'activity_tracking': self.na_helper.safe_get(record, ['activity_tracking', 'state']),
             'encrypt': self.na_helper.safe_get(record, ['encryption', 'enabled']),
             'tiering_policy': self.na_helper.safe_get(record, ['tiering', 'policy']),
+            'tiering_object_tags': self.na_helper.safe_get(record, ['tiering', 'object_tags']),
             'export_policy': self.na_helper.safe_get(record, ['nas', 'export_policy', 'name']),
             'aggregate_name': aggr_name,
             'aggregates': aggregates,
@@ -3010,6 +3056,9 @@ class NetAppOntapVolume:
         modify = {}
 
         current = self.get_volume()
+        if current:
+            if 'tiering_object_tags' in current and current['tiering_object_tags'] is None:
+                current['tiering_object_tags'] = []
         self.volume_style = self.get_volume_style(current)
         if self.volume_style == 'flexgroup' and self.parameters.get('aggregate_name') is not None:
             self.module.fail_json(msg='Error: aggregate_name option cannot be used with FlexGroups.')

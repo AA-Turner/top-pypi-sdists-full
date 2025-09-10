@@ -25,14 +25,6 @@ from pulpcore.client.pulpcore.models.progress_report_response import ProgressRep
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class TaskResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -147,28 +139,7 @@ class TaskResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "state": obj.get("state"),
-            "name": obj.get("name"),
-            "logging_cid": obj.get("logging_cid"),
-            "created_by": obj.get("created_by"),
-            "unblocked_at": obj.get("unblocked_at"),
-            "started_at": obj.get("started_at"),
-            "finished_at": obj.get("finished_at"),
-            "error": obj.get("error"),
-            "worker": obj.get("worker"),
-            "parent_task": obj.get("parent_task"),
-            "child_tasks": obj.get("child_tasks"),
-            "task_group": obj.get("task_group"),
-            "progress_reports": [ProgressReportResponse.from_dict(_item) for _item in obj["progress_reports"]] if obj.get("progress_reports") is not None else None,
-            "created_resources": obj.get("created_resources"),
-            "reserved_resources_record": obj.get("reserved_resources_record"),
-            "result": obj.get("result")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

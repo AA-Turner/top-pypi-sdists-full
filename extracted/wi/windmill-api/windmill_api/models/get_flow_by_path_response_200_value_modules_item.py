@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.get_flow_by_path_response_200_value_modules_item_suspend import (
         GetFlowByPathResponse200ValueModulesItemSuspend,
     )
+    from ..models.get_flow_by_path_response_200_value_modules_item_timeout_type_0 import (
+        GetFlowByPathResponse200ValueModulesItemTimeoutType0,
+    )
+    from ..models.get_flow_by_path_response_200_value_modules_item_timeout_type_1 import (
+        GetFlowByPathResponse200ValueModulesItemTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="GetFlowByPathResponse200ValueModulesItem")
@@ -47,7 +53,8 @@ class GetFlowByPathResponse200ValueModulesItem:
         sleep (Union['GetFlowByPathResponse200ValueModulesItemSleepType0',
             'GetFlowByPathResponse200ValueModulesItemSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['GetFlowByPathResponse200ValueModulesItemTimeoutType0',
+            'GetFlowByPathResponse200ValueModulesItemTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, GetFlowByPathResponse200ValueModulesItemMock]):
@@ -68,7 +75,11 @@ class GetFlowByPathResponse200ValueModulesItem:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "GetFlowByPathResponse200ValueModulesItemTimeoutType0",
+        "GetFlowByPathResponse200ValueModulesItemTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "GetFlowByPathResponse200ValueModulesItemMock"] = UNSET
@@ -81,6 +92,9 @@ class GetFlowByPathResponse200ValueModulesItem:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_flow_by_path_response_200_value_modules_item_sleep_type_0 import (
             GetFlowByPathResponse200ValueModulesItemSleepType0,
+        )
+        from ..models.get_flow_by_path_response_200_value_modules_item_timeout_type_0 import (
+            GetFlowByPathResponse200ValueModulesItemTimeoutType0,
         )
 
         id = self.id
@@ -112,7 +126,20 @@ class GetFlowByPathResponse200ValueModulesItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, GetFlowByPathResponse200ValueModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -192,6 +219,12 @@ class GetFlowByPathResponse200ValueModulesItem:
         from ..models.get_flow_by_path_response_200_value_modules_item_suspend import (
             GetFlowByPathResponse200ValueModulesItemSuspend,
         )
+        from ..models.get_flow_by_path_response_200_value_modules_item_timeout_type_0 import (
+            GetFlowByPathResponse200ValueModulesItemTimeoutType0,
+        )
+        from ..models.get_flow_by_path_response_200_value_modules_item_timeout_type_1 import (
+            GetFlowByPathResponse200ValueModulesItemTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -258,7 +291,40 @@ class GetFlowByPathResponse200ValueModulesItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "GetFlowByPathResponse200ValueModulesItemTimeoutType0",
+            "GetFlowByPathResponse200ValueModulesItemTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, GetFlowByPathResponse200ValueModulesItemTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = GetFlowByPathResponse200ValueModulesItemTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, GetFlowByPathResponse200ValueModulesItemTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = GetFlowByPathResponse200ValueModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

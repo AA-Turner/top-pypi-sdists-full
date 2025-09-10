@@ -8,12 +8,16 @@ use tombi_schema_store::{
     Referable, SchemaAccessor, SchemaStore, TableSchema, ValueSchema,
 };
 
-use crate::completion::{
-    value::{
-        all_of::find_all_of_completion_items, any_of::find_any_of_completion_items,
-        one_of::find_one_of_completion_items, type_hint_value,
+use crate::{
+    comment_directive::get_table_comment_directive_content_with_schema_uri,
+    completion::{
+        comment::get_tombi_comment_directive_content_completion_contents,
+        value::{
+            all_of::find_all_of_completion_items, any_of::find_any_of_completion_items,
+            one_of::find_one_of_completion_items, type_hint_value,
+        },
+        CompletionCandidate, CompletionContent, CompletionHint, FindCompletionContents,
     },
-    CompletionCandidate, CompletionContent, CompletionHint, FindCompletionContents,
 };
 
 impl FindCompletionContents for tombi_document_tree::Table {
@@ -33,16 +37,35 @@ impl FindCompletionContents for tombi_document_tree::Table {
         tracing::trace!("completion_hint = {:?}", completion_hint);
 
         async move {
-            if keys.is_empty() && self.kind() != tombi_document_tree::TableKind::InlineTable {
-                // Skip if the cursor is the end space of key value like:
-                //
-                // ```toml
-                // key = "value" █
-                // ```
-                for value in self.values() {
-                    let end = value.range().end;
-                    if end.line == position.line && end.column < position.column {
-                        return vec![];
+            if keys.is_empty() {
+                if let Some((comment_directive_context, schema_uri)) =
+                    get_table_comment_directive_content_with_schema_uri(self, position, accessors)
+                {
+                    if let Some(completions) =
+                        get_tombi_comment_directive_content_completion_contents(
+                            comment_directive_context,
+                            schema_uri,
+                        )
+                        .await
+                    {
+                        return completions;
+                    }
+                }
+
+                if !matches!(
+                    self.kind(),
+                    tombi_document_tree::TableKind::InlineTable { .. }
+                ) {
+                    // Skip if the cursor is the end space of key value like:
+                    //
+                    // ```toml
+                    // key = "value" █
+                    // ```
+                    for value in self.values() {
+                        let end = value.range().end;
+                        if end.line == position.line && end.column < position.column {
+                            return vec![];
+                        }
                     }
                 }
             }
@@ -78,7 +101,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                         let mut completion_contents = Vec::new();
 
                         if let Some(key) = keys.first() {
-                            let accessor_str = &key.to_raw_text(schema_context.toml_version);
+                            let accessor_str = &key.value;
                             if let Some(value) = self.get(key) {
                                 let accessor: Accessor = Accessor::Key(accessor_str.to_string());
 
@@ -124,7 +147,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             current_schema.value_schema
                                         );
 
-                                        return value
+                                        let mut contents = value
                                             .find_completion_contents(
                                                 position,
                                                 &keys[1..],
@@ -138,6 +161,17 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                 completion_hint,
                                             )
                                             .await;
+
+                                        if !contents.is_empty()
+                                            && current_schema.value_schema.deprecated().await
+                                                == Some(true)
+                                        {
+                                            for content in &mut contents {
+                                                content.deprecated = Some(true);
+                                            }
+                                        }
+
+                                        return contents;
                                     }
                                 } else if keys.len() == 1 {
                                     for (
@@ -175,7 +209,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                 &current_schema.value_schema
                                             );
 
-                                            let Some(contents) =
+                                            let Some(mut contents) =
                                                 collect_table_key_completion_contents(
                                                     self,
                                                     key_name,
@@ -190,6 +224,16 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             else {
                                                 continue;
                                             };
+
+                                            if !contents.is_empty()
+                                                && current_schema.value_schema.deprecated().await
+                                                    == Some(true)
+                                            {
+                                                for content in &mut contents {
+                                                    content.deprecated = Some(true);
+                                                }
+                                            }
+
                                             completion_contents.extend(contents);
                                         }
                                     }
@@ -208,7 +252,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                     ) in pattern_properties.write().await.iter_mut()
                                     {
                                         let Ok(pattern) = regex::Regex::new(property_key) else {
-                                            tracing::error!(
+                                            tracing::warn!(
                                                 "Invalid regex pattern property: {}",
                                                 property_key
                                             );
@@ -227,17 +271,32 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                 )
                                                 .await
                                             {
-                                                return get_property_value_completion_contents(
-                                                    value,
-                                                    position,
-                                                    key,
-                                                    keys,
-                                                    accessors,
-                                                    Some(&current_schema),
-                                                    schema_context,
-                                                    completion_hint,
-                                                )
-                                                .await;
+                                                let mut contents =
+                                                    get_property_value_completion_contents(
+                                                        value,
+                                                        position,
+                                                        key,
+                                                        keys,
+                                                        accessors,
+                                                        Some(&current_schema),
+                                                        schema_context,
+                                                        completion_hint,
+                                                    )
+                                                    .await;
+
+                                                if !contents.is_empty()
+                                                    && current_schema
+                                                        .value_schema
+                                                        .deprecated()
+                                                        .await
+                                                        == Some(true)
+                                                {
+                                                    for content in &mut contents {
+                                                        content.deprecated = Some(true);
+                                                    }
+                                                }
+
+                                                return contents;
                                             }
                                         }
                                     }
@@ -262,7 +321,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             )
                                             .await
                                     {
-                                        return get_property_value_completion_contents(
+                                        let mut contents = get_property_value_completion_contents(
                                             value,
                                             position,
                                             key,
@@ -273,6 +332,17 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             completion_hint,
                                         )
                                         .await;
+
+                                        if !contents.is_empty()
+                                            && current_schema.value_schema.deprecated().await
+                                                == Some(true)
+                                        {
+                                            for content in &mut contents {
+                                                content.deprecated = Some(true);
+                                            }
+                                        }
+
+                                        return contents;
                                     }
                                 }
 
@@ -294,13 +364,13 @@ impl FindCompletionContents for tombi_document_tree::Table {
                             }
                         } else {
                             for (
-                                accessor,
+                                schema_accessor,
                                 PropertySchema {
                                     property_schema, ..
                                 },
                             ) in table_schema.properties.write().await.iter_mut()
                             {
-                                let key_name = &accessor.to_string();
+                                let key_name = &schema_accessor.to_string();
 
                                 if let Some(value) = self.get(key_name) {
                                     if check_used_table_value(
@@ -533,12 +603,19 @@ impl FindCompletionContents for TableSchema {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> BoxFuture<'b, Vec<CompletionContent>> {
+        tracing::trace!("self = {:?}", self);
+        tracing::trace!("position = {:?}", position);
+        tracing::trace!("keys = {:?}", keys);
+        tracing::trace!("accessors = {:?}", accessors);
+        tracing::trace!("current_schema = {:?}", current_schema);
+        tracing::trace!("completion_hint = {:?}", completion_hint);
+
         async move {
             let Some(current_schema) = current_schema else {
                 unreachable!("schema must be provided");
@@ -574,7 +651,7 @@ impl FindCompletionContents for TableSchema {
                         .await;
 
                     for error in errors {
-                        tracing::error!("{}", error);
+                        tracing::warn!("{}", error);
                     }
 
                     for schema_candidate in schema_candidates {
@@ -710,19 +787,13 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                     if current_schema.is_none() {
                         if range.end <= key.range().start {
                             return vec![CompletionContent::new_type_hint_key(
-                                &key.to_raw_text(schema_context.toml_version),
+                                &key.value,
                                 key.range(),
                                 None,
                                 completion_hint,
                             )];
                         }
-                        return type_hint_value(
-                            Some(key),
-                            position,
-                            schema_context.toml_version,
-                            None,
-                            completion_hint,
-                        );
+                        return type_hint_value(Some(key), position, None, completion_hint);
                     }
                 }
                 Some(CompletionHint::InTableHeader) => {
@@ -737,7 +808,7 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                 Some(CompletionHint::InArray { .. } | CompletionHint::Comma { .. }) | None => {
                     if matches!(value, tombi_document_tree::Value::Incomplete { .. }) {
                         return CompletionContent::new_magic_triggers(
-                            &key.to_raw_text(schema_context.toml_version),
+                            &key.value,
                             position,
                             current_schema.map(|schema| schema.schema_uri.as_ref()),
                         );
@@ -753,9 +824,7 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                 &accessors
                     .iter()
                     .cloned()
-                    .chain(std::iter::once(Accessor::Key(
-                        key.to_raw_text(schema_context.toml_version),
-                    )))
+                    .chain(std::iter::once(Accessor::Key(key.value.clone())))
                     .collect_vec(),
                 current_schema,
                 schema_context,
@@ -786,10 +855,12 @@ fn check_used_table_value(
             }
         }
         tombi_document_tree::Value::Table(table) => {
-            if table.kind() == tombi_document_tree::TableKind::InlineTable
-                || (is_root
-                    && completion_hint.is_none()
-                    && table.kind() == tombi_document_tree::TableKind::Table)
+            if matches!(
+                table.kind(),
+                tombi_document_tree::TableKind::InlineTable { .. }
+            ) || (is_root
+                && completion_hint.is_none()
+                && table.kind() == tombi_document_tree::TableKind::Table)
             {
                 return true;
             }
@@ -823,7 +894,7 @@ fn collect_table_key_completion_contents<'a: 'b, 'b>(
             .await;
 
         for error in errors {
-            tracing::error!("{}", error);
+            tracing::warn!("{}", error);
         }
 
         for schema_candidate in schema_candidates {

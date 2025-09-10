@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class RedisConnectionResponse(BaseModel):
     """
     Serializer for information about the Redis connection
@@ -88,9 +80,7 @@ class RedisConnectionResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "connected": obj.get("connected")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

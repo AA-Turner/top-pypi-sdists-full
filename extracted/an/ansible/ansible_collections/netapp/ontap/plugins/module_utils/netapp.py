@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2017, Sumit Kumar <sumit4@netapp.com>
 # Copyright (c) 2017, Michael Price <michael.price@netapp.com>
-# Copyright (c) 2017-2023, NetApp, Inc
+# Copyright (c) 2017-2025, NetApp, Inc
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -48,7 +48,7 @@ try:
 except ImportError:
     ANSIBLE_VERSION = 'unknown'
 
-COLLECTION_VERSION = "22.14.0"
+COLLECTION_VERSION = "23.1.0"
 CLIENT_APP_VERSION = "%s/%s" % ("%s", COLLECTION_VERSION)
 IMPORT_EXCEPTION = None
 
@@ -108,10 +108,9 @@ ERROR_MSG = dict(
 
 LOG = logging.getLogger(__name__)
 LOG_FILE = '/tmp/ontap_apis.log'
-ZAPI_DEPRECATION_MESSAGE = "With version 22.0.0 ONTAPI (ZAPI) has been deprecated. The final ONTAP version to support ZAPI is ONTAP 9.13.1.  "\
-                           "ZAPI calls in these modules will continue to work for ONTAP versions that supports ZAPI.  "\
-                           "You can update your playbook to use REST by adding use_rest: always to your playbook.  "\
-                           "More information can be found at: https://github.com/ansible-collections/netapp.ontap"
+ZAPI_DEPRECATION_MESSAGE = "With collection version 22.0.0 ONTAPI (ZAPI) has been deprecated.  "\
+                           "The 'netapp-lib' library is no longer maintained. Proceed at your own risk.  "\
+                           "To ensure continued support, please migrate to the REST API."
 
 try:
     from solidfire.factory import ElementFactory
@@ -161,7 +160,7 @@ def na_ontap_host_argument_spec():
         validate_certs=dict(required=False, type='bool', default=True),
         http_port=dict(required=False, type='int'),
         ontapi=dict(required=False, type='int'),
-        use_rest=dict(required=False, type='str', default='auto'),
+        use_rest=dict(required=False, type='str', default='always'),
         feature_flags=dict(required=False, type='dict'),
         cert_filepath=dict(required=False, type='str'),
         key_filepath=dict(required=False, type='str', no_log=False),
@@ -267,22 +266,17 @@ def create_sf_connection(module, port=None, host_options=None):
 def set_auth_method(module, username, password, cert_filepath, key_filepath):
     error = None
     auth_method = None
-    if password is None and username is None:
-        if cert_filepath is None:
+    # defaults to cert authentication if both basic and client certificate authentication parameters are given
+    if cert_filepath is not None:
+        auth_method = 'single_cert' if key_filepath is None else 'cert_key'
+    else:
+        if password is None and username is None:
             error = ('Error: cannot have a key file without a cert file' if key_filepath is not None
                      else 'Error: ONTAP module requires username/password or SSL certificate file(s)')
-        else:
-            auth_method = 'single_cert' if key_filepath is None else 'cert_key'
-    elif password is not None and username is not None:
-        if cert_filepath is not None or key_filepath is not None:
-            error = 'Error: cannot have both basic authentication (username/password) ' +\
-                    'and certificate authentication (cert/key files)'
-        else:
+        elif password is not None and username is not None:
             auth_method = 'basic_auth' if has_feature(module, 'classic_basic_authorization') else 'speedy_basic_auth'
-    else:
-        error = 'Error: username and password have to be provided together'
-        if cert_filepath is not None or key_filepath is not None:
-            error += ' and cannot be used with cert or key files'
+        else:
+            error = 'Error: username and password have to be provided together'
     if error:
         module.fail_json(msg=error)
     return auth_method

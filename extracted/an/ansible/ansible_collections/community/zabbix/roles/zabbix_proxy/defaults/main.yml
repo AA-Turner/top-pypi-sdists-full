@@ -1,25 +1,25 @@
 ---
 # defaults file for zabbix_proxy
-# zabbix_proxy_version: 6.4
+
+zabbix_proxy_version_check: true
+
+# zabbix_proxy_version:
 zabbix_os_user: zabbix
 zabbix_proxy_selinux: false
 zabbix_proxy_interface:
   useip: "{{ zabbix_useuip }}"
   ip: "{{ zabbix_proxy_ip }}"
-  dns: "{{ ansible_fqdn }}"
+  dns: "{{ ansible_facts['fqdn'] }}"
   port: "{{ zabbix_proxy_listenport }}"
 zabbix_useuip: 1
 
 # Database
 zabbix_proxy_database: mysql
-zabbix_proxy_dbhost: localhost
-zabbix_proxy_dbname: zabbix_proxy
-zabbix_proxy_dbpassword: zabbix_proxy
-_zabbix_proxy_database_default_port:
-  mysql: 3306
-  pgsql: 5432
-zabbix_proxy_dbport: "{{ _zabbix_proxy_database_default_port[zabbix_proxy_database] }}"
 zabbix_proxy_dbuser: zabbix_proxy
+zabbix_proxy_dbpassword: zabbix_proxy
+zabbix_proxy_dbhost: localhost
+zabbix_proxy_dbport: "{{ _zabbix_proxy_database_default_port[zabbix_proxy_database] }}"
+zabbix_proxy_dbname: zabbix_proxy
 zabbix_proxy_database_creation: true
 zabbix_proxy_database_sqlload: true
 zabbix_proxy_dbhost_run_install: true
@@ -27,13 +27,10 @@ zabbix_proxy_dbcollation: utf8_bin
 zabbix_proxy_dbencoding: utf8
 zabbix_proxy_dbpassword_hash_method: md5
 zabbix_proxy_install_database_client: true
-_zabbix_proxy_post72_database:  /usr/share/zabbix/sql-scripts/
-_zabbix_proxy_pre72_database:  /usr/share/zabbix-sql-scripts/
-zabbix_proxy_database_file_dir:  "{{ zabbix_proxy_version is version('7.0', '>') | ternary( _zabbix_proxy_post72_database, _zabbix_proxy_pre72_database ) }}"
+zabbix_proxy_database_file_dir: "{{ zabbix_proxy_version is version('7.0', '>') | ternary(_zabbix_proxy_database_file_dir_post72, _zabbix_proxy_database_file_dir_pre72 ) }}"
 
 # SELinux specific
-selinux_allow_zabbix_can_network: false
-selinux_allow_daemons_enable_cluster_mode: false
+selinux_allow_zabbix_can_network: true
 
 # Misc.
 zabbix_proxy_cat_cmd: cat
@@ -80,7 +77,7 @@ zabbix_proxy_logtype: file
 zabbix_proxy_maxconcurrentchecksperpoller: 1000
 zabbix_proxy_pidfile: /var/run/zabbix/zabbix_proxy.pid
 zabbix_proxy_proxybuffermode: disk
-ProxyConfigFrequency: 10
+zabbix_proxy_proxyconfigfrequency: 10
 zabbix_proxy_proxylocalbuffer: 0
 zabbix_proxy_proxymemorybufferage: 0
 zabbix_proxy_proxymemorybuffersize: 0
@@ -133,3 +130,12 @@ zabbix_api_timeout: 30
 zabbix_api_create_proxy: false
 zabbix_proxy_state: present
 zabbix_proxy_status: active # or passive
+zabbix_proxy_local_address: "{{ zabbix_proxy_hostname }}"
+zabbix_proxy_local_port: "{{ zabbix_proxy_listenport }}"
+
+zabbix_api_create_proxy_group: false
+zabbix_proxy_group_name: Zabbix Proxy Group 01
+zabbix_proxy_group_state: present
+#zabbix_proxy_group_description: demo
+zabbix_proxy_group_failover_delay: 1m
+zabbix_proxy_group_min_online: 1

@@ -17,7 +17,14 @@ description:
   - It provides details such as journalId, journalStatus, and other relevant information..
   - Forexamples, go to URL
     U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/vsp_direct/journal_volume_facts.yml)
+  - It provides details such as journalId, journalStatus, and other relevant information.
+  - DEPRECATED - Use hv_journal_facts instead.
+  - This module will be removed in a future release.
 version_added: '3.2.0'
+deprecated:
+    alternative: hv_journal_facts
+    why: Replaced by improved module with consistent naming
+    removed_in: '5.0.0'
 author:
   - Hitachi Vantara LTD (@hitachi-vantara)
 requirements:
@@ -28,6 +35,7 @@ attributes:
     support: full
 extends_documentation_fragment:
 - hitachivantara.vspone_block.common.gateway_note
+- hitachivantara.vspone_block.common.connection_with_type
 options:
   storage_system_info:
     description: Information about the storage system. This field is an optional field.
@@ -38,33 +46,6 @@ options:
         description: The serial number of the storage system.
         type: str
         required: false
-  connection_info:
-    description: Information required to establish a connection to the storage system.
-    type: dict
-    required: true
-    suboptions:
-      address:
-        description: IP address or hostname of the storage system.
-        type: str
-        required: true
-      username:
-        description: Username for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      password:
-        description: Password for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      api_token:
-        description: This field is used to pass the value of the lock token to operate on locked resources.
-        type: str
-        required: false
-      connection_type:
-        description: Type of connection to the storage system.
-        type: str
-        required: false
-        choices: ['direct']
-        default: 'direct'
   spec:
     description: Specification for retrieving Journal Volume information.
     type: dict
@@ -250,6 +231,12 @@ class VSPJournalVolumeFactManager:
     def apply(self):
         self.logger.writeInfo("=== Start of Journal Volume Facts ===")
         registration_message = validate_ansible_product_registration()
+        deprecation_message = (
+            "The Ansible module hv_journal_volume_facts is deprecated "
+            "and has been replaced by the new hv_journal_facts module. "
+            "hv_journal_volume_facts will be removed in a future release. "
+            "Please use the hv_journal_facts module instead."
+        )
         try:
             result = []
             result = vsp_journal_volume.VSPJournalVolumeReconciler(
@@ -263,6 +250,7 @@ class VSPJournalVolumeFactManager:
             self.module.fail_json(msg=str(ex))
         data = {
             "journal_volume": result,
+            "warning_deprecated_module": deprecation_message,
         }
         if registration_message:
             data["user_consent_required"] = registration_message

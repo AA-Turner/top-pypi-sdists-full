@@ -21,7 +21,7 @@ options:
     template_name:
         description:
             - Name of the template in Zabbix.
-        required: true
+        required: false
         type: str
     format:
         description:
@@ -32,9 +32,15 @@ options:
     omit_date:
         description:
             - Removes the date field for the dumped template
+            - This parameter will be ignored since Zabbix 6.4.
         required: false
         type: bool
         default: false
+    all_templategroups:
+        description:
+            - return info about all templategroups.
+        required: false
+        type: bool
 extends_documentation_fragment:
 - community.zabbix.zabbix
 """
@@ -114,6 +120,20 @@ EXAMPLES = """
     template_name: Template
     format: none
   register: template
+
+- name: Get info about all templategroups
+  # set task level variables as we change ansible_connection plugin here
+  vars:
+    ansible_network_os: community.zabbix.zabbix
+    ansible_connection: httpapi
+    ansible_httpapi_port: 443
+    ansible_httpapi_use_ssl: true
+    ansible_httpapi_validate_certs: false
+    ansible_zabbix_url_path: "zabbixeu"  # If Zabbix WebUI runs on non-default (zabbix) path ,e.g. http://<FQDN>/zabbixeu
+    ansible_host: zabbix-example-fqdn.org
+  community.zabbix.zabbix_template_info:
+    all_templategroups: true
+    register: all_templategroups
 """
 
 RETURN = """
@@ -210,6 +230,7 @@ import json
 import xml.etree.ElementTree as ET
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.compat.version import LooseVersion
 from ansible.module_utils._text import to_native
 from ansible.module_utils.six import PY2
 
@@ -242,7 +263,7 @@ class TemplateInfo(ZabbixBase):
             self._module.fail_json(msg="Invalid JSON provided", details=to_native(e), exception=traceback.format_exc())
 
     def load_yaml_template(self, template_yaml, omit_date=False):
-        if omit_date:
+        if omit_date and LooseVersion(self._zbx_api_version) < LooseVersion("7.0"):
             yaml_lines = template_yaml.splitlines(True)
             for index, line in enumerate(yaml_lines):
                 if "date:" in line:
@@ -272,13 +293,20 @@ class TemplateInfo(ZabbixBase):
         except Exception as e:
             self._module.fail_json(msg="Unable to export template: %s" % e)
 
+    def get_all_groups(self):
+        group_list = self._zapi.templategroup.get({"output": "extend"})
+        if len(group_list) < 1:
+            self._module.fail_json(msg="No Hostgroup can be found")
+        return group_list
+
 
 def main():
     argument_spec = zabbix_utils.zabbix_common_argument_spec()
     argument_spec.update(dict(
-        template_name=dict(type="str", required=True),
+        template_name=dict(type="str", required=False),
         omit_date=dict(type="bool", required=False, default=False),
-        format=dict(type="str", choices=["json", "xml", "yaml", "none"], default="json")
+        format=dict(type="str", choices=["json", "xml", "yaml", "none"], default="json"),
+        all_templategroups=dict(type="bool", required=False),
     ))
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -286,36 +314,42 @@ def main():
     )
 
     template_name = module.params["template_name"]
+    all_templategroups = module.params["all_templategroups"]
     omit_date = module.params["omit_date"]
     format = module.params["format"]
 
     template_info = TemplateInfo(module)
 
-    template_id = template_info.get_template_id(template_name)
+    if template_name:
+        template_id = template_info.get_template_id(template_name)
 
-    if not template_id:
-        module.fail_json(msg="Template not found: %s" % template_name)
+        if not template_id:
+            module.fail_json(msg="Template not found: %s" % template_name)
 
-    if format == "json":
-        module.exit_json(
-            changed=False,
-            template_id=template_id[0],
-            template_json=template_info.dump_template(template_id, template_type="json", omit_date=omit_date)
-        )
-    elif format == "xml":
-        module.exit_json(
-            changed=False,
-            template_id=template_id[0],
-            template_xml=template_info.dump_template(template_id, template_type="xml", omit_date=omit_date)
-        )
-    elif format == "yaml":
-        module.exit_json(
-            changed=False,
-            template_id=template_id[0],
-            template_yaml=template_info.dump_template(template_id, template_type="yaml", omit_date=omit_date)
-        )
-    elif format == "none":
-        module.exit_json(changed=False, template_id=template_id[0])
+        if format == "json":
+            module.exit_json(
+                changed=False,
+                template_id=template_id[0],
+                template_json=template_info.dump_template(template_id, template_type="json", omit_date=omit_date)
+            )
+        elif format == "xml":
+            module.exit_json(
+                changed=False,
+                template_id=template_id[0],
+                template_xml=template_info.dump_template(template_id, template_type="xml", omit_date=omit_date)
+            )
+        elif format == "yaml":
+            module.exit_json(
+                changed=False,
+                template_id=template_id[0],
+                template_yaml=template_info.dump_template(template_id, template_type="yaml", omit_date=omit_date)
+            )
+        elif format == "none":
+            module.exit_json(changed=False, template_id=template_id[0])
+
+    if all_templategroups:
+        template_groups = template_info.get_all_groups()
+        module.exit_json(template_groups=template_groups)
 
 
 if __name__ == "__main__":

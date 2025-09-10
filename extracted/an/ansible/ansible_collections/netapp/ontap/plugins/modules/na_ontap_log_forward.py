@@ -17,7 +17,7 @@ short_description: NetApp ONTAP Log Forward Configuration
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: '21.2.0'
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
 - Create, delete or modify the log forward configuration
 options:
@@ -64,34 +64,34 @@ options:
 '''
 
 EXAMPLES = """
-    - name: Create log forward configuration
-      netapp.ontap.na_ontap_log_forward:
-        state: present
-        destination: 10.11.12.13
-        port: 514
-        protocol: udp_unencrypted
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
-        hostname: "{{ netapp_hostname }}"
+- name: Create log forward configuration
+  netapp.ontap.na_ontap_log_forward:
+    state: present
+    destination: 10.11.12.13
+    port: 514
+    protocol: udp_unencrypted
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    hostname: "{{ netapp_hostname }}"
 
-    - name: Modify log forward configuration
-      netapp.ontap.na_ontap_log_forward:
-        state: present
-        destination: 10.11.12.13
-        port: 514
-        protocol: tcp_unencrypted
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
-        hostname: "{{ netapp_hostname }}"
+- name: Modify log forward configuration
+  netapp.ontap.na_ontap_log_forward:
+    state: present
+    destination: 10.11.12.13
+    port: 514
+    protocol: tcp_unencrypted
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    hostname: "{{ netapp_hostname }}"
 
-    - name: Delete log forward configuration
-      netapp.ontap.na_ontap_log_forward:
-        state: absent
-        destination: 10.11.12.13
-        port: 514
-        username: "{{ netapp_username }}"
-        password: "{{ netapp_password }}"
-        hostname: "{{ netapp_hostname }}"
+- name: Delete log forward configuration
+  netapp.ontap.na_ontap_log_forward:
+    state: absent
+    destination: 10.11.12.13
+    port: 514
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    hostname: "{{ netapp_hostname }}"
 """
 
 RETURN = """

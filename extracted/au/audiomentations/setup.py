@@ -47,17 +47,14 @@ setup(
     ],
     extras_require={
         "extras": [
-            "fast_mp3_augment<1",
-            "lameenc>=1.2.0,<2",
+            "fast-mp3-augment<1",
+            "loudness<1",
             "numpy-audio-limiter<1",
-            "pydub>=0.22.0,<1",
-            "pyloudnorm>=0.1.0",
             "pyroomacoustics>=0.7.4",
         ]
     },
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

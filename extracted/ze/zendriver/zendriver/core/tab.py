@@ -11,7 +11,7 @@ import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union, cast
 
 from .intercept import BaseFetchInterception
 from .. import cdp
@@ -21,6 +21,7 @@ from .connection import Connection, ProtocolException
 from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
 from ..cdp.fetch import RequestStage
 from ..cdp.network import ResourceType
+from ..cdp.runtime import DeepSerializedValue
 
 
 if TYPE_CHECKING:
@@ -739,15 +740,11 @@ class Tab(Connection):
         if errors:
             raise ProtocolException(errors)
 
-        if remote_object:
-            if return_by_value:
-                if remote_object.value:
-                    return remote_object.value
-            else:
-                if remote_object.deep_serialized_value:
-                    return remote_object.deep_serialized_value.value
-
-        return remote_object, errors
+        if return_by_value:
+            return remote_object.value
+        # deep_serialized_value is guaranteed to be present when
+        # serialization_options.serialization="deep"
+        return cast(DeepSerializedValue, remote_object.deep_serialized_value).value
 
     async def js_dumps(
         self, obj_name: str, return_by_value: Optional[bool] = True
@@ -920,9 +917,10 @@ class Tab(Connection):
 
         if exception_details:
             raise ProtocolException(exception_details)
-        if return_by_value and remote_object.value:
+        if return_by_value:
             return remote_object.value
         else:
+            # TODO Why not remote_object.deep_serialized_value.value?
             return remote_object, exception_details
 
     async def close(self) -> None:

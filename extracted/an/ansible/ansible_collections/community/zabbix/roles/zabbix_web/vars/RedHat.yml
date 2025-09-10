@@ -20,14 +20,14 @@ __epel_repo:
 
 zabbix_valid_web_versions:
   "9":
+    - 7.4
     - 7.2
     - 7.0
-    - 6.4
     - 6.0
   "8":
+    - 7.4
     - 7.2
     - 7.0
-    - 6.4
     - 6.0
 
 _zabbix_web_package: "zabbix-web-{{ zabbix_server_database }}-{{ zabbix_web_version }}.{{ zabbix_web_version_minor }}"

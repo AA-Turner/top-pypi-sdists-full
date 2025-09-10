@@ -2,6 +2,7 @@ import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { serializeEvent } from "./event-to-object";
 import { HTMLBox, HTMLBoxView } from "./layout";
+import { transformJsPlaceholders } from "./util";
 const mouse_events = [
     "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
     "globalout", "contextmenu",
@@ -50,7 +51,10 @@ export class EChartsView extends HTMLBoxView {
     }
     render() {
         if (this._chart != null) {
-            window.echarts.dispose(this._chart);
+            try {
+                window.echarts.dispose(this._chart);
+            }
+            catch (e) { }
         }
         super.render();
         this.container = div({ style: { height: "100%", width: "100%" } });
@@ -76,7 +80,8 @@ export class EChartsView extends HTMLBoxView {
         if (window.echarts == null) {
             return;
         }
-        this._chart.setOption(this.model.data, this.model.options);
+        const data = transformJsPlaceholders(this.model.data);
+        this._chart.setOption(data, this.model.options);
     }
     _resize() {
         this._chart.resize({ width: this.model.width, height: this.model.height });

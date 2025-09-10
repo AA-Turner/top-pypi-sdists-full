@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cyclonedx-python-lib
-Version: 11.0.0
+Version: 11.1.0
 Summary: Python library for CycloneDX
 License: Apache-2.0
 Keywords: CycloneDX,library,OWASP,SCA,Software Bill of Materials,Bill of Materials,BOM,SBOM,VEX,VDR,OBOM,MBOM,SaaSBOM,SPDX,PackageURL,PURL

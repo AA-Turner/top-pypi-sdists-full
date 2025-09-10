@@ -43,7 +43,7 @@ class LLMReinforcementStep:
         epochs: int = 1,
         batch_size: int = 32768,
         accelerator_count: int = 1,
-        accelerator_type: ReinforcementAcceleratorTypeLiteral = "NVIDIA_A100_80GB",
+        accelerator_type: ReinforcementAcceleratorTypeLiteral = "NVIDIA_H200_141GB",
     ) -> "ReinforcementStep":
         """
         Perform a reinforcement learning step with the given dataset.

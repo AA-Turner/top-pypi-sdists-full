@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-08T21:00:14.525409                                                            #
+# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-09T09:20:35.697635                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ if typing.TYPE_CHECKING:
 
 from ...exception import MetaflowException as MetaflowException
 from ..kubernetes.kubernetes_client import KubernetesClient as KubernetesClient
+
+ARGO_EVENTS_SENSOR_NAMESPACE: str
 
 class ArgoClientException(metaflow.exception.MetaflowException, metaclass=type):
     ...
@@ -58,9 +60,9 @@ class ArgoClient(object, metaclass=type):
         ...
     def schedule_workflow_template(self, name, schedule = None, timezone = None):
         ...
-    def register_sensor(self, name, sensor = None):
+    def register_sensor(self, name, sensor = None, sensor_namespace = 'default'):
         ...
-    def delete_sensor(self, name):
+    def delete_sensor(self, name, sensor_namespace):
         """
         Issues an API call for deleting a sensor
         

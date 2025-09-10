@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.target
-Version: 3.23
+Version: 3.23.1
 Summary: This module ties all other Dissect modules together, it provides a programming API and command line tools which allow easy access to various data sources inside disk images or file collections (a.k.a. targets)
 Author-email: Dissect Team <dissect@fox-it.com>
 License: Affero General Public License v3

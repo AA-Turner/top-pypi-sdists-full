@@ -131,7 +131,6 @@ def decompress(b_src, b_dest, handler):
 
 class Decompress(ModuleHelper):
     destination_filename_template = "%s_decompressed"
-    use_old_vardict = False
     output_params = 'dest'
 
     module = dict(

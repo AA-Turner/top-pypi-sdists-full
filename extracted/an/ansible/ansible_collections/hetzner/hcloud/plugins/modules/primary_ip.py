@@ -15,6 +15,7 @@ short_description: Create and manage cloud Primary IPs on the Hetzner Cloud.
 
 description:
     - Create, update and manage cloud Primary IPs on the Hetzner Cloud.
+    - To manage the DNS pointer of a Primary IP, use the M(hetzner.hcloud.rdns) module.
 
 author:
     - Lukas Kaemmerling (@lkaemmerling)
@@ -181,7 +182,7 @@ class AnsibleHCloudPrimaryIP(AnsibleHCloud):
 
     def _prepare_result(self):
         return {
-            "id": str(self.hcloud_primary_ip.id),
+            "id": self.hcloud_primary_ip.id,
             "name": self.hcloud_primary_ip.name,
             "ip": self.hcloud_primary_ip.ip,
             "type": self.hcloud_primary_ip.type,
@@ -189,7 +190,7 @@ class AnsibleHCloudPrimaryIP(AnsibleHCloud):
             "labels": self.hcloud_primary_ip.labels,
             "delete_protection": self.hcloud_primary_ip.protection["delete"],
             "assignee_id": (
-                str(self.hcloud_primary_ip.assignee_id) if self.hcloud_primary_ip.assignee_id is not None else None
+                self.hcloud_primary_ip.assignee_id if self.hcloud_primary_ip.assignee_id is not None else None
             ),
             "assignee_type": self.hcloud_primary_ip.assignee_type,
             "auto_delete": self.hcloud_primary_ip.auto_delete,

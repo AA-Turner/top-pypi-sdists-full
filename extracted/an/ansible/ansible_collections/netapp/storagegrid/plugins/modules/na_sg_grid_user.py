@@ -72,17 +72,16 @@ options:
 """
 
 EXAMPLES = """
-  - name: create a user
-    netapp.storagegrid.na_sg_grid_user:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      full_name: ansibleuser100
-      unique_name: user/ansibleuser100
-      member_of: "group/ansiblegroup100"
-      disable: false
-
+- name: create a user
+  netapp.storagegrid.na_sg_grid_user:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    full_name: ansibleuser100
+    unique_name: user/ansibleuser100
+    member_of: "group/ansiblegroup100"
+    disable: false
 """
 
 RETURN = """

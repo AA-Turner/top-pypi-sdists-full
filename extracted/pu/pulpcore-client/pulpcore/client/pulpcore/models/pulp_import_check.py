@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PulpImportCheck(BaseModel):
     """
     Check validity of provided import-options.  Provides the ability to check that an import is 'sane' without having to actually create an importer.
@@ -91,11 +83,7 @@ class PulpImportCheck(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "path": obj.get("path"),
-            "toc": obj.get("toc"),
-            "repo_mapping": obj.get("repo_mapping")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

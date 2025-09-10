@@ -1125,6 +1125,28 @@ class GCHandleType(Enum):
         ...
 
 
+class ExtendedLayoutKind(Enum):
+    """Indicates the layout kind of a struct when using extended layout."""
+
+    C_STRUCT = 0
+    """The value type should have its fields laid out in accordance with the C language struct layout rules."""
+
+    def __int__(self) -> int:
+        ...
+
+
+class ExtendedLayoutAttribute(System.Attribute):
+    """Indicates the layout rules for a value type at runtime."""
+
+    def __init__(self, layout_kind: System.Runtime.InteropServices.ExtendedLayoutKind) -> None:
+        """
+        Initializes a new instance of the ExtendedLayoutAttribute class with the specified layout kind.
+        
+        :param layout_kind: The layout algorithm to use for this value type.
+        """
+        ...
+
+
 class ICustomAdapter(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -3706,6 +3728,8 @@ class LayoutKind(Enum):
     """This class has no documentation."""
 
     SEQUENTIAL = 0
+
+    EXTENDED = 1
 
     EXPLICIT = 2
 

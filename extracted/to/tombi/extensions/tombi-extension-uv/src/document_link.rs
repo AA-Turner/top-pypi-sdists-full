@@ -146,7 +146,7 @@ fn document_link_for_workspace_pyproject_toml(
     };
 
     let mut total_document_links = vec![];
-    for (i, member) in members.values().iter().enumerate() {
+    for (index, member) in members.values().iter().enumerate() {
         let tombi_document_tree::Value::String(member) = member else {
             continue;
         };
@@ -158,7 +158,7 @@ fn document_link_for_workspace_pyproject_toml(
                 tombi_schema_store::Accessor::Key("uv".to_string()),
                 tombi_schema_store::Accessor::Key("workspace".to_string()),
                 tombi_schema_store::Accessor::Key("members".to_string()),
-                tombi_schema_store::Accessor::Index(i),
+                tombi_schema_store::Accessor::Index(index),
             ],
             workspace_pyproject_toml_path,
             toml_version,
@@ -224,7 +224,7 @@ fn document_link_for_member_pyproject_toml(
     {
         if is_workspace.value() {
             if let Some((member_project_toml_path, _)) = find_member_project_toml(
-                package_name_key.value(),
+                &package_name_key.value,
                 &workspace_pyproject_toml_document_tree,
                 &workspace_pyproject_toml_path,
                 toml_version,

@@ -1,18 +1,22 @@
 use std::fmt::Debug;
 
+use tombi_comment_directive::value::CommonRules;
 use tombi_document_tree::ValueImpl;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::{CurrentSchema, ValueSchema};
 
 use super::Validate;
+use crate::validate::type_mismatch;
 use crate::validate::{all_of::validate_all_of, one_of::validate_one_of};
 
 pub fn validate_any_of<'a: 'b, 'b, T>(
     value: &'a T,
-    accessors: &'a [tombi_schema_store::SchemaAccessor],
+    accessors: &'a [tombi_schema_store::Accessor],
     any_of_schema: &'a tombi_schema_store::AnyOfSchema,
     current_schema: &'a CurrentSchema<'a>,
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+
+    common_rules: Option<&'a CommonRules>,
 ) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>>
 where
     T: Validate + ValueImpl + Sync + Send + Debug,
@@ -78,16 +82,15 @@ where
                 | (_, ValueSchema::LocalDate(_))
                 | (_, ValueSchema::LocalTime(_))
                 | (_, ValueSchema::Table(_))
-                | (_, ValueSchema::Array(_)) => {
-                    vec![crate::Error {
-                        kind: crate::ErrorKind::TypeMismatch {
-                            expected: current_schema.value_schema.value_type().await,
-                            actual: value.value_type(),
-                        },
-                        range: value.range(),
-                    }
-                    .into()]
-                }
+                | (_, ValueSchema::Array(_)) => match type_mismatch(
+                    current_schema.value_schema.value_type().await,
+                    value.value_type(),
+                    value.range(),
+                    common_rules,
+                ) {
+                    Ok(()) => continue,
+                    Err(diagnostics) => diagnostics,
+                },
                 (_, ValueSchema::OneOf(one_of_schema)) => {
                     match validate_one_of(
                         value,
@@ -95,6 +98,7 @@ where
                         one_of_schema,
                         &current_schema,
                         schema_context,
+                        common_rules,
                     )
                     .await
                     {
@@ -111,6 +115,7 @@ where
                         any_of_schema,
                         &current_schema,
                         schema_context,
+                        common_rules,
                     )
                     .await
                     {
@@ -127,6 +132,7 @@ where
                         all_of_schema,
                         &current_schema,
                         schema_context,
+                        common_rules,
                     )
                     .await
                     {

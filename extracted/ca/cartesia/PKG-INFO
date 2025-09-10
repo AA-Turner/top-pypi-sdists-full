@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: cartesia
-Version: 2.0.7
+Version: 2.0.8
 Summary: 
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: aiohttp (>=3.10.10)
@@ -29,7 +28,6 @@ Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
 Requires-Dist: pydub (>=0.25.1)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=10.4)
-Project-URL: Repository, https://github.com/cartesia-ai/cartesia-python
 Description-Content-Type: text/markdown
 
 # Cartesia Python Library

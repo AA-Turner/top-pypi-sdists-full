@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class AccessPolicyResponse(BaseModel):
     """
     Serializer for AccessPolicy.
@@ -110,18 +102,7 @@ class AccessPolicyResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "permissions_assignment": obj.get("permissions_assignment"),
-            "creation_hooks": obj.get("creation_hooks"),
-            "statements": obj.get("statements"),
-            "viewset_name": obj.get("viewset_name"),
-            "customized": obj.get("customized"),
-            "queryset_scoping": obj.get("queryset_scoping")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

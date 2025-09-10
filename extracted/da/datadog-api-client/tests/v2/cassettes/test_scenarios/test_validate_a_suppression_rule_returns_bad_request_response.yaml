@@ -1,0 +1,21 @@
+interactions:
+- request:
+    body: '{"data":{"attributes":{"data_exclusion_query":"not enough attributes","enabled":false,"name":"cold_harbour","rule_query":"rule:[A-Invalid"},"type":"suppressions"}}'
+    headers:
+      accept:
+      - '*/*'
+      content-type:
+      - application/json
+    method: POST
+    uri: https://api.datadoghq.com/api/v2/security_monitoring/configuration/suppressions/validation
+  response:
+    body:
+      string: '{"errors":["input_validation_error(Field ''data.attributes.rule_query''
+        is invalid: rule query is invalid)"]}'
+    headers:
+      content-type:
+      - application/json
+    status:
+      code: 400
+      message: Bad Request
+version: 1

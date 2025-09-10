@@ -22,6 +22,12 @@ if TYPE_CHECKING:
         OpenFlowWPathValuePreprocessorModuleStopAfterIf,
     )
     from ..models.open_flow_w_path_value_preprocessor_module_suspend import OpenFlowWPathValuePreprocessorModuleSuspend
+    from ..models.open_flow_w_path_value_preprocessor_module_timeout_type_0 import (
+        OpenFlowWPathValuePreprocessorModuleTimeoutType0,
+    )
+    from ..models.open_flow_w_path_value_preprocessor_module_timeout_type_1 import (
+        OpenFlowWPathValuePreprocessorModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="OpenFlowWPathValuePreprocessorModule")
@@ -39,7 +45,8 @@ class OpenFlowWPathValuePreprocessorModule:
         sleep (Union['OpenFlowWPathValuePreprocessorModuleSleepType0', 'OpenFlowWPathValuePreprocessorModuleSleepType1',
             Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['OpenFlowWPathValuePreprocessorModuleTimeoutType0',
+            'OpenFlowWPathValuePreprocessorModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, OpenFlowWPathValuePreprocessorModuleMock]):
@@ -58,7 +65,9 @@ class OpenFlowWPathValuePreprocessorModule:
         "OpenFlowWPathValuePreprocessorModuleSleepType0", "OpenFlowWPathValuePreprocessorModuleSleepType1", Unset
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "OpenFlowWPathValuePreprocessorModuleTimeoutType0", "OpenFlowWPathValuePreprocessorModuleTimeoutType1", Unset
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "OpenFlowWPathValuePreprocessorModuleMock"] = UNSET
@@ -71,6 +80,9 @@ class OpenFlowWPathValuePreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.open_flow_w_path_value_preprocessor_module_sleep_type_0 import (
             OpenFlowWPathValuePreprocessorModuleSleepType0,
+        )
+        from ..models.open_flow_w_path_value_preprocessor_module_timeout_type_0 import (
+            OpenFlowWPathValuePreprocessorModuleTimeoutType0,
         )
 
         id = self.id
@@ -102,7 +114,20 @@ class OpenFlowWPathValuePreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, OpenFlowWPathValuePreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -178,6 +203,12 @@ class OpenFlowWPathValuePreprocessorModule:
         from ..models.open_flow_w_path_value_preprocessor_module_suspend import (
             OpenFlowWPathValuePreprocessorModuleSuspend,
         )
+        from ..models.open_flow_w_path_value_preprocessor_module_timeout_type_0 import (
+            OpenFlowWPathValuePreprocessorModuleTimeoutType0,
+        )
+        from ..models.open_flow_w_path_value_preprocessor_module_timeout_type_1 import (
+            OpenFlowWPathValuePreprocessorModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -242,7 +273,40 @@ class OpenFlowWPathValuePreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "OpenFlowWPathValuePreprocessorModuleTimeoutType0",
+            "OpenFlowWPathValuePreprocessorModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, OpenFlowWPathValuePreprocessorModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = OpenFlowWPathValuePreprocessorModuleTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, OpenFlowWPathValuePreprocessorModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = OpenFlowWPathValuePreprocessorModuleTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

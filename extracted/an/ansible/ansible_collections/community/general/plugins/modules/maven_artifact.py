@@ -244,7 +244,6 @@ import tempfile
 import traceback
 import re
 
-from ansible_collections.community.general.plugins.module_utils.version import LooseVersion
 from ansible.module_utils.ansible_release import __version__ as ansible_version
 from re import match
 
@@ -622,36 +621,33 @@ def main():
         argument_spec=dict(
             group_id=dict(required=True),
             artifact_id=dict(required=True),
-            version=dict(default=None),
-            version_by_spec=dict(default=None),
+            version=dict(),
+            version_by_spec=dict(),
             classifier=dict(default=''),
             extension=dict(default='jar'),
             repository_url=dict(default='https://repo1.maven.org/maven2'),
-            username=dict(default=None, aliases=['aws_secret_key']),
-            password=dict(default=None, no_log=True, aliases=['aws_secret_access_key']),
+            username=dict(aliases=['aws_secret_key']),
+            password=dict(no_log=True, aliases=['aws_secret_access_key']),
             headers=dict(type='dict'),
             force_basic_auth=dict(default=False, type='bool'),
-            state=dict(default="present", choices=["present", "absent"]),  # TODO - Implement a "latest" state
+            state=dict(default="present", choices=["present", "absent"]),
             timeout=dict(default=10, type='int'),
             dest=dict(type="path", required=True),
-            validate_certs=dict(required=False, default=True, type='bool'),
-            client_cert=dict(type="path", required=False),
-            client_key=dict(type="path", required=False),
-            keep_name=dict(required=False, default=False, type='bool'),
-            verify_checksum=dict(required=False, default='download', choices=['never', 'download', 'change', 'always']),
-            checksum_alg=dict(required=False, default='md5', choices=['md5', 'sha1']),
-            unredirected_headers=dict(type='list', elements='str', required=False),
+            validate_certs=dict(default=True, type='bool'),
+            client_cert=dict(type="path"),
+            client_key=dict(type="path"),
+            keep_name=dict(default=False, type='bool'),
+            verify_checksum=dict(default='download', choices=['never', 'download', 'change', 'always']),
+            checksum_alg=dict(default='md5', choices=['md5', 'sha1']),
+            unredirected_headers=dict(type='list', elements='str'),
             directory_mode=dict(type='str'),
         ),
         add_file_common_args=True,
         mutually_exclusive=([('version', 'version_by_spec')])
     )
 
-    if LooseVersion(ansible_version) < LooseVersion("2.12") and module.params['unredirected_headers']:
-        module.fail_json(msg="Unredirected Headers parameter provided, but your ansible-core version does not support it. Minimum version is 2.12")
-
-    if LooseVersion(ansible_version) >= LooseVersion("2.12") and module.params['unredirected_headers'] is None:
-        # if the user did not supply unredirected params, we use the default, ONLY on ansible core 2.12 and above
+    if module.params['unredirected_headers'] is None:
+        # if the user did not supply unredirected params, we use the default
         module.params['unredirected_headers'] = ['Authorization', 'Cookie']
 
     if not HAS_LXML_ETREE:

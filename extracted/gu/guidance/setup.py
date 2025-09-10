@@ -20,10 +20,11 @@ from setuptools import find_packages, setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-llamacpp_requires = ["llama-cpp-python==0.3.12"]
-transformers_requires = ["transformers==4.51.3"]
+llamacpp_requires = ["llama-cpp-python==0.3.14"]
+transformers_requires = ["transformers==4.53.3"]
 
 install_requires = [
+    "jinja2",
     "numpy",
     "pydantic",
     "requests",
@@ -42,10 +43,6 @@ extras_requires = {
 all_requires = set()
 for v in extras_requires.values():
     all_requires = all_requires.union(v)
-
-# See
-# https://github.com/guidance-ai/guidance/issues/1222
-sentencepiece_dependency = "sentencepiece" if sys.version_info.minor != 13 else "dbowring-sentencepiece"
 
 # Required for builds etc.
 doc_requires = [
@@ -78,7 +75,7 @@ test_requires = [
     "papermill",
     "pillow",
     "protobuf",
-    sentencepiece_dependency,
+    "sentencepiece",
     "torch",
     "transformers",
     "tiktoken>=0.3",

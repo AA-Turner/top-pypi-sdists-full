@@ -164,7 +164,7 @@ export function Layout({{children}}) {{
 def app_root_template(
     *,
     imports: list[_ImportDict],
-    custom_codes: set[str],
+    custom_codes: Iterable[str],
     hooks: dict[str, VarData | None],
     window_libraries: list[tuple[str, str]],
     render: dict[str, Any],
@@ -200,7 +200,6 @@ def app_root_template(
     )
 
     return f"""
-import reflexGlobalStyles from '$/styles/__reflex_global_styles.css?url';
 {imports_str}
 {dynamic_imports_str}
 import {{ EventLoopProvider, StateProvider, defaultColorMode }} from "$/utils/context";
@@ -210,10 +209,6 @@ import {{ Outlet }} from 'react-router';
 {import_window_libraries}
 
 {custom_code_str}
-
-export const links = () => [
-  {{ rel: 'stylesheet', href: reflexGlobalStyles, type: 'text/css' }}
-];
 
 function AppWrap({{children}}) {{
 {_render_hooks(hooks)}

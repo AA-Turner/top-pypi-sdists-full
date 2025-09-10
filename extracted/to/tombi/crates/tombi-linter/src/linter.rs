@@ -13,7 +13,7 @@ pub struct Linter<'a> {
     source_text: Cow<'a, str>,
     source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
     schema_store: &'a tombi_schema_store::SchemaStore,
-    pub(crate) diagnostics: Vec<crate::Diagnostic>,
+    pub(crate) diagnostics: Vec<tombi_diagnostic::Diagnostic>,
 }
 
 impl<'a> Linter<'a> {
@@ -48,14 +48,15 @@ impl<'a> Linter<'a> {
                 .await;
             if let Some((err, range)) = error_with_range {
                 self.diagnostics
-                    .push(Diagnostic::new_warning(err.to_string(), err.code(), range));
+                    .push(tombi_diagnostic::Diagnostic::new_warning(
+                        err.to_string(),
+                        err.code(),
+                        range,
+                    ));
             };
 
             let (tombi_document_comment_directive, diagnostics) =
-                tombi_comment_directive::get_tombi_document_comment_directive_and_diagnostics(
-                    &root,
-                )
-                .await;
+                tombi_validator::comment_directive::get_tombi_document_comment_directive_and_diagnostics(&root).await;
             self.diagnostics.extend(diagnostics);
 
             (source_schema, tombi_document_comment_directive)
@@ -65,21 +66,24 @@ impl<'a> Linter<'a> {
 
         if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive {
             if let Some(lint) = &tombi_document_comment_directive.lint {
-                if lint.disable == Some(true) {
-                    match self.source_uri_or_path.map(|path| match path {
-                        Either::Left(url) => url.to_string(),
-                        Either::Right(path) => path.to_string_lossy().to_string(),
-                    }) {
-                        Some(source_url_or_path) => {
-                            tracing::info!(
-                                "Skip linting for \"{source_url_or_path}\" due to `lint.disable`"
-                            );
+                if lint.disabled() == Some(true) {
+                    // Only skip linting if there are no validation errors
+                    if self.diagnostics.is_empty() {
+                        match self.source_uri_or_path.map(|path| match path {
+                            Either::Left(url) => url.to_string(),
+                            Either::Right(path) => path.to_string_lossy().to_string(),
+                        }) {
+                            Some(source_url_or_path) => {
+                                tracing::info!(
+                                    "Skip linting for \"{source_url_or_path}\" due to `lint.disable`"
+                                );
+                            }
+                            None => {
+                                tracing::info!("Skip linting for stdin due to `lint.disable`");
+                            }
                         }
-                        None => {
-                            tracing::info!("Skip linting for stdin due to `lint.disable`");
-                        }
+                        return Ok(());
                     }
-                    return Ok(());
                 }
             }
         }
@@ -104,31 +108,45 @@ impl<'a> Linter<'a> {
             error.set_diagnostics(&mut self.diagnostics);
         }
 
-        root.lint(&mut self);
+        {
+            root.lint(&mut self).await;
+        }
 
-        if self.diagnostics.is_empty() {
+        if self
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.level() == tombi_diagnostic::Level::ERROR)
+            .count()
+            == 0
+        {
             let (document_tree, errors) =
                 root.into_document_tree_and_errors(self.toml_version).into();
 
             errors.set_diagnostics(&mut self.diagnostics);
 
-            if let Some(source_schema) = source_schema {
-                let schema_context = tombi_schema_store::SchemaContext {
-                    toml_version: self.toml_version,
-                    root_schema: source_schema.root_schema.as_ref(),
-                    sub_schema_uri_map: Some(&source_schema.sub_schema_uri_map),
-                    store: self.schema_store,
-                    strict: tombi_document_comment_directive
-                        .as_ref()
-                        .and_then(|directive| {
-                            directive.schema.as_ref().and_then(|schema| schema.strict)
-                        }),
-                };
-                if let Err(schema_diagnostics) =
-                    tombi_validator::validate(document_tree, &source_schema, &schema_context).await
-                {
-                    self.diagnostics.extend(schema_diagnostics);
-                }
+            tracing::trace!("document_tree: {:#?}", document_tree);
+
+            let schema_context = tombi_schema_store::SchemaContext {
+                toml_version: self.toml_version,
+                root_schema: source_schema
+                    .as_ref()
+                    .and_then(|source_schema| source_schema.root_schema.as_ref()),
+                sub_schema_uri_map: source_schema
+                    .as_ref()
+                    .map(|source_schema| &source_schema.sub_schema_uri_map),
+                store: self.schema_store,
+                strict: tombi_document_comment_directive
+                    .as_ref()
+                    .and_then(|directive| {
+                        directive.schema.as_ref().and_then(|schema| schema.strict)
+                    }),
+            };
+
+            if let Err(schema_diagnostics) =
+                tombi_validator::validate(document_tree, source_schema.as_ref(), &schema_context)
+                    .await
+            {
+                self.diagnostics.extend(schema_diagnostics);
             }
         }
 

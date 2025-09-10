@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
@@ -44,7 +44,7 @@ jobs:
         if: github.event_name != 'release'
         run: echo CIBW_ENABLE=cpython-prerelease >> $GITHUB_ENV
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.0.0rc2
+        uses: pypa/cibuildwheel@v3.1.4
       - uses: actions/upload-artifact@v4
         with:
           path: wheelhouse/*.whl

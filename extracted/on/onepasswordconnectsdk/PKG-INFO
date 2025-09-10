@@ -1,20 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: onepasswordconnectsdk
-Version: 1.5.1
+Version: 2.0.0
 Summary: Python SDK for 1Password Connect
-Home-page: https://github.com/1Password/connect-sdk-python
 License: MIT
 Author: 1Password
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: httpx (>=0.23.3,<0.24.0)
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: python-dateutil (>=2.8.1,<3.0.0)
 Project-URL: Bug Tracker, https://github.com/1Password/connect-sdk-python/issues
 Project-URL: Repository, https://github.com/1Password/connect-sdk-python
@@ -54,8 +51,9 @@ Check the [Python Connect SDK Example](example/README.md) to see an example of i
    export OP_CONNECT_HOST=<your-connect-host> && \
    export OP_CONNECT_TOKEN=<your-connect-token>
    ```
-   
+
    2.1 If you need a higher timeout on the client requests you can export `OP_CONNECT_CLIENT_REQ_TIMEOUT` environment variable:
+
    ```sh
    # set the timeout to 90 seconds
    export OP_CONNECT_CLIENT_REQ_TIMEOUT=90
@@ -117,7 +115,5 @@ For more examples of how to use the SDK, check out [USAGE.md](USAGE.md).
 
 1Password requests you practice responsible disclosure if you discover a vulnerability.
 
-Please file requests via [**BugCrowd**](https://bugcrowd.com/agilebits).
-
-For information about security practices, please visit the [1Password Bug Bounty Program](https://bugcrowd.com/agilebits).
+Please file requests by sending an email to bugbounty@agilebits.com.
 

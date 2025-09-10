@@ -135,78 +135,78 @@ options:
 
 """
 EXAMPLES = """
-  - name: Create and Upload Certificate to a Gateway Endpoint with global binding
-    netapp.storagegrid.na_sg_grid_gateway:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      displayName: "FabricPool Endpoint"
-      port: 10443
-      secure: True
-      enable_ipv4: True
-      enable_ipv6: True
-      default_service_type: "s3"
-      server_certificate: |
-        -----BEGIN CERTIFICATE-----
-        MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
-        BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
-        AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
-        71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
-        S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
-        77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
-        -----END CERTIFICATE-----
-      private_key: |
-        -----BEGIN PRIVATE KEY-----
-        MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIB..DL45vSN+ZZinAu
-        L25W0+cz1Oi69AKkI7d9nbFics2ay5+7o+4rKqf3en2R4MSx..vy+iDlOmATib5O
-        x8TN5pJ9AgMBAAECggEADDLM8tHXXUoUFihzv+BUwff8p8Yc..cXFcSes+xTd5li
-        po8lNsx/v2pQx4ByBkuaYLZGIEXOWS6gkp44xhIXgQKBgQD4..7862u5HLbmhrV3
-        vs8nC69b3QKBgQDacCD8d8JpwPbg8t2VjXM3UvdmgAaLUfU7..DWV+W3jqzmDOoN
-        zWVgPbPNj0UmzvLDbgxLoxe77wjn2BHsAJVAfJ9VeQKBgGqF..gYO+wHR8lJUoa5
-        ZEe8Upy2oBtvND/0dnwO2ym2FGsBJN0Gr4NKdG5vkzLsthKk..Rm0ikwEUOUZQKE
-        K8J5yEVeo9K2v3wggtq8fYn6
-        -----END PRIVATE KEY-----
-      validate_certs: false
+- name: Create and Upload Certificate to a Gateway Endpoint with global binding
+  netapp.storagegrid.na_sg_grid_gateway:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    displayName: "FabricPool Endpoint"
+    port: 10443
+    secure: true
+    enable_ipv4: true
+    enable_ipv6: true
+    default_service_type: "s3"
+    server_certificate: |
+      -----BEGIN CERTIFICATE-----
+      MIIC6DCCAdACCQC7l4WukhKD0zANBgkqhkiG9w0BAQsFADA2..swCQYDVQQGEwJB
+      BAMMHnNnYW4wMS5kZXYubWljcm9icmV3Lm5ldGFwcC5hdTCC..IwDQYJKoZIhvcN
+      AQEBBQADggEPADCCAQoCggEBAMvjm9I35lmKcC7ITVL8+QiZ..lvdkbfZCUQrfdy
+      71inP+XmPjs0rnkhICA9ItODteRcVlO+t7nDTfm7HgG0mJFk..m0ffyEYrcx24qu
+      S7gXYQjRsJmrep1awoaCa20BMGuqK2WKI3IvZ7YiT22qkBqK..+hIFffX6u3Jy+B
+      77pR6YcATtpMHW/AaOx+OX9l80dIRsRZKMDxYQ==
+      -----END CERTIFICATE-----
+    private_key: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIB..DL45vSN+ZZinAu
+      L25W0+cz1Oi69AKkI7d9nbFics2ay5+7o+4rKqf3en2R4MSx..vy+iDlOmATib5O
+      x8TN5pJ9AgMBAAECggEADDLM8tHXXUoUFihzv+BUwff8p8Yc..cXFcSes+xTd5li
+      po8lNsx/v2pQx4ByBkuaYLZGIEXOWS6gkp44xhIXgQKBgQD4..7862u5HLbmhrV3
+      vs8nC69b3QKBgQDacCD8d8JpwPbg8t2VjXM3UvdmgAaLUfU7..DWV+W3jqzmDOoN
+      zWVgPbPNj0UmzvLDbgxLoxe77wjn2BHsAJVAfJ9VeQKBgGqF..gYO+wHR8lJUoa5
+      ZEe8Upy2oBtvND/0dnwO2ym2FGsBJN0Gr4NKdG5vkzLsthKk..Rm0ikwEUOUZQKE
+      K8J5yEVeo9K2v3wggtq8fYn6
+      -----END PRIVATE KEY-----
+    validate_certs: false
 
-  - name: Create a HTTP Gateway Endpoint with HA Group Binding
-    netapp.storagegrid.na_sg_grid_gateway:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      displayName: "App Endpoint 1"
-      port: 10501
-      secure: false
-      enable_ipv4: True
-      enable_ipv6: True
-      default_service_type: "s3"
-      binding_mode: ha-groups
-      ha_groups: site1_ha_group
-      validate_certs: false
+- name: Create a HTTP Gateway Endpoint with HA Group Binding
+  netapp.storagegrid.na_sg_grid_gateway:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    displayName: "App Endpoint 1"
+    port: 10501
+    secure: false
+    enable_ipv4: true
+    enable_ipv6: true
+    default_service_type: "s3"
+    binding_mode: ha-groups
+    ha_groups: site1_ha_group
+    validate_certs: false
 
-  - name: Create a HTTP Gateway Endpoint with Node Interface Binding
-    netapp.storagegrid.na_sg_grid_gateway:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      displayName: "App Endpoint 2"
-      port: 10502
-      secure: false
-      enable_ipv4: True
-      enable_ipv6: True
-      default_service_type: "s3"
-      binding_mode: node-interfaces
-      node_interfaecs:
+- name: Create a HTTP Gateway Endpoint with Node Interface Binding
+  netapp.storagegrid.na_sg_grid_gateway:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    displayName: "App Endpoint 2"
+    port: 10502
+    secure: false
+    enable_ipv4: true
+    enable_ipv6: true
+    default_service_type: "s3"
+    binding_mode: node-interfaces
+    node_interfaecs:
       - node: SITE1_ADM1
         interface: eth2
       - node: SITE2_ADM1
         interface: eth2
-      validate_certs: false
+    validate_certs: false
 
-  - name: Delete Gateway Endpoint
-    netapp.storagegrid.na_sg_grid_gateway:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      displayName: "App Endpoint 2"
-      port: 10502
-      default_service_type: "s3"
-      validate_certs: false
+- name: Delete Gateway Endpoint
+  netapp.storagegrid.na_sg_grid_gateway:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    displayName: "App Endpoint 2"
+    port: 10502
+    default_service_type: "s3"
+    validate_certs: false
 """
 
 RETURN = """

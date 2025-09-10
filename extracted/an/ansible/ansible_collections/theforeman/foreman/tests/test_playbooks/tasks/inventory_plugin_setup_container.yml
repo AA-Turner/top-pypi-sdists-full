@@ -1,0 +1,55 @@
+---
+- name: fetch PostgreSQL container
+  community.docker.docker_image:
+    name: docker.io/library/postgres:{{ postgres_version }}
+    source: pull
+
+- name: fetch Foreman container
+  community.docker.docker_image:
+    name: "{{ foreman_container }}:{{ foreman_version }}"
+    source: pull
+
+- name: start PostgreSQL container
+  community.docker.docker_container:
+    name: "{{ postgres_host }}"
+    image: docker.io/library/postgres:{{ postgres_version }}
+    env:
+      POSTGRES_USER: foreman
+      POSTGRES_PASSWORD: foreman
+      POSTGRES_DATABASE: foreman
+      PGDATA: /var/lib/postgresql/data/pgdata
+    published_ports:
+      - "0.0.0.0:{{ postgres_port }}:5432"
+
+- name: start Foreman container
+  community.docker.docker_container:
+    name: "{{ foreman_host }}"
+    image: "{{ foreman_container }}:{{ foreman_version }}"
+    command: bash -c "bundle exec bin/rails db:create db:migrate && bundle exec bin/rails db:seed && bundle exec bin/rails server -b 0.0.0.0"
+    env:
+      SEED_ADMIN_PASSWORD: "{{ inventory_password }}"
+      RAILS_ENV: production
+      DATABASE_URL: postgres://foreman:foreman@{{ ansible_default_ipv4['address'] }}:{{ postgres_port }}/foreman?pool=5
+    published_ports:
+      - "0.0.0.0:{{ foreman_port }}:3000"
+
+- name: wait for foreman to start
+  status_info:
+    username: "{{ inventory_username }}"
+    password: "{{ inventory_password }}"
+    server_url: "{{ inventory_foreman_url }}"
+  register: result
+  until:
+    - result is success
+    - result.status.status == 200
+  retries: 10
+  delay: 10
+
+- name: start dynflow container
+  community.docker.docker_container:
+    name: "{{ foreman_host }}dynflow"
+    image: "{{ foreman_container }}:{{ foreman_version }}"
+    command: bash -c "bundle exec rake dynflow:executor"
+    env:
+      RAILS_ENV: production
+      DATABASE_URL: postgres://foreman:foreman@{{ ansible_default_ipv4['address'] }}:{{ postgres_port }}/foreman?pool=5

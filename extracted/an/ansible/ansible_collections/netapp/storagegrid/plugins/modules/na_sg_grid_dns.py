@@ -43,13 +43,13 @@ options:
 """
 
 EXAMPLES = """
-  - name: update DNS servers on StorageGRID
-    netapp.storagegrid.na_sg_grid_dns:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      dns_servers: "x.x.x.x,xxx.xxx.xxx.xxx"
+- name: update DNS servers on StorageGRID
+  netapp.storagegrid.na_sg_grid_dns:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    dns_servers: "x.x.x.x,xxx.xxx.xxx.xxx"
 """
 
 RETURN = """

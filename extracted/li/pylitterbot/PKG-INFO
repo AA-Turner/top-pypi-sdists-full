@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pylitterbot
-Version: 2024.2.3
+Version: 2024.2.4
 Summary: Python package for controlling Whisker automatic robots.
 License: MIT
 Keywords: Whisker,Litter-Robot,Feeder-Robot,litter box,pet feeder,asynchronous

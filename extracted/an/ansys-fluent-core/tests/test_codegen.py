@@ -56,9 +56,26 @@ def test_allapigen_files(new_solver_session):
     importlib.import_module(f"ansys.fluent.core.generated.solver.settings_{version}")
 
 
+@pytest.mark.fluent_version(">=26.1")
+@pytest.mark.codegen_required
+def test_settings_allowed_values(new_solver_session):
+    version = get_version_for_file_name(session=new_solver_session)
+    module = importlib.import_module(
+        f"ansys.fluent.core.generated.solver.settings_{version}"
+    )
+
+    file_type_1 = getattr(module, "file_type_1")
+    assert set(file_type_1._allowed_values) == set(
+        ["case", "case-data", "data", "mesh"]
+    )
+
+    unit = getattr(module, "unit")
+    assert set(unit._allowed_values) == set(["m", "cm", "mm", "in", "ft"])
+
+
 def test_codegen_with_no_static_info(monkeypatch):
     codegen_outdir = Path(tempfile.mkdtemp())
-    monkeypatch.setattr(pyfluent, "CODEGEN_OUTDIR", codegen_outdir)
+    monkeypatch.setattr(pyfluent.config, "codegen_outdir", codegen_outdir)
     version = "252"
     allapigen.generate(version, {})
     generated_paths = list(codegen_outdir.iterdir())
@@ -137,7 +154,7 @@ class main_menu(TUIMenu):
 @pytest.mark.parametrize("mode", ["solver", "meshing"])
 def test_codegen_with_tui_solver_static_info(mode, monkeypatch):
     codegen_outdir = Path(tempfile.mkdtemp())
-    monkeypatch.setattr(pyfluent, "CODEGEN_OUTDIR", codegen_outdir)
+    monkeypatch.setattr(pyfluent.config, "codegen_outdir", codegen_outdir)
     version = "252"
     static_infos = {}
     static_info_type = (
@@ -357,7 +374,7 @@ class Root(PyMenu):
 )
 def test_codegen_with_datamodel_static_info(monkeypatch, rules):
     codegen_outdir = Path(tempfile.mkdtemp())
-    monkeypatch.setattr(pyfluent, "CODEGEN_OUTDIR", codegen_outdir)
+    monkeypatch.setattr(pyfluent.config, "codegen_outdir", codegen_outdir)
     version = "251"
     static_infos = {}
     static_info_type = _static_info_type_by_rules[rules]
@@ -696,7 +713,7 @@ class root(Group):
 
 def test_codegen_with_settings_static_info(monkeypatch):
     codegen_outdir = Path(tempfile.mkdtemp())
-    monkeypatch.setattr(pyfluent, "CODEGEN_OUTDIR", codegen_outdir)
+    monkeypatch.setattr(pyfluent.config, "codegen_outdir", codegen_outdir)
     version = "251"
     static_infos = {}
     static_infos[StaticInfoType.SETTINGS] = _settings_static_info
@@ -829,7 +846,7 @@ def test_codegen_with_settings_static_info_edge_cases(
 ):
 
     codegen_outdir = Path(tempfile.mkdtemp())
-    monkeypatch.setattr(pyfluent, "CODEGEN_OUTDIR", codegen_outdir)
+    monkeypatch.setattr(pyfluent.config, "codegen_outdir", codegen_outdir)
     version = "251"
     static_infos = {}
     static_infos[StaticInfoType.SETTINGS] = settings_static_info

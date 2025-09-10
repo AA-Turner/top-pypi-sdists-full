@@ -153,7 +153,7 @@ class ContextRequest(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            query (str): The query that is used to generate the context. Exactly one of query or messages should be provided.. [optional]  # noqa: E501
+            query (str): The query that is used to generate the context. Exactly one of query or messages should be provided. [optional]  # noqa: E501
             filter ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Optionally filter which documents can be retrieved using the following metadata fields. [optional]  # noqa: E501
             messages ([MessageModel]): The list of messages to use for generating the context. Exactly one of query or messages should be provided. [optional]  # noqa: E501
             top_k (int): The maximum number of context snippets to return. Default is 16. Maximum is 64. [optional]  # noqa: E501
@@ -241,7 +241,7 @@ class ContextRequest(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            query (str): The query that is used to generate the context. Exactly one of query or messages should be provided.. [optional]  # noqa: E501
+            query (str): The query that is used to generate the context. Exactly one of query or messages should be provided. [optional]  # noqa: E501
             filter ({str: (bool, date, datetime, dict, float, int, list, str, none_type)}): Optionally filter which documents can be retrieved using the following metadata fields. [optional]  # noqa: E501
             messages ([MessageModel]): The list of messages to use for generating the context. Exactly one of query or messages should be provided. [optional]  # noqa: E501
             top_k (int): The maximum number of context snippets to return. Default is 16. Maximum is 64. [optional]  # noqa: E501

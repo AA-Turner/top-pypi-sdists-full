@@ -7,21 +7,39 @@
 normally be used by external applications."""
 
 import os
-from typing import Any, List, Tuple
+from typing import Any
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from jeepney import (
-    DBusAddress, DBusErrorResponse, MatchRule, Message, MessageType,
-    new_method_call, Properties,
+    DBusAddress,
+    DBusErrorResponse,
+    MatchRule,
+    Message,
+    MessageType,
+    Properties,
+    new_method_call,
 )
 from jeepney.io.blocking import DBusConnection
-from secretstorage.defines import DBUS_UNKNOWN_METHOD, DBUS_NO_SUCH_OBJECT, \
- DBUS_SERVICE_UNKNOWN, DBUS_NO_REPLY, DBUS_NOT_SUPPORTED, DBUS_EXEC_FAILED, \
- SS_PATH, SS_PREFIX, ALGORITHM_DH, ALGORITHM_PLAIN
+
+from secretstorage.defines import (
+    ALGORITHM_DH,
+    ALGORITHM_PLAIN,
+    DBUS_EXEC_FAILED,
+    DBUS_NO_REPLY,
+    DBUS_NO_SUCH_OBJECT,
+    DBUS_NOT_SUPPORTED,
+    DBUS_SERVICE_UNKNOWN,
+    DBUS_UNKNOWN_METHOD,
+    DBUS_UNKNOWN_OBJECT,
+    SS_PATH,
+    SS_PREFIX,
+)
 from secretstorage.dhcrypto import Session, int_to_bytes
-from secretstorage.exceptions import ItemNotFoundException, \
- SecretServiceNotAvailableException
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from secretstorage.exceptions import (
+    ItemNotFoundException,
+    SecretServiceNotAvailableException,
+)
 
 BUS_NAME = 'org.freedesktop.secrets'
 SERVICE_IFACE = SS_PREFIX + 'Service'
@@ -48,7 +66,11 @@ class DBusAddressWrapper(DBusAddress):  # type: ignore
                 raise DBusErrorResponse(resp_msg)
             return resp_msg.body
         except DBusErrorResponse as resp:
-            if resp.name in (DBUS_UNKNOWN_METHOD, DBUS_NO_SUCH_OBJECT):
+            if resp.name in (
+                DBUS_UNKNOWN_METHOD,
+                DBUS_NO_SUCH_OBJECT,
+                DBUS_UNKNOWN_OBJECT,
+            ):
                 raise ItemNotFoundException('Item does not exist!') from resp
             elif resp.name in (DBUS_SERVICE_UNKNOWN, DBUS_EXEC_FAILED,
                                DBUS_NO_REPLY):
@@ -99,7 +121,7 @@ def open_session(connection: DBusConnection) -> Session:
 
 
 def format_secret(session: Session, secret: bytes,
-                  content_type: str) -> Tuple[str, bytes, bytes, str]:
+                  content_type: str) -> tuple[str, bytes, bytes, str]:
     """Formats `secret` to make possible to pass it to the
     Secret Service API."""
     if isinstance(secret, str):
@@ -126,7 +148,7 @@ def format_secret(session: Session, secret: bytes,
 
 
 def exec_prompt(connection: DBusConnection,
-                prompt_path: str) -> Tuple[bool, List[str]]:
+                prompt_path: str) -> tuple[bool, list[str]]:
     """Executes the prompt in a blocking mode.
 
     :returns: a tuple; the first element is a boolean value showing
@@ -148,7 +170,7 @@ def exec_prompt(connection: DBusConnection,
     return dismissed, result
 
 
-def unlock_objects(connection: DBusConnection, paths: List[str]) -> bool:
+def unlock_objects(connection: DBusConnection, paths: list[str]) -> bool:
     """Requests unlocking objects specified in `paths`.
     Returns a boolean representing whether the operation was dismissed.
 

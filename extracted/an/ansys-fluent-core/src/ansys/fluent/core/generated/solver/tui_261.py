@@ -50,7 +50,7 @@ class main_menu(TUIMenu):
         """
     class switch_to_meshing_mode(TUIMethod):
         """
-        Switches from the solution mode to the meshing mode. This text command is only available if you have not yet read a mesh or a case file.
+        Switch to meshing mode.
         """
 
     class adjoint(TUIMenu):
@@ -75,15 +75,15 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class controls(TUIMethod):
             """
-            Menu to configure adjoint solver controls.
+            Controls menu.
             """
         class design_tool(TUIMethod):
             """
-            Enters the design-tool menu.
+            Design tool menu.
             """
         class expert(TUIMethod):
             """
-            Provides text commands that allow you to undo enhancements to the default adjoint solver behavior.
+            Expert menu.
             """
         class geometry(TUIMethod):
             """
@@ -91,11 +91,11 @@ class main_menu(TUIMenu):
             """
         class methods(TUIMethod):
             """
-            Menu to configure adjoint solver settings.
+            Methods menu.
             """
         class monitors(TUIMethod):
             """
-            Menu to configure monitors for the adjoint solver.
+            Monitors menu.
             """
         class morphing(TUIMethod):
             """
@@ -107,11 +107,11 @@ class main_menu(TUIMenu):
             """
         class observable(TUIMethod):
             """
-            Menu to create and configure observables of interest.
+            Observable menu.
             """
         class optimizer(TUIMethod):
             """
-            Enters the optimizer menu, where you can use a gradient-based optimizer to optimize the geometry to meet multiple goals for multiple observables at multiple operating conditions.
+            Optimizer menu.
             """
         class postprocess_options(TUIMethod):
             """
@@ -119,15 +119,15 @@ class main_menu(TUIMenu):
             """
         class reporting(TUIMethod):
             """
-            Menu to report sensitivity data from the adjoint solution.
+            Reporting.
             """
         class run(TUIMethod):
             """
-            Menu to initialize and compute the adjoint solution.
+            Run menu.
             """
         class utilities(TUIMethod):
             """
-            Enters the utilities menu.
+            Utilities menu.
             """
 
     class define(TUIMenu):
@@ -181,7 +181,7 @@ class main_menu(TUIMenu):
             """
         class enable_mesh_morpher_optimizer(TUIMethod):
             """
-            Enables the mesh morpher/optimizer. When the mesh morpher/optimizer is enabled, the define/mesh-morpher-optimizer text command becomes available.
+            Enable use of mesh morpher/optimizer.
             """
         class geometry(TUIMethod):
             """
@@ -189,7 +189,7 @@ class main_menu(TUIMenu):
             """
         class injections(TUIMethod):
             """
-            Enters the injections menu.  For a description of the items in this menu, see define/models/dpm/injections.
+            Enter the injections menu.
             """
         class physics(TUIMethod):
             """
@@ -197,11 +197,11 @@ class main_menu(TUIMenu):
             """
         class set_unit_system(TUIMethod):
             """
-            Applies a standard set of units to all quantities. The options include default,si, british, andcgs.
+            To apply standard set of units to all quantities.
             """
         class units(TUIMethod):
             """
-            Sets unit conversion factors.
+            Set unit conversion factors.
             """
 
         class curvilinear_coordinate_system(TUIMenu):
@@ -243,7 +243,7 @@ class main_menu(TUIMenu):
 
         class custom_field_functions(TUIMenu):
             """
-            Enters the custom field functions menu.
+            Enter the custom field functions menu.
             """
             def __init__(self, service, version, mode, path):
                 self.define = self.__class__.define(service, version, mode, path + ["define"])
@@ -255,32 +255,32 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class define(TUIMethod):
                 """
-                Defines a custom field function.
+                Define a custom field function.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a custom field function.
+                Delete a custom field function.
                 """
             class example_cff_definitions(TUIMethod):
                 """
-                Lists example custom field functions.
+                List example custom field functions.
                 """
             class list_valid_cell_function_names(TUIMethod):
                 """
-                Lists the names of cell functions that can be used in a custom field function.
+                No help available.
                 """
             class load(TUIMethod):
                 """
-                Loads a custom field function.
+                No help available.
                 """
             class save(TUIMethod):
                 """
-                Saves a custom field function.
+                No help available.
                 """
 
         class dynamic_mesh(TUIMenu):
             """
-            Enters the dynamic mesh menu.
+            Enter the dynamic mesh menu.
             """
             def __init__(self, service, version, mode, path):
                 self.actions = self.__class__.actions(service, version, mode, path + ["actions"])
@@ -292,24 +292,24 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class dynamic_mesh(TUIMethod):
                 """
-                Enables/disables the dynamic mesh solver.
+                Enable/disable the dynamic mesh solver and options.
                 """
 
             class actions(TUIMenu):
                 """
-                Enters the dynamic mesh action menu, where you can initiate manual remeshing (that is, remeshing without running a calculation).
+                Enter the dynamic mesh actions menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.remesh_cell_zone = self.__class__.remesh_cell_zone(service, version, mode, path + ["remesh_cell_zone"])
                     super().__init__(service, version, mode, path)
                 class remesh_cell_zone(TUIMethod):
                     """
-                    Manually remeshes a cell zone with option to remesh adjacent dynamic face 	zones.
+                    Manually remesh cell zone with option to remesh adjacent dynamic face zones.
                     """
 
             class controls(TUIMenu):
                 """
-                Enters the dynamic mesh controls menu. This text command is only available when the define/dynamic-mesh/dynamic-mesh? text command is enabled.
+                Enter the dynamic mesh control menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.contact_parameters = self.__class__.contact_parameters(service, version, mode, path + ["contact_parameters"])
@@ -328,28 +328,28 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class in_cylinder_output(TUIMethod):
                     """
-                    Enables/disables in-cylinder output.
+                    Enable/disable in-cylinder output.
                     """
                 class layering(TUIMethod):
                     """
-                    Enables/disables dynamic-layering in quad/hex cell zones.
+                    No help available.
                     """
                 class remeshing(TUIMethod):
                     """
-                    Enables/disables local remeshing in tri/tet and mixed cell zones.
+                    No help available.
                     """
                 class smoothing(TUIMethod):
                     """
-                    Enables/disables smoothing in cell zones.
+                    No help available.
                     """
                 class steady_pseudo_time_control(TUIMethod):
                     """
-                    Enables/disables the pseudo time step control in the 	graphical user interface.
+                    Enable/disable pseudo time step control in user interface.
                     """
 
                 class contact_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh contact-parameters menu. This text command is only available 	when you enable contact detection using the prompts of 	the define/dynamic-mesh/dynamic-mesh? 	text command.
+                    Enter the dynamic mesh contact detection menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.flow_control_parameters = self.__class__.flow_control_parameters(service, version, mode, path + ["flow_control_parameters"])
@@ -364,40 +364,40 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class contact_face_zones(TUIMethod):
                         """
-                        Selects face zones involved in contact detection.
+                        No help available.
                         """
                     class contact_method(TUIMethod):
                         """
-                        Selects the method used for flow control in the contact region. Enter 0 for the contact zones method (which restricts the flow using additional cell zones with porous zone properties) or 1 for the contact marks method (which blocks the flow using zero-mass-flux boundaries).
+                        Select the method used for flow control in the contact region.
                         """
                     class contact_threshold(TUIMethod):
                         """
-                        Specifies threshold distance for contact detection.
+                        No help available.
                         """
                     class contact_udf(TUIMethod):
                         """
-                        Selects the UDF to be invoked when contact is detected.
+                        No help available.
                         """
                     class flow_control(TUIMethod):
                         """
-                        Enables/disables flow control in the contact region.
+                        No help available.
                         """
                     class render_contact_cells(TUIMethod):
                         """
-                        Enables/disables the availability of a field variable (contact-cell-mark) that can be used to display contours of cells marked for flow blocking as part of the contact marks method, and allows you to postprocess other field variables on those cells.
+                        No help available.
                         """
                     class update_contact_marks(TUIMethod):
                         """
-                        Updates which cells are marked in order to block flow in the contact region as part of the contact marks method.
+                        No help available.
                         """
                     class verbosity(TUIMethod):
                         """
-                        Sets the level of detail printed in the console regarding contact detection.
+                        No help available.
                         """
 
                     class flow_control_parameters(TUIMenu):
                         """
-                        Enters the flow control parameters menu, which provides settings related to controlling the flow in the contact region.
+                        Enter the flow control menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.create_flow_control_zone = self.__class__.create_flow_control_zone(service, version, mode, path + ["create_flow_control_zone"])
@@ -406,20 +406,20 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class create_flow_control_zone(TUIMethod):
                             """
-                            Creates a flow control zone as part of the contact zones method.
+                            No help available.
                             """
                         class delete_flow_control_zone(TUIMethod):
                             """
-                            Deletes a flow control zone as part of the contact zones method.
+                            No help available.
                             """
                         class solution_stabilization(TUIMethod):
                             """
-                            Enables/disables the performance of additional iterations per time step and the application of solution controls to improve the stability of the solver as part of the contact marks method.
+                            No help available.
                             """
 
                 class implicit_update_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh implicit update menu. This text command is only available 	when you enable implicit mesh updating using the prompts 	of the define/dynamic-mesh/dynamic-mesh? 	text command.
+                    Enter the dynamic mesh implicit update menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.motion_relaxation = self.__class__.motion_relaxation(service, version, mode, path + ["motion_relaxation"])
@@ -428,20 +428,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class motion_relaxation(TUIMethod):
                         """
-                        Specifies a value (within the range of 0 to 1) for the motion relaxation, which is applied during the implicit mesh update.
+                        No help available.
                         """
                     class residual_criteria(TUIMethod):
                         """
-                        Specifies the relative residual threshold that is used to check the motion convergence during the implicit mesh update.
+                        No help available.
                         """
                     class update_interval(TUIMethod):
                         """
-                        Specifies the update interval (that is, the frequency in iterations) at which the mesh is updated within a time step.
+                        No help available.
                         """
 
                 class in_cylinder_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh in-cylinder menu.
+                    Enter the dynamic mesh in-cylinder menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.crank_angle_step = self.__class__.crank_angle_step(service, version, mode, path + ["crank_angle_step"])
@@ -457,48 +457,48 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class crank_angle_step(TUIMethod):
                         """
-                        Specifies crank angle step size.
+                        No help available.
                         """
                     class crank_period(TUIMethod):
                         """
-                        Specifies the crank period.
+                        No help available.
                         """
                     class max_crank_angle_step(TUIMethod):
                         """
-                        Specifies maximum crank angle step size.
+                        No help available.
                         """
                     class minimum_lift(TUIMethod):
                         """
-                        Specifies minimum lift for in-cylinder valves.
+                        No help available.
                         """
                     class modify_lift(TUIMethod):
                         """
-                        Modifies lift curve (shift or scale).
+                        Modify the lift curve (shift or scale).
                         """
                     class piston_data(TUIMethod):
                         """
-                        Specifies the crank radius and connecting rod length.
+                        Specify the crank radius, connecting rod length, and piston pin offset.
                         """
                     class piston_stroke_cutoff(TUIMethod):
                         """
-                        Specifies the cut off point for in-cylinder piston.
+                        No help available.
                         """
                     class position_starting_mesh(TUIMethod):
                         """
-                        Moves mesh from top dead center to starting crank angle.
+                        Move mesh from top dead center to starting crank angle.
                         """
                     class print_plot_lift(TUIMethod):
                         """
-                        Prints or plot valve lift curve.
+                        Print or plot valve lift curve.
                         """
                     class starting_crank_angle(TUIMethod):
                         """
-                        Specifies the initial value for the crank angle.
+                        No help available.
                         """
 
                 class layering_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh layering menu.
+                    Enter the dynamic mesh layering menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.collapse_factor = self.__class__.collapse_factor(service, version, mode, path + ["collapse_factor"])
@@ -507,20 +507,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class collapse_factor(TUIMethod):
                         """
-                        Sets the factor determining when to collapse dynamic layers.
+                        No help available.
                         """
                     class constant_height(TUIMethod):
                         """
-                        Enables/disables layering based on constant height, else layering based on constant ratio.
+                        No help available.
                         """
                     class split_factor(TUIMethod):
                         """
-                        Sets the factor determining when to split dynamic layers.
+                        No help available.
                         """
 
                 class periodic_displacement_parameters(TUIMenu):
                     """
-                    Enters the periodic displacement parameters 	menu.
+                    Enter the dynamic mesh periodic displacement menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.copy_displacement = self.__class__.copy_displacement(service, version, mode, path + ["copy_displacement"])
@@ -592,7 +592,7 @@ class main_menu(TUIMenu):
 
                 class remeshing_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh remeshing menu to set 	parameters for all remeshing methods.
+                    Enter the dynamic mesh remeshing menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.prism_controls = self.__class__.prism_controls(service, version, mode, path + ["prism_controls"])
@@ -618,23 +618,23 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class cell_skew_max(TUIMethod):
                         """
-                        Sets the cell skewness threshold above which cells will be remeshed.
+                        No help available.
                         """
                     class face_skew_max(TUIMethod):
                         """
-                        Sets the face skewness threshold above which faces will be remeshed.
+                        No help available.
                         """
                     class length_max(TUIMethod):
                         """
-                        Sets the length threshold above which cells will be remeshed.
+                        No help available.
                         """
                     class length_min(TUIMethod):
                         """
-                        Sets the length threshold below which cells will be remeshed.
+                        No help available.
                         """
                     class parallel_remeshing(TUIMethod):
                         """
-                        Disables/enables parallel remeshing as part of methods-based remeshing..
+                        Enable/disable parallel remeshing for zone remeshing.
                         """
                     class poly_remeshing(TUIMethod):
                         """
@@ -642,52 +642,53 @@ class main_menu(TUIMenu):
                         """
                     class remeshing_after_moving(TUIMethod):
                         """
-                        Enables a second round of remeshing based on the skewness parameters after the boundary has moved as part of methods-based remeshing.
+                        Enable/disable optional remeshing after mesh motion to meet skewness threshold.
+                        Steady state dynamic mesh only.
                         """
                     class remeshing_methods(TUIMethod):
                         """
-                        Enables/disables individual remeshing options as part of methods-based remeshing.
+                        Enable/disable remeshing methods.
                         """
                     class retain_size_distribution(TUIMethod):
                         """
-                        Enables/disables the use of local size criteria when marking cells for unified remeshing (in an attempt to maintain the initial mesh size distribution even as the mesh moves), rather than marking cells based on the minimum and maximum length scale values of the cell zone in the initial mesh. Either marking can be overridden if more restrictive values are specified using the define/dynamic-mesh/controls/remeshing-parameters/length-min and define/dynamic-mesh/controls/remeshing-parameters/length-max text commands.
+                        No help available.
                         """
                     class size_remesh_interval(TUIMethod):
                         """
-                        Sets the interval (in time steps) when remeshing based on size is done for methods-based remeshing.
+                        Set the interval (in time steps) when remeshing based on size is done.
                         """
                     class sizing_funct_defaults(TUIMethod):
                         """
-                        Sets sizing function defaults.
+                        Set sizing function defaults.
                         """
                     class sizing_funct_rate(TUIMethod):
                         """
-                        Determines how far from the boundary the increase/decrease happens.
+                        Determine how far from the boundary the increase/decrease happens.
                         """
                     class sizing_funct_resolution(TUIMethod):
                         """
-                        Sets the sizing function resolution with respect to shortest boundary.
+                        Set the sizing function resolution with respect to shortest boundary.
                         """
                     class sizing_funct_variation(TUIMethod):
                         """
-                        Sets the maximum sizing function increase/decrease in the interior.
+                        Set the maximum sizing function increase/decrease in the interior.
                         """
                     class sizing_function(TUIMethod):
                         """
-                        Enables/disables the sizing function as part of methods-based remeshing.
+                        Enable/disable sizing function to control size based remeshing.
                         """
                     class unified_remeshing(TUIMethod):
                         """
-                        Enables/disables unified remeshing, which specifies that an algorithm is used that combines aspects of a variety of remeshing methods. It is applied to triangular or tetrahedral cells and can produce wedge cells in 3D boundary layer meshes. Unified remeshing simplifies the remeshing setup and can provide increased robustness compared to methods-based remeshing, especially for parallel simulations.
+                        No help available.
                         """
                     class zone_remeshing(TUIMethod):
                         """
-                        Enables/disables the cell zone remeshing method as part of methods-based remeshing.
+                        Enable/disable cell zone remeshing method.
                         """
 
                     class prism_controls(TUIMenu):
                         """
-                        Enters the dynamic mesh prism controls menu, which provides text commands that can be useful when you want to modify the algorithm that attempts to retain the size distribution during unified remeshing. Each prism control definition is applied to one or more boundary zones, and then affects the height distribution and number of layers of the wedge cells in the adjacent boundary layers.
+                        Specify optional prism controls.
                         """
                         def __init__(self, service, version, mode, path):
                             self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -698,35 +699,28 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class add(TUIMethod):
                             """
-                            Adds a new prism controls definition.   After being prompted for a name, you can enter the following to complete the definition:
-                            first-height  Sets the height of the first layer of wedge cells in the boundary layer adjacent to the specified zones.
-                            growth-method  Specifies the method used to determine the increase in height of the wedge cell layers beyond the first layer. The only available option is geometric, so that the height of each layer is the height of the previous layer multiplied by the rate.
-                            name  Specifies the name of the prism controls definition.
-                            nlayers  Sets the number of layers of wedge cells in the boundary layer adjacent to the specified zones.
-                            rate  Sets the coefficient for the growth-method used to determine the increase in height of the wedge cell layers beyond the first layer.
-                            zones  Specifies all of the boundary zones on which this prism controls definition is applied.
-                            Enter q when the definition is complete to return to the text command menu.
+                            Add a new object.
                             """
                         class delete(TUIMethod):
                             """
-                            Deletes an existing prism controls definition.
+                            Delete an object.
                             """
                         class edit(TUIMethod):
                             """
-                            Edits an existing prism controls definition. You can revise the fields listed previously for the define/dynamic-mesh/controls/remeshing-parameters/prism-controls/add text command.
+                            Edit an object.
                             """
                         class list(TUIMethod):
                             """
-                            Prints a list of the existing prism controls definitions in the console.
+                            List objects.
                             """
                         class list_properties(TUIMethod):
                             """
-                            Prints the properties of an existing prism controls definition of your choice in the console.
+                            List properties of an object.
                             """
 
                     class prism_layer_parameters(TUIMenu):
                         """
-                        Enters the dynamic mesh prism layer parameters menu, where you can define the parameters of the prism layers as part of methods-based remeshing.
+                        Enter the dynamic mesh prism remeshing menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.first_height = self.__class__.first_height(service, version, mode, path + ["first_height"])
@@ -735,20 +729,20 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class first_height(TUIMethod):
                             """
-                            Sets the first cell height in the prism layer.
+                            Set first cell height in the prism layer.
                             """
                         class growth_rate(TUIMethod):
                             """
-                            Sets the geometric growth rate of the prism layer.
+                            Set the geometric growth rate of the prism layer.
                             """
                         class number_of_layers(TUIMethod):
                             """
-                            Sets the number of elements in the prism layer.
+                            Set the number of elements in the prism layer.
                             """
 
                     class sizing_controls(TUIMenu):
                         """
-                        Enters the dynamic mesh sizing controls menu, which provides text commands that can be useful when you want to modify the algorithm that attempts to retain the size distribution during unified remeshing. Each sizing control definition is applied to one or more boundary zones, and then affects the size of the cells throughout the mesh based on their distance from those boundary zone(s) and your settings in the definition.
+                        Specify optional sizing controls.
                         """
                         def __init__(self, service, version, mode, path):
                             self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -759,36 +753,28 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class add(TUIMethod):
                             """
-                            Adds a new sizing controls definition.   After being prompted for a name, you can enter the following to complete the definition:
-                            growth-rate  Sets the growth rate of the sizing controls definition.
-                            max-length  Sets a maximum length threshold that is used when the type is set to auto or soft.
-                            min-length  Sets a maximum length threshold that is used when the type is set to auto.
-                            motion  Determines whether the size control definition affects the remeshing based on whether the mesh undergoes motion: auto specifies that it is applied whether or not there is motion; and static specifies that it is only applied if there is no motion.
-                            name  Specifies the name of the sizing controls definition.
-                            type  Specifies how the sizing is affected by the selected boundary zones: auto specifies that the default size distribution (rather than the initial size distribution in your selected boundary zones) is used, along with your specified max-length and min-length values; soft specifies that the maximum length scale of your selected boundary zones is used, along with your specified min-length value; and meshed specifies that the maximum and minimum length scales of your selected boundary zones are used, in order to respect their initial size distribution. This setting is only relevant if you have more than one sizing controls definition.
-                            zones  Specifies all of the boundary zones on which the sizing controls definition is applied.
-                            Enter q when the definition is complete to return to the text command menu.
+                            Add a new object.
                             """
                         class delete(TUIMethod):
                             """
-                            Deletes an existing sizing controls definition.
+                            Delete an object.
                             """
                         class edit(TUIMethod):
                             """
-                            Edits an existing sizing controls definition. You can revise the fields listed previously for the define/dynamic-mesh/controls/remeshing-parameters/sizing-controls/add text command.
+                            Edit an object.
                             """
                         class list(TUIMethod):
                             """
-                            Prints a list of the existing sizing controls definitions in the console.
+                            List objects.
                             """
                         class list_properties(TUIMethod):
                             """
-                            Prints the properties of an existing sizing controls definition of your choice in the console.
+                            List properties of an object.
                             """
 
                 class six_dof_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh six degrees of freedom (DOF) solver menu.
+                    Enter the dynamic mesh six-dof menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.create_properties = self.__class__.create_properties(service, version, mode, path + ["create_properties"])
@@ -803,44 +789,44 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class create_properties(TUIMethod):
                         """
-                        Creates/edits a set of six DOF properties for rigid body motion.
+                        Create a set of Six DOF Properties.
                         """
                     class delete_properties(TUIMethod):
                         """
-                        Deletes a set of six DOF properties for rigid body motion.
+                        Delete a set of Six DOF Properties.
                         """
                     class list_properties(TUIMethod):
                         """
-                        Prints summaries of the existing sets of six DOF properties for rigid body motion.
+                        List Six DOF Properties.
                         """
                     class motion_history(TUIMethod):
                         """
-                        Enables/disables writing position/orientation of six DOF zones to file.
+                        Enable/disable writing position/orientation of six DOF zones to file.
                         """
                     class motion_history_file_name(TUIMethod):
                         """
-                        Specifies the name and location of the six DOF motion history file.
+                        Location of six DOF motion history file.
                         """
                     class second_order(TUIMethod):
                         """
-                        Enables/disables the second order six degrees of freedom solver.
+                        Enable/disable second order six DOF solver.
                         """
                     class x_component_of_gravity(TUIMethod):
                         """
-                        Specifies x-component of gravity.
+                        Specify x-component-of-gravity.
                         """
                     class y_component_of_gravity(TUIMethod):
                         """
-                        Specifies y-component of gravity.
+                        Specify y-component-of-gravity.
                         """
                     class z_component_of_gravity(TUIMethod):
                         """
-                        Specifies z-component of gravity.
+                        Specify z-component-of-gravity.
                         """
 
                 class smoothing_parameters(TUIMenu):
                     """
-                    Enters the dynamic mesh smoothing-parameters menu.
+                    Enter the dynamic mesh smoothing menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.amg_stabilization = self.__class__.amg_stabilization(service, version, mode, path + ["amg_stabilization"])
@@ -875,35 +861,35 @@ class main_menu(TUIMenu):
                         """
                     class bnd_node_relaxation(TUIMethod):
                         """
-                        The boundary node relaxation is used by spring smoothing. The boundary node relaxation allows you to relax the update of the node positions at deforming boundaries. A value of 0 prevents deforming boundary nodes from moving and a value of 1 indicates no under-relaxation.
+                        No help available.
                         """
                     class bnd_stiffness_factor(TUIMethod):
                         """
-                        Sets the stiffness factor for springs connected to boundary nodes.
+                        No help available.
                         """
                     class boundary_distance_method(TUIMethod):
                         """
-                        Sets the method used to evaluate the boundary distance for the diffusion coefficient calculation, when diffusion-based smoothing is enabled.
+                        No help available.
                         """
                     class constant_factor(TUIMethod):
                         """
-                        Sets the spring constant relaxation factor.
+                        No help available.
                         """
                     class convergence_tolerance(TUIMethod):
                         """
-                        Sets the convergence tolerance for spring-based solver.
+                        No help available.
                         """
                     class diffusion_coeff_function(TUIMethod):
                         """
-                        Specifies whether the diffusion coefficient for diffusion-based smoothing is based on the boundary distance or the cell volume.
+                        No help available.
                         """
                     class diffusion_coeff_parameter(TUIMethod):
                         """
-                        Sets the diffusion coefficient parameter used for diffusion-based smoothing.
+                        No help available.
                         """
                     class diffusion_fvm(TUIMethod):
                         """
-                        Answering yes at the prompt changes the diffusion-based smoothing method to the cell-based finite volume approach that was the default in releases prior to Fluent 15.0. Answering no at the prompt changes the diffusion-based smoothing method to the default node-based finite element method.
+                        No help available.
                         """
                     class laplace_node_relaxation(TUIMethod):
                         """
@@ -923,27 +909,27 @@ class main_menu(TUIMenu):
                         """
                     class poisson_ratio(TUIMethod):
                         """
-                        Sets the Poisson’s ratio used for smoothing based on the linearly elastic solid model.
+                        No help available.
                         """
                     class relative_convergence_tolerance(TUIMethod):
                         """
-                        Sets the relative residual convergence tolerance for smoothing based on diffusion or the linearly elastic solid model.
+                        No help available.
                         """
                     class skew_smooth_all_deforming_boundaries(TUIMethod):
                         """
-                        Enables/disables skewness smoothing for all deforming dynamic boundary zones. This is enabled by default. If disabled, skewness smoothing is only applied to the deforming dynamic boundary zones that have smoothing explicitly enabled or use local face remeshing.
+                        No help available.
                         """
                     class skew_smooth_cell_skew_max(TUIMethod):
                         """
-                        Sets the skewness threshold, above which cells will be smoothed using the skewness method.
+                        No help available.
                         """
                     class skew_smooth_face_skew_max(TUIMethod):
                         """
-                        Sets the skewness threshold, above which faces will be smoothed using the skewness method.
+                        No help available.
                         """
                     class skew_smooth_niter(TUIMethod):
                         """
-                        Sets the number of skewness-based smoothing cycles.
+                        No help available.
                         """
                     class smooth_boundary_layers_with_adjacent_zone(TUIMethod):
                         """
@@ -951,7 +937,7 @@ class main_menu(TUIMenu):
                         """
                     class smooth_from_reference_position(TUIMethod):
                         """
-                        Enables/disables smoothing from a reference position. Such smoothing may produce greater mesh quality consistency for stationary or moving meshes with periodic or quasi-periodic motion, and is only available when the smoothing method is based on diffusion or the linearly elastic solid model.
+                        No help available.
                         """
                     class smoothing_method(TUIMethod):
                         """
@@ -959,7 +945,7 @@ class main_menu(TUIMenu):
                         """
                     class spring_on_all_elements(TUIMethod):
                         """
-                        Enables/disables spring-based smoothing for all cell shapes; if disabled, the spring-based smoothing is applied based on the setting of the define/dynamic-mesh/controls/smoothing-parameters/spring-on-simplex-shapes? text command.
+                        No help available.
                         """
                     class spring_on_simplex_elements(TUIMethod):
                         """
@@ -972,7 +958,7 @@ class main_menu(TUIMenu):
 
             class events(TUIMenu):
                 """
-                Enters the dynamic mesh events menu.
+                Enter the dynamic mesh events menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.export_event_file = self.__class__.export_event_file(service, version, mode, path + ["export_event_file"])
@@ -980,16 +966,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class export_event_file(TUIMethod):
                     """
-                    Exports dynamic mesh events to file.
+                    Export dynamic mesh events to file.
                     """
                 class import_event_file(TUIMethod):
                     """
-                    Imports dynamic mesh event file.
+                    Import dynamic mesh event file.
                     """
 
             class transient_settings(TUIMenu):
                 """
-                Enters the transient dynamic mesh settings menu. This text command is only available when you enable dynamic mesh using the prompts of the define/dynamic-mesh/dynamic-mesh? text command. Solver time must also be set to Transient.
+                Enter the dynamic mesh transient settings menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.allow_second_order = self.__class__.allow_second_order(service, version, mode, path + ["allow_second_order"])
@@ -997,16 +983,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class allow_second_order(TUIMethod):
                     """
-                    Enables/disables second order transient scheme for dynamic mesh cases.
+                    Enable/disable 2nd order transient scheme for dynamic mesh cases.
                     """
                 class verbosity(TUIMethod):
                     """
-                    Enables/disables transient scheme verbosity for dynamic mesh cases.
+                    Enable/disable transient scheme verbosity for dynamic mesh cases.
                     """
 
             class zones(TUIMenu):
                 """
-                Enters the dynamic mesh zones menu.
+                Enter the dynamic mesh zones menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.create = self.__class__.create(service, version, mode, path + ["create"])
@@ -1023,32 +1009,32 @@ class main_menu(TUIMenu):
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes a dynamic zone.
+                    Delete dynamic zone.
                     """
                 class insert_boundary_layer(TUIMethod):
                     """
-                    Inserts a new cell zone.
+                    Insert new cell zone.
                     """
                 class insert_interior_layer(TUIMethod):
                     """
-                    Inserts a new layer cell zone at a specified location.
+                    Insert new layer cell zone at specified location.
                     """
                 class list(TUIMethod):
                     """
-                    Lists the dynamic zones.
+                    List dynamic zones.
                     """
                 class remove_boundary_layer(TUIMethod):
                     """
-                    Removes a cell zone.
+                    Remove cell zone.
                     """
                 class remove_interior_layer(TUIMethod):
                     """
-                    Removes an interior layer cell zone.
+                    Remove interior layer cell zone.
                     """
 
         class gap_model(TUIMenu):
             """
-            Enters the gap model menu, where you can define one or more gap regions where the flow is blocked or decelerated when face zones move within a specified proximity threshold of each other.
+            Enter the narrow-gaps menu.
             """
             def __init__(self, service, version, mode, path):
                 self.advanced_options = self.__class__.advanced_options(service, version, mode, path + ["advanced_options"])
@@ -1064,35 +1050,35 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Creates a single gap region, so that when selected face zones move within a specified proximity threshold of each other, flow blockage / deceleration is applied to the cells that lie within the threshold.
+                Create a gap object.
                 """
             class delete(TUIMethod):
                 """
-                Deletes an existing gap region.
+                Delete an exiting gap object.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all of the existing gap regions.
+                Delete all of the exiting gap objects.
                 """
             class edit(TUIMethod):
                 """
-                Edits an existing gap region.
+                Edit an exiting gap object.
                 """
             class enable(TUIMethod):
                 """
-                Enables/disables the gap model.
+                Enable/Disable gap model.
                 """
             class list_gap_cell_zones(TUIMethod):
                 """
-                Lists the names of the cell zones that can be excluded for individual gap regions (so that such cells are not marked for flow blockage / deceleration).
+                List name of the gap cells zones that can be used as exclided cell zones in gaps creation.
                 """
             class list_gap_face_zones(TUIMethod):
                 """
-                Lists the names of the face zones that can be used for creating gap regions.
+                List name of the gap face zones that can be used for gaps creation.
                 """
             class list_gap_regions(TUIMethod):
                 """
-                Lists the properties of the gap regions.
+                List gap regions.
                 """
             class render_gap_regions(TUIMethod):
                 """
@@ -1101,7 +1087,7 @@ class main_menu(TUIMenu):
 
             class advanced_options(TUIMenu):
                 """
-                Enters the advanced options menu for the gap model.
+                Show options.
                 """
                 def __init__(self, service, version, mode, path):
                     self.alternative_marking = self.__class__.alternative_marking(service, version, mode, path + ["alternative_marking"])
@@ -1134,7 +1120,7 @@ class main_menu(TUIMenu):
                     """
                 class check_cfl_condition(TUIMethod):
                     """
-                    Enables/disables the printing of warnings if the time 	step size is too large based on a Courant (CFL) number 	automatically determined for your specified solution 	stability level.
+                    Check time step size for better convergence.
                     """
                 class clear_gap_regions(TUIMethod):
                     """
@@ -1142,19 +1128,19 @@ class main_menu(TUIMenu):
                     """
                 class enhanced_data_interpolation(TUIMethod):
                     """
-                    Enables/disables the use of enhanced data 	interpolation when updating information in gap regions. 	This text command is only available if you have enabled 	the 	define/gap-model/advanced-options/expert? 	text command.
+                    Use enhanced data interpolation for updating information in gap regions.
                     """
                 class expert(TUIMethod):
                     """
-                    Enables/disables access to expert-level text commands 	for the gap model.
+                    Enable expert options for gap model.
                     """
                 class extend_gap_regions(TUIMethod):
                     """
-                    Enables/disables the extending of the gap regions by including additional cells in 	the vicinity of the gap interfaces during marking. This 	is useful when the default shape of the marked cells is 	negatively affecting solution stability or convergence 	behavior.
+                    Extend gap regions for better convergence.
                     """
                 class fill_data_in_gap_regions(TUIMethod):
                     """
-                    Enables/disables the interpolation of solution data throughout the gap regions. This 	text command is only available if you have enabled the 	define/gap-model/advanced-options/expert? 	text command.
+                    Interpolate solution data into the whole gap regions.
                     """
                 class flow_blocking_stabilization_parameters(TUIMethod):
                     """
@@ -1166,31 +1152,31 @@ class main_menu(TUIMenu):
                     """
                 class precise_gap_marking(TUIMethod):
                     """
-                    Enables/disables the use of a more accurate search algorithm for marking cells in 	gap regions. Note that it can be costly, particularly 	for 3D cases or those with a large number of cells 	inside the gap regions. This text command is only 	available if you have enabled the 	define/gap-model/advanced-options/expert? 	text command.
+                    Mark cells in gap regions using more accurate search algorithm.
                     """
                 class reduce_gap_regions(TUIMethod):
                     """
-                    Enables/disables a more restrictive algorithm for marking cells in gap regions. This 	text command is only available if you have enabled the 	define/gap-model/advanced-options/expert? 	text command.
+                    Using a more restrictive algorithm for marking cells in gap regions.
                     """
                 class render_flow_modeling_gaps(TUIMethod):
                     """
-                    Enables/disables the rendering of the solution in the cells of flow-modeling gap 	regions during postprocessing. This text command is only 	available if you have enabled the 	define/gap-model/advanced-options/expert? 	text command.
+                    Render solution inside flow modeling gap cells.
                     """
                 class render_gap_interface(TUIMethod):
                     """
-                    Enables/disables the rendering of the mesh surfaces inside the gap regions when 	displaying the mesh with contours. Note that the 	solution is still not rendered inside the flow-blocking 	gap regions.
+                    Render gap interface.
                     """
                 class revert_controls_to_default(TUIMethod):
                     """
-                    Reverts the global gap stabilization level and any related 	solver settings to the default.
+                    Revert gap stabilization and any related solver settings to default.
                     """
                 class solution_stabilization(TUIMethod):
                     """
-                    Sets the global solution stabilization level for the gap 	regions.
+                    Set solution stabilization level for gap model.
                     """
                 class sponge_layer(TUIMethod):
                     """
-                    Allows you to edit the solution stabilization settings for flow-modeling gap regions 	that have sponge-layer local stabilization 	enabled.
+                    Set advanced settings for gap sponge layer.
                     """
                 class update_gap_regions(TUIMethod):
                     """
@@ -1198,12 +1184,12 @@ class main_menu(TUIMenu):
                     """
                 class verbosity(TUIMethod):
                     """
-                    Sets the verbosity for messages printed in the console 	related to the gap model.
+                    Set the verbosity for gap model.
                     """
 
         class materials(TUIMenu):
             """
-            Enters the materials menu.
+            Enter the materials menu.
             """
             def __init__(self, service, version, mode, path):
                 self.data_base = self.__class__.data_base(service, version, mode, path + ["data_base"])
@@ -1216,32 +1202,32 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class change_create(TUIMethod):
                 """
-                Changes the properties of a locally-stored material or create a new material.   Generally, the properties you enter at the prompts will be filtered according to your case and model settings. However, some of the listed properties may not match the selection choice in the Graphics User Interface. Typically, those excessive properties in the Text User Interface will not be used in your simulation.
+                Change the properties of a locally-stored material or create a new material.
                 """
             class copy(TUIMethod):
                 """
-                Copies a material from the database.
+                No help available.
                 """
             class copy_by_formula(TUIMethod):
                 """
-                Copies a material from the database by formula.
+                No help available.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a material from local storage.
+                Delete a material from local storage.
                 """
             class list_materials(TUIMethod):
                 """
-                Lists all locally-stored materials.
+                No help available.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a locally-stored material.
+                No help available.
                 """
 
             class data_base(TUIMenu):
                 """
-                Enters the material database menu.
+                Enter the database menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.database_type = self.__class__.database_type(service, version, mode, path + ["database_type"])
@@ -1253,32 +1239,32 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class database_type(TUIMethod):
                     """
-                    Sets the database type 	(fluent-database, 	granta-mds, or 	user-defined).
+                    Set the database type.
                     """
                 class edit(TUIMethod):
                     """
-                    Edits material.
+                    Edit a material.
                     """
                 class list_materials(TUIMethod):
                     """
-                    Lists all materials in the database.
+                    No help available.
                     """
                 class list_properties(TUIMethod):
                     """
-                    Lists the properties of a material in the database.
+                    No help available.
                     """
                 class new(TUIMethod):
                     """
-                    Defines new material.
+                    Define a new material.
                     """
                 class save(TUIMethod):
                     """
-                    Saves user-defined database.
+                    Save user-defined database.
                     """
 
         class mesh_interfaces(TUIMenu):
             """
-            Enters the mesh-interfaces menu.
+            Enter the mesh-interfaces menu.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_options = self.__class__.auto_options(service, version, mode, path + ["auto_options"])
@@ -1320,7 +1306,7 @@ class main_menu(TUIMenu):
                 """
             class create(TUIMethod):
                 """
-                Creates mesh interfaces.
+                No help available.
                 """
             class create_manually(TUIMethod):
                 """
@@ -1328,11 +1314,11 @@ class main_menu(TUIMenu):
                 """
             class delete(TUIMethod):
                 """
-                Deletes a mesh interface.
+                No help available.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all mesh interfaces.
+                Delete all mesh interfaces.
                 """
             class delete_interfaces_with_small_overlap(TUIMethod):
                 """
@@ -1340,11 +1326,11 @@ class main_menu(TUIMenu):
                 """
             class display(TUIMethod):
                 """
-                Displays the specified mesh interface zone.
+                No help available.
                 """
             class edit(TUIMethod):
                 """
-                Edits attributes of existing mesh interfaces. For one-to-one interfaces, you can edit the name; for many-to-many interfaces, you can edit the interface options and (for a single interface) the name and the list of interface zones assigned to the interface.
+                Edit a mesh interface.
                 """
             class enable_si_with_nodes(TUIMethod):
                 """
@@ -1352,23 +1338,23 @@ class main_menu(TUIMenu):
                 """
             class enable_visualization_of_interfaces(TUIMethod):
                 """
-                Enables/disables the filling of node coordinates on the zones of mesh interfaces, so that they can be displayed in the graphics window.
+                No help available.
                 """
             class enforce_continuity_after_bc(TUIMethod):
                 """
-                Enables/disables continuity across the boundary condition interface for contour plots in postprocessing.
+                No help available.
                 """
             class enforce_coupled_wall_between_solids(TUIMethod):
                 """
-                Enables/disables automatic definition of solid-solid interfaces as coupled walls. By default this option is disabled and ANSYS Fluent creates interior boundaries at solid-solid interfaces.
+                No help available.
                 """
             class improve_quality(TUIMethod):
                 """
-                Checks the quality of all mapped interfaces. If Fluent finds any mapped interfaces that require improvement it will list them and ask you if you would like to increase the tolerance to improve the interfaces.
+                Improve mesh interface quality.
                 """
             class list(TUIMethod):
                 """
-                Lists all mesh interfaces.
+                No help available.
                 """
             class make_periodic(TUIMethod):
                 """
@@ -1396,11 +1382,11 @@ class main_menu(TUIMenu):
                 """
             class remove_left_handed_interface_faces(TUIMethod):
                 """
-                Removes left-handed faces (which can cause the mesh to be invalid) during mesh interface creation.
+                No help available.
                 """
             class transfer_motion_across_interfaces(TUIMethod):
                 """
-                Enables/disables the automatic transfer of motion across a mesh interface when only one side is moving as a result of user-defined or system coupling motion. You can specify the method by which the motion is transferred: transfer-displacements (the default) interpolates nodal displacement from the active side of the interface to the passive side, and is recommended when there are gaps and/or penetrations in the mesh interface that must be maintained; project-nodes projects the passive nodes onto the faces of active side, and is recommended when the active side includes significant tangential motion (as only the normal displacement is effectively transferred in this method).
+                No help available.
                 """
             class turbo_interfaces(TUIMethod):
                 """
@@ -1408,12 +1394,12 @@ class main_menu(TUIMenu):
                 """
             class verbosity(TUIMethod):
                 """
-                Sets the mesh interface verbosity.
+                No help available.
                 """
 
             class auto_options(TUIMenu):
                 """
-                Enters the auto-options menu. This menu is only available when the define/mesh-interfaces/one-to-one-pairing? text command is enabled.
+                Enter auto-options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.keep_empty_interface = self.__class__.keep_empty_interface(service, version, mode, path + ["keep_empty_interface"])
@@ -1432,11 +1418,11 @@ class main_menu(TUIMenu):
                     """
                 class naming_option(TUIMethod):
                     """
-                    Specifies whether the name of each new one-to-one mesh 	interface (as well as existing mesh interfaces, if you 	so desire) has no additional suffix, or a suffix that 	includes the names of the associated boundary zones, the 	IDs of the associated boundary zones, or the names of 	the adjacent cell zones.
+                    No help available.
                     """
                 class pairing_between_different_cell_zones_only(TUIMethod):
                     """
-                    Specifies whether the 	one-to-one mesh interfaces are only created between 	different cell zones.
+                    No help available.
                     """
                 class pairing_between_interface_zones_only(TUIMethod):
                     """
@@ -1444,11 +1430,11 @@ class main_menu(TUIMenu):
                     """
                 class proximity_tolerance(TUIMethod):
                     """
-                    Sets the tolerance used as part 	of the automatic grouping of zones to create mesh 	interfaces when the define/mesh-interfaces/one-to-one-pairing? 	text command is disabled. The proximity tolerance is 	defined relative to the edge lengths in the interface 	zones, and can range from 0 to 1 (representing the minimum 	and maximum edge lengths, respectively).
+                    No help available.
                     """
                 class set_default_name_prefix(TUIMethod):
                     """
-                    Specifies the default interface 	name prefix used for one-to-one mesh interfaces.
+                    No help available.
                     """
                 class set_exclusion_pairs(TUIMethod):
                     """
@@ -1460,7 +1446,7 @@ class main_menu(TUIMenu):
                     """
                 class set_one_to_one_pairing_tolerance(TUIMethod):
                     """
-                    Enables/disables the use of adjustable tolerances to 	determine which of the selected boundary zones can be 	paired up to make the mesh interfaces, in order to 	account for gaps, thin layers, and/or complex 	geometries.
+                    No help available.
                     """
 
             class mapped_interface_options(TUIMenu):
@@ -1499,7 +1485,7 @@ class main_menu(TUIMenu):
 
         class mixing_planes(TUIMenu):
             """
-            Enters the mixing planes menu.
+            Enter the mixing planes menu.
             """
             def __init__(self, service, version, mode, path):
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -1509,20 +1495,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Creates a mixing plane.
+                Create a mixing plane.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a mixing plane.
+                Delete a mixing plane.
                 """
             class list(TUIMethod):
                 """
-                Lists defined mixing plane(s).
+                List defined mixing plane(s).
                 """
 
             class set(TUIMenu):
                 """
-                Sets global parameters relevant to mixing planes.
+                Enter the mixing plane set menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.conserve_swirl = self.__class__.conserve_swirl(service, version, mode, path + ["conserve_swirl"])
@@ -1533,20 +1519,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class averaging_method(TUIMethod):
                     """
-                    Sets the mixing plane profile averaging method.
+                    Set mixing plane profile averaging method.
                     """
                 class fix_pressure_level(TUIMethod):
                     """
-                    Sets fixed pressure level using value based on define/reference-pressure-location.
+                    Set fix pressure level using define/reference-pressure-location.
                     """
                 class under_relaxation(TUIMethod):
                     """
-                    Sets mixing plane under-relaxation factor.
+                    Set mixing plane under-relaxation factor.
                     """
 
                 class conserve_swirl(TUIMenu):
                     """
-                    Enters the menu to set swirl conservation in mixing plane menu.
+                    Enter the mixing plane conserve-swirl menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -1555,20 +1541,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable(TUIMethod):
                         """
-                        Enables/disables swirl conservation in mixing plane.
+                        Enable/disable swirl conservation in mixing plane.
                         """
                     class report_swirl_integration(TUIMethod):
                         """
-                        Reports swirl integration (Torque) on inflow and outflow zones.
+                        Report swirl integration (torque) on inflow and outflow zones.
                         """
                     class verbosity(TUIMethod):
                         """
-                        Enables/disables verbosity in swirl conservation calculations.
+                        Enable/disable verbosity in swirl conservation calculations.
                         """
 
                 class conserve_total_enthalpy(TUIMenu):
                     """
-                    Enters the menu to set total enthalpy conservation in mixing plane menu.
+                    Enter the menu to set total enthalpy conservation in mixing plane menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -1576,16 +1562,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable(TUIMethod):
                         """
-                        Enables/disables total enthalpy conservation in mixing plane.
+                        Enable/disable total enthalpy conservation in mixing plane.
                         """
                     class verbosity(TUIMethod):
                         """
-                        Enables/disables verbosity in total-enthalpy conservation calculations.
+                        Enable/disable verbosity in total-enthalpy conservation calculations.
                         """
 
         class models(TUIMenu):
             """
-            Enters the models menu to configure the solver.
+            Enter the models menu to configure the solver.
             """
             def __init__(self, service, version, mode, path):
                 self.acoustics = self.__class__.acoustics(service, version, mode, path + ["acoustics"])
@@ -1633,27 +1619,27 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class ablation(TUIMethod):
                 """
-                Enables/disables the ablation model.
+                No help available.
                 """
             class addon_module(TUIMethod):
                 """
-                Loads addon module.
+                Load addon module.
                 """
             class axisymmetric(TUIMethod):
                 """
-                Specifies whether or not the domain is axisymmetric.
+                Enable/disable the axisymmetric model.
                 """
             class battery_model(TUIMethod):
                 """
-                Enables the dual potential MSMD battery model. For text commands that become available when the battery model is enabled, refer to Battery Model Text Commands.
+                Enter battery model menu.
                 """
             class crevice_model(TUIMethod):
                 """
-                Enables/disables the crevice model.
+                Enable/disable the crevice model.
                 """
             class crevice_model_controls(TUIMethod):
                 """
-                Enters the crevice model controls menu.
+                Enter the crevice model controls menu.
                 """
             class energy(TUIMethod):
                 """
@@ -1661,59 +1647,59 @@ class main_menu(TUIMenu):
                 """
             class frozen_flux(TUIMethod):
                 """
-                Enables/disables frozen flux formulation for transient flows.
+                No help available.
                 """
             class noniterative_time_advance(TUIMethod):
                 """
-                Enables/disables noniterative time advancement scheme.
+                No help available.
                 """
             class nox(TUIMethod):
                 """
-                Enables/disables the NOx model.
+                Enable/disable the NOx model.
                 """
             class potential_and_li_ion_battery(TUIMethod):
                 """
-                Enables/disables the electric-potential model.
+                Enable/disable the electric-potential model.
                 """
             class solidification_melting(TUIMethod):
                 """
-                Enables/disables the solidification and melting model.
+                Enable/disable the solidification and melting model.
                 """
             class soot(TUIMethod):
                 """
-                Enables/disables the soot model.
+                Enable/disable the soot model.
                 """
             class steady(TUIMethod):
                 """
-                Enables/disables the steady solution model.
+                Enable/disable the steady solution model.
                 """
             class swirl(TUIMethod):
                 """
-                Enables/disables axisymmetric swirl velocity.
+                Enable/disable axisymmetric swirl velocity.
                 """
             class unsteady_1st_order(TUIMethod):
                 """
-                Selects the first-order implicit formulation for transient simulations.
+                Enable/disable first-order unsteady solution model.
                 """
             class unsteady_2nd_order(TUIMethod):
                 """
-                Selects the second-order implicit formulation for transient simulations.
+                Enable/disable the second-order unsteady solution model.
                 """
             class unsteady_2nd_order_bounded(TUIMethod):
                 """
-                Selects the bounded second-order implicit formulation for transient simulations.
+                Enable/disable bounded second-order unsteady formulation.
                 """
             class unsteady_global_time(TUIMethod):
                 """
-                Selects the explicit transient formulation. This text command is only available for unsteady cases that use the density-based solver with the explicit formulation.
+                Enable/disable the unsteady global-time-step solution model.
                 """
             class unsteady_structure_euler(TUIMethod):
                 """
-                Selects the backward Euler method for the direct time integration of the finite element semi-discrete equation of motion. This text command is only available for transient simulations that use the structural model.
+                Enable/disable Backward Euler unsteady solution model.
                 """
             class unsteady_structure_newmark(TUIMethod):
                 """
-                Selects the Newmark method for the direct time integration of the finite element semi-discrete equation of motion. This text command is only available for transient simulations that use the structural model.
+                Enable/disable Newmark unsteady solution model.
                 """
             class use_limiter_in_time(TUIMethod):
                 """
@@ -1722,7 +1708,7 @@ class main_menu(TUIMenu):
 
             class acoustics(TUIMenu):
                 """
-                Enters the acoustics menu.
+                Enter the acoustics model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.far_field_parameters = self.__class__.far_field_parameters(service, version, mode, path + ["far_field_parameters"])
@@ -1758,27 +1744,27 @@ class main_menu(TUIMenu):
                     """
                 class auto_prune(TUIMethod):
                     """
-                    Enables/disables auto prune of the receiver signal(s) during 	read-and-compute.
+                    No help available.
                     """
                 class broad_band_noise(TUIMethod):
                     """
-                    Enables/disables the broadband noise model.
+                    Enable/disable the broadband noise model.
                     """
                 class compute_write(TUIMethod):
                     """
-                    Computes sound pressure.
+                    Compute sound pressure.
                     """
                 class convective_effects(TUIMethod):
                     """
-                    Enables/disables the convective effects option.
+                    Enable/disable convective effects option.
                     """
                 class cylindrical_export(TUIMethod):
                     """
-                    Enables/disables the export of data in cylindrical coordinates.
+                    Enable/disable the export data in cylindrical coordinates.
                     """
                 class display_flow_time(TUIMethod):
                     """
-                    Enables/disables the display of flow time during read-and-compute.
+                    Enable/disable the display of flow time during read-and-compute.
                     """
                 class display_frequencies(TUIMethod):
                     """
@@ -1786,23 +1772,23 @@ class main_menu(TUIMenu):
                     """
                 class export_source_data(TUIMethod):
                     """
-                    Enables/disables the export of acoustic source data in 	ASD format during the wave equation model run.
+                    No help available.
                     """
                 class export_source_data_cgns(TUIMethod):
                     """
-                    Enables/disables the export of acoustic source data in CGNS format.
+                    No help available.
                     """
                 class export_volumetric_sources(TUIMethod):
                     """
-                    Enables/disables the export of fluid zones.
+                    Enable/disable the export of fluid zones.
                     """
                 class export_volumetric_sources_cgns(TUIMethod):
                     """
-                    Enables/disables the export of fluid zones.
+                    No help available.
                     """
                 class ffowcs_williams(TUIMethod):
                     """
-                    Enables/disables the Ffowcs-Williams-and-Hawkings model.
+                    Enable/disable the Ffowcs Williams and Hawkings model.
                     """
                 class modal_analysis(TUIMethod):
                     """
@@ -1810,40 +1796,40 @@ class main_menu(TUIMenu):
                     """
                 class moving_receiver(TUIMethod):
                     """
-                    Enables/disables the moving receiver option.
+                    Enable/disable moving receiver option.
                     """
                 class off(TUIMethod):
                     """
-                    Enables/disables the acoustics model.
+                    Enable/disable the acoustics model.
                     """
                 class read_compute_write(TUIMethod):
                     """
-                    Reads acoustic source data files and computes sound pressure.
+                    Read acoustic source data files and compute sound pressure.
                     """
                 class receivers(TUIMethod):
                     """
-                    Sets acoustic receivers.
+                    Set acoustic receivers.
                     """
                 class sources(TUIMethod):
                     """
-                    Sets acoustic sources.
+                    Set acoustic sources.
                     """
                 class wave_equation(TUIMethod):
                     """
-                    Enables/disables the wave equation model.
+                    Enable/disable the wave equation model.
                     """
                 class write_acoustic_signals(TUIMethod):
                     """
-                    Writes on-the-fly sound pressure.
+                    Write on-the-fly sound pressure.
                     """
                 class write_centroid_info(TUIMethod):
                     """
-                    Writes centroid info.
+                    Write centroid info.
                     """
 
                 class far_field_parameters(TUIMenu):
                     """
-                    Enters the menu to specify the far-field density and 	speed of sound. Note that this menu is currently 	available only with the acoustics wave equation model.
+                    Enter the far field parameters menu for the wave equation model.
                     """
                     def __init__(self, service, version, mode, path):
                         self.far_field_density = self.__class__.far_field_density(service, version, mode, path + ["far_field_density"])
@@ -1851,16 +1837,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class far_field_density(TUIMethod):
                         """
-                        Specifies the far-field density value for the acoustics wave equation model.
+                        Specify far field density.
                         """
                     class far_field_sound_speed(TUIMethod):
                         """
-                        Specifies the far-field speed of sound value for the acoustics wave equation model.
+                        Specify far field speed of sound.
                         """
 
                 class sources_fft(TUIMenu):
                     """
-                    Enters the acoustic sources fast Fourier transform (FFT) menu, to compute Fourier 	spectra from acoustic source data (ASD) files, create 	postprocessing variables for the pressure signals, and 	write CGNS files of the spectrum data.
+                    Enter the acoustic sources FFT menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.fft_surface_variables = self.__class__.fft_surface_variables(service, version, mode, path + ["fft_surface_variables"])
@@ -1871,24 +1857,24 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class clean_up_storage_area(TUIMethod):
                         """
-                        De-allocates memory used to store the pressure histories and their Fourier spectra, as well as any created surface variables for the visualization.
+                        Clean up storage area.
                         """
                     class compute_fft_fields(TUIMethod):
                         """
-                        Computes FFT of the read pressure histories. The computed spectra replace the pressure histories in memory.
+                        Compute FFT fields.
                         """
                     class read_asd_files(TUIMethod):
                         """
-                        Reads ASD files to perform FFT of the pressure history field.
+                        Read ASD files.
                         """
                     class write_cgns_files(TUIMethod):
                         """
-                        Writes surface pressure spectra in CGNS format, which can be used for one-way coupling with Ansys Mechanical in the frequency domain.
+                        Write CGNS files.
                         """
 
                     class fft_surface_variables(TUIMenu):
                         """
-                        Enters the menu to create surface variables from the computed Fourier spectra for visualization.
+                        Enter the FFT surface variables menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.create_constant_width_bands = self.__class__.create_constant_width_bands(service, version, mode, path + ["create_constant_width_bands"])
@@ -1899,23 +1885,23 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class create_constant_width_bands(TUIMethod):
                             """
-                            Selects up to 20 constant width bands and creates either the surface pressures level (SPL) variables or the PSD of dp/dt variables for them.
+                            Create constant-width bands.
                             """
                         class create_octave_bands(TUIMethod):
                             """
-                            Creates either the surface pressure level (SPL) variables or the PSD of dp/dt variables for 17 technical octaves.
+                            Create octave bands.
                             """
                         class create_set_of_modes(TUIMethod):
                             """
-                            Selects up to 20 individual Fourier modes and create variable pairs for them, containing the real and the imaginary parts of the complex Fourier amplitudes.
+                            Create set of modes.
                             """
                         class create_third_bands(TUIMethod):
                             """
-                            Creates either the surface pressure level (SPL) variables or the PSD of dp/dt variables for 54 technical thirds.
+                            Create third bands.
                             """
                         class remove_variables(TUIMethod):
                             """
-                            Removes all variables created in this menu.
+                            Remove variables.
                             """
 
                 class sponge_layers(TUIMenu):
@@ -1946,15 +1932,15 @@ class main_menu(TUIMenu):
                         """
                     class delete(TUIMethod):
                         """
-                        Deletes an existing sponge layer definition.
+                        Delete a sponge layer definition.
                         """
                     class edit(TUIMethod):
                         """
-                        Edits an existing sponge layer. You can revise the fields listed previously for the define/models/acoustics/sponge-layers/add text command.
+                        Edit a sponge layer definition.
                         """
                     class list(TUIMethod):
                         """
-                        Prints a list of the existing sponge layers in the console.
+                        List the names of the sponge layer definitions.
                         """
                     class list_active(TUIMethod):
                         """
@@ -1962,12 +1948,12 @@ class main_menu(TUIMenu):
                         """
                     class list_properties(TUIMethod):
                         """
-                        Prints the properties of an existing sponge layer of your choice in the console.
+                        List the properties of a sponge layer definition.
                         """
 
                 class wave_equation_options(TUIMenu):
                     """
-                    Enters the menu to define the acoustics wave equation 	model options.
+                    Enter the options menu for the wave equation model.
                     """
                     def __init__(self, service, version, mode, path):
                         self.basic_shapes = self.__class__.basic_shapes(service, version, mode, path + ["basic_shapes"])
@@ -1981,11 +1967,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class remote_receivers(TUIMethod):
                         """
-                        Enables/disables the Kirchhoff integral model.
+                        Activate the Kirchhoff's integral method for remote receivers.
                         """
                     class source_mask_udf(TUIMethod):
                         """
-                        Specifies the name of a user-defined function, which defines geometry of the source mask.
+                        Select user-defined function for sound source masking.
                         """
                     class sponge_layer_base_level(TUIMethod):
                         """
@@ -1993,20 +1979,21 @@ class main_menu(TUIMenu):
                         """
                     class sponge_layer_factor(TUIMethod):
                         """
-                        Specifies the factor of the artificial viscosity coefficient.
+                        Specify artificial viscosity factor for sponge layer.
                         """
                     class sponge_layer_udf(TUIMethod):
                         """
-                        Specifies the name of a user-defined function, which defines geometry of the sponge layer.
+                        Select user-defined function for sponge layer.
                         """
                     class time_filter_source(TUIMethod):
                         """
-                        Enables/disables a time filter for the sound source.
+                        Activate time-filtering of sound sources.
                         """
 
                     class basic_shapes(TUIMenu):
                         """
-                        Enters the menu to define the geometry of the source mask and sponge layer using the basic shapes, represented by the cell registers of the type "Region".
+                        Enter the basic shapes menu to build source mask and sponge layer
+                        geometry shapes using cell registers.
                         """
                         def __init__(self, service, version, mode, path):
                             self.add_source_mask_shape = self.__class__.add_source_mask_shape(service, version, mode, path + ["add_source_mask_shape"])
@@ -2019,36 +2006,36 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class add_source_mask_shape(TUIMethod):
                             """
-                            Adds a basic shape to the definition of the source mask geometry.
+                            Add a region register for the source mask.
                             """
                         class add_sponge_layer_shape(TUIMethod):
                             """
-                            Adds a basic shape to the definition of the sponge layer geometry.
+                            Add a region register for the sponge layer.
                             """
                         class list_region_registers(TUIMethod):
                             """
-                            List all available cell registers of the type "Region".
+                            List all available region registers (hex/cylinder/sphere).
                             """
                         class list_source_mask_shapes(TUIMethod):
                             """
-                            List basic shapes, which are currently used in the definition of the source mask geometry.
+                            List all active source mask registers.
                             """
                         class list_sponge_layer_shapes(TUIMethod):
                             """
-                            List basic shapes, which are currently used in the definition of the sponge layer geometry.
+                            List all active sponge layer registers.
                             """
                         class remove_source_mask_shape(TUIMethod):
                             """
-                            Remove a basic shape from the definition of the source mask geometry.
+                            Remove a region register from the source mask.
                             """
                         class remove_sponge_layer_shape(TUIMethod):
                             """
-                            Remove a basic shape from the definition of the sponge layer geometry.
+                            Remove a region register from the sponge layer.
                             """
 
                     class remote_receivers_options(TUIMenu):
                         """
-                        Enters the menu to define remote receivers for the Kirchhoff integral model.
+                        Enter the menu to set up the Kirchhoff's integral method and output its results.
                         """
                         def __init__(self, service, version, mode, path):
                             self.integration_surface = self.__class__.integration_surface(service, version, mode, path + ["integration_surface"])
@@ -2056,16 +2043,16 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class integration_surface(TUIMethod):
                             """
-                            Selects the integration surface for the Kirchhoff model.
+                            Select Kirchhoff's integration surface.
                             """
                         class write_signals(TUIMethod):
                             """
-                            Writes the computed receiver signals to the ASCII files.
+                            Write signals calculated at receiver locations.
                             """
 
             class cht(TUIMenu):
                 """
-                Enters the cht (conjugate heat transfer) menu.
+                Enter the mapped interface model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.explicit_time_averaged_coupling = self.__class__.explicit_time_averaged_coupling(service, version, mode, path + ["explicit_time_averaged_coupling"])
@@ -2075,7 +2062,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class implicit_coupling(TUIMethod):
                     """
-                    Enables the implicit mapping scheme for any 	fluid-solid pair with a mapped mesh interface (only 	required for cases set up in version 19.2 or 	earlier).
+                    Enable/disable implicit coupling for mapped interface.
                     """
                 class read_mi_type_wall(TUIMethod):
                     """
@@ -2088,7 +2075,7 @@ class main_menu(TUIMenu):
 
                 class explicit_time_averaged_coupling(TUIMenu):
                     """
-                    Enters the explicit time averaged thermal coupling 	menu.
+                    Enter the explcit time averaged thermal coupling menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.conformal_coupled_walls = self.__class__.conformal_coupled_walls(service, version, mode, path + ["conformal_coupled_walls"])
@@ -2115,7 +2102,7 @@ class main_menu(TUIMenu):
 
             class dpm(TUIMenu):
                 """
-                Enters the dispersed phase model menu.
+                Enter the dispersed phase model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.collisions = self.__class__.collisions(service, version, mode, path + ["collisions"])
@@ -2135,7 +2122,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class clear_particles_from_domain(TUIMethod):
                     """
-                    Removes/keeps all particles currently in the domain.
+                    Remove/keep all particles currently in the domain.
                     """
                 class fill_injection_material_sources(TUIMethod):
                     """
@@ -2143,24 +2130,24 @@ class main_menu(TUIMenu):
                     """
                 class injections(TUIMethod):
                     """
-                    Enters the injections menu.
+                    Enter the injections menu.
                     """
                 class spray_model(TUIMethod):
                     """
-                    Enters the spray model menu. This command is available only if the breakup model 	enabled globally.
+                    Enter the spray model menu.
                     """
                 class unsteady_tracking(TUIMethod):
                     """
-                    Enables/disables unsteady particle tracking.
+                    Enable/disable unsteady particle tracking.
                     """
                 class user_defined(TUIMethod):
                     """
-                    Sets DPM user-defined functions.
+                    No help available.
                     """
 
                 class collisions(TUIMenu):
                     """
-                    Enters the DEM collisions menu.
+                    Enter the DEM collisions menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.collision_partners = self.__class__.collision_partners(service, version, mode, path + ["collision_partners"])
@@ -2176,11 +2163,11 @@ class main_menu(TUIMenu):
                         """
                     class collision_pair_settings(TUIMethod):
                         """
-                        Supplies settings for collisions to a pair of collision partners. You will be prompted to specify theImpact collision partner and the Target collision partner.
+                        Supply settings for collisions to a pair of collision partners.
                         """
                     class dem_collisions(TUIMethod):
                         """
-                        Enables/disables the DEM collision model.
+                        Enable/disable the DEM collision model.
                         """
                     class list_all_pair_settings(TUIMethod):
                         """
@@ -2188,12 +2175,12 @@ class main_menu(TUIMenu):
                         """
                     class max_particle_velocity(TUIMethod):
                         """
-                        Sets the maximum particle velocity that may arise from collisions.
+                        Set the maximum particle velocity that may arise from collisions.
                         """
 
                     class collision_partners(TUIMenu):
                         """
-                        Manages collision partners.
+                        Manage collision partners.
                         """
                         def __init__(self, service, version, mode, path):
                             self.copy = self.__class__.copy(service, version, mode, path + ["copy"])
@@ -2204,15 +2191,15 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class copy(TUIMethod):
                             """
-                            Copies a collision partner.
+                            Copy a collision partner.
                             """
                         class create(TUIMethod):
                             """
-                            Creates a collision partner.
+                            Create a collision partner.
                             """
                         class delete(TUIMethod):
                             """
-                            Deletes a collision partner.
+                            Delete a collision partner.
                             """
                         class list(TUIMethod):
                             """
@@ -2220,12 +2207,12 @@ class main_menu(TUIMenu):
                             """
                         class rename(TUIMethod):
                             """
-                            Renames a collision partner.
+                            Rename a collision partner.
                             """
 
                 class erosion_dynamic_mesh(TUIMenu):
                     """
-                    Enters the menu to enable/configure/run the erosion-dynamic mesh interaction.
+                    Enter the erosion-dynamic mesh interactions menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.general_parameters = self.__class__.general_parameters(service, version, mode, path + ["general_parameters"])
@@ -2235,16 +2222,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable_erosion_dynamic_mesh_coupling(TUIMethod):
                         """
-                        Enables mesh deformation due to wall erosion.
+                        Enable mesh deformation due to wall erosion.
                         """
                     class run_simulation(TUIMethod):
                         """
-                        Performs a coupled erosion-dynamic mesh simulation.
+                        Perform coupled erosion-dynamic mesh simulation.
                         """
 
                     class general_parameters(TUIMenu):
                         """
-                        Enters the menu for setting erosion coupling with dynamic mesh.
+                        Enter the erosion-dynamic mesh setup menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.dynamic_mesh_settings = self.__class__.dynamic_mesh_settings(service, version, mode, path + ["dynamic_mesh_settings"])
@@ -2253,20 +2240,20 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class dynamic_mesh_settings(TUIMethod):
                             """
-                            Sets parameters for dynamic mesh calculations.
+                            Perform dynamic mesh related setup.
                             """
                         class erosion_settings(TUIMethod):
                             """
-                            Sets parameters for erosion calculations.
+                            Set erosion modelling specific settings.
                             """
                         class participating_walls(TUIMethod):
                             """
-                            Specifies all participating walls.
+                            Specify all participating walls.
                             """
 
                     class run_parameters(TUIMenu):
                         """
-                        Manages erosion-dynamic mesh run settings.
+                        Enter the erosion-dynamic mesh run menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.autosave_files = self.__class__.autosave_files(service, version, mode, path + ["autosave_files"])
@@ -2277,28 +2264,28 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class autosave_files(TUIMethod):
                             """
-                            Sets the iteration increment and filename to save data files.
+                            Set the iteration increment to save data files.
                             """
                         class autosave_graphics(TUIMethod):
                             """
-                            Sets the iteration increment to save graphics files.
+                            Set the iteration increment to save graphics files.
                             """
                         class flow_simulation_control(TUIMethod):
                             """
-                            Sets the number of iterations per flow simulation step.
+                            Set number of iterations per flow simulation step.
                             """
                         class mesh_motion_time_step(TUIMethod):
                             """
-                            Sets the mesh motion time stepping parameters and method.
+                            Set the mesh motion time stepping parameters and method.
                             """
                         class simulation_termination(TUIMethod):
                             """
-                            Sets the total time of erosion.
+                            Set total time of erosion.
                             """
 
                 class interaction(TUIMenu):
                     """
-                    Sets parameters for coupled discrete phase calculations.
+                    Enter the interaction menu to set parameters for coupled discrete phase calculations.
                     """
                     def __init__(self, service, version, mode, path):
                         self.choice_of_eulerian_phase_for_interaction = self.__class__.choice_of_eulerian_phase_for_interaction(service, version, mode, path + ["choice_of_eulerian_phase_for_interaction"])
@@ -2335,7 +2322,7 @@ class main_menu(TUIMenu):
                         """
                     class coupled_calculations(TUIMethod):
                         """
-                        Selects whether or not to couple continuous and discrete phase calculations.
+                        No help available.
                         """
                     class ddpm_energy_coupling_via_source_term(TUIMethod):
                         """
@@ -2351,7 +2338,7 @@ class main_menu(TUIMenu):
                         """
                     class dpm_iteration_interval(TUIMethod):
                         """
-                        Sets the frequency with which the particle trajectory calculations are introduced.
+                        Set the number of continuous phase iterations per DPM iteration.
                         """
                     class enable_drag_scaling_due_to_flow_blocking(TUIMethod):
                         """
@@ -2379,11 +2366,11 @@ class main_menu(TUIMenu):
                         """
                     class implicit_momentum_coupling(TUIMethod):
                         """
-                        Enables/disables implicit treatment for the DPM momentum source terms.
+                        No help available.
                         """
                     class implicit_source_term_coupling(TUIMethod):
                         """
-                        Enables/disables implicit treatment for all DPM source terms.
+                        No help available.
                         """
                     class keep_linearized_dpm_source_terms_constant(TUIMethod):
                         """
@@ -2391,15 +2378,15 @@ class main_menu(TUIMenu):
                         """
                     class linear_growth_of_dpm_source_term(TUIMethod):
                         """
-                        Enables/disables the linear ramping up of the DPM source terms at every DPM iteration.
+                        No help available.
                         """
                     class linearized_dpm_mixture_fraction_source_terms(TUIMethod):
                         """
-                        Enables/disables linearization of mixture fraction source terms. This command is available only for non- or partially-premixed combustion cases.
+                        Perform a linearization of mixture fraction source terms.
                         """
                     class linearized_dpm_source_terms(TUIMethod):
                         """
-                        Enables/disables linearization of source terms for the discrete phase.
+                        No help available.
                         """
                     class linearized_dpm_source_terms_limiter(TUIMethod):
                         """
@@ -2419,11 +2406,11 @@ class main_menu(TUIMenu):
                         """
                     class replace_dpm_mass_source_by_mixture_fraction(TUIMethod):
                         """
-                        When enabled, recalculates the mixture fraction source terms as a function of the primary mixture fraction. This command is available for non- or partially-premixed combustion cases only.
+                        Recalculate the mixture fraction source terms as function of the primary mixture fraction?.
                         """
                     class reset_sources_at_timestep(TUIMethod):
                         """
-                        Enables/disables flush of DPM source terms at beginning of every time step.
+                        No help available.
                         """
                     class second_order_time_accurate_sources_enabled(TUIMethod):
                         """
@@ -2431,16 +2418,16 @@ class main_menu(TUIMenu):
                         """
                     class underrelaxation_factor(TUIMethod):
                         """
-                        Sets the under-relaxation factor for the discrete phase sources.
+                        No help available.
                         """
                     class update_dpm_sources_every_flow_iteration(TUIMethod):
                         """
-                        Enables/disables the update of DPM source terms every flow iteration (if this option is not enabled, the terms will be updated every DPM iteration).
+                        No help available.
                         """
 
                 class numerics(TUIMenu):
                     """
-                    Enters the numerics menu to set numerical solution parameters.
+                    Enter the numerics menu to set numerical solution parameters.
                     """
                     def __init__(self, service, version, mode, path):
                         self.high_resolution_tracking = self.__class__.high_resolution_tracking(service, version, mode, path + ["high_resolution_tracking"])
@@ -2481,23 +2468,23 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class automated_scheme_selection(TUIMethod):
                         """
-                        Enables/disables the adaptation of integration step length based on a maximum error.
+                        Enable/disable the adaptation of integration step length based on a maximum error.
                         """
                     class average_DDPM_variables(TUIMethod):
                         """
-                        Enables/disables mesh node averaging of DDPM quantities.
+                        No help available.
                         """
                     class average_each_step(TUIMethod):
                         """
-                        Enables/disables mesh node averaging during integration time step.
+                        No help available.
                         """
                     class average_kernel(TUIMethod):
                         """
-                        Specifies the averaging kernel to use for mesh node averaging.
+                        No help available.
                         """
                     class average_source_terms(TUIMethod):
                         """
-                        Enables/disables mesh node averaging of DPM source terms.
+                        No help available.
                         """
                     class consider_pressure_drho_dt(TUIMethod):
                         """
@@ -2505,11 +2492,11 @@ class main_menu(TUIMenu):
                         """
                     class coupled_heat_mass_update(TUIMethod):
                         """
-                        Enables/disables coupled heat and mass update.
+                        No help available.
                         """
                     class drag_law(TUIMethod):
                         """
-                        Sets the drag law.
+                        Set the drag law.
                         """
                     class dynamic_interaction(TUIMethod):
                         """
@@ -2517,7 +2504,7 @@ class main_menu(TUIMenu):
                         """
                     class enable_node_based_averaging(TUIMethod):
                         """
-                        Enables/disables mesh node averaging of DPM quantities.
+                        No help available.
                         """
                     class enhanced_packing_limit_numerics(TUIMethod):
                         """
@@ -2525,7 +2512,7 @@ class main_menu(TUIMenu):
                         """
                     class error_control(TUIMethod):
                         """
-                        Adapts integration step length based on a maximum error.
+                        No help available.
                         """
                     class fluid_formulation_momentum(TUIMethod):
                         """
@@ -2533,7 +2520,7 @@ class main_menu(TUIMenu):
                         """
                     class gaussian_factor(TUIMethod):
                         """
-                        Specifies the Gaussian constant when using thegaussian kernel for mesh node averaging.
+                        No help available.
                         """
                     class granular_stress_tensor(TUIMethod):
                         """
@@ -2545,7 +2532,7 @@ class main_menu(TUIMenu):
                         """
                     class minimum_liquid_fraction(TUIMethod):
                         """
-                        A droplet evaporates completely when the remaining mass is below this fraction of the initial droplet mass.
+                        Evaporate droplet completely when the remaining mass is below this fraction of initial mass.
                         """
                     class mppic_settings(TUIMethod):
                         """
@@ -2565,11 +2552,11 @@ class main_menu(TUIMenu):
                         """
                     class re_randomize_every_iteration(TUIMethod):
                         """
-                        Determines whether or not the initial particle positions will vary from iteration to iteration.
+                        Decide whether pseudo-random number sequences shall vary from iteration to iteration or not.
                         """
                     class re_randomize_every_timestep(TUIMethod):
                         """
-                        Determines whether or not the initial particle positions will vary from time step to time step.
+                        Decide whether pseudo-random number sequences shall vary from timestep to timestep or not.
                         """
                     class set_overpacking_force_model(TUIMethod):
                         """
@@ -2581,19 +2568,19 @@ class main_menu(TUIMenu):
                         """
                     class tracking_parameters(TUIMethod):
                         """
-                        Sets parameters for the (initial) tracking step length.
+                        Set parameters for the (initial) tracking step length.
                         """
                     class tracking_scheme(TUIMethod):
                         """
-                        Specifies a tracking scheme.
+                        Specify a tracking scheme.
                         """
                     class tracking_statistics(TUIMethod):
                         """
-                        Controls the format of the one-line tracking statistics to be printed after every DPM tracking pass. A value of 0 (the default) prints only fates with non-zero values. A value of 1 prints all fates, including fates with zero values.
+                        No help available.
                         """
                     class underrelax_film_height(TUIMethod):
                         """
-                        Sets the under-relaxation factor for the film height calculation. The recommended values range between 0.5 (default) and 0.9.
+                        Define underrelaxation factor for film height.
                         """
                     class use_advanced_settings_for_epln(TUIMethod):
                         """
@@ -2609,7 +2596,7 @@ class main_menu(TUIMenu):
                         """
                     class vaporization_limiting_factors(TUIMethod):
                         """
-                        Sets the Vaporization Fractional Change Limits.
+                        Set Vaporization Fractional Change Limits.
                         """
                     class verbosity(TUIMethod):
                         """
@@ -2618,7 +2605,7 @@ class main_menu(TUIMenu):
 
                     class high_resolution_tracking(TUIMenu):
                         """
-                        Enters the high resolution tracking menu. See  for more information about these options.
+                        Enter the high resolution tracking menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.barycentric_interpolation = self.__class__.barycentric_interpolation(service, version, mode, path + ["barycentric_interpolation"])
@@ -2645,27 +2632,27 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class always_use_face_centroid_with_periodics(TUIMethod):
                             """
-                            When enabled, ANSYS Fluent uses quad face centroids when creating subtets in cases with periodic boundaries.
+                            No help available.
                             """
                         class boundary_layer_tracking(TUIMethod):
                             """
-                            Enables/disables the calculation of the particle time step that considers both the cell aspect ratio and the particle trajectory. This method improves the accuracy of the predictions in boundary layer cells, particularly in layers where flow gradients are large.
+                            No help available.
                             """
                         class check_subtet_validity(TUIMethod):
                             """
-                            When enabled, checks the validity of a subtet when the particle first enters it. If the subtet is found to be degenerate, the tracking algorithm modifies to accommodate it.
+                            No help available.
                             """
                         class enable_automatic_intersection_tolerance(TUIMethod):
                             """
-                            Enables/disables the automatic calculation of intersection tolerance. By default, the tolerance used in intersection calculations is scaled by the residence time of the particle in the cell to improve robustness. For most cases, the scaled tolerance is sufficient to identify all intersections of the particle trajectory and the subtet faces. You can set the intersection tolerance manually using the set-subtet-intersection-tolerance text command.
+                            No help available.
                             """
                         class enable_barycentric_intersections(TUIMethod):
                             """
-                            Enables/disables an alternative method of calculating intersections with cell boundaries. Barycentric intersections are linear calculations and are faster than the default intersection algorithm. The default intersection algorithm is second-order for stationary meshes; therefore, using the barycentric intersection may sacrifice accuracy. You must verify that the barycentric intersections provide comparable results to the default intersection method. This option is available only for 3D stationary meshes and the double precision solver.
+                            No help available.
                             """
                         class enable_high_resolution_tracking(TUIMethod):
                             """
-                            Enables/disables high resolution tracking.
+                            No help available.
                             """
                         class enhanced_wallfilm_location_method(TUIMethod):
                             """
@@ -2677,7 +2664,7 @@ class main_menu(TUIMenu):
                             """
                         class project_wall_film_particles_to_film(TUIMethod):
                             """
-                            Enables/disables projecting existing particles to Lagrangian wall film to track using high-resolution tracking.  When reading in a data file that contains wall film particles previously tracked with the existing ANSYS Fluent tracking method, you need to either clear the particles from the domain or project their positions to the wall film surface using the project-wall-film-particles-to-film? text command prior to using the high-resolution tracking method. After tracking the particles for one timestep, this option can be disabled to improve performance.
+                            Project existing particles to film to track using high resolution tracking?.
                             """
                         class remove_stuck_particles(TUIMethod):
                             """
@@ -2689,15 +2676,15 @@ class main_menu(TUIMenu):
                             """
                         class set_subtet_intersection_tolerance(TUIMethod):
                             """
-                            Specifies the tolerance used in intersection calculations. This tolerance will be scaled by the characteristic cell crossing time of the particle if the enable-automatic-intersection-tolerance? text command is enabled. If that option is disabled, the specified tolerance will be used without scaling. The default intersection tolerance is 10-5.
+                            Set the tolerance for subtet intersection calculations.
                             """
                         class sliding_interface_crossover_fraction(TUIMethod):
                             """
-                            Specifies the fraction of the distance to the subtet center to move the particle.  At non-conformal interfaces, the nodes used for the barycentric interpolation are different on either side of the interface. This may result in incomplete particles due to discontinuities in the variable interpolation. The number of incomplete particles may be reduced by moving the particles slightly off of the sliding interface. Recommended values range between 0 and 0.5.
+                            Move the particle a fraction of the distance to the subtet center when crossing a sliding interface.
                             """
                         class use_barycentric_sampling(TUIMethod):
                             """
-                            When enabled, this option provides improved accuracy and parallel consistency when sampling particles at planes. This item is available only with the 3D solver. Using the double-precision solver and bounded planes is recommended.
+                            No help available.
                             """
                         class use_legacy_particle_location_method(TUIMethod):
                             """
@@ -2705,15 +2692,15 @@ class main_menu(TUIMenu):
                             """
                         class use_particle_timestep_for_intersection_tolerance(TUIMethod):
                             """
-                            Enables/disables the use of the particle timestep for the subtet intersection tolerance with axisymmetric grids (default: enabled). If disabled, the tolerance will be calculated in the same manner as non-axisymmetric meshes (a scaled value of the tolerance which is set using the define/models/dpm/numerics/high-resolution-tracking/set-subtet-intersection-tolerance text command).
+                            Use the particle timestep for the axisymmetric subtet intersection tolerance.
                             """
                         class use_quad_face_centroid(TUIMethod):
                             """
-                            Enables/disables using quad face centroids when creating subtets. This option changes the way hexahedral cells are decomposed to avoid creating degenerate subtets.
+                            No help available.
                             """
                         class use_velocity_based_error_control(TUIMethod):
                             """
-                            Enables/disables an alternative method of timestep adaption. By default, ANSYS Fluent uses the half-step method of timestep adaption with particle integration. This alternative method of controlling the integration timestep based upon velocity changes is faster; however, you need to ensure that the accuracy is comparable for your specific application.
+                            Use adaptive time stepping based upon the particle velocity.
                             """
                         class wallfilm_relocation_tolerance(TUIMethod):
                             """
@@ -2743,27 +2730,27 @@ class main_menu(TUIMenu):
                                 """
                             class interpolate_flow_cp(TUIMethod):
                                 """
-                                Enables/disables the barycentric interpolation of specific heat to the particle position. This option is recommended when the specific heat varies with position to avoid discontinuities in the interpolated variable at cell boundaries. For flows with constant specific heat, this option is unnecessary.
+                                No help available.
                                 """
                             class interpolate_flow_density(TUIMethod):
                                 """
-                                Enables/disables the barycentric interpolation of the flow density. This option is recommended when the density varies with position to avoid discontinuities in the interpolated variable at cell boundaries. For constant density flows, this option is unnecessary.
+                                No help available.
                                 """
                             class interpolate_flow_solution_gradients(TUIMethod):
                                 """
-                                When enabled, flow solution gradients are interpolated to the particle position. This can be useful when using physical models that depend on these gradients (for example, the thermophoretic force, pressure-gradient force, or virtual mass force). Interpolating the gradients also improves the accuracy and robustness of the trapezoidal numerics scheme, which is the default method for pathlines.
+                                No help available.
                                 """
                             class interpolate_flow_viscosity(TUIMethod):
                                 """
-                                Enables/disables the barycentric interpolation of flow viscosity to the particle position. This option is recommended when the flow viscosity varies with position to avoid discontinuities in the interpolated variable at cell boundaries. For flows with constant viscosity, this option is unnecessary.
+                                No help available.
                                 """
                             class interpolate_temperature(TUIMethod):
                                 """
-                                Enables/disables the barycentric interpolation of temperature to the particle position. The cell temperature is used by default in calculations of heat transfer to/from the particle.
+                                No help available.
                                 """
                             class interpolate_wallfilm_properties(TUIMethod):
                                 """
-                                When enabled, the wall film properties (film height, film mass, and wall shear) are interpolated to the particle position.
+                                Enable interpolation of wallfilm properties to the particle position.
                                 """
                             class nodal_reconstruction_frequency(TUIMethod):
                                 """
@@ -2771,7 +2758,7 @@ class main_menu(TUIMenu):
                                 """
                             class precompute_pdf_species(TUIMethod):
                                 """
-                                When this option is enabled for premixed or non-premixed combustion simulations, the species composition in each cell is precomputed prior to tracking particles. This approach may improve performance for cases with many particles and relatively few cells. By default, this option is set to no, and ANSYS Fluent calculates the species composition during particle tracking. The solution results will be identical for both methods.
+                                Precompute cell values of PDF species mass fractions prior to particle tracking.
                                 """
                             class user_interpolation_function(TUIMethod):
                                 """
@@ -2779,7 +2766,7 @@ class main_menu(TUIMenu):
                                 """
                             class zero_nodal_velocity_on_walls(TUIMethod):
                                 """
-                                When enabled, sets the velocity at wall nodes to zero. (By default, the nodal velocities on walls are first reconstructed from cell and face values and then corrected to ensure that there are no velocity components directed towards the walls). This may be useful if you want to consider particle impingement on the walls. Note that enabling this option will more likely produce incomplete particles as some particles may settle on the walls.
+                                No help available.
                                 """
 
                         class particle_relocation(TUIMenu):
@@ -2821,7 +2808,7 @@ class main_menu(TUIMenu):
 
                 class options(TUIMenu):
                     """
-                    Enters the options menu to set optional models.
+                    Enter the options menu to set optional DPM models.
                     """
                     def __init__(self, service, version, mode, path):
                         self.allow_supercritical_pressure_vaporization = self.__class__.allow_supercritical_pressure_vaporization(service, version, mode, path + ["allow_supercritical_pressure_vaporization"])
@@ -2863,11 +2850,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class allow_supercritical_pressure_vaporization(TUIMethod):
                         """
-                        Enforces the switching from vaporization to boiling even if the boiling point is not calculated from the vapor pressure data. If the pressure in your model is above critical you must retain the default setting (yes). This options is available only if whenPressure Dependent Boiling is enabled in the Physical Models tab of the Discrete Phase Models dialog box. For more details, see .
+                        Skip the pressure dependent boiling point calculation to allow supercritical pressure conditions for vaporization.
                         """
                     class brownian_motion(TUIMethod):
                         """
-                        Enables/disables Brownian motion of particles.
+                        Enable/disable Brownian motion of particles.
                         """
                     class caloric_film_temperature(TUIMethod):
                         """
@@ -2879,19 +2866,19 @@ class main_menu(TUIMenu):
                         """
                     class current_positions_in_sample_file_format(TUIMethod):
                         """
-                        When enabled, generates a file containing particle current positions (step-by-step history report for unsteady tracking) in the sampling file format.
+                        Write the current positions (step-by-step history report for unsteady tracking) in the sampling file format.
                         """
                     class enable_contour_plots(TUIMethod):
                         """
-                        Enables computation of mean and/or RMS values of additional discrete phase variables for postprocessing.
+                        Enable contour and vector plots of particle data.
                         """
                     class ensemble_average(TUIMethod):
                         """
-                        Ensembles average cloud properties.
+                        Set ensemble average cloud properties.
                         """
                     class erosion_accretion(TUIMethod):
                         """
-                        Enables/disables erosion/accretion.
+                        Enable/disable erosion/accretion.
                         """
                     class film_movement(TUIMethod):
                         """
@@ -2903,7 +2890,7 @@ class main_menu(TUIMenu):
                         """
                     class init_erosion_accretion_rate(TUIMethod):
                         """
-                        Initializes the erosion/accretion rates with zero.
+                        Initialize erosion/accretion rates with Zero.
                         """
                     class lowest_volatiles_mass_fraction(TUIMethod):
                         """
@@ -2915,23 +2902,23 @@ class main_menu(TUIMenu):
                         """
                     class maximum_udf_species(TUIMethod):
                         """
-                        Specifies the maximum number of species that will be accessible from discrete phase model UDFs. Only species with indices up to this value are accessible in discrete phase model UDFs.
+                        No help available.
                         """
                     class particle_radiation(TUIMethod):
                         """
-                        Enables/disables particle radiation.
+                        Enable/disable particle radiation.
                         """
                     class pressure_gradient_force(TUIMethod):
                         """
-                        Enables/disables inclusion of pressure gradient effects in the particle force balance.
+                        No help available.
                         """
                     class remove_wall_film_temperature_limiter(TUIMethod):
                         """
-                        Answering yes at the prompt removes the wall temperature limiter for Lagrangian wall-film walls. If you enter no (default), two additional prompts will appear in the console allowing you to define the temperature difference above the boiling point and to enable/disable the reporting of the Leidenfrost temperature on the wall faces.
+                        Remove the wall film temperature limiter.
                         """
                     class saffman_lift_force(TUIMethod):
                         """
-                        Enables/disables Saffman lift force.
+                        No help available.
                         """
                     class scr_urea_deposition(TUIMethod):
                         """
@@ -2943,72 +2930,72 @@ class main_menu(TUIMenu):
                         """
                     class set_thermolysis_limit(TUIMethod):
                         """
-                        Sets the limit for the thermolysis model.
+                        Set the thermolysis limit.
                         """
                     class stagger_radius(TUIMethod):
                         """
-                        Specifies the region over which to spatially stagger particles when particle-staggering is enabled for non-atomizer injections.
+                        Provide a stagger radius for non atomizer injections.
                         """
                     class stagger_spatially_atomizer_injections(TUIMethod):
                         """
-                        Enables/disables spatial staggering for atomizer and solid-cone injections.
+                        Spatially stagger atomizer injections?.
                         """
                     class stagger_spatially_standard_injections(TUIMethod):
                         """
-                        Enables/disables spatial staggering for standard (non-atomizer and non-solid-cone) injections.
+                        Spatially stagger non-atomizer injections?.
                         """
                     class stagger_temporally(TUIMethod):
                         """
-                        Enables/disables temporal staggering.
+                        Stagger transient parcels for their first time step?.
                         """
                     class staggering_factor(TUIMethod):
                         """
-                        S.
+                        Set the staggering factor between 0 and 1 to control the amount of staggering.
                         """
                     class step_report_sig_figures(TUIMethod):
                         """
-                        Sets significant figures in the step-by-step report.
+                        Set significant figures in the step-by-step report.
                         """
                     class thermophoretic_force(TUIMethod):
                         """
-                        Enables/disables thermophoretic force.
+                        No help available.
                         """
                     class track_in_absolute_frame(TUIMethod):
                         """
-                        Enables/disables tracking in absolute frame.
+                        Enable/disable tracking in absolute frame.
                         """
                     class treat_multicomponent_saturation_temperature_failure(TUIMethod):
                         """
-                        Enables/disables dumping multicomponent particle mass into the continuous phase if the saturation temperature calculation fails.
+                        Dump multicomponent particle mass if the saturation temperature cannot be determined.
                         """
                     class two_way_coupling(TUIMethod):
                         """
-                        Enables/disables calculation of DPM sources in TKE equation.
+                        No help available.
                         """
                     class uniform_mass_distribution_for_injections(TUIMethod):
                         """
-                        Specifies a uniform distribution of mass over the cross-section of solid cone and atomizer injections. This can become important when the mesh is smaller than the diameter (or another characteristic size) of the injection.
+                        A uniform mass distribution will be enabled for all solid cone and atomizer injections.
                         """
                     class use_absolute_pressure_for_vaporization(TUIMethod):
                         """
-                        Determines whether the absolute pressure or constant operating pressure (specified in define/operating-conditions/operating-pressure) will be used in vaporization rates calculations.
+                        Enable/disable using Absolute Pressure for Vaporization.
                         """
                     class vaporization_heat_transfer_averaging(TUIMethod):
                         """
-                        Enables averaging of the Spalding heat transfer term for the convection/diffusion-controlled model.
+                        Enable/disable correction for Vaporization heat transfer.
                         """
                     class vaporization_options(TUIMethod):
                         """
-                        Sets Vaporization options.
+                        Set Vaporization options.
                         """
                     class virtual_mass_force(TUIMethod):
                         """
-                        Enables/disables inclusion of the virtual mass force in the particle force balance.
+                        No help available.
                         """
 
                 class parallel(TUIMenu):
                     """
-                    Enters the parallel menu to set parameters for parallel DPM calculations.
+                    Enter the parallel menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.expert = self.__class__.expert(service, version, mode, path + ["expert"])
@@ -3027,7 +3014,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable_workpile(TUIMethod):
                         """
-                        Turns on/off particle workpile algorithm. This option is only available when the define/models/dpm/parallel/use-shared-memory option is selected.
+                        Enable/disable the particle workpile algorithm.
                         """
                     class fix_source_term_accumulation_order(TUIMethod):
                         """
@@ -3035,7 +3022,7 @@ class main_menu(TUIMenu):
                         """
                     class hybrid_2domain(TUIMethod):
                         """
-                        Enables/disables the use of a second domain for DPM particle tracking.
+                        No help available.
                         """
                     class hybrid_collision_model(TUIMethod):
                         """
@@ -3057,40 +3044,40 @@ class main_menu(TUIMenu):
                         """
                     class n_threads(TUIMethod):
                         """
-                        Sets the number of processors to use for DPM. This option is only available when the define/models/dpm/parallel/enable-workpile? option is enabled.
+                        Set the number of processors to use for DPM.
                         """
                     class report(TUIMethod):
                         """
-                        Prints particle workpile statistics. This option is only available when the define/models/dpm/parallel/enable-workpile? option is enabled.
+                        Print particle workpile statistics.
                         """
                     class use_hybrid(TUIMethod):
                         """
-                        Specifies that the calculations are performed using multicore cluster computing or shared-memory machines. This option works in conjunction withopenmpi for a dynamic load balancing without migration of cells.
+                        Set DPM parallel-mode to hybrid.
                         """
                     class use_message_passing(TUIMethod):
                         """
-                        Specifies that the calculations are performed using cluster computing or shared-memory machines. With this option, the compute node processes themselves perform the particle work on their local partitions and particle migration to other compute nodes is implemented using message passing primitives.
+                        Set DPM parallel-mode to message passing.
                         """
                     class use_shared_memory(TUIMethod):
                         """
-                        Specifies that the calculations are performed on shared-memory multiprocessor machines.
+                        Set DPM parallel-mode to shared memory.
                         """
 
                     class expert(TUIMenu):
                         """
-                        Enters the menu for expert DPM parallel text commands.
+                        Enter the menu to set expert DPM parallel options.
                         """
                         def __init__(self, service, version, mode, path):
                             self.partition_method_hybrid_2domain = self.__class__.partition_method_hybrid_2domain(service, version, mode, path + ["partition_method_hybrid_2domain"])
                             super().__init__(service, version, mode, path)
                         class partition_method_hybrid_2domain(TUIMethod):
                             """
-                            Enables/disables a partitioning method that is more granular and can yield faster calculations (especially for cases that are running on a low to moderate number of processors). This partitioning method is only applied when you use the DPM domain for the hybrid parallel DPM tracking mode (that is, when you have enabled the define/models/dpm/parallel/hybrid-2domain? text command).
+                            Set DPM Domain partition method.
                             """
 
                 class splash_options(TUIMenu):
                     """
-                    Enters the splash option menu.
+                    Enter the splash options menu to set optional parameters.
                     """
                     def __init__(self, service, version, mode, path):
                         self.orourke_splash_fraction = self.__class__.orourke_splash_fraction(service, version, mode, path + ["orourke_splash_fraction"])
@@ -3098,16 +3085,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class orourke_splash_fraction(TUIMethod):
                         """
-                        Enables/disables the O’Rourke formulation (default for the Lagrangian Wall Film (LWF) model). If the O’Rourke formulation is disabled, the Stanton formulation (default for the Eulerian Wall Film (EWF) model) is used in a simulation.
+                        Select splash fraction method.
                         """
                     class splash_pdf_limiting(TUIMethod):
                         """
-                        Sets the splash pdf limiting method. Available methods are: the splash pdf tail limiting (default for the LWF model) and the splash pdf peak limiting (default for the EWF model). For the splash pdf peak limiting, you will be prompted to specify the peak limiting value.
+                        Select splash pdf limiting method.
                         """
 
                 class stripping_options(TUIMenu):
                     """
-                    Enters the stripping options menu.
+                    Enter the stripping options menu to set optional parameters.
                     """
                     def __init__(self, service, version, mode, path):
                         self.diameter_coefficient = self.__class__.diameter_coefficient(service, version, mode, path + ["diameter_coefficient"])
@@ -3115,11 +3102,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class diameter_coefficient(TUIMethod):
                         """
-                        Sets the diameter coefficient (  in  in the Theory Guide).
+                        Set the stripping diameter coefficient.
                         """
                     class mass_coefficient(TUIMethod):
                         """
-                        Sets the mass coefficient (  in  in the Theory Guide).
+                        Set the stripping mass coefficient.
                         """
 
             class dsmc(TUIMenu):
@@ -3305,7 +3292,7 @@ class main_menu(TUIMenu):
 
             class eulerian_wallfilm(TUIMenu):
                 """
-                Enters the Eulerian wall film model menu.
+                Enter the Eulerian wall film model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.coupled_solution = self.__class__.coupled_solution(service, version, mode, path + ["coupled_solution"])
@@ -3330,15 +3317,15 @@ class main_menu(TUIMenu):
                     """
                 class enable_wallfilm_model(TUIMethod):
                     """
-                    Enables/disables Eulerian Wall Film Model.
+                    Enable Eulerian wall film model.
                     """
                 class film_material(TUIMethod):
                     """
-                    Sets Film Material and Properties.
+                    Set film material and properties.
                     """
                 class initialize_wallfilm_model(TUIMethod):
                     """
-                    Initializes Eulerian Wall Film Model.
+                    Initialize Eulerian wall film model.
                     """
                 class list_film_walls(TUIMethod):
                     """
@@ -3350,16 +3337,16 @@ class main_menu(TUIMenu):
                     """
                 class solution_options(TUIMethod):
                     """
-                    Sets Eulerian Wall Film Model Solution Options.
+                    Set Eulerian wall film model solution options.
                     """
                 class solve_wallfilm_equation(TUIMethod):
                     """
-                    Activates Eulerian Wall Film Equations.
+                    Activate Eulerian wall film equations.
                     """
 
                 class coupled_solution(TUIMenu):
                     """
-                    Enters the Coupled-Solution menu.
+                    Enter Eulerian wall film coupled solution menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.enable_coupled_solution = self.__class__.enable_coupled_solution(service, version, mode, path + ["enable_coupled_solution"])
@@ -3367,11 +3354,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable_coupled_solution(TUIMethod):
                         """
-                        Enables/disables the coupled solution method.
+                        Enable Eulerian wall film coupled solution.
                         """
                     class enable_curvature_smoothing(TUIMethod):
                         """
-                        Enables/disables the film curvature smoothing option and sets the smoothing parameters.
+                        Enable Eulerian wall film curvature smoothing.
                         """
 
                 class implicit_options(TUIMenu):
@@ -3393,7 +3380,7 @@ class main_menu(TUIMenu):
 
             class heat_exchanger(TUIMenu):
                 """
-                Enters the heat exchanger menu.
+                Enter the heat exchanger menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.dual_cell_model = self.__class__.dual_cell_model(service, version, mode, path + ["dual_cell_model"])
@@ -3402,7 +3389,7 @@ class main_menu(TUIMenu):
 
                 class dual_cell_model(TUIMenu):
                     """
-                    Enters the dual cell model menu.
+                    Enter the dual cell model menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.add_heat_exchanger = self.__class__.add_heat_exchanger(service, version, mode, path + ["add_heat_exchanger"])
@@ -3415,36 +3402,36 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class add_heat_exchanger(TUIMethod):
                         """
-                        Adds heat-exchanger.
+                        Add heat-exchanger.
                         """
                     class alternative_formulation(TUIMethod):
                         """
-                        Enables/disables alternative formulation for heat transfer calculations.
+                        Enable/disable alternative formulation for heat transfer calculations.
                         """
                     class delete_heat_exchanger(TUIMethod):
                         """
-                        Deletes heat-exchanger.
+                        Delete heat-exchanger.
                         """
                     class heat_exchanger(TUIMethod):
                         """
-                        Enables/disables the dual cell heat-exchanger model.
+                        Enable/disable the dual cell heat-exchanger model.
                         """
                     class modify_heat_exchanger(TUIMethod):
                         """
-                        Modifies heat-exchanger.
+                        Modify heat-exchanger.
                         """
                     class plot_NTU(TUIMethod):
                         """
-                        Plots NTU vs. primary mass flow rate for each auxiliary mass flow rate.
+                        Plot NTU vs primary mass flow rate for each auxiliary mass flow rate.
                         """
                     class write_NTU(TUIMethod):
                         """
-                        Writes NTU vs. primary mass flow rate for each auxiliary mass flow rate.
+                        Write NTU vs primary mass flow rate for each auxiliary mass flow rate.
                         """
 
                 class macro_model(TUIMenu):
                     """
-                    Enters the heat macro-model menu.
+                    Enter the heat macro-model menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.delete_heat_exchanger_group = self.__class__.delete_heat_exchanger_group(service, version, mode, path + ["delete_heat_exchanger_group"])
@@ -3459,44 +3446,44 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class delete_heat_exchanger_group(TUIMethod):
                         """
-                        Deletes heat-exchanger group.
+                        Delete heat-exchanger group.
                         """
                     class heat_exchanger(TUIMethod):
                         """
-                        Enables/disables heat-exchanger model.
+                        Enable/disable heat-exchanger model.
                         """
                     class heat_exchanger_group(TUIMethod):
                         """
-                        Defines heat-exchanger group.
+                        Define heat-exchanger group.
                         """
                     class heat_exchanger_macro_report(TUIMethod):
                         """
-                        Reports the computed values of heat rejection, outlet temperature, and inlet temperature for the macroscopic cells (macros) in a heat exchanger.
+                        Report heat-exchanger information for all the macros.
                         """
                     class heat_exchanger_model(TUIMethod):
                         """
-                        Defines heat-exchanger core model.
+                        Define heat-exchanger core model.
                         """
                     class heat_exchanger_report(TUIMethod):
                         """
-                        Reports the computed values of total heat rejection, outlet temperature, and inlet temperature for a specified heat-exchanger core.
+                        Report heat-exchanger information.
                         """
                     class heat_exchanger_zone(TUIMethod):
                         """
-                        Specifies the zone that represents the heat exchanger, the dimensions of the heat exchanger, the macro grid, and the coolant direction and properties.
+                        Define heat-exchanger zone.
                         """
                     class plot_NTU(TUIMethod):
                         """
-                        Plots NTU vs. primary mass flow rate for each auxiliary mass flow rate.
+                        Plot NTU vs primary mass flow rate for each auxiliary mass flow rate.
                         """
                     class write_NTU(TUIMethod):
                         """
-                        Writes NTU vs. primary mass flow rate for each auxiliary mass flow rate.
+                        Write NTU vs primary mass flow rate for each auxiliary mass flow rate.
                         """
 
             class multiphase(TUIMenu):
                 """
-                Enters the multiphase model menu.
+                Define multiphase model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.explicit_expert_options = self.__class__.explicit_expert_options(service, version, mode, path + ["explicit_expert_options"])
@@ -3520,19 +3507,19 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class body_force_formulation(TUIMethod):
                     """
-                    Specifies body force formulation.
+                    No help available.
                     """
                 class boiling_model_options(TUIMethod):
                     """
-                    Specifies the boiling model options. You can choose theRPI boiling model,Non-equilibrium boiling, orCritical heat flux.
+                    Boiling model options.
                     """
                 class coupled_level_set(TUIMethod):
                     """
-                    Enables coupled level set interface tracking method.
+                    No help available.
                     """
                 class eulerian_parameters(TUIMethod):
                     """
-                    Specifies Eulerian parameters.
+                    Eulerian parameters.
                     """
                 class expert_options(TUIMethod):
                     """
@@ -3540,32 +3527,32 @@ class main_menu(TUIMenu):
                     """
                 class interface_modeling_options(TUIMethod):
                     """
-                    Specifies interface modeling options.
+                    No help available.
                     """
                 class mixture_parameters(TUIMethod):
                     """
-                    Specifies mixture parameters.
+                    Mixture parameters.
                     """
                 class model(TUIMethod):
                     """
-                    Specifies multiphase model.
+                    No help available.
                     """
                 class number_of_phases(TUIMethod):
                     """
-                    Specifies the number of phases.
+                    Specify the number of phases.
                     """
                 class regime_transition_modeling(TUIMethod):
                     """
-                    Enables the Algebraic Interfacial Area Density (AIAD) 	model and sets the AIAD secondary continuous phase and 	the secondary entrained phase. Entering 0 as a phase ID cancels any 	previous phase selection. Note that you must define the 	phases in your simulation using the define/phases/ text command 	prior to using the regime-transition-modeling 	text command. This option is available only with the 	Eulerian multiphase model.
+                    Regime-transition-modeling-options.
                     """
                 class vof_sub_models(TUIMethod):
                     """
-                    Enables the Open Channel sub-model and/or the Open Channel Wave Boundary Condition 	sub-model.
+                    No help available.
                     """
 
                 class explicit_expert_options(TUIMenu):
                     """
-                    Enters the menu to set explicit VOF expert 	options.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.volume_fraction_filtering = self.__class__.volume_fraction_filtering(service, version, mode, path + ["volume_fraction_filtering"])
@@ -3574,16 +3561,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class solve_vof_every_iter(TUIMethod):
                         """
-                        If you enter yes, the volume fraction equations will be solved every iteration. By default, the volume fraction equations will be solved only once per time step.
+                        No help available.
                         """
                     class sub_time_step_method(TUIMethod):
                         """
-                        Selects the sub-time step method.
+                        No help available.
                         """
 
                     class volume_fraction_filtering(TUIMenu):
                         """
-                        Enters the volume fraction filtering menu.
+                        No help available.
                         """
                         def __init__(self, service, version, mode, path):
                             self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -3592,15 +3579,15 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class enable(TUIMethod):
                             """
-                            Enables/disables the volume fraction filtering treatment.
+                            No help available.
                             """
                         class filtering_options(TUIMethod):
                             """
-                            Selects the volume fraction filtering method. This command becomes available once the define/models/multiphase/explicit-expert-options/volume-fraction-filtering/enable? text option has been set to yes.
+                            No help available.
                             """
                         class vol_frac_cutoff(TUIMethod):
                             """
-                            Specifies a cut-off value for the volume fraction filtering. This command becomes available after you select the node averaged cutoff method using the define/models/multiphase/explicit-expert-options/volume-fraction-filtering/filtering-options text command.
+                            No help available.
                             """
 
                 class flow_regime_modeling(TUIMenu):
@@ -3662,7 +3649,7 @@ class main_menu(TUIMenu):
 
                 class population_balance(TUIMenu):
                     """
-                    Enters the population balance models menu.
+                    Enter the population balance model menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.expert = self.__class__.expert(service, version, mode, path + ["expert"])
@@ -3677,11 +3664,11 @@ class main_menu(TUIMenu):
                         """
                     class model(TUIMethod):
                         """
-                        Allows you to select the population balance model and set its parameters.
+                        Select the population balance model.
                         """
                     class size_calculator(TUIMethod):
                         """
-                        Gives you recommendations for appropriate bubble sizes and/or droplet size limits.
+                        Calculate fluid particle diameters using different methods.
                         """
 
                     class expert(TUIMenu):
@@ -3905,7 +3892,7 @@ class main_menu(TUIMenu):
 
                     class phenomena(TUIMenu):
                         """
-                        Enters the phenomena menu for population balance.
+                        Enter the phenomena menu for population balance.
                         """
                         def __init__(self, service, version, mode, path):
                             self.aggregation = self.__class__.aggregation(service, version, mode, path + ["aggregation"])
@@ -3918,11 +3905,11 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class aggregation(TUIMethod):
                             """
-                            Sets the aggregation kernel.
+                            Set the aggregation kernel.
                             """
                         class aggregation_factor(TUIMethod):
                             """
-                            Specifies a factor that controls the intensity of the selected aggregation kernel.
+                            Set a factor which controls the intensity of the selected aggregation kernel.
                             """
                         class breakage(TUIMethod):
                             """
@@ -3930,19 +3917,19 @@ class main_menu(TUIMenu):
                             """
                         class breakage_aggregation_vof_cutoff(TUIMethod):
                             """
-                            Specifies a cutoff limit for the volume fraction values for the breakage and aggregation kernels.
+                            Control vof cut-off for breakage and aggregation.
                             """
                         class breakage_factor(TUIMethod):
                             """
-                            Specifies a factor that controls the intensity of the selected breakage kernel.
+                            Set a factor which controls the intensity of the selected breakage kernel.
                             """
                         class growth(TUIMethod):
                             """
-                            Specifies the growth rate.
+                            Set the growth rate.
                             """
                         class nucleation(TUIMethod):
                             """
-                            Specifies the nucleation rate.
+                            Set the nucleantion rate.
                             """
 
                 class sub_models(TUIMenu):
@@ -3977,7 +3964,7 @@ class main_menu(TUIMenu):
 
                 class volume_fraction_parameters(TUIMenu):
                     """
-                    Specifies volume fraction parameters.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.courant_number = self.__class__.courant_number(service, version, mode, path + ["courant_number"])
@@ -3999,7 +3986,7 @@ class main_menu(TUIMenu):
 
                 class wet_steam(TUIMenu):
                     """
-                    Enters the wet steam model menu.
+                    Enter the wet steam model menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -4009,20 +3996,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class compile_user_defined_wetsteam_functions(TUIMethod):
                         """
-                        Compiles user-defined wet steam library.
+                        Compile user-defined wet steam library.
                         """
                     class enable(TUIMethod):
                         """
-                        Enables/disables the wet steam model.
+                        No help available.
                         """
                     class load_unload_user_defined_wetsteam_library(TUIMethod):
                         """
-                        Loads or unloads user-defined wet steam library.
+                        Load or unload user-defined wet steam library.
                         """
 
                     class set(TUIMenu):
                         """
-                        Enters the set menu for setting wet steam model options.
+                        Enter the set menu for setting wet steam model options.
                         """
                         def __init__(self, service, version, mode, path):
                             self.droplet_growth_rate = self.__class__.droplet_growth_rate(service, version, mode, path + ["droplet_growth_rate"])
@@ -4035,7 +4022,7 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class droplet_growth_rate(TUIMethod):
                             """
-                            S formulation (default) or Hill.
+                            No help available.
                             """
                         class enhanced_source_linearization(TUIMethod):
                             """
@@ -4043,19 +4030,19 @@ class main_menu(TUIMenu):
                             """
                         class max_liquid_mass_fraction(TUIMethod):
                             """
-                            Sets the maximum limit on the condensed liquid-phase mass-fraction to prevent divergence.
+                            No help available.
                             """
                         class rgp_tables(TUIMethod):
                             """
-                            Sets the RGP (real gas property) table to be used with the Wet Steam model.
+                            Select which properties to use: build-in or from RGP tables.
                             """
                         class stagnation_conditions(TUIMethod):
                             """
-                            Computes stagnation conditions using either gas phase only, or mixture. For details, see .
+                            No help available.
                             """
                         class virial_equation(TUIMethod):
                             """
-                            Sets the equation of state for steam to either Vukalovich formulation (default) or Young formulation.
+                            No help available.
                             """
                         class zonal_phase_change(TUIMethod):
                             """
@@ -4064,7 +4051,7 @@ class main_menu(TUIMenu):
 
             class nox_parameters(TUIMenu):
                 """
-                Enters the NOx parameters menu.
+                Enter the NOx parameters menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.inlet_diffusion = self.__class__.inlet_diffusion(service, version, mode, path + ["inlet_diffusion"])
@@ -4074,19 +4061,19 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class inlet_diffusion(TUIMethod):
                     """
-                    Enables/disables inclusion of diffusion at inlets.
+                    Enable/disable inclusion of diffusion at inlets.
                     """
                 class nox_chemistry(TUIMethod):
                     """
-                    Selects NOx chemistry model.
+                    Select NOx chemistry model.
                     """
                 class nox_expert(TUIMethod):
                     """
-                    Selects additional NOx equations.
+                    Select additional nox equations.
                     """
                 class nox_turbulence_interaction(TUIMethod):
                     """
-                    Sets NOx turbulence interaction model.
+                    Set NOx-turbulence interaction model.
                     """
 
             class optics(TUIMenu):
@@ -4194,7 +4181,7 @@ class main_menu(TUIMenu):
 
             class radiation(TUIMenu):
                 """
-                Enters the radiation models menu.
+                Enter the radiation models menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.dtrm_parameters = self.__class__.dtrm_parameters(service, version, mode, path + ["dtrm_parameters"])
@@ -4227,7 +4214,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class apply_full_solar_irradiation(TUIMethod):
                     """
-                    Enables/disables the application of the complete solar load to the first wavelength 	band only, reverting to the pre-2019 R1 behavior of the 	Solar Load and Discrete Ordinates models.
+                    No help available.
                     """
                 class beta_radiation_features(TUIMethod):
                     """
@@ -4235,55 +4222,55 @@ class main_menu(TUIMenu):
                     """
                 class blending_factor(TUIMethod):
                     """
-                    Sets numeric option for Discrete Ordinate model. Make sure thatSecond Order Upwind is selected for the Discrete Ordinates spatial 	discretization for the blending-factor option to 	appear in the text command list.
+                    No help available.
                     """
                 class discrete_ordinates(TUIMethod):
                     """
-                    Enables/disables discrete ordinates radiation model.
+                    Enable/disable the discrete ordinates radiation model.
                     """
                 class discrete_transfer(TUIMethod):
                     """
-                    Enables/disables discrete transfer radiation model.
+                    Enable/disable discrete the transfer radiation model.
                     """
                 class do_acceleration(TUIMethod):
                     """
-                    Enables/disables the acceleration of the discrete 	ordinates (DO) radiation model calculations. Note that 	this text command is only available when running on 	Linux in parallel.
+                    No help available.
                     """
                 class do_coupling(TUIMethod):
                     """
-                    Enables/disables DO/energy coupling.
+                    No help available.
                     """
                 class fast_second_order_discrete_ordinate(TUIMethod):
                     """
-                    Enables/disables the fast-second-order option for Discrete Ordinate Model.
+                    No help available.
                     """
                 class mc_model_parameters(TUIMethod):
                     """
-                    Specifies Monte Carlo model parameters. This text command is available only when the 	Monte Carlo model is enabled.
+                    Set parameters for montecarlo radiation model.
                     """
                 class mc_under_relaxation(TUIMethod):
                     """
-                    Sets the under-relaxation factor for Monte Carlo radiation sources used in the 	energy equation.
+                    No help available.
                     """
                 class method_partially_specular_wall(TUIMethod):
                     """
-                    Sets the method for partially specular wall with discrete ordinate model.
+                    No help available.
                     """
                 class montecarlo(TUIMethod):
                     """
-                    Enables/disables the Monte Carlo radiation model.
+                    Enable/disable the Monte Carlo radiation model.
                     """
                 class non_gray_model_parameters(TUIMethod):
                     """
-                    Sets parameters for non-gray model.
+                    Set parameters for non-gray model.
                     """
                 class p1(TUIMethod):
                     """
-                    Enables/disables P1 radiation model.
+                    Enable/disable the P1 radiation model.
                     """
                 class radiation_iteration_parameters(TUIMethod):
                     """
-                    Sets iteration parameters for radiation models.
+                    Set iteration parameters for radiation models.
                     """
                 class radiation_model_parameters(TUIMethod):
                     """
@@ -4291,40 +4278,40 @@ class main_menu(TUIMenu):
                     """
                 class rosseland(TUIMethod):
                     """
-                    Enables/disables Rosseland radiation model.
+                    Enable/disable the Rosseland radiation model.
                     """
                 class s2s(TUIMethod):
                     """
-                    Enables/disables S2S radiation model.
+                    Enable/disable the S2S radiation model.
                     """
                 class solar(TUIMethod):
                     """
-                    Enables/disables solar model.
+                    Enable/Disable solar load model.
                     """
                 class solar_calculator(TUIMethod):
                     """
-                    Calculates sun direction and intensity.
+                    No help available.
                     """
                 class solar_irradiation(TUIMethod):
                     """
-                    Enables/disables the solar irradiation model.
+                    Enable/disable the Solar irradiation model.
                     """
                 class solution_method_for_do_coupling(TUIMethod):
                     """
-                    Enables/disables the solution method for DO/energy coupling.
+                    No help available.
                     """
                 class target_cells_per_volume_cluster(TUIMethod):
                     """
-                    Sets the amount of coarsening of the radiation mesh 	for the Monte Carlo radiation model. A number greater 	than one implies coarsening, whereas equal to one 	implies no coarsening.
+                    No help available.
                     """
                 class wsggm_cell_based(TUIMethod):
                     """
-                    Enables/disables WSGGM cell based method. Note that when enabled, the wsggm-cell-based option will 	become available in theAbsorption Coefficient drop-down list in the Create/Edit Materials dialog 	box.
+                    Enable/disable WSGGM cell based method.
                     """
 
                 class dtrm_parameters(TUIMenu):
                     """
-                    Enters the dtrm parameters menu.
+                    Enter the DTRM parameters menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.check_ray_file = self.__class__.check_ray_file(service, version, mode, path + ["check_ray_file"])
@@ -4334,24 +4321,24 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class check_ray_file(TUIMethod):
                         """
-                        Reads DTRM rays file.
+                        Read DTRM rays file.
                         """
                     class controls(TUIMethod):
                         """
-                        Sets dtrm solution controls.
+                        Set DTRM solution controls.
                         """
                     class make_globs(TUIMethod):
                         """
-                        Makes globs (coarser mesh) for radiation.
+                        Make globs (coarser mesh) for radiation.
                         """
                     class ray_trace(TUIMethod):
                         """
-                        Creates DTRM rays for radiation.
+                        Create DTRM rays for radiation.
                         """
 
                 class s2s_parameters(TUIMenu):
                     """
-                    Enters the S2S parameters menu.
+                    Enter the S2S parameters menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.ambient_radiation_modeling = self.__class__.ambient_radiation_modeling(service, version, mode, path + ["ambient_radiation_modeling"])
@@ -4372,7 +4359,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class compute_fpsc_values(TUIMethod):
                         """
-                        Computes only fpsc values based on current settings.
+                        Compute only fpsc values based on current settings.
                         """
                     class compute_vf_accelerated(TUIMethod):
                         """
@@ -4380,23 +4367,23 @@ class main_menu(TUIMenu):
                         """
                     class compute_vf_only(TUIMethod):
                         """
-                        Computes/writes view factors only.
+                        No help available.
                         """
                     class compute_write_vf(TUIMethod):
                         """
-                        Computes/writes surface clusters and view factors for S2S radiation model.
+                        No help available.
                         """
                     class enable_mesh_interface_clustering(TUIMethod):
                         """
-                        Enables surface clusters on mesh interfaces.
+                        No help available.
                         """
                     class non_participating_boundary_zones_temperature(TUIMethod):
                         """
-                        Sets temperature for the non-participating boundary zones.
+                        No help available.
                         """
                     class print_thread_clusters(TUIMethod):
                         """
-                        Prints the following for all boundary threads: thread-id, number of faces, faces per surface cluster, and the number of surface clusters.
+                        No help available.
                         """
                     class print_zonewise_radiation(TUIMethod):
                         """
@@ -4404,27 +4391,27 @@ class main_menu(TUIMenu):
                         """
                     class read_vf_file(TUIMethod):
                         """
-                        Reads S2S file.
+                        No help available.
                         """
                     class set_global_faces_per_surface_cluster(TUIMethod):
                         """
-                        Sets global value of faces per surface cluster for all boundary zones.
+                        Set global value of faces per surface cluster for all boundary zones.
                         """
                     class set_vf_parameters(TUIMethod):
                         """
-                        Sets the parameters needed for the viewfactor calculations.
+                        Set the parameters needed for the view factor calculations.
                         """
                     class split_angle(TUIMethod):
                         """
-                        Sets split angle for the clustering algorithm.
+                        No help available.
                         """
                     class use_new_cluster_algorithm(TUIMethod):
                         """
-                        Uses the new surface clustering algorithm.
+                        Use the new surface clustering algorithm.
                         """
                     class use_old_cluster_algorithm(TUIMethod):
                         """
-                        Uses the old surface clustering algorithm.
+                        Use the old surface clustering algorithm.
                         """
 
                     class ambient_radiation_modeling(TUIMenu):
@@ -4446,7 +4433,7 @@ class main_menu(TUIMenu):
 
                 class solar_parameters(TUIMenu):
                     """
-                    Enters the solar parameters menu.
+                    Enter the solar parameters menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.ground_reflectivity = self.__class__.ground_reflectivity(service, version, mode, path + ["ground_reflectivity"])
@@ -4463,52 +4450,52 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class ground_reflectivity(TUIMethod):
                         """
-                        Sets ground reflectivity parameters.
+                        No help available.
                         """
                     class illumination_parameters(TUIMethod):
                         """
-                        Sets illumination parameters.
+                        Set illumination parameters.
                         """
                     class iteration_parameters(TUIMethod):
                         """
-                        Sets update parameters.
+                        No help available.
                         """
                     class quad_tree_parameters(TUIMethod):
                         """
-                        Sets quad-tree refinement parameters.
+                        No help available.
                         """
                     class scattering_fraction(TUIMethod):
                         """
-                        Sets scattering fraction parameters.
+                        No help available.
                         """
                     class sol_adjacent_fluidcells(TUIMethod):
                         """
-                        Sets solar load on for adjacent fluid cells.
+                        No help available.
                         """
                     class sol_camera_pos(TUIMethod):
                         """
-                        Sets camera position based on sun direction vector.
+                        Set camera position based on sun direction vector.
                         """
                     class sol_on_demand(TUIMethod):
                         """
-                        Sets solar load on demand.
+                        No help available.
                         """
                     class solar_thread_control(TUIMethod):
                         """
-                        Sets the number of threads to run the solar flux calculation. This item appears only when running in parallel with nodes located on a separate machine from the one running the host process andSolar Ray Tracing is enabled.
+                        Solar thread control.
                         """
                     class sun_direction_vector(TUIMethod):
                         """
-                        Sets sun direction vector.
+                        No help available.
                         """
                     class use_direction_from_sol_calc(TUIMethod):
                         """
-                        Sets direction computed from solar calculator.
+                        No help available.
                         """
 
             class shell_conduction(TUIMenu):
                 """
-                Enters the shell conduction models menu.
+                Enter the shell conduction model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enhanced_encapsulation = self.__class__.enhanced_encapsulation(service, version, mode, path + ["enhanced_encapsulation"])
@@ -4520,32 +4507,32 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enhanced_encapsulation(TUIMethod):
                     """
-                    Enables/disables an enhanced routine for the encapsulation of coupled walls during 	mesh partitioning that is enabled by default when shell 	conduction and/or the surface to surface (S2S) radiation 	model is used.
+                    Enable/disable enhanced encapsulation for shell conduction and S2S models. This is not applicable if coupled sliding interface walls exists.
                     """
                 class multi_layer_shell(TUIMethod):
                     """
-                    Enables/disables the ability to define multi-layer 	shell conduction for walls. Note that the warped-face 	gradient correction (WFGC) is not supported when 	multi-layer shells are disabled.
+                    Enable/disable multi layer shell conduction model.
                     """
                 class read_csv(TUIMethod):
                     """
-                    Defines the shell conduction settings by reading a CSV file.
+                    Read shell conduction settings from a csv file.
                     """
                 class save_shell_zones(TUIMethod):
                     """
-                    Enables the saving of shell zones to case 	files.
+                    Enable/Disable saving shell zones to case file.
                     """
                 class settings(TUIMethod):
                     """
-                    Enables shell conduction and defines the settings for any wall or group of walls by 	manually entering the number and properties of the 	layers.
+                    Enter Multi-layer Shell Conduction data.
                     """
                 class write_csv(TUIMethod):
                     """
-                    Writes your saved shell conduction settings to a CSV file.
+                    Write shell conduction settings to a csv file.
                     """
 
             class solver(TUIMenu):
                 """
-                Enters the menu to select the solver.
+                Enter the menu to select the solver.
                 """
                 def __init__(self, service, version, mode, path):
                     self.adjust_solver_defaults_based_on_setup = self.__class__.adjust_solver_defaults_based_on_setup(service, version, mode, path + ["adjust_solver_defaults_based_on_setup"])
@@ -4559,20 +4546,20 @@ class main_menu(TUIMenu):
                     """
                 class density_based_explicit(TUIMethod):
                     """
-                    Enables/disables the density-based-explicit solver.
+                    Enable/disable the coupled-explicit solver.
                     """
                 class density_based_implicit(TUIMethod):
                     """
-                    Enables/disables the density-based-implicit solver.
+                    Enable/disable the coupled-implicit solver.
                     """
                 class pressure_based(TUIMethod):
                     """
-                    Enables/disables the pressure-based solver.
+                    Enable/disable the segregated solver.
                     """
 
             class soot_parameters(TUIMenu):
                 """
-                Enters the soot parameters menu.
+                Enter the soot parameters menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.inlet_diffusion = self.__class__.inlet_diffusion(service, version, mode, path + ["inlet_diffusion"])
@@ -4585,15 +4572,15 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class inlet_diffusion(TUIMethod):
                     """
-                    Enables/disables inclusion of diffusion at inlets.
+                    Enable/disable inclusion of diffusion at inlets.
                     """
                 class modify_schmidt_number(TUIMethod):
                     """
-                    Changes the turbulent Schmidt number for soot/nuclei equations.
+                    Change Turbulent Schmidt Number for Soot/Nuclei Equations.
                     """
                 class soot_model_parameters(TUIMethod):
                     """
-                    Selects soot model parameters.
+                    Enter the soot model parameters menu.
                     """
                 class soot_model_udfs(TUIMethod):
                     """
@@ -4601,20 +4588,20 @@ class main_menu(TUIMenu):
                     """
                 class soot_process_parameters(TUIMethod):
                     """
-                    Selects soot process parameters.
+                    Set soot process parameters.
                     """
                 class soot_radiation_interaction(TUIMethod):
                     """
-                    Enables/disables the soot-radiation interaction model.
+                    Enable/disable the soot-radiation interaction model.
                     """
                 class soot_turbulence_interaction(TUIMethod):
                     """
-                    Sets soot-turbulence interaction model.
+                    Set Soot-turbulence interaction model.
                     """
 
             class species(TUIMenu):
                 """
-                Enters the species models menu.
+                Enter the species models menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.CHEMKIN_CFD_parameters = self.__class__.CHEMKIN_CFD_parameters(service, version, mode, path + ["CHEMKIN_CFD_parameters"])
@@ -4682,83 +4669,83 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class CHEMKIN_CFD(TUIMethod):
                     """
-                    Enables/disables the Ansys CHEMKIN-CFD solver.
+                    Enable/disable CHEMKIN-CFD.
                     """
                 class clear_isat_table(TUIMethod):
                     """
-                    Clears ISAT table.
+                    Clear the ISAT table.
                     """
                 class coal_calculator(TUIMethod):
                     """
-                    Sets up coal modeling inputs.
+                    Set up coal modeling inputs.
                     """
                 class combustion_expert(TUIMethod):
                     """
-                    Enables import of the CHEMKIN mechanism transport 	data. When this option is enabled, you will be prompted 	for importing CHEMKIN transport property database when 	setting your combustion case.
+                    Set combustion expert parameters.
                     """
                 class combustion_numerics(TUIMethod):
                     """
-                    Applies optimal solver settings automatically to provide a faster solution time. 	This command is available only for transient 	non-premixed and partially premixed combustion 	models.
+                    Set combustion numerics options.
                     """
                 class decoupled_detailed_chemistry(TUIMethod):
                     """
-                    Enables/disables the Decoupled Detailed Chemistry model.
+                    Enable/disable the Decoupled Detailed Chemistry model.
                     """
                 class diffusion_energy_source(TUIMethod):
                     """
-                    Enables/disables diffusion energy source.
+                    No help available.
                     """
                 class electro_chemical_surface_reactions(TUIMethod):
                     """
-                    Enables/disables electrochemical surface reactions.
+                    No help available.
                     """
                 class epdf_energy(TUIMethod):
                     """
-                    Enables/disables EPDF energy option.
+                    Enable/disable EPDF energy  option.
                     """
                 class flamelet_expert(TUIMethod):
                     """
-                    Sets flamelet expert parameters.
+                    Set flamelet expert parameters.
                     """
                 class full_tabulation(TUIMethod):
                     """
-                    Enables/disables building of a full 2-mixture fraction table.
+                    Enable/disable building of a full 2 mixture fraction table.
                     """
                 class heat_of_surface_reactions(TUIMethod):
                     """
-                    Enables/disables heat of surface reactions.
+                    No help available.
                     """
                 class ignition_model(TUIMethod):
                     """
-                    Enables/disables the ignition model.
+                    Enable/disable the ignition model.
                     """
                 class ignition_model_controls(TUIMethod):
                     """
-                    Sets ignition model parameters.
+                    Set ignition model parameters.
                     """
                 class import_flamelet_for_restart(TUIMethod):
                     """
-                    Imports Flamelet File for Restart.
+                    Import Flamelet File for Restart.
                     """
                 class inert_transport_controls(TUIMethod):
                     """
-                    Sets inert transport model parameters.
+                    Set inert transport model parameters.
                     """
                 class inert_transport_model(TUIMethod):
                     """
-                    Enables/disables the inert transport model.
+                    Enable/disable the inert transport model.
                     """
                 class init_unsteady_flamelet_prob(TUIMethod):
                     """
-                    Initializes Unsteady Flamelet Probability.
+                    Initialize Unsteady Flamelet Probability.
                     """
                 class inlet_diffusion(TUIMethod):
                     """
-                    Enables/disables inclusion of diffusion at inlets.
+                    Enable/disable inclusion of diffusion at inlets.
                     """
                 class integration_parameters(TUIMethod):
                     """
-                    Sets chemistry ODE integrator parameters. Enables/disables stiff chemistry 	acceleration methods and set their parameters.
+                    Set ISAT parameters.
                     """
                 class liquid_energy_diffusion(TUIMethod):
                     """
@@ -4766,55 +4753,55 @@ class main_menu(TUIMenu):
                     """
                 class liquid_micro_mixing(TUIMethod):
                     """
-                    Enables/disables liquid micro mixing.
+                    Enable/disable liquid micro mixing option.
                     """
                 class mass_deposition_source(TUIMethod):
                     """
-                    Enables/disables mass deposition source due to surface reactions.
+                    No help available.
                     """
                 class mixing_model(TUIMethod):
                     """
-                    Sets PDF Transport mixing model.
+                    Set PDF transport mixing model.
                     """
                 class multicomponent_diffusion(TUIMethod):
                     """
-                    Enables/disables multicomponent diffusion.
+                    Enable/disable multicomponent diffusion.
                     """
                 class non_premixed_combustion(TUIMethod):
                     """
-                    Enables/disables non-premixed combustion model.
+                    Enable/disable the non-premixed combustion model.
                     """
                 class non_premixed_combustion_expert(TUIMethod):
                     """
-                    Sets PDF expert parameters.
+                    Set PDF expert parameters.
                     """
                 class non_premixed_combustion_parameters(TUIMethod):
                     """
-                    Sets PDF parameters.
+                    Set PDF parameters.
                     """
                 class off(TUIMethod):
                     """
-                    Enables/disables solution of species models.
+                    Enable/disable solution of species models.
                     """
                 class partially_premixed_combustion(TUIMethod):
                     """
-                    Enables/disables partially premixed combustion model.
+                    Enable/disable partially premixed combustion model.
                     """
                 class partially_premixed_combustion_expert(TUIMethod):
                     """
-                    Sets PDF expert parameters.
+                    Set PDF expert parameters.
                     """
                 class partially_premixed_combustion_grids(TUIMethod):
                     """
-                    Sets values for the grid distribution for PDF table or 	flamelet parameter. This text command is available only 	for partially premixed combustion cases with FGM.
+                    Set user specified grid parameters for PDF and flamelet.
                     """
                 class partially_premixed_combustion_parameters(TUIMethod):
                     """
-                    Sets PDF parameters.
+                    Set PDF parameters.
                     """
                 class partially_premixed_properties(TUIMethod):
                     """
-                    Sets/changes partially-premixed mixture properties. 	This command is only available when partially-premixed-combustion? 	is enabled.
+                    Set/Change partially premixed mixture properties.
                     """
                 class particle_reactions(TUIMethod):
                     """
@@ -4822,19 +4809,19 @@ class main_menu(TUIMenu):
                     """
                 class pdf_transport(TUIMethod):
                     """
-                    Enables/disables the composition PDF transport combustion model.
+                    Enable/disable the composition PDF transport combustion model.
                     """
                 class pdf_transport_expert(TUIMethod):
                     """
-                    Enables/disables PDF Transport expert user.
+                    Enable/disable PDF transport expert user.
                     """
                 class premixed_combustion(TUIMethod):
                     """
-                    Enables/disables premixed combustion model.
+                    Enable/disable the premixed combustion model.
                     """
                 class premixed_model(TUIMethod):
                     """
-                    Sets premixed combustion model.
+                    Set premixed combustion model.
                     """
                 class re_calc_par_premix_props(TUIMethod):
                     """
@@ -4842,27 +4829,27 @@ class main_menu(TUIMenu):
                     """
                 class reacting_channel_model(TUIMethod):
                     """
-                    Enables/disables the Reacting Channel Model.
+                    Enable/Disable the Reacting Channel Model.
                     """
                 class reacting_channel_model_options(TUIMethod):
                     """
-                    Sets Reacting Channel Model parameters.
+                    Set Reacting Channel Model parameters.
                     """
                 class reaction_diffusion_balance(TUIMethod):
                     """
-                    Enables/disables reaction diffusion balance at reacting surface for surface 	reactions.
+                    No help available.
                     """
                 class reactor_network_model(TUIMethod):
                     """
-                    Enables/disables the Reactor Network Model.
+                    Enable/disable the Reactor Network model.
                     """
                 class relax_to_equil(TUIMethod):
                     """
-                    Enables/disables the Relaxation to Chemical Equilibrium model.
+                    Enable/disable the Relaxation to Chemical Equilibrium model.
                     """
                 class save_gradients(TUIMethod):
                     """
-                    Enables/disables storage of species mass fraction gradients.
+                    No help available.
                     """
                 class set_multi_regime_fgm(TUIMethod):
                     """
@@ -4870,55 +4857,55 @@ class main_menu(TUIMenu):
                     """
                 class set_premixed_combustion(TUIMethod):
                     """
-                    Sets premixed combustion parameters.
+                    Set premixed combustion parameters.
                     """
                 class set_turb_chem_interaction(TUIMethod):
                     """
-                    Sets EDC model constants.
+                    Set Eddy-Dissipation Concept model constants.
                     """
                 class spark_model(TUIMethod):
                     """
-                    Switches between the R15 and R14.5 spark models and sets spark model 	parameters.
+                    Set spark model parameters.
                     """
                 class species_migration(TUIMethod):
                     """
-                    Includes species migration in electric field. This command is available only when 	the electrochemical surface reactions are 	enabled.
+                    No help available.
                     """
                 class species_transport(TUIMethod):
                     """
-                    Enables/disables the species transport model.
+                    Enable/disable the species transport model.
                     """
                 class species_transport_expert(TUIMethod):
                     """
-                    Sets the convergence acceleration expert parameters. This command is only available 	when the species transport model is enabled.
+                    Set species transport expert options.
                     """
                 class stiff_chemistry(TUIMethod):
                     """
-                    Enables/disables stiff chemistry option.
+                    Enable/disable stiff chemistry option.
                     """
                 class surf_reaction_aggressiveness_factor(TUIMethod):
                     """
-                    Sets the surface reaction aggressiveness factor.
+                    No help available.
                     """
                 class surf_reaction_netm_params(TUIMethod):
                     """
-                    Sets the surface reaction parameters for the Non-Equilibrium Thermal Model.
+                    Set the surface reaction parameters for the Non-Equilibrium Thermal Model.
                     """
                 class thermal_diffusion(TUIMethod):
                     """
-                    Enables/disables thermal diffusion.
+                    No help available.
                     """
                 class thickened_flame_model(TUIMethod):
                     """
-                    Enables/disables the Relaxation to Chemical Equilibrium model.
+                    Enable/disable the Thickened Flame Model.
                     """
                 class volumetric_reactions(TUIMethod):
                     """
-                    Enables/disables volumetric reactions.
+                    No help available.
                     """
                 class wall_surface_reactions(TUIMethod):
                     """
-                    Enables/disables wall surface reactions.
+                    No help available.
                     """
                 class water_corrosion_pre(TUIMethod):
                     """
@@ -4927,7 +4914,7 @@ class main_menu(TUIMenu):
 
                 class CHEMKIN_CFD_parameters(TUIMenu):
                     """
-                    Enters the expert CHEMKIN-CFD parameters menu.
+                    Enter the expert CHEMKIN-CFD parameters menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.add_cell_monitor = self.__class__.add_cell_monitor(service, version, mode, path + ["add_cell_monitor"])
@@ -4938,28 +4925,28 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class add_cell_monitor(TUIMethod):
                         """
-                        Monitors cell for debug output.
+                        Add a monitor cell for debug output.
                         """
                     class advanced_options(TUIMethod):
                         """
-                        Sets advanced parameter options.
+                        Set advanced parameter options.
                         """
                     class basic_options(TUIMethod):
                         """
-                        Sets basic parameter options.
+                        Set basic parameter options.
                         """
                     class delete_cell_monitors(TUIMethod):
                         """
-                        Deletes cell monitors.
+                        Delete cell monitors.
                         """
                     class list_cell_monitors(TUIMethod):
                         """
-                        Lists cell monitors.
+                        List cell monitors.
                         """
 
             class structure(TUIMenu):
                 """
-                Enters the structure model menu.
+                Enter the structure model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4971,7 +4958,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class linear_elasticity(TUIMethod):
                     """
-                    Enables the linear elasticity model.
+                    Enable the linear elasticity model.
                     """
                 class nonlinear_elasticity(TUIMethod):
                     """
@@ -4979,7 +4966,7 @@ class main_menu(TUIMenu):
                     """
                 class structure_off(TUIMethod):
                     """
-                    Disables the structural model.
+                    Disable the structural model.
                     """
                 class thermal_effects(TUIMethod):
                     """
@@ -4988,7 +4975,7 @@ class main_menu(TUIMenu):
 
                 class controls(TUIMenu):
                     """
-                    Enters the structure controls menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.amg_stabilization = self.__class__.amg_stabilization(service, version, mode, path + ["amg_stabilization"])
@@ -4999,7 +4986,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class amg_stabilization(TUIMethod):
                         """
-                        Sets the algebraic multigrid (AMG) stabilization method for the structural model calculations.
+                        No help available.
                         """
                     class enhanced_strain(TUIMethod):
                         """
@@ -5007,11 +4994,11 @@ class main_menu(TUIMenu):
                         """
                     class max_iter(TUIMethod):
                         """
-                        Sets the maximum number of iterations for the structural model calculations.
+                        No help available.
                         """
                     class numerical_damping_factor(TUIMethod):
                         """
-                        Sets the damping factor for the structural model (that is, the amplitude decay factor  in  in the Theory Guide).
+                        No help available.
                         """
                     class unsteady_damping_rayleigh(TUIMethod):
                         """
@@ -5020,7 +5007,7 @@ class main_menu(TUIMenu):
 
                 class expert(TUIMenu):
                     """
-                    Enters the structure expert menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.explicit_fsi_force = self.__class__.explicit_fsi_force(service, version, mode, path + ["explicit_fsi_force"])
@@ -5031,15 +5018,15 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class explicit_fsi_force(TUIMethod):
                         """
-                        Enables/disables an explicit fluid-structure interaction force.
+                        No help available.
                         """
                     class include_pop_in_fsi_force(TUIMethod):
                         """
-                        Enables/disables the inclusion of operating pressure into the fluid-structure interaction force.
+                        No help available.
                         """
                     class include_viscous_fsi_force(TUIMethod):
                         """
-                        Enables/disables the inclusion of a viscous fluid-structure interaction force.
+                        No help available.
                         """
                     class starting_t_re_initialization(TUIMethod):
                         """
@@ -5052,7 +5039,7 @@ class main_menu(TUIMenu):
 
             class system_coupling_settings(TUIMenu):
                 """
-                Enters the system coupling menu.
+                Enter the system coupling model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.flow_boundary_coupling = self.__class__.flow_boundary_coupling(service, version, mode, path + ["flow_boundary_coupling"])
@@ -5063,7 +5050,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class use_face_or_element_based_data_transfer(TUIMethod):
                     """
-                    Answering yes at the prompt 	enables Fluent to use element data for mapping surface 	conservative quantities such as surface forces and heat 	flows.
+                    Enable/disable face based data transfer.
                     """
                 class user_defined_coupling_variables_via_udm(TUIMethod):
                     """
@@ -5136,18 +5123,23 @@ class main_menu(TUIMenu):
 
             class two_temperature(TUIMenu):
                 """
-                Enters the Two-Temperature model menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.translational_vibrational_energy_relaxation = self.__class__.translational_vibrational_energy_relaxation(service, version, mode, path + ["translational_vibrational_energy_relaxation"])
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
+                    self.expose_system_coupling = self.__class__.expose_system_coupling(service, version, mode, path + ["expose_system_coupling"])
                     self.nasa9_enhancement = self.__class__.nasa9_enhancement(service, version, mode, path + ["nasa9_enhancement"])
                     self.robustness_enhancement = self.__class__.robustness_enhancement(service, version, mode, path + ["robustness_enhancement"])
                     self.set_verbosity = self.__class__.set_verbosity(service, version, mode, path + ["set_verbosity"])
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables/disables the Two-Temperature model.
+                    No help available.
+                    """
+                class expose_system_coupling(TUIMethod):
+                    """
+                    No help available.
                     """
                 class nasa9_enhancement(TUIMethod):
                     """
@@ -5155,11 +5147,11 @@ class main_menu(TUIMenu):
                     """
                 class robustness_enhancement(TUIMethod):
                     """
-                    Enables/disables the robustness enhancement, which is 	on by default.
+                    No help available.
                     """
                 class set_verbosity(TUIMethod):
                     """
-                    Specifies the level of detail printed in the console 	about the Two-Temperature model. For a verbosity of one, 	Fluent will print the number of cells that reach the 	temperature limit, have an excessive temperature change, 	or get a negative temperature.
+                    No help available.
                     """
 
                 class translational_vibrational_energy_relaxation(TUIMenu):
@@ -5274,7 +5266,7 @@ class main_menu(TUIMenu):
 
             class viscous(TUIMenu):
                 """
-                Enters the viscous model menu.
+                Enter the viscous model menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.geko_options = self.__class__.geko_options(service, version, mode, path + ["geko_options"])
@@ -5354,7 +5346,7 @@ class main_menu(TUIMenu):
                     """
                 class add_transition_model(TUIMethod):
                     """
-                    Sets Transition model to account for transitional effects. The default is none, however you can 	select gamma-algebraic or gamma-transport-eqn.  After a transition model has been enabled, you have additional options in the 	submenu transition-model-options.
+                    No help available.
                     """
                 class buoyancy_effects(TUIMethod):
                     """
@@ -5362,27 +5354,27 @@ class main_menu(TUIMenu):
                     """
                 class corner_flow_correction(TUIMethod):
                     """
-                    Enables/disables the corner flow correction.
+                    No help available.
                     """
                 class corner_flow_correction_ccorner(TUIMethod):
                     """
-                    Sets the strength of the quadratic term of the corner flow correction. The default 	value is 1. This is available after the corner-flow-correction? 	option is enabled.
+                    Set the corner flow correction coefficient CCORNER.
                     """
                 class curvature_correction(TUIMethod):
                     """
-                    Enables/disables the curvature correction.
+                    No help available.
                     """
                 class curvature_correction_ccurv(TUIMethod):
                     """
-                    Sets the strength of the curvature correction term. 	The default value is 1. This is available after the curvature-correction? 	option is enabled.
+                    Set the curvature correction coefficient CCURV.
                     """
                 class des_limiter_option(TUIMethod):
                     """
-                    Selects the DES limiter option (none, F1, F2, Delayed DES, or Improved Delayed 	DES).
+                    No help available.
                     """
                 class detached_eddy_simulation(TUIMethod):
                     """
-                    Enables/disables detached eddy simulation.
+                    Enable/disable detached eddy simulation.
                     """
                 class geko(TUIMethod):
                     """
@@ -5390,11 +5382,11 @@ class main_menu(TUIMenu):
                     """
                 class inviscid(TUIMethod):
                     """
-                    Enables/disables inviscid flow model.
+                    Enable/disable the inviscid flow model.
                     """
                 class k_kl_w(TUIMethod):
                     """
-                    Enables/disables the k-kl-  turbulence model.
+                    Enable/disable the k-kl-omega turbulence model.
                     """
                 class ke1e(TUIMethod):
                     """
@@ -5402,23 +5394,23 @@ class main_menu(TUIMenu):
                     """
                 class ke_easm(TUIMethod):
                     """
-                    Enables/disables the EASM -  turbulence model.
+                    Enable/disable the EASM k-epsilon turbulence model.
                     """
                 class ke_realizable(TUIMethod):
                     """
-                    Enables/disables the realizable -  turbulence model.
+                    Enable/disable the realizable k-epsilon turbulence model.
                     """
                 class ke_rng(TUIMethod):
                     """
-                    Enables/disables the RNG -  turbulence model.
+                    Enable/disable the RNG k-epsilon turbulence model.
                     """
                 class ke_standard(TUIMethod):
                     """
-                    Enables/disables the standard -  turbulence model.
+                    Enable/disable the standard k-epsilon turbulence model.
                     """
                 class kw_bsl(TUIMethod):
                     """
-                    Enables/disables the baseline (BSL) -  turbulence model.
+                    Enable/disable the BSL k-omega turbulence model.
                     """
                 class kw_buoyancy_effects(TUIMethod):
                     """
@@ -5426,27 +5418,27 @@ class main_menu(TUIMenu):
                     """
                 class kw_easm(TUIMethod):
                     """
-                    Enables/disables the EASM -  turbulence model.
+                    Enable/disable the EASM k-omega turbulence model.
                     """
                 class kw_geko(TUIMethod):
                     """
-                    Enables/disables the generalized -  (GEKO) turbulence model.
+                    Enable/disable the GEKO turbulence model.
                     """
                 class kw_low_re_correction(TUIMethod):
                     """
-                    Enables/disables the -  low Re option.
+                    No help available.
                     """
                 class kw_shear_correction(TUIMethod):
                     """
-                    Enables/disables the -  shear-flow correction option. This 	text command is only available for the standard  -  model and the stress-omega RSM 	model.
+                    No help available.
                     """
                 class kw_sst(TUIMethod):
                     """
-                    Enables/disables the SST -  turbulence model.
+                    Enable/disable the SST k-omega turbulence model.
                     """
                 class kw_standard(TUIMethod):
                     """
-                    Enables/disables the standard -  turbulence model.
+                    Enable/disable the standard k-omega turbulence model.
                     """
                 class kw_wj_bsl_earsm(TUIMethod):
                     """
@@ -5454,23 +5446,23 @@ class main_menu(TUIMenu):
                     """
                 class laminar(TUIMethod):
                     """
-                    Enables/disables laminar flow model.
+                    Enable/disable the laminar flow model.
                     """
                 class large_eddy_simulation(TUIMethod):
                     """
-                    Enables/disables large eddy simulation.
+                    Enable/disable large eddy simulation.
                     """
                 class les_dynamic_energy_flux(TUIMethod):
                     """
-                    Enables/disables the dynamic sub-grid scale turbulent Prandtl Number.
+                    No help available.
                     """
                 class les_dynamic_scalar_flux(TUIMethod):
                     """
-                    Enables/disables the dynamic sub-grid scale turbulent Schmidt Number.
+                    No help available.
                     """
                 class les_subgrid_dynamic_fvar(TUIMethod):
                     """
-                    Enables/disables the dynamic subgrid-scale mixture fraction variance model.
+                    No help available.
                     """
                 class les_subgrid_rng(TUIMethod):
                     """
@@ -5482,11 +5474,11 @@ class main_menu(TUIMenu):
                     """
                 class les_subgrid_smagorinsky(TUIMethod):
                     """
-                    Enables/disables the Smagorinsky-Lilly subgrid-scale model.
+                    Enable/disable the Smagorinsky-Lilly subgrid-scale model.
                     """
                 class les_subgrid_tke(TUIMethod):
                     """
-                    Enables/disables kinetic energy transport subgrid-scale model.
+                    Enable/disable the kinetic energy transport subgrid-scale model.
                     """
                 class les_subgrid_vreman(TUIMethod):
                     """
@@ -5494,120 +5486,120 @@ class main_menu(TUIMenu):
                     """
                 class les_subgrid_wale(TUIMethod):
                     """
-                    Enables/disables WALE subgrid-scale model.
+                    Enable/disable the WALE subgrid-scale model.
                     """
                 class les_subgrid_wmles(TUIMethod):
                     """
-                    Enables/disables the WMLES subgrid-scale model.
+                    Enable/disable the WMLES subgrid-scale model.
                     """
                 class les_subgrid_wmles_s_minus_omega(TUIMethod):
                     """
-                    Enables/disables the WMLES -  subgrid-scale model.
+                    Enable/disable the WMLES S-Omega subgrid-scale model.
                     """
                 class low_pressure_boundary_slip(TUIMethod):
                     """
-                    Enables/disables the slip boundary formulation for 	low-pressure gas systems.
+                    No help available.
                     """
                 class mixing_length(TUIMethod):
                     """
-                    Enables/disables mixing-length (algebraic) turbulence model.
+                    Enable/disable the mixing-length (algebraic) turbulence model.
                     """
                 class reynolds_stress_model(TUIMethod):
                     """
-                    Enables/disables the Reynolds-stress turbulence model.
+                    Enable/disable the RSM turbulence model.
                     """
                 class rng_differential_visc(TUIMethod):
                     """
-                    Enables/disables the differential-viscosity model.
+                    No help available.
                     """
                 class rng_swirl_model(TUIMethod):
                     """
-                    Enables/disables swirl corrections for rng-model.
+                    No help available.
                     """
                 class rsm_bsl_based(TUIMethod):
                     """
-                    Enables/disables the stress-BSL Reynolds stress model.
+                    Enable/disable the Stress-BSL model.
                     """
                 class rsm_linear_pressure_strain(TUIMethod):
                     """
-                    Enables/disables the linear pressure-strain model in RSM.
+                    Enable/disable the linear pressure-strain model in RSM.
                     """
                 class rsm_omega_based(TUIMethod):
                     """
-                    Enables/disables the stress-omega Reynolds stress model.
+                    Enable/disable the Stress-omega model.
                     """
                 class rsm_or_earsm_geko_option(TUIMethod):
                     """
-                    Enables/disables the RSM version of the GEKO model.
+                    No help available.
                     """
                 class rsm_solve_tke(TUIMethod):
                     """
-                    Enables/disables the solution of T.K.E. in RSM model.
+                    No help available.
                     """
                 class rsm_ssg_pressure_strain(TUIMethod):
                     """
-                    Enables/disables quadratic pressure-strain model in RSM.
+                    Enable/disable the quadratic pressure-strain model in RSM.
                     """
                 class rsm_wall_echo(TUIMethod):
                     """
-                    Enables/disables wall-echo effects in RSM model.
+                    No help available.
                     """
                 class sa_alternate_prod(TUIMethod):
                     """
-                    Enables/disables strain/vorticity production in Spalart-Allmaras model.
+                    No help available.
                     """
                 class sa_damping(TUIMethod):
                     """
-                    Enables/disables full low-Reynolds number form of Spalart-Allmaras model. This option is only available if your response wasno to sa-enhanced-wall-treatment?.
+                    No help available.
                     """
                 class sa_enhanced_wall_treatment(TUIMethod):
                     """
-                    Enables/disables the enhanced wall treatment for the Spalart-Allmaras model. If 	disabled, no smooth blending between the viscous 	sublayer and the log-law formulation is employed, as was 	done in versions previous to Fluent 14.
+                    No help available.
                     """
                 class sas(TUIMethod):
                     """
-                    Enables/disables Scale-Adaptive Simulation (SAS) in combination with the SST  -  turbulence model.
+                    Enable/disable the SAS turbulence model.
                     """
                 class spalart_allmaras(TUIMethod):
                     """
-                    Enables/disables Spalart-Allmaras turbulence model.
+                    Enable/disable the Spalart-Allmaras turbulence model.
                     """
                 class trans_sst_roughness_correlation(TUIMethod):
                     """
-                    Enables/disables the Transition-SST roughness correlation option.
+                    Enable/disable the Transition-SST roughness correlation option.
                     """
                 class transition_sst(TUIMethod):
                     """
-                    Enables/disables the transition SST turbulence model.
+                    Enable/disable the transition SST turbulence model.
                     """
                 class turb_buoyancy_effects(TUIMethod):
                     """
-                    Enables/disables effects of buoyancy on 	turbulence.
+                    No help available.
                     """
                 class turb_compressibility(TUIMethod):
                     """
-                    Enables/disables the compressibility correction option.
+                    No help available.
                     """
                 class user_defined(TUIMethod):
                     """
-                    Selects user-defined functions to define the turbulent viscosity and the turbulent 	Prandtl and Schmidt numbers.
+                    Select user-defined functions to define the turbulent viscosity and the turbulent Prandtl and Schmidt numbers.
                     """
                 class user_defined_transition(TUIMethod):
                     """
-                    Sets user-defined transition correlations.
+                    No help available.
                     """
                 class v2f(TUIMethod):
                     """
-                    Enables/disables V2F turbulence model.
+                    Enable/disable the V2F turbulence model.
                     """
                 class zero_equation_hvac(TUIMethod):
                     """
-                    Enables/disables zero-equation HVAC turbulence model.
+                    Enable/disable the zero-equation HVAC turbulence model.
                     """
 
                 class geko_options(TUIMenu):
                     """
-                    Enters the GEKO model menu..
+                    Enter the GEKO options menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.blending_function = self.__class__.blending_function(service, version, mode, path + ["blending_function"])
@@ -5626,47 +5618,47 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class blending_function(TUIMethod):
                         """
-                        Sets the blending function, which deactivatescmix and cjet inside boundary layers.
+                        Set the GEKO model blending function.
                         """
                     class cbf_lam(TUIMethod):
                         """
-                        Setscbf_lam, a part of the blending function and shields the laminar boundary layer.
+                        No help available.
                         """
                     class cbf_tur(TUIMethod):
                         """
-                        Setscbf_tur, a factor for the main blending factor, controlling the thickness of the layer near walls.
+                        No help available.
                         """
                     class cjet(TUIMethod):
                         """
-                        Setscjet, the parameter to optimize free shear layer mixing (optimize free jets independent of mixing layer).
+                        No help available.
                         """
                     class cjet_aux(TUIMethod):
                         """
-                        Setscjet_aux, which allows fine-tuning of the parameter to optimize free jets.
+                        No help available.
                         """
                     class cmix(TUIMethod):
                         """
-                        Setscmix, the parameter to optimize strength of mixing in free shear flows.
+                        Set the GEKO model coefficient CMIX.
                         """
                     class cnw(TUIMethod):
                         """
-                        Setscnw, the parameter to optimize flow in non-equilibrium near wall regions.
+                        Set the GEKO model coefficient CNW.
                         """
                     class cnw_sub(TUIMethod):
                         """
-                        Setscnw_sub, which allows the adjustment of log-layer and cf.
+                        No help available.
                         """
                     class creal(TUIMethod):
                         """
-                        Setscreal, a realizability limiter that ensures positive normal stresses in the entire domain.
+                        No help available.
                         """
                     class csep(TUIMethod):
                         """
-                        Setscsep, the parameter to optimize flow separation from smooth surfaces.
+                        Set the GEKO model coefficient CSEP.
                         """
                     class geko_defaults(TUIMethod):
                         """
-                        Restores the defaults of all GEKO parameters.
+                        No help available.
                         """
                     class version(TUIMethod):
                         """
@@ -5674,7 +5666,7 @@ class main_menu(TUIMenu):
                         """
                     class wall_distance_free(TUIMethod):
                         """
-                        Enables/disables the wall distance free version of the GEKO model.
+                        No help available.
                         """
 
                 class les_model_options(TUIMenu):
@@ -5711,7 +5703,7 @@ class main_menu(TUIMenu):
 
                 class multiphase_turbulence(TUIMenu):
                     """
-                    Enters the multiphase turbulence menu.
+                    Enter the multiphase turbulence menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.multiphase_options = self.__class__.multiphase_options(service, version, mode, path + ["multiphase_options"])
@@ -5721,11 +5713,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class multiphase_options(TUIMethod):
                         """
-                        Enables/disables multiphase options.
+                        No help available.
                         """
                     class rsm_multiphase_models(TUIMethod):
                         """
-                        Selects Reynolds Stress multiphase model.
+                        Enable/disable the Reynolds Stress multiphase model.
                         """
                     class subgrid_turbulence_contribution_aiad(TUIMethod):
                         """
@@ -5733,12 +5725,12 @@ class main_menu(TUIMenu):
                         """
                     class turbulence_multiphase_models(TUIMethod):
                         """
-                        Selects -  multiphase model.
+                        Select the k-epsilon multiphase model.
                         """
 
                 class near_wall_treatment(TUIMenu):
                     """
-                    Enters the near wall treatment menu.
+                    Enter the near wall treatment menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.enhanced_wall_treatment = self.__class__.enhanced_wall_treatment(service, version, mode, path + ["enhanced_wall_treatment"])
@@ -5755,7 +5747,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enhanced_wall_treatment(TUIMethod):
                         """
-                        Enables/disables enhanced wall functions.
+                        Enable/disable enhanced wall functions.
                         """
                     class harmonic_blend_rplus_wf(TUIMethod):
                         """
@@ -5763,15 +5755,15 @@ class main_menu(TUIMenu):
                         """
                     class menter_lechner(TUIMethod):
                         """
-                        Enables/disables the Menter-Lechner near-wall treatment.
+                        Enable/disable near wall treatment Menter-Lechner.
                         """
                     class non_equilibrium_wall_fn(TUIMethod):
                         """
-                        Enables/disables non-equilibrium wall functions.
+                        Enable/disable non-equilibrium wall functions.
                         """
                     class scalable_wall_functions(TUIMethod):
                         """
-                        Enables/disables scalable wall functions.
+                        Enable/disable scalable wall functions.
                         """
                     class use_second_cell_off_a_wall_quantities(TUIMethod):
                         """
@@ -5779,7 +5771,7 @@ class main_menu(TUIMenu):
                         """
                     class user_defined_wall_functions(TUIMethod):
                         """
-                        Enables/disables user-defined wall functions.
+                        Enable user defined wall functions.
                         """
                     class wall_omega_treatment(TUIMethod):
                         """
@@ -5787,20 +5779,20 @@ class main_menu(TUIMenu):
                         """
                     class werner_wengle_wall_fn(TUIMethod):
                         """
-                        Enables/disables Werner-Wengle wall functions.
+                        Enable/disable Werner-Wengle wall functions.
                         """
                     class wf_pressure_gradient_effects(TUIMethod):
                         """
-                        Enables/disables wall function pressure- gradient effects.
+                        No help available.
                         """
                     class wf_thermal_effects(TUIMethod):
                         """
-                        Enables/disables wall function thermal effects.
+                        No help available.
                         """
 
                 class transition_model_options(TUIMenu):
                     """
-                    Enters the transition model options menu.
+                    Enter the transition model options menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.capg_hightu = self.__class__.capg_hightu(service, version, mode, path + ["capg_hightu"])
@@ -5821,68 +5813,68 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class capg_hightu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CAPG_HIGHTU.
+                        No help available.
                         """
                     class capg_lowtu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CAPG_LOWTU.
+                        No help available.
                         """
                     class cbubble_c1(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CBUBBLE_C1.
+                        No help available.
                         """
                     class cbubble_c2(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CBUBBLE_C2.
+                        No help available.
                         """
                     class cfpg_hightu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CFPG_HIGHTU.
+                        No help available.
                         """
                     class cfpg_lowtu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CFPG_LOWTU.
+                        No help available.
                         """
                     class clambda_scale(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CLAMBDA_SCALE.
+                        No help available.
                         """
                     class critical_reynolds_number_correlation(TUIMethod):
                         """
-                        Sets the critical Reynolds number correlation.
+                        Set the critical Reynolds number correlation.
                         """
                     class crossflow_transition(TUIMethod):
                         """
-                        Enables/disables the effects of crossflow instability.
+                        No help available.
                         """
                     class ctu_hightu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CTU_HIGHTU.
+                        No help available.
                         """
                     class ctu_lowtu(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient CTU_LOWTU.
+                        No help available.
                         """
                     class rec_c1(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient REC_C1.
+                        No help available.
                         """
                     class rec_c2(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient REC_C2.
+                        No help available.
                         """
                     class rec_max(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient REC_MAX.
+                        No help available.
                         """
                     class rv1_switch(TUIMethod):
                         """
-                        Sets the algebraic transition model coefficient RV1_SWITCH.
+                        No help available.
                         """
 
                 class turbulence_expert(TUIMenu):
                     """
-                    Enters the turbulence expert menu.
+                    Enter the turbulence expert menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.curvature_correction_coefficient = self.__class__.curvature_correction_coefficient(service, version, mode, path + ["curvature_correction_coefficient"])
@@ -5912,58 +5904,43 @@ class main_menu(TUIMenu):
                         """
                     class kato_launder_model(TUIMethod):
                         """
-                        Enables/disables Kato-Launder modification.
+                        No help available.
                         """
                     class kw_add_des(TUIMethod):
                         """
-                        Enables/disables Detached Eddy Simulation (DES) in combination with the currently selected BSL -  model or transition SST model. This text command is only available for transient cases.
+                        No help available.
                         """
                     class kw_add_sas(TUIMethod):
                         """
-                        Enables/disables Scale-Adaptive Simulation (SAS) in combination with the currently selected -based URANS turbulence model. This text command is only available for transient cases.
+                        No help available.
                         """
                     class kw_vorticity_based_production(TUIMethod):
                         """
-                        Enables/disables vorticity-based production.
+                        No help available.
                         """
                     class low_re_ke(TUIMethod):
                         """
-                        Enables/disables the low-Re -  turbulence model.
+                        Enable/disable the low-Re k-epsilon turbulence model.
                         """
                     class low_re_ke_index(TUIMethod):
                         """
-                        Specifies which low-Reynolds-number -  model is to be used. Six models are available:
-                        Index
-                        Model
-                        0
-                        Abid
-                        1
-                        Lam-Bremhorst
-                        2
-                        Launder-Sharma
-                        3
-                        Yang-Shih
-                        4
-                        Abe-Kondoh-Nagano
-                        5
-                        Chang-Hsieh-Chen
-                        Contact your Ansys, Inc. technical support engineer for more details.
+                        Enable/disable the low-Re k-epsilon model version.
                         """
                     class non_newtonian_modification(TUIMethod):
                         """
-                        Enables/disables non-Newtonian modification for Lam-Bremhorst model.
+                        No help available.
                         """
                     class production_limiter(TUIMethod):
                         """
-                        Enables/disables Production Limiter modification.
+                        No help available.
                         """
                     class restore_sst_v61(TUIMethod):
                         """
-                        Enables/disables SST formulation of v6.1.
+                        No help available.
                         """
                     class rke_cmu_rotation_term(TUIMethod):
                         """
-                        Modifies the  definition for the realizable  -  model.
+                        No help available.
                         """
                     class sbes_les_subgrid_dynamic_fvar(TUIMethod):
                         """
@@ -5971,35 +5948,35 @@ class main_menu(TUIMenu):
                         """
                     class sbes_sdes_hybrid_model(TUIMethod):
                         """
-                        Selects the hybrid model, to specify whether you want to apply the Shielded Detached Eddy Simulation (SDES) model, Stress-Blended Eddy Simulation (SBES), or SBES with a user-defined function.
+                        Select the SBES / SDES hybrid model.
                         """
                     class sbes_sgs_option(TUIMethod):
                         """
-                        Selects the subgrid-scale model for the LES portion of your Stress-Blended Eddy Simulation (SBES).
+                        Select SBES subgrid-scale model.
                         """
                     class sbes_update_interval_k_omega(TUIMethod):
                         """
-                        Sets the number of time steps between updates of the k-ω part of the SBES model.
+                        Set an integer value how often the k and omega equations are updated in a transient SBES run.
                         """
                     class thermal_p_function(TUIMethod):
                         """
-                        Enables/disables Jayatilleke P function.
+                        No help available.
                         """
                     class turb_add_sbes_sdes(TUIMethod):
                         """
-                        Enables/disables the Stress-Blended Eddy Simulation (SBES) model or Shielded Detached Eddy Simulation (SDES) model.
+                        Enable/disable SBES / SDES with the current turbulence model.
                         """
                     class turb_non_newtonian(TUIMethod):
                         """
-                        Enables/disables turbulence for non-Newtonian fluids.
+                        No help available.
                         """
                     class turb_pk_compressible(TUIMethod):
                         """
-                        Enables/disables turbulent production due to compressible divergence.
+                        No help available.
                         """
                     class turbulence_damping(TUIMethod):
                         """
-                        Enables/disables turbulence damping and sets turbulence damping parameters.
+                        No help available.
                         """
 
         class motion_definitions(TUIMenu):
@@ -6036,7 +6013,7 @@ class main_menu(TUIMenu):
 
         class named_expressions(TUIMenu):
             """
-            Enters the named expressions menu.
+            Manage named expressions.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -6051,44 +6028,44 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Creates a new named expression.
+                Add a new object.
                 """
             class compute(TUIMethod):
                 """
-                Computes and prints the value of an expression. This is only available for expressions that evaluate to a single value.
+                Compute expression.
                 """
             class copy(TUIMethod):
                 """
-                Allows you to copy an existing named expression.
+                Copy expression.
                 """
             class delete(TUIMethod):
                 """
-                Allows you to delete a named expression, as long as it is not in use.
+                Delete an object.
                 """
             class edit(TUIMethod):
                 """
-                Allows you to edit the definition of a named expression.
+                Edit an object.
                 """
             class export_to_tsv(TUIMethod):
                 """
-                Export one or more named expressions to a file in TSV format.
+                Export expressions.
                 """
             class import_from_tsv(TUIMethod):
                 """
-                Import one or more named expressions saved in TSV format.
+                Import expressions.
                 """
             class list(TUIMethod):
                 """
-                Lists all of the currently defined named expressions.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the definition of a named expression.
+                List properties of an object.
                 """
 
         class operating_conditions(TUIMenu):
             """
-            Enters the define operating conditions menu.
+            Enter the define operating conditions menu.
             """
             def __init__(self, service, version, mode, path):
                 self.operating_density = self.__class__.operating_density(service, version, mode, path + ["operating_density"])
@@ -6113,7 +6090,7 @@ class main_menu(TUIMenu):
                 """
             class gravity(TUIMethod):
                 """
-                Sets gravitational acceleration.
+                No help available.
                 """
             class gravity_mrf_behavior(TUIMethod):
                 """
@@ -6121,36 +6098,36 @@ class main_menu(TUIMenu):
                 """
             class operating_pressure(TUIMethod):
                 """
-                Sets the operating pressure.
+                No help available.
                 """
             class operating_temperature(TUIMethod):
                 """
-                Sets the operating temperature for Boussinesq.
+                No help available.
                 """
             class reference_pressure_location(TUIMethod):
                 """
-                Sets a location that determines the reference pressure cell or cells (depending on the selected reference pressure method). The pressure value in such cells can be used to adjust the gauge pressure field after each iteration to keep it from floating.
+                No help available.
                 """
             class reference_pressure_method(TUIMethod):
                 """
-                Specifies the method used for adjusting the gauge pressure field after each iteration to keep it from floating: the method can assume that all of the cell zones are connected by internal boundary zones (such as interior zones), or can account for connected and disconnected cell zones. Such adjustment is only allowed for incompressible flows, and will be limited partially or entirely by the presence of a pressure boundary.
+                No help available.
                 """
             class set_state(TUIMethod):
                 """
-                Selects state for real gas EOS subcritical condition.
+                No help available.
                 """
             class use_inlet_temperature_for_operating_density(TUIMethod):
                 """
-                Uses inlet temperature to calculate operating density.
+                No help available.
                 """
             class used_ref_pressure_location(TUIMethod):
                 """
-                Prints the coordinates of the reference pressure cell or cells (depending on the selected reference pressure method). The pressure value in such cells can be used to adjust the gauge pressure field after each iteration to keep it from floating.
+                No help available.
                 """
 
         class overset_interfaces(TUIMenu):
             """
-            Enters the overset interfaces menu.
+            Enter the overset-interfaces menu.
             """
             def __init__(self, service, version, mode, path):
                 self.adapt = self.__class__.adapt(service, version, mode, path + ["adapt"])
@@ -6184,35 +6161,35 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class check(TUIMethod):
                 """
-                Checks the integrity of the overset interfaces. Reports orphan cells and errors in the domain connectivity.
+                Check all overset interfaces.
                 """
             class clear(TUIMethod):
                 """
-                Clears the domain connectivity of an overset interface. This text command is only available when define/overset-interfaces/options/expert? is set to yes.
+                Clear an overset interface.
                 """
             class clear_all(TUIMethod):
                 """
-                Clears the domain connectivity of all overset interfaces. This text command is only available when define/overset-interfaces/options/expert? is set to yes.
+                Clear all overset interfaces.
                 """
             class create(TUIMethod):
                 """
-                Creates an overset interface.
+                Create an overset interface.
                 """
             class debug_hole_cut(TUIMethod):
                 """
-                Debugging tool to troubleshoot hole cutting of overset interfaces. This text command is only available when define/overset-interfaces/options/expert? is set to yes.
+                Debugging tool for overset hole cutting.
                 """
             class delete(TUIMethod):
                 """
-                Deletes an overset interface.
+                Delete an overset interface.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all overset interfaces in the domain.
+                Delete all overset interfaces.
                 """
             class display_cells(TUIMethod):
                 """
-                Displays the overset cells marked using the text command define/overset-interfaces/mark-cells.
+                Display the marked overset cells.
                 """
             class fill_dci(TUIMethod):
                 """
@@ -6232,27 +6209,27 @@ class main_menu(TUIMenu):
                 """
             class grid_priorities(TUIMethod):
                 """
-                Allows you to specify grid priorities on background and component meshes, used in the overlap minimization of an overset interface.
+                Edit grid priorities for an overset interface.
                 """
             class intersect(TUIMethod):
                 """
-                Executes the hole cutting of an overset interface and establishes the domain connectivity. This text command is only available when define/overset-interfaces/options/expert? is set to yes.
+                Intersect an overset interface.
                 """
             class intersect_all(TUIMethod):
                 """
-                Executes hole cutting for all overset interfaces in the domain. This text command is only available when define/overset-interfaces/options/expert? is set to yes.
+                Intersect all overset interfaces.
                 """
             class list(TUIMethod):
                 """
-                Lists information about the overset interfaces. The output depends on the overset verbosity setting.
+                List all overset interfaces.
                 """
             class mark_cell_change(TUIMethod):
                 """
-                Marks cells that have undergone a specified overset cell type change (from solve,receptor, or dead to any other type) in the last time step. Adaption registers are automatically filled based on these markings. This text command is only available for unsteady simulations and if define/overset-interfaces/options/expert? is set to yes.
+                Mark overset interface related cell type change.
                 """
             class mark_cells(TUIMethod):
                 """
-                Marks the specified overset cells (solve, receptor, donor, orphan, or dead) and fills registers based on the markings. Display the marked cells via the text command define/overset-interfaces/display-cells.
+                Mark overset interface related cell types.
                 """
             class read_dci_from_case(TUIMethod):
                 """
@@ -6260,7 +6237,7 @@ class main_menu(TUIMenu):
                 """
             class set_mark_bounds(TUIMethod):
                 """
-                Allows you to set bounds so that any marking of cells is performed within a spherical region based on a specified origin and radius. This can be useful when diagnosing a local problem on a large mesh. This text command is only available if define/overset-interfaces/options/expert? is set to yes. After defining the bounds, you can then mark the cells using the define/overset-interfaces/mark-cell-change or define/overset-interfaces/mark-cells text command. To disable the bounds, enter a radius of 0.
+                Set bounds (center, radius) for overset cell marking.
                 """
             class update_from_dci(TUIMethod):
                 """
@@ -6281,7 +6258,7 @@ class main_menu(TUIMenu):
 
             class adapt(TUIMenu):
                 """
-                Enters the overset adaption menu.
+                Enter the overset adaption menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -6290,16 +6267,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class adapt_mesh(TUIMethod):
                     """
-                    Marks and adapts the mesh to improve your overset 	mesh.
+                    Mark and adapt the mesh to remove orphan cells and large donor-receptor cell size differences.
                     """
                 class mark_adaption(TUIMethod):
                     """
-                    Marks cells to identify those that can be adapted in 	order to improve your overset mesh.
+                    Mark cells for overset orphan adaption and donor-receptor size differences.
                     """
 
                 class set(TUIMenu):
                     """
-                    Enters the overset adaption set menu.
+                    Enter the overset adaption set menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.adaption_sweeps = self.__class__.adaption_sweeps(service, version, mode, path + ["adaption_sweeps"])
@@ -6317,7 +6294,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class adaption_sweeps(TUIMethod):
                         """
-                        Sets the number of rounds of adaption applied during each adaption cycle.
+                        Set the number of adaption sweeps per overset adaption.
                         """
                     class automatic(TUIMethod):
                         """
@@ -6325,7 +6302,7 @@ class main_menu(TUIMenu):
                         """
                     class buffer_layers(TUIMethod):
                         """
-                        Sets the number of cell layers marked in addition to the cells marked for orphan adaption.
+                        Set the number of cell layers marked in addition to the cells marked for orphan adaption.
                         """
                     class gap_resolution(TUIMethod):
                         """
@@ -6333,15 +6310,15 @@ class main_menu(TUIMenu):
                         """
                     class length_ratio_max(TUIMethod):
                         """
-                        Sets the length scale ratio threshold used to determine which cells are marked for adaption based on donor-receptor cell size differences.
+                        Set the length scale ratio threshold used to determine which cells are marked for adaption based on donor-receptor cell size differences.
                         """
                     class mark_coarsening(TUIMethod):
                         """
-                        Enables/disables the option to coarsen the mesh if mesh refinement is no longer needed. This option is enabled by default.
+                        Enable the option to coarsen the mesh during overset adaption.
                         """
                     class mark_fixed_orphans(TUIMethod):
                         """
-                        Enables/disables the option to also adapt based on cells that are not actual orphans because they were fixed by accepting neighbor donors. This option is only applied if define/overset-interfaces/adapt/set/mark-orphans? is enabled.
+                        Enable the option to adapt for orphans which were removed by accepting neighbor donors.
                         """
                     class mark_gaps(TUIMethod):
                         """
@@ -6349,15 +6326,15 @@ class main_menu(TUIMenu):
                         """
                     class mark_orphans(TUIMethod):
                         """
-                        Enables/disables the option to adapt for orphan reduction.
+                        Enable the option to adapt for orphan reduction.
                         """
                     class mark_size(TUIMethod):
                         """
-                        Enables/disables the option to adapt based on donor-receptor cell size differences.
+                        Enable the option to adapt for donor-receptor cell size differences.
                         """
                     class maximum_refinement_level(TUIMethod):
                         """
-                        Sets the maximum level of refinement during overset adaption, in conjunction with the value set using the mesh/adapt/set/maximum-refinement-level text command (the larger of the two values is used).
+                        Set the maximum level of refinement in overset adaption.
                         """
                     class prismatic(TUIMethod):
                         """
@@ -6394,7 +6371,7 @@ class main_menu(TUIMenu):
 
             class cut_control(TUIMenu):
                 """
-                Enters the overset hole cut control menu.
+                Enter the overset hole cut control menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.cut_seeds = self.__class__.cut_seeds(service, version, mode, path + ["cut_seeds"])
@@ -6405,24 +6382,24 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class add(TUIMethod):
                     """
-                    Adds a hole cut control, so that a boundary zone does 	not cut specified cell zones.
+                    Add hole cut control for a boundary zone.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes the hole cut control for a boundary 	zone.
+                    Delete hole cut control for a boundary zone.
                     """
                 class delete_all(TUIMethod):
                     """
-                    Deletes the hole cut controls for all boundary 	zones.
+                    Delete the hole cut controls for all boundary zones.
                     """
                 class list(TUIMethod):
                     """
-                    Lists the defined hole cut controls.
+                    List the defined hole cut controls.
                     """
 
                 class cut_seeds(TUIMenu):
                     """
-                    Enters the overset hole cut seeds menu.
+                    Enter the overset hole cut seed menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -6437,7 +6414,7 @@ class main_menu(TUIMenu):
                         """
                     class cut_seeds_for_all_component_zones(TUIMethod):
                         """
-                        Specifies whether all component zones get cut seeds, which cut pilot holes into the overlapping meshes that will then be enlarged during overlap minimization.
+                        Enable that all component zones get a cut seed.
                         """
                     class delete(TUIMethod):
                         """
@@ -6454,7 +6431,7 @@ class main_menu(TUIMenu):
 
             class options(TUIMenu):
                 """
-                Enters the overset interface options menu.
+                Enter the overset interface options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.auto_create = self.__class__.auto_create(service, version, mode, path + ["auto_create"])
@@ -6478,51 +6455,51 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class auto_create(TUIMethod):
                     """
-                    Enables the automatic creation of a default overset interface during 	initialization or mesh motion update.
+                    Enable automatic creation of default overset interface.
                     """
                 class dead_cell_update(TUIMethod):
                     """
-                    Enables/disables the updating of dead cells during the solution process, which may 	be helpful for some moving and dynamic mesh simulations 	(though at the cost of solver performance). You can 	enter the number of layers of dead cells adjacent to the 	receptor cells that you want updated, or enter -1 to request that all dead 	cells are updated. This text command is only available 	for transient simulations when define/overset-interfaces/options/expert? 	is set to yes.
+                    Enable dead cell update in moving or dynamic mesh simulations.
                     """
                 class donor_priority_method(TUIMethod):
                     """
-                    Allows you to specify whether the cell donor priority used in the overlap 	minimization of an overset interface is inversely proportional to either the 	cell size or the distance to the nearest boundary.
+                    Set method used to evaludate the cell donor priority.
                     """
                 class expert(TUIMethod):
                     """
-                    Enables / disables overset-related expert tools.
+                    Enable additional overset options and tools.
                     """
                 class mesh_interfaces(TUIMethod):
                     """
-                    Allows the inclusion of non-conformal mesh interfaces 	inside overset cell zones, as long as the mesh 	interfaces do not spatially overlap with the cells where 	the overset interfaces lie.
+                    Allow mesh interfaces inside overset cell zones.
                     """
                 class minimize_overlap(TUIMethod):
                     """
-                    Allows you to disable overlap minimization during hole cutting.
+                    Enable overlap minimization for overset interfaces.
                     """
                 class modified_donor_search(TUIMethod):
                     """
-                    Enables / disables modified donor search parameters. When enabled, these parameters result in 	a more extended donor search, which can be helpful for 	meshes with orphans. This text command is only available 	when define/overset-interfaces/options/expert? 	is set to yes.
+                    Enable modified and more extensive donor search.
                     """
                 class modified_hole_cutting(TUIMethod):
                     """
-                    Enables / disables modified hole cutting parameters. When enabled, the parameters used can 	help avoid dead cell zones that result from a hole 	cutting failure. This text command is only available 	when define/overset-interfaces/options/expert? 	is set to yes.
+                    Enable modified hole cutting parameters.
                     """
                 class node_connected_donors(TUIMethod):
                     """
-                    Allows you to switch between face or node connected donor cells. This text command is only 	available when define/overset-interfaces/options/expert? 	is set to yes.
+                    Enable node or face connected donor cells.
                     """
                 class overlap_boundaries(TUIMethod):
                     """
-                    Allows you to disable the detection of overlapping boundaries during hole cutting, 	in order to reduce the computational expense for cases 	that do not include such boundaries. When enabled, this 	text command also allows you to specify which boundary 	zones should be considered when detecting overlapping 	boundaries; this can be helpful when the default hole 	cutting process fails.
+                    Enable overset topologies with overlap boundaries.
                     """
                 class parallel(TUIMethod):
                     """
-                    Allows you to select the algorithm used for overset parallel processing. You can 	select from the default cell exchange model or the local 	cell zone replication model; the cell exchange model 	should require less memory and may result in faster 	calculations.
+                    Set options to control running overset in parallel.
                     """
                 class partial_cut_faces(TUIMethod):
                     """
-                    Enables/disables enhanced hole cutting, where partially overlapping cut faces are 	decomposed into overlapping and non-overlapping 	fractions, and only the non-overlapping fractions 	participate in the hole cutting. This can help avoid the 	situation where a region or cell zone is erroneously 	identified as dead because of leakage during flood 	filling, even though it has overlapping boundaries that 	match well. When this text command is disabled, the 	partially overlapping faces are entirely protected from 	cutting.
+                    Enable enhanced hole cutting where cut faces partially overlap.
                     """
                 class protect_collar_meshes(TUIMethod):
                     """
@@ -6530,28 +6507,28 @@ class main_menu(TUIMenu):
                     """
                 class render_receptor_cells(TUIMethod):
                     """
-                    Allows you to enable visualization of receptor cells in contour and mesh 	displays.
+                    Set the option to include receptor cells in postprocessing.
                     """
                 class solve_island_removal(TUIMethod):
                     """
-                    Sets the method used to control the removal of isolated patches of solve cells. This text 	command is only available when define/overset-interfaces/options/expert? 	is set to yes.
+                    Set method used to control the removal of isolated patches of solve cells.
                     """
                 class transient_caching(TUIMethod):
                     """
-                    Sets the options to control caching of entities in transient overset simulations. This text 	command is only available when define/overset-interfaces/options/expert? 	is set to yes.
+                    Set options to control caching of entities in transient overset simulations.
                     """
                 class update_before_case_write(TUIMethod):
                     """
-                    Enables/disables the updating of the overset interfaces before writing a case file in the 	Common Fluids Format (CFF). This text command is only 	available when define/overset-interfaces/options/expert? 	is set to yes.
+                    Enable update of overset interfaces before writing case file (CFF format only).
                     """
                 class verbosity(TUIMethod):
                     """
-                    Specifies the level of detail printed in the console about overset 	interfaces.
+                    Set overset mesh reporting verbosity.
                     """
 
         class parameters(TUIMenu):
             """
-            Enters the parameters menu.
+            Enter the parameters menu.
             """
             def __init__(self, service, version, mode, path):
                 self.input_parameters = self.__class__.input_parameters(service, version, mode, path + ["input_parameters"])
@@ -6561,12 +6538,12 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class enable_in_TUI(TUIMethod):
                 """
-                Enables/disables parameters in the text user interface.
+                No help available.
                 """
 
             class input_parameters(TUIMenu):
                 """
-                Enters the input-parameters menu.
+                Enter the input-parameters menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.advance = self.__class__.advance(service, version, mode, path + ["advance"])
@@ -6575,11 +6552,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class delete(TUIMethod):
                     """
-                    Deletes an input parameter.
+                    Delete an input parameter.
                     """
                 class edit(TUIMethod):
                     """
-                    Edits an input parameter.
+                    Edit an input parameter.
                     """
 
                 class advance(TUIMenu):
@@ -6623,7 +6600,7 @@ class main_menu(TUIMenu):
 
             class output_parameters(TUIMenu):
                 """
-                Enters the output-parameters menu.
+                Enter the output-parameters menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.create = self.__class__.create(service, version, mode, path + ["create"])
@@ -6637,40 +6614,40 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class create(TUIMethod):
                     """
-                    Creates an output parameter.
+                    Create an output parameter.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes an output parameter.
+                    Delete an output parameter.
                     """
                 class edit(TUIMethod):
                     """
-                    Edits an output parameter.
+                    Edit an output parameter.
                     """
                 class print_all_to_console(TUIMethod):
                     """
-                    Displays all parameter values in the console.
+                    Print all parameter values to console.
                     """
                 class print_to_console(TUIMethod):
                     """
-                    Displays parameter value in the console.
+                    Print parameter value to console.
                     """
                 class rename(TUIMethod):
                     """
-                    Renames an output parameter.
+                    Rename an output parameter.
                     """
                 class write_all_to_file(TUIMethod):
                     """
-                    Writes all parameter values to file.
+                    Write all parameter values to file.
                     """
                 class write_to_file(TUIMethod):
                     """
-                    Writes parameter value to file.
+                    Write parameter value to file.
                     """
 
         class periodic_conditions(TUIMenu):
             """
-            Enters the periodic conditions menu.
+            Enter the periodic conditions menu.
             """
             def __init__(self, service, version, mode, path):
                 self.massflow_rate_specification = self.__class__.massflow_rate_specification(service, version, mode, path + ["massflow_rate_specification"])
@@ -6678,16 +6655,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class massflow_rate_specification(TUIMethod):
                 """
-                Enables/disables specification of mass flow rate at the periodic boundary.
+                Enable/disable specification of mass flow rate at the periodic boundary.
                 """
             class pressure_gradient_specification(TUIMethod):
                 """
-                Enables/disables specification of pressure gradient at the periodic boundary.
+                Enable/disable specification of pressure gradient at the periodic boundary.
                 """
 
         class phases(TUIMenu):
             """
-            Enters the phases menu.
+            Enter the phases menu.
             """
             def __init__(self, service, version, mode, path):
                 self.iac_expert = self.__class__.iac_expert(service, version, mode, path + ["iac_expert"])
@@ -6706,7 +6683,7 @@ class main_menu(TUIMenu):
 
             class iac_expert(TUIMenu):
                 """
-                Enters the IAC expert setting menu.
+                Enter the IAC expert setting menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.hibiki_ishii_model = self.__class__.hibiki_ishii_model(service, version, mode, path + ["hibiki_ishii_model"])
@@ -6716,7 +6693,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class hibiki_ishii_model(TUIMethod):
                     """
-                    Sets Hibiki-Ishii model coefficients.
+                    Set hi model coefficients.
                     """
                 class iac_pseudo_time_step(TUIMethod):
                     """
@@ -6724,16 +6701,16 @@ class main_menu(TUIMenu):
                     """
                 class ishii_kim_model(TUIMethod):
                     """
-                    Sets Ishii-Kim model coefficients.
+                    Set ik model coefficients.
                     """
                 class yao_morel_model(TUIMethod):
                     """
-                    Sets Yao-Morel model coefficients.
+                    Set ym model coefficients.
                     """
 
             class set_domain_properties(TUIMenu):
                 """
-                Enters the menu to set phase domain properties.
+                Enter the menu to set domain properties.
                 """
                 def __init__(self, service, version, mode, path):
                     self.interaction_domain = self.__class__.interaction_domain(service, version, mode, path + ["interaction_domain"])
@@ -6742,16 +6719,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class change_phases_names(TUIMethod):
                     """
-                    Allows you to change the names of all the phases in your simulation.
+                    Change names for all defined phases?.
                     """
                 class phase_domains(TUIMethod):
                     """
-                    Enters the menu to select a specific phase.
+                    Enter the menu to select a specific phase domain.
                     """
 
                 class interaction_domain(TUIMenu):
                     """
-                    Enters the menu to set the interaction domain 	properties.
+                    Enter the menu to set the interaction domain properties.
                     """
                     def __init__(self, service, version, mode, path):
                         self.forces = self.__class__.forces(service, version, mode, path + ["forces"])
@@ -6763,7 +6740,7 @@ class main_menu(TUIMenu):
 
                     class forces(TUIMenu):
                         """
-                        Enters the menu to set interfacial forces models.
+                        Enter the menu to set interfacial forces related models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -6786,7 +6763,7 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class drag(TUIMethod):
                             """
-                            Specifies the drag function, drag modification, and drag factor for each pair of phases. This command is available only with the Eulerian and Mixture multiphase models.
+                            Specify the drag function for each pair of phases. It also enables drag modification and allow specifying the drag factor.
                             """
                         class heat_coeff(TUIMethod):
                             """
@@ -6810,23 +6787,23 @@ class main_menu(TUIMenu):
                             """
                         class restitution(TUIMethod):
                             """
-                            Specifies the restitution coefficient for collisions between each pair of granular phases, and for collisions between particles of the same granular phase. This command is available only for multiphase flows with two or more granular phases.
+                            Specify the restitution coefficient for collisions between each pair of granular phases and for collisions between particles of the same granular phase.
                             """
                         class slip_velocity(TUIMethod):
                             """
-                            Specifies the slip velocity function for each secondary phase with respect to the primary phase. This command is available only for the Mixture multiphase model.
+                            Specify the slip velocity function for each secondary phase with respect to the primary phase.
                             """
                         class turbulence_interaction(TUIMethod):
                             """
-                            Specifies the turbulence interaction model for each primary-secondary phase pair. This command is available only with the Eulerian multiphase model.
+                            Specify the turbulence interaction model for each primary-secondary phase pair.
                             """
                         class turbulent_dispersion(TUIMethod):
                             """
-                            Specifies the turbulent dispersion model for each primary-secondary phase pair. This command is available only with the Eulerian multiphase model.
+                            Specify the turbulent dispersion model for each primary-secondary phase pair.
                             """
                         class wall_lubrication(TUIMethod):
                             """
-                            Specifies the wall lubrication model for each primary-secondary phase pair. This command is available only with the Eulerian multiphase model.
+                            Specify the wall lubrication model for each primary-secondary phase pair.
                             """
 
                         class cavitation(TUIMenu):
@@ -7107,7 +7084,7 @@ class main_menu(TUIMenu):
 
                         class lift(TUIMenu):
                             """
-                            Enters the menu to set the lift force. This item is available only with the Eulerian multiphase model.
+                            Enter the menu to set lift models.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -7146,7 +7123,7 @@ class main_menu(TUIMenu):
                                 """
                             class lift(TUIMethod):
                                 """
-                                Specifies the lift function for each pair of phases.
+                                No help available.
                                 """
                             class lift_montoya(TUIMethod):
                                 """
@@ -7154,7 +7131,7 @@ class main_menu(TUIMenu):
                                 """
                             class lift_shaver_podowski(TUIMethod):
                                 """
-                                Enables/disables the Shaver-Podowski lift correction.
+                                Include the Shaver-Podowski correction for Lift.
                                 """
                             class sfc_model_type(TUIMethod):
                                 """
@@ -7199,99 +7176,7 @@ class main_menu(TUIMenu):
 
                         class surface_tension(TUIMenu):
                             """
-                            Enters the menu to set surface tension models.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
-                                self.interphase_discr = self.__class__.interphase_discr(service, version, mode, path + ["interphase_discr"])
-                                self.interphase_visc_disp = self.__class__.interphase_visc_disp(service, version, mode, path + ["interphase_visc_disp"])
-                                self.jump_adhesion = self.__class__.jump_adhesion(service, version, mode, path + ["jump_adhesion"])
-                                self.lift = self.__class__.lift(service, version, mode, path + ["lift"])
-                                self.lift_montoya = self.__class__.lift_montoya(service, version, mode, path + ["lift_montoya"])
-                                self.lift_shaver_podowski = self.__class__.lift_shaver_podowski(service, version, mode, path + ["lift_shaver_podowski"])
-                                self.sfc_model_type = self.__class__.sfc_model_type(service, version, mode, path + ["sfc_model_type"])
-                                self.sfc_modeling = self.__class__.sfc_modeling(service, version, mode, path + ["sfc_modeling"])
-                                self.sfc_tension_coeff = self.__class__.sfc_tension_coeff(service, version, mode, path + ["sfc_tension_coeff"])
-                                self.slope_limiter = self.__class__.slope_limiter(service, version, mode, path + ["slope_limiter"])
-                                self.virtual_mass = self.__class__.virtual_mass(service, version, mode, path + ["virtual_mass"])
-                                self.visc_disp_factor = self.__class__.visc_disp_factor(service, version, mode, path + ["visc_disp_factor"])
-                                self.vmass_coeff = self.__class__.vmass_coeff(service, version, mode, path + ["vmass_coeff"])
-                                self.vmass_implicit = self.__class__.vmass_implicit(service, version, mode, path + ["vmass_implicit"])
-                                self.vmass_implicit_options = self.__class__.vmass_implicit_options(service, version, mode, path + ["vmass_implicit_options"])
-                                self.wall_adhesion = self.__class__.wall_adhesion(service, version, mode, path + ["wall_adhesion"])
-                                super().__init__(service, version, mode, path)
-                            class cavitation(TUIMethod):
-                                """
-                                Set the vaporization pressure, the surface tension coefficient, and the non-condensable gas mass fraction.
-                                """
-                            class interphase_discr(TUIMethod):
-                                """
-                                Enable the phase localized compressive discretization scheme where the degree of diffusion/sharpness is controlled through the value of the slope limiters?.
-                                """
-                            class interphase_visc_disp(TUIMethod):
-                                """
-                                Enable the interfacial viscous dissipation method, which introduces an artificial viscous damping term in the momentum equation?.
-                                """
-                            class jump_adhesion(TUIMethod):
-                                """
-                                Enables/disables the treatment of the contact angle specification at the porous jump boundary. This command is available only for the VOF multiphase model with the continuum surface stress model option and when sfc-modeling? is enabled.
-                                """
-                            class lift(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class lift_montoya(TUIMethod):
-                                """
-                                Include the Montoya correction for Lift.
-                                """
-                            class lift_shaver_podowski(TUIMethod):
-                                """
-                                Include the Shaver-Podowski correction for Lift.
-                                """
-                            class sfc_model_type(TUIMethod):
-                                """
-                                Selects the surface tension model. You can choose between the continuum surface force and continuum surface stress methods. This item is available only when sfc-modeling? is enabled.
-                                """
-                            class sfc_modeling(TUIMethod):
-                                """
-                                Allows you to include the effects of surface tension along the fluid-fluid interface. This option is only available for the VOF and Eulerian multiphase models.
-                                """
-                            class sfc_tension_coeff(TUIMethod):
-                                """
-                                Specifies the surface tension coefficient for each pair of phases.
-                                """
-                            class slope_limiter(TUIMethod):
-                                """
-                                Specify the slope limiter to set a specific discretization scheme. 0: first order upwind, 1: second order reconstruction bounded by the global minimum/maximum of the volume fraction, 2: compressive. Value between 0 and 2: blended scheme.
-                                """
-                            class virtual_mass(TUIMethod):
-                                """
-                                Include the virtual mass force that is present when a secondary phase accelerates relative to the primary phase?.
-                                """
-                            class visc_disp_factor(TUIMethod):
-                                """
-                                Set the dissipation intensity.
-                                """
-                            class vmass_coeff(TUIMethod):
-                                """
-                                Specify the virtual mass coefficient for each pair of phases.
-                                """
-                            class vmass_implicit(TUIMethod):
-                                """
-                                Enable the implicit method for the virtual mass force?.
-                                """
-                            class vmass_implicit_options(TUIMethod):
-                                """
-                                Select the virtual mass implicit option.
-                                """
-                            class wall_adhesion(TUIMethod):
-                                """
-                                Enables/disables the specification for a wall adhesion angle. This item is available only whensfc-modeling? is enabled.
-                                """
-
-                        class virtual_mass(TUIMenu):
-                            """
-                            Enters the menu to set virtual mass models.
+                            Enter the menu to set surface tension models.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -7358,7 +7243,7 @@ class main_menu(TUIMenu):
                                 """
                             class virtual_mass(TUIMethod):
                                 """
-                                Allows you to include the virtual mass force effect that occurs when a secondary phase accelerates relative to the primary phase. This command is available only with the Eulerian multiphase model.
+                                Include the virtual mass force that is present when a secondary phase accelerates relative to the primary phase?.
                                 """
                             class visc_disp_factor(TUIMethod):
                                 """
@@ -7366,15 +7251,107 @@ class main_menu(TUIMenu):
                                 """
                             class vmass_coeff(TUIMethod):
                                 """
-                                Specifies the virtual mass coefficient for each pair of phases. This option is available only ifvirtual-mass? is enabled.
+                                Specify the virtual mass coefficient for each pair of phases.
                                 """
                             class vmass_implicit(TUIMethod):
                                 """
-                                Enables/disables the implicit method for the virtual mass force. This option can improve convergence in some cases. This option is available only if virtual-mass? is enabled.
+                                Enable the implicit method for the virtual mass force?.
                                 """
                             class vmass_implicit_options(TUIMethod):
                                 """
-                                Specifies what form of the implicit method to use (default, option-2, or option-3). default models the entire virtual mass force while option-2 and option-3 model truncated expressions which may further improve convergence. This option is available only if vmass-implicit? is enabled.
+                                Select the virtual mass implicit option.
+                                """
+                            class wall_adhesion(TUIMethod):
+                                """
+                                Enable the specification for a wall adhesion angle?.
+                                """
+
+                        class virtual_mass(TUIMenu):
+                            """
+                            Enter the menu to set virtual mass models.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
+                                self.interphase_discr = self.__class__.interphase_discr(service, version, mode, path + ["interphase_discr"])
+                                self.interphase_visc_disp = self.__class__.interphase_visc_disp(service, version, mode, path + ["interphase_visc_disp"])
+                                self.jump_adhesion = self.__class__.jump_adhesion(service, version, mode, path + ["jump_adhesion"])
+                                self.lift = self.__class__.lift(service, version, mode, path + ["lift"])
+                                self.lift_montoya = self.__class__.lift_montoya(service, version, mode, path + ["lift_montoya"])
+                                self.lift_shaver_podowski = self.__class__.lift_shaver_podowski(service, version, mode, path + ["lift_shaver_podowski"])
+                                self.sfc_model_type = self.__class__.sfc_model_type(service, version, mode, path + ["sfc_model_type"])
+                                self.sfc_modeling = self.__class__.sfc_modeling(service, version, mode, path + ["sfc_modeling"])
+                                self.sfc_tension_coeff = self.__class__.sfc_tension_coeff(service, version, mode, path + ["sfc_tension_coeff"])
+                                self.slope_limiter = self.__class__.slope_limiter(service, version, mode, path + ["slope_limiter"])
+                                self.virtual_mass = self.__class__.virtual_mass(service, version, mode, path + ["virtual_mass"])
+                                self.visc_disp_factor = self.__class__.visc_disp_factor(service, version, mode, path + ["visc_disp_factor"])
+                                self.vmass_coeff = self.__class__.vmass_coeff(service, version, mode, path + ["vmass_coeff"])
+                                self.vmass_implicit = self.__class__.vmass_implicit(service, version, mode, path + ["vmass_implicit"])
+                                self.vmass_implicit_options = self.__class__.vmass_implicit_options(service, version, mode, path + ["vmass_implicit_options"])
+                                self.wall_adhesion = self.__class__.wall_adhesion(service, version, mode, path + ["wall_adhesion"])
+                                super().__init__(service, version, mode, path)
+                            class cavitation(TUIMethod):
+                                """
+                                Set the vaporization pressure, the surface tension coefficient, and the non-condensable gas mass fraction.
+                                """
+                            class interphase_discr(TUIMethod):
+                                """
+                                Enable the phase localized compressive discretization scheme where the degree of diffusion/sharpness is controlled through the value of the slope limiters?.
+                                """
+                            class interphase_visc_disp(TUIMethod):
+                                """
+                                Enable the interfacial viscous dissipation method, which introduces an artificial viscous damping term in the momentum equation?.
+                                """
+                            class jump_adhesion(TUIMethod):
+                                """
+                                Enable the treatment of the contact angle specification at the porous jump boundary?.
+                                """
+                            class lift(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class lift_montoya(TUIMethod):
+                                """
+                                Include the Montoya correction for Lift.
+                                """
+                            class lift_shaver_podowski(TUIMethod):
+                                """
+                                Include the Shaver-Podowski correction for Lift.
+                                """
+                            class sfc_model_type(TUIMethod):
+                                """
+                                Select the surface tension model.
+                                """
+                            class sfc_modeling(TUIMethod):
+                                """
+                                Include the effects of surface tension along the fluid-fluid interface?.
+                                """
+                            class sfc_tension_coeff(TUIMethod):
+                                """
+                                Specify the surface tension coefficient for each pair of phases.
+                                """
+                            class slope_limiter(TUIMethod):
+                                """
+                                Specify the slope limiter to set a specific discretization scheme. 0: first order upwind, 1: second order reconstruction bounded by the global minimum/maximum of the volume fraction, 2: compressive. Value between 0 and 2: blended scheme.
+                                """
+                            class virtual_mass(TUIMethod):
+                                """
+                                Include the virtual mass force that is present when a secondary phase accelerates relative to the primary phase?.
+                                """
+                            class visc_disp_factor(TUIMethod):
+                                """
+                                Set the dissipation intensity.
+                                """
+                            class vmass_coeff(TUIMethod):
+                                """
+                                Specify the virtual mass coefficient for each pair of phases.
+                                """
+                            class vmass_implicit(TUIMethod):
+                                """
+                                Enable the implicit method for the virtual mass force?.
+                                """
+                            class vmass_implicit_options(TUIMethod):
+                                """
+                                Select the virtual mass implicit option.
                                 """
                             class wall_adhesion(TUIMethod):
                                 """
@@ -7383,7 +7360,7 @@ class main_menu(TUIMenu):
 
                     class heat_mass_reactions(TUIMenu):
                         """
-                        Enters the menu to set heat, mass-transfer, and reaction models.
+                        Enter the menu to set heat, mass-transfer, or reaction related models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -7410,7 +7387,7 @@ class main_menu(TUIMenu):
                             """
                         class heat_coeff(TUIMethod):
                             """
-                            Species the heat transfer coefficient function between each pair of phases (constant-htc, nusselt-number, ranz-marshall, hughmark, tomiyama, fixed-to-sat-temp, two-resistance, or user-defined). This command is enable only with the Eulerian multiphase model.
+                            Specify the heat transfer coefficient function between each pair of phases.
                             """
                         class interfacial_area(TUIMethod):
                             """
@@ -7426,7 +7403,7 @@ class main_menu(TUIMenu):
                             """
                         class reactions(TUIMethod):
                             """
-                            Allows you to define multiple heterogeneous reactions and stoichiometry. This option is available only with the species model.
+                            Define multiple heterogeneous reactions and stoichiometry.
                             """
                         class restitution(TUIMethod):
                             """
@@ -7451,7 +7428,7 @@ class main_menu(TUIMenu):
 
                         class cavitation(TUIMenu):
                             """
-                            Enters the menu to set cavitation models. This option is available only for the Mixture multiphase model with the Singhal-et-al cavitation model enabled via solve/set/advanced/singhal-et-al-cavitation-model.
+                            Enter the menu to set cavitation models.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -7474,7 +7451,7 @@ class main_menu(TUIMenu):
                                 super().__init__(service, version, mode, path)
                             class cavitation(TUIMethod):
                                 """
-                                Sets the vaporization pressure, surface tension coefficient, and non-condensable gas mass fraction. This command is available only when cavitation? is enabled.
+                                Set the vaporization pressure, the surface tension coefficient, and the non-condensable gas mass fraction.
                                 """
                             class interphase_discr(TUIMethod):
                                 """
@@ -8003,7 +7980,7 @@ class main_menu(TUIMenu):
 
                     class interfacial_area(TUIMenu):
                         """
-                        Enters the menu to set interfacial area models. This menu is available only for the Mixture and Eulerian multiphase models.
+                        Enter the menu to set interfacial area models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -8034,7 +8011,7 @@ class main_menu(TUIMenu):
                             """
                         class interfacial_area(TUIMethod):
                             """
-                            Specifies the interfacial area model for each pair of phases.
+                            Set the interfacial area parameters for each pair of phases.
                             """
                         class mass_transfer(TUIMethod):
                             """
@@ -8623,7 +8600,7 @@ class main_menu(TUIMenu):
 
                     class model_transition(TUIMenu):
                         """
-                        Enters the menu to set model transition mechanisms.
+                        Enter the menu to set model transition mechanisms.
                         """
                         def __init__(self, service, version, mode, path):
                             self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -8662,7 +8639,7 @@ class main_menu(TUIMenu):
                             """
                         class model_transition(TUIMethod):
                             """
-                            Sets the VOF-to-DPM model transition mechanism.
+                            Set the model transition mechanism.
                             """
                         class reactions(TUIMethod):
                             """
@@ -9243,7 +9220,7 @@ class main_menu(TUIMenu):
 
                     class numerics(TUIMenu):
                         """
-                        Enters the menu to set numerics models. This menu is available for multiphase models with the sharp-dispersed and phase localized discretization interface modeling options (set in define/models/multiphase/interface-modeling-options).
+                        Enter the menu to set numerics models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -9403,7 +9380,7 @@ class main_menu(TUIMenu):
 
                         class interphase_discretization(TUIMenu):
                             """
-                            Enters the menu to set interphase discretization models.
+                            Enter the menu to set interphase discretization models.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.cavitation = self.__class__.cavitation(service, version, mode, path + ["cavitation"])
@@ -9430,7 +9407,7 @@ class main_menu(TUIMenu):
                                 """
                             class interphase_discr(TUIMethod):
                                 """
-                                Enables/disables phase localized compressive scheme.
+                                Enable the phase localized compressive discretization scheme where the degree of diffusion/sharpness is controlled through the value of the slope limiters?.
                                 """
                             class interphase_visc_disp(TUIMethod):
                                 """
@@ -9466,7 +9443,7 @@ class main_menu(TUIMenu):
                                 """
                             class slope_limiter(TUIMethod):
                                 """
-                                Specifies the slope limiter to set a specific discretization scheme for each phase pair. A value of 0 corresponds to first order upwind, a value of 1 corresponds to second order upwind, a value of 2 applies the compressive scheme, and a value between 0 and 2 corresponds to a blended scheme. This option is available only wheninterphase-discr? is enabled.
+                                Specify the slope limiter to set a specific discretization scheme. 0: first order upwind, 1: second order reconstruction bounded by the global minimum/maximum of the volume fraction, 2: compressive. Value between 0 and 2: blended scheme.
                                 """
                             class virtual_mass(TUIMethod):
                                 """
@@ -9863,7 +9840,7 @@ class main_menu(TUIMenu):
 
         class profiles(TUIMenu):
             """
-            Enters the boundary profiles menu.
+            Enter the boundary profiles menu.
             """
             def __init__(self, service, version, mode, path):
                 self.circumferential_averaged_profile_enhanced_bands_check = self.__class__.circumferential_averaged_profile_enhanced_bands_check(service, version, mode, path + ["circumferential_averaged_profile_enhanced_bands_check"])
@@ -9871,6 +9848,7 @@ class main_menu(TUIMenu):
                 self.delete_all = self.__class__.delete_all(service, version, mode, path + ["delete_all"])
                 self.display_profile_point_cloud_data = self.__class__.display_profile_point_cloud_data(service, version, mode, path + ["display_profile_point_cloud_data"])
                 self.display_profile_surface = self.__class__.display_profile_surface(service, version, mode, path + ["display_profile_surface"])
+                self.extrapolation_tolerance_factor = self.__class__.extrapolation_tolerance_factor(service, version, mode, path + ["extrapolation_tolerance_factor"])
                 self.interpolation_method = self.__class__.interpolation_method(service, version, mode, path + ["interpolation_method"])
                 self.link_profile_to_reference_frame = self.__class__.link_profile_to_reference_frame(service, version, mode, path + ["link_profile_to_reference_frame"])
                 self.list_profile_fields = self.__class__.list_profile_fields(service, version, mode, path + ["list_profile_fields"])
@@ -9891,11 +9869,11 @@ class main_menu(TUIMenu):
                 """
             class delete(TUIMethod):
                 """
-                Deletes a profile.
+                No help available.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all boundary-profiles.
+                No help available.
                 """
             class display_profile_point_cloud_data(TUIMethod):
                 """
@@ -9903,19 +9881,23 @@ class main_menu(TUIMenu):
                 """
             class display_profile_surface(TUIMethod):
                 """
-                Display the profile as a surface (this option is only available if the specified profile contains node-connectivity data).
+                No help available.
+                """
+            class extrapolation_tolerance_factor(TUIMethod):
+                """
+                No help available.
                 """
             class interpolation_method(TUIMethod):
                 """
-                Chooses the method for interpolation of profiles.
+                Choose the method for interpolation of profiles.
                 """
             class link_profile_to_reference_frame(TUIMethod):
                 """
-                Attaches a profile to a reference frame so that the profile will rotate according to the reference frame.
+                Link profile to a reference frame.
                 """
             class list_profile_fields(TUIMethod):
                 """
-                Lists the fields of a particular profile.
+                No help available.
                 """
             class list_profile_parameters(TUIMethod):
                 """
@@ -9927,15 +9909,15 @@ class main_menu(TUIMenu):
                 """
             class list_profiles(TUIMethod):
                 """
-                Lists all profiles.
+                No help available.
                 """
             class morphing(TUIMethod):
                 """
-                Enables/disables profile morphing options in Orient Profile panel.
+                Enable/disable profile morphing options in Orient Profile panel.
                 """
             class orient_profile(TUIMethod):
                 """
-                Re-orient an existing profile.
+                Orient Profile.
                 """
             class overlay_profile_point_cloud_data(TUIMethod):
                 """
@@ -9955,12 +9937,12 @@ class main_menu(TUIMenu):
                 """
             class update_interval(TUIMethod):
                 """
-                Sets interval between updates of dynamic profiles.
+                No help available.
                 """
 
         class reference_frames(TUIMenu):
             """
-            Enters the reference frames menu.
+            Manage reference frames.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -9974,15 +9956,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Creates a new reference frame.
+                Add a new object.
                 """
             class delete(TUIMethod):
                 """
-                Deletes the reference frame you specify.
+                Delete an object.
                 """
             class display(TUIMethod):
                 """
-                Displays the reference frame you specify.
+                Display Reference Frame.
                 """
             class display_edit(TUIMethod):
                 """
@@ -9990,24 +9972,24 @@ class main_menu(TUIMenu):
                 """
             class edit(TUIMethod):
                 """
-                Allows you to edit a reference frame.
+                Edit an object.
                 """
             class hide(TUIMethod):
                 """
-                Removes the specified reference frame from the graphics window.
+                Hide Reference Frame.
                 """
             class list(TUIMethod):
                 """
-                Lists all of the reference frames.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of the reference frame you specify.
+                List properties of an object.
                 """
 
         class solution_strategy(TUIMenu):
             """
-            Enters the automatic initialization and case modification strategy menu.
+            Enter the automatic initialization and case modification strategy menu.
             """
             def __init__(self, service, version, mode, path):
                 self.automatic_case_modification = self.__class__.automatic_case_modification(service, version, mode, path + ["automatic_case_modification"])
@@ -10029,11 +10011,11 @@ class main_menu(TUIMenu):
                 """
             class automatic_initialization(TUIMethod):
                 """
-                Defines how the case is to be automatically initialized.
+                No help available.
                 """
             class continue_strategy_execution(TUIMethod):
                 """
-                Continues execution of the currently defined automatic initialization and case modification strategy.
+                No help available.
                 """
             class copy_modification(TUIMethod):
                 """
@@ -10053,11 +10035,11 @@ class main_menu(TUIMenu):
                 """
             class enable_strategy(TUIMethod):
                 """
-                Enables/disables automatic initialization and case modification.
+                No help available.
                 """
             class execute_strategy(TUIMethod):
                 """
-                Executes the currently defined automatic initialization and case modification strategy.
+                No help available.
                 """
             class export_modifications(TUIMethod):
                 """
@@ -10070,7 +10052,7 @@ class main_menu(TUIMenu):
 
             class automatic_case_modification(TUIMenu):
                 """
-                Enters the automatic case modification menu.
+                Define how the case is to be modified as the solution progresses.
                 """
                 def __init__(self, service, version, mode, path):
                     self.before_init_modification = self.__class__.before_init_modification(service, version, mode, path + ["before_init_modification"])
@@ -10079,15 +10061,15 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class before_init_modification(TUIMethod):
                     """
-                    Specifies modification to be performed before initialization.
+                    Specify modification to be performed before initialization.
                     """
                 class modifications(TUIMethod):
                     """
-                    Specifies modifications to be performed during solution.
+                    Specify modifications to be performed during solution.
                     """
                 class original_settings(TUIMethod):
                     """
-                    Specifies modification to be performed after initialization to restore to original 	settings.
+                    Specify modification to be performed after initialization to restore to original settings.
                     """
 
         class spectral(TUIMenu):
@@ -10119,10 +10101,11 @@ class main_menu(TUIMenu):
 
         class turbo_model(TUIMenu):
             """
-            Enters the turbo menu.
+            Turbo features menu.
             """
             def __init__(self, service, version, mode, path):
                 self.blade_flutter_harmonics = self.__class__.blade_flutter_harmonics(service, version, mode, path + ["blade_flutter_harmonics"])
+                self.export_boundary_mesh = self.__class__.export_boundary_mesh(service, version, mode, path + ["export_boundary_mesh"])
                 self.general_turbo_interface_settings = self.__class__.general_turbo_interface_settings(service, version, mode, path + ["general_turbo_interface_settings"])
                 self.generalized_forces = self.__class__.generalized_forces(service, version, mode, path + ["generalized_forces"])
                 self.legacy_models = self.__class__.legacy_models(service, version, mode, path + ["legacy_models"])
@@ -10137,7 +10120,6 @@ class main_menu(TUIMenu):
                 self.delete_phaselag_spectral_content = self.__class__.delete_phaselag_spectral_content(service, version, mode, path + ["delete_phaselag_spectral_content"])
                 self.delete_turbomachine_description = self.__class__.delete_turbomachine_description(service, version, mode, path + ["delete_turbomachine_description"])
                 self.enable_turbo_model = self.__class__.enable_turbo_model(service, version, mode, path + ["enable_turbo_model"])
-                self.export_boundary_mesh = self.__class__.export_boundary_mesh(service, version, mode, path + ["export_boundary_mesh"])
                 self.graphics_extra_settings = self.__class__.graphics_extra_settings(service, version, mode, path + ["graphics_extra_settings"])
                 self.list_graphics_spectral_content = self.__class__.list_graphics_spectral_content(service, version, mode, path + ["list_graphics_spectral_content"])
                 self.list_phaselag_state = self.__class__.list_phaselag_state(service, version, mode, path + ["list_phaselag_state"])
@@ -10189,10 +10171,6 @@ class main_menu(TUIMenu):
                 Delete turbomachine description.
                 """
             class enable_turbo_model(TUIMethod):
-                """
-                Enables/disables turbo model menu.
-                """
-            class export_boundary_mesh(TUIMethod):
                 """
                 No help available.
                 """
@@ -10251,7 +10229,7 @@ class main_menu(TUIMenu):
 
             class blade_flutter_harmonics(TUIMenu):
                 """
-                Enters the blade flutter harmonics options menu.
+                Enter the blade flutter harmonics menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable_harmonic_exports = self.__class__.enable_harmonic_exports(service, version, mode, path + ["enable_harmonic_exports"])
@@ -10271,9 +10249,21 @@ class main_menu(TUIMenu):
                     Writes harmonic export data.
                     """
 
+            class export_boundary_mesh(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.export_boundary = self.__class__.export_boundary(service, version, mode, path + ["export_boundary"])
+                    super().__init__(service, version, mode, path)
+                class export_boundary(TUIMethod):
+                    """
+                    No help available.
+                    """
+
             class general_turbo_interface_settings(TUIMenu):
                 """
-                Enters the General Turbo Interface options menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.expert = self.__class__.expert(service, version, mode, path + ["expert"])
@@ -10322,7 +10312,7 @@ class main_menu(TUIMenu):
 
                 class mixing_plane_model_settings(TUIMenu):
                     """
-                    Defines settings for the mixing plane model.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.number_of_bands = self.__class__.number_of_bands(service, version, mode, path + ["number_of_bands"])
@@ -10331,7 +10321,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class bands_type(TUIMethod):
                         """
-                        Specifies the averaging bands for mixing as fixed or variable width.
+                        No help available.
                         """
                     class list_mixing_planes(TUIMethod):
                         """
@@ -10340,7 +10330,7 @@ class main_menu(TUIMenu):
 
                     class number_of_bands(TUIMenu):
                         """
-                        Sets the number of bands to be used for mixing.
+                        No help available.
                         """
                         def __init__(self, service, version, mode, path):
                             self.set_all_interfaces = self.__class__.set_all_interfaces(service, version, mode, path + ["set_all_interfaces"])
@@ -10360,47 +10350,65 @@ class main_menu(TUIMenu):
                 Enter the Generalized Forces objects menu.
                 """
                 def __init__(self, service, version, mode, path):
-                    self.copy = self.__class__.copy(service, version, mode, path + ["copy"])
-                    self.create = self.__class__.create(service, version, mode, path + ["create"])
-                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                    self.delete_all = self.__class__.delete_all(service, version, mode, path + ["delete_all"])
-                    self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                    self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
-                    self.list_objects = self.__class__.list_objects(service, version, mode, path + ["list_objects"])
-                    self.process_all = self.__class__.process_all(service, version, mode, path + ["process_all"])
+                    self.objects = self.__class__.objects(service, version, mode, path + ["objects"])
+                    self.enable_generalized_forces = self.__class__.enable_generalized_forces(service, version, mode, path + ["enable_generalized_forces"])
                     super().__init__(service, version, mode, path)
-                class copy(TUIMethod):
+                class enable_generalized_forces(TUIMethod):
                     """
-                    Copy a Generalized Forces object.
+                    No help available.
                     """
-                class create(TUIMethod):
+
+                class objects(TUIMenu):
                     """
-                    Create a Generalized Forces object.
+                    No help available.
                     """
-                class delete(TUIMethod):
-                    """
-                    Delete a Generalized Forces object.
-                    """
-                class delete_all(TUIMethod):
-                    """
-                    Delete all Generalized Forces objects.
-                    """
-                class edit(TUIMethod):
-                    """
-                    Edit a Generalized Forcess object.
-                    """
-                class enable(TUIMethod):
-                    """
-                    Enable/Disable Generalized Forces calculation?.
-                    """
-                class list_objects(TUIMethod):
-                    """
-                    List all existing Generalized Forces objects.
-                    """
-                class process_all(TUIMethod):
-                    """
-                    Process all Generalized Forces objects.
-                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.new = self.__class__.new(service, version, mode, path + ["new"])
+                        self.process_all = self.__class__.process_all(service, version, mode, path + ["process_all"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit objects object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class new(TUIMethod):
+                        """
+                        Create a new objects object.
+                        """
+                    class process_all(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
 
             class legacy_models(TUIMenu):
                 """
@@ -10503,7 +10511,7 @@ class main_menu(TUIMenu):
 
             class turbo_topology(TUIMenu):
                 """
-                Enters the turbo topology menu.
+                Define turbo topology.
                 """
                 def __init__(self, service, version, mode, path):
                     self.define_topology = self.__class__.define_topology(service, version, mode, path + ["define_topology"])
@@ -10514,28 +10522,28 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class define_topology(TUIMethod):
                     """
-                    Defines a turbo topology.
+                    Define a turbo topology.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes a previously created turbo topology.
+                    Delete a turbo topology.
                     """
                 class mesh_method(TUIMethod):
                     """
-                    Sets turbo structured mesh generation method.
+                    Set turbo structured mesh generation method.
                     """
                 class projection_method(TUIMethod):
                     """
-                    Sets 2D projection method.
+                    Set 2D projection method.
                     """
                 class search_method(TUIMethod):
                     """
-                    Sets search method for a topology.
+                    Set search method for a topology.
                     """
 
         class user_defined(TUIMenu):
             """
-            Enters the user-defined functions and scalars menu.
+            Enter the user-defined functions and scalars menu.
             """
             def __init__(self, service, version, mode, path):
                 self.function_hooks = self.__class__.function_hooks(service, version, mode, path + ["function_hooks"])
@@ -10565,7 +10573,7 @@ class main_menu(TUIMenu):
                 """
             class compiled_functions(TUIMethod):
                 """
-                Opens user-defined function library.
+                Open user-defined function library. test.
                 """
             class enable_udf_on_gpu(TUIMethod):
                 """
@@ -10573,15 +10581,15 @@ class main_menu(TUIMenu):
                 """
             class execute_on_demand(TUIMethod):
                 """
-                Executes UDFs on demand.
+                No help available.
                 """
             class fan_model(TUIMethod):
                 """
-                Configures user-defined fan model.
+                No help available.
                 """
             class interpreted_functions(TUIMethod):
                 """
-                Loads interpreted user-defined functions.
+                Load interpreted user-defined functions.
                 """
             class one_D_coupling(TUIMethod):
                 """
@@ -10589,7 +10597,7 @@ class main_menu(TUIMenu):
                 """
             class use_built_in_compiler(TUIMethod):
                 """
-                Enables/disables the use of a built-in compiler (Clang) when the define/user-defined/compiled-functions text command is used. This text command / compiler is available for Windows only, and is provided as part of the ANSYS Fluent installation. It is recommended that you enable this text command when the compiler you installed on your machine is an older version that is no longer supported. Note that the built-in compiler is used automatically if Fluent determines that you have not installed Microsoft Visual Studio or Clang on your computer, whether this text command is enabled or not.
+                Enable/disable the use of the built-in compiler.
                 """
             class use_contributed_cpp(TUIMethod):
                 """
@@ -10601,7 +10609,7 @@ class main_menu(TUIMenu):
                 """
             class user_defined_memory(TUIMethod):
                 """
-                Allocates user-defined memory.
+                Allocate user-defined memory.
                 """
             class user_defined_node_memory(TUIMethod):
                 """
@@ -10609,12 +10617,12 @@ class main_menu(TUIMenu):
                 """
             class user_defined_scalars(TUIMethod):
                 """
-                Defines user-defined scalars.
+                Define user-defined scalars.
                 """
 
             class function_hooks(TUIMenu):
                 """
-                Hooks up user-defined functions.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.adjust = self.__class__.adjust(service, version, mode, path + ["adjust"])
@@ -10801,7 +10809,7 @@ class main_menu(TUIMenu):
 
             class real_gas_models(TUIMenu):
                 """
-                Enters the real-gas menu to enable/configure real gas model.
+                Enable/configure real gas model.
                 """
                 def __init__(self, service, version, mode, path):
                     self.nist_multispecies_real_gas_model = self.__class__.nist_multispecies_real_gas_model(service, version, mode, path + ["nist_multispecies_real_gas_model"])
@@ -10813,27 +10821,27 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class nist_multispecies_real_gas_model(TUIMethod):
                     """
-                    Loads the NIST real-gas library.
+                    Load NIST real gas library.
                     """
                 class nist_real_gas_model(TUIMethod):
                     """
-                    Loads the NIST real-gas library.
+                    Load NIST real gas library.
                     """
                 class nist_settings(TUIMethod):
                     """
-                    Specifies the name and the location for the REFPROP library and fluid files.
+                    Select refprop library.
                     """
                 class set_state(TUIMethod):
                     """
-                    Selects the state for NIST real gas model.
+                    Select state for NIST real gas model.
                     """
                 class user_defined_multispecies_real_gas_model(TUIMethod):
                     """
-                    Loads a user-defined multispecies real-gas library.
+                    Load user-defined multispecies real gas library.
                     """
                 class user_defined_real_gas_model(TUIMethod):
                     """
-                    Loads the user-defined real-gas library.
+                    Load user-defined real gas library.
                     """
 
         class virtual_boundary(TUIMenu):
@@ -10908,7 +10916,7 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class add_custom_vector(TUIMethod):
             """
-            Adds new custom vector definition.
+            Add new custom vector definition.
             """
         class annotate(TUIMethod):
             """
@@ -10916,23 +10924,23 @@ class main_menu(TUIMenu):
             """
         class close_window(TUIMethod):
             """
-            Close a "user" graphics window. User windows are specified by number (1-50), with the associated number corresponding to the order, left-to-right, that the windows were created in.
+            No help available.
             """
         class close_window_by_name(TUIMethod):
             """
-            Close a reserved graphics window (windows used for residuals, report plots, and animation definitions).
+            No help available.
             """
         class contour(TUIMethod):
             """
-            Prompts for a scalar field and minimum and maximum values, and then displays a contour plot.
+            Display contours of a flow variable.
             """
         class display_custom_vector(TUIMethod):
             """
-            Displays custom vector.
+            Display custom vector.
             """
         class graphics_window_layout(TUIMethod):
             """
-            Arranges the graphics window layout.
+            Arrange the graphics window layout.
             """
         class grid(TUIMethod):
             """
@@ -10944,43 +10952,43 @@ class main_menu(TUIMenu):
             """
         class hsf_file(TUIMethod):
             """
-            Loads an HSF file for viewing.
+            No help available.
             """
         class mesh(TUIMethod):
             """
-            Displays the entire mesh. For 3D, you will be asked to confirm that you really want to draw the entire mesh (not just themesh-outline).
+            Display the mesh.
             """
         class mesh_outline(TUIMethod):
             """
-            Displays the mesh boundaries.
+            Display the mesh boundaries.
             """
         class mesh_partition_boundary(TUIMethod):
             """
-            Displays mesh partition boundaries.
+            Display mesh partition boundaries.
             """
         class multigrid_coarsening(TUIMethod):
             """
-            Displays a coarse mesh level from the last multigrid coarsening.
+            Display a coarse mesh level from the last multigrid coarsening.
             """
         class open_window(TUIMethod):
             """
-            Opens a graphics window.
+            No help available.
             """
         class profile(TUIMethod):
             """
-            Displays profiles of a flow variable.
+            Display profiles of a flow variable.
             """
         class re_render(TUIMethod):
             """
-            Re-renders the last contour, profile, or vector plot with updated surfaces, meshed, lights, colormap, rendering options, and so on, without recalculating the contour data.
+            Re-render the last contour, profile, or velocity vector plot with updated surfaces, meshes, lights, colormap, rendering options, etc., without recalculating the contour data.
             """
         class re_scale(TUIMethod):
             """
-            Re-renders the last contour, profile, or vector plot with updated scale, surfaces, meshes, lights, colormap, rendering options, and so on, but without recalculating the field data.
+            Re-render the last contour, profile, or velocity vector plot with updated scale, surfaces, meshes, lights, colormap, rendering options, etc., without recalculating the field data.
             """
         class reacting_channel_curves(TUIMethod):
             """
-            Plots the reacting channel variables.
+            Plot/Report the reacting channel variables.
             """
         class save_picture(TUIMethod):
             """
@@ -10992,11 +11000,11 @@ class main_menu(TUIMenu):
             """
         class set_window(TUIMethod):
             """
-            Sets a "user" graphics window to be the active window. User windows are specified by number (1-50), with the associated number corresponding to the order, left-to-right, that the windows were created in.
+            No help available.
             """
         class set_window_by_name(TUIMethod):
             """
-            Sets the specified graphics window as active. The graphics windows specified using this command are "reserved" windows, that is, residual monitors, report plots, and animation definitions. The name will match the name you provided when creating the object (report plots and animation definitions).
+            No help available.
             """
         class show_hide_annotations(TUIMethod):
             """
@@ -11004,11 +11012,11 @@ class main_menu(TUIMenu):
             """
         class surface_cells(TUIMethod):
             """
-            Draws the cells on the specified surfaces. You can include a wildcard (\\*) within the surface names.
+            No help available.
             """
         class surface_mesh(TUIMethod):
             """
-            Draws the mesh defined by the specified surfaces. You can include a wildcard (\\*) within the surface names.
+            No help available.
             """
         class switch_to_post_processing_volume(TUIMethod):
             """
@@ -11024,15 +11032,15 @@ class main_menu(TUIMenu):
             """
         class vector(TUIMethod):
             """
-            Displays vectors of a space vector variable.
+            Display space vectors.
             """
         class velocity_vector(TUIMethod):
             """
-            Prompts for a scalar field by which to color the vectors, the minimum and maximum values, and the scale factor, and then draws the velocity vectors.
+            Display velocity vectors.
             """
         class zone_mesh(TUIMethod):
             """
-            Draws the mesh defined by specified face zones. Zone names can be indicated using wildcards (\\*).
+            No help available.
             """
 
         class annotation(TUIMenu):
@@ -11208,7 +11216,7 @@ class main_menu(TUIMenu):
 
         class embedded_windows(TUIMenu):
             """
-            Enter the embedded window menu.
+            Enter to embed, close, move-out embedded windows.
             """
             def __init__(self, service, version, mode, path):
                 self.dashboard = self.__class__.dashboard(service, version, mode, path + ["dashboard"])
@@ -11225,19 +11233,19 @@ class main_menu(TUIMenu):
                 """
             class close_all(TUIMethod):
                 """
-                Close all the embedded windows within the specified parent window.
+                Close all embedded windows for given parent window.
                 """
             class embed_in(TUIMethod):
                 """
-                Specify a window to embed and a parent window to receive the embedded window.
+                Embed Window into another window.
                 """
             class move_out(TUIMethod):
                 """
-                Move an embedded window out of the parent window, returning the embedded window to a non-embedded state.
+                Move out an embedded window.
                 """
             class move_out_all(TUIMethod):
                 """
-                Move all the embedded windows out of the specified parent window.
+                Move out all embedded windows for given parent window.
                 """
             class update_dimensions(TUIMethod):
                 """
@@ -11283,7 +11291,7 @@ class main_menu(TUIMenu):
 
         class flamelet_data(TUIMenu):
             """
-            Displays flamelet data.
+            Display flamelet data.
             """
             def __init__(self, service, version, mode, path):
                 self.carpet_plot = self.__class__.carpet_plot(service, version, mode, path + ["carpet_plot"])
@@ -11293,19 +11301,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class carpet_plot(TUIMethod):
                 """
-                Enables/disables display of carpet plot of a property.
+                Enable/disable display of carpet plot of a property.
                 """
             class draw_number_box(TUIMethod):
                 """
-                Enables/disables display of the numbers box.
+                Enable/disable display of the numbers box.
                 """
             class plot_1d_slice(TUIMethod):
                 """
-                Enables/disables plot of the 1D-slice.
+                Enable/disable plot of the 1D-slice.
                 """
             class write_to_file(TUIMethod):
                 """
-                Enables/disables writing the 1D-slice to file instead of plot.
+                Enable/disable writing the 1D-slice to file instead of plot.
                 """
 
         class objects(TUIMenu):
@@ -11352,7 +11360,7 @@ class main_menu(TUIMenu):
 
         class particle_tracks(TUIMenu):
             """
-            Enters the particle tracks menu.
+            Enter the particle tracks menu.
             """
             def __init__(self, service, version, mode, path):
                 self.particle_tracks = self.__class__.particle_tracks(service, version, mode, path + ["particle_tracks"])
@@ -11360,16 +11368,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class particle_tracks(TUIMethod):
                 """
-                Calculates and displays particle tracks from defined injections.
+                Calculate and display particle tracks from defined injections.
                 """
             class plot_write_xy_plot(TUIMethod):
                 """
-                Plots or writes an XY plot of particle tracks.
+                Plot or write XY plot of particle tracks.
                 """
 
         class path_lines(TUIMenu):
             """
-            Enters the pathlines menu.
+            Enter the pathlines menu.
             """
             def __init__(self, service, version, mode, path):
                 self.path_lines = self.__class__.path_lines(service, version, mode, path + ["path_lines"])
@@ -11378,20 +11386,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class path_lines(TUIMethod):
                 """
-                Displays pathlines from a surface.
+                Display pathlines from a surface.
                 """
             class plot_write_xy_plot(TUIMethod):
                 """
-                Plots or writes an XY plot of pathlines.
+                Plot or write XY plot of pathline.
                 """
             class write_to_files(TUIMethod):
                 """
-                Writes pathlines to a file.
+                Write Pathlines to a File.
                 """
 
         class pdf_data(TUIMenu):
             """
-            Enters the PDF data menu.
+            Enter the PDF data menu.
             """
             def __init__(self, service, version, mode, path):
                 self.carpet_plot = self.__class__.carpet_plot(service, version, mode, path + ["carpet_plot"])
@@ -11401,19 +11409,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class carpet_plot(TUIMethod):
                 """
-                Enables/disables the display of a carpet plot of a property.
+                Enable/disable the display of a carpet plot of a property.
                 """
             class draw_number_box(TUIMethod):
                 """
-                Enables/disables the display of the numbers box.
+                Enable/disable the display of the numbers box.
                 """
             class plot_1d_slice(TUIMethod):
                 """
-                Enables/disables a plot of the 1D-slice.
+                Enable/disable a plot of the 1D-slice.
                 """
             class write_to_file(TUIMethod):
                 """
-                Enables/disables writing the 1D-slice to file instead of plot.
+                Enable/disable writing the 1D-slice to file instead of plot.
                 """
 
         class raytracer(TUIMenu):
@@ -11614,7 +11622,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class color_map(TUIMethod):
                 """
-                Enters the color map menu, which contains names of predefined and user-defined (in the Colormap Editor panel) colormaps that can be selected. It prompts you for the name of the colormap to be used.
+                Enter the color-map menu.
                 """
             class duplicate_node_display(TUIMethod):
                 """
@@ -11622,7 +11630,7 @@ class main_menu(TUIMenu):
                 """
             class element_shrink(TUIMethod):
                 """
-                Sets shrinkage of both faces and cells. A value of zero indicates no shrinkage, while a value of one will shrink each face or cell to a point.
+                Set percentage to shrink elements.
                 """
             class filled_grid(TUIMethod):
                 """
@@ -11630,7 +11638,7 @@ class main_menu(TUIMenu):
                 """
             class filled_mesh(TUIMethod):
                 """
-                Determines whether the meshes are drawn as wireframe or solid.
+                Enable/disable the filled mesh option.
                 """
             class grid_level(TUIMethod):
                 """
@@ -11654,43 +11662,43 @@ class main_menu(TUIMenu):
                 """
             class marker_size(TUIMethod):
                 """
-                Sets the size of markers used to represent points.
+                No help available.
                 """
             class marker_symbol(TUIMethod):
                 """
-                Sets the type of markers used to represent points.
+                No help available.
                 """
             class mesh_display_configuration(TUIMethod):
                 """
-                Changes the default mesh display. If set tomeshing, it draws the mesh on edges and faces of the outline surfaces, colored by their zone ID with lighting enabled. If set tosolution, it draws the mesh on edges and faces of the outline surfaces, colored by their zone type with lighting enabled. If set to post-processing, it draws the object outline with lighting disabled. If set toclassic, it draws the mesh on all edges of the outline surfaces.  This only applies for 3D cases.
+                No help available.
                 """
             class mesh_level(TUIMethod):
                 """
-                Sets coarse mesh level to be drawn.
+                Set coarse mesh level to be drawn.
                 """
             class mesh_partitions(TUIMethod):
                 """
-                Enables/disables option to draw mesh partition boundaries.
+                Enable/disable drawing of the mesh partition boundaries.
                 """
             class mesh_surfaces(TUIMethod):
                 """
-                Sets surface IDs to be drawn as meshes. You can include a wildcard  (\\*) within the surface names.
+                Set surface IDs to be drawn as mesh.
                 """
             class mesh_zones(TUIMethod):
                 """
-                Sets zone IDs to be drawn as meshes.
+                Set zone IDs to be drawn as mesh.
                 """
             class mirror_zones(TUIMethod):
                 """
-                Sets the zones about which the domain is mirrored (symmetry planes).
+                Set zones to mirror the domain about.
                 """
             class n_stream_func(TUIMethod):
                 """
-                Sets number of iterations used in computing stream function.
+                Set the number of iterations used in computing stream function.
                 """
             class nodewt_based_interp(TUIMethod):
                 """
-                Disables/enables the use of node weights for node-based gradients in postprocessing.
+                Use more accurate node-weight based interpolation for postprocessing.
                 """
             class overlays(TUIMethod):
                 """
@@ -11698,19 +11706,19 @@ class main_menu(TUIMenu):
                 """
             class periodic_instancing(TUIMethod):
                 """
-                Sets the number of periodic repetitions.
+                Set periodic instancing.
                 """
             class periodic_repeats(TUIMethod):
                 """
-                Sets the number of periodic repetitions.
+                Set periodic instancing.
                 """
             class proximity_zones(TUIMethod):
                 """
-                Sets zones to be used for boundary cell distance and boundary proximity.
+                Set zones to be used for boundary cell distance and boundary proximity.
                 """
             class render_mesh(TUIMethod):
                 """
-                Enables/disables rendering the mesh on top of contours, vectors, and so on.
+                No help available.
                 """
             class reset_graphics(TUIMethod):
                 """
@@ -11718,7 +11726,7 @@ class main_menu(TUIMenu):
                 """
             class zero_angle_dir(TUIMethod):
                 """
-                Sets the vector having zero angular coordinates.
+                Set the vector having zero angular coordinates.
                 """
 
             class colors(TUIMenu):
@@ -12214,7 +12222,7 @@ class main_menu(TUIMenu):
 
             class contours(TUIMenu):
                 """
-                Enters the contour options menu.
+                Enter the contour options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
@@ -12231,47 +12239,47 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class auto_range(TUIMethod):
                     """
-                    Enables/disables auto-computation of the contour range.
+                    Enable/disable auto-computation of range for contours.
                     """
                 class clip_to_range(TUIMethod):
                     """
-                    Turns the clip to range option for filled contours on/off.
+                    Enable/disable the clip to range option for filled contours.
                     """
                 class coloring(TUIMethod):
                     """
-                    Specifies whether contours are displayed in bands or with smooth transitions. Note that you can only display smooth contours if node-values are enabled.
+                    Select coloring option.
                     """
                 class filled_contours(TUIMethod):
                     """
-                    Turns the filled contours option on/off (deselects line-contours?).
+                    Enable/disable the filled contour option.
                     """
                 class global_range(TUIMethod):
                     """
-                    Turns the global range for contours on/off.
+                    Enable/disable the global range for contours option.
                     """
                 class line_contours(TUIMethod):
                     """
-                    Turns the line contours option on/off (deselects filled-contours?).
+                    Enable/disable the filled contour option.
                     """
                 class log_scale(TUIMethod):
                     """
-                    Specifies a decimal or logarithmic color scale for contours.
+                    Enable/disable the use of a log scale.
                     """
                 class n_contour(TUIMethod):
                     """
-                    Sets the number of contour levels.
+                    Set the number of contour levels.
                     """
                 class node_values(TUIMethod):
                     """
-                    Sets the option to use scalar field at nodes when computing the contours.
+                    Enable/disable the plot of node values.
                     """
                 class render_mesh(TUIMethod):
                     """
-                    Determines whether or not to render the mesh on top of contours, vectors, and so on.
+                    Determine whether or not to render the mesh on top of contours, vectors, etc.
                     """
                 class surfaces(TUIMethod):
                     """
-                    Sets the surfaces on which contours are drawn. You can include a wildcard (\\*) within the surface names.
+                    Set surfaces to be contoured.
                     """
 
             class lights(TUIMenu):
@@ -12308,7 +12316,7 @@ class main_menu(TUIMenu):
 
             class particle_tracks(TUIMenu):
                 """
-                Enters the particle-tracks menu to set parameters for display of particle tracks.
+                Enter the particle-tracks menu to set parameters for display of particle tracks.
                 """
                 def __init__(self, service, version, mode, path):
                     self.filter_settings = self.__class__.filter_settings(service, version, mode, path + ["filter_settings"])
@@ -12334,71 +12342,71 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class arrow_scale(TUIMethod):
                     """
-                    Sets the scale factor for arrows drawn on particle tracks.
+                    No help available.
                     """
                 class arrow_space(TUIMethod):
                     """
-                    Sets the spacing factor for arrows drawn on particle tracks.
+                    No help available.
                     """
                 class coarsen_factor(TUIMethod):
                     """
-                    Sets the coarsening factor for particle tracks.
+                    No help available.
                     """
                 class display(TUIMethod):
                     """
-                    Determines whether particle tracks shall be displayed or only tracked.
+                    No help available.
                     """
                 class history_filename(TUIMethod):
                     """
-                    Specifies the name of the particle history file.
+                    No help available.
                     """
                 class line_width(TUIMethod):
                     """
-                    Sets the width for particle track.
+                    No help available.
                     """
                 class marker_size(TUIMethod):
                     """
-                    Sets the size of markers used to represent particle tracks.
+                    Set the marker size for particle drawing.
                     """
                 class particle_skip(TUIMethod):
                     """
-                    Specifies how many particle tracks should be displayed.
+                    Specify how many particle tracks should be displayed.
                     """
                 class radius(TUIMethod):
                     """
-                    Sets the radius for particle track (ribbon/cylinder only) cross-section.
+                    Set the radius for particle track (ribbons/cylinder only) cross-section.
                     """
                 class report_default_variables(TUIMethod):
                     """
-                    Sets the report variables to default.
+                    No help available.
                     """
                 class report_to(TUIMethod):
                     """
-                    Specifies the destination for the report (console, file, none).
+                    Specify the destination for the report (console, file, none).
                     """
                 class report_type(TUIMethod):
                     """
-                    Sets the report type for particle tracks.
+                    Set the report type for particle tracks.
                     """
                 class report_variables(TUIMethod):
                     """
-                    Sets the report variables.
+                    Set the report variables.
                     """
                 class sphere_attrib(TUIMethod):
                     """
-                    Specifies the size and number of slices to be used in drawing spheres.
+                    Specify size and number of slices to be used in drawing spheres.
                     """
                 class style(TUIMethod):
                     """
-                    Sets the display style for particle track (line/ribbon/cylinder/sphere).
+                    Set the display style for particle track (line/ribbon/cylinder/sphere).
                     """
                 class track_single_particle_stream(TUIMethod):
                     """
-                    Specifies the stream ID to be tracked.
+                    No help available.
                     """
                 class twist_factor(TUIMethod):
                     """
-                    Sets the scale factor for twisting (ribbons only).
+                    Set the scale factor for twisting (ribbons only).
                     """
 
                 class filter_settings(TUIMenu):
@@ -12414,23 +12422,23 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class enable_filtering(TUIMethod):
                         """
-                        Specifies whether particle display is filtered.
+                        Specify whether particle display is filtered.
                         """
                     class filter_variable(TUIMethod):
                         """
-                        Selects a variable used for filtering of particles.
+                        Select a variable used for filtering of particles.
                         """
                     class inside(TUIMethod):
                         """
-                        Specifies whether filter variable must be inside min/max to be displayed (else outside min/max).
+                        Specify whether filter variable needs to be inside min/max to be displayed (else outside min/max).
                         """
                     class maximum(TUIMethod):
                         """
-                        Specifies the upper bound for the filter variable.
+                        Specify the upper bound for the filter variable.
                         """
                     class minimum(TUIMethod):
                         """
-                        Specifies the lower bound for the filter variable.
+                        Specify the lower bound for the filter variable.
                         """
 
                 class sphere_settings(TUIMenu):
@@ -12449,35 +12457,35 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class auto_range(TUIMethod):
                         """
-                        Specifies whether displayed spheres should include auto range of variable to size spheres.
+                        Specify whether displayed spheres should include auto range of variable to size spheres.
                         """
                     class diameter(TUIMethod):
                         """
-                        Diameter of the spheres whenvary-diameter is disabled.
+                        Diameter of the spheres when vary-diameter? is disabled.
                         """
                     class maximum(TUIMethod):
                         """
-                        Sets the maximum value of the sphere to be displayed.
+                        Set the maximum value of the sphere to be displayed.
                         """
                     class minimum(TUIMethod):
                         """
-                        Sets the minimum value of the sphere to be displayed.
+                        Set the minimum value of the sphere to be displayed.
                         """
                     class scale_factor(TUIMethod):
                         """
-                        Specifies a scale factor to enlarge/reduce the size of spheres.
+                        Specify a scale factor to enlarge/reduce the size of spheres.
                         """
                     class size_variable(TUIMethod):
                         """
-                        Selects a particle variable to size the spheres.
+                        Select a particle variable to size the spheres.
                         """
                     class smooth_parameter(TUIMethod):
                         """
-                        Specifies number of slices to be used in drawing spheres.
+                        Specify number of slices to be used in drawing spheres.
                         """
                     class vary_diameter(TUIMethod):
                         """
-                        Specifies whether the spheres can vary with another variable.
+                        Specify whether the spheres can vary with another variable.
                         """
 
                 class vector_settings(TUIMenu):
@@ -12497,44 +12505,44 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class color_variable(TUIMethod):
                         """
-                        Specifies whether the vectors should be colored by variable specified in /display/particle-track/particle-track (if false use a constant color).
+                        Specify whether the vectors should be colored by variable specified in /display/particle-track/particle-track (if false use a constant color).
                         """
                     class constant_color(TUIMethod):
                         """
-                        Specifies a constant color for the vectors.
+                        Specify a constant color for the vectors.
                         """
                     class length_to_head_ratio(TUIMethod):
                         """
-                        Specifies ratio of length to head for vectors and length to diameter for cylinders.
+                        Specify ratio of length to head for vectors and length to diameter for cylinders.
                         """
                     class length_variable(TUIMethod):
                         """
-                        Specifies whether the displayed vectors have length varying with another variable.
+                        Specify whether the displayed vectors have length varying with another variable.
                         """
                     class scale_factor(TUIMethod):
                         """
-                        Specifies a scale factor to enlarge/reduce the length of vectors.
+                        Specify a scale factor to enlarge/reduce the length of vectors.
                         """
                     class style(TUIMethod):
                         """
-                        Enables and sets the display style for particle vectors (none/vector/centered-vector/centered-cylinder).
+                        Enable and set the display style for particle vectors (none/vector/centered-vector/centered-cylinder).
                         """
                     class vector_length(TUIMethod):
                         """
-                        Specifies the length of constant vectors.
+                        Specify the length of constant vectors.
                         """
                     class vector_length_variable(TUIMethod):
                         """
-                        Selects a particle variable to specify the length of vectors.
+                        Select a particle variable to specify the length of vectors.
                         """
                     class vector_variable(TUIMethod):
                         """
-                        Selects a particle vector function to specify vector direction.
+                        Select a particle vector function to specify vector direction.
                         """
 
             class path_lines(TUIMenu):
                 """
-                Sets parameters for display of pathlines.
+                Enter the path-lines menu to set parameters for the display of pathlines.
                 """
                 def __init__(self, service, version, mode, path):
                     self.arrow_scale = self.__class__.arrow_scale(service, version, mode, path + ["arrow_scale"])
@@ -12556,67 +12564,67 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class arrow_scale(TUIMethod):
                     """
-                    Sets the scale factor for arrows drawn on pathlines.
+                    Set the scale factor for arrows drawn on pathlines.
                     """
                 class arrow_space(TUIMethod):
                     """
-                    Sets the spacing factor for arrows drawn on pathlines.
+                    Set the spacing factor for arrows drawn on pathlines.
                     """
                 class display_steps(TUIMethod):
                     """
-                    Sets the display stepping for pathlines.
+                    Set the display stepping for pathlines.
                     """
                 class error_control(TUIMethod):
                     """
-                    Sets error control during pathline computation.
+                    Set error control during pathline computation.
                     """
                 class line_width(TUIMethod):
                     """
-                    Sets the width for pathlines.
+                    Set the width for pathlines.
                     """
                 class marker_size(TUIMethod):
                     """
-                    Sets the marker size for particle drawing.
+                    Set the marker size for particle drawing.
                     """
                 class maximum_error(TUIMethod):
                     """
-                    Sets the maximum error allowed while computing the pathlines.
+                    Set the maximum error allowed while computing the pathlines.
                     """
                 class maximum_steps(TUIMethod):
                     """
-                    Sets the maximum number of steps to take for pathlines.
+                    Set the maximum number of steps to take for pathlines.
                     """
                 class radius(TUIMethod):
                     """
-                    Sets the radius for pathline (ribbons/cylinder only) cross-section.
+                    Set the radius for pathline (ribbons/cylinder only) cross-section.
                     """
                 class relative_pathlines(TUIMethod):
                     """
-                    Enables/disables the tracking of pathlines in a relative coordinate system.
+                    Enable/disable the tracking of pathlines in a relative coordinate system.
                     """
                 class reverse(TUIMethod):
                     """
-                    Sets direction of path tracking.
+                    Enable/disable the direction of path tracking.
                     """
                 class sphere_attrib(TUIMethod):
                     """
-                    Specifies the size and number of slices to be used in drawing spheres.
+                    Specify size and no. of slices to be used in drawing sphere for sphere-style.
                     """
                 class step_size(TUIMethod):
                     """
-                    Sets the step length between particle positions for pathlines.
+                    Set the step length between particle positions for path-lines.
                     """
                 class style(TUIMethod):
                     """
-                    Selects the pathline style (line, point, ribbon, triangle, cylinder).
+                    Set display style for pathlines (line/ribbon/cylinder).
                     """
                 class track_in_phase(TUIMethod):
                     """
-                    Selects the phase in which particle pathlines will be computed (Multiphase Eulerian Model only).
+                    Assign phase to display pathlines in.
                     """
                 class twist_factor(TUIMethod):
                     """
-                    Sets the scale factor for twisting (ribbons only).
+                    Set the scale factor for twisting (ribbons only).
                     """
 
             class picture(TUIMenu):
@@ -12944,7 +12952,7 @@ class main_menu(TUIMenu):
 
             class velocity_vectors(TUIMenu):
                 """
-                Enters the menu to set parameters for display of velocity vectors.
+                Enter the menu to set parameters for display of velocity vectors.
                 """
                 def __init__(self, service, version, mode, path):
                     self.auto_scale = self.__class__.auto_scale(service, version, mode, path + ["auto_scale"])
@@ -12967,71 +12975,71 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class auto_scale(TUIMethod):
                     """
-                    Auto-scales all vectors so that vector overlap is minimal.
+                    Enable/disable auto-scale of all vectors so that vector overlap is minimal.
                     """
                 class color(TUIMethod):
                     """
-                    Sets the color of all velocity vectors to the color specified. The color scale is ignored. This is useful when overlaying a vector plot over a contour plot.
+                    Set the color used for all vectors. Set color to the null string to use the color map.
                     """
                 class color_levels(TUIMethod):
                     """
-                    Sets the number of colors used from the colormap.
+                    Set the number of colors used from the color map.
                     """
                 class component_x(TUIMethod):
                     """
-                    Sets the option to use only the  component of the velocity vectors during display.
+                    Enable/disable use of x-component of vectors.
                     """
                 class component_y(TUIMethod):
                     """
-                    Sets the option to use only the  component of the velocity vectors during display.
+                    Enable/disable use of y-component of vectors.
                     """
                 class component_z(TUIMethod):
                     """
-                    Sets the option to use only the  component of the velocity vectors during display.
+                    Enable/disable use of z-component of vectors.
                     """
                 class constant_length(TUIMethod):
                     """
-                    Sets the option to draw velocity vectors of constant length. This shows only the direction of the velocity vectors.
+                    Enable/disable setting all vectors to have the same length.
                     """
                 class global_range(TUIMethod):
                     """
-                    Turns global range for vectors on/off.
+                    Enable/disable the global range for vectors option.
                     """
                 class in_plane(TUIMethod):
                     """
-                    Toggles the display of velocity vector components in the plane of the surface selected for display.
+                    Toggle the display of in-plane velocity vectors.
                     """
                 class log_scale(TUIMethod):
                     """
-                    Toggles whether color scale is logarithmic or linear.
+                    Enable/disable the use of a log scale.
                     """
                 class node_values(TUIMethod):
                     """
-                    Enables/disables the plotting of node values. Cell values will be plotted if "no".
+                    Enable/disable plotting node values. Cell values will be plotted if "no".
                     """
                 class relative(TUIMethod):
                     """
-                    Toggles the display of relative velocity vectors.
+                    Enable/disable the display of relative velocity vectors.
                     """
                 class render_mesh(TUIMethod):
                     """
-                    Enables/disables rendering the mesh on top of contours, vectors, and so on.
+                    Enable/disable rendering the mseh on top of contours, vectors, etc.
                     """
                 class scale(TUIMethod):
                     """
-                    Sets the value by which the vector length will be scaled.
+                    Set the value by which the vector length will be scaled.
                     """
                 class scale_head(TUIMethod):
                     """
-                    Sets the value by which the vector head will be scaled.
+                    Set the value by which the vector head will be scaled.
                     """
                 class style(TUIMethod):
                     """
-                    Specifies the vector style that will be used when the vectors are displayed. You can choose from:3d arrow,3d arrowhead, cone,filled-arrow, arrow,harpoon, or headless.
+                    Set the style with which the vectors will be drawn.
                     """
                 class surfaces(TUIMethod):
                     """
-                    Sets surfaces on which vectors are drawn. You can include a wildcard (\\*) within the surface names.
+                    Set surfaces on which vectors are drawn.
                     """
 
             class windows(TUIMenu):
@@ -13057,7 +13065,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class aspect_ratio(TUIMethod):
                     """
-                    Sets the aspect ratio of the active window.
+                    No help available.
                     """
                 class close_window(TUIMethod):
                     """
@@ -13081,7 +13089,7 @@ class main_menu(TUIMenu):
                     """
                 class ruler(TUIMethod):
                     """
-                    Turns the ruler on/off. Note that if you are running Fluent in 3D, then the view must be set toorthographic.
+                    No help available.
                     """
                 class set_window(TUIMethod):
                     """
@@ -13094,7 +13102,7 @@ class main_menu(TUIMenu):
 
                 class axes(TUIMenu):
                     """
-                    Enters the axes window options menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.border = self.__class__.border(service, version, mode, path + ["border"])
@@ -13107,36 +13115,36 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class border(TUIMethod):
                         """
-                        Sets whether or not to draw a border around the axes window.
+                        No help available.
                         """
                     class bottom(TUIMethod):
                         """
-                        Sets the bottom boundary of the axes window.
+                        No help available.
                         """
                     class clear(TUIMethod):
                         """
-                        Sets the transparency of the axes window.
+                        No help available.
                         """
                     class left(TUIMethod):
                         """
-                        Sets the left boundary of the axes window.
+                        No help available.
                         """
                     class right(TUIMethod):
                         """
-                        Sets the right boundary of the axes window.
+                        No help available.
                         """
                     class top(TUIMethod):
                         """
-                        Sets the top boundary of the axes window.
+                        No help available.
                         """
                     class visible(TUIMethod):
                         """
-                        Controls the visibility of the axes window.
+                        No help available.
                         """
 
                 class main(TUIMenu):
                     """
-                    Enters the main view window options menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.border = self.__class__.border(service, version, mode, path + ["border"])
@@ -13148,32 +13156,32 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class border(TUIMethod):
                         """
-                        Sets whether or not to draw a border around the main viewing window.
+                        No help available.
                         """
                     class bottom(TUIMethod):
                         """
-                        Sets the bottom boundary of the main viewing window.
+                        No help available.
                         """
                     class left(TUIMethod):
                         """
-                        Sets the left boundary of the main viewing window.
+                        No help available.
                         """
                     class right(TUIMethod):
                         """
-                        Sets the right boundary of the main viewing window.
+                        No help available.
                         """
                     class top(TUIMethod):
                         """
-                        Sets the top boundary of the main viewing window.
+                        No help available.
                         """
                     class visible(TUIMethod):
                         """
-                        Controls the visibility of the main viewing window.
+                        No help available.
                         """
 
                 class scale(TUIMenu):
                     """
-                    Enters the color scale window options menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.border = self.__class__.border(service, version, mode, path + ["border"])
@@ -13189,48 +13197,48 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class border(TUIMethod):
                         """
-                        Sets whether or not to draw a border around the color scale window.
+                        No help available.
                         """
                     class bottom(TUIMethod):
                         """
-                        Sets the bottom boundary of the color scale window.
+                        No help available.
                         """
                     class clear(TUIMethod):
                         """
-                        Sets the transparency of the color scale window.
+                        No help available.
                         """
                     class font_size(TUIMethod):
                         """
-                        Sets the font size of the color scale window.
+                        No help available.
                         """
                     class format(TUIMethod):
                         """
-                        Sets the number format of the color scale window (for example, percentage0.2e).
+                        No help available.
                         """
                     class left(TUIMethod):
                         """
-                        Sets the left boundary of the color scale window.
+                        No help available.
                         """
                     class margin(TUIMethod):
                         """
-                        Sets the margin of the color scale window.
+                        No help available.
                         """
                     class right(TUIMethod):
                         """
-                        Sets the right boundary of the color scale window.
+                        No help available.
                         """
                     class top(TUIMethod):
                         """
-                        Sets the top boundary of the color scale window.
+                        No help available.
                         """
                     class visible(TUIMethod):
                         """
-                        Controls the visibility of the color scale window.
+                        No help available.
                         """
 
                 class text(TUIMenu):
                     """
-                    Enters the text window options menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.alignment = self.__class__.alignment(service, version, mode, path + ["alignment"])
@@ -13251,48 +13259,48 @@ class main_menu(TUIMenu):
                         """
                     class application(TUIMethod):
                         """
-                        Shows or hides the application name in the picture.
+                        No help available.
                         """
                     class border(TUIMethod):
                         """
-                        Sets whether or not to draw a border around the text window.
+                        No help available.
                         """
                     class bottom(TUIMethod):
                         """
-                        Sets the bottom boundary of the text window.
+                        No help available.
                         """
                     class clear(TUIMethod):
                         """
-                        Enables/disables the transparency of the text window.
+                        No help available.
                         """
                     class company(TUIMethod):
                         """
-                        Shows or hides the company name in the picture.
+                        No help available.
                         """
                     class date(TUIMethod):
                         """
-                        Shows or hides the date in the picture.
+                        No help available.
                         """
                     class left(TUIMethod):
                         """
-                        Sets the left boundary of the text window.
+                        No help available.
                         """
                     class right(TUIMethod):
                         """
-                        Sets the right boundary of the text window.
+                        No help available.
                         """
                     class top(TUIMethod):
                         """
-                        Sets the top boundary of the text window.
+                        No help available.
                         """
                     class visible(TUIMethod):
                         """
-                        Controls the visibility of the text window.
+                        No help available.
                         """
 
                 class video(TUIMenu):
                     """
-                    Contains options for modifying a video. This menu is not relevant for the meshing mode.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.background = self.__class__.background(service, version, mode, path + ["background"])
@@ -13303,28 +13311,28 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class background(TUIMethod):
                         """
-                        Sets the background color of the graphics window. The color is specified as a string of three comma-separated numbers between 0 and 1, representing red, green, and blue. For example, to change the background from black (default) to gray, you would enter ".5,.5,.5" after selecting the background command.
+                        No help available.
                         """
                     class color_filter(TUIMethod):
                         """
-                        Sets the video color filter. For example, to change the color filter from its default setting  to PAL video with a saturation of 80percentage and a brightness of 90percentage, you would  enter "video=pal,sat=.8,gain=.9" after selecting the color-filter command.
+                        No help available.
                         """
                     class foreground(TUIMethod):
                         """
-                        Sets the foreground (text) color of the graphics window. The color is specified as a string of three comma-separated numbers between 0 and 1, representing red, green, and blue. For example, to change the foreground from white (default) to gray, you would enter ".5,.5,.5" after selecting the foreground command.
+                        No help available.
                         """
                     class on(TUIMethod):
                         """
-                        Enables or disables the video picture settings.
+                        No help available.
                         """
                     class pixel_size(TUIMethod):
                         """
-                        Sets the window size in pixels.
+                        No help available.
                         """
 
                 class xy(TUIMenu):
                     """
-                    Enters the XY plot window options menu.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.border = self.__class__.border(service, version, mode, path + ["border"])
@@ -13336,32 +13344,32 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class border(TUIMethod):
                         """
-                        Sets whether or not to draw a border around the XY plot window.
+                        No help available.
                         """
                     class bottom(TUIMethod):
                         """
-                        Sets the bottom boundary of the XY plot window.
+                        No help available.
                         """
                     class left(TUIMethod):
                         """
-                        Sets the left boundary of the XY plot window.
+                        No help available.
                         """
                     class right(TUIMethod):
                         """
-                        Sets the right boundary of the XY plot window.
+                        No help available.
                         """
                     class top(TUIMethod):
                         """
-                        Sets the top boundary of the XY plot window.
+                        No help available.
                         """
                     class visible(TUIMethod):
                         """
-                        Controls the visibility of the XY plot window.
+                        No help available.
                         """
 
         class surface(TUIMenu):
             """
-            Enters the data surface-manipulation menu. For a description of the items in this menu, see surface/.
+            Enter the data surface manipulation menu.
             """
             def __init__(self, service, version, mode, path):
                 self.post_processing_volume = self.__class__.post_processing_volume(service, version, mode, path + ["post_processing_volume"])
@@ -13728,23 +13736,23 @@ class main_menu(TUIMenu):
                 """
             class auto_scale(TUIMethod):
                 """
-                Scales and centers the current scene without changing its orientation.
+                No help available.
                 """
             class default_view(TUIMethod):
                 """
-                Resets the view to front and center.
+                No help available.
                 """
             class delete_view(TUIMethod):
                 """
-                Deletes a particular view from the list of stored views.
+                No help available.
                 """
             class last_view(TUIMethod):
                 """
-                Returns to the camera position before the last manipulation.
+                No help available.
                 """
             class list_views(TUIMethod):
                 """
-                Lists all predefined and saved views.
+                No help available.
                 """
             class mirror_zones(TUIMethod):
                 """
@@ -13756,24 +13764,24 @@ class main_menu(TUIMenu):
                 """
             class read_views(TUIMethod):
                 """
-                Reads views from an external view file.
+                No help available.
                 """
             class restore_view(TUIMethod):
                 """
-                Sets the current view to one of the stored views.
+                No help available.
                 """
             class save_view(TUIMethod):
                 """
-                Saves the currently displayed view into the list of stored views.
+                No help available.
                 """
             class write_views(TUIMethod):
                 """
-                Writes views to an external view file.
+                No help available.
                 """
 
             class camera(TUIMenu):
                 """
-                Contains commands to set the camera options.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.dolly_camera = self.__class__.dolly_camera(service, version, mode, path + ["dolly_camera"])
@@ -13789,43 +13797,43 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class dolly_camera(TUIMethod):
                     """
-                    Enables you to move the camera left, right, up, down, in, and out.
+                    No help available.
                     """
                 class field(TUIMethod):
                     """
-                    Enables you to set the field of view (width and height) of the scene.
+                    No help available.
                     """
                 class orbit_camera(TUIMethod):
                     """
-                    Enables you to move the camera around the target. Gives the effect of circling around the target.
+                    No help available.
                     """
                 class pan_camera(TUIMethod):
                     """
-                    Gives you the effect of sweeping the camera across the scene. The camera remains at its position but its target changes.
+                    No help available.
                     """
                 class position(TUIMethod):
                     """
-                    Sets the camera position.
+                    No help available.
                     """
                 class projection(TUIMethod):
                     """
-                    Lets you switch between perspective and orthographic views.
+                    No help available.
                     """
                 class roll_camera(TUIMethod):
                     """
-                    Lets you adjust the camera up-vector.
+                    No help available.
                     """
                 class target(TUIMethod):
                     """
-                    Sets the point the camera will look at.
+                    No help available.
                     """
                 class up_vector(TUIMethod):
                     """
-                    Sets the camera up-vector.
+                    No help available.
                     """
                 class zoom_camera(TUIMethod):
                     """
-                    Adjusts the camera’s field of view. This operation is similar to dollying the camera in or out of the scene. Dollying causes objects in front to move past you. Zooming changes the perspective effect in the scene (and can be disconcerting).
+                    No help available.
                     """
 
             class display_states(TUIMenu):
@@ -14150,7 +14158,7 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class async_optimize(TUIMethod):
             """
-            Chooses whether to optimize file I/O using scratch disks and asynchronous operations.
+            No help available.
             """
         class auto_merge_zones(TUIMethod):
             """
@@ -14166,7 +14174,7 @@ class main_menu(TUIMenu):
             """
         class close_without_save(TUIMethod):
             """
-            Exits ANSYS Fluent without saving data in Workbench. This command is only available when running ANSYS Fluent in Workbench.
+            Exit without save.
             """
         class confirm_overwrite(TUIMethod):
             """
@@ -14178,19 +14186,19 @@ class main_menu(TUIMenu):
             """
         class data_file_options(TUIMethod):
             """
-            Sets derived quantities to be written in data file.
+            Set derived quantities to be written in data file.
             """
         class define_macro(TUIMethod):
             """
-            Saves input to a named macro.
+            No help available.
             """
         class execute_macro(TUIMethod):
             """
-            Runs a previously defined macro.
+            No help available.
             """
         class export_to_cfd_post(TUIMethod):
             """
-            Exports data files that are compatible with CFD-Post and EnSight (that is, .cdat and .cst files) and opens CFD-Post, if desired.
+            Export to CFD-Post compabitble data file.
             """
         class load_act_tool(TUIMethod):
             """
@@ -14202,7 +14210,7 @@ class main_menu(TUIMenu):
             """
         class read_case_data(TUIMethod):
             """
-            Reads a case and a data file.
+            Read a case and a data file.
             """
         class read_case_info(TUIMethod):
             """
@@ -14214,19 +14222,19 @@ class main_menu(TUIMenu):
             """
         class read_data(TUIMethod):
             """
-            Reads a data file.
+            Read a data file.
             """
         class read_field_functions(TUIMethod):
             """
-            Reads custom field function definitions from a file.
+            No help available.
             """
         class read_injections(TUIMethod):
             """
-            Reads all DPM injections from a file.
+            No help available.
             """
         class read_isat_table(TUIMethod):
             """
-            Reads ISAT Table.
+            No help available.
             """
         class read_journal(TUIMethod):
             """
@@ -14234,47 +14242,47 @@ class main_menu(TUIMenu):
             """
         class read_macros(TUIMethod):
             """
-            Reads macro definitions from a file.
+            No help available.
             """
         class read_pdf(TUIMethod):
             """
-            Reads a PDF file.
+            No help available.
             """
         class read_profile(TUIMethod):
             """
-            Reads boundary profile data.
+            Read boundary profile data (\\*.prof, \\*.csv). Default is \\*.prof.
             """
         class read_rays(TUIMethod):
             """
-            Reads a ray file.
+            Read a DTRM rays file.
             """
         class read_settings(TUIMethod):
             """
-            Reads and sets boundary conditions from a specified file.
+            No help available.
             """
         class read_surface_clusters(TUIMethod):
             """
-            Reads surface clusters from a file.
+            Read an S2S file.
             """
         class read_transient_table(TUIMethod):
             """
-            Reads table of transient boundary profile data.
+            Read a table of transient boundary profile data.
             """
         class read_viewfactors(TUIMethod):
             """
-            Reads view factors from a file.
+            Read an S2S file.
             """
         class reload_setup(TUIMethod):
             """
-            Discards any changes in the current ANSYS Fluent in Workbench session and removes any corresponding data from the Solution cell. This command is only available when running ANSYS Fluent in Workbench.
+            Reload case and settings from last saved state.
             """
         class replace_mesh(TUIMethod):
             """
-            Replaces the mesh with a new one while preserving settings.
+            Replace the mesh with a new one while preserving settings.
             """
         class set_batch_options(TUIMethod):
             """
-            Sets the batch options.
+            Set the batch options.
             """
         class set_error_on_invalid_command(TUIMethod):
             """
@@ -14302,7 +14310,7 @@ class main_menu(TUIMenu):
             """
         class single_precision_coordinates(TUIMethod):
             """
-            Specifies whether the nodal coordinates should be written in single precision (rather than the default double precision). This text command is only available in the single-precision version of ANSYS Fluent.
+            No help available.
             """
         class start_journal(TUIMethod):
             """
@@ -14318,7 +14326,7 @@ class main_menu(TUIMenu):
             """
         class stop_macro(TUIMethod):
             """
-            Stops recording input to a macro.
+            No help available.
             """
         class stop_transcript(TUIMethod):
             """
@@ -14326,11 +14334,11 @@ class main_menu(TUIMenu):
             """
         class sync_workbench(TUIMethod):
             """
-            Directly updates Workbench with the most recent Fluent changes. This command is only available when running ANSYS Fluent in Workbench.
+            Sync Fluent changes with WorkBench.
             """
         class write_boundary_mesh(TUIMethod):
             """
-            Writes the boundary mesh to a file.
+            Write the boundary mesh to a file.
             """
         class write_case(TUIMethod):
             """
@@ -14338,7 +14346,7 @@ class main_menu(TUIMenu):
             """
         class write_case_data(TUIMethod):
             """
-            Writes a case and a data file.
+            Write a case and a data file.
             """
         class write_circumferential_averaged_profile(TUIMethod):
             """
@@ -14346,7 +14354,7 @@ class main_menu(TUIMenu):
             """
         class write_cleanup_script(TUIMethod):
             """
-            Writes the cleanup-script-file for ANSYS Fluent.
+            Write the cleanup-script-file for Fluent.
             """
         class write_currently_defined_profiles(TUIMethod):
             """
@@ -14354,47 +14362,47 @@ class main_menu(TUIMenu):
             """
         class write_data(TUIMethod):
             """
-            Writes a data file.
+            Write a data file.
             """
         class write_fan_profile(TUIMethod):
             """
-            Computes radial profiles for a fan zone and writes them to a profile file.
+            Compute radial profiles for a fan zone and write them to a profile file.
             """
         class write_field_functions(TUIMethod):
             """
-            Writes the currently defined custom field functions to a file.
+            Write the currently defined custom field functions to a file.
             """
         class write_flamelet(TUIMethod):
             """
-            Writes a flamelet file.
+            Write a flamelet file.
             """
         class write_injections(TUIMethod):
             """
-            Writes out selected DPM injections to a file.
+            Write out selected DPM injections to a file.
             """
         class write_isat_table(TUIMethod):
             """
-            Writes ISAT Table.
+            Write an ISAT table.
             """
         class write_macros(TUIMethod):
             """
-            Writes the currently defined macros to a file.
+            Write the currently defined macros to a file.
             """
         class write_merge_profiles(TUIMethod):
             """
-            Writes a .csv file with the selected surfaces consolidated into one set of data points.
+            Write multiple zones surface data as a single boundary profile file. To use \\*.csv format specify filename with .csv suffix.
             """
         class write_pdat(TUIMethod):
             """
-            Enables / disables the attempt to save .pdat files. Note that this text command is no longer supported.
+            No help available.
             """
         class write_pdf(TUIMethod):
             """
-            Writes a pdf file.
+            Write a pdf file.
             """
         class write_profile(TUIMethod):
             """
-            Writes surface data as a boundary profile file.
+            Write surface data as a boundary profile file. To use \\*.csv format specify filename with .csv suffix.
             """
         class write_selected_defined_profiles(TUIMethod):
             """
@@ -14402,12 +14410,12 @@ class main_menu(TUIMenu):
             """
         class write_settings(TUIMethod):
             """
-            Writes out current boundary conditions in use.
+            Write out current boundary conditions in use.
             """
 
         class auto_save(TUIMenu):
             """
-            Enters the auto save menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.append_file_name_with = self.__class__.append_file_name_with(service, version, mode, path + ["append_file_name_with"])
@@ -14420,36 +14428,36 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class append_file_name_with(TUIMethod):
                 """
-                Sets the suffix for auto-saved files. The file name can be appended by flow-time, time-step value, or by user-specified flags in file name.
+                No help available.
                 """
             class case_frequency(TUIMethod):
                 """
-                Specifies the frequency (in iterations, time steps, or flow time) with which case files are saved.
+                No help available.
                 """
             class data_frequency(TUIMethod):
                 """
-                Specifies the frequency (in iterations, time steps, or flow time) with which data files are saved.
+                No help available.
                 """
             class max_files(TUIMethod):
                 """
-                Sets the maximum number of files. Once the maximum is reached, files will be erased as new files are written.
+                No help available.
                 """
             class retain_most_recent_files(TUIMethod):
                 """
-                Sets autosave to retain the 5 most recent files.
+                No help available.
                 """
             class root_name(TUIMethod):
                 """
-                Specifies the root name for the files that are saved.
+                No help available.
                 """
             class save_data_file_every(TUIMethod):
                 """
-                Specifies the type and frequency of the data file to be saved.
+                No help available.
                 """
 
         class cffio_options(TUIMenu):
             """
-            Enters the cffio options menu, which provides options for the I/O of case and data files in the Common Fluids Format (CFF).
+            CFF I/O options.
             """
             def __init__(self, service, version, mode, path):
                 self.compression_level = self.__class__.compression_level(service, version, mode, path + ["compression_level"])
@@ -14458,24 +14466,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class compression_level(TUIMethod):
                 """
-                Sets the compression level for CFF files. The compression level can be set between 0 and 9 with 0 being least compression (fastest) and 9 being highest compression (slowest).
+                No help available.
                 """
             class io_mode(TUIMethod):
                 """
-                Sets the I/O mode for writing CFF files.
-                1. HOST: I/O is done serially by the host process.
-                2. NODE0: I/O is done serially by the node 0 process.
-                3. PARALLEL INDEPENDENT: I/O is done in parallel using the independent mode of MPI I/O.
-                4. PARALLEL COLLECTIVE: I/O is done in parallel using the collective mode of MPI I/O.
+                Set CFF I/O mode.
                 """
             class single_precision_data(TUIMethod):
                 """
-                Specifies whether the double-precision solver saves single-precision data when writing CFF data files, in order to reduce the size of the files.
+                No help available.
                 """
 
         class em_mapping(TUIMenu):
             """
-            Enters the electromagnetic loss mapping menu.
+            Assign electro-magnetic losses provided by specified product.
             """
             def __init__(self, service, version, mode, path):
                 self.maintain_loss_on_initialization = self.__class__.maintain_loss_on_initialization(service, version, mode, path + ["maintain_loss_on_initialization"])
@@ -14485,11 +14489,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class maintain_loss_on_initialization(TUIMethod):
                 """
-                Maintains the loss data provided by Maxwell even if solution is initialized.
+                Maintain the loss data provided by Ansoft even if solution is initialized.
                 """
             class remove_loss_only(TUIMethod):
                 """
-                Removes the loss data provided by Maxwell and keeps all other solution data.
+                Remove the loss data provided by Ansoft and keep all other solution data.
                 """
             class surface_energy_source(TUIMethod):
                 """
@@ -14549,15 +14553,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class abaqus(TUIMethod):
                 """
-                Writes an ABAQUS file.
+                No help available.
                 """
             class ascii(TUIMethod):
                 """
-                Writes an ASCII file.
+                Write an ASCII file.
                 """
             class avs(TUIMethod):
                 """
-                Writes an AVS UCD file.
+                Write an AVS UCD file.
                 """
             class cdat_for_cfd_post__and__ensight(TUIMethod):
                 """
@@ -14569,19 +14573,19 @@ class main_menu(TUIMenu):
                 """
             class common_fluids_format_post(TUIMethod):
                 """
-                Writes common fluids format files (.cas.post and .dat.post) for mesh and data, respectively. These files are saved in the hierarchical data format.
+                Write an CFF Post-Only file.
                 """
             class custom_heat_flux(TUIMethod):
                 """
-                Writes a generic file for heat transfer.
+                No help available.
                 """
             class dx(TUIMethod):
                 """
-                Writes an IBM Data Explorer format file.
+                Write an IBM Data Explorer format file.
                 """
             class ensight(TUIMethod):
                 """
-                Writes EnSight geometry, velocity, and scalar files.
+                Write EnSight 6 geometry, velocity, and scalar files.
                 """
             class ensight_dvs(TUIMethod):
                 """
@@ -14601,15 +14605,15 @@ class main_menu(TUIMenu):
                 """
             class ensight_gold(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files.
+                Write EnSight Gold geometry, velocity, and scalar files.
                 """
             class ensight_gold_parallel_surfaces(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files for surfaces in a parallel format suitable for ANSYS Ensight Enterprise.
+                Write EnSight Gold geometry, velocity and scalar files for surfaces. Fluent will write files suitable for EnSight Parallel.
                 """
             class ensight_gold_parallel_volume(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files for cell zones in a parallel format suitable for ANSYS Ensight Enterprise.
+                Write EnSight Gold geometry, velocity and scalar files for cell zones and boundaries attached to them. Fluent will write files suitable for EnSight Parallel.
                 """
             class ensight_gold_surface(TUIMethod):
                 """
@@ -14617,55 +14621,55 @@ class main_menu(TUIMenu):
                 """
             class fast_mesh(TUIMethod):
                 """
-                Writes FAST/Plot3D unstructured mesh file.
+                No help available.
                 """
             class fast_scalar(TUIMethod):
                 """
-                Writes FAST/Plot3D unstructured scalar function file.
+                Write a FAST/Plot3D unstructured scalar function file.
                 """
             class fast_solution(TUIMethod):
                 """
-                Writes FAST/Plot3D unstructured solution file.
+                No help available.
                 """
             class fast_velocity(TUIMethod):
                 """
-                Writes FAST/Plot3D unstructured vector function file.
+                No help available.
                 """
             class fieldview(TUIMethod):
                 """
-                Writes FIELDVIEW case and data files.
+                Write Fieldview case and data files.
                 """
             class fieldview_data(TUIMethod):
                 """
-                Writes FIELDVIEW case and data files.
+                Write Fieldview case and data files.
                 """
             class fieldview_unstruct(TUIMethod):
                 """
-                Writes FIELDVIEW unstructured combined file.
+                Write a Fieldview unstructured combined file.
                 """
             class fieldview_unstruct_data(TUIMethod):
                 """
-                Writes FIELDVIEW unstructured results-only file.
+                Write a Fieldview unstructured results only file.
                 """
             class fieldview_unstruct_mesh(TUIMethod):
                 """
-                Writes FIELDVIEW unstructured mesh-only file.
+                Write a Fieldview unstructured mesh only file.
                 """
             class fieldview_unstruct_surfaces(TUIMethod):
                 """
-                Writes FIELDVIEW unstructured file for surfaces. You are prompted to select either [1], [2] or [3] to write either mesh-only, results-only, or combined for surfaces (respectively).
+                Write a Fieldview unstructured surface mesh, data.
                 """
             class gambit(TUIMethod):
                 """
-                Writes GAMBIT neutral file.
+                Write a Gambit neutral file.
                 """
             class icemcfd_for_icepak(TUIMethod):
                 """
-                Writes a binary ICEM CFD domain file.
+                No help available.
                 """
             class ideas(TUIMethod):
                 """
-                Writes an I-deas universal file.
+                Write an IDEAS universal file.
                 """
             class mechanical_apdl(TUIMethod):
                 """
@@ -14673,7 +14677,7 @@ class main_menu(TUIMenu):
                 """
             class mechanical_apdl_input(TUIMethod):
                 """
-                Writes a Mechanical APDL Input file.
+                No help available.
                 """
             class nastran(TUIMethod):
                 """
@@ -14685,23 +14689,23 @@ class main_menu(TUIMenu):
                 """
             class particle_history_data(TUIMethod):
                 """
-                Exports particle-history data.
+                Export particle-history data.
                 """
             class patran_neutral(TUIMethod):
                 """
-                Writes a PATRAN neutral file.
+                Write a PATRAN neutral file.
                 """
             class patran_nodal(TUIMethod):
                 """
-                Writes a PATRAN nodal results file.
+                Write a PATRAN nodal results file.
                 """
             class taitherm(TUIMethod):
                 """
-                Exports TAITherm file.
+                No help available.
                 """
             class tecplot(TUIMethod):
                 """
-                Writes a Tecplot+3DV format file.
+                Write a Tecplot+3DV format file.
                 """
 
             class settings(TUIMenu):
@@ -14753,7 +14757,7 @@ class main_menu(TUIMenu):
 
             class system_coupling_definition_file_settings(TUIMenu):
                 """
-                Enters the system coupling file (.scp) menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable_auto_creation_of_scp_file = self.__class__.enable_auto_creation_of_scp_file(service, version, mode, path + ["enable_auto_creation_of_scp_file"])
@@ -14770,7 +14774,7 @@ class main_menu(TUIMenu):
 
         class fsi(TUIMenu):
             """
-            Enters the fluid-structure interaction menu.
+            Enter the fsi menu.
             """
             def __init__(self, service, version, mode, path):
                 self.conserve_force = self.__class__.conserve_force(service, version, mode, path + ["conserve_force"])
@@ -14784,15 +14788,15 @@ class main_menu(TUIMenu):
                 """
             class display_fsi_mesh(TUIMethod):
                 """
-                Displays the mesh for a fluid-structure interaction.
+                Display the FEA mesh that has been read.
                 """
             class read_fsi_mesh(TUIMethod):
                 """
-                Reads an FEM mesh for one-way data mapping from ANSYS Fluent.
+                Read an FEA mesh for one-way FSI.
                 """
             class write_fsi_mesh(TUIMethod):
                 """
-                Writes a fluid-structure interaction mesh file.
+                Write an FEA mesh file with Fluent data.
                 """
 
         class import_(TUIMenu):
@@ -14823,6 +14827,7 @@ class main_menu(TUIMenu):
                 self.marc_post = self.__class__.marc_post(service, version, mode, path + ["marc_post"])
                 self.prebfc_structured = self.__class__.prebfc_structured(service, version, mode, path + ["prebfc_structured"])
                 self.ptc_mechanica = self.__class__.ptc_mechanica(service, version, mode, path + ["ptc_mechanica"])
+                self.turbogrid = self.__class__.turbogrid(service, version, mode, path + ["turbogrid"])
                 super().__init__(service, version, mode, path)
             class chemkin_mechanism(TUIMethod):
                 """
@@ -14871,6 +14876,10 @@ class main_menu(TUIMenu):
             class ptc_mechanica(TUIMethod):
                 """
                 Read a PTC Mechanica file as a case file.
+                """
+            class turbogrid(TUIMethod):
+                """
+                Enter the turbogrid menu.
                 """
 
             class abaqus(TUIMenu):
@@ -15067,7 +15076,7 @@ class main_menu(TUIMenu):
 
         class interpolate(TUIMenu):
             """
-            Interpolates data to/from another grid.
+            Enter the interpolate menu.
             """
             def __init__(self, service, version, mode, path):
                 self.read_data = self.__class__.read_data(service, version, mode, path + ["read_data"])
@@ -15076,15 +15085,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class read_data(TUIMethod):
                 """
-                Reads and interpolates data.
+                Read and interpolate data.
                 """
             class write_data(TUIMethod):
                 """
-                Writes data for interpolation.
+                Write data for interpolation.
                 """
             class zone_selection(TUIMethod):
                 """
-                Defines a list of cell zone IDs. If specified, interpolation data will be read/written for these cell zones only.
+                Define a list of cell zone IDs. If specified, interpolation data will be
+                read/written for these cell zones only.
                 """
 
         class parametric_project(TUIMenu):
@@ -15124,6 +15134,7 @@ class main_menu(TUIMenu):
             Enter to create new project, open project, save and archive project.
             """
             def __init__(self, service, version, mode, path):
+                self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
                 self.archive = self.__class__.archive(service, version, mode, path + ["archive"])
                 self.new = self.__class__.new(service, version, mode, path + ["new"])
                 self.open = self.__class__.open(service, version, mode, path + ["open"])
@@ -15156,9 +15167,54 @@ class main_menu(TUIMenu):
                 Save As Copy.
                 """
 
+            class simulation(TUIMenu):
+                """
+                Enter to create, duplicate, or delete a simulation.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.run = self.__class__.run(service, version, mode, path + ["run"])
+                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                    self.new_simulation = self.__class__.new_simulation(service, version, mode, path + ["new_simulation"])
+                    self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
+                    super().__init__(service, version, mode, path)
+                class delete(TUIMethod):
+                    """
+                    Delete A Simulation.
+                    """
+                class new_simulation(TUIMethod):
+                    """
+                    Create New Simulation.
+                    """
+                class set_as_current(TUIMethod):
+                    """
+                    Set the Current Simulation.
+                    """
+
+                class run(TUIMenu):
+                    """
+                    Enter to create, duplicate, or delete a run.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.new_run = self.__class__.new_run(service, version, mode, path + ["new_run"])
+                        self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
+                        super().__init__(service, version, mode, path)
+                    class delete(TUIMethod):
+                        """
+                        Delete A Run.
+                        """
+                    class new_run(TUIMethod):
+                        """
+                        Create a New Run.
+                        """
+                    class set_as_current(TUIMethod):
+                        """
+                        Set the Current Run.
+                        """
+
         class solution_files(TUIMenu):
             """
-            Enters the solution files menu.
+            Enter the solution files menu.
             """
             def __init__(self, service, version, mode, path):
                 self.delete_solution = self.__class__.delete_solution(service, version, mode, path + ["delete_solution"])
@@ -15167,20 +15223,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class delete_solution(TUIMethod):
                 """
-                Deletes solution files.
+                Delete solution files.
                 """
             class load_solution(TUIMethod):
                 """
-                Loads a solution file.
+                Load a solution file.
                 """
             class print_solution_files(TUIMethod):
                 """
-                Prints a list of available solution files.
+                Print list of available solution files.
                 """
 
         class table_manager(TUIMenu):
             """
-            Enters the table file manager menu.
+            Enter the table manager menu.
             """
             def __init__(self, service, version, mode, path):
                 self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
@@ -15194,35 +15250,35 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class delete(TUIMethod):
                 """
-                Deletes a table from local storage.
+                Delete a table.
                 """
             class list_matrix_data(TUIMethod):
                 """
-                Lists the data of a “matrix” type locally-stored table.
+                List matrix table data.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a locally-stored table.
+                List the properties for a table.
                 """
             class list_tables(TUIMethod):
                 """
-                Lists all locally-stored tables.
+                List the available tables.
                 """
             class read_matrix_data_file(TUIMethod):
                 """
-                Imports a “matrix” type table from a file into local storage.
+                Read matrix data file.
                 """
             class read_rgp_file(TUIMethod):
                 """
-                Imports a set of Real Gas Property (RGP) tables from a file into local storage.
+                Read material from real gas property (RGP) file.
                 """
             class rename(TUIMethod):
                 """
-                Renames a locally-stored table.
+                Rename a table.
                 """
             class store_in_case_file(TUIMethod):
                 """
-                Sets the persistence mode for RGP tables (embedded in case file or rely on external file).
+                Set persistence mode for tables (in case or separate file).
                 """
 
         class transient_export(TUIMenu):
@@ -15264,15 +15320,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class abaqus(TUIMethod):
                 """
-                Writes an ABAQUS file.
+                Write an ABAQUS file.
                 """
             class ascii(TUIMethod):
                 """
-                Writes an ASCII file.
+                Write an ASCII file.
                 """
             class avs(TUIMethod):
                 """
-                Writes an AVS UCD file.
+                Write an AVS UCD file.
                 """
             class cdat_for_cfd_post__and__ensight(TUIMethod):
                 """
@@ -15280,7 +15336,7 @@ class main_menu(TUIMenu):
                 """
             class cgns(TUIMethod):
                 """
-                Writes a CGNS file.
+                Write a CGNS file.
                 """
             class common_fluids_format_post(TUIMethod):
                 """
@@ -15288,15 +15344,15 @@ class main_menu(TUIMenu):
                 """
             class delete(TUIMethod):
                 """
-                Deletes transient exports.
+                Delete transient exports.
                 """
             class dx(TUIMethod):
                 """
-                Writes an IBM Data Explorer format file.
+                Write an IBM Data Explorer format file.
                 """
             class edit(TUIMethod):
                 """
-                Edits transient exports.
+                Edit transient exports.
                 """
             class ensight_dvs(TUIMethod):
                 """
@@ -15316,67 +15372,67 @@ class main_menu(TUIMenu):
                 """
             class ensight_gold_from_existing_files(TUIMethod):
                 """
-                Writes EnSight Gold files using ANSYS Fluent case files.
+                Write EnSight Gold files using Fluent case files.
                 """
             class ensight_gold_parallel_surfaces(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files for surfaces in a parallel format suitable for ANSYS Ensight Enterprise.
+                Write EnSight Gold geometry, velocity and scalar files for surfaces. Fluent will write files suitable for EnSight Parallel.
                 """
             class ensight_gold_parallel_volume(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files for cell zones in a parallel format suitable for ANSYS Ensight Enterprise.
+                Write EnSight Gold geometry, velocity and scalar files for cell zones and boundaries attached to them. Fluent will write files suitable for EnSight Parallel.
                 """
             class ensight_gold_transient(TUIMethod):
                 """
-                Writes EnSight Gold geometry, velocity, and scalar files.
+                Write EnSight Gold geometry, velocity, and scalar files.
                 """
             class fast(TUIMethod):
                 """
-                Writes a FAST/Plot3D unstructured mesh velocity scalar file.
+                Write a FAST/Plot3D unstructured mesh velocity scalar file.
                 """
             class fast_solution(TUIMethod):
                 """
-                Writes a FAST/Plot3D unstructured solution file.
+                Write a FAST/Plot3D unstructured solution file.
                 """
             class fieldview_unstruct(TUIMethod):
                 """
-                Writes a FIELDVIEW unstructured combined file.
+                Write a Fieldview unstructured combined file.
                 """
             class fieldview_unstruct_data(TUIMethod):
                 """
-                Writes a FIELDVIEW unstructured results only file.
+                Write a Fieldview unstructured results only file.
                 """
             class fieldview_unstruct_mesh(TUIMethod):
                 """
-                Writes a FIELDVIEW unstructured mesh only file.
+                Write a Fieldview unstructured mesh only file.
                 """
             class fieldview_unstruct_surfaces(TUIMethod):
                 """
-                Writes FIELDVIEW unstructured combined file for surfaces.
+                Write a Fieldview unstructured combined file for surfaces.
                 """
             class ideas(TUIMethod):
                 """
-                Writes an I-deas universal file.
+                Write an IDEAS universal file.
                 """
             class mechanical_apdl_input(TUIMethod):
                 """
-                Writes a Mechanical APDL input file.
+                Write an Mechanical APDL Input file.
                 """
             class nastran(TUIMethod):
                 """
-                Writes a NASTRAN file.
+                Write a NASTRAN file.
                 """
             class particle_history_data(TUIMethod):
                 """
-                Sets up an automatic particle-history data export.
+                Setup an automatic particle-history data export.
                 """
             class patran_neutral(TUIMethod):
                 """
-                Writes a PATRAN neutral file.
+                Write a PATRAN neutral file.
                 """
             class taitherm(TUIMethod):
                 """
-                Writes a TAITherm file.
+                Write a TAITherm file.
                 """
             class tecplot(TUIMethod):
                 """
@@ -15385,14 +15441,14 @@ class main_menu(TUIMenu):
 
             class settings(TUIMenu):
                 """
-                Enters the automatic export settings menu.
+                Enter the automatic export settings menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.cfd_post_compatible = self.__class__.cfd_post_compatible(service, version, mode, path + ["cfd_post_compatible"])
                     super().__init__(service, version, mode, path)
                 class cfd_post_compatible(TUIMethod):
                     """
-                    Specifies when case files are written with the .cdat and .cst files exported for Ansys CFD-Post. Note that this setting is ignored if the Write Case File Every Time option is enabled in the Automatic Export dialog box, which is always the case starting in Release 2021 R1.
+                    Set settings for CFD-Post compatible file export.
                     """
 
     class icing(TUIMenu):
@@ -15466,39 +15522,39 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class adjacency(TUIMethod):
             """
-            Views and renames face zones adjacent to selected cell  zones.
+            No help available.
             """
         class check(TUIMethod):
             """
-            Performs various mesh consistency checks and displays a report in the console that lists the domain extents, the volume statistics, the face area statistics, and any warnings, as well as details about the various checks and mesh failures (depending on the setting specified for mesh/check-verbosity).
+            No help available.
             """
         class check_before_solve(TUIMethod):
             """
-            The default value for mesh/check-before-solve is “no”. If mesh/check-before-solve is set to “yes”, a mesh check operation will be invoked prior to starting solver. If grid check fails, solver will be interrupted, and relevant information will be printed in the Fluent console.
+            No help available.
             """
         class check_verbosity(TUIMethod):
             """
-            Sets the level of details that will be added to the mesh check report generated by mesh/check. A value of 0 (the default) notes when checks are being performed, but does not list them individually. A value of 1 lists the individual checks as they are performed. A value of 2 enables the availability of additional mesh field variables, lists the individual checks as they are performed, and provides additional details (for example, the location of the problem, the affected cells).  The check-verbosity text command can also be used to set the level of detail displayed in the mesh quality report generated by mesh/quality. A value of 0 (the default) or 1 lists the minimum orthogonal quality and the maximum aspect ratio. A value of 2 adds information about the zones that contain the cells with the lowest quality, and additional metrics such as the maximum cell squish index and the minimum expansion ratio.
+            No help available.
             """
         class enhanced_orthogonal_quality(TUIMethod):
             """
-            Enables / disables an enhanced definition when calculating the orthogonal quality. When enabled, the orthogonal quality is defined using a variety quality measures, including: the orthogonality of a face relative to a vector between the face and cell centroids; a metric that detects poor cell shape at a local edge (such as twisting and/or concavity); and the variation of normals between the faces that can be constructed from the cell face. This enhanced definition is optimal for evaluating thin prism cells.
+            No help available.
             """
         class memory_usage(TUIMethod):
             """
-            Reports solver memory use.
+            No help available.
             """
         class mesh_info(TUIMethod):
             """
-            Prints zone information size.
+            No help available.
             """
         class quality(TUIMethod):
             """
-            Displays information about the quality of the mesh in the console, including the minimum orthogonal quality and the maximum aspect ratio. The level of detail displayed depends on the setting specified for mesh/check-verbosity.
+            No help available.
             """
         class redistribute_boundary_layer(TUIMethod):
             """
-            Redistributes the nodes in a boundary layer zone to achieve a desired growth rate after anisotropic adaption.
+            No help available.
             """
         class replace(TUIMethod):
             """
@@ -15506,11 +15562,11 @@ class main_menu(TUIMenu):
             """
         class rotate(TUIMethod):
             """
-            Rotates the mesh.
+            Rotate the mesh.
             """
         class scale(TUIMethod):
             """
-            Prompts for the scaling factors in each of the active Cartesian coordinate directions.
+            Scale the mesh.
             """
         class show_periodic_shadow_zones(TUIMethod):
             """
@@ -15518,19 +15574,19 @@ class main_menu(TUIMenu):
             """
         class size_info(TUIMethod):
             """
-            Prints mesh size.
+            No help available.
             """
         class smooth_mesh(TUIMethod):
             """
-            Smooths the mesh using quality-based, Laplacian, or skewness methods.
+            Smooth the mesh using quality-based, Laplace or skewness methods.
             """
         class swap_mesh_faces(TUIMethod):
             """
-            Swaps mesh faces.
+            Swap mesh faces.
             """
         class translate(TUIMethod):
             """
-            Prompts for the translation offset in each of the active Cartesian coordinate directions.
+            No help available.
             """
         class wall_distance_method(TUIMethod):
             """
@@ -15539,13 +15595,14 @@ class main_menu(TUIMenu):
 
         class adapt(TUIMenu):
             """
-            Enters the mesh adaption menu.
+            Enter the adaption menu.
             """
             def __init__(self, service, version, mode, path):
                 self.cell_registers = self.__class__.cell_registers(service, version, mode, path + ["cell_registers"])
                 self.geometry = self.__class__.geometry(service, version, mode, path + ["geometry"])
                 self.manage_criteria = self.__class__.manage_criteria(service, version, mode, path + ["manage_criteria"])
                 self.multi_layer_refinement = self.__class__.multi_layer_refinement(service, version, mode, path + ["multi_layer_refinement"])
+                self.predefined_criteria = self.__class__.predefined_criteria(service, version, mode, path + ["predefined_criteria"])
                 self.profile = self.__class__.profile(service, version, mode, path + ["profile"])
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
                 self.adapt_mesh = self.__class__.adapt_mesh(service, version, mode, path + ["adapt_mesh"])
@@ -15560,27 +15617,27 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class adapt_mesh(TUIMethod):
                 """
-                Performs manual adaption on the mesh according to the methods and settings that you specified.
+                No help available.
                 """
             class anisotropic_adaption(TUIMethod):
                 """
-                Applies legacy anisotropic adaption to refine the boundary layers or registers. Cells will be split in the normal direction to the boundary face. Note that this text command is only available for 3D cases that have the adaption method set to hanging node.
+                Anisotropically refine boundary layers.
                 """
             class coarsening_criteria(TUIMethod):
                 """
-                Allows you to provide an expression for the coarsening criterion.
+                No help available.
                 """
             class display_adaption_cells(TUIMethod):
                 """
-                Displays the cells that are marked for adaption in the graphics window.
+                No help available.
                 """
             class free_hierarchy(TUIMethod):
                 """
-                Deletes the defined adaption hierarchy.
+                No help available.
                 """
             class list_adaption_cells(TUIMethod):
                 """
-                Prints the number of cells marked for refinement, coarsening, and both to the console.
+                No help available.
                 """
             class manual_coarsening_criteria(TUIMethod):
                 """
@@ -15592,12 +15649,12 @@ class main_menu(TUIMenu):
                 """
             class refinement_criteria(TUIMethod):
                 """
-                Allows you to provide an expression for the refinement criterion.
+                No help available.
                 """
 
             class cell_registers(TUIMenu):
                 """
-                Enters the cell registers menu.
+                Manage Cell Registers.
                 """
                 def __init__(self, service, version, mode, path):
                     self.adapt = self.__class__.adapt(service, version, mode, path + ["adapt"])
@@ -15621,19 +15678,19 @@ class main_menu(TUIMenu):
                     """
                 class apply_poor_mesh_numerics(TUIMethod):
                     """
-                    Applies poor mesh numerics to the mesh of a cell register.
+                    Apply poor mesh numerics to cell register objects.
                     """
                 class coarsen(TUIMethod):
                     """
-                    Coarsen the mesh based on a cell register.
+                    Coarsen cell register objects.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes a cell register.
+                    Delete an object.
                     """
                 class display(TUIMethod):
                     """
-                    Displays a cell register.
+                    Display cell register objects.
                     """
                 class edit(TUIMethod):
                     """
@@ -15641,20 +15698,20 @@ class main_menu(TUIMenu):
                     """
                 class list(TUIMethod):
                     """
-                    Lists all of the currently defined cell registers.
+                    List objects.
                     """
                 class list_properties(TUIMethod):
                     """
-                    Lists the properties of a cell register.
+                    List properties of an object.
                     """
                 class refine(TUIMethod):
                     """
-                    Refine the mesh based on a cell register.
+                    Refine cell register objects.
                     """
 
             class geometry(TUIMenu):
                 """
-                Enters the geometry menu. Note that this text command menu is not available unless the adaption method is set to hanging node.
+                Enter the adaption geometry menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.manage = self.__class__.manage(service, version, mode, path + ["manage"])
@@ -15663,11 +15720,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class reconstruct_geometry(TUIMethod):
                     """
-                    Enables/disables geometry-based adaption.
+                    No help available.
                     """
                 class set_geometry_controls(TUIMethod):
                     """
-                    Sets geometry controls for wall zones.
+                    Set geometry controls for wall zones.
                     """
 
                 class manage(TUIMenu):
@@ -15704,7 +15761,7 @@ class main_menu(TUIMenu):
 
             class manage_criteria(TUIMenu):
                 """
-                Enters the manage criteria menu, which provides text commands for managing automatic adaption criteria.
+                Manage Adaption Criteria.
                 """
                 def __init__(self, service, version, mode, path):
                     self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -15715,23 +15772,23 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class add(TUIMethod):
                     """
-                    Adds a new automatic adaption criterion.
+                    Add a new object.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes an existing automatic adaption criterion.
+                    Delete an object.
                     """
                 class edit(TUIMethod):
                     """
-                    Edits an existing automatic adaption criterion.
+                    Edit an object.
                     """
                 class list(TUIMethod):
                     """
-                    Lists all the existing automatic adaption criteria.
+                    List objects.
                     """
                 class list_properties(TUIMethod):
                     """
-                    Lists the properties of an existing automatic adaption criterion.
+                    List properties of an object.
                     """
 
             class multi_layer_refinement(TUIMenu):
@@ -15761,9 +15818,129 @@ class main_menu(TUIMenu):
                     Refine the mesh for multiple boundary layers.
                     """
 
+            class predefined_criteria(TUIMenu):
+                """
+                Enter the predefined adaption criteria menu.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.aerodynamics = self.__class__.aerodynamics(service, version, mode, path + ["aerodynamics"])
+                    self.boundary_layer = self.__class__.boundary_layer(service, version, mode, path + ["boundary_layer"])
+                    self.combustion = self.__class__.combustion(service, version, mode, path + ["combustion"])
+                    self.multiphase = self.__class__.multiphase(service, version, mode, path + ["multiphase"])
+                    self.overset = self.__class__.overset(service, version, mode, path + ["overset"])
+                    super().__init__(service, version, mode, path)
+                class overset(TUIMethod):
+                    """
+                    No help available.
+                    """
+
+                class aerodynamics(TUIMenu):
+                    """
+                    Enter the aerodynamics predefined criteria menu.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.error_based = self.__class__.error_based(service, version, mode, path + ["error_based"])
+                        self.shock_indicator = self.__class__.shock_indicator(service, version, mode, path + ["shock_indicator"])
+                        super().__init__(service, version, mode, path)
+
+                    class error_based(TUIMenu):
+                        """
+                        Enter the error-based predefined criteria menu.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.combined_hessian_indicator = self.__class__.combined_hessian_indicator(service, version, mode, path + ["combined_hessian_indicator"])
+                            self.goal_based_error_indicator = self.__class__.goal_based_error_indicator(service, version, mode, path + ["goal_based_error_indicator"])
+                            self.mach_hessian_indicator = self.__class__.mach_hessian_indicator(service, version, mode, path + ["mach_hessian_indicator"])
+                            self.pressure_hessian_indicator = self.__class__.pressure_hessian_indicator(service, version, mode, path + ["pressure_hessian_indicator"])
+                            self.velocity_hessian_indicator = self.__class__.velocity_hessian_indicator(service, version, mode, path + ["velocity_hessian_indicator"])
+                            super().__init__(service, version, mode, path)
+                        class combined_hessian_indicator(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class goal_based_error_indicator(TUIMethod):
+                            """
+                            Goal based error indicator.
+                            """
+                        class mach_hessian_indicator(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pressure_hessian_indicator(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class velocity_hessian_indicator(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class shock_indicator(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.density_based = self.__class__.density_based(service, version, mode, path + ["density_based"])
+                            super().__init__(service, version, mode, path)
+                        class density_based(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                class boundary_layer(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.cell_distance = self.__class__.cell_distance(service, version, mode, path + ["cell_distance"])
+                        self.yplus_ystar = self.__class__.yplus_ystar(service, version, mode, path + ["yplus_ystar"])
+                        super().__init__(service, version, mode, path)
+                    class cell_distance(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class yplus_ystar(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class combustion(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.flame_indicator = self.__class__.flame_indicator(service, version, mode, path + ["flame_indicator"])
+                        super().__init__(service, version, mode, path)
+                    class flame_indicator(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class multiphase(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.vof = self.__class__.vof(service, version, mode, path + ["vof"])
+                        self.vof_to_dpm_advanced = self.__class__.vof_to_dpm_advanced(service, version, mode, path + ["vof_to_dpm_advanced"])
+                        self.vof_to_dpm_generic = self.__class__.vof_to_dpm_generic(service, version, mode, path + ["vof_to_dpm_generic"])
+                        super().__init__(service, version, mode, path)
+                    class vof(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class vof_to_dpm_advanced(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class vof_to_dpm_generic(TUIMethod):
+                        """
+                        No help available.
+                        """
+
             class profile(TUIMenu):
                 """
-                Enters the profile menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.clear = self.__class__.clear(service, version, mode, path + ["clear"])
@@ -15773,24 +15950,24 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class clear(TUIMethod):
                     """
-                    Clears the adaption profiling counters.
+                    No help available.
                     """
                 class disable(TUIMethod):
                     """
-                    Disables adaption profiling.
+                    No help available.
                     """
                 class enable(TUIMethod):
                     """
-                    Enables adaption profiling.
+                    No help available.
                     """
                 class print(TUIMethod):
                     """
-                    Prints adaption profiling results.
+                    No help available.
                     """
 
             class set(TUIMenu):
                 """
-                Enters the set menu.
+                Enter the adaption set menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.additional_refinement_layers = self.__class__.additional_refinement_layers(service, version, mode, path + ["additional_refinement_layers"])
@@ -15813,15 +15990,15 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class additional_refinement_layers(TUIMethod):
                     """
-                    Allows you to specify additional refinement layers (this is an advanced control).
+                    No help available.
                     """
                 class cell_zones(TUIMethod):
                     """
-                    Sets cell zones to be used for marking adaption. An empty list specifies that all zones are considered for adaption.
+                    No help available.
                     """
                 class display_settings(TUIMethod):
                     """
-                    Sets the graphics display options for the refinement, coarsening, and common cells.
+                    Set the graphics display options for cells marked for adaption.
                     """
                 class dynamic_adaption(TUIMethod):
                     """
@@ -15837,19 +16014,19 @@ class main_menu(TUIMenu):
                     """
                 class maximum_cell_count(TUIMethod):
                     """
-                    Sets an approximate limit to the total cell count of the mesh during adaption. Fluent uses this value to determine when to stop marking cells for refinement. A value of zero places no limits on the number of cells.
+                    No help available.
                     """
                 class maximum_refinement_level(TUIMethod):
                     """
-                    Controls the number of levels of refinement used to split cells during the adaption.
+                    No help available.
                     """
                 class method(TUIMethod):
                     """
-                    Sets the adaption method.
+                    Set the adaption method.
                     """
                 class minimum_cell_quality(TUIMethod):
                     """
-                    Sets the minimum value allowed for the orthogonal quality of cells during adaption. If your solution diverges, you may find that using a higher minimum quality value resolves the issue. This text command is only available with the PUMA 3D adaption method.
+                    No help available.
                     """
                 class minimum_cell_volume(TUIMethod):
                     """
@@ -15857,11 +16034,11 @@ class main_menu(TUIMenu):
                     """
                 class minimum_edge_length(TUIMethod):
                     """
-                    Sets an approximate limit to the edge length for cells that are considered for refinement. Even if a cell is marked for refinement, it will not be refined if (for 3D) its volume is less than the cube of this field or (for 2D) its area is less than the square of this field. The default value of zero places no limits on the size of cells that are refined.
+                    No help available.
                     """
                 class overset_adapt_dead_cells(TUIMethod):
                     """
-                    Enables/disables the adaption of dead cells in overset meshes.
+                    No help available.
                     """
                 class prismatic_adaption(TUIMethod):
                     """
@@ -15877,7 +16054,7 @@ class main_menu(TUIMenu):
                     """
                 class verbosity(TUIMethod):
                     """
-                    Allows you set how much information about the adaption is printed to the console.
+                    No help available.
                     """
 
         class anisotropic_adaption(TUIMenu):
@@ -16035,7 +16212,7 @@ class main_menu(TUIMenu):
 
         class modify_zones(TUIMenu):
             """
-            Enters the zone modification menu. For a description of the items in this menu, see define/boundary-conditions/modify-zones.
+            Enter the modify zones menu.
             """
             def __init__(self, service, version, mode, path):
                 self.activate_cell_zone = self.__class__.activate_cell_zone(service, version, mode, path + ["activate_cell_zone"])
@@ -16052,10 +16229,10 @@ class main_menu(TUIMenu):
                 self.create_periodic_interface = self.__class__.create_periodic_interface(service, version, mode, path + ["create_periodic_interface"])
                 self.deactivate_cell_zone = self.__class__.deactivate_cell_zone(service, version, mode, path + ["deactivate_cell_zone"])
                 self.delete_all_shells = self.__class__.delete_all_shells(service, version, mode, path + ["delete_all_shells"])
-                self.delete_cell_by_id = self.__class__.delete_cell_by_id(service, version, mode, path + ["delete_cell_by_id"])
-                self.delete_cell_by_mark = self.__class__.delete_cell_by_mark(service, version, mode, path + ["delete_cell_by_mark"])
                 self.delete_cell_zone = self.__class__.delete_cell_zone(service, version, mode, path + ["delete_cell_zone"])
+                self.delete_cells_by_mark = self.__class__.delete_cells_by_mark(service, version, mode, path + ["delete_cells_by_mark"])
                 self.disconnect_cell_zones = self.__class__.disconnect_cell_zones(service, version, mode, path + ["disconnect_cell_zones"])
+                self.extract_cells_by_mark = self.__class__.extract_cells_by_mark(service, version, mode, path + ["extract_cells_by_mark"])
                 self.extrude_face_zone_delta = self.__class__.extrude_face_zone_delta(service, version, mode, path + ["extrude_face_zone_delta"])
                 self.extrude_face_zone_para = self.__class__.extrude_face_zone_para(service, version, mode, path + ["extrude_face_zone_para"])
                 self.fuse_cell_zones = self.__class__.fuse_cell_zones(service, version, mode, path + ["fuse_cell_zones"])
@@ -16141,19 +16318,19 @@ class main_menu(TUIMenu):
                 """
                 No help available.
                 """
-            class delete_cell_by_id(TUIMethod):
-                """
-                No help available.
-                """
-            class delete_cell_by_mark(TUIMethod):
-                """
-                No help available.
-                """
             class delete_cell_zone(TUIMethod):
                 """
                 No help available.
                 """
+            class delete_cells_by_mark(TUIMethod):
+                """
+                No help available.
+                """
             class disconnect_cell_zones(TUIMethod):
+                """
+                No help available.
+                """
+            class extract_cells_by_mark(TUIMethod):
                 """
                 No help available.
                 """
@@ -16272,7 +16449,7 @@ class main_menu(TUIMenu):
 
         class polyhedra(TUIMenu):
             """
-            Enters the polyhedra menu.
+            Enter the polyhedra menu.
             """
             def __init__(self, service, version, mode, path):
                 self.options = self.__class__.options(service, version, mode, path + ["options"])
@@ -16283,11 +16460,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class convert_domain(TUIMethod):
                 """
-                Converts the entire domain to polyhedra cells.
+                No help available.
                 """
             class convert_hanging_nodes(TUIMethod):
                 """
-                Converts cells with hanging nodes/edges to polyhedra.
+                No help available.
                 """
             class convert_hanging_nodes_zones(TUIMethod):
                 """
@@ -16295,12 +16472,12 @@ class main_menu(TUIMenu):
                 """
             class convert_skewed_cells(TUIMethod):
                 """
-                Converts skewed cells to polyhedra.
+                No help available.
                 """
 
             class options(TUIMenu):
                 """
-                Enters the polyhedra options menu.
+                Enter options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.migrate_and_reorder = self.__class__.migrate_and_reorder(service, version, mode, path + ["migrate_and_reorder"])
@@ -16309,20 +16486,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class migrate_and_reorder(TUIMethod):
                     """
-                    Enables / disables the migration of newly created partitions to the compute-nodes and the reordering of the domain as part of polyhedra conversion. This is disabled by default, because it requires significant additional memory; when disabled, it is recommended that you save the case file after conversion, read it in a new Fluent session (so that the new / stored partitions become active), and then manually reorder using the mesh/reorder/reorder-domain text command. If you want to run the calculation in the current Fluent session you can enable the migrate-and-reorder? text command prior to conversion, but you must ensure that no more than half of the available memory of your system is currently used.
+                    No help available.
                     """
                 class preserve_boundary_layer(TUIMethod):
                     """
-                    Specifies whether boundary layer cells will be preserved when the domain is converted to polyhedra. When the value is set to 0 (default) ANSYS Fluent checks for high aspect ratio cells at the boundary layer and if any are found, Fluent asks if you want to preserve the boundary layer. When the value is set to 1, the boundary layer cells are never preserved; when it is set to 2, the boundary layer cells are always preserved (regardless of the aspect ratio of the boundary layer cells).
+                    No help available.
                     """
                 class preserve_interior_zones(TUIMethod):
                     """
-                    Enables the preservation of surfaces (that is, manifold zones of type interior) during the conversion of the domain to polyhedra. Note that only those zones with a name that includes the string you specify will be preserved.
+                    Interior zones with matching name pattern are preserved during polyhedra conversion.
                     """
 
         class reorder(TUIMenu):
             """
-            Reorders domain menu.
+            Enter the reorder domain menu.
             """
             def __init__(self, service, version, mode, path):
                 self.band_width = self.__class__.band_width(service, version, mode, path + ["band_width"])
@@ -16331,15 +16508,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class band_width(TUIMethod):
                 """
-                Prints cell bandwidth.
+                No help available.
                 """
             class reorder_domain(TUIMethod):
                 """
-                Reorders cells and faces using the reverse Cuthill-McKee algorithm. Note that you must save a new case file (and a data file, if data exists) after reordering with this text command, as well as recreate any ray files and/or surface cluster information.
+                No help available.
                 """
             class reorder_zones(TUIMethod):
                 """
-                Reorders zones by partition, type, and ID.
+                No help available.
                 """
 
         class repair_improve(TUIMenu):
@@ -16359,44 +16536,44 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class allow_repair_at_boundaries(TUIMethod):
                 """
-                Allows the adjustment of the positions of nodes on boundaries as part of the mesh repairs performed by the mesh/repair-improve/repair text command.
+                No help available.
                 """
             class improve_quality(TUIMethod):
                 """
-                Improves poor quality cells in the mesh, if possible.
+                No help available.
                 """
             class include_local_polyhedra_conversion_in_repair(TUIMethod):
                 """
-                Enables/disables the local conversion of degenerate cells into polyhedra based on skewness criteria as part of the mesh repairs performed by the  mesh/repair-improve/repair text command.
+                No help available.
                 """
             class repair(TUIMethod):
                 """
-                Repairs mesh problems identified by the mesh check, if possible. The repairs include fixing cells that have the wrong node order, the wrong face handedness, faces that are small or nonexistent, or very poor quality. Only interior nodes are repositioned by default; boundary nodes may be repositioned if the  mesh/repair-improve/allow-repair-at-boundaries text command is enabled. Note that highly skewed cells may be converted into polyhedra, depending on whether the  mesh/repair-improve/include-local-polyhedra-conversion-in-repair text command is enabled.
+                No help available.
                 """
             class repair_face_handedness(TUIMethod):
                 """
-                Modifies cell centroids to repair meshes that contain left-handed faces without face node order problems.
+                No help available.
                 """
             class repair_face_node_order(TUIMethod):
                 """
-                Modifies face nodes to repair faces with improper face node order and, therefore, eliminates any resulting left-handed faces.
+                No help available.
                 """
             class repair_periodic(TUIMethod):
                 """
-                Modifies the mesh to enforce a rotational angle or translational distance for periodic boundaries. For translationally periodic boundaries, the command computes an average translation distance and adjusts the node coordinates on the shadow face zone to match this distance. For rotationally periodic boundaries, the command prompts for an angle and adjusts the node coordinates on the shadow face zone using this angle and the defined rotational axis for the cell zone.
+                Modify mesh to enforce specified periodic rotation angle.
                 """
             class repair_wall_distance(TUIMethod):
                 """
-                Corrects wall distance at very high aspect ratio hexahedral/polyhedral cells.
+                No help available.
                 """
             class report_poor_elements(TUIMethod):
                 """
-                Reports invalid and poor quality elements.
+                No help available.
                 """
 
         class surface_mesh(TUIMenu):
             """
-            Enters the Surface Mesh menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
@@ -16405,15 +16582,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class delete(TUIMethod):
                 """
-                Deletes surface mesh.
+                No help available.
                 """
             class display(TUIMethod):
                 """
-                Displays surface meshes.
+                No help available.
                 """
             class read(TUIMethod):
                 """
-                Reads surface meshes.
+                No help available.
                 """
 
     class parallel(TUIMenu):
@@ -16437,23 +16614,23 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class bandwidth(TUIMethod):
             """
-            Shows network bandwidth.
+            No help available.
             """
         class check(TUIMethod):
             """
-            Performs checks of various factors that affect parallel performance.
+            No help available.
             """
         class check_verbosity(TUIMethod):
             """
-            Sets verbosity output of the parallel check. Higher verbosity corresponds to more detailed information.
+            No help available.
             """
         class latency(TUIMethod):
             """
-            Shows network latency.
+            No help available.
             """
         class show_connectivity(TUIMethod):
             """
-            Prints the network connectivity for the selected compute node.
+            No help available.
             """
         class thread_number_control(TUIMethod):
             """
@@ -16462,7 +16639,7 @@ class main_menu(TUIMenu):
 
         class gpgpu(TUIMenu):
             """
-            Enters the GPGPU menu.
+            Show gpgpu information.
             """
             def __init__(self, service, version, mode, path):
                 self.select = self.__class__.select(service, version, mode, path + ["select"])
@@ -16470,16 +16647,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class select(TUIMethod):
                 """
-                Selects which GPGPUs to use for AMG acceleration.
+                Select gpgpu.
                 """
             class show(TUIMethod):
                 """
-                Lists the available GPGPUs. GPGPUs selected for use are indicated by the presence of an asterisk (\\*).
+                Show gpgpu.
                 """
 
         class load_balance(TUIMenu):
             """
-            Enters the load balancing parameters menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.dynamic_mesh = self.__class__.dynamic_mesh(service, version, mode, path + ["dynamic_mesh"])
@@ -16488,20 +16665,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class dynamic_mesh(TUIMethod):
                 """
-                Uses load balancing for dynamic mesh?.
+                No help available.
                 """
             class mesh_adaption(TUIMethod):
                 """
-                Uses load balancing for mesh adaption?.
+                No help available.
                 """
             class physical_models(TUIMethod):
                 """
-                Uses physical-models load balancing?.
+                No help available.
                 """
 
         class multidomain(TUIMenu):
             """
-            Enters the multidomain architecture menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.conjugate_heat_transfer = self.__class__.conjugate_heat_transfer(service, version, mode, path + ["conjugate_heat_transfer"])
@@ -16510,7 +16687,7 @@ class main_menu(TUIMenu):
 
             class conjugate_heat_transfer(TUIMenu):
                 """
-                Enters the conjugate heat transfer menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -16523,7 +16700,7 @@ class main_menu(TUIMenu):
 
                 class set(TUIMenu):
                     """
-                    Enters the set menu for loosely coupled conjugate heat transfer.
+                    No help available.
                     """
                     def __init__(self, service, version, mode, path):
                         self.helper_session_setup = self.__class__.helper_session_setup(service, version, mode, path + ["helper_session_setup"])
@@ -16532,7 +16709,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class coupling(TUIMethod):
                         """
-                        Specifies when the fluid and solid zone calculations are coupled,  either at a defined time period or number of fluid time steps.
+                        No help available.
                         """
                     class helper_session(TUIMethod):
                         """
@@ -16612,7 +16789,7 @@ class main_menu(TUIMenu):
 
         class partition(TUIMenu):
             """
-            Enters the partition domain menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.automatic = self.__class__.automatic(service, version, mode, path + ["automatic"])
@@ -16630,19 +16807,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class combine_partition(TUIMethod):
                 """
-                Merges every N partitions.
+                No help available.
                 """
             class merge_clusters(TUIMethod):
                 """
-                Calls the optimizer that attempts to decrease the number of interfaces by eliminating orphan cell clusters. (An orphan cluster is a group of connected cells such that each member has at least one face that is part of an interface boundary.).
+                No help available.
                 """
             class method(TUIMethod):
                 """
-                Sets the partition method.
+                No help available.
                 """
             class print_active_partitions(TUIMethod):
                 """
-                Prints active partition information (parallel solver).
+                No help available.
                 """
             class print_partitions(TUIMethod):
                 """
@@ -16650,23 +16827,23 @@ class main_menu(TUIMenu):
                 """
             class print_stored_partitions(TUIMethod):
                 """
-                Prints stored partition information (parallel solver).
+                No help available.
                 """
             class reorder_partitions(TUIMethod):
                 """
-                Reorders partitions.
+                No help available.
                 """
             class reorder_partitions_to_architecture(TUIMethod):
                 """
-                Reorders partitions to architecture.
+                No help available.
                 """
             class smooth_partition(TUIMethod):
                 """
-                Calls the optimizer that attempts to minimize the number of interfaces by modifying the partition boundaries to reduce surface area.
+                No help available.
                 """
             class use_stored_partitions(TUIMethod):
                 """
-                Uses this partitioning.
+                No help available.
                 """
 
             class automatic(TUIMenu):
@@ -16703,7 +16880,7 @@ class main_menu(TUIMenu):
 
             class set(TUIMenu):
                 """
-                Enters the set partition parameters menu.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.partition_origin_vector = self.__class__.partition_origin_vector(service, version, mode, path + ["partition_origin_vector"])
@@ -16738,27 +16915,27 @@ class main_menu(TUIMenu):
                     """
                 class across_zones(TUIMethod):
                     """
-                    Allows partitions to cross zone boundaries (the default). If turned off, it will restrict partitioning to within each cell zone. This is recommended only when cells in different zones require significantly different amounts of computation during the solution phase; for example, if the domain contains both solid and fluid zones.
+                    No help available.
                     """
                 class all_off(TUIMethod):
                     """
-                    Disables all optimizations.
+                    No help available.
                     """
                 class all_on(TUIMethod):
                     """
-                    Enables all optimizations.
+                    No help available.
                     """
                 class cell_function(TUIMethod):
                     """
-                    Sets cell function.
+                    No help available.
                     """
                 class dpm_load_balancing(TUIMethod):
                     """
-                    Enables / disables dynamic load balancing for discrete phase model cases that use a second domain for DPM particle tracking (that is, cases for which you have enabled the define/models/dpm/parallel/hybrid-2domain? text command).
+                    No help available.
                     """
                 class face_area_as_weights(TUIMethod):
                     """
-                    Uses face area as connection weights.
+                    No help available.
                     """
                 class fluid_solid_rebalance_after_read_case(TUIMethod):
                     """
@@ -16766,7 +16943,7 @@ class main_menu(TUIMenu):
                     """
                 class isat_weight(TUIMethod):
                     """
-                    Sets ISAT weight.
+                    No help available.
                     """
                 class laplace_smoothing(TUIMethod):
                     """
@@ -16778,31 +16955,31 @@ class main_menu(TUIMenu):
                     """
                 class load_distribution(TUIMethod):
                     """
-                    Sets the number of cells desired for each partition. This is useful, for example, when computing on multiple machines with significantly different performance characteristics. If left unset, each partition will contain an approximately equal number of cells. Normalized relative values may be used for the entries.
+                    No help available.
                     """
                 class merge(TUIMethod):
                     """
-                    Toggles the optimizer that attempts to decrease the number of interfaces by eliminating orphan cell clusters.
+                    No help available.
                     """
                 class model_weighted_partition(TUIMethod):
                     """
-                    Enables / disables model-weighted partitioning. This option works with the METIS partitioning method, and specifies that Fluent automatically calculates the weighting based on the cell count and the models and attributes specified as weights (using the parallel/partition/set/isat-weight text command, for example).
+                    No help available.
                     """
                 class nfaces_as_weights(TUIMethod):
                     """
-                    Uses number of faces as weights.
+                    No help available.
                     """
                 class origin(TUIMethod):
                     """
-                    Sets the , , and  coordinate of the origin used by those partitioning functions that require a radial distance. By default, the origin is set to (0, 0, 0).
+                    No help available.
                     """
                 class particle_weight(TUIMethod):
                     """
-                    Sets DPM particle weight.
+                    No help available.
                     """
                 class pre_test(TUIMethod):
                     """
-                    Enables the operation that determines the best coordinate-splitting direction.
+                    No help available.
                     """
                 class print_verbosity(TUIMethod):
                     """
@@ -16810,11 +16987,11 @@ class main_menu(TUIMenu):
                     """
                 class smooth(TUIMethod):
                     """
-                    Toggles the optimizer that attempts to minimize the number of interfaces by modifying the partition boundaries to reduce surface area.
+                    No help available.
                     """
                 class solid_thread_weight(TUIMethod):
                     """
-                    Uses solid thread weights.
+                    No help available.
                     """
                 class stiff_chemistry_weight(TUIMethod):
                     """
@@ -16826,7 +17003,7 @@ class main_menu(TUIMenu):
                     """
                 class vof_free_surface_weight(TUIMethod):
                     """
-                    Sets VOF free surface weight.
+                    No help available.
                     """
 
                 class partition_origin_vector(TUIMenu):
@@ -16853,7 +17030,7 @@ class main_menu(TUIMenu):
 
         class set(TUIMenu):
             """
-            Enters the set parallel parameters menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.fast_io = self.__class__.fast_io(service, version, mode, path + ["fast_io"])
@@ -16867,20 +17044,20 @@ class main_menu(TUIMenu):
                 """
             class partition_mask(TUIMethod):
                 """
-                Sets partition mask.
+                No help available.
                 """
             class time_out(TUIMethod):
                 """
-                Sets spawn time-out in seconds.
+                No help available.
                 """
             class verbosity(TUIMethod):
                 """
-                Sets the parallel verbosity.
+                No help available.
                 """
 
         class timer(TUIMenu):
             """
-            Enters the timer menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.reset = self.__class__.reset(service, version, mode, path + ["reset"])
@@ -16888,11 +17065,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class reset(TUIMethod):
                 """
-                Adjusts domain timers.
+                No help available.
                 """
             class usage(TUIMethod):
                 """
-                Prints performance statistics in the console window.
+                No help available.
                 """
 
     class parameters(TUIMenu):
@@ -18112,64 +18289,64 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class change_fft_ref_pressure(TUIMethod):
             """
-            Changes reference acoustic pressure.
+            No help available.
             """
         class circum_avg_axial(TUIMethod):
             """
-            Computes iso-axial band surfaces and plots data vs. axial coordinate on them.
+            No help available.
             """
         class circum_avg_radial(TUIMethod):
             """
-            Computes iso-radial band surfaces and plots data vs. radius on them.
+            No help available.
             """
         class display_profile_data(TUIMethod):
             """
-            Plots profile data.
+            Plot Profile Data.
             """
         class fft(TUIMethod):
             """
-            Plots fast Fourier transform (FFT) of file data. If you respond yes to Acoustic Analysis?, then additional Y axis functions are made available.
+            Plot FFT of file data.
             """
         class file(TUIMethod):
             """
-            Plots data from an external file.
+            No help available.
             """
         class file_list(TUIMethod):
             """
-            Plots data from multiple external files.
+            No help available.
             """
         class histogram(TUIMethod):
             """
-            Plots a histogram of the specified solution variable using the defined range and number of intervals.
+            Plot a histogram of a specified scalar quantity.
             """
         class label_alignment(TUIMethod):
             """
-            Set the orientation of XY plot axis labels as either horizontal or axis-aligned.
+            No help available.
             """
         class plot(TUIMethod):
             """
-            Plots solution on surfaces.
+            No help available.
             """
         class plot_direction(TUIMethod):
             """
-            Sets plot direction for XY plot.
+            No help available.
             """
         class residuals(TUIMethod):
             """
-            Contains commands that allow you to select the variables for which you want to display XY plots of residual histories in the active graphics window.
+            Plot equation residual history.
             """
         class set_boundary_val_off(TUIMethod):
             """
-            Disables the use of boundary face values when node values are disabled in solution XY plots. This option is disabled by default, that is, boundary face values are used when node values are disabled.
+            No help available.
             """
         class solution(TUIMethod):
             """
-            Plots solution on surfaces and/or zones. Zone and surface names can be indicated using a  wildcard (\\*).
+            Plot solution on surfaces and/or zones.
             """
 
         class ansys_sound_analysis(TUIMenu):
             """
-            Enter the Ansys sound analysis menu.
+            Ansys Sound analysis and specification.
             """
             def __init__(self, service, version, mode, path):
                 self.print_indicators = self.__class__.print_indicators(service, version, mode, path + ["print_indicators"])
@@ -18177,16 +18354,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class print_indicators(TUIMethod):
                 """
-                Read in a pressure signal or spectrum file, then optionally read in a frequency response function (FRF) or transfer function file, before printing the acoustics indicators.
+                Print Ansys Sound indicators.
                 """
             class write_files(TUIMethod):
                 """
-                Read in a pressure signal or spectrum file, then optionally read in a frequency response function (FRF) or transfer function file, before writing a WAV, output pressure, and/or acoustic indicators file.
+                Write Ansys Sound out files.
                 """
 
         class cumulative_plot(TUIMenu):
             """
-            Plot the development of force, force coefficient, moment, or moment coefficient across the specified wall zones.
+            Plot Cumulative Force and Moments.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -18202,7 +18379,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Create a new cumulative plot.
+                Add a new object.
                 """
             class axes(TUIMethod):
                 """
@@ -18214,36 +18391,36 @@ class main_menu(TUIMenu):
                 """
             class delete(TUIMethod):
                 """
-                Delete an existing cumulative plot object.
+                Delete an object.
                 """
             class edit(TUIMethod):
                 """
-                Edit an existing cumulative plot object.
+                Edit an object.
                 """
             class list(TUIMethod):
                 """
-                Print the names of the existing cumulative plot objects to the console.
+                List the Cumulative Forces/Moments.
                 """
             class list_properties(TUIMethod):
                 """
-                Print the properties of the specified cumulative plot object to the console.
+                List properties of an object.
                 """
             class plot(TUIMethod):
                 """
-                Plot a cumulative plot in the graphics window.
+                Plot the Cumulative Forces/Moments.
                 """
             class print(TUIMethod):
                 """
-                Print the value of a cumulative plot to the console.
+                Print the Cumulative Forces/Moments.
                 """
             class write(TUIMethod):
                 """
-                Write a cumulative plot to a file.
+                Write the Cumulative Forces/Moments.
                 """
 
         class datasources(TUIMenu):
             """
-            Enters the menu for creating and modifying plots containing multiple data sources.
+            Enter the menu to set data sources.
             """
             def __init__(self, service, version, mode, path):
                 self.add_report_plot = self.__class__.add_report_plot(service, version, mode, path + ["add_report_plot"])
@@ -18259,43 +18436,43 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_report_plot(TUIMethod):
                 """
-                Specify an existing report plot to include in this plot.
+                Add report plot.
                 """
             class add_xy_plot(TUIMethod):
                 """
-                Specify an existing XY plot to include in this plot.
+                Add xy plot.
                 """
             class list_curve_information(TUIMethod):
                 """
-                Prints the names of the variables selected for plotting.
+                List curve information.
                 """
             class list_data_sources(TUIMethod):
                 """
-                Prints the names of the selected/loaded data sources including the files and in-session plot objects.
+                List data sources.
                 """
             class list_legend_names(TUIMethod):
                 """
-                Prints the names of the legends to the console.
+                List legend names.
                 """
             class load_file(TUIMethod):
                 """
-                Specify a file to load for plotting. The file must be located in the working directory.
+                Load files.
                 """
             class plot(TUIMethod):
                 """
-                Plots the selected data in the active graphics window.
+                Plot.
                 """
             class properties(TUIMethod):
                 """
-                Prints the properties of whichever plot or file included in the multiple data sources plot that you specify.
+                Properties.
                 """
             class remove_data_source(TUIMethod):
                 """
-                Removes whichever data source (plot or file) you specify.
+                Remove data source.
                 """
             class rename_legend(TUIMethod):
                 """
-                Allows you to rename legend entries. Note that you must re-plot to see the legend name change.
+                Rename legend.
                 """
 
         class fft_set(TUIMenu):
@@ -18317,7 +18494,7 @@ class main_menu(TUIMenu):
 
         class file_set(TUIMenu):
             """
-            Sets file plot parameters.
+            Enter the menu to set file plot parameters.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_limits = self.__class__.auto_limits(service, version, mode, path + ["auto_limits"])
@@ -18345,11 +18522,11 @@ class main_menu(TUIMenu):
                 """
             class auto_scale(TUIMethod):
                 """
-                Sets the range for the   and   axes. If auto-scaling is not activated for a particular axis, you are prompted for the minimum and maximum data values.
+                Automatically compute x/y-axis extents?.
                 """
             class background_color(TUIMethod):
                 """
-                Sets the color of the field within the abscissa and ordinate axes.
+                Set the color of the plot background.
                 """
             class end_plot_to_file(TUIMethod):
                 """
@@ -18357,11 +18534,11 @@ class main_menu(TUIMenu):
                 """
             class file_lines(TUIMethod):
                 """
-                Sets parameters for plot lines.
+                Set parameters for plot lines.
                 """
             class file_markers(TUIMethod):
                 """
-                Sets parameters for data markers.
+                Set parameters for data markers.
                 """
             class get_residuals_window(TUIMethod):
                 """
@@ -18369,35 +18546,35 @@ class main_menu(TUIMenu):
                 """
             class key(TUIMethod):
                 """
-                Enables/disables display of curve key and sets its window title.
+                Enable/disable display of curve key and set its window title.
                 """
             class labels(TUIMethod):
                 """
-                Sets labels for plot axes.
+                Set labels for plot axes.
                 """
             class lines(TUIMethod):
                 """
-                Sets parameters for plot lines.
+                Set parameters for plot lines.
                 """
             class log(TUIMethod):
                 """
-                Uses log scales for one or both axes.
+                Use log scales for one or both axes?.
                 """
             class markers(TUIMethod):
                 """
-                Sets parameters for data markers.
+                Set parameters for data markers.
                 """
             class numbers(TUIMethod):
                 """
-                Sets number formats for axes.
+                Set number formats for axes.
                 """
             class plot_to_file(TUIMethod):
                 """
-                Specifies a file in which to write XY plot data.
+                Specify a file to write an xy plot to.
                 """
             class rules(TUIMethod):
                 """
-                Sets parameters for display of major and minor rules.
+                Set parameters for display of major and minor rules.
                 """
             class rules_placement(TUIMethod):
                 """
@@ -18405,7 +18582,7 @@ class main_menu(TUIMenu):
                 """
             class windows(TUIMethod):
                 """
-                XY plot window options. For a description of the items in this menu, see display/set/windows/xy.
+                X-Y plot window options.
                 """
             class xy_percent_y(TUIMethod):
                 """
@@ -18414,7 +18591,7 @@ class main_menu(TUIMenu):
 
         class flamelet_curves(TUIMenu):
             """
-            Enters the flamelet curves menu.
+            Plot flamelet curves.
             """
             def __init__(self, service, version, mode, path):
                 self.plot_curves = self.__class__.plot_curves(service, version, mode, path + ["plot_curves"])
@@ -18422,16 +18599,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class plot_curves(TUIMethod):
                 """
-                Plots of a curve property.
+                Plot of a property.
                 """
             class write_to_file(TUIMethod):
                 """
-                Writes curve to a file instead of plot.
+                Write curve to a file instead of plot.
                 """
 
         class histogram_set(TUIMenu):
             """
-            Sets histogram plot parameters. Sub-menu items are the same as file-set/ above.
+            Enter the menu to set histogram plot parameters.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_limits = self.__class__.auto_limits(service, version, mode, path + ["auto_limits"])
@@ -18528,7 +18705,7 @@ class main_menu(TUIMenu):
 
         class residuals_set(TUIMenu):
             """
-            Sets residual plot parameters. Sub-menu items are the same as file-set/ above.
+            Enter the menu to set residual plot parameters.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_limits = self.__class__.auto_limits(service, version, mode, path + ["auto_limits"])
@@ -18625,7 +18802,7 @@ class main_menu(TUIMenu):
 
         class solution_set(TUIMenu):
             """
-            Sets solution plot parameters. Sub-menu items are the same as file-set/ above.
+            Enter the menu to set solution plot parameters.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_limits = self.__class__.auto_limits(service, version, mode, path + ["auto_limits"])
@@ -20375,13 +20552,33 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.max_positions = self.__class__.max_positions(service, version, mode, path + ["max_positions"])
+                    self.point_size = self.__class__.point_size(service, version, mode, path + ["point_size"])
+                    self.point_symbol = self.__class__.point_symbol(service, version, mode, path + ["point_symbol"])
                     self.quick_slicing = self.__class__.quick_slicing(service, version, mode, path + ["quick_slicing"])
+                    self.vector_size = self.__class__.vector_size(service, version, mode, path + ["vector_size"])
+                    self.vector_symbol = self.__class__.vector_symbol(service, version, mode, path + ["vector_symbol"])
                     super().__init__(service, version, mode, path)
                 class max_positions(TUIMethod):
                     """
                     No help available.
                     """
+                class point_size(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class point_symbol(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class quick_slicing(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class vector_size(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class vector_symbol(TUIMethod):
                     """
                     No help available.
                     """
@@ -21018,31 +21215,31 @@ class main_menu(TUIMenu):
             """
         class dpm_extended_summary(TUIMethod):
             """
-            Create an extended discrete phase summary report of the discrete phase injection(s). You can choose whether you want to save the extended report to a file or print it in the console window. For unsteady tracking, you will be asked whether you want to include in-domain particle/tracks in the report. You will be also prompted whether you want to select a single injection for the summary report. By default, all injections are included. The output depends on whether you have enabled the report/dpm-zone-summaries-per-injection? text command, in which case additional information is printed for escaped particles, such as per-injection data. Note that, for unsteady particle tracking, it is necessary to enable the report/dpm-zone-summaries-per-injection? text command before any particle parcels are injected into the domain.
+            No help available.
             """
         class dpm_sample(TUIMethod):
             """
-            Samples trajectories at boundaries and lines/planes.
+            No help available.
             """
         class dpm_sample_output_udf(TUIMethod):
             """
-            Allows you to hook a previously loaded DEFINE_DPM_OUTPUT UDF for file format specification for sampling of trajectories and VOF-to-DPM lump conversion transcripts.
+            No help available.
             """
         class dpm_sample_sort_file(TUIMethod):
             """
-            Enables/disables writing of sorted DPM sample files.
+            No help available.
             """
         class dpm_summary(TUIMethod):
             """
-            Prints discrete phase summary report.
+            No help available.
             """
         class dpm_zone_summaries_per_injection(TUIMethod):
             """
-            Enables/disables calculation of the escaped mass per injection. Note that for unsteady particle tracking, if you want to report the mass of escaped particles per injection, this text command must be enabled before any particles are injected into the domain.
+            No help available.
             """
         class element_mass_flow(TUIMethod):
             """
-            Prints list of element flow rate at inlets and outlets. This reports the mass flow rates of all chemical elements (in kg/s) flowing through the simulation boundaries.
+            No help available.
             """
         class enable_exch_details_in_dpm_summ_rep(TUIMethod):
             """
@@ -21050,15 +21247,15 @@ class main_menu(TUIMenu):
             """
         class mphase_summary(TUIMethod):
             """
-            Prints summary report for a multiphase case setup.
+            No help available.
             """
         class particle_summary(TUIMethod):
             """
-            Prints summary report for all current particles.
+            No help available.
             """
         class path_line_summary(TUIMethod):
             """
-            Prints pathline summary report.
+            No help available.
             """
         class phasic_integrals_enabled(TUIMethod):
             """
@@ -21066,23 +21263,23 @@ class main_menu(TUIMenu):
             """
         class print_histogram(TUIMethod):
             """
-            Prints a histogram of a scalar quantity.
+            Print a histogram of a scalar quantity.
             """
         class projected_surface_area(TUIMethod):
             """
-            Computes the area of the projection of selected surfaces along the  ,  , or   axis.
+            No help available.
             """
         class species_mass_flow(TUIMethod):
             """
-            Prints list of species mass flow rate at inlets and outlets. This reports the mass flow rates of all species (in kg/s) flowing through the simulation boundaries.
+            No help available.
             """
         class summary(TUIMethod):
             """
-            Prints the current settings for physical models, boundary conditions, material properties, and solution parameters.
+            No help available.
             """
         class uds_flow(TUIMethod):
             """
-            Prints list of user-defined scalar flow rate at boundaries.
+            No help available.
             """
         class virtual_blade_model(TUIMethod):
             """
@@ -21095,7 +21292,7 @@ class main_menu(TUIMenu):
 
         class dpm_histogram(TUIMenu):
             """
-            Enters the DPM histogram menu.
+            Enter the DPM histogram menu.
             """
             def __init__(self, service, version, mode, path):
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -21112,23 +21309,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class compute_sample(TUIMethod):
                 """
-                Computes the minimum/maximum of a sample variable.
+                Compute minimum/maximum of a sample variable.
                 """
             class delete_sample(TUIMethod):
                 """
-                Deletes a sample from the loaded sample list.
+                Delete a sample from loaded sample list.
                 """
             class list_samples(TUIMethod):
                 """
-                Shows all samples in a loaded sample list.
+                Show all samples in loaded sample list.
                 """
             class pick_sample_to_reduce(TUIMethod):
                 """
-                Select a sample to be reduced.
+                Pick a sample for which to first set-up and then perform the data reduction.
                 """
             class plot_sample(TUIMethod):
                 """
-                Plots a histogram of a loaded sample.
+                Plot a histogram of a loaded sample.
                 """
             class prep_dpm_sample_cont_plot_exprs(TUIMethod):
                 """
@@ -21136,11 +21333,11 @@ class main_menu(TUIMenu):
                 """
             class read_sample(TUIMethod):
                 """
-                Reads a sample file and adds it to the sample list.
+                Read a sample file and add it to the sample list.
                 """
             class reduce_picked_sample(TUIMethod):
                 """
-                Reduce a sample as specified by the data reduction parameters. This command is available only after you selected the sample using the pick-sample-to-reduce text command.
+                Reduce a sample after first picking it and setting up all data-reduction options and parameters.
                 """
             class write_sample(TUIMethod):
                 """
@@ -21149,7 +21346,7 @@ class main_menu(TUIMenu):
 
             class set(TUIMenu):
                 """
-                Enters the settings menu for the histogram.
+                Enter the settings menu for the histogram.
                 """
                 def __init__(self, service, version, mode, path):
                     self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
@@ -21167,43 +21364,43 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class auto_range(TUIMethod):
                     """
-                    Automatically computes the range of the sampling variable for histogram plots.
+                    No help available.
                     """
                 class correlation(TUIMethod):
                     """
-                    Computes the correlation of the sampling variable with another variable.
+                    No help available.
                     """
                 class cumulation_curve(TUIMethod):
                     """
-                    Computes a cumulative curve for the sampling variable or correlation variable when correlation? is specified.
+                    No help available.
                     """
                 class diameter_statistics(TUIMethod):
                     """
-                    Computes the Rosin Rammler parameters, Sauter, and other mean diameters.
+                    No help available.
                     """
                 class histogram_mode(TUIMethod):
                     """
-                    Uses bars for the histogram plot or xy-style.
+                    No help available.
                     """
                 class logarithmic(TUIMethod):
                     """
-                    Enables/disables the use of logarithmic scaling on the abscissa of the histogram.
+                    No help available.
                     """
                 class maximum(TUIMethod):
                     """
-                    Specifies the maximum value of the x-axis variable for histogram plots.
+                    Specify the maximum value of the abscissa (histogram variable axis) for the histogram plot.
                     """
                 class minimum(TUIMethod):
                     """
-                    Specifies the minimum value of the x-axis variable for histogram plots.
+                    Specify the minimum value of the abscissa (histogram variable axis) for the histogram plot.
                     """
                 class number_of_bins(TUIMethod):
                     """
-                    Specifies the number of bins.
+                    No help available.
                     """
                 class percentage(TUIMethod):
                     """
-                    Uses percentages of bins to be computed.
+                    No help available.
                     """
                 class variable_power_3(TUIMethod):
                     """
@@ -21211,7 +21408,7 @@ class main_menu(TUIMenu):
                     """
                 class weighting(TUIMethod):
                     """
-                    Uses weighting with additional variables when sorting data into samples.
+                    No help available.
                     """
 
             class setup_reduction(TUIMenu):
@@ -21295,7 +21492,7 @@ class main_menu(TUIMenu):
 
         class fluxes(TUIMenu):
             """
-            Enters the fluxes menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.electric_current = self.__class__.electric_current(service, version, mode, path + ["electric_current"])
@@ -21314,40 +21511,40 @@ class main_menu(TUIMenu):
                 """
             class film_heat_transfer(TUIMethod):
                 """
-                Prints wall film heat transfer rate at boundaries. This text command is only available when you enable the Eulerian wall film model.
+                No help available.
                 """
             class film_mass_flow(TUIMethod):
                 """
-                Prints wall film mass flow rate at boundaries. This text command is only available when you enable the Eulerian wall film model.
+                No help available.
                 """
             class heat_transfer(TUIMethod):
                 """
-                Prints heat transfer rate at boundaries.
+                No help available.
                 """
             class heat_transfer_sensible(TUIMethod):
                 """
-                Prints the sensible heat transfer rate at the boundaries.
+                No help available.
                 """
             class mass_flow(TUIMethod):
                 """
-                Prints mass flow rate at inlets and outlets.
+                No help available.
                 """
             class pressure_work(TUIMethod):
                 """
-                Prints the pressure work rate at the boundaries. This text command is only available when the energy equation is enabled, the absolute velocity formulation is selected, and zone motion is enabled for a fluid cell zone.
+                No help available.
                 """
             class rad_heat_trans(TUIMethod):
                 """
-                Prints radiation heat transfer rate at boundaries.
+                No help available.
                 """
             class viscous_work(TUIMethod):
                 """
-                Prints the viscous work rate at the boundaries. This text command is only available when the energy equation is enabled and the pressure-based solver is selected.
+                No help available.
                 """
 
         class forces(TUIMenu):
             """
-            Enters the forces menu.
+            Force report menu.
             """
             def __init__(self, service, version, mode, path):
                 self.pressure_center = self.__class__.pressure_center(service, version, mode, path + ["pressure_center"])
@@ -21356,20 +21553,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class pressure_center(TUIMethod):
                 """
-                Prints the center of pressure on wall zones.
+                Print center of pressure on wall zones.
                 """
             class wall_forces(TUIMethod):
                 """
-                Computes the forces along the specified force vector for all wall zones.
+                Print integrated pressure and viscous forces on wall zones.
                 """
             class wall_moments(TUIMethod):
                 """
-                Computes the moments about the specified moment center for all wall zones.
+                Print integrated pressure and viscous moments on wall zones.
                 """
 
         class heat_exchanger(TUIMenu):
             """
-            Enters the heat exchanger menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.computed_heat_rejection = self.__class__.computed_heat_rejection(service, version, mode, path + ["computed_heat_rejection"])
@@ -21380,23 +21577,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class computed_heat_rejection(TUIMethod):
                 """
-                Prints total heat rejection.
+                No help available.
                 """
             class inlet_temperature(TUIMethod):
                 """
-                Prints inlet temperature.
+                No help available.
                 """
             class mass_flow_rate(TUIMethod):
                 """
-                Prints mass flow rate.
+                No help available.
                 """
             class outlet_temperature(TUIMethod):
                 """
-                Prints outlet temperature.
+                No help available.
                 """
             class specific_heat(TUIMethod):
                 """
-                Prints fluid’s specific heat.
+                No help available.
                 """
 
         class icing(TUIMenu):
@@ -21443,7 +21640,7 @@ class main_menu(TUIMenu):
 
         class modified_setting(TUIMenu):
             """
-            Enter the modified settings menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.modified_setting = self.__class__.modified_setting(service, version, mode, path + ["modified_setting"])
@@ -21451,11 +21648,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class modified_setting(TUIMethod):
                 """
-                Specify which areas of setup will be checked for non-default settings for generating the Modified Settings Summary table. The table is displayed tabbed with the graphics window.
+                No help available.
                 """
             class write_user_setting(TUIMethod):
                 """
-                Write the contents of the Modified Settings Summary table to a file.
+                No help available.
                 """
 
         class population_balance(TUIMenu):
@@ -21477,7 +21674,7 @@ class main_menu(TUIMenu):
 
         class reference_values(TUIMenu):
             """
-            Enters the reference value menu.
+            Reference value menu.
             """
             def __init__(self, service, version, mode, path):
                 self.compute = self.__class__.compute(service, version, mode, path + ["compute"])
@@ -21496,56 +21693,56 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class area(TUIMethod):
                 """
-                Sets reference area for normalization.
+                No help available.
                 """
             class density(TUIMethod):
                 """
-                Sets reference density for normalization.
+                No help available.
                 """
             class depth(TUIMethod):
                 """
-                Sets reference depth for volume calculation.
+                No help available.
                 """
             class enthalpy(TUIMethod):
                 """
-                Sets reference enthalpy for enthalpy damping and normalization.
+                No help available.
                 """
             class length(TUIMethod):
                 """
-                Sets reference length for normalization.
+                No help available.
                 """
             class list(TUIMethod):
                 """
-                Lists current reference values.
+                No help available.
                 """
             class pressure(TUIMethod):
                 """
-                Sets reference pressure for normalization.
+                No help available.
                 """
             class temperature(TUIMethod):
                 """
-                Sets reference temperature for normalization.
+                No help available.
                 """
             class velocity(TUIMethod):
                 """
-                Sets reference velocity for normalization.
+                No help available.
                 """
             class viscosity(TUIMethod):
                 """
-                Sets reference viscosity for normalization.
+                No help available.
                 """
             class yplus(TUIMethod):
                 """
-                Sets reference yplus for calculation of Yplus Based Heat Transfer Coefficient.
+                No help available.
                 """
             class zone(TUIMethod):
                 """
-                Sets reference zone.
+                Set reference zone.
                 """
 
             class compute(TUIMenu):
                 """
-                Computes reference values from zone boundary conditions.
+                Enter the compute menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.axis = self.__class__.axis(service, version, mode, path + ["axis"])
@@ -21812,7 +22009,7 @@ class main_menu(TUIMenu):
 
         class surface_integrals(TUIMenu):
             """
-            Enters the surface integral menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.area = self.__class__.area(service, version, mode, path + ["area"])
@@ -21838,7 +22035,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class area(TUIMethod):
                 """
-                Prints the area of the selected surfaces.
+                No help available.
                 """
             class area_weighted_avg(TUIMethod):
                 """
@@ -21846,80 +22043,80 @@ class main_menu(TUIMenu):
                 """
             class facet_avg(TUIMethod):
                 """
-                Prints the facet average of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class facet_max(TUIMethod):
                 """
-                Prints the maximum of the specified quantity over facet centroids of the selected surfaces.
+                No help available.
                 """
             class facet_min(TUIMethod):
                 """
-                Prints the minimum of the specified quantity over facet centroids of the selected surfaces.
+                No help available.
                 """
             class flow_rate(TUIMethod):
                 """
-                Prints the flow rate of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class integral(TUIMethod):
                 """
-                Prints the integral of the specified quantity over the selected surfaces. You can include a wildcard (\\*) within the surface names.
+                No help available.
                 """
             class mass_flow_rate(TUIMethod):
                 """
-                Prints the mass flow rate through the selected surfaces.
+                No help available.
                 """
             class mass_weighted_avg(TUIMethod):
                 """
-                Prints the mass-averaged quantity over the selected surfaces.
+                No help available.
                 """
             class standard_deviation(TUIMethod):
                 """
-                Prints the standard deviation of the scalar at the facet centroids of the surface.
+                No help available.
                 """
             class sum(TUIMethod):
                 """
-                Prints sum of scalar at facet centroids of the surfaces.
+                No help available.
                 """
             class uniformity_index_area_weighted(TUIMethod):
                 """
-                Prints the area-weighted uniformity index of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class uniformity_index_mass_weighted(TUIMethod):
                 """
-                Prints the mass-weighted uniformity index of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class vector_based_flux(TUIMethod):
                 """
-                Prints the vector-based flux of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class vector_flux(TUIMethod):
                 """
-                Prints the vector flux over the selected surfaces.
+                No help available.
                 """
             class vector_weighted_average(TUIMethod):
                 """
-                Prints the vector-averaged quantity over the selected surfaces.
+                No help available.
                 """
             class vertex_avg(TUIMethod):
                 """
-                Prints the vertex average of the specified quantity over the selected surfaces.
+                No help available.
                 """
             class vertex_max(TUIMethod):
                 """
-                Prints the maximum of the specified quantity over vertices of the selected surfaces.
+                No help available.
                 """
             class vertex_min(TUIMethod):
                 """
-                Prints the minimum of the specified quantity over vertices of the selected surfaces.
+                No help available.
                 """
             class volume_flow_rate(TUIMethod):
                 """
-                Prints the volume flow rate through the selected surfaces.
+                No help available.
                 """
 
         class system(TUIMenu):
             """
-            Enters the system menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.gpgpu_stats = self.__class__.gpgpu_stats(service, version, mode, path + ["gpgpu_stats"])
@@ -21929,24 +22126,24 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class gpgpu_stats(TUIMethod):
                 """
-                Prints information about installed general purpose graphical processing units.
+                No help available.
                 """
             class proc_stats(TUIMethod):
                 """
-                Prints ANSYS Fluent process information. This is used to report the memory usage of each of the ANSYS Fluent processes.
+                No help available.
                 """
             class sys_stats(TUIMethod):
                 """
-                System information. This is used to report the CPU configuration of the machines where ANSYS Fluent processes have been spawned.
+                No help available.
                 """
             class time_stats(TUIMethod):
                 """
-                Timer information. This is used to report CPU timings for user and kernel processes and detailed solver timings.
+                No help available.
                 """
 
         class volume_integrals(TUIMenu):
             """
-            Enters the volume integral menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.mass = self.__class__.mass(service, version, mode, path + ["mass"])
@@ -21966,39 +22163,39 @@ class main_menu(TUIMenu):
                 """
             class mass_avg(TUIMethod):
                 """
-                Prints mass-average of scalar over cell zones.
+                No help available.
                 """
             class mass_integral(TUIMethod):
                 """
-                Prints mass-weighted integral of scalar over cell zones.
+                No help available.
                 """
             class maximum(TUIMethod):
                 """
-                Prints maximum of scalar over all cell zones.
+                No help available.
                 """
             class minimum(TUIMethod):
                 """
-                Prints minimum of scalar over all cell zones.
+                No help available.
                 """
             class sum(TUIMethod):
                 """
-                Prints sum of scalar over all cell zones.
+                No help available.
                 """
             class twopisum(TUIMethod):
                 """
-                Prints sum of scalar over all cell zones multiplied by 2π.
+                No help available.
                 """
             class volume(TUIMethod):
                 """
-                Prints total volume of specified cell zones.
+                No help available.
                 """
             class volume_avg(TUIMethod):
                 """
-                Prints volume-weighted average of scalar over cell zones.
+                No help available.
                 """
             class volume_integral(TUIMethod):
                 """
-                Prints integral of scalar over cell zones.
+                No help available.
                 """
 
     class results(TUIMenu):
@@ -22008,6 +22205,7 @@ class main_menu(TUIMenu):
         def __init__(self, service, version, mode, path):
             self.animations = self.__class__.animations(service, version, mode, path + ["animations"])
             self.annotation = self.__class__.annotation(service, version, mode, path + ["annotation"])
+            self.ansys_sound_analysis = self.__class__.ansys_sound_analysis(service, version, mode, path + ["ansys_sound_analysis"])
             self.custom_field_functions = self.__class__.custom_field_functions(service, version, mode, path + ["custom_field_functions"])
             self.custom_vectors = self.__class__.custom_vectors(service, version, mode, path + ["custom_vectors"])
             self.graphics = self.__class__.graphics(service, version, mode, path + ["graphics"])
@@ -22038,6 +22236,7 @@ class main_menu(TUIMenu):
                     self.play = self.__class__.play(service, version, mode, path + ["play"])
                     self.read_animation_file = self.__class__.read_animation_file(service, version, mode, path + ["read_animation_file"])
                     self.stored_view = self.__class__.stored_view(service, version, mode, path + ["stored_view"])
+                    self.view_mode = self.__class__.view_mode(service, version, mode, path + ["view_mode"])
                     self.write_animation = self.__class__.write_animation(service, version, mode, path + ["write_animation"])
                     super().__init__(service, version, mode, path)
                 class current_animation(TUIMethod):
@@ -22057,6 +22256,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class stored_view(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class view_mode(TUIMethod):
                     """
                     No help available.
                     """
@@ -22283,6 +22486,91 @@ class main_menu(TUIMenu):
                 """
                 No help available.
                 """
+
+        class ansys_sound_analysis(TUIMenu):
+            """
+            No help available.
+            """
+            def __init__(self, service, version, mode, path):
+                self.receiver = self.__class__.receiver(service, version, mode, path + ["receiver"])
+                self.input_data_type = self.__class__.input_data_type(service, version, mode, path + ["input_data_type"])
+                self.load_frf_files = self.__class__.load_frf_files(service, version, mode, path + ["load_frf_files"])
+                self.load_input_files = self.__class__.load_input_files(service, version, mode, path + ["load_input_files"])
+                self.print_indicators = self.__class__.print_indicators(service, version, mode, path + ["print_indicators"])
+                self.sound_duration = self.__class__.sound_duration(service, version, mode, path + ["sound_duration"])
+                self.use_transfer_fn = self.__class__.use_transfer_fn(service, version, mode, path + ["use_transfer_fn"])
+                self.write_files = self.__class__.write_files(service, version, mode, path + ["write_files"])
+                super().__init__(service, version, mode, path)
+            class input_data_type(TUIMethod):
+                """
+                No help available.
+                """
+            class load_frf_files(TUIMethod):
+                """
+                No help available.
+                """
+            class load_input_files(TUIMethod):
+                """
+                No help available.
+                """
+            class print_indicators(TUIMethod):
+                """
+                No help available.
+                """
+            class sound_duration(TUIMethod):
+                """
+                No help available.
+                """
+            class use_transfer_fn(TUIMethod):
+                """
+                No help available.
+                """
+            class write_files(TUIMethod):
+                """
+                No help available.
+                """
+
+            class receiver(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.create = self.__class__.create(service, version, mode, path + ["create"])
+                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                    self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                    self.list = self.__class__.list(service, version, mode, path + ["list"])
+                    self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                    self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                    self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                    super().__init__(service, version, mode, path)
+                class create(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class delete(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class edit(TUIMethod):
+                    """
+                    Edit receiver object.
+                    """
+                class list(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class list_properties(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class make_a_copy(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class rename(TUIMethod):
+                    """
+                    No help available.
+                    """
 
         class custom_field_functions(TUIMenu):
             """
@@ -24635,56 +24923,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -24697,6 +24956,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -24704,8 +24990,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -24716,11 +25003,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -24736,8 +25027,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -24748,11 +25040,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -24783,44 +25079,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -24833,6 +25105,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -24840,8 +25139,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -24852,11 +25152,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -24872,8 +25176,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -24884,11 +25189,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -24919,22 +25228,99 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.line = self.__class__.line(service, version, mode, path + ["line"])
+                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
+                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
+                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
                         super().__init__(service, version, mode, path)
-                    class edit(TUIMethod):
-                        """
-                        Edit curves object.
-                        """
-                    class list_properties(TUIMethod):
+
+                    class line(TUIMenu):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class line_in_file(TUIMenu):
                         """
                         No help available.
                         """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker_in_file(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
 
             class interpolated_data(TUIMenu):
                 """
@@ -24972,56 +25358,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25034,6 +25391,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25041,8 +25425,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25053,11 +25438,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25073,8 +25462,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25085,11 +25475,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25120,44 +25514,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25170,6 +25540,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25177,8 +25574,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25189,11 +25587,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25209,8 +25611,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25221,11 +25624,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25256,22 +25663,99 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.line = self.__class__.line(service, version, mode, path + ["line"])
+                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
+                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
+                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
                         super().__init__(service, version, mode, path)
-                    class edit(TUIMethod):
-                        """
-                        Edit curves object.
-                        """
-                    class list_properties(TUIMethod):
+
+                    class line(TUIMenu):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class line_in_file(TUIMenu):
                         """
                         No help available.
                         """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker_in_file(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
 
             class plot(TUIMenu):
                 """
@@ -25294,56 +25778,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25356,6 +25811,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25363,8 +25845,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25375,11 +25858,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25395,8 +25882,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25407,11 +25895,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25442,44 +25934,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25492,6 +25960,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25499,8 +25994,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25511,11 +26007,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25531,8 +26031,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25543,11 +26044,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25578,19 +26083,39 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
                         """
                         No help available.
                         """
@@ -25616,56 +26141,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25678,6 +26174,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25685,8 +26208,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25697,11 +26221,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25717,8 +26245,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25729,11 +26258,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25764,44 +26297,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25814,6 +26323,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25821,8 +26357,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25833,11 +26370,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25853,8 +26394,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25865,11 +26407,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25900,19 +26446,39 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
                         """
                         No help available.
                         """
@@ -25938,56 +26504,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26000,6 +26537,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26007,8 +26571,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26019,11 +26584,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26039,8 +26608,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26051,11 +26621,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26086,44 +26660,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26136,6 +26686,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26143,8 +26720,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26155,11 +26733,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26175,8 +26757,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26187,11 +26770,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26222,19 +26809,39 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
                         """
                         No help available.
                         """
@@ -26275,56 +26882,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26337,6 +26915,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26344,8 +26949,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26356,11 +26962,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26376,8 +26986,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26388,11 +26999,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26423,44 +27038,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26473,6 +27064,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26480,8 +27098,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26492,11 +27111,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26512,8 +27135,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26524,11 +27148,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26559,22 +27187,99 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.line = self.__class__.line(service, version, mode, path + ["line"])
+                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
+                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
+                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
                         super().__init__(service, version, mode, path)
-                    class edit(TUIMethod):
-                        """
-                        Edit curves object.
-                        """
-                    class list_properties(TUIMethod):
+
+                    class line(TUIMenu):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class line_in_file(TUIMenu):
                         """
                         No help available.
                         """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
+                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class pattern(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class weight(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
+
+                    class marker_in_file(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.color = self.__class__.color(service, version, mode, path + ["color"])
+                            self.size = self.__class__.size(service, version, mode, path + ["size"])
+                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
+                            super().__init__(service, version, mode, path)
+                        class color(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class size(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class symbol(TUIMethod):
+                            """
+                            No help available.
+                            """
 
             class solution_plot(TUIMenu):
                 """
@@ -26632,56 +27337,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26694,6 +27370,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26701,8 +27404,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26713,11 +27417,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26733,8 +27441,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26745,11 +27454,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26780,44 +27493,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26830,6 +27519,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26837,8 +27553,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26849,11 +27566,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26869,8 +27590,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26881,11 +27603,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26916,19 +27642,39 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
                         """
                         No help available.
                         """
@@ -27984,6 +28730,7 @@ class main_menu(TUIMenu):
                 self.create_multiple_iso_surfaces = self.__class__.create_multiple_iso_surfaces(service, version, mode, path + ["create_multiple_iso_surfaces"])
                 self.create_multiple_plane_surfaces = self.__class__.create_multiple_plane_surfaces(service, version, mode, path + ["create_multiple_plane_surfaces"])
                 self.create_multiple_zone_surfaces = self.__class__.create_multiple_zone_surfaces(service, version, mode, path + ["create_multiple_zone_surfaces"])
+                self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                 self.external_surface = self.__class__.external_surface(service, version, mode, path + ["external_surface"])
                 self.reset_zone_surfaces = self.__class__.reset_zone_surfaces(service, version, mode, path + ["reset_zone_surfaces"])
                 self.set_rendering_priority = self.__class__.set_rendering_priority(service, version, mode, path + ["set_rendering_priority"])
@@ -28003,6 +28750,10 @@ class main_menu(TUIMenu):
                 No help available.
                 """
             class create_multiple_zone_surfaces(TUIMethod):
+                """
+                No help available.
+                """
+            class delete(TUIMethod):
                 """
                 No help available.
                 """
@@ -28737,7 +29488,7 @@ class main_menu(TUIMenu):
             """
         class start_client(TUIMethod):
             """
-            Start the ANSYS Fluent remote visualization client.
+            Start remote visualization client (deprecated).
             """
         class start_grpc_server(TUIMethod):
             """
@@ -28984,11 +29735,277 @@ class main_menu(TUIMenu):
             No help available.
             """
             def __init__(self, service, version, mode, path):
+                self.automatic_exports = self.__class__.automatic_exports(service, version, mode, path + ["automatic_exports"])
                 self.case_modification = self.__class__.case_modification(service, version, mode, path + ["case_modification"])
                 self.execute_commands = self.__class__.execute_commands(service, version, mode, path + ["execute_commands"])
                 self.poor_mesh_numerics = self.__class__.poor_mesh_numerics(service, version, mode, path + ["poor_mesh_numerics"])
                 self.solution_animations = self.__class__.solution_animations(service, version, mode, path + ["solution_animations"])
                 super().__init__(service, version, mode, path)
+
+            class automatic_exports(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.ascii = self.__class__.ascii(service, version, mode, path + ["ascii"])
+                    self.cgns = self.__class__.cgns(service, version, mode, path + ["cgns"])
+                    self.dvs_export = self.__class__.dvs_export(service, version, mode, path + ["dvs_export"])
+                    self.mapdl = self.__class__.mapdl(service, version, mode, path + ["mapdl"])
+                    self.nastran = self.__class__.nastran(service, version, mode, path + ["nastran"])
+                    self.tecplot = self.__class__.tecplot(service, version, mode, path + ["tecplot"])
+                    super().__init__(service, version, mode, path)
+
+                class ascii(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit ascii object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class cgns(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit cgns object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class dvs_export(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit dvs-export object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class mapdl(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit mapdl object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class nastran(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit nastran object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
+
+                class tecplot(TUIMenu):
+                    """
+                    No help available.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit tecplot object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
 
             class case_modification(TUIMenu):
                 """
@@ -28998,10 +30015,10 @@ class main_menu(TUIMenu):
                     self.automatic_case_modification = self.__class__.automatic_case_modification(service, version, mode, path + ["automatic_case_modification"])
                     self.automatic_initialization = self.__class__.automatic_initialization(service, version, mode, path + ["automatic_initialization"])
                     self.continue_strategy_execution = self.__class__.continue_strategy_execution(service, version, mode, path + ["continue_strategy_execution"])
+                    self.enable_strategy = self.__class__.enable_strategy(service, version, mode, path + ["enable_strategy"])
                     self.execute_strategy = self.__class__.execute_strategy(service, version, mode, path + ["execute_strategy"])
-                    self.export = self.__class__.export(service, version, mode, path + ["export"])
-                    self.import_ = self.__class__.import_(service, version, mode, path + ["import_"])
-                    self.strategy_enable = self.__class__.strategy_enable(service, version, mode, path + ["strategy_enable"])
+                    self.export_modifications = self.__class__.export_modifications(service, version, mode, path + ["export_modifications"])
+                    self.import_modifications = self.__class__.import_modifications(service, version, mode, path + ["import_modifications"])
                     super().__init__(service, version, mode, path)
                 class automatic_initialization(TUIMethod):
                     """
@@ -29011,19 +30028,19 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
+                class enable_strategy(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class execute_strategy(TUIMethod):
                     """
                     No help available.
                     """
-                class export(TUIMethod):
+                class export_modifications(TUIMethod):
                     """
                     No help available.
                     """
-                class import_(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class strategy_enable(TUIMethod):
+                class import_modifications(TUIMethod):
                     """
                     No help available.
                     """
@@ -31440,8 +32457,13 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.alternative_axisymmetric_formulation = self.__class__.alternative_axisymmetric_formulation(service, version, mode, path + ["alternative_axisymmetric_formulation"])
                     self.axis_stabilization = self.__class__.axis_stabilization(service, version, mode, path + ["axis_stabilization"])
                     super().__init__(service, version, mode, path)
+                class alternative_axisymmetric_formulation(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class axis_stabilization(TUIMethod):
                     """
                     No help available.
@@ -32651,6 +33673,8 @@ class main_menu(TUIMenu):
                         self.orthogonal_quality_threshold_enabled = self.__class__.orthogonal_quality_threshold_enabled(service, version, mode, path + ["orthogonal_quality_threshold_enabled"])
                         self.tangent_skewness_threshold = self.__class__.tangent_skewness_threshold(service, version, mode, path + ["tangent_skewness_threshold"])
                         self.tangent_skewness_threshold_enabled = self.__class__.tangent_skewness_threshold_enabled(service, version, mode, path + ["tangent_skewness_threshold_enabled"])
+                        self.volume_ratio_threshold = self.__class__.volume_ratio_threshold(service, version, mode, path + ["volume_ratio_threshold"])
+                        self.volume_ratio_threshold_enabled = self.__class__.volume_ratio_threshold_enabled(service, version, mode, path + ["volume_ratio_threshold_enabled"])
                         super().__init__(service, version, mode, path)
                     class enable(TUIMethod):
                         """
@@ -32669,6 +33693,14 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                     class tangent_skewness_threshold_enabled(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class volume_ratio_threshold(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class volume_ratio_threshold_enabled(TUIMethod):
                         """
                         No help available.
                         """
@@ -33142,56 +34174,27 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
-                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
-                    class background_color(TUIMethod):
-                        """
-                        No help available.
-                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -33204,6 +34207,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -33211,8 +34241,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -33223,11 +34254,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -33243,8 +34278,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -33255,11 +34291,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -33290,44 +34330,20 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
-                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
-                            self.max = self.__class__.max(service, version, mode, path + ["max"])
-                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
-                        class auto_range(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class auto_range_min(TUIMethod):
-                            """
-                            No help available.
-                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class max(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -33340,6 +34356,33 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
+                        class auto_range(TUIMenu):
+                            """
+                            No help available.
+                            """
+                            def __init__(self, service, version, mode, path):
+                                self.max = self.__class__.max(service, version, mode, path + ["max"])
+                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
+                                self.min = self.__class__.min(service, version, mode, path + ["min"])
+                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
+                                super().__init__(service, version, mode, path)
+                            class max(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class max_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class min_auto(TUIMethod):
+                                """
+                                No help available.
+                                """
+
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -33347,8 +34390,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -33359,11 +34403,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -33379,8 +34427,9 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
-                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
+                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
+                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
+                                self.units = self.__class__.units(service, version, mode, path + ["units"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -33391,11 +34440,15 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class distance(TUIMethod):
+                            class divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class units_or_divisions(TUIMethod):
+                            class specify_divisions_instead_of_units(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class units(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -33426,19 +34479,39 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
+                    class create(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class resize(TUIMethod):
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
                         """
                         No help available.
                         """
@@ -33579,6 +34652,7 @@ class main_menu(TUIMenu):
                 self.volume = self.__class__.volume(service, version, mode, path + ["volume"])
                 self.compute = self.__class__.compute(service, version, mode, path + ["compute"])
                 self.copy = self.__class__.copy(service, version, mode, path + ["copy"])
+                self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                 self.delete_all = self.__class__.delete_all(service, version, mode, path + ["delete_all"])
                 super().__init__(service, version, mode, path)
             class compute(TUIMethod):
@@ -33586,6 +34660,10 @@ class main_menu(TUIMenu):
                 No help available.
                 """
             class copy(TUIMethod):
+                """
+                No help available.
+                """
+            class delete(TUIMethod):
                 """
                 No help available.
                 """
@@ -35147,19 +36225,19 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class convergence_conditions(TUIMethod):
             """
-            Enters the convergence conditions menu.
+            Manage convergence report.
             """
         class dpm_update(TUIMethod):
             """
-            Updates discrete phase source terms.
+            Update discrete phase source terms.
             """
         class dual_time_iterate(TUIMethod):
             """
-            Performs unsteady iterations for a specified number of time steps.
+            No help available.
             """
         class iterate(TUIMethod):
             """
-            Performs a specified number of iterations.  This option is still available during transient simulations, since it can be used to add more iterations to the same time step after interrupting iterations within a time step.
+            No help available.
             """
         class iterate_steady_2way_fsi(TUIMethod):
             """
@@ -35171,7 +36249,7 @@ class main_menu(TUIMenu):
             """
         class mesh_motion(TUIMethod):
             """
-            Performs mesh motion.
+            No help available.
             """
         class multistage_time_iterate(TUIMethod):
             """
@@ -35179,16 +36257,16 @@ class main_menu(TUIMenu):
             """
         class patch(TUIMethod):
             """
-            Patches a value for a flow variable in the domain. You can either provide a numerical value, which you can enter directly, or you can enter an expression, which must be entered within quotation marks.
+            Patch a value for a flow variable in the domain.
             """
         class update_physical_time(TUIMethod):
             """
-            Advances the unsteady solution to the next physical time level. Using this command in conjunction with theiterate command allows you to manually advance the solution in time (rather than doing it automatically with the dual-time-iterate command).
+            Update the solution to the next physical time level.
             """
 
         class animate(TUIMenu):
             """
-            Enters the animation menu.
+            Enter the animation menu.
             """
             def __init__(self, service, version, mode, path):
                 self.define = self.__class__.define(service, version, mode, path + ["define"])
@@ -35201,7 +36279,7 @@ class main_menu(TUIMenu):
 
             class define(TUIMenu):
                 """
-                Enters the animation definition menu.
+                Enter the animation definition menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.define_monitor = self.__class__.define_monitor(service, version, mode, path + ["define_monitor"])
@@ -35209,11 +36287,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class define_monitor(TUIMethod):
                     """
-                    Defines new animation.
+                    Define new animation.
                     """
                 class edit_monitor(TUIMethod):
                     """
-                    Changes animation monitor attributes.
+                    Change animation monitor attributes.
                     """
 
             class inverse_dft(TUIMenu):
@@ -35295,7 +36373,7 @@ class main_menu(TUIMenu):
 
             class objects(TUIMenu):
                 """
-                Enters the object manipulation menu.
+                Enter to define, edit, delete solution animation objects.
                 """
                 def __init__(self, service, version, mode, path):
                     self.clear_history = self.__class__.clear_history(service, version, mode, path + ["clear_history"])
@@ -35307,23 +36385,23 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class clear_history(TUIMethod):
                     """
-                    Clears solution animation object history.
+                    Clear object history.
                     """
                 class copy(TUIMethod):
                     """
-                    Copies solution animation object.
+                    Copy graphics object.
                     """
                 class create(TUIMethod):
                     """
-                    Creates new solution animation object.
+                    Create new graphics object.
                     """
                 class delete(TUIMethod):
                     """
-                    Deletes solution animation object.
+                    Delete graphics object.
                     """
                 class edit(TUIMethod):
                     """
-                    Edits solution animation object.
+                    Edit graphics object.
                     """
                 class get_window_id(TUIMethod):
                     """
@@ -35332,7 +36410,7 @@ class main_menu(TUIMenu):
 
             class playback(TUIMenu):
                 """
-                Enters the animation playback menu.
+                Enter animation playback menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.video = self.__class__.video(service, version, mode, path + ["video"])
@@ -35341,36 +36419,41 @@ class main_menu(TUIMenu):
                     self.read = self.__class__.read(service, version, mode, path + ["read"])
                     self.set_custom_frames = self.__class__.set_custom_frames(service, version, mode, path + ["set_custom_frames"])
                     self.stored_view = self.__class__.stored_view(service, version, mode, path + ["stored_view"])
+                    self.view_mode = self.__class__.view_mode(service, version, mode, path + ["view_mode"])
                     self.write = self.__class__.write(service, version, mode, path + ["write"])
                     super().__init__(service, version, mode, path)
                 class delete(TUIMethod):
                     """
-                    Deletes animation sequence.
+                    No help available.
                     """
                 class play(TUIMethod):
                     """
-                    Plays the selected animation.
+                    Play the selected animation.
                     """
                 class read(TUIMethod):
                     """
-                    Reads new animation from file or already defined animations.
+                    Read new animation from file or already-defined animations.
                     """
                 class set_custom_frames(TUIMethod):
                     """
-                    Specify a custom start frame, increment, and end frame for video export.
+                    Set custom frames start, end, skip frames for video export.
                     """
                 class stored_view(TUIMethod):
                     """
-                    Plays the 3D animation sequence using the view stored in the sequence.
+                    Play the 3D animation sequence using the view stored in the sequence.
+                    """
+                class view_mode(TUIMethod):
+                    """
+                    To play animation in the stored, current or key-frame view.
                     """
                 class write(TUIMethod):
                     """
-                    Writes animation sequence to the file.
+                    Write animation sequence to the file.
                     """
 
                 class video(TUIMenu):
                     """
-                    Enters the video menu.
+                    Set options for exporting video file menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.advance_quality = self.__class__.advance_quality(service, version, mode, path + ["advance_quality"])
@@ -35386,11 +36469,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class format(TUIMethod):
                         """
-                        Specifies what format the video file will be written in (MP4 | AVI |  FLV | MOV | MPEG).
+                        Set format for exporting video file.
                         """
                     class fps(TUIMethod):
                         """
-                        Sets the target frames per second (FPS) for the saved video  file.
+                        Set the Frame Per Sec(FPS) for exporting video file.
                         """
                     class height(TUIMethod):
                         """
@@ -35398,7 +36481,7 @@ class main_menu(TUIMenu):
                         """
                     class name(TUIMethod):
                         """
-                        Sets the name of the saved video file.
+                        Exporting video file name.
                         """
                     class quality(TUIMethod):
                         """
@@ -35406,7 +36489,7 @@ class main_menu(TUIMenu):
                         """
                     class scale(TUIMethod):
                         """
-                        Expands or collapses the resolution based on this scaling  factor.
+                        Set scale by which video resolution will expand.
                         """
                     class set_standard_resolution(TUIMethod):
                         """
@@ -35414,7 +36497,7 @@ class main_menu(TUIMenu):
                         """
                     class use_original_resolution(TUIMethod):
                         """
-                        Controls whether the resolution of the saved video file matches that  of the images used to create it.
+                        Enable original resolution.
                         """
                     class width(TUIMethod):
                         """
@@ -35455,7 +36538,7 @@ class main_menu(TUIMenu):
 
             class pulse(TUIMenu):
                 """
-                Enter the pulse animation menu (only available when one or more particle track or pathline graphics objects are defined).
+                Enter save pulse menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.hardcopy = self.__class__.hardcopy(service, version, mode, path + ["hardcopy"])
@@ -35465,11 +36548,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class pulse_mode(TUIMethod):
                     """
-                    Set whether the pulse is a single pulse or continuous.
+                    Set pulse-mode.
                     """
                 class write(TUIMethod):
                     """
-                    Select a pathline or particle track graphics object, specify whether you want to write a video file or picture files, and enter the destination directory for the files. Continuous pulse animations result in a 5 second video. Single pulse animations run for a full cycle.
+                    Exporting pulse.
                     """
 
                 class hardcopy(TUIMenu):
@@ -35763,7 +36846,7 @@ class main_menu(TUIMenu):
 
         class cell_register_operations(TUIMenu):
             """
-            Enters the cell register operations menu.
+            Manage Cell Register Operations.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -35774,28 +36857,28 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Creates a new cell register operation.
+                Add a new object.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a cell register operation.
+                Delete an object.
                 """
             class edit(TUIMethod):
                 """
-                Edits an existing cell register operation.
+                Edit an object.
                 """
             class list(TUIMethod):
                 """
-                Lists the currently defined cell register operations.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a report register operation.
+                List properties of an object.
                 """
 
         class cell_registers(TUIMenu):
             """
-            Enters the cell registers menu.
+            Manage Cell Registers.
             """
             def __init__(self, service, version, mode, path):
                 self.adapt = self.__class__.adapt(service, version, mode, path + ["adapt"])
@@ -35819,19 +36902,19 @@ class main_menu(TUIMenu):
                 """
             class apply_poor_mesh_numerics(TUIMethod):
                 """
-                Applies poor mesh numerics to the mesh of a cell register.
+                Apply poor mesh numerics to cell register objects.
                 """
             class coarsen(TUIMethod):
                 """
-                Coarsen the mesh based on a cell register.
+                Coarsen cell register objects.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a cell register.
+                Delete an object.
                 """
             class display(TUIMethod):
                 """
-                Displays a cell register.
+                Display cell register objects.
                 """
             class edit(TUIMethod):
                 """
@@ -35839,20 +36922,20 @@ class main_menu(TUIMenu):
                 """
             class list(TUIMethod):
                 """
-                Lists all of the currently defined cell registers.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a cell register.
+                List properties of an object.
                 """
             class refine(TUIMethod):
                 """
-                Refine the mesh based on a cell register.
+                Refine cell register objects.
                 """
 
         class execute_commands(TUIMenu):
             """
-            Enters the execute commands menu.
+            Enter the execute-monitor-commands menu.
             """
             def __init__(self, service, version, mode, path):
                 self.add_edit = self.__class__.add_edit(service, version, mode, path + ["add_edit"])
@@ -35865,7 +36948,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_edit(TUIMethod):
                 """
-                Adds or edits execute commands.
+                Add or edit execute-commands.
                 """
             class copy(TUIMethod):
                 """
@@ -35877,11 +36960,11 @@ class main_menu(TUIMenu):
                 """
             class disable(TUIMethod):
                 """
-                Disables an execute command.
+                Disable an execute-command.
                 """
             class enable(TUIMethod):
                 """
-                Enables an execute command.
+                Enable an execute-command.
                 """
             class export(TUIMethod):
                 """
@@ -35894,7 +36977,7 @@ class main_menu(TUIMenu):
 
         class initialize(TUIMenu):
             """
-            Enters the flow initialization menu.
+            Enter the flow initialization menu.
             """
             def __init__(self, service, version, mode, path):
                 self.compute_defaults = self.__class__.compute_defaults(service, version, mode, path + ["compute_defaults"])
@@ -35925,7 +37008,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class dpm_reset(TUIMethod):
                 """
-                Resets discrete phase source terms to zero.
+                No help available.
                 """
             class enable_profile_memory_flushing(TUIMethod):
                 """
@@ -35933,19 +37016,19 @@ class main_menu(TUIMenu):
                 """
             class fmg_initialization(TUIMethod):
                 """
-                Initializes using the full-multigrid initialization (FMG).
+                No help available.
                 """
             class hyb_initialization(TUIMethod):
                 """
-                Initializes using the hybrid initialization method.
+                No help available.
                 """
             class init_acoustics_options(TUIMethod):
                 """
-                Specifies the number of timesteps for ramping of sound sources and re-initializes the acoustics wave equation solution. For the initialized acoustics solution, Fluent reports the current state of the sound sources ramping.
+                No help available.
                 """
             class init_flow_statistics(TUIMethod):
                 """
-                Initializes unsteady statistics.
+                No help available.
                 """
             class init_instantaneous_vel(TUIMethod):
                 """
@@ -35953,11 +37036,11 @@ class main_menu(TUIMenu):
                 """
             class init_turb_vel_fluctuations(TUIMethod):
                 """
-                Initializes instantaneous velocity field out of steady state RANS results, for use before enabling a scale resolving simulation such as LES.
+                No help available.
                 """
             class initialize_flow(TUIMethod):
                 """
-                Initializes the flow field with the current default values.
+                No help available.
                 """
             class initialize_lwf(TUIMethod):
                 """
@@ -35969,7 +37052,7 @@ class main_menu(TUIMenu):
                 """
             class list_defaults(TUIMethod):
                 """
-                Lists default values.
+                No help available.
                 """
             class lwf_reset(TUIMethod):
                 """
@@ -35977,23 +37060,23 @@ class main_menu(TUIMenu):
                 """
             class open_channel_auto_init(TUIMethod):
                 """
-                Opens channel automatic initialization.
+                Open channel initialization method.
                 """
             class reference_frame(TUIMethod):
                 """
-                Sets reference frame to absolute or relative.
+                No help available.
                 """
             class repair_wall_distance(TUIMethod):
                 """
-                Corrects wall distance at very high aspect ratio hexahedral/polyhedral cells.
+                No help available.
                 """
             class set_defaults(TUIMethod):
                 """
-                Sets default initial values.
+                Enter the set defaults menu.
                 """
             class set_fmg_initialization(TUIMethod):
                 """
-                Enters the set full-multigrid for initialization menu. Initial values for each variable can be set within this menu.
+                Enter the set full-multigrid for initialization menu.
                 """
             class set_fmg_options(TUIMethod):
                 """
@@ -36001,16 +37084,16 @@ class main_menu(TUIMenu):
                 """
             class show_iterations_sampled(TUIMethod):
                 """
-                Displays the number of iterations covered by the data sampled for steady statistics.
+                No help available.
                 """
             class show_time_sampled(TUIMethod):
                 """
-                Displays the amount of simulated time covered by the data sampled for unsteady statistics.
+                No help available.
                 """
 
             class compute_defaults(TUIMenu):
                 """
-                Enters the compute default values menu.
+                Enter the compute defaults menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.all_zones = self.__class__.all_zones(service, version, mode, path + ["all_zones"])
@@ -36049,7 +37132,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class all_zones(TUIMethod):
                     """
-                    Initializes the flow field with the default values.
+                    Initialize the flow field with the default values.
                     """
                 class axis(TUIMethod):
                     """
@@ -36182,7 +37265,7 @@ class main_menu(TUIMenu):
 
             class mp_localized_turb_init(TUIMenu):
                 """
-                Enters the menu for localized turbulent flow initialization.
+                Localized initialization of turbulent flow variables for VOF/Mixture multiphase flow models.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -36190,16 +37273,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables/disables localized initialization of turbulent flow variables.
+                    Enable localized initialization of turbulent flow variables for VOF/Mixture multiphase flow models.
                     """
                 class turb_init_parameters(TUIMethod):
                     """
-                    Sets values for the turbulent intensity and turbulent viscosity ratio for localized initialization.
+                    Turbulent flow parameters for localized initialization.
                     """
 
             class set_hyb_initialization(TUIMenu):
                 """
-                Enters the hybrid initialization menu.
+                Enter the settings for hybrid initialization method.
                 """
                 def __init__(self, service, version, mode, path):
                     self.general_settings = self.__class__.general_settings(service, version, mode, path + ["general_settings"])
@@ -36208,11 +37291,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class general_settings(TUIMethod):
                     """
-                    Enters the general settings menu.
+                    Enter the general settings menu.
                     """
                 class species_settings(TUIMethod):
                     """
-                    Enters the species-settings menu.
+                    Enter the species settings menu.
                     """
                 class turbulent_settings(TUIMethod):
                     """
@@ -36221,7 +37304,7 @@ class main_menu(TUIMenu):
 
             class vof_patch_smooth_options(TUIMenu):
                 """
-                Enters the vof patch/smooth options menu.
+                Enter the vof patch/smooth options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.execute_smoothing = self.__class__.execute_smoothing(service, version, mode, path + ["execute_smoothing"])
@@ -36233,12 +37316,12 @@ class main_menu(TUIMenu):
                     """
                 class set_options(TUIMethod):
                     """
-                    Sets options for patching and smoothing volume fraction.
+                    No help available.
                     """
 
         class monitors(TUIMenu):
             """
-            Sets solution monitors.
+            Enter the monitors menu.
             """
             def __init__(self, service, version, mode, path):
                 self.convergence = self.__class__.convergence(service, version, mode, path + ["convergence"])
@@ -36375,7 +37458,7 @@ class main_menu(TUIMenu):
 
             class residual(TUIMenu):
                 """
-                Enters the residual monitors menu.
+                Enter the residual monitors menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.check_convergence = self.__class__.check_convergence(service, version, mode, path + ["check_convergence"])
@@ -36398,71 +37481,74 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class check_convergence(TUIMethod):
                     """
-                    Chooses which currently monitored residuals should be checked for convergence.
+                    Choose which currently-monitored residuals
+                    should be checked for convergence.
                     """
                 class convergence_criteria(TUIMethod):
                     """
-                    Sets convergence criteria for residuals that are currently being both monitored and checked.
+                    Set convergence criteria for residuals which are
+                    currently being both monitored and checked.
                     """
                 class criterion_type(TUIMethod):
                     """
-                    Sets convergence criterion type.
+                    No help available.
                     """
                 class enhanced_continuity_residual(TUIMethod):
                     """
-                    Enables/disables an enhanced formulation for the local scaling of the continuity residuals with the pressure-based solver, so that the absolute mass flow rate at each cell is used. This text command is only available when the computing of the local scale is enabled through the solve/monitors/residual/scale-by-coefficient? text command.
+                    No help available.
                     """
                 class monitor(TUIMethod):
                     """
-                    Chooses which residuals to monitor as printed and/or plotted output.
+                    Choose which residuals to monitor as printed and/or plotted output.
                     """
                 class n_display(TUIMethod):
                     """
-                    Sets the number of most recent residuals to display in plots.
+                    No help available.
                     """
                 class n_maximize_norms(TUIMethod):
                     """
-                    Sets the number of iterations through which normalization factors will be maximized.
+                    No help available.
                     """
                 class n_save(TUIMethod):
                     """
-                    Sets number of residuals to be saved with data. History is automatically compacted when buffer becomes full.
+                    No help available.
                     """
                 class normalization_factors(TUIMethod):
                     """
-                    Sets normalization factors for currently monitored residuals (if normalize? is set to yes).
+                    Set normalization factors for currently-monitored residuals.
                     """
                 class normalize(TUIMethod):
                     """
-                    Chooses whether to normalize residuals in printed and plotted output.
+                    No help available.
                     """
                 class plot(TUIMethod):
                     """
-                    Chooses whether residuals will be plotted during iteration.
+                    No help available.
                     """
                 class print(TUIMethod):
                     """
-                    Chooses whether residuals will be printed during iteration.
+                    No help available.
                     """
                 class re_normalize(TUIMethod):
                     """
-                    Re-normalize residuals by maximum values.
+                    Renormalize residuals by maximum values.
                     """
                 class relative_conv_criteria(TUIMethod):
                     """
-                    Sets relative convergence criteria for residuals that are currently being both monitored and checked.
+                    Set relative convergence criteria for residuals which are
+                    currently being both monitored and checked.
                     """
                 class reset(TUIMethod):
                     """
-                    Chooses whether to delete the residual history and reset iteration counter to 1.
+                    No help available.
                     """
                 class scale_by_coefficient(TUIMethod):
                     """
-                    Chooses whether to scale residuals by coefficient sum in printed and plotted output.
+                    Enable/disable scaling of residuals by coefficient sum in printed and plotted output.
                     """
                 class window(TUIMethod):
                     """
-                    Specifies window in which residuals will be plotted during iteration.
+                    Specify window in which residuals will be plotted during iteration.
                     """
 
             class statistic(TUIMenu):
@@ -36582,7 +37668,7 @@ class main_menu(TUIMenu):
 
         class report_definitions(TUIMenu):
             """
-            Enters the report definitions menu.
+            Manage report definitions.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -36610,36 +37696,36 @@ class main_menu(TUIMenu):
                 """
             class copy(TUIMethod):
                 """
-                Creates a copy of a report definition.
+                Makes a copy of selected report definition with new name.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a report definition.
+                Delete an object.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all of the report definition objects.
+                Delete all report definition objects.
                 """
             class edit(TUIMethod):
                 """
-                Edits a report definition.
+                Edit an object.
                 """
             class list(TUIMethod):
                 """
-                Lists all defined report definitions.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a report definition.
+                List properties of an object.
                 """
             class rename(TUIMethod):
                 """
-                Renames a report definition.
+                Rename selected report definition with new name.
                 """
 
         class report_files(TUIMenu):
             """
-            Enters the report files menu.
+            Manage report files.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -36652,36 +37738,36 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Creates a report file.
+                Add a new object.
                 """
             class clear_data(TUIMethod):
                 """
-                Clears the data associated with a report file.
+                Delete the report file from the system.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a report file object.
+                Delete an object.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all of the report file objects.
+                Delete all report file objects.
                 """
             class edit(TUIMethod):
                 """
-                Edits a report file.
+                Edit an object.
                 """
             class list(TUIMethod):
                 """
-                Lists all defined report files.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a report file.
+                List properties of an object.
                 """
 
         class report_plots(TUIMenu):
             """
-            Enters the report plots menu.
+            Manage report plots.
             """
             def __init__(self, service, version, mode, path):
                 self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -36698,31 +37784,31 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add(TUIMethod):
                 """
-                Creates a report plot.
+                Add a new object.
                 """
             class axes(TUIMethod):
                 """
-                Defines the axes for a report plot.
+                Set axes options of an object.
                 """
             class clear_data(TUIMethod):
                 """
-                Clears the data associated with a report plot.
+                Clear report plot data.
                 """
             class curves(TUIMethod):
                 """
-                Defines the curves for a report plot.
+                Set curves options of an object.
                 """
             class delete(TUIMethod):
                 """
-                Deletes a report plot object.
+                Delete an object.
                 """
             class delete_all(TUIMethod):
                 """
-                Deletes all of the report plot objects.
+                Delete all plot objects.
                 """
             class edit(TUIMethod):
                 """
-                Edits a report plot.
+                Edit an object.
                 """
             class get_window_id(TUIMethod):
                 """
@@ -36730,20 +37816,20 @@ class main_menu(TUIMenu):
                 """
             class list(TUIMethod):
                 """
-                Lists all defined report plots.
+                List objects.
                 """
             class list_properties(TUIMethod):
                 """
-                Lists the properties of a report plot.
+                List properties of an object.
                 """
             class plot(TUIMethod):
                 """
-                Plots the specified report plot.
+                Plot.
                 """
 
         class set(TUIMenu):
             """
-            Enters the set solution parameters menu.
+            Enter the set solution parameters menu.
             """
             def __init__(self, service, version, mode, path):
                 self.acoustics_wave_equation_controls = self.__class__.acoustics_wave_equation_controls(service, version, mode, path + ["acoustics_wave_equation_controls"])
@@ -36754,6 +37840,7 @@ class main_menu(TUIMenu):
                 self.data_sampling_options = self.__class__.data_sampling_options(service, version, mode, path + ["data_sampling_options"])
                 self.divergence_prevention = self.__class__.divergence_prevention(service, version, mode, path + ["divergence_prevention"])
                 self.fast_transient_settings = self.__class__.fast_transient_settings(service, version, mode, path + ["fast_transient_settings"])
+                self.gradient_options = self.__class__.gradient_options(service, version, mode, path + ["gradient_options"])
                 self.high_order_term_relaxation = self.__class__.high_order_term_relaxation(service, version, mode, path + ["high_order_term_relaxation"])
                 self.high_speed_numerics = self.__class__.high_speed_numerics(service, version, mode, path + ["high_speed_numerics"])
                 self.multiphase_numerics = self.__class__.multiphase_numerics(service, version, mode, path + ["multiphase_numerics"])
@@ -36841,7 +37928,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class accelerated_non_iterative_time_marching(TUIMethod):
                 """
-                Enables a modified NITA scheme and other setting changes that can speed up the simulation. This option is only available with the Large Eddy Simulation (LES) turbulence model, and is intended for unreacting flow simulations that use a constant-density fluid.
+                No help available.
                 """
             class adaptive_time_stepping(TUIMethod):
                 """
@@ -36849,7 +37936,7 @@ class main_menu(TUIMenu):
                 """
             class bc_pressure_extrapolations(TUIMethod):
                 """
-                Sets pressure extrapolations schemes on boundaries.
+                Setting pressure extrapolations schemes on boundaries.
                 """
             class cfl_based_adaptive_time_stepping(TUIMethod):
                 """
@@ -36857,11 +37944,11 @@ class main_menu(TUIMenu):
                 """
             class convergence_acceleration_for_stretched_meshes(TUIMethod):
                 """
-                Enables convergence acceleration for stretched meshes to improve the convergence of the implicit density based solver on meshes with high cell stretching.
+                Enable convergence acceleration for stretched meshes to improve the convergence of the implicit density based solver on meshes with high cell stretching.
                 """
             class correction_tolerance(TUIMethod):
                 """
-                Enters the correction tolerance menu.
+                Enter the correction tolerance menu.
                 """
             class coupled_vof_expert(TUIMethod):
                 """
@@ -36869,39 +37956,39 @@ class main_menu(TUIMenu):
                 """
             class courant_number(TUIMethod):
                 """
-                Sets the fine-grid Courant number (time step factor). This command is available only for the coupled solvers.
+                No help available.
                 """
             class data_sampling(TUIMethod):
                 """
-                Enables data sampling for steady or unsteady flow statistics.
+                Set iteration options.
                 """
             class disable_reconstruction(TUIMethod):
                 """
-                Completely disables reconstruction, resulting in totally first-order accuracy.
+                Enable/Disable reconstruction. When disabled, accuracy will be first-order.
                 """
             class discretization_scheme(TUIMethod):
                 """
-                Enters the discretization scheme menu. This allows you to select the discretization scheme for the convection terms in the solution equations. The following text commands can make a selection from a subset of the models in the following table:.
+                Enter the discretization-scheme menu.
                 """
             class enable_output_dp_dt(TUIMethod):
                 """
-                Controls whether the output field variabledp-dt will be available for transient simulation postprocessing. If you select no, pressure fields at the previous time steps will not be stored in memory which reduces memory usage.
+                Enable postprocessing of pressure time derivative. Requires storage of pressure from the previous timesteps.
                 """
             class equation_ordering(TUIMethod):
                 """
-                Sets the order in which the model equations are solved, which can affect the convergence speed when you are using the pressure-based solver. The standard method is enabled by default and corresponds to the ordering shown in  and  in the Theory Guide; alternatively, you can select theoptimized-for-volumetric-expansion method, which is recommended for flows in which the density is strongly dependent on thermal effects, chemical composition, and so on (such as combustion simulations). This text command is not available for steady simulations and/or when a multiphase model is enabled.
+                Set the equation order.
                 """
             class equations(TUIMethod):
                 """
-                Selects the equations to be solved.
+                Enter the equations menu.
                 """
             class expert(TUIMethod):
                 """
-                Sets expert options.
+                Set expert options.
                 """
             class flow_warnings(TUIMethod):
                 """
-                Specifies whether or not to print warning messages when reversed flow occurs at inlets and outlets, and when mass-flow inlets develop supersonic regions. By default, flow warnings are printed.
+                Control the display of warning diagnostics for boundaries with reversed flow, etc.
                 """
             class flux_type(TUIMethod):
                 """
@@ -36909,23 +37996,23 @@ class main_menu(TUIMenu):
                 """
             class gradient_scheme(TUIMethod):
                 """
-                Sets gradient options.
+                Set gradient options.
                 """
             class heterogeneous_stiff_chemistry(TUIMethod):
                 """
-                Sets the heterogeneous stiff-chemistry solver.
+                Set heterogeneous stiff-chemistry solver.
                 """
             class limiter_warnings(TUIMethod):
                 """
-                Specifies whether or not to print warning messages when quantities are being limited. By default, limiter warnings are printed.
+                Control the display of limiter warning diagnostics.
                 """
             class limits(TUIMethod):
                 """
-                Sets solver limits for various solution variables, in order to improve the stability of the solution.
+                No help available.
                 """
             class lock_solid_temperature(TUIMethod):
                 """
-                Specifies whether you want to lock (or “freeze”) the temperature values for all the cells in solid zones (including those to which you have a hooked an energy source through a UDF) and in walls that have shell conduction enabled, so that the values do not change during further solver iterations.
+                Lock the temperature for all solid and shell cell zones in the domain.
                 """
             class material_property_warnings(TUIMethod):
                 """
@@ -36936,7 +38023,7 @@ class main_menu(TUIMenu):
                 """
             class max_corrections(TUIMethod):
                 """
-                Enters the max-corrections menu.
+                Enter the max-corrections menu.
                 """
             class moving_mesh_numerics(TUIMethod):
                 """
@@ -36944,36 +38031,31 @@ class main_menu(TUIMenu):
                 """
             class mp_mfluid_aniso_drag(TUIMethod):
                 """
-                Sets anisotropic drag parameters for the Eulerian multiphase model.
+                Set anisotropic drag parameters for Eulerian multiphase.
                 """
             class mp_reference_density(TUIMethod):
                 """
-                Sets the reference density method for the Eulerian multiphase model. The following options are available:
-                0 (default): Averaged density of the phase
-                1: Cell density of the phase
-                1: Constant value of 1
-                1: Cell density of the phase
-                See  for more information.
+                Set reference density option for Eulerian multiphase.
                 """
             class multi_grid_amg(TUIMethod):
                 """
-                Sets the parameters that govern the algebraic multigrid procedure.
+                Set the parameters that govern the algebraic multigrid procedure.
                 """
             class multi_grid_controls(TUIMethod):
                 """
-                Sets multigrid parameters and termination criteria.
+                Enter the multi-grid-controls menu.
                 """
             class multi_grid_fas(TUIMethod):
                 """
-                Sets the parameters that control the FAS multigrid solver. This command appears only when the explicit coupled solver is used.
+                Set the coefficients that govern the FAS multigrid procedure.
                 """
             class multi_stage(TUIMethod):
                 """
-                Sets the multi-stage coefficients and the dissipation and viscous evaluation stages. This command appears only when the explicit coupled solver is used.
+                Set the multiple-stage time stepping scheme coefficients.
                 """
             class nb_gradient_boundary_option(TUIMethod):
                 """
-                Switches between the modified treatment of node-based gradients at boundary cells and the legacy treatment (R14.5.7 and earlier). If using the density-based solver, you can also specify the extended treatment. For details, see .
+                Set ggnb options.
                 """
             class nb_gradient_improved_symmetry_periodic(TUIMethod):
                 """
@@ -36981,33 +38063,23 @@ class main_menu(TUIMenu):
                 """
             class number_of_iterations(TUIMethod):
                 """
-                Sets the number of iterations for a steady-state simulation without starting the calculation.
+                No help available.
                 """
             class numerical_beach_controls(TUIMethod):
                 """
-                Sets damping function in flow direction. This command appears only when the VOF model is enabled. Select the damping function to be used:
-                Index
-                Damping Function
-                0
-                Linear
-                1
-                Quadratic
-                2
-                Cubic
-                3
-                Cosine.
+                Set damping function in flow direction.
                 """
             class numerics(TUIMethod):
                 """
-                Sets numerics options.
+                Set numeric options.
                 """
             class open_channel_controls(TUIMethod):
                 """
-                For flows that do not transition from sub-critical to super-critical, or vice-versa, you can speed-up the solution calculation by updating the frequency of Froude number during run time.
+                Set additional open channel controls.
                 """
             class p_v_controls(TUIMethod):
                 """
-                Sets pressure-velocity controls.
+                Set the pressure velocity coupling controls.
                 """
             class p_v_controls_advanced(TUIMethod):
                 """
@@ -37015,11 +38087,11 @@ class main_menu(TUIMenu):
                 """
             class p_v_coupling(TUIMethod):
                 """
-                Selects which pressure-velocity coupling scheme is to be used. Five schemes are available:.
+                Select the pressure velocity coupling scheme.
                 """
             class phase_based_vof_discretization(TUIMethod):
                 """
-                Sets phase based slope limiter for VOF compressive scheme.
+                Set phase based slope limiter for VOF compressive scheme.
                 """
             class pseudo_relaxation_factor(TUIMethod):
                 """
@@ -37035,7 +38107,7 @@ class main_menu(TUIMenu):
                 """
             class reactions(TUIMethod):
                 """
-                Enables the species reaction sources and sets relaxation factor.
+                No help available.
                 """
             class reduced_rank_extrapolation(TUIMethod):
                 """
@@ -37047,39 +38119,39 @@ class main_menu(TUIMenu):
                 """
             class relaxation_factor(TUIMethod):
                 """
-                Enters the relaxation-factor menu.
+                Enter the relaxation-factor menu.
                 """
             class relaxation_method(TUIMethod):
                 """
-                Sets the solver relaxation method.
+                No help available.
                 """
             class reporting_interval(TUIMethod):
                 """
-                Sets the number of iterations for which convergence monitors are reported. The default is 1 (after every iteration).
+                No help available.
                 """
             class residual_smoothing(TUIMethod):
                 """
-                Sets the implicit residual smoothing parameters. This command is available only for the explicit coupled solver.
+                No help available.
                 """
             class residual_tolerance(TUIMethod):
                 """
-                Enters the residual tolerance menu.
+                Enter the residual tolerance menu.
                 """
             class residual_verbosity(TUIMethod):
                 """
-                Sets the amount of residual information to be printed. A value of 0 (the default) prints residuals at the end of each fine grid iteration. A value of 1 prints residuals after every stage of the fine grid iteration. A value of 2 prints residuals after every stage on every grid level.
+                No help available.
                 """
             class second_order_time_options(TUIMethod):
                 """
-                Enables / disables the variable time step size formulation for second-order implicit transient formulations. If you disable the variable time step size formulation, note that any change in the time step size will introduce an error proportional to the change in the time step size ratio.
+                Set options for second-order time formulation.
                 """
             class set_all_species_together(TUIMethod):
                 """
-                Sets all species discretizations and URFs together.
+                Set all species discretizations and URFs together.
                 """
             class set_controls_to_default(TUIMethod):
                 """
-                Sets controls to default values.
+                Set controls to default values.
                 """
             class set_optimized_les_numerics(TUIMethod):
                 """
@@ -37087,27 +38159,27 @@ class main_menu(TUIMenu):
                 """
             class set_solution_methods_to_default(TUIMethod):
                 """
-                Sets the solution methods to the default settings.
+                Set solution methods to default values.
                 """
             class set_solution_steering(TUIMethod):
                 """
-                Sets solution steering parameters.
+                Set Solution Steering Parameters.
                 """
             class slope_limiter_set(TUIMethod):
                 """
-                Selects a new Fluent solver slope limiter.
+                Enter the slope limiter set menu.
                 """
             class solution_steering(TUIMethod):
                 """
-                Enables solution steering for the density-based solver.
+                Enable solution steering for density-based solver.
                 """
             class stiff_chemistry(TUIMethod):
                 """
-                Sets solver options for stiff chemistry solutions.
+                Set solver options for stiff-chemistry solutions.
                 """
             class surface_tension(TUIMethod):
                 """
-                Sets surface-tension calculation options.
+                Set surface-tension calculation options.
                 """
             class surface_tension_expert(TUIMethod):
                 """
@@ -37119,7 +38191,7 @@ class main_menu(TUIMenu):
                 """
             class under_relaxation(TUIMethod):
                 """
-                Enters the under-relaxation menu, which allows you to set the under-relaxation factor for each equation that is being solved in a segregated manner.
+                Enter the under-relaxation menu.
                 """
             class variable_time_stepping(TUIMethod):
                 """
@@ -37127,16 +38199,16 @@ class main_menu(TUIMenu):
                 """
             class vof_explicit_controls(TUIMethod):
                 """
-                Sets the sub time step calculation method for VOF calculations.
+                Set Explicit VOF controls.
                 """
             class vof_numerics(TUIMethod):
                 """
-                Sets VOF numeric options.
+                No help available.
                 """
 
             class acoustics_wave_equation_controls(TUIMenu):
                 """
-                Enters the menu to specify parameters of the acoustics wave equation solver.
+                Enter menu for acoustics wave equation solver controls.
                 """
                 def __init__(self, service, version, mode, path):
                     self.expert = self.__class__.expert(service, version, mode, path + ["expert"])
@@ -37154,7 +38226,7 @@ class main_menu(TUIMenu):
 
                 class expert(TUIMenu):
                     """
-                    Enters the menu to specify the expert parameters.
+                    Enter menu for expert controls.
                     """
                     def __init__(self, service, version, mode, path):
                         self.explicit_relaxation_factor = self.__class__.explicit_relaxation_factor(service, version, mode, path + ["explicit_relaxation_factor"])
@@ -37162,16 +38234,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class explicit_relaxation_factor(TUIMethod):
                         """
-                        Specifies the explicit relaxation factor. Should be used only with  bad meshes, when iterations do not converge.
+                        No help available.
                         """
                     class under_relaxation_factor(TUIMethod):
                         """
-                        Specifies the implicit under-relaxation factor. Should be used only  with bad meshes, when the AMG linear solver does not converge.
+                        No help available.
                         """
 
             class advanced(TUIMenu):
                 """
-                Enters the advanced settings menu.
+                Enter the advanced settings menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.alternative_solver_defaults = self.__class__.alternative_solver_defaults(service, version, mode, path + ["alternative_solver_defaults"])
@@ -37205,7 +38277,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class alternate_wall_temp_formulation(TUIMethod):
                     """
-                    Enables/disables an alternate formulation for wall temperatures.
+                    Alternate formulation for wall temperatures?.
                     """
                 class alternative_wall_discretization(TUIMethod):
                     """
@@ -37217,7 +38289,7 @@ class main_menu(TUIMenu):
                     """
                 class bcd_boundedness(TUIMethod):
                     """
-                    Specifies the BCD scheme parameter, which controls the boundedness strength of the BCD scheme in the pressure-based solver, as described in .
+                    No help available.
                     """
                 class bcd_scheme_type(TUIMethod):
                     """
@@ -37225,15 +38297,18 @@ class main_menu(TUIMenu):
                     """
                 class bcd_weights_freeze(TUIMethod):
                     """
-                    Enables/disables freezing of weighting coefficients of the central differencing and the upwind components of the BCD scheme. This dialog command requires the iteration number, after which the BCD scheme weights are to be frozen at each timestep. Freezing the BCD weighting coefficients may help to improve convergence of the timestep iterations as described in .
+                    At each timestep, freeze BCD scheme weights after specified iteration
+                    in order to improve timestep convergence.
                     """
                 class correction_form(TUIMethod):
                     """
-                    S.
+                    Discretize momentum equations in correction form for the pressure-based solver.
                     """
                 class energy_numerical_noise_filter(TUIMethod):
                     """
-                    Enables/disables a filter to eliminate non-physical numerical noise in the energy field. Numerical noise can appear in solution fields where large variations in specific heat or combustion with phase change are present. Using the energy equation numerical noise filter increases robustness, but may make the solution slightly more diffusive. This text command is only available with the pressure-based solver.
+                    The energy equation numerical noise filter can be enabled to eliminate non-physical numerical noise in the energy field.
+                    The numerical noise can appear in solution fields where large variations in specific heat or combustion with phase change are present.
+                    Using the energy equation numerical noise filter increases robustness, but may make the solution slightly more diffusive.
                     """
                 class energy_reconstruction_gradient_limiting(TUIMethod):
                     """
@@ -37249,7 +38324,7 @@ class main_menu(TUIMenu):
                     """
                 class linearized_mass_transfer_udf(TUIMethod):
                     """
-                    Enables/disables the use of a linearized mass transfer user-defined function (that is, the DEFINE_LINEARIZED_MASS_TRANSFER macro), as opposed to a mass transfer user-defined function (that is, the DEFINE_MASS_TRANSFER macro).
+                    Use linearized mass transfer UDFs?.
                     """
                 class nci_secondary_gradient_correction(TUIMethod):
                     """
@@ -37257,19 +38332,19 @@ class main_menu(TUIMenu):
                     """
                 class retain_cell_residuals(TUIMethod):
                     """
-                    Enables/disables the retention of cell residuals for postprocessing.
+                    Retain cell residuals for postprocessing?.
                     """
                 class retain_temporary_solver_mem(TUIMethod):
                     """
-                    Enables/disables the retention of temporary solver memory, which retains gradient data and makes some advanced options available for postprocessing.
+                    Retain temporary solver memory?.
                     """
                 class show_all_discretization_schemes(TUIMethod):
                     """
-                    Enables/disables the availability of all applicable discretization schemes.
+                    Allow selection of all applicable discretization schemes?.
                     """
                 class singhal_et_al_cavitation_model(TUIMethod):
                     """
-                    Enables/disables the availability of the Singhal et al. cavitation model option, which can then be enabled in the Multiphase Model dialog box or by using the following text command: define/phases/set-domain-properties/interaction-domain/heat-mass-reaction/cavitation/cavitation?.
+                    Use Singhal-et-al cavitation model?.
                     """
                 class skewness_correction_enhanced(TUIMethod):
                     """
@@ -37380,7 +38455,7 @@ class main_menu(TUIMenu):
 
                 class secondary_gradient_limiting(TUIMenu):
                     """
-                    Enters the secondary gradient limiting menu. This menu is only available when the define/models/solver/pressure-based text command is enabled.
+                    Enter the Secondary Gradient Limiting Menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.energy = self.__class__.energy(service, version, mode, path + ["energy"])
@@ -37389,15 +38464,15 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class energy(TUIMethod):
                         """
-                        Enables/disables secondary gradient limiting for the energy  calculations on coupled two-sided walls. This limiting can help prevent  divergence when the cells on such walls have poor orthogonality.
+                        Enable/disable secondary gradient limiting at coupled walls for energy equation.
                         """
                     class mesh_quality_limits(TUIMethod):
                         """
-                        Defines the mesh quality limits used when applying secondary  gradient limiting to faces on coupled two-sided walls. Shifting this  range closer to 1 will decrease the risk of divergence, but at the cost  of accuracy.
+                        Specify minimum and maximum mesh quality limits.
                         """
                     class uds(TUIMethod):
                         """
-                        Enables/disables secondary gradient limiting for the user-defined  scalar (UDS) calculations on coupled two-sided walls. This limiting can  help prevent divergence when the cells on such walls have poor  orthogonality.
+                        Enable/disable secondary gradient limiting at coupled walls for user-defined scalars.
                         """
 
                 class turbomachinery_specific_numerics(TUIMenu):
@@ -37432,7 +38507,7 @@ class main_menu(TUIMenu):
 
             class amg_options(TUIMenu):
                 """
-                Enters the AMG options menu.
+                Enter AMG options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.aggressive_amg_coarsening = self.__class__.aggressive_amg_coarsening(service, version, mode, path + ["aggressive_amg_coarsening"])
@@ -37442,7 +38517,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class aggressive_amg_coarsening(TUIMethod):
                     """
-                    Enables / disables the use of a version of the AMG solver that is optimized for high coarsening rates. This option is recommended if the AMG solver diverges with the default settings.
+                    Use aggressive AMG coarsening.
                     """
                 class amg_gpgpu_options(TUIMethod):
                     """
@@ -37450,11 +38525,11 @@ class main_menu(TUIMenu):
                     """
                 class conservative_amg_coarsening(TUIMethod):
                     """
-                    Enables / disables the use of conservative coarsening techniques for scalar and/or coupled equations that can improve parallel performance and/or convergence for some difficult cases.
+                    Use conservative AMG coarsening?.
                     """
                 class laplace_coarsening(TUIMethod):
                     """
-                    Enables / disables Laplace coarsening for scalar and/or coupled equations.
+                    Set AMG laplace coarsening options.
                     """
 
             class axisymmetric(TUIMenu):
@@ -37462,8 +38537,13 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.alternative_axisymmetric_formulation = self.__class__.alternative_axisymmetric_formulation(service, version, mode, path + ["alternative_axisymmetric_formulation"])
                     self.axis_stabilization = self.__class__.axis_stabilization(service, version, mode, path + ["axis_stabilization"])
                     super().__init__(service, version, mode, path)
+                class alternative_axisymmetric_formulation(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class axis_stabilization(TUIMethod):
                     """
                     No help available.
@@ -37728,7 +38808,7 @@ class main_menu(TUIMenu):
 
             class data_sampling_options(TUIMenu):
                 """
-                Enter the menu for specifying quantities and zones for steady and unsteady flow statistics.
+                Data sampling options for statistics.
                 """
                 def __init__(self, service, version, mode, path):
                     self.dft_datasets = self.__class__.dft_datasets(service, version, mode, path + ["dft_datasets"])
@@ -37742,7 +38822,7 @@ class main_menu(TUIMenu):
                     """
                 class list_datasets(TUIMethod):
                     """
-                    Lists the combinations of zones and quantities that are defined for sampling steady and unsteady flow statistics.
+                    No help available.
                     """
                 class remove_dataset(TUIMethod):
                     """
@@ -37798,19 +38878,19 @@ class main_menu(TUIMenu):
 
             class divergence_prevention(TUIMenu):
                 """
-                Enters the divergence prevention menu. This menu is only available for the density-based solver.
+                Enter the divergence prevention menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables a divergence prevention option so that Fluent applies under-relaxation to the variables in select cells where the temperature and/or pressure values are approaching the minimum and/or maximum limits.
+                    Enable divergence prevention.
                     """
 
             class fast_transient_settings(TUIMenu):
                 """
-                Enters the fast transient settings menu. This menu is only available for transient cases that use the density-based solver.
+                Enter the fast transient settings menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.rk2 = self.__class__.rk2(service, version, mode, path + ["rk2"])
@@ -37818,12 +38898,75 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class rk2(TUIMethod):
                     """
-                    Allows you to enable the use of a two-stage Runge-Kutta scheme for time integration, or revert to the default multi-stage Runge-Kutta scheme. This text command is only available for transient cases that use the density-based explicit formulation.
+                    No help available.
                     """
                 class update_stage_gradients(TUIMethod):
                     """
                     No help available.
                     """
+
+            class gradient_options(TUIMenu):
+                """
+                Enter the gradient scheme expert options menu.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.green_gauss_node_based = self.__class__.green_gauss_node_based(service, version, mode, path + ["green_gauss_node_based"])
+                    self.least_squares = self.__class__.least_squares(service, version, mode, path + ["least_squares"])
+                    self.pressure_reconstruction_type = self.__class__.pressure_reconstruction_type(service, version, mode, path + ["pressure_reconstruction_type"])
+                    super().__init__(service, version, mode, path)
+                class pressure_reconstruction_type(TUIMethod):
+                    """
+                    Use generic reconstruction gradient for second order pressure scheme?.
+                    """
+
+                class green_gauss_node_based(TUIMenu):
+                    """
+                    Enter Green-Gauss Node Based options menu.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.alternative_default_settings = self.__class__.alternative_default_settings(service, version, mode, path + ["alternative_default_settings"])
+                        self.alternative_weights_at_boundary = self.__class__.alternative_weights_at_boundary(service, version, mode, path + ["alternative_weights_at_boundary"])
+                        self.boundary_treatment_location = self.__class__.boundary_treatment_location(service, version, mode, path + ["boundary_treatment_location"])
+                        self.least_squares_node_weights = self.__class__.least_squares_node_weights(service, version, mode, path + ["least_squares_node_weights"])
+                        self.use_inverse_distance_for_clipped_nodes = self.__class__.use_inverse_distance_for_clipped_nodes(service, version, mode, path + ["use_inverse_distance_for_clipped_nodes"])
+                        self.weight_treatment_at_sliding_boundary = self.__class__.weight_treatment_at_sliding_boundary(service, version, mode, path + ["weight_treatment_at_sliding_boundary"])
+                        super().__init__(service, version, mode, path)
+                    class alternative_default_settings(TUIMethod):
+                        """
+                        Enable alternative GGNB defaults for PBNS.
+                        """
+                    class alternative_weights_at_boundary(TUIMethod):
+                        """
+                        Enable alternative method for GGNB gradient weights for boundary.
+                        """
+                    class boundary_treatment_location(TUIMethod):
+                        """
+                        Specify locations where modified boundary treatment with Node Based gradient scheme is active.
+                        """
+                    class least_squares_node_weights(TUIMethod):
+                        """
+                        Enable alternative method for GGNB gradient weights.
+                        """
+                    class use_inverse_distance_for_clipped_nodes(TUIMethod):
+                        """
+                        Enable nodal weights clipping at sliding boundaries.
+                        """
+                    class weight_treatment_at_sliding_boundary(TUIMethod):
+                        """
+                        Enable node interpolation weights clipping at sliding boundaries.
+                        """
+
+                class least_squares(TUIMenu):
+                    """
+                    Enter Least-Squares Cell Based options menu.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.weighting_factor = self.__class__.weighting_factor(service, version, mode, path + ["weighting_factor"])
+                        super().__init__(service, version, mode, path)
+                    class weighting_factor(TUIMethod):
+                        """
+                        Enter the weighting factor for the Least Squares Cell Based gradient scheme.
+                        """
 
             class high_order_term_relaxation(TUIMenu):
                 """
@@ -37835,7 +38978,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables/disables High Order Term Relaxation.
+                    No help available.
                     """
 
                 class options(TUIMenu):
@@ -37849,7 +38992,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class relaxation_factor(TUIMethod):
                         """
-                        Sets the relaxation factor.
+                        No help available.
                         """
                     class type(TUIMethod):
                         """
@@ -37858,7 +39001,7 @@ class main_menu(TUIMenu):
 
                     class variables(TUIMenu):
                         """
-                        Selects the variables.
+                        Select Variables.
                         """
                         def __init__(self, service, version, mode, path):
                             self.select = self.__class__.select(service, version, mode, path + ["select"])
@@ -37880,11 +39023,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables/disables High Speed Numerics.
+                    No help available.
                     """
                 class expert(TUIMethod):
                     """
-                    Sets the level of stabilization used to achieve fast convergence. Enter a number 0-5 corresponding to the Mach number range that best characterizes the flow.
+                    Expert high-speed-numerics.
                     """
                 class robust_fluxes(TUIMethod):
                     """
@@ -37892,12 +39035,12 @@ class main_menu(TUIMenu):
                     """
                 class visualize_pressure_discontinuity_sensor(TUIMethod):
                     """
-                    Makes available the Pressure Discontinuity Sensor which is a binary identifier equal to 1 if a cell is in proximity of a pressure discontinuity.
+                    No help available.
                     """
 
             class multiphase_numerics(TUIMenu):
                 """
-                Sets multiphase numerics options.
+                Enter the multiphase numerics options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.advanced_stability_controls = self.__class__.advanced_stability_controls(service, version, mode, path + ["advanced_stability_controls"])
@@ -37920,7 +39063,7 @@ class main_menu(TUIMenu):
 
                 class advanced_stability_controls(TUIMenu):
                     """
-                    Enters the menu for the stability controls for multiphase flows. For more information about the below option, see  and .
+                    Stability controls for multiphase flow.
                     """
                     def __init__(self, service, version, mode, path):
                         self.anti_diffusion = self.__class__.anti_diffusion(service, version, mode, path + ["anti_diffusion"])
@@ -37935,7 +39078,7 @@ class main_menu(TUIMenu):
 
                     class anti_diffusion(TUIMenu):
                         """
-                        Enters the anti-diffusion menu. This item is available for VOF cases  with the Interfacial Anti-Diffusion option  enabled.
+                        Anti Diffusion Menu for VOF/Multi-Fluid VOF Models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.enable_dynamic_strength = self.__class__.enable_dynamic_strength(service, version, mode, path + ["enable_dynamic_strength"])
@@ -37944,20 +39087,20 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class enable_dynamic_strength(TUIMethod):
                             """
-                            Enables dynamic strength to reduce compression in the direction tangential to the interface.
+                            No help available.
                             """
                         class set_dynamic_strength_exponent(TUIMethod):
                             """
-                            Sets the cosine exponent in the dynamic strength treatment in ).
+                            No help available.
                             """
                         class set_maximum_dynamic_strength(TUIMethod):
                             """
-                            Sets the maximum value of dynamic anti-diffusion strength in ).
+                            No help available.
                             """
 
                     class equation_order(TUIMenu):
                         """
-                        Enters the equation order menu for homogeneous multiphase flow  models.
+                        Equation Order Menu for Homogeneous Multiphase Flow Models.
                         """
                         def __init__(self, service, version, mode, path):
                             self.solve_exp_vof_at_end = self.__class__.solve_exp_vof_at_end(service, version, mode, path + ["solve_exp_vof_at_end"])
@@ -37969,12 +39112,12 @@ class main_menu(TUIMenu):
                             """
                         class solve_flow_last(TUIMethod):
                             """
-                            When enabled, solves the flow equation at the end of the iteration. This improves the behavior at the start of new time-step if the solution does not converge properly.
+                            No help available.
                             """
 
                     class hybrid_nita(TUIMenu):
                         """
-                        Enters the equation order menu for homogeneous multiphase flow  models.
+                        Hybrid NITA stability controls for multiphase flow.
                         """
                         def __init__(self, service, version, mode, path):
                             self.instability_detector = self.__class__.instability_detector(service, version, mode, path + ["instability_detector"])
@@ -37983,16 +39126,16 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class initial_outer_iterations(TUIMethod):
                             """
-                            Allows you to change the number of initial time-steps and the number of initial outer iterations to control solution stability.
+                            No help available.
                             """
                         class outer_iterations(TUIMethod):
                             """
-                            Sets the number of outer iterations.
+                            No help available.
                             """
 
                         class instability_detector(TUIMenu):
                             """
-                            Enters the menu for the instability detector controls.
+                            Set Hybrid NITA instability detector controls.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.enable_instability_detector = self.__class__.enable_instability_detector(service, version, mode, path + ["enable_instability_detector"])
@@ -38003,23 +39146,23 @@ class main_menu(TUIMenu):
                                 super().__init__(service, version, mode, path)
                             class enable_instability_detector(TUIMethod):
                                 """
-                                Enables/disables the instability detector to deal with  possible instability problems. Once this option is enabled,  additional instability detection options become  available.
+                                No help available.
                                 """
                             class set_cfl_limit(TUIMethod):
                                 """
-                                Sets the Courant number limit for detecting unstable  events. This command becomes available once the enable-instability-detector? text  option has been enabled.
+                                No help available.
                                 """
                             class set_cfl_type(TUIMethod):
                                 """
-                                Selects the CFL number type for detection of an unstable  event. This command becomes available once the enable-instability-detector? text  option has been enabled.
+                                Set Courant Number type for detection of unstable event.
                                 """
                             class set_velocity_limit(TUIMethod):
                                 """
-                                Sets the velocity limit for detecting unstable events.  This command becomes available once the enable-instability-detector? text  option has been enabled.
+                                No help available.
                                 """
                             class unstable_event_outer_iterations(TUIMethod):
                                 """
-                                Sets the number of outer iterations for an unstable  event.
+                                No help available.
                                 """
 
                     class num_ventilation(TUIMenu):
@@ -38056,7 +39199,7 @@ class main_menu(TUIMenu):
 
                     class p_v_coupling(TUIMenu):
                         """
-                        Enters the menu for the pressure-velocity coupling controls.
+                        Pressure velocity coupling controls for multiphase flow.
                         """
                         def __init__(self, service, version, mode, path):
                             self.coupled_vof = self.__class__.coupled_vof(service, version, mode, path + ["coupled_vof"])
@@ -38067,50 +39210,50 @@ class main_menu(TUIMenu):
 
                         class coupled_vof(TUIMenu):
                             """
-                            Enters the stability control menu for VOF cases that involve the Coupled pressure-velocity coupling scheme.
+                            Set Coupled VOF stability controls.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.buoyancy_force_linearization = self.__class__.buoyancy_force_linearization(service, version, mode, path + ["buoyancy_force_linearization"])
                                 super().__init__(service, version, mode, path)
                             class buoyancy_force_linearization(TUIMethod):
                                 """
-                                Allows you to use the linearized buoyancy force and the  blended treatment for the buoyancy force.
+                                No help available.
                                 """
 
                         class pressure_interpolation(TUIMenu):
                             """
-                            Enters the pressure interpolation menu.
+                            Set Pressure Interpolation related stability controls.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.modified_bfw_scheme = self.__class__.modified_bfw_scheme(service, version, mode, path + ["modified_bfw_scheme"])
                                 super().__init__(service, version, mode, path)
                             class modified_bfw_scheme(TUIMethod):
                                 """
-                                Enables/disables the modified body force weighted  interpolation scheme. See  for more information about  this option.
+                                Use modified body force weighted pressure interpolation for better stability.
                                 """
 
                         class rhie_chow_flux(TUIMenu):
                             """
-                            Enters the stability controls menu for the Rhie-Chow interpolation.
+                            Set Rhie-Chow related stability controls.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.low_order_rhie_chow = self.__class__.low_order_rhie_chow(service, version, mode, path + ["low_order_rhie_chow"])
                                 super().__init__(service, version, mode, path)
                             class low_order_rhie_chow(TUIMethod):
                                 """
-                                Enables/disables the low-order velocity interpolation in  the flux calculation.
+                                No help available.
                                 """
 
                         class skewness_correction(TUIMenu):
                             """
-                            Enters the skewness correction menu.
+                            Skewness correction related stabiity controls for multiphase flow.
                             """
                             def __init__(self, service, version, mode, path):
                                 self.limit_pressure_correction_gradient = self.__class__.limit_pressure_correction_gradient(service, version, mode, path + ["limit_pressure_correction_gradient"])
                                 super().__init__(service, version, mode, path)
                             class limit_pressure_correction_gradient(TUIMethod):
                                 """
-                                Enables/disables the limited pressure correction  gradient in skewness terms for the PISO, SIMPLEC, or  fractional step pressure-coupling schemes.
+                                No help available.
                                 """
 
                     class pseudo_time(TUIMenu):
@@ -38170,7 +39313,7 @@ class main_menu(TUIMenu):
 
                     class pseudo_transient(TUIMenu):
                         """
-                        Enters the stability control menu for  steady-state multiphase cases with the pseudo time method option  enabled.
+                        Pseudo-Time stability controls for multiphase flow.
                         """
                         def __init__(self, service, version, mode, path):
                             self.auto_dt_advanced_controls = self.__class__.auto_dt_advanced_controls(service, version, mode, path + ["auto_dt_advanced_controls"])
@@ -38179,11 +39322,11 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class false_time_step_linearization(TUIMethod):
                             """
-                            When enabled, provides additional stability for buoyancy-driven flows with the pseudo time method option enabled by increasing the diagonal dominance using the false time step size.
+                            No help available.
                             """
                         class smoothed_density_stabilization_method(TUIMethod):
                             """
-                            Smooths the cell density near the interface, therefore avoiding unphysical acceleration of the lighter phase in the vicinity of interface. The default number of density smoothings is 2. In case of very large unphysical velocities across the interface, you can increase this number when prompted with Number of density smoothings.
+                            No help available.
                             """
 
                         class auto_dt_advanced_controls(TUIMenu):
@@ -38262,7 +39405,7 @@ class main_menu(TUIMenu):
 
                 class boiling_parameters(TUIMenu):
                     """
-                    Enters the menu for the multiphase boiling model parameters.
+                    Multiphase boiling parameters menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.liquid_vof_factor = self.__class__.liquid_vof_factor(service, version, mode, path + ["liquid_vof_factor"])
@@ -38270,16 +39413,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class liquid_vof_factor(TUIMethod):
                         """
-                        When enabled, considers liquid volume fraction effects by multiplying the heat transfer coefficients by the local liquid volume fraction.
+                        No help available.
                         """
                     class thin_film(TUIMethod):
                         """
-                        When enabled, includes multiphase boiling thin film effects using .
+                        No help available.
                         """
 
                 class compressible_flow(TUIMenu):
                     """
-                    Enters the compressible multiphase flow numerics menu.
+                    Multiphase compressible numerics options menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.alternate_bc_formulation = self.__class__.alternate_bc_formulation(service, version, mode, path + ["alternate_bc_formulation"])
@@ -38287,16 +39430,16 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class alternate_bc_formulation(TUIMethod):
                         """
-                        Enables an alternative formulation for compressible phases at an  inlet boundary. This formulation calculates static temperature and  pressure using an iterative method based on fundamental thermodynamic  relations.
+                        No help available.
                         """
                     class enhanced_numerics(TUIMethod):
                         """
-                        Enables an enhanced numerical treatment that provides better  stability at startup and during calculation of compressible  flows.
+                        No help available.
                         """
 
                 class default_controls(TUIMenu):
                     """
-                    Enters the default controls menu. This menu is available only for multiphase flows.
+                    Multiphase default controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.recommended_defaults_for_existing_cases = self.__class__.recommended_defaults_for_existing_cases(service, version, mode, path + ["recommended_defaults_for_existing_cases"])
@@ -38304,7 +39447,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class recommended_defaults_for_existing_cases(TUIMethod):
                         """
-                        Applies the multiphase defaults (version 2020 R1) to the loaded case  file.
+                        No help available.
                         """
                     class revert_to_pre_r20_point_1_default_settings(TUIMethod):
                         """
@@ -38337,7 +39480,7 @@ class main_menu(TUIMenu):
 
                 class heat_mass_transfer(TUIMenu):
                     """
-                    Enters the menu for the multiphase heat mass transfer parameters.
+                    Multiphase interphase heat and mass transfer numerics options menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.area_density = self.__class__.area_density(service, version, mode, path + ["area_density"])
@@ -38348,12 +39491,12 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class alternative_energy_treatment(TUIMethod):
                         """
-                        Enables the alternative treatment of the energy sources. For more  information, see .
+                        No help available.
                         """
 
                     class area_density(TUIMenu):
                         """
-                        Enters the menu for the area density.
+                        Interfacial area density menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.ia_grad_sym = self.__class__.ia_grad_sym(service, version, mode, path + ["ia_grad_sym"])
@@ -38361,16 +39504,16 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class ia_grad_sym(TUIMethod):
                             """
-                            Enables/disables the interfacial area density Gradient-Symmetric model. For more information about this model, see .
+                            No help available.
                             """
                         class vof_min_seeding(TUIMethod):
                             """
-                            Sets the minimum volume fraction for the area density and cavitation. This may be useful, for example, in cases when a species mass transfer model (such as the Symmetric model or Particle model) do not consider evaporation or condensation if the volume fraction of one of the phases is zero. The seeding allows for a phase change to occur in the fluid flow. The default value is 1e-6.
+                            No help available.
                             """
 
                     class boiling(TUIMenu):
                         """
-                        Enters the menu for the advanced boiling options for the  semi-mechanistic boiling model.
+                        Boiling advanced options menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.heat_flux_relaxation_factor = self.__class__.heat_flux_relaxation_factor(service, version, mode, path + ["heat_flux_relaxation_factor"])
@@ -38379,20 +39522,20 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class heat_flux_relaxation_factor(TUIMethod):
                             """
-                            Sets the under-relaxation factor for boiling heat flux. See  for details.
+                            No help available.
                             """
                         class show_expert_options(TUIMethod):
                             """
-                            Exposes the expert options for the semi-mechanistic boiling model. For more information about these options, see .
+                            No help available.
                             """
                         class two_resistance_boiling_framework(TUIMethod):
                             """
-                            Enables/disables the two-resistance boiling framework to improve the robustness and accuracy of the solution of cases with multiple boiling mechanisms. For more information about this item, see .
+                            No help available.
                             """
 
                     class cavitation(TUIMenu):
                         """
-                        Enters the cavitation heat mass transfer menu.
+                        Cavitation numerics options menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.display_clipped_pressure = self.__class__.display_clipped_pressure(service, version, mode, path + ["display_clipped_pressure"])
@@ -38409,11 +39552,11 @@ class main_menu(TUIMenu):
                             """
                         class max_vapor_pressure_ratio(TUIMethod):
                             """
-                            Sets the maximum limit on the vapor pressure after the turbulence and thermal correction. The default value is five times the vapor pressure, with consideration of turbulent and thermal effects for each cell and phase.
+                            No help available.
                             """
                         class min_vapor_pressure(TUIMethod):
                             """
-                            Sets the minimum vapor pressure limit for the cavitation mass-transfer model. The default value is 1 Pa.
+                            No help available.
                             """
                         class p_limit_method(TUIMethod):
                             """
@@ -38421,15 +39564,15 @@ class main_menu(TUIMenu):
                             """
                         class schnerr_cond_coeff(TUIMethod):
                             """
-                            Sets the condensation coefficient for the Schnerr-Sauer model (  in ). The default and recommended value of 0.2.
+                            No help available.
                             """
                         class schnerr_evap_coeff(TUIMethod):
                             """
-                            Sets the evaporation coefficient for the Schnerr-Sauer model (  in ). The default and recommended value of 1.
+                            No help available.
                             """
                         class turbulent_diffusion(TUIMethod):
                             """
-                            Enables/disables the turbulent diffusion treatment for a cavitating turbulent flow. See  for details.
+                            No help available.
                             """
 
                     class evaporation_condensation(TUIMenu):
@@ -38553,7 +39696,7 @@ class main_menu(TUIMenu):
 
                 class porous_media(TUIMenu):
                     """
-                    Enters the porous media numerics menu.
+                    Multiphase miscellaneous porous media numerics menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.capillary_pressure_as_diffusion = self.__class__.capillary_pressure_as_diffusion(service, version, mode, path + ["capillary_pressure_as_diffusion"])
@@ -38565,12 +39708,12 @@ class main_menu(TUIMenu):
                         """
                     class relative_permeability(TUIMethod):
                         """
-                        Allows you to fix the saturation (volume fraction) of the phase at  its user-specified residual saturation value.
+                        No help available.
                         """
 
                 class solution_stabilization(TUIMenu):
                     """
-                    Enters the solution-stabilization numerics menu. This item is available only for the VOF model.
+                    VOF solution stabilization menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.additional_stabilization_controls = self.__class__.additional_stabilization_controls(service, version, mode, path + ["additional_stabilization_controls"])
@@ -38581,11 +39724,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class execute_additional_stability_controls(TUIMethod):
                         """
-                        When enabled, uses additional controls for improved solution  stability.
+                        No help available.
                         """
                     class execute_advanced_stabilization(TUIMethod):
                         """
-                        When enabled, modifies solver settings for improved solution  stability.
+                        No help available.
                         """
                     class execute_settings_optimization(TUIMethod):
                         """
@@ -38594,7 +39737,7 @@ class main_menu(TUIMenu):
 
                     class additional_stabilization_controls(TUIMenu):
                         """
-                        Enters the menu for additional advanced stability controls.
+                        Additional advanced stability controls for VOF.
                         """
                         def __init__(self, service, version, mode, path):
                             self.blended_compressive_scheme = self.__class__.blended_compressive_scheme(service, version, mode, path + ["blended_compressive_scheme"])
@@ -38603,7 +39746,7 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class blended_compressive_scheme(TUIMethod):
                             """
-                            Enables/disables the blended compressive discretization scheme.
+                            No help available.
                             """
                         class pseudo_time_stabilization(TUIMethod):
                             """
@@ -38611,12 +39754,12 @@ class main_menu(TUIMenu):
                             """
                         class pseudo_transient_stabilization(TUIMethod):
                             """
-                            Enables/disables the pseudo-transient momentum stabilization and false time step linearization methods.
+                            Pseudo-Time Momentum stabilization and False Time Step Linearization methods for VOF.
                             """
 
                     class velocity_limiting_treatment(TUIMenu):
                         """
-                        Enters the menu for the velocity-limiting-treatment.
+                        Velocity limiting related stabibity controls for VOF.
                         """
                         def __init__(self, service, version, mode, path):
                             self.enable_velocity_limiting = self.__class__.enable_velocity_limiting(service, version, mode, path + ["enable_velocity_limiting"])
@@ -38628,7 +39771,7 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class enable_velocity_limiting(TUIMethod):
                             """
-                            Enables/disables the velocity limiting treatment.
+                            No help available.
                             """
                         class set_damping_strength(TUIMethod):
                             """
@@ -38644,16 +39787,16 @@ class main_menu(TUIMenu):
                             """
                         class set_velocity_cutoff(TUIMethod):
                             """
-                            Specifies the maximum velocity magnitude.
+                            No help available.
                             """
                         class verbosity(TUIMethod):
                             """
-                            When enabled, the solver prints the number of velocity limited cells at each iteration.
+                            No help available.
                             """
 
                 class viscous_flow(TUIMenu):
                     """
-                    Enters the viscous multiphase flow numerics menu.
+                    Multiphase viscous flow numerics options menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.interfacial_artificial_viscosity = self.__class__.interfacial_artificial_viscosity(service, version, mode, path + ["interfacial_artificial_viscosity"])
@@ -38670,12 +39813,12 @@ class main_menu(TUIMenu):
                         """
                     class viscosity_averaging(TUIMethod):
                         """
-                        Forces harmonic averaging of cell viscosities to calculate face  viscosity used in momentum equation. This can improve convergence for  highly viscous flow applications (the VOF model only).
+                        No help available.
                         """
 
             class nita_expert_controls(TUIMenu):
                 """
-                Enters the NITA expert control menu.
+                Enter the nita expert controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.hybrid_nita_settings = self.__class__.hybrid_nita_settings(service, version, mode, path + ["hybrid_nita_settings"])
@@ -38684,11 +39827,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class hybrid_nita_settings(TUIMethod):
                     """
-                    Enables and sets hybrid NITA options. For more details, see .
+                    Select a hybrid NITA settings option for faster performance and better robustness.
                     """
                 class skewness_neighbor_coupling(TUIMethod):
                     """
-                    Enables/disables coupling of the neighbor and skewness corrections.
+                    No help available.
                     """
                 class verbosity(TUIMethod):
                     """
@@ -38697,7 +39840,7 @@ class main_menu(TUIMenu):
 
             class open_channel_wave_options(TUIMenu):
                 """
-                Sets buffer layer height, verbosity, and open channel wave theory formulation.
+                Enter the open-channel-wave-options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set_buffer_layer_ht = self.__class__.set_buffer_layer_ht(service, version, mode, path + ["set_buffer_layer_ht"])
@@ -38706,20 +39849,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class set_buffer_layer_ht(TUIMethod):
                     """
-                    Sets the buffer layer height.
+                    Set bufer layer height between phases for segregated velocity inputs.
                     """
                 class set_verbosity(TUIMethod):
                     """
-                    Sets the open channel wave verbosity.
+                    Set open channel wave verbosity.
                     """
                 class stokes_wave_variants(TUIMethod):
                     """
-                    Specifies which open channel wave theory formulation Fluent uses.
+                    Set stokes wave theory variants.
                     """
 
             class overset(TUIMenu):
                 """
-                Specifies overset meshing solver options.
+                Enter overset solver options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.expert = self.__class__.expert(service, version, mode, path + ["expert"])
@@ -38729,15 +39872,15 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class high_order_pressure(TUIMethod):
                     """
-                    Uses the pressure gradient of the donor cell in the interpolation of pressure for its receptor cell.
+                    No help available.
                     """
                 class interpolation_method(TUIMethod):
                     """
-                    Selects the interpolation method for overset interfaces. Note that the least squares method is recommended for sliding mesh cases.
+                    Choose the interpolation method for overset interface(s).
                     """
                 class orphan_cell_treatment(TUIMethod):
                     """
-                    Enables/disables a numerical treatment that attempts to assign reasonable data values to orphan cells.
+                    No help available.
                     """
 
                 class expert(TUIMenu):
@@ -38759,7 +39902,7 @@ class main_menu(TUIMenu):
 
             class poor_mesh_numerics(TUIMenu):
                 """
-                Enters the poor mesh numerics menu.
+                Enter Poor Mesh Numerics Menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.register_based = self.__class__.register_based(service, version, mode, path + ["register_based"])
@@ -38781,11 +39924,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class cell_quality_based(TUIMethod):
                     """
-                    Enables/disables the application of poor mesh numerics on cells with an orthogonal quality that is equal to or less than the threshold defined by the solve/set/poor-mesh-numerics/set-quality-threshold text command (which by default is set to 0.05).
+                    Enable/disable poor mesh numerics on cells with low quality.
                     """
                 class enable(TUIMethod):
                     """
-                    Enables/disables the application of poor mesh numerics on cells (those with an orthogonal quality of 0, as well as those identified by other enabled criteria), and defines whether the local solution correction is 0th, 1st, or 2nd order.
+                    Solution correction on meshes of poor quality.
                     """
                 class enhanced_pmn(TUIMethod):
                     """
@@ -38793,7 +39936,7 @@ class main_menu(TUIMenu):
                     """
                 class gradient_quality_based(TUIMethod):
                     """
-                    Enables/disables the detection and treatment of poor cells using a criterion based on the cell gradient quality. Poor mesh numerics are applied when the criterion value is equal to or less than a threshold value defined as part of this text command. This criterion is only available with the pressure-based solver, and is not supported for cases that have periodic boundaries.
+                    Enable/disable poor mesh numerics based on cell gradient quality.
                     """
                 class improve_tangent_skewness_quality(TUIMethod):
                     """
@@ -38801,23 +39944,23 @@ class main_menu(TUIMenu):
                     """
                 class orthogonality_enhancing_cell_centroids(TUIMethod):
                     """
-                    Enables/disables the relocation of select cell centroids, to improve the orthogonality metrics and solution stability. It is applied to cells when the criterion value is equal to or less than a threshold value defined as part of the text command. Note that the enhanced metrics are only apparent when reporting the quality in the solution mode of Fluent, and not in the meshing mode.
+                    Relocate select cell centroids, to improve orthogonality metrics and solution stability.
                     """
                 class print_poor_elements_count(TUIMethod):
                     """
-                    Prints out a listing of the poor cells for each criterion: default, cell quality, and user-defined, and (if enabled) cell gradient quality and solution and cell quality.
+                    No help available.
                     """
                 class reset_poor_elements(TUIMethod):
                     """
-                    Resets the list of poor cells included by the default, cell quality, user-defined, cell gradient quality, and solution and cell quality criteria.
+                    Reset marking of poor cell elements.
                     """
                 class set_quality_threshold(TUIMethod):
                     """
-                    Sets the orthogonal quality threshold used for applying poor mesh numerics when the solve/set/poor-mesh-numerics/cell-quality-based? text command is enabled. By default, cells with an orthogonal quality of 0.05 or lower are corrected.
+                    Set quality threshold.
                     """
                 class solution_and_quality_based(TUIMethod):
                     """
-                    Enables/disables the detection and treatment of poor cells using a criterion based on the solution and cell quality. Poor mesh numerics are applied when the criterion value is equal to or less than a threshold value defined as part of this text command, and at a specified frequency (of iterations or time steps). This criterion is only available with the pressure-based solver.
+                    Enable/disable poor mesh numerics based on solution and cell quality.
                     """
                 class tangent_skewness_quality_based(TUIMethod):
                     """
@@ -38829,7 +39972,7 @@ class main_menu(TUIMenu):
                     """
                 class user_defined_on_register(TUIMethod):
                     """
-                    Includes a register for the poor mesh numerics or not.
+                    Include cells in register in poor mesh numerics.
                     """
                 class user_defined_on_register_auto(TUIMethod):
                     """
@@ -38937,6 +40080,7 @@ class main_menu(TUIMenu):
                         self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
                         self.orthogonal_quality_threshold = self.__class__.orthogonal_quality_threshold(service, version, mode, path + ["orthogonal_quality_threshold"])
                         self.tangent_skewness_threshold = self.__class__.tangent_skewness_threshold(service, version, mode, path + ["tangent_skewness_threshold"])
+                        self.volume_ratio_threshold = self.__class__.volume_ratio_threshold(service, version, mode, path + ["volume_ratio_threshold"])
                         super().__init__(service, version, mode, path)
                     class enable(TUIMethod):
                         """
@@ -38949,6 +40093,10 @@ class main_menu(TUIMenu):
                     class tangent_skewness_threshold(TUIMethod):
                         """
                         Enable/disable poor mesh numerics based on tangent skewness quality.
+                        """
+                    class volume_ratio_threshold(TUIMethod):
+                        """
+                        Enable/disable poor mesh numerics based on volume ratio quality.
                         """
 
                 class poor_mesh_removal(TUIMenu):
@@ -38980,7 +40128,7 @@ class main_menu(TUIMenu):
 
             class previous_defaults(TUIMenu):
                 """
-                Provides text commands that allow you to undo enhancements to the default solver behavior.
+                Enter previous defaults menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.undo_2019r1_default_changes = self.__class__.undo_2019r1_default_changes(service, version, mode, path + ["undo_2019r1_default_changes"])
@@ -38999,23 +40147,23 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class undo_2019r1_default_changes(TUIMethod):
                     """
-                    Allows you to undo enhancements introduced in version 2019 R1 of ANSYS Fluent, including:.
+                    Undo default changes introduced in 2019R1.
                     """
                 class undo_2019r3_default_changes(TUIMethod):
                     """
-                    Allows you to undo enhancements introduced in version 2019 R3 of ANSYS Fluent, including:.
+                    Undo default changes introduced in 2019R3.
                     """
                 class undo_2021r1_default_changes(TUIMethod):
                     """
-                    Allows you to undo enhancements introduced in version 2021 R1 of ANSYS Fluent, including:.
+                    Undo default changes introduced in 2021R1.
                     """
                 class undo_2021r2_default_changes(TUIMethod):
                     """
-                    Allows you to undo the following enhancements introduced in version 2021 R2 of ANSYS Fluent:.
+                    Undo default changes introduced in 2021R2.
                     """
                 class undo_2022r1_default_changes(TUIMethod):
                     """
-                    Allows you to undo the following enhancements introduced in version 2022 R1 of ANSYS Fluent:.
+                    Undo default changes introduced in 2022R1.
                     """
                 class undo_2023r1_default_changes(TUIMethod):
                     """
@@ -39052,7 +40200,7 @@ class main_menu(TUIMenu):
 
             class pseudo_time_method(TUIMenu):
                 """
-                Enters the pseudo time method menu. This menu is only available for cases that use a pressure-based segregated solver (SIMPLE, SIMPLEC, or PISO) or for steady-state cases that use the pressure-based coupled solver or the density-based implicit solver.
+                Enter the pseudo time method menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.advanced_options = self.__class__.advanced_options(service, version, mode, path + ["advanced_options"])
@@ -39068,7 +40216,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class advanced_options(TUIMethod):
                     """
-                    Enters the advanced options menu, which allows you to enable / disable the pseudo time method for individual equations and define their pseudo time scale factors or under-relaxation factors, respectively. These settings only apply when the global time step formulation is selected.
+                    Enter the advanced options menu to define pseudo time settings for equations.
                     """
                 class convergence_acceleration_for_stretched_meshes(TUIMethod):
                     """
@@ -39080,15 +40228,15 @@ class main_menu(TUIMenu):
                     """
                 class formulation(TUIMethod):
                     """
-                    Enables and sets the pseudo time step size formulation or disables the pseudo time method option.
+                    Select the pseudo time step size formulation for the pseudo time method.
                     """
                 class global_time_step_settings(TUIMethod):
                     """
-                    Defines the pseudo time settings for the calculation when the global time step formulation is selected.
+                    Adjust the settings for the global time step formulation.
                     """
                 class local_time_step_settings(TUIMethod):
                     """
-                    Defines the pseudo time Courant number when the local time step formulation is selected.
+                    Adjust the settings for the local time step formulation.
                     """
                 class relaxation_bounds(TUIMethod):
                     """
@@ -39096,7 +40244,7 @@ class main_menu(TUIMenu):
                     """
                 class relaxation_factors(TUIMethod):
                     """
-                    Enters the relaxation factors menu, where you can set the pseudo time explicit relaxation factors for individual equations. These factors only apply when the global time step formulation is selected.
+                    Enter the relaxation factors menu to set the pseudo time explicit relaxation factors for equations.
                     """
                 class relaxation_method(TUIMethod):
                     """
@@ -39104,7 +40252,7 @@ class main_menu(TUIMenu):
                     """
                 class verbosity(TUIMethod):
                     """
-                    Sets the verbosity of the messages related to the pseudo time method.
+                    Set the verbosity for the pseudo time method.
                     """
 
             class slope_limiter_menu(TUIMenu):
@@ -39189,6 +40337,7 @@ class main_menu(TUIMenu):
                         self.mark_cell_neighbors_by_register = self.__class__.mark_cell_neighbors_by_register(service, version, mode, path + ["mark_cell_neighbors_by_register"])
                         self.report_cell_info_by_id = self.__class__.report_cell_info_by_id(service, version, mode, path + ["report_cell_info_by_id"])
                         self.report_cell_info_by_register = self.__class__.report_cell_info_by_register(service, version, mode, path + ["report_cell_info_by_register"])
+                        self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                         super().__init__(service, version, mode, path)
                     class clear_divergence_tracker_files(TUIMethod):
                         """
@@ -39226,10 +40375,14 @@ class main_menu(TUIMenu):
                         """
                         Report cells information based on the provided id or name of a register.
                         """
+                    class verbosity(TUIMethod):
+                        """
+                        Set verbosity level for the diagnostics reporting.
+                        """
 
             class transient_controls(TUIMenu):
                 """
-                Enters the transient controls menu, which allows you to define settings related to time advancement for transient flow calculations.
+                Enter into the transient controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.multiphase_specific_time_constraints = self.__class__.multiphase_specific_time_constraints(service, version, mode, path + ["multiphase_specific_time_constraints"])
@@ -39260,7 +40413,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class cfl_based_time_stepping(TUIMethod):
                     """
-                    Allows you to specify that an adaptive time stepping method is used in which the time step gets modified by ANSYS Fluent as the calculation proceeds such that the Courant–Friedrichs–Lewy (CFL) condition is satisfied, using the specified Courant number.
+                    Set CFL-based adaptive time-stepping parameters.
                     """
                 class cfl_based_time_stepping_advanced_options(TUIMethod):
                     """
@@ -39268,101 +40421,101 @@ class main_menu(TUIMenu):
                     """
                 class duration_specification_method(TUIMethod):
                     """
-                    Sets the method by which you will specify the duration of the calculation. The duration can be defined by the total time, the total number of time steps, the incremental time, or the number of incremental time steps. In this context, "total" indicates that Fluent will consider the amount of time / steps that have already been solved and stop appropriately, whereas "incremental" indicates that the solution will proceed for a specified amount of time / steps regardless of what has previously been calculated. This text command is only available when the time stepping is adaptive or based on a user-defined function.
+                    Set Duration Specification Method: [0] Incremental Time Steps, [1] Total Time Steps, [2] Total Time, [3] Incremental Time.
                     """
                 class error_based_time_stepping(TUIMethod):
                     """
-                    Allows you to specify that an adaptive time stepping method is used in which the time step gets modified by ANSYS Fluent  based on the specified truncation error tolerance.
+                    Set Error-based adaptive time-stepping parameters.
                     """
                 class extrapolate_eqn_vars(TUIMethod):
                     """
-                    Enters the extrapolation menu.
+                    Enter the extrapolation menu.
                     """
                 class extrapolate_vars(TUIMethod):
                     """
-                    Applies a predictor algorithm for computing initial conditions at time step n+1. The predictor algorithm is a computation that sets a better initial condition for the time step.
+                    No help available.
                     """
                 class fixed_periodic(TUIMethod):
                     """
-                    Allows you to specify that a fixed time stepping method is used in which a specified period or frequency is the basis for determining the time step size and number of time steps.
+                    Set period- or frequency-based fixed time-stepping parameters.
                     """
                 class fixed_user_specified(TUIMethod):
                     """
-                    Allows you to specify that a fixed time stepping method is used in which you directly specify the time step size and number of time steps.
+                    Enable user-specified fixed time stepping method.
                     """
                 class incremental_time(TUIMethod):
                     """
-                    Sets the amount of incremental (that is, additional) time to run the simulation, regardless of how much time has already been run in previous calculations. This text command is only available when the solve/set/transient-controls/duration-specification-method is set to3.
+                    No help available.
                     """
                 class max_flow_time(TUIMethod):
                     """
-                    Sets the maximum flow time.
+                    No help available.
                     """
                 class max_iterations_per_time_step(TUIMethod):
                     """
-                    Sets the number of time steps for a transient simulation.  This option is available when automatic initialization and case modification is enabled.
+                    No help available.
                     """
                 class multiphase_specific_time_stepping(TUIMethod):
                     """
-                    Allows you to specify that an adaptive time stepping method is used in which the time step gets modified by ANSYS Fluent  based on the convective time scale (global Courant number): the time-step-size calculation depends on the mesh density and velocity in interfacial cells. This method is available for all multiphase models using the implicit or explicit volume fraction formulation, except for the wet steam model.
+                    Multiphase specific time stepping parameters.
                     """
                 class number_of_time_steps(TUIMethod):
                     """
-                    Sets the number of time steps for a transient simulation without starting the calculation.
+                    No help available.
                     """
                 class predict_next_time(TUIMethod):
                     """
-                    Applies a predictor algorithm for computing the next time step. The predictor algorithm is a computation that sets a better initial condition for the time step. It uses the rate of change between the prediction and the correction as an indicator for whether the next time step should be larger, smaller, or the same as the current one.
+                    No help available.
                     """
                 class rotating_mesh_flow_predictor(TUIMethod):
                     """
-                    Enables / disables an option that allows for better prediction of the flow field in rotating fluid zones at every time step, in order to speed up the calculation. This text command is only available for transient simulations.
+                    Improve prediction of flow field at time step n+1 for rotating mesh.
                     """
                 class solid_time_step_size(TUIMethod):
                     """
-                    Allows you to specify that the time step size used for solid zones is independent from that used for fluid zones. This text command is only available when both a solid zone exists and energy is enabled.
+                    Specify a different time step size for solid zones.
                     """
                 class solution_status(TUIMethod):
                     """
-                    Allows you to open theSimulation Status dialog box, which reports details about the simulation.
+                    No help available.
                     """
                 class specified_time_step(TUIMethod):
                     """
-                    Specifies whether to define the transient advancement either directly by entering a time step size / period / frequency (using the text commands available in thesolve/set/transient-controls menu) or indirectly by entering a Courant number value (using the solve/set/courant-number text command). This text command is only available for the density-based solver when both the explicit formulation and explicit transient formulation are used.
+                    No help available.
                     """
                 class time_step_size(TUIMethod):
                     """
-                    Sets the magnitude of the (physical) time step . This text command is only available when the solve/set/transient-controls/fixed-user-specified text command is set toyes.
+                    No help available.
                     """
                 class time_step_size_for_acoustic_export(TUIMethod):
                     """
-                    Specifies the time interval for acoustic data sampling. This text command is only available when both the Ffowcs Williams and Hawkings model is selected and the density-based solver is used with the explicit formulation and explicit transient formulation.
+                    No help available.
                     """
                 class total_number_of_time_steps(TUIMethod):
                     """
-                    Sets the total number of time steps that the simulation will run (which includes any time steps that have already been run in previous calculations). This text command is only available when the solve/set/transient-controls/duration-specification-method is set to1.
+                    No help available.
                     """
                 class total_time(TUIMethod):
                     """
-                    Sets the total amount of time that the simulation will be run (which includes any time that has already been run in previous calculations). This text command is only available when the solve/set/transient-controls/duration-specification-method is set to2.
+                    No help available.
                     """
                 class udf_based_time_stepping(TUIMethod):
                     """
-                    Allows you to specify that the time step size is defined by a user-defined function (UDF) that uses theDEFINE_DELTAT macro.
+                    Set the time-stepping parameters for user-defined time stepping method.
                     """
                 class undo_timestep(TUIMethod):
                     """
-                    When enabled, if the truncation error within a time step exceeds the specified tolerance Fluent will automatically undo the current calculation and make another attempt with the time step reduced by 1/2. This will be attempted up to 5 times after which Fluent will accept the result and proceed to the next time step.
+                    Undo the previous time step.
                     """
 
                 class multiphase_specific_time_constraints(TUIMenu):
                     """
-                    Enters the menu for setting multiphase-specific time constraints.
+                    Set Multiphase-specific time constraints.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.moving_mesh_cfl_constraint = self.__class__.moving_mesh_cfl_constraint(service, version, mode, path + ["moving_mesh_cfl_constraint"])
                         self.physics_based_constraint = self.__class__.physics_based_constraint(service, version, mode, path + ["physics_based_constraint"])
-                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                         super().__init__(service, version, mode, path)
                     class moving_mesh_cfl_constraint(TUIMethod):
@@ -39371,20 +40524,43 @@ class main_menu(TUIMenu):
                         """
                     class physics_based_constraint(TUIMethod):
                         """
-                        Enables/disables the physics-driven time-step constraints.
-                        """
-                    class time_scale_options(TUIMethod):
-                        """
-                        Enters the menu for choosing the time-scale options. This menu  becomes available after you enable the physics-driven time-step  constraints using the solve/set/transient-controls/multiphase-specific-time-constraints/physics-based-constraint?  text command.
+                        No help available.
                         """
                     class verbosity(TUIMethod):
                         """
-                        When enabled, various time scales (depending on the selection) are  printed to the console window at every time step. This text command is  available with the moving mesh CFL constraint and with the physics-based  constraint.
+                        No help available.
                         """
+
+                    class time_scale_options(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.acoustic_scale = self.__class__.acoustic_scale(service, version, mode, path + ["acoustic_scale"])
+                            self.gravity_scale = self.__class__.gravity_scale(service, version, mode, path + ["gravity_scale"])
+                            self.surface_tension_scale = self.__class__.surface_tension_scale(service, version, mode, path + ["surface_tension_scale"])
+                            self.viscous_scale = self.__class__.viscous_scale(service, version, mode, path + ["viscous_scale"])
+                            super().__init__(service, version, mode, path)
+                        class acoustic_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class gravity_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class surface_tension_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class viscous_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
 
             class warped_face_gradient_correction(TUIMenu):
                 """
-                Enters the warped-face gradient correction menu.
+                Enter warped-face-gradient-correction menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -39392,7 +40568,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enables/disables gradient enhancement computations and specifies whether Fluent uses fast or memory saving mode.
+                    Enable Warped-Face Gradient Correction.
                     """
                 class turbulence_options(TUIMethod):
                     """
@@ -39562,7 +40738,7 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class circle_slice(TUIMethod):
             """
-            Extracts a circular slice.
+            Extract a circular slice.
             """
         class closest_point_search(TUIMethod):
             """
@@ -39578,11 +40754,11 @@ class main_menu(TUIMenu):
             """
         class delete_surface(TUIMethod):
             """
-            Removes a defined data surface.
+            Remove a defined data surface.
             """
         class edit_surface(TUIMethod):
             """
-            Allows you to edit any of the listed available surfaces.
+            Edit a defined data surface.
             """
         class ellipsoid_slice(TUIMethod):
             """
@@ -39602,11 +40778,11 @@ class main_menu(TUIMenu):
             """
         class imprint_surface(TUIMethod):
             """
-            Enters the list of surfaces to imprint from and the name of the new imprinted surface.
+            Imprint surface.
             """
         class iso_clip(TUIMethod):
             """
-            Clips a data surface (surface, curve, or point) between two isovalues.
+            Clip a data surface (surface, curve, or point) between two iso-values.
             """
         class iso_clip_multiple(TUIMethod):
             """
@@ -39614,47 +40790,47 @@ class main_menu(TUIMenu):
             """
         class iso_surface(TUIMethod):
             """
-            Extracts an iso-surface (surface, curve, or point) from the current data field.
+            Extract an iso-surface (surface, curve, or point) from the curent data field.
             """
         class line_slice(TUIMethod):
             """
-            Extracts a linear slice in 2D, given the normal to the line and a distance from the origin.
+            Extract a linear slice.
             """
         class line_surface(TUIMethod):
             """
-            Defines a “line" surface by specifying the two endpoint coordinates.
+            Define a "line" surface by specifying the two endpoint coordinates.
             """
         class list_surfaces(TUIMethod):
             """
-            Displays the ID and name, and the number of point, curve, and surface facets of the current surfaces.
+            List the number of facets in the defined surfaces.
             """
         class mouse_line(TUIMethod):
             """
-            Extracts a line surface that you define by using the mouse to select the endpoints.
+            Define a line surface using the mouse to select two points.
             """
         class mouse_plane(TUIMethod):
             """
-            Extracts a planar surface defined by selecting three points with the mouse.
+            Define a plane surface using the mouse to select three points.
             """
         class mouse_rake(TUIMethod):
             """
-            Extracts a “rake" surface that you define by using the mouse to select the endpoints.
+            Define a "rake" surface using the mouse to select the end points.
             """
         class multiple_iso_surfaces(TUIMethod):
             """
-            Creates multiple iso-surfaces at once. Accepts zone names, lists of zone ID’s, and wildcards.
+            No help available.
             """
         class multiple_plane_surfaces(TUIMethod):
             """
-            Creates multiple planes at once. Accepts zone names, lists of zone ID’s, and wildcards.
+            No help available.
             """
         class multiple_zone_surfaces(TUIMethod):
             """
-            Creates multiple data surfaces at one time. Accepts zone names, lists of zone ID’s, and wildcards.
+            Create multiple data surfaces at a time.
             """
         class partition_surface(TUIMethod):
             """
-            Defines a data surface consisting of mesh faces on the partition boundary.
+            Define a data surface on mesh faces on the partition boundary.
             """
         class plane(TUIMethod):
             """
@@ -39670,7 +40846,7 @@ class main_menu(TUIMenu):
             """
         class plane_slice(TUIMethod):
             """
-            Extracts a planar slice.
+            Extract a planar slice.
             """
         class plane_surf_aligned(TUIMethod):
             """
@@ -39686,23 +40862,23 @@ class main_menu(TUIMenu):
             """
         class point_array(TUIMethod):
             """
-            Extracts a rectangular array of data points.
+            Extract a rectangular array of data points.
             """
         class point_surface(TUIMethod):
             """
-            Defines a “point" surface by specifying the coordinates.
+            Define a "point" surface by specifying the coordinates.
             """
         class quadric_slice(TUIMethod):
             """
-            Extracts a quadric slice.
+            Extract a quadric slice.
             """
         class rake_surface(TUIMethod):
             """
-            Extracts a “rake" surface, given the coordinates of the endpoints.
+            Define a "rake" surface by specifying the end points.
             """
         class rename_surface(TUIMethod):
             """
-            Renames a defined data surface.
+            Rename a defined data surface.
             """
         class rendering_priority(TUIMethod):
             """
@@ -39710,11 +40886,11 @@ class main_menu(TUIMenu):
             """
         class reset_zone_surfaces(TUIMethod):
             """
-            Recreates missing surface zones by resetting the case surface list.
+            No help available.
             """
         class sphere_slice(TUIMethod):
             """
-            Extracts a spherical slice.
+            Extract a spherical slice.
             """
         class split_surface(TUIMethod):
             """
@@ -39722,15 +40898,15 @@ class main_menu(TUIMenu):
             """
         class structural_point_surface(TUIMethod):
             """
-            Defines a structural “point" surface by specifying the coordinates.
+            Define a "structural point" surface by specifying the coordinates.
             """
         class surface_cells(TUIMethod):
             """
-            Extracts all cells intersected by a data surface.
+            Extract all cells intersected by a data surface.
             """
         class transform_surface(TUIMethod):
             """
-            Transforms surface.
+            Transform surface.
             """
         class ungroup_surface(TUIMethod):
             """
@@ -39738,7 +40914,7 @@ class main_menu(TUIMenu):
             """
         class zone_surface(TUIMethod):
             """
-            Creates a surface of a designated zone and gives it a specified name.
+            Define a data surface on a mesh zone.
             """
 
         class post_processing_volume(TUIMenu):
@@ -39892,15 +41068,15 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class avg_contours(TUIMethod):
             """
-            Displays average contours.
+            Display average contours.
             """
         class compute_report(TUIMethod):
             """
-            Computes turbomachinery quantities.
+            Compute the turbo report.
             """
         class current_topology(TUIMethod):
             """
-            Sets the current turbo topology for global use.
+            Set the current turbo topology for global use.
             """
         class two_d_contours(TUIMethod):
             """
@@ -39908,11 +41084,11 @@ class main_menu(TUIMenu):
             """
         class write_report(TUIMethod):
             """
-            Writes the turbo report to file.
+            Write the turbo report to file.
             """
         class xy_plot_avg(TUIMethod):
             """
-            Displays average XY plots.
+            Display average xy plot.
             """
 
     class turbo_setup(TUIMenu):
@@ -39928,6 +41104,7 @@ class main_menu(TUIMenu):
             Enter the workflow menu.
             """
             def __init__(self, service, version, mode, path):
+                self.skip_define_topology = self.__class__.skip_define_topology(service, version, mode, path + ["skip_define_topology"])
                 self.disable = self.__class__.disable(service, version, mode, path + ["disable"])
                 self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
                 self.reset = self.__class__.reset(service, version, mode, path + ["reset"])
@@ -39944,6 +41121,23 @@ class main_menu(TUIMenu):
                 """
                 Reset the workflow.
                 """
+
+            class skip_define_topology(TUIMenu):
+                """
+                Enter the skip topology menu.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.skip = self.__class__.skip(service, version, mode, path + ["skip"])
+                    self.unskip = self.__class__.unskip(service, version, mode, path + ["unskip"])
+                    super().__init__(service, version, mode, path)
+                class skip(TUIMethod):
+                    """
+                    Skip the topology creation.
+                    """
+                class unskip(TUIMethod):
+                    """
+                    Unskip the topology creation.
+                    """
 
     class turbo_workflow(TUIMenu):
         """
@@ -39958,6 +41152,7 @@ class main_menu(TUIMenu):
             Enter the workflow menu.
             """
             def __init__(self, service, version, mode, path):
+                self.skip_define_topology = self.__class__.skip_define_topology(service, version, mode, path + ["skip_define_topology"])
                 self.disable = self.__class__.disable(service, version, mode, path + ["disable"])
                 self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
                 self.reset = self.__class__.reset(service, version, mode, path + ["reset"])
@@ -39974,6 +41169,23 @@ class main_menu(TUIMenu):
                 """
                 Reset the workflow.
                 """
+
+            class skip_define_topology(TUIMenu):
+                """
+                Enter the skip topology menu.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.skip = self.__class__.skip(service, version, mode, path + ["skip"])
+                    self.unskip = self.__class__.unskip(service, version, mode, path + ["unskip"])
+                    super().__init__(service, version, mode, path)
+                class skip(TUIMethod):
+                    """
+                    Skip the topology creation.
+                    """
+                class unskip(TUIMethod):
+                    """
+                    Unskip the topology creation.
+                    """
 
     class views(TUIMenu):
         """
@@ -40004,23 +41216,23 @@ class main_menu(TUIMenu):
             """
         class auto_scale(TUIMethod):
             """
-            Scales and centers the current scene without changing its orientation.
+            No help available.
             """
         class default_view(TUIMethod):
             """
-            Resets view to front and center.
+            No help available.
             """
         class delete_view(TUIMethod):
             """
-            Removes a view from the list.
+            No help available.
             """
         class last_view(TUIMethod):
             """
-            Returns to the camera position before the last manipulation.
+            No help available.
             """
         class list_views(TUIMethod):
             """
-            Lists predefined and saved views.
+            No help available.
             """
         class mirror_zones(TUIMethod):
             """
@@ -40032,24 +41244,24 @@ class main_menu(TUIMenu):
             """
         class read_views(TUIMethod):
             """
-            Reads views from a view file.
+            No help available.
             """
         class restore_view(TUIMethod):
             """
-            Uses a saved view.
+            No help available.
             """
         class save_view(TUIMethod):
             """
-            Saves the current view to the view list.
+            No help available.
             """
         class write_views(TUIMethod):
             """
-            Writes selected views to a view file.
+            No help available.
             """
 
         class camera(TUIMenu):
             """
-            Enters the camera menu to modify the current viewing parameters.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.dolly_camera = self.__class__.dolly_camera(service, version, mode, path + ["dolly_camera"])
@@ -40065,23 +41277,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class dolly_camera(TUIMethod):
                 """
-                Adjusts the camera position and target.
+                No help available.
                 """
             class field(TUIMethod):
                 """
-                Sets the field of view (width and height).
+                No help available.
                 """
             class orbit_camera(TUIMethod):
                 """
-                Adjusts the camera position without modifying the target.
+                No help available.
                 """
             class pan_camera(TUIMethod):
                 """
-                Adjusts the camera target without modifying the position.
+                No help available.
                 """
             class position(TUIMethod):
                 """
-                Sets the camera position.
+                No help available.
                 """
             class projection(TUIMethod):
                 """
@@ -40089,19 +41301,19 @@ class main_menu(TUIMenu):
                 """
             class roll_camera(TUIMethod):
                 """
-                Adjusts the camera up-vector.
+                No help available.
                 """
             class target(TUIMethod):
                 """
-                Sets the point to be the center of the camera view.
+                No help available.
                 """
             class up_vector(TUIMethod):
                 """
-                Sets the camera up-vector.
+                No help available.
                 """
             class zoom_camera(TUIMethod):
                 """
-                Adjusts the camera’s field of view. This operation is similar to dollying the camera in or out of the scene. Dollying causes objects in front to move past you. Zooming changes the perspective effect in the scene (and can be disconcerting).
+                No help available.
                 """
 
         class display_states(TUIMenu):

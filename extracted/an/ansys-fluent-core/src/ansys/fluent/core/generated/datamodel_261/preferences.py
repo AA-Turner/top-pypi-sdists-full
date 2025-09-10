@@ -2161,7 +2161,11 @@ class Root(PyMenu):
             """
             def __init__(self, service, rules, path):
                 self.MaxPositions = self.__class__.MaxPositions(service, rules, path + [("MaxPositions", "")])
+                self.PointSize = self.__class__.PointSize(service, rules, path + [("PointSize", "")])
+                self.PointSymbol = self.__class__.PointSymbol(service, rules, path + [("PointSymbol", "")])
                 self.QuickSlicing = self.__class__.QuickSlicing(service, rules, path + [("QuickSlicing", "")])
+                self.VectorSize = self.__class__.VectorSize(service, rules, path + [("VectorSize", "")])
+                self.VectorSymbol = self.__class__.VectorSymbol(service, rules, path + [("VectorSymbol", "")])
                 super().__init__(service, rules, path)
 
             class MaxPositions(PyNumerical):
@@ -2170,9 +2174,33 @@ class Root(PyMenu):
                 """
                 pass
 
+            class PointSize(PyNumerical):
+                """
+                Parameter PointSize of value type float.
+                """
+                pass
+
+            class PointSymbol(PyTextual):
+                """
+                Parameter PointSymbol of value type str.
+                """
+                pass
+
             class QuickSlicing(PyParameter):
                 """
                 Parameter QuickSlicing of value type bool.
+                """
+                pass
+
+            class VectorSize(PyNumerical):
+                """
+                Parameter VectorSize of value type float.
+                """
+                pass
+
+            class VectorSymbol(PyTextual):
+                """
+                Parameter VectorSymbol of value type str.
                 """
                 pass
 

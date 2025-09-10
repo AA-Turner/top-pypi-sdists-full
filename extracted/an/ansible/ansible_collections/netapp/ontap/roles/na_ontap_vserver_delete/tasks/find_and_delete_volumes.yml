@@ -4,6 +4,9 @@
   ansible.builtin.include_tasks: get_volumes.yml
 
 - name: Ask for confirmation before deleting volumes
+  when:
+    - volumes | length > 0
+    - confirm_before_removing_volumes
   block:
     - name: Indicate if we are deleting clones
       ansible.builtin.set_fact:
@@ -13,9 +16,6 @@
     - name: Ask for confirmation
       ansible.builtin.pause:
         prompt: "the following {{ vol_types }} will be deleted {{ volumes }}\nPress enter to continue, Ctrl+C to interrupt:"
-  when:
-    - volumes | length > 0
-    - confirm_before_removing_volumes
 - name: Delete all volumes for vserver
   ansible.builtin.include_tasks: delete_volumes.yml
   when:
@@ -26,6 +26,6 @@
   when:
     - volumes | length > 0
   # until: does not work with include_tasks :(   Using a loop instead.
-  loop: "{{ range(1, retry_count)|list }}"
+  loop: "{{ range(1, retry_count) | list }}"
   loop_control:
     loop_var: retry

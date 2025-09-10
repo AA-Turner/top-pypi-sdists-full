@@ -387,7 +387,6 @@ class ApacheModProxy(ModuleHelper):
         ),
         supports_check_mode=True
     )
-    use_old_vardict = False
 
     def __init_module__(self):
         deps.validate(self.module)

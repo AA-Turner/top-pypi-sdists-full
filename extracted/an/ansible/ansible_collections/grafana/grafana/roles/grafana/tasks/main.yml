@@ -2,6 +2,9 @@
 - name: Inherit default vars
   ansible.builtin.set_fact:
     grafana_ini: "{{ grafana_ini_default | ansible.builtin.combine(grafana_ini, recursive=true) }}"
+  no_log: "{{ 'false' if lookup('env', 'CI') else 'true' }}"
+  tags:
+    - always
 - name: "Gather variables for each operating system"
   ansible.builtin.include_vars: "{{ distrovars }}"
   vars:
@@ -9,11 +12,11 @@
     params:
       skip: true
       files:
-        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
-        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
-        - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
-        - "{{ ansible_distribution | lower }}.yml"
-        - "{{ ansible_os_family | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
       paths:
         - "vars/distro"
   tags:
@@ -110,6 +113,15 @@
         - grafana_run
   when: "grafana_alert_notifications | length > 0 or grafana_alert_resources | length > 0"
 
+- name: Find dashboards to be provisioned
+  ansible.builtin.find:
+    paths: "{{ grafana_dashboards_dir }}"
+    recurse: true
+    patterns: "*.json"
+  delegate_to: localhost
+  become: false
+  register: __found_dashboards
+
 - name: Dashboards
   ansible.builtin.include_tasks:
     file: dashboards.yml
@@ -118,6 +130,4 @@
         - grafana_configure
         - grafana_dashboards
         - grafana_run
-  when: "grafana_dashboards | length > 0 or __found_dashboards | length > 0"
-  vars:
-    __found_dashboards: "{{ lookup('fileglob', grafana_dashboards_dir + '/*.json', wantlist=True) }}"
+  when: "grafana_dashboards | length > 0 or __found_dashboards['files'] | length > 0"

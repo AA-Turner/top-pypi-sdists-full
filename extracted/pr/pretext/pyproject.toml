@@ -11,7 +11,7 @@
 # ----------------
 [tool.poetry]
 name = "pretext"
-version = "2.29.1"
+version = "2.29.2"
 description = "A package to author, build, and deploy PreTeXt projects."
 readme = "README.md"
 homepage = "https://pretextbook.org"
@@ -45,7 +45,7 @@ plastex = "^3"
 jinja2 = "^3"
 coloraide = "^4"
 pelican = { extras = ["markdown"], version = "^4.10", optional = true }
-prefig = { extras = ["text"], version = "^0.4", optional = true }
+prefig = { extras = ["text"], version = "^0.4.2", optional = true }
 citeproc-py = "^0"
 
 

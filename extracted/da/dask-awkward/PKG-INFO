@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-awkward
-Version: 2025.5.0
+Version: 2025.9.0
 Summary: Awkward Array meets Dask
 Project-URL: Homepage, https://github.com/dask-contrib/dask-awkward
 Project-URL: Bug Tracker, https://github.com/dask-contrib/dask-awkward/issues

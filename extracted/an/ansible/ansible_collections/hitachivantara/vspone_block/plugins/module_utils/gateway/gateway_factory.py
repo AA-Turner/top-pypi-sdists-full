@@ -8,11 +8,18 @@ from .sdsb_compute_node_gateway import (
 )
 from .sdsb_volume_gateway import SDSBVolumeDirectGateway
 from .sdsb_chap_user_gateway import SDSBChapUserDirectGateway
-from .sdsb_pool_gateway import SDSBPoolDirectGateway
+from .sdsb_event_logs_gateway import SDSBEventLogsDirectGateway
+from .sdsb_block_drives_gateway import SDSBBlockDrivesDirectGateway
+from .sdsb_fault_domain_gateway import SDSBBlockFaultDomainDirectGateway
+from .sdsb_block_control_port_gateway import SDSBBlockControlPortDirectGateway
+from .sdsb_storage_controller_gateway import SDSBStorageControllerDirectGateway
 from .sdsb_port_auth_gateway import SDSBPortAuthDirectGateway
 from .sdsb_port_gateway import SDSBPortDirectGateway
 from .sdsb_vps_gateway import SDSBVpsDirectGateway
-
+from .sdsb_storage_node_gateway import SDSBStorageNodeDirectGateway
+from .sdsb_storage_pool_gateway import SDSBStoragePoolDirectGateway
+from .sdsb_cluster_gateway import SDSBClusterGateway
+from .sdsb_job_gateway import SDSBJobGateway
 from .vsp_snapshot_gateway import VSPHtiSnapshotDirectGateway
 
 from .vsp_volume import VSPVolumeDirectGateway
@@ -65,6 +72,12 @@ from .vsp_local_copy_group_gateway import (
 )
 from .vsp_dynamic_pool_gateway import VspDynamicPoolGateway
 from .vsp_uvm_gateway import VSPUvmGateway
+from .vsp_clpr_gateway import VSPClprDirectGateway
+from .vsp_external_parity_group_gateway import VSPExternalParityGroupGateway
+from .vsp_spm_gateway import VSPSpmGateway
+from .vsp_storage_system_monitor_gateway import VSPStorageSystemMonitorGateway
+from .sdsb_cluster_information_gateway import SDSBBlockClusterInformationDirectGateway
+from .sdsb_users_gateway import SDSBBlockUsersDirectGateway
 
 GATEWAY_MAP = {
     ConnectionTypes.DIRECT: {
@@ -79,33 +92,46 @@ GATEWAY_MAP = {
         GatewayClassTypes.VSP_PARITY_GROUP: VSPParityGroupDirectGateway,
         GatewayClassTypes.VSP_NVME_SUBSYSTEM: VSPOneNvmeSubsystemDirectGateway,
         GatewayClassTypes.VSP_TRUE_COPY: VSPTrueCopyDirectGateway,
-        #  sng1104
         GatewayClassTypes.VSP_QUORUM_DISK: VSPQuorumDiskDirectGateway,
         GatewayClassTypes.VSP_GAD_PAIR: VSPGadPairDirectGateway,
         GatewayClassTypes.VSP_HUR: VSPHurDirectGateway,
         GatewayClassTypes.VSP_RESOURCE_GROUP: VSPResourceGroupDirectGateway,
         GatewayClassTypes.VSP_COPY_GROUPS: VSPCopyGroupsDirectGateway,
         GatewayClassTypes.VSP_LOCAL_COPY_GROUP: VSPLocalCopyGroupDirectGateway,
+        GatewayClassTypes.VSP_CLPR: VSPClprDirectGateway,
         GatewayClassTypes.VSP_CMD_DEV: VSPCmdDevDirectGateway,
         GatewayClassTypes.VSP_RG_LOCK: VSPResourceGroupLockDirectGateway,
         GatewayClassTypes.VSP_JOURNAL_VOLUME: VSPSJournalVolumeDirectGateway,
         GatewayClassTypes.VSP_REMOTE_STORAGE_REGISTRATION: VSPRemoteStorageRegistrationDirectGateway,
         GatewayClassTypes.VSP_USER_GROUP: VSPUserGroupDirectGateway,
         GatewayClassTypes.VSP_USER: VSPUserDirectGateway,
-        # Add more mappings for direct connection types here
-        GatewayClassTypes.SDSB_CHAP_USER: SDSBChapUserDirectGateway,
-        GatewayClassTypes.SDSB_COMPUTE_NODE: SDSBComputeNodeDirectGateway,
-        GatewayClassTypes.SDSB_STORAGE_SYSTEM: SDSBStorageSystemDirectGateway,
-        GatewayClassTypes.SDSB_VOLUME: SDSBVolumeDirectGateway,
-        GatewayClassTypes.SDSB_POOL: SDSBPoolDirectGateway,
-        GatewayClassTypes.SDSB_PORT_AUTH: SDSBPortAuthDirectGateway,
-        GatewayClassTypes.SDSB_PORT: SDSBPortDirectGateway,
-        GatewayClassTypes.SDSB_VPS: SDSBVpsDirectGateway,
         GatewayClassTypes.STORAGE_PORT: VSPStoragePortDirectGateway,
         GatewayClassTypes.VSP_REMOTE_CONNECTION: VSPRemoteConnectionDirectGateway,
         GatewayClassTypes.VSP_ISCSI_REMOTE_CONNECTION: VSPIscsiRemoteConnectionDirectGateway,
         GatewayClassTypes.VSP_DYNAMIC_POOL: VspDynamicPoolGateway,
         GatewayClassTypes.VSP_UVM: VSPUvmGateway,
+        GatewayClassTypes.VSP_EXT_PARITY_GROUP: VSPExternalParityGroupGateway,
+        GatewayClassTypes.VSP_SPM: VSPSpmGateway,
+        GatewayClassTypes.VSP_STORAGE_MONITOR: VSPStorageSystemMonitorGateway,
+        # Add SDSB Gateways below and VSP Gayeways above this line
+        GatewayClassTypes.SDSB_CHAP_USER: SDSBChapUserDirectGateway,
+        GatewayClassTypes.SDSB_COMPUTE_NODE: SDSBComputeNodeDirectGateway,
+        GatewayClassTypes.SDSB_STORAGE_SYSTEM: SDSBStorageSystemDirectGateway,
+        GatewayClassTypes.SDSB_VOLUME: SDSBVolumeDirectGateway,
+        GatewayClassTypes.SDSB_PORT_AUTH: SDSBPortAuthDirectGateway,
+        GatewayClassTypes.SDSB_PORT: SDSBPortDirectGateway,
+        GatewayClassTypes.SDSB_VPS: SDSBVpsDirectGateway,
+        GatewayClassTypes.SDSB_STORAGE_NODE: SDSBStorageNodeDirectGateway,
+        GatewayClassTypes.SDSB_STORAGE_POOL: SDSBStoragePoolDirectGateway,
+        GatewayClassTypes.SDSB_CLUSTER: SDSBClusterGateway,
+        GatewayClassTypes.SDSB_JOB: SDSBJobGateway,
+        GatewayClassTypes.SDSB_EVENT_LOGS: SDSBEventLogsDirectGateway,
+        GatewayClassTypes.SDSB_BLOCK_DRIVES: SDSBBlockDrivesDirectGateway,
+        GatewayClassTypes.SDSB_FAULT_DOMAIN: SDSBBlockFaultDomainDirectGateway,
+        GatewayClassTypes.SDSB_STORAGE_CONTROLLER: SDSBStorageControllerDirectGateway,
+        GatewayClassTypes.SDSB_CONTROL_PORT: SDSBBlockControlPortDirectGateway,
+        GatewayClassTypes.SDSB_CLUSTER_INFORMATION: SDSBBlockClusterInformationDirectGateway,
+        GatewayClassTypes.SDSB_USER: SDSBBlockUsersDirectGateway,
     },
 }
 

@@ -9,7 +9,7 @@ Date: 05/31/2023
 Version: 0.1.2
 """
 import string
-from .type_utils import is_number,make_list
+from .type_utils import is_number
 def get_comp(string:str, string_2:str):
     """
     Calculates the similarity between two strings.
@@ -253,6 +253,78 @@ def percent_obj(list_cons:list, list_obj:str):
         float: The percentage of the combined length relative to the length of the target string.
     """
     return float(combined_list_len(list_cons) / len(list_obj))
+def get_closest_match_from_list(comp_str:str, total_list:list,case_sensative:bool=True):
+    """
+    Find the closest match from a list of strings based on various criteria.
+
+    Args:
+        comp_str (str): The target string to find the closest match for.
+        total_list (list): A list of strings to search for a match.
+
+    Returns:
+        str or None: The string from the 'total_list' that best matches the 'comp_str' based on criteria
+                     such as longest consecutive substring, combined length of consecutive substrings,
+                     and percentage of combined length relative to the length of the 'comp_str'.
+                     Returns None if no match is found.
+    """
+    def get_highest(highest,result,list_obj):
+        if highest is None:
+            highest = {
+                "longest_consecutive": longest_consecutive(result["comp_list"]),
+                "combined_length": combined_list_len(result["comp_list"]),
+                "per_obj": percent_obj(result["comp_list"], list_obj),
+                "list_obj": list_obj,
+            }
+        else:
+            current = {
+                "longest_consecutive": longest_consecutive(result["comp_list"]),
+                "combined_length": combined_list_len(result["comp_list"]),
+                "per_obj": percent_obj(result["comp_list"], list_obj),
+                "list_obj": list_obj,
+            }
+            if current["per_obj"] > highest["per_obj"]:
+                highest = current
+        return highest
+    def untuple(obj):
+        if isinstance(obj,tuple):
+            obj=obj[0]
+        return obj
+    def make_list(obj):
+        if isinstance(obj,(set,tuple)):
+            obj=list(obj)
+        else:
+            obj=[obj]
+        return obj
+    best_match = None
+    best_match_score = {"longest_consecutive": 0, "combined_length": 0, "per_obj": 0, "total_score": 0}
+    highest = None
+    all_score={}
+
+    
+    comp_strs=make_list(comp_str)
+    for comp_str in comp_strs:
+        for list_obj in total_list:
+            comp_comp_str = untuple(comp_str)
+            comp_list_obj=list_obj
+            if case_sensative:
+                comp_comp_str = comp_comp_str.lower()
+                comp_list_obj=comp_list_obj.lower()
+            result = determine_closest(comp_comp_str, comp_list_obj)
+            if len(result["comp_list"]) != 0:
+                if len(comp_str) <= len(list_obj):
+                    highest = get_highest(highest,result,list_obj)
+        all_score[comp_str]=highest
+    highest=None
+    for key,value in all_score.items():
+        if highest == None:
+            highest = value
+        else:
+            if value["per_obj"] > value["per_obj"]:
+                highest = value
+    if highest is None:
+        return None
+    return highest["list_obj"]
+
 def get_highest(obj,obj_2):
     def determine_highest(highest,key,value):
         if is_number(value):
@@ -275,6 +347,74 @@ def get_highest(obj,obj_2):
         for i,item in enumerate(obj):
             highest = determine_highest(highest,i,float(value))
     return highest
+def get_closest_match_from_list(comp_str:str, total_list:list,case_sensative:bool=True):
+    """
+    Find the closest match from a list of strings based on various criteria.
+
+    Args:
+        comp_str (str): The target string to find the closest match for.
+        total_list (list): A list of strings to search for a match.
+
+    Returns:
+        str or None: The string from the 'total_list' that best matches the 'comp_str' based on criteria
+                     such as longest consecutive substring, combined length of consecutive substrings,
+                     and percentage of combined length relative to the length of the 'comp_str'.
+                     Returns None if no match is found.
+    """
+    def get_highest(highest,result,list_obj):
+        if highest is None:
+            highest = {
+                "longest_consecutive": longest_consecutive(result["comp_list"]),
+                "combined_length": combined_list_len(result["comp_list"]),
+                "per_obj": percent_obj(result["comp_list"], list_obj),
+                "list_obj": list_obj,
+            }
+        else:
+            current = {
+                "longest_consecutive": longest_consecutive(result["comp_list"]),
+                "combined_length": combined_list_len(result["comp_list"]),
+                "per_obj": percent_obj(result["comp_list"], list_obj),
+                "list_obj": list_obj,
+            }
+            if current["per_obj"] > highest["per_obj"]:
+                highest = current
+        return highest
+    def untuple(obj):
+        if isinstance(obj,tuple):
+            obj=obj[0]
+        return obj
+    best_match = None
+    best_match_score = {"longest_consecutive": 0, "combined_length": 0, "per_obj": 0, "total_score": 0}
+    highest = None
+    all_score={}
+    if isinstance(comp_str,(dict,set,tuple)):
+        comp_strs=list(comp_str)
+    else:
+        comp_strs=[comp_str]
+
+    comp_strs=comp_str if isinstance(comp_str,list) else [comp_str] 
+    for comp_str in comp_strs:
+        for list_obj in total_list:
+            comp_comp_str = untuple(comp_str)
+            comp_list_obj=list_obj
+            if case_sensative:
+                comp_comp_str = comp_comp_str.lower()
+                comp_list_obj=comp_list_obj.lower()
+            result = determine_closest(comp_comp_str, comp_list_obj)
+            if len(result["comp_list"]) != 0:
+                if len(comp_str) <= len(list_obj):
+                    highest = get_highest(highest,result,list_obj)
+        all_score[comp_str]=highest
+    highest=None
+    for key,value in all_score.items():
+        if highest == None:
+            highest = value
+        else:
+            if value["per_obj"] > value["per_obj"]:
+                highest = value
+    if highest is None:
+        return None
+    return highest["list_obj"]
 def create_new_name(name=None,names_list=None,default=True,match_true=False,num=0):
     if name==None:
         if default==True:
@@ -298,103 +438,3 @@ def get_last_comp_list(string,compare_list):
             if string in list_item:
                 result_compare = list_item
     return result_compare
-def is_list_obj_in_string(list_objs,string):
-    found = []
-    for list_obj in make_list(list_objs):
-        if list_obj in string:
-            found.append(list_obj)
-    return found            
-def get_longest_common_portion(string, compare_string):
-    for i in range(len(string), 0, -1):
-        if string[:i] in compare_string:
-            return string[:i]
-    return ''
-
-
-def get_common_portions(str1, str2):
-    if not str1 or not str2:
-        return ""
-
-    matrix = [[0] * (len(str2) + 1) for _ in range(len(str1) + 1)]
-    longest, x_longest = 0, 0
-
-    for x in range(1, len(str1) + 1):
-        for y in range(1, len(str2) + 1):
-            if str1[x - 1] == str2[y - 1]:
-                matrix[x][y] = matrix[x - 1][y - 1] + 1
-                if matrix[x][y] > longest:
-                    longest = matrix[x][y]
-                    x_longest = x
-            else:
-                matrix[x][y] = 0
-
-    return str1[x_longest - longest: x_longest]
-def find_max_beginning_match_length(comp_obj, common_portions):
-    for portion in common_portions:
-        if comp_obj.startswith(portion):
-            return len(portion) / len(comp_obj)
-    return 0
-def get_portions(string,compare_string,comp_set):
-    for i,char in enumerate(string):
-        found = get_portion_in_string(string[i:],compare_string)
-        if found:
-            comp_set.add(found)
-            #input(f"{found} from {string[i:]} found in {compare_string}")
-    return comp_set
-def get_portion_in_string(string,compare_string):
-    found = ''
-
-    for i,char in enumerate(string):
-        
-        if i == 0:
-            curr_portion = string[0]
-        elif i == len(string)-1:
-            curr_portion = string
-        else:
-            curr_portion = string[:i]
-        if curr_portion and curr_portion in compare_string:
-            found = curr_portion
-            
-        elif curr_portion  and curr_portion not in compare_string:
-            break
-
-    return found
-def get_closest_match_from_list(comp_obj:str, total_list:list,case_sensative:bool=True):
-    if isinstance(comp_obj,str):
-        total_list_i= [i for i in range(len(total_list)) if isinstance(total_list[i],(str))]
-        if not case_sensative:
-            pre_processed_list = [total_list[i] for i in total_list_i]
-        else:
-            comp_obj=str(comp_obj).lower()
-            pre_processed_list= [str(total_list[i]).lower() for i in total_list_i]
-    else:
-        total_list_i= [i for i in range(len(total_list)) if isinstance(comp_obj,type(total_list[i]))]
-        pre_processed_list= [str(total_list[i]).lower() for i in total_list_i]
-    highest={}
-    total_found=[]
-    for i,obj in enumerate(pre_processed_list):
-        if comp_obj==obj:
-            return total_list[total_list_i[i]]
-        found = get_portions(obj,comp_obj,set())
-        if found:
-            found_ls = [len(str(obj)) for obj in found]
-            found_ls.sort()
-            length = len(comp_obj)/len(obj)
-            longest_found = found_ls[-1]
-            characters_shared = get_common_portions(comp_obj,obj)
-            comp_curr_js = {"obj":total_list[total_list_i[i]],"found":found,
-                            "longest_found":longest_found,
-                            "length":length,
-                            "characters_shared":characters_shared}
-            if length<=1:
-                if comp_obj in found:
-                    total_found.append(total_list[total_list_i[i]])
-                highest = highest or comp_curr_js
-                if comp_curr_js["longest_found"] == highest["longest_found"]:
-                    if comp_curr_js["length"] > highest["length"]:
-                        highest =comp_curr_js
-                elif comp_curr_js["longest_found"] > highest["longest_found"]:
-                    highest =comp_curr_js
-    if total_found:
-        return total_found[0]
-    return highest.get('obj') 

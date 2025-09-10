@@ -10,9 +10,7 @@ algorithm.'''
 import hmac
 import math
 import os
-
 from hashlib import sha256
-from typing import Optional  # Needed for mypy
 
 # A standard 1024 bits (128 bytes) prime number for use in Diffie-Hellman exchange
 DH_PRIME_1024_BYTES = (
@@ -38,8 +36,8 @@ DH_PRIME_1024 = int.from_bytes(DH_PRIME_1024_BYTES, 'big')
 
 class Session:
     def __init__(self) -> None:
-        self.object_path = None  # type: Optional[str]
-        self.aes_key = None  # type: Optional[bytes]
+        self.object_path: str | None = None
+        self.aes_key: bytes | None = None
         self.encrypted = True
         # 128-bytes-long strong random number
         self.my_private_key = int.from_bytes(os.urandom(0x80), 'big')

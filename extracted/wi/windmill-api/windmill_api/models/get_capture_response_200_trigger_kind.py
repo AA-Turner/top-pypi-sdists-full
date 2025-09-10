@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class GetCaptureResponse200TriggerKind(str, Enum):
+    DEFAULT_EMAIL = "default_email"
     EMAIL = "email"
     GCP = "gcp"
     HTTP = "http"

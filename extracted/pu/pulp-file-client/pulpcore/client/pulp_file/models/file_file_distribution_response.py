@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class FileFileDistributionResponse(BaseModel):
     """
     Serializer for File Distributions.
@@ -129,22 +121,7 @@ class FileFileDistributionResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "base_path": obj.get("base_path"),
-            "base_url": obj.get("base_url"),
-            "content_guard": obj.get("content_guard"),
-            "no_content_change_since": obj.get("no_content_change_since"),
-            "hidden": obj.get("hidden") if obj.get("hidden") is not None else False,
-            "pulp_labels": obj.get("pulp_labels"),
-            "name": obj.get("name"),
-            "repository": obj.get("repository"),
-            "publication": obj.get("publication"),
-            "checkpoint": obj.get("checkpoint")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

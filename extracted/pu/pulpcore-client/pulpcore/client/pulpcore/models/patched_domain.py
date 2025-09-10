@@ -25,14 +25,6 @@ from pulpcore.client.pulpcore.models.storage_class_enum import StorageClassEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedDomain(BaseModel):
     """
     Serializer for Domain.
@@ -111,15 +103,7 @@ class PatchedDomain(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "storage_class": obj.get("storage_class"),
-            "storage_settings": obj.get("storage_settings"),
-            "redirect_to_object_storage": obj.get("redirect_to_object_storage") if obj.get("redirect_to_object_storage") is not None else True,
-            "hide_guarded_distributions": obj.get("hide_guarded_distributions") if obj.get("hide_guarded_distributions") is not None else False
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

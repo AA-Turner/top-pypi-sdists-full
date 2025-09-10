@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AccountJoinedMethodType",
+    "AccountStateType",
     "AccountStatusType",
     "ActionTypeType",
     "ChildTypeType",
@@ -65,6 +66,7 @@ __all__ = (
 
 
 AccountJoinedMethodType = Literal["CREATED", "INVITED"]
+AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "PENDING_CLOSURE", "SUSPENDED"]
 AccountStatusType = Literal["ACTIVE", "PENDING_CLOSURE", "SUSPENDED"]
 ActionTypeType = Literal[
     "ADD_ORGANIZATIONS_SERVICE_LINKED_ROLE", "APPROVE_ALL_FEATURES", "ENABLE_ALL_FEATURES", "INVITE"

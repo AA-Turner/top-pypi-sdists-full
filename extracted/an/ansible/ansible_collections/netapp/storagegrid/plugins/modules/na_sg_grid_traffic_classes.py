@@ -105,60 +105,60 @@ options:
 """
 
 EXAMPLES = """
-  - name: create Traffic Classification Policy with bandwidth limit on buckets
-    netapp.storagegrid.na_sg_grid_traffic_classes:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: Traffic-Policy1
-      matchers:
-        - type: bucket
-          members: bucket1,anotherbucket
-      limits:
-        - type: aggregateBandwidthOut
-          value: 100000000
+- name: create Traffic Classification Policy with bandwidth limit on buckets
+  netapp.storagegrid.na_sg_grid_traffic_classes:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: Traffic-Policy1
+    matchers:
+      - type: bucket
+        members: bucket1,anotherbucket
+    limits:
+      - type: aggregateBandwidthOut
+        value: 100000000
 
-  - name: create Traffic Classification Policy with bandwidth limits except for specific tenant account
-    netapp.storagegrid.na_sg_grid_traffic_classes:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      name: Fabricpool-Policy
-      description: "Limit all to 500MB/s except FabricPool tenant"
-      matchers:
-        - type: tenant
-          inverse: True
-          members: 12345678901234567890
-      limits:
-        - type: aggregateBandwidthIn
-          value: 50000000
-        - type: aggregateBandwidthOut
-          value: 50000000
+- name: create Traffic Classification Policy with bandwidth limits except for specific tenant account
+  netapp.storagegrid.na_sg_grid_traffic_classes:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: Fabricpool-Policy
+    description: "Limit all to 500MB/s except FabricPool tenant"
+    matchers:
+      - type: tenant
+        inverse: true
+        members: 12345678901234567890
+    limits:
+      - type: aggregateBandwidthIn
+        value: 50000000
+      - type: aggregateBandwidthOut
+        value: 50000000
 
-  - name: rename Traffic Classification Policy
-    netapp.storagegrid.na_sg_grid_traffic_classes:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: present
-      policy_id: 00000000-0000-0000-0000-000000000000
-      name: Traffic-Policy1-New-Name
-      matchers:
-        - type: bucket
-          members: bucket1,anotherbucket
-      limits:
-        - type: aggregateBandwidthOut
-          value: 100000000
+- name: rename Traffic Classification Policy
+  netapp.storagegrid.na_sg_grid_traffic_classes:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    policy_id: 00000000-0000-0000-0000-000000000000
+    name: Traffic-Policy1-New-Name
+    matchers:
+      - type: bucket
+        members: bucket1,anotherbucket
+    limits:
+      - type: aggregateBandwidthOut
+        value: 100000000
 
-  - name: delete Traffic Classification Policy
-    netapp.storagegrid.na_sg_grid_traffic_classes:
-      api_url: "https://<storagegrid-endpoint-url>"
-      auth_token: "storagegrid-auth-token"
-      validate_certs: false
-      state: absent
-      name: Traffic-Policy1
+- name: delete Traffic Classification Policy
+  netapp.storagegrid.na_sg_grid_traffic_classes:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: absent
+    name: Traffic-Policy1
 """
 
 RETURN = """

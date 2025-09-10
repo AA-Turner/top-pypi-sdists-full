@@ -23,14 +23,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class AccessPolicy(BaseModel):
     """
     Serializer for AccessPolicy.
@@ -91,12 +83,7 @@ class AccessPolicy(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "permissions_assignment": obj.get("permissions_assignment"),
-            "creation_hooks": obj.get("creation_hooks"),
-            "statements": obj.get("statements"),
-            "queryset_scoping": obj.get("queryset_scoping")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -4,7 +4,31 @@ from .evaluator import Evaluator
 from .supervised_fine_tuning_job import SupervisedFineTuningJob
 from .batch_inference_job import BatchInferenceJob
 import importlib.metadata
-from reward_kit import reward_function
+from typing import Callable, NoReturn, Protocol, TypeVar, cast
+
+F = TypeVar("F", bound=Callable[..., object])
+
+class _RewardFunctionDecorator(Protocol):
+    def __call__(
+        self,
+        _func: F | None = None,
+        *,
+        mode: str = "pointwise",
+        id: str | None = None,
+        requirements: list[str] | None = None,
+    ) -> F | Callable[[F], F]:
+        ...
+
+try:
+    from reward_kit import reward_function as _reward_function  # type: ignore
+    reward_function: _RewardFunctionDecorator = cast(_RewardFunctionDecorator, _reward_function)
+except Exception:  # pragma: no cover
+    def _reward_function_stub(*args: object, **kwargs: object) -> NoReturn:
+        raise ImportError(
+            "reward_kit is not installed. Install the extra: `pip install 'fireworks-ai[reward-kit]'` or with uv: `uv pip install 'fireworks-ai[reward-kit]'`."
+        )
+
+    reward_function: _RewardFunctionDecorator = cast(_RewardFunctionDecorator, _reward_function_stub)
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam

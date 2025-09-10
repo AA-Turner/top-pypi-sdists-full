@@ -24,14 +24,6 @@ from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class GroupUser(BaseModel):
     """
     Serializer for Users that belong to a Group.
@@ -89,9 +81,7 @@ class GroupUser(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "username": obj.get("username")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

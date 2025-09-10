@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: jenkinsapi
-Version: 0.3.15
+Version: 0.3.16
 Summary: A Python API for accessing resources on a Jenkins continuous-integration server.
 Author-email: Salim Fadhley <salimfadhley@gmail.com>, Aleksey Maksimov <ctpeko3a@gmail.com>, Clinton Steiner <clintonsteiner@gmail.com>
 Maintainer-email: Aleksey Maksimov <ctpeko3a@gmail.com>, Clinton Steiner <clintonsteiner@gmail.com>
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
+License: MIT license
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -23,9 +23,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-License-File: LICENSE
+Requires-Python: >=3.9
 Requires-Dist: pytz>=2014.4
 Requires-Dist: requests>=2.3.0
+Description-Content-Type: text/x-rst
 
 Jenkinsapi
 ==========
@@ -169,4 +170,3 @@ Project Contributors
 Please do not contact these contributors directly for support questions! Use the GitHub tracker instead.
 
 .. _Java: https://www.oracle.com/java/technologies/downloads/#java21
-

@@ -9,21 +9,32 @@ registered collection. Use :func:`get_default_collection` to get the
 default collection (and create it, if necessary).
 
 Collections are usually automatically unlocked when user logs in, but
-collections can also be locked and unlocked using
-:meth:`Collection.lock` and :meth:`Collection.unlock` methods (unlocking
-requires showing the unlocking prompt to user and can be synchronous or
-asynchronous). Creating new items and editing existing ones is possible
-only in unlocked collection."""
+collections can also be locked and unlocked using :meth:`Collection.lock`
+and :meth:`Collection.unlock` methods (unlocking requires showing the
+unlocking prompt to user and blocks until user accepts or declines it).
+Creating new items and editing existing ones is possible only in unlocked
+collections.
+"""
 
-from typing import Dict, Iterator, Optional
+from collections.abc import Iterator
+
 from jeepney.io.blocking import DBusConnection
-from secretstorage.defines import SS_PREFIX, SS_PATH
+
+from secretstorage.defines import SS_PATH, SS_PREFIX
 from secretstorage.dhcrypto import Session
-from secretstorage.exceptions import LockedException, ItemNotFoundException, \
- PromptDismissedException
+from secretstorage.exceptions import (
+    ItemNotFoundException,
+    LockedException,
+    PromptDismissedException,
+)
 from secretstorage.item import Item
-from secretstorage.util import DBusAddressWrapper, exec_prompt, \
- format_secret, open_session, unlock_objects
+from secretstorage.util import (
+    DBusAddressWrapper,
+    exec_prompt,
+    format_secret,
+    open_session,
+    unlock_objects,
+)
 
 COLLECTION_IFACE = SS_PREFIX + 'Collection'
 SERVICE_IFACE = SS_PREFIX + 'Service'
@@ -36,7 +47,7 @@ class Collection:
 
     def __init__(self, connection: DBusConnection,
                  collection_path: str = DEFAULT_COLLECTION,
-                 session: Optional[Session] = None) -> None:
+                 session: Session | None = None) -> None:
         self.connection = connection
         self.session = session
         self.collection_path = collection_path
@@ -86,7 +97,7 @@ class Collection:
         for item_path in self._collection.get_property('Items'):
             yield Item(self.connection, item_path, self.session)
 
-    def search_items(self, attributes: Dict[str, str]) -> Iterator[Item]:
+    def search_items(self, attributes: dict[str, str]) -> Iterator[Item]:
         """Returns a generator of items with the given attributes.
         `attributes` should be a dictionary."""
         result, = self._collection.call('SearchItems', 'a{ss}', attributes)
@@ -104,7 +115,7 @@ class Collection:
         self.ensure_not_locked()
         self._collection.set_property('Label', 's', label)
 
-    def create_item(self, label: str, attributes: Dict[str, str],
+    def create_item(self, label: str, attributes: dict[str, str],
                     secret: bytes, replace: bool = False,
                     content_type: str = 'text/plain') -> Item:
         """Creates a new :class:`~secretstorage.item.Item` with given
@@ -137,9 +148,12 @@ class Collection:
         assert signature == 'o'
         return Item(self.connection, item_path, self.session)
 
+    def __repr__(self) -> str:
+        return f"<Collection {self.get_label()!r} path={self.collection_path!r}>"
+
 
 def create_collection(connection: DBusConnection, label: str, alias: str = '',
-                      session: Optional[Session] = None) -> Collection:
+                      session: Session | None = None) -> Collection:
     """Creates a new :class:`Collection` with the given `label` and `alias`
     and returns it. This action requires prompting.
 
@@ -170,7 +184,7 @@ def get_all_collections(connection: DBusConnection) -> Iterator[Collection]:
 
 
 def get_default_collection(connection: DBusConnection,
-                           session: Optional[Session] = None) -> Collection:
+                           session: Session | None = None) -> Collection:
     """Returns the default collection. If it doesn't exist,
     creates it."""
     try:
@@ -215,7 +229,7 @@ def get_collection_by_alias(connection: DBusConnection,
 
 
 def search_items(connection: DBusConnection,
-                 attributes: Dict[str, str]) -> Iterator[Item]:
+                 attributes: dict[str, str]) -> Iterator[Item]:
     """Returns a generator of items in all collections with the given
     attributes. `attributes` should be a dictionary."""
     service = DBusAddressWrapper(SS_PATH, SERVICE_IFACE, connection)

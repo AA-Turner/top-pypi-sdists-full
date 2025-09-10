@@ -26,14 +26,6 @@ from pulpcore.client.pulpcore.models.storage_class_enum import StorageClassEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class DomainResponse(BaseModel):
     """
     Serializer for Domain.
@@ -121,19 +113,7 @@ class DomainResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "storage_class": obj.get("storage_class"),
-            "storage_settings": obj.get("storage_settings"),
-            "redirect_to_object_storage": obj.get("redirect_to_object_storage") if obj.get("redirect_to_object_storage") is not None else True,
-            "hide_guarded_distributions": obj.get("hide_guarded_distributions") if obj.get("hide_guarded_distributions") is not None else False
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pretext
-Version: 2.29.1
+Version: 2.29.2
 Summary: A package to author, build, and deploy PreTeXt projects.
 Home-page: https://pretextbook.org
 License: GPL-3.0-or-later
@@ -29,7 +29,7 @@ Requires-Dist: pdfCropMargins (>=1.0.9,<1.1.0)
 Requires-Dist: pelican[markdown] (>=4.10,<5.0) ; extra == "homepage" or extra == "all"
 Requires-Dist: plastex (>=3,<4)
 Requires-Dist: playwright (>=1,<2)
-Requires-Dist: prefig[text] (>=0.4,<0.5) ; extra == "prefigure" or extra == "all"
+Requires-Dist: prefig[text] (>=0.4.2,<0.5.0) ; extra == "prefigure" or extra == "all"
 Requires-Dist: psutil (>=7,<8)
 Requires-Dist: pyMuPDF (>=1.24,<2.0)
 Requires-Dist: pydantic-xml (==2.14.3)

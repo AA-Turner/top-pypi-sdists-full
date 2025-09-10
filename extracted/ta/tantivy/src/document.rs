@@ -9,7 +9,7 @@ use pyo3::{
         PyAny, PyBool, PyDateAccess, PyDateTime, PyDict, PyInt, PyList,
         PyTimeAccess, PyTuple,
     },
-    Python,
+    IntoPyObjectExt, Python,
 };
 
 use chrono::{offset::TimeZone, NaiveDateTime, Utc};
@@ -206,29 +206,29 @@ fn extract_value_single_or_list_for_type(
     }
 }
 
-fn object_to_py(py: Python, obj: &Vec<(String, Value)>) -> PyResult<PyObject> {
-    let dict = PyDict::new_bound(py);
+fn object_to_py(py: Python, obj: &[(String, Value)]) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
     for (k, v) in obj.iter() {
         dict.set_item(k, value_to_py(py, v)?)?;
     }
     Ok(dict.into())
 }
 
-fn value_to_py(py: Python, value: &Value) -> PyResult<PyObject> {
+fn value_to_py(py: Python, value: &Value) -> PyResult<Py<PyAny>> {
     Ok(match value {
         Value::Null => py.None(),
-        Value::Str(text) => text.into_py(py),
-        Value::U64(num) => (*num).into_py(py),
-        Value::I64(num) => (*num).into_py(py),
-        Value::F64(num) => (*num).into_py(py),
-        Value::Bytes(b) => b.to_object(py),
+        Value::Str(text) => text.into_py_any(py)?,
+        Value::U64(num) => (*num).into_py_any(py)?,
+        Value::I64(num) => (*num).into_py_any(py)?,
+        Value::F64(num) => (*num).into_py_any(py)?,
+        Value::Bytes(b) => b.into_py_any(py)?,
         Value::PreTokStr(_pretoken) => {
             // TODO implement me
             unimplemented!();
         }
         Value::Date(d) => {
             let utc = d.into_utc();
-            PyDateTime::new_bound(
+            PyDateTime::new(
                 py,
                 utc.year(),
                 utc.month() as u8,
@@ -239,11 +239,11 @@ fn value_to_py(py: Python, value: &Value) -> PyResult<PyObject> {
                 utc.microsecond(),
                 None,
             )?
-            .into_py(py)
+            .into_py_any(py)?
         }
-        Value::Facet(f) => Facet { inner: f.clone() }.into_py(py),
+        Value::Facet(f) => Facet { inner: f.clone() }.into_py_any(py)?,
         Value::Array(arr) => {
-            let mut list = PyList::empty_bound(py);
+            let list = PyList::empty(py);
             // Because `value_to_py` can return an error, we need to be able
             // to handle those errors on demand. Also, we want to avoid
             // collecting all the values into an intermediate `Vec` before
@@ -256,8 +256,8 @@ fn value_to_py(py: Python, value: &Value) -> PyResult<PyObject> {
             list.into()
         }
         Value::Object(obj) => object_to_py(py, obj)?,
-        Value::Bool(b) => b.into_py(py),
-        Value::IpAddr(i) => (*i).to_string().into_py(py),
+        Value::Bool(b) => b.into_py_any(py)?,
+        Value::IpAddr(i) => (*i).to_string().into_py_any(py)?,
     })
 }
 
@@ -657,10 +657,10 @@ impl Document {
     ///
     /// For this reason, the dictionary, will associate
     /// a list of value for every field.
-    fn to_dict(&self, py: Python) -> PyResult<PyObject> {
-        let dict = PyDict::new_bound(py);
+    fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
         for (key, values) in &self.field_values {
-            let values_py: Vec<PyObject> = values
+            let values_py: Vec<Py<PyAny>> = values
                 .iter()
                 .map(|v| value_to_py(py, v))
                 .collect::<PyResult<_>>()?;
@@ -824,7 +824,7 @@ impl Document {
         &self,
         py: Python,
         fieldname: &str,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         if let Some(value) = self.iter_values_for_field(fieldname).next() {
             let py_value = value_to_py(py, value)?;
             Ok(Some(py_value))
@@ -840,14 +840,18 @@ impl Document {
     ///
     /// Returns a list of values.
     /// The type of the value depends on the field.
-    fn get_all(&self, py: Python, field_name: &str) -> PyResult<Vec<PyObject>> {
+    fn get_all(
+        &self,
+        py: Python,
+        field_name: &str,
+    ) -> PyResult<Vec<Py<PyAny>>> {
         self.iter_values_for_field(field_name)
             .map(|value| value_to_py(py, value))
             .collect::<PyResult<Vec<_>>>()
     }
 
-    fn __getitem__(&self, field_name: &str) -> PyResult<Vec<PyObject>> {
-        Python::with_gil(|py| -> PyResult<Vec<PyObject>> {
+    fn __getitem__(&self, field_name: &str) -> PyResult<Vec<Py<PyAny>>> {
+        Python::attach(|py| -> PyResult<Vec<Py<PyAny>>> {
             self.get_all(py, field_name)
         })
     }
@@ -869,17 +873,17 @@ impl Document {
         other: &Self,
         op: CompareOp,
         py: Python<'_>,
-    ) -> PyObject {
+    ) -> PyResult<Py<PyAny>> {
         match op {
-            CompareOp::Eq => (self == other).into_py(py),
-            CompareOp::Ne => (self != other).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => (self == other).into_py_any(py),
+            CompareOp::Ne => (self != other).into_py_any(py),
+            _ => Ok(py.NotImplemented()),
         }
     }
 
     #[staticmethod]
     fn _internal_from_pythonized(serialized: &Bound<PyAny>) -> PyResult<Self> {
-        pythonize::depythonize(&serialized).map_err(to_pyerr)
+        pythonize::depythonize(serialized).map_err(to_pyerr)
     }
 
     fn __reduce__<'a>(
@@ -887,14 +891,13 @@ impl Document {
         py: Python<'a>,
     ) -> PyResult<Bound<'a, PyTuple>> {
         let serialized = pythonize::pythonize(py, &*slf).map_err(to_pyerr)?;
-
-        Ok(PyTuple::new_bound(
+        let deserializer = slf
+            .into_pyobject(py)?
+            .getattr("_internal_from_pythonized")?;
+        PyTuple::new(
             py,
-            [
-                slf.into_py(py).getattr(py, "_internal_from_pythonized")?,
-                PyTuple::new_bound(py, [serialized]).to_object(py),
-            ],
-        ))
+            [deserializer, PyTuple::new(py, [serialized])?.into_any()],
+        )
     }
 }
 

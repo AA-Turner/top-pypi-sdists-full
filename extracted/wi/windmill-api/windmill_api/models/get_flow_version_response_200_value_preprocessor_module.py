@@ -30,6 +30,12 @@ if TYPE_CHECKING:
     from ..models.get_flow_version_response_200_value_preprocessor_module_suspend import (
         GetFlowVersionResponse200ValuePreprocessorModuleSuspend,
     )
+    from ..models.get_flow_version_response_200_value_preprocessor_module_timeout_type_0 import (
+        GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0,
+    )
+    from ..models.get_flow_version_response_200_value_preprocessor_module_timeout_type_1 import (
+        GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1,
+    )
 
 
 T = TypeVar("T", bound="GetFlowVersionResponse200ValuePreprocessorModule")
@@ -47,7 +53,8 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
         sleep (Union['GetFlowVersionResponse200ValuePreprocessorModuleSleepType0',
             'GetFlowVersionResponse200ValuePreprocessorModuleSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0',
+            'GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, GetFlowVersionResponse200ValuePreprocessorModuleMock]):
@@ -68,7 +75,11 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union[
+        "GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0",
+        "GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1",
+        Unset,
+    ] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "GetFlowVersionResponse200ValuePreprocessorModuleMock"] = UNSET
@@ -81,6 +92,9 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.get_flow_version_response_200_value_preprocessor_module_sleep_type_0 import (
             GetFlowVersionResponse200ValuePreprocessorModuleSleepType0,
+        )
+        from ..models.get_flow_version_response_200_value_preprocessor_module_timeout_type_0 import (
+            GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0,
         )
 
         id = self.id
@@ -112,7 +126,20 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -192,6 +219,12 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
         from ..models.get_flow_version_response_200_value_preprocessor_module_suspend import (
             GetFlowVersionResponse200ValuePreprocessorModuleSuspend,
         )
+        from ..models.get_flow_version_response_200_value_preprocessor_module_timeout_type_0 import (
+            GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0,
+        )
+        from ..models.get_flow_version_response_200_value_preprocessor_module_timeout_type_1 import (
+            GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1,
+        )
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -258,7 +291,42 @@ class GetFlowVersionResponse200ValuePreprocessorModule:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union[
+            "GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0",
+            "GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType0.from_dict(
+                        _timeout_type_0
+                    )
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = GetFlowVersionResponse200ValuePreprocessorModuleTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

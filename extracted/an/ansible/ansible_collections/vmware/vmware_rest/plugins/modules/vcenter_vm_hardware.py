@@ -182,9 +182,6 @@ import os
 
 if os.getenv("VMWARE_ENABLE_TURBO", False):
     try:
-        from ansible_collections.cloud.common.plugins.module_utils.turbo.exceptions import (
-            EmbeddedModuleFailure,
-        )
         from ansible_collections.cloud.common.plugins.module_utils.turbo.module import (
             AnsibleTurboModule as AnsibleModule,
         )
@@ -323,8 +320,11 @@ async def main():
             validate_certs=module.params["vcenter_validate_certs"],
             log_file=module.params["vcenter_rest_log_file"],
         )
-    except EmbeddedModuleFailure as err:
-        module.fail_json(err.get_message())
+    except Exception as err:
+        if hasattr(err, "get_message"):
+            module.fail_json(err.get_message())
+        else:
+            module.fail_json(str(err))
     result = await entry_point(module, session)
     module.exit_json(**result)
 

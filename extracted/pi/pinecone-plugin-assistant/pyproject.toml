@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pinecone-plugin-assistant"
-version = "1.8.0"
+version = "2.0.0"
 packages = [
     { include = "pinecone_plugins", from = "." },
 ]

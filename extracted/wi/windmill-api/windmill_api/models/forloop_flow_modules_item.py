@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from ..models.forloop_flow_modules_item_stop_after_all_iters_if import ForloopFlowModulesItemStopAfterAllItersIf
     from ..models.forloop_flow_modules_item_stop_after_if import ForloopFlowModulesItemStopAfterIf
     from ..models.forloop_flow_modules_item_suspend import ForloopFlowModulesItemSuspend
+    from ..models.forloop_flow_modules_item_timeout_type_0 import ForloopFlowModulesItemTimeoutType0
+    from ..models.forloop_flow_modules_item_timeout_type_1 import ForloopFlowModulesItemTimeoutType1
 
 
 T = TypeVar("T", bound="ForloopFlowModulesItem")
@@ -30,7 +32,7 @@ class ForloopFlowModulesItem:
         skip_if (Union[Unset, ForloopFlowModulesItemSkipIf]):
         sleep (Union['ForloopFlowModulesItemSleepType0', 'ForloopFlowModulesItemSleepType1', Unset]):
         cache_ttl (Union[Unset, float]):
-        timeout (Union[Unset, float]):
+        timeout (Union['ForloopFlowModulesItemTimeoutType0', 'ForloopFlowModulesItemTimeoutType1', Unset]):
         delete_after_use (Union[Unset, bool]):
         summary (Union[Unset, str]):
         mock (Union[Unset, ForloopFlowModulesItemMock]):
@@ -47,7 +49,7 @@ class ForloopFlowModulesItem:
     skip_if: Union[Unset, "ForloopFlowModulesItemSkipIf"] = UNSET
     sleep: Union["ForloopFlowModulesItemSleepType0", "ForloopFlowModulesItemSleepType1", Unset] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
-    timeout: Union[Unset, float] = UNSET
+    timeout: Union["ForloopFlowModulesItemTimeoutType0", "ForloopFlowModulesItemTimeoutType1", Unset] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     summary: Union[Unset, str] = UNSET
     mock: Union[Unset, "ForloopFlowModulesItemMock"] = UNSET
@@ -59,6 +61,7 @@ class ForloopFlowModulesItem:
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.forloop_flow_modules_item_sleep_type_0 import ForloopFlowModulesItemSleepType0
+        from ..models.forloop_flow_modules_item_timeout_type_0 import ForloopFlowModulesItemTimeoutType0
 
         id = self.id
         value = self.value
@@ -89,7 +92,20 @@ class ForloopFlowModulesItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
-        timeout = self.timeout
+        timeout: Union[Dict[str, Any], Unset]
+        if isinstance(self.timeout, Unset):
+            timeout = UNSET
+
+        elif isinstance(self.timeout, ForloopFlowModulesItemTimeoutType0):
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
+        else:
+            timeout = UNSET
+            if not isinstance(self.timeout, Unset):
+                timeout = self.timeout.to_dict()
+
         delete_after_use = self.delete_after_use
         summary = self.summary
         mock: Union[Unset, Dict[str, Any]] = UNSET
@@ -153,6 +169,8 @@ class ForloopFlowModulesItem:
         from ..models.forloop_flow_modules_item_stop_after_all_iters_if import ForloopFlowModulesItemStopAfterAllItersIf
         from ..models.forloop_flow_modules_item_stop_after_if import ForloopFlowModulesItemStopAfterIf
         from ..models.forloop_flow_modules_item_suspend import ForloopFlowModulesItemSuspend
+        from ..models.forloop_flow_modules_item_timeout_type_0 import ForloopFlowModulesItemTimeoutType0
+        from ..models.forloop_flow_modules_item_timeout_type_1 import ForloopFlowModulesItemTimeoutType1
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -213,7 +231,36 @@ class ForloopFlowModulesItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
-        timeout = d.pop("timeout", UNSET)
+        def _parse_timeout(
+            data: object,
+        ) -> Union["ForloopFlowModulesItemTimeoutType0", "ForloopFlowModulesItemTimeoutType1", Unset]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _timeout_type_0 = data
+                timeout_type_0: Union[Unset, ForloopFlowModulesItemTimeoutType0]
+                if isinstance(_timeout_type_0, Unset):
+                    timeout_type_0 = UNSET
+                else:
+                    timeout_type_0 = ForloopFlowModulesItemTimeoutType0.from_dict(_timeout_type_0)
+
+                return timeout_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _timeout_type_1 = data
+            timeout_type_1: Union[Unset, ForloopFlowModulesItemTimeoutType1]
+            if isinstance(_timeout_type_1, Unset):
+                timeout_type_1 = UNSET
+            else:
+                timeout_type_1 = ForloopFlowModulesItemTimeoutType1.from_dict(_timeout_type_1)
+
+            return timeout_type_1
+
+        timeout = _parse_timeout(d.pop("timeout", UNSET))
 
         delete_after_use = d.pop("delete_after_use", UNSET)
 

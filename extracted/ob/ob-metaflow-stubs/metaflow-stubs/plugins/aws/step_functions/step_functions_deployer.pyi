@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.2.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-08T21:00:14.518504                                                            #
+# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-09T09:20:35.603742                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.runner.deployer_impl
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
+    import typing
 
 from ....runner.deployer_impl import DeployerImpl as DeployerImpl
 
@@ -72,6 +72,9 @@ class StepFunctionsDeployer(metaflow.runner.deployer_impl.DeployerImpl, metaclas
         use_distributed_map : bool, optional, default False
             Use AWS Step Functions Distributed Map instead of Inline Map for defining foreach
             tasks in Amazon State Language.
+        compress_state_machine : bool, optional, default False
+            Compress AWS Step Functions state machine to fit within the 8K limit.
+        
         deployer_attribute_file : str, optional, default None
             Write the workflow name to the specified file. Used internally for Metaflow's Deployer API.
         

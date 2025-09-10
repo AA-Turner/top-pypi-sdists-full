@@ -27,14 +27,6 @@ from pulpcore.client.pulpcore.models.generic_remote_response_policy_enum import 
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class GenericRemoteResponse(BaseModel):
     """
     Every remote defined by a plugin should have a Remote serializer that inherits from this class. Please import from `pulpcore.plugin.serializers` rather than from this module directly.
@@ -177,29 +169,7 @@ class GenericRemoteResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "name": obj.get("name"),
-            "url": obj.get("url"),
-            "ca_cert": obj.get("ca_cert"),
-            "client_cert": obj.get("client_cert"),
-            "tls_validation": obj.get("tls_validation"),
-            "proxy_url": obj.get("proxy_url"),
-            "pulp_labels": obj.get("pulp_labels"),
-            "download_concurrency": obj.get("download_concurrency"),
-            "max_retries": obj.get("max_retries"),
-            "policy": obj.get("policy"),
-            "total_timeout": obj.get("total_timeout"),
-            "connect_timeout": obj.get("connect_timeout"),
-            "sock_connect_timeout": obj.get("sock_connect_timeout"),
-            "sock_read_timeout": obj.get("sock_read_timeout"),
-            "headers": obj.get("headers"),
-            "rate_limit": obj.get("rate_limit"),
-            "hidden_fields": [GenericRemoteResponseHiddenFieldsInner.from_dict(_item) for _item in obj["hidden_fields"]] if obj.get("hidden_fields") is not None else None
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

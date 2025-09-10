@@ -1,15 +1,22 @@
-use itertools::Itertools;
-use tombi_ast::AstNode;
+use tombi_ast::TombiValueCommentDirective;
 use tombi_toml_version::TomlVersion;
 
-use crate::{Comment, DocumentTreeAndErrors, IntoDocumentTreeAndErrors, ValueImpl, ValueType};
+use crate::{
+    value::collect_comment_directives_and_errors, DocumentTreeAndErrors, IntoDocumentTreeAndErrors,
+    ValueImpl, ValueType,
+};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Boolean {
     value: bool,
-    node: tombi_ast::Boolean,
-    leading_comments: Vec<Comment>,
-    trailing_comment: Option<Comment>,
+    range: tombi_text::Range,
+    pub(crate) comment_directives: Option<Box<Vec<TombiValueCommentDirective>>>,
+}
+
+impl std::fmt::Display for Boolean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }
 
 impl Boolean {
@@ -19,13 +26,8 @@ impl Boolean {
     }
 
     #[inline]
-    pub fn node(&self) -> &tombi_ast::Boolean {
-        &self.node
-    }
-
-    #[inline]
     pub fn range(&self) -> tombi_text::Range {
-        self.node.token().unwrap().range()
+        self.range
     }
 
     #[inline]
@@ -34,13 +36,8 @@ impl Boolean {
     }
 
     #[inline]
-    pub fn leading_comments(&self) -> &[Comment] {
-        self.leading_comments.as_ref()
-    }
-
-    #[inline]
-    pub fn trailing_comment(&self) -> Option<&Comment> {
-        self.trailing_comment.as_ref()
+    pub fn comment_directives(&self) -> Option<&[TombiValueCommentDirective]> {
+        self.comment_directives.as_deref().map(|v| &**v)
     }
 }
 
@@ -50,7 +47,7 @@ impl ValueImpl for Boolean {
     }
 
     fn range(&self) -> tombi_text::Range {
-        self.range()
+        self.range
     }
 }
 
@@ -60,10 +57,13 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::Boolean {
         _toml_version: TomlVersion,
     ) -> DocumentTreeAndErrors<crate::Value> {
         let range = self.range();
+        let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
+
         let Some(token) = self.token() else {
+            errors.push(crate::Error::IncompleteNode { range });
             return DocumentTreeAndErrors {
                 tree: crate::Value::Incomplete { range },
-                errors: vec![crate::Error::IncompleteNode { range }],
+                errors,
             };
         };
 
@@ -73,17 +73,13 @@ impl IntoDocumentTreeAndErrors<crate::Value> for tombi_ast::Boolean {
             _ => unreachable!(),
         };
 
-        let leading_comments = self.leading_comments().map(Comment::from).collect_vec();
-        let trailing_comment = self.trailing_comment().map(Comment::from);
-
         DocumentTreeAndErrors {
             tree: crate::Value::Boolean(crate::Boolean {
                 value,
-                node: self,
-                leading_comments,
-                trailing_comment,
+                range: token.range(),
+                comment_directives,
             }),
-            errors: Vec::with_capacity(0),
+            errors,
         }
     }
 }

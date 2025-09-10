@@ -25,14 +25,6 @@ from pulpcore.client.pulpcore.models.policy357_enum import Policy357Enum
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class PatchedUpstreamPulp(BaseModel):
     """
     Serializer for a Server.
@@ -136,20 +128,7 @@ class PatchedUpstreamPulp(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "base_url": obj.get("base_url"),
-            "api_root": obj.get("api_root"),
-            "domain": obj.get("domain"),
-            "ca_cert": obj.get("ca_cert"),
-            "client_cert": obj.get("client_cert"),
-            "client_key": obj.get("client_key"),
-            "tls_validation": obj.get("tls_validation"),
-            "username": obj.get("username"),
-            "password": obj.get("password"),
-            "q_select": obj.get("q_select"),
-            "policy": obj.get("policy")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

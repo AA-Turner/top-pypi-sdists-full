@@ -20,8 +20,9 @@ pub enum ValueType {
 }
 
 impl ValueType {
-    pub fn into_nullable(self) -> Self {
-        match self {
+    pub fn set_nullable(&mut self) {
+        let value_type = self.clone();
+        *self = match value_type {
             ValueType::Null => ValueType::Null,
             ValueType::Boolean
             | ValueType::Integer
@@ -32,7 +33,7 @@ impl ValueType {
             | ValueType::LocalDate
             | ValueType::LocalTime
             | ValueType::Array
-            | ValueType::Table => ValueType::AnyOf(vec![self, ValueType::Null]),
+            | ValueType::Table => ValueType::AnyOf(vec![value_type, ValueType::Null]),
             ValueType::OneOf(mut types) => {
                 if !types.iter().any(|t| t.is_nullable()) {
                     types.push(ValueType::Null);
@@ -303,6 +304,7 @@ impl std::fmt::Display for ValueType {
     }
 }
 
+#[cfg(feature = "document-tree")]
 impl From<tombi_document_tree::ValueType> for ValueType {
     fn from(value_type: tombi_document_tree::ValueType) -> Self {
         match value_type {

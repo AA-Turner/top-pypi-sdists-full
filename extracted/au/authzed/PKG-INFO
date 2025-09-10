@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: authzed
-Version: 1.21.2
+Version: 1.22.0
 Summary: Client library for SpiceDB.
 Author: Authzed
 Author-email: support@authzed.com
@@ -15,7 +15,7 @@ Requires-Dist: googleapis-common-protos (>=1.65.0,<2.0.0)
 Requires-Dist: grpc-interceptor (>=0.15.4,<0.16.0)
 Requires-Dist: grpcio (>=1.63,<2.0)
 Requires-Dist: protobuf (>=5.26,<6)
-Requires-Dist: protovalidate (>=0.7.1,<0.13.0)
+Requires-Dist: protovalidate (>=0.7.1,<0.16.0)
 Description-Content-Type: text/markdown
 
 # Authzed Python Client

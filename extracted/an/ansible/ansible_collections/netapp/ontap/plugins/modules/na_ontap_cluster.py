@@ -17,7 +17,7 @@ short_description: NetApp ONTAP cluster - create a cluster and add/remove nodes.
 extends_documentation_fragment:
     - netapp.ontap.netapp.na_ontap
 version_added: 2.6.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 description:
   - Create ONTAP cluster.
   - Add or remove cluster nodes using cluster_ip_address.
@@ -177,7 +177,7 @@ EXAMPLES = """
     cluster_contact: testing
     cluster_location: testing
     certificate:
-        uuid: 7f2f332c-933e-11ee-ab1c-005056b397ff
+      uuid: 7f2f332c-933e-11ee-ab1c-005056b397ff
     cluster_name: "{{ netapp_cluster}}"
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"

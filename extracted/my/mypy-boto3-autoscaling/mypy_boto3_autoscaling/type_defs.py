@@ -434,6 +434,7 @@ class EbsTypeDef(TypedDict):
 
 class CancelInstanceRefreshTypeTypeDef(TypedDict):
     AutoScalingGroupName: str
+    WaitForTransitioningInstances: NotRequired[bool]
 
 
 class CapacityForecastTypeDef(TypedDict):

@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class NestedOpenPGPSignatureResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -117,15 +109,7 @@ class NestedOpenPGPSignatureResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "issuer": obj.get("issuer"),
-            "created": obj.get("created"),
-            "expiration_time": obj.get("expiration_time"),
-            "signers_user_id": obj.get("signers_user_id"),
-            "key_expiration_time": obj.get("key_expiration_time"),
-            "expired": obj.get("expired"),
-            "key_expired": obj.get("key_expired")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

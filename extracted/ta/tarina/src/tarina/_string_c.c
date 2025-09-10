@@ -1502,7 +1502,7 @@ struct __pyx_opt_args_6tarina_9_string_c_split_once_index_only {
   int crlf;
 };
 
-/* "tarina/_string_c.pyx":207
+/* "tarina/_string_c.pyx":212
  * 
  * 
  * cdef class String:             # <<<<<<<<<<<<<<
@@ -1599,6 +1599,70 @@ struct __pyx_obj_6tarina_9_string_c_String {
     } while (0)
 #define __Pyx_CLEAR(r)    do { PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);} while(0)
 #define __Pyx_XCLEAR(r)   do { if((r) != NULL) {PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);}} while(0)
+
+/* PyErrExceptionMatches.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
+#else
+#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
+#endif
+
+/* PyThreadStateGet.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
+#define __Pyx_PyThreadState_assign  __pyx_tstate = __Pyx_PyThreadState_Current;
+#if PY_VERSION_HEX >= 0x030C00A6
+#define __Pyx_PyErr_Occurred()  (__pyx_tstate->current_exception != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->current_exception ? (PyObject*) Py_TYPE(__pyx_tstate->current_exception) : (PyObject*) NULL)
+#else
+#define __Pyx_PyErr_Occurred()  (__pyx_tstate->curexc_type != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->curexc_type)
+#endif
+#else
+#define __Pyx_PyThreadState_declare
+#define __Pyx_PyThreadState_assign
+#define __Pyx_PyErr_Occurred()  (PyErr_Occurred() != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  PyErr_Occurred()
+#endif
+
+/* PyErrFetchRestore.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
+#define __Pyx_ErrRestoreWithState(type, value, tb)  __Pyx_ErrRestoreInState(PyThreadState_GET(), type, value, tb)
+#define __Pyx_ErrFetchWithState(type, value, tb)    __Pyx_ErrFetchInState(PyThreadState_GET(), type, value, tb)
+#define __Pyx_ErrRestore(type, value, tb)  __Pyx_ErrRestoreInState(__pyx_tstate, type, value, tb)
+#define __Pyx_ErrFetch(type, value, tb)    __Pyx_ErrFetchInState(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
+static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A6
+#define __Pyx_PyErr_SetNone(exc) (Py_INCREF(exc), __Pyx_ErrRestore((exc), NULL, NULL))
+#else
+#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
+#endif
+#else
+#define __Pyx_PyErr_Clear() PyErr_Clear()
+#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
+#define __Pyx_ErrRestoreWithState(type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetchWithState(type, value, tb)  PyErr_Fetch(type, value, tb)
+#define __Pyx_ErrRestoreInState(tstate, type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetchInState(tstate, type, value, tb)  PyErr_Fetch(type, value, tb)
+#define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
+#endif
+
+/* PyObjectGetAttrStr.proto */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
+#endif
+
+/* PyObjectGetAttrStrNoError.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
+
+/* GetBuiltinName.proto */
+static PyObject *__Pyx_GetBuiltinName(PyObject *name);
 
 /* TupleAndListFromArray.proto */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -1725,13 +1789,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyUnicode_From_Py_ssize_t(Py_ssize_t value,
 static PyObject* __Pyx_PyUnicode_Join(PyObject* value_tuple, Py_ssize_t value_count, Py_ssize_t result_ulength,
                                       Py_UCS4 max_char);
 
-/* PyObjectGetAttrStr.proto */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
-#else
-#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
-#endif
-
 /* PyFunctionFastCall.proto */
 #if CYTHON_FAST_PYCALL
 #if !CYTHON_VECTORCALL
@@ -1786,65 +1843,8 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
-/* PyErrExceptionMatches.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
-#else
-#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
-#endif
-
-/* PyThreadStateGet.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
-#define __Pyx_PyThreadState_assign  __pyx_tstate = __Pyx_PyThreadState_Current;
-#if PY_VERSION_HEX >= 0x030C00A6
-#define __Pyx_PyErr_Occurred()  (__pyx_tstate->current_exception != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->current_exception ? (PyObject*) Py_TYPE(__pyx_tstate->current_exception) : (PyObject*) NULL)
-#else
-#define __Pyx_PyErr_Occurred()  (__pyx_tstate->curexc_type != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->curexc_type)
-#endif
-#else
-#define __Pyx_PyThreadState_declare
-#define __Pyx_PyThreadState_assign
-#define __Pyx_PyErr_Occurred()  (PyErr_Occurred() != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  PyErr_Occurred()
-#endif
-
-/* PyErrFetchRestore.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
-#define __Pyx_ErrRestoreWithState(type, value, tb)  __Pyx_ErrRestoreInState(PyThreadState_GET(), type, value, tb)
-#define __Pyx_ErrFetchWithState(type, value, tb)    __Pyx_ErrFetchInState(PyThreadState_GET(), type, value, tb)
-#define __Pyx_ErrRestore(type, value, tb)  __Pyx_ErrRestoreInState(__pyx_tstate, type, value, tb)
-#define __Pyx_ErrFetch(type, value, tb)    __Pyx_ErrFetchInState(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
-static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A6
-#define __Pyx_PyErr_SetNone(exc) (Py_INCREF(exc), __Pyx_ErrRestore((exc), NULL, NULL))
-#else
-#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
-#endif
-#else
-#define __Pyx_PyErr_Clear() PyErr_Clear()
-#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
-#define __Pyx_ErrRestoreWithState(type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetchWithState(type, value, tb)  PyErr_Fetch(type, value, tb)
-#define __Pyx_ErrRestoreInState(tstate, type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetchInState(tstate, type, value, tb)  PyErr_Fetch(type, value, tb)
-#define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
-#endif
-
 /* GetAttr3.proto */
 static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *, PyObject *, PyObject *);
-
-/* PyObjectGetAttrStrNoError.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
-
-/* GetBuiltinName.proto */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name);
 
 /* PyDictVersioning.proto */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
@@ -2243,6 +2243,7 @@ int __pyx_module_is_main_tarina___string_c = 0;
 
 /* Implementation of "tarina._string_c" */
 /* #### Code section: global_var ### */
+static PyObject *__pyx_builtin_StopIteration;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_[] = "\001";
 static const char __pyx_k_i[] = "i";
@@ -2250,13 +2251,14 @@ static const char __pyx_k__2[] = "";
 static const char __pyx_k__3[] = "[";
 static const char __pyx_k__4[] = ":";
 static const char __pyx_k__5[] = "])";
-static const char __pyx_k__7[] = ".";
-static const char __pyx_k__8[] = "\"";
-static const char __pyx_k__9[] = "'";
+static const char __pyx_k__6[] = " ";
+static const char __pyx_k__8[] = ".";
+static const char __pyx_k__9[] = "\"";
 static const char __pyx_k_ch[] = "ch";
 static const char __pyx_k_gc[] = "gc";
-static const char __pyx_k__10[] = "\n\r";
-static const char __pyx_k__35[] = "?";
+static const char __pyx_k__10[] = "'";
+static const char __pyx_k__11[] = "\n\r";
+static const char __pyx_k__37[] = "?";
 static const char __pyx_k_len[] = "_len";
 static const char __pyx_k_new[] = "__new__";
 static const char __pyx_k_sep[] = "sep";
@@ -2273,6 +2275,7 @@ static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_text[] = "text";
 static const char __pyx_k_apply[] = "apply";
 static const char __pyx_k_index[] = "index";
+static const char __pyx_k_reset[] = "reset";
 static const char __pyx_k_split[] = "split";
 static const char __pyx_k_state[] = "state";
 static const char __pyx_k_String[] = "String(";
@@ -2284,10 +2287,12 @@ static const char __pyx_k_length[] = "length";
 static const char __pyx_k_offset[] = "offset";
 static const char __pyx_k_pickle[] = "pickle";
 static const char __pyx_k_reduce[] = "__reduce__";
+static const char __pyx_k_reslen[] = "reslen";
 static const char __pyx_k_result[] = "result";
 static const char __pyx_k_update[] = "update";
 static const char __pyx_k_disable[] = "disable";
 static const char __pyx_k_String_2[] = "String";
+static const char __pyx_k_complete[] = "complete";
 static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_out_text[] = "out_text";
 static const char __pyx_k_pyx_type[] = "__pyx_type";
@@ -2304,10 +2309,13 @@ static const char __pyx_k_PickleError[] = "PickleError";
 static const char __pyx_k_String_rest[] = "String.rest";
 static const char __pyx_k_String_step[] = "String.step";
 static const char __pyx_k_String_apply[] = "String.apply";
+static const char __pyx_k_String_reset[] = "String.reset";
 static const char __pyx_k_is_coroutine[] = "_is_coroutine";
+static const char __pyx_k_last_sep_pos[] = "last_sep_pos";
 static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_stringsource[] = "<stringsource>";
 static const char __pyx_k_use_setstate[] = "use_setstate";
+static const char __pyx_k_StopIteration[] = "StopIteration";
 static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
 static const char __pyx_k_last_sep_index[] = "last_sep_index";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
@@ -2335,10 +2343,13 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_4val(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, int __pyx_v_left); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_8rest(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_10reset(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_8complete___get__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_13will_complete___get__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__repr__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_14__str__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_16__iter__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_18__next__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_10left_index___get__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static int __pyx_pf_6tarina_9_string_c_6String_10left_index_2__set__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_10next_index___get__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
@@ -2350,8 +2361,8 @@ static int __pyx_pf_6tarina_9_string_c_6String_3len_2__set__(struct __pyx_obj_6t
 static PyObject *__pyx_pf_6tarina_9_string_c_6String_4text___get__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
 static int __pyx_pf_6tarina_9_string_c_6String_4text_2__set__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static int __pyx_pf_6tarina_9_string_c_6String_4text_4__del__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_14__reduce_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_16__setstate_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_20__reduce_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_22__setstate_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_6tarina_9_string_c_8__pyx_unpickle_String(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_6tarina_9_string_c_String(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
@@ -2413,27 +2424,31 @@ typedef struct {
   PyObject *__pyx_kp_u_;
   PyObject *__pyx_kp_s_Incompatible_checksums_0x_x_vs_0;
   PyObject *__pyx_n_s_PickleError;
+  PyObject *__pyx_n_s_StopIteration;
   PyObject *__pyx_kp_u_String;
   PyObject *__pyx_n_s_String_2;
   PyObject *__pyx_n_s_String___reduce_cython;
   PyObject *__pyx_n_s_String___setstate_cython;
   PyObject *__pyx_n_s_String_apply;
+  PyObject *__pyx_n_s_String_reset;
   PyObject *__pyx_n_s_String_rest;
   PyObject *__pyx_n_s_String_step;
   PyObject *__pyx_n_s_String_val;
   PyObject *__pyx_kp_u__10;
+  PyObject *__pyx_kp_u__11;
   PyObject *__pyx_kp_u__2;
   PyObject *__pyx_kp_u__3;
-  PyObject *__pyx_n_s__35;
+  PyObject *__pyx_n_s__37;
   PyObject *__pyx_kp_u__4;
   PyObject *__pyx_kp_u__5;
-  PyObject *__pyx_kp_u__7;
+  PyObject *__pyx_kp_u__6;
   PyObject *__pyx_kp_u__8;
   PyObject *__pyx_kp_u__9;
   PyObject *__pyx_n_s_apply;
   PyObject *__pyx_n_s_asyncio_coroutines;
   PyObject *__pyx_n_s_ch;
   PyObject *__pyx_n_s_cline_in_traceback;
+  PyObject *__pyx_n_s_complete;
   PyObject *__pyx_n_s_crlf;
   PyObject *__pyx_n_s_dict;
   PyObject *__pyx_n_s_dict_2;
@@ -2450,6 +2465,7 @@ typedef struct {
   PyObject *__pyx_kp_u_isenabled;
   PyObject *__pyx_n_s_last_quote_index;
   PyObject *__pyx_n_s_last_sep_index;
+  PyObject *__pyx_n_s_last_sep_pos;
   PyObject *__pyx_n_s_left;
   PyObject *__pyx_n_s_len;
   PyObject *__pyx_n_s_length;
@@ -2470,6 +2486,8 @@ typedef struct {
   PyObject *__pyx_n_s_reduce;
   PyObject *__pyx_n_s_reduce_cython;
   PyObject *__pyx_n_s_reduce_ex;
+  PyObject *__pyx_n_s_reset;
+  PyObject *__pyx_n_s_reslen;
   PyObject *__pyx_n_s_rest;
   PyObject *__pyx_n_s_result;
   PyObject *__pyx_n_s_self;
@@ -2495,31 +2513,32 @@ typedef struct {
   PyObject *__pyx_int_157077085;
   PyObject *__pyx_int_229618618;
   PyObject *__pyx_int_neg_1;
-  PyObject *__pyx_tuple__6;
-  PyObject *__pyx_tuple__11;
-  PyObject *__pyx_tuple__13;
-  PyObject *__pyx_tuple__15;
-  PyObject *__pyx_tuple__17;
-  PyObject *__pyx_tuple__19;
+  PyObject *__pyx_tuple__7;
+  PyObject *__pyx_tuple__12;
+  PyObject *__pyx_tuple__14;
+  PyObject *__pyx_tuple__16;
+  PyObject *__pyx_tuple__18;
   PyObject *__pyx_tuple__20;
-  PyObject *__pyx_tuple__22;
+  PyObject *__pyx_tuple__21;
   PyObject *__pyx_tuple__23;
-  PyObject *__pyx_tuple__25;
-  PyObject *__pyx_tuple__27;
-  PyObject *__pyx_tuple__29;
+  PyObject *__pyx_tuple__24;
+  PyObject *__pyx_tuple__26;
+  PyObject *__pyx_tuple__28;
   PyObject *__pyx_tuple__31;
   PyObject *__pyx_tuple__33;
-  PyObject *__pyx_codeobj__12;
-  PyObject *__pyx_codeobj__14;
-  PyObject *__pyx_codeobj__16;
-  PyObject *__pyx_codeobj__18;
-  PyObject *__pyx_codeobj__21;
-  PyObject *__pyx_codeobj__24;
-  PyObject *__pyx_codeobj__26;
-  PyObject *__pyx_codeobj__28;
+  PyObject *__pyx_tuple__35;
+  PyObject *__pyx_codeobj__13;
+  PyObject *__pyx_codeobj__15;
+  PyObject *__pyx_codeobj__17;
+  PyObject *__pyx_codeobj__19;
+  PyObject *__pyx_codeobj__22;
+  PyObject *__pyx_codeobj__25;
+  PyObject *__pyx_codeobj__27;
+  PyObject *__pyx_codeobj__29;
   PyObject *__pyx_codeobj__30;
   PyObject *__pyx_codeobj__32;
   PyObject *__pyx_codeobj__34;
+  PyObject *__pyx_codeobj__36;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -2568,27 +2587,31 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u_);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_CLEAR(clear_module_state->__pyx_n_s_PickleError);
+  Py_CLEAR(clear_module_state->__pyx_n_s_StopIteration);
   Py_CLEAR(clear_module_state->__pyx_kp_u_String);
   Py_CLEAR(clear_module_state->__pyx_n_s_String_2);
   Py_CLEAR(clear_module_state->__pyx_n_s_String___reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_String___setstate_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_String_apply);
+  Py_CLEAR(clear_module_state->__pyx_n_s_String_reset);
   Py_CLEAR(clear_module_state->__pyx_n_s_String_rest);
   Py_CLEAR(clear_module_state->__pyx_n_s_String_step);
   Py_CLEAR(clear_module_state->__pyx_n_s_String_val);
   Py_CLEAR(clear_module_state->__pyx_kp_u__10);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__11);
   Py_CLEAR(clear_module_state->__pyx_kp_u__2);
   Py_CLEAR(clear_module_state->__pyx_kp_u__3);
-  Py_CLEAR(clear_module_state->__pyx_n_s__35);
+  Py_CLEAR(clear_module_state->__pyx_n_s__37);
   Py_CLEAR(clear_module_state->__pyx_kp_u__4);
   Py_CLEAR(clear_module_state->__pyx_kp_u__5);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__7);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__6);
   Py_CLEAR(clear_module_state->__pyx_kp_u__8);
   Py_CLEAR(clear_module_state->__pyx_kp_u__9);
   Py_CLEAR(clear_module_state->__pyx_n_s_apply);
   Py_CLEAR(clear_module_state->__pyx_n_s_asyncio_coroutines);
   Py_CLEAR(clear_module_state->__pyx_n_s_ch);
   Py_CLEAR(clear_module_state->__pyx_n_s_cline_in_traceback);
+  Py_CLEAR(clear_module_state->__pyx_n_s_complete);
   Py_CLEAR(clear_module_state->__pyx_n_s_crlf);
   Py_CLEAR(clear_module_state->__pyx_n_s_dict);
   Py_CLEAR(clear_module_state->__pyx_n_s_dict_2);
@@ -2605,6 +2628,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u_isenabled);
   Py_CLEAR(clear_module_state->__pyx_n_s_last_quote_index);
   Py_CLEAR(clear_module_state->__pyx_n_s_last_sep_index);
+  Py_CLEAR(clear_module_state->__pyx_n_s_last_sep_pos);
   Py_CLEAR(clear_module_state->__pyx_n_s_left);
   Py_CLEAR(clear_module_state->__pyx_n_s_len);
   Py_CLEAR(clear_module_state->__pyx_n_s_length);
@@ -2625,6 +2649,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_ex);
+  Py_CLEAR(clear_module_state->__pyx_n_s_reset);
+  Py_CLEAR(clear_module_state->__pyx_n_s_reslen);
   Py_CLEAR(clear_module_state->__pyx_n_s_rest);
   Py_CLEAR(clear_module_state->__pyx_n_s_result);
   Py_CLEAR(clear_module_state->__pyx_n_s_self);
@@ -2650,31 +2676,32 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_int_157077085);
   Py_CLEAR(clear_module_state->__pyx_int_229618618);
   Py_CLEAR(clear_module_state->__pyx_int_neg_1);
-  Py_CLEAR(clear_module_state->__pyx_tuple__6);
-  Py_CLEAR(clear_module_state->__pyx_tuple__11);
-  Py_CLEAR(clear_module_state->__pyx_tuple__13);
-  Py_CLEAR(clear_module_state->__pyx_tuple__15);
-  Py_CLEAR(clear_module_state->__pyx_tuple__17);
-  Py_CLEAR(clear_module_state->__pyx_tuple__19);
+  Py_CLEAR(clear_module_state->__pyx_tuple__7);
+  Py_CLEAR(clear_module_state->__pyx_tuple__12);
+  Py_CLEAR(clear_module_state->__pyx_tuple__14);
+  Py_CLEAR(clear_module_state->__pyx_tuple__16);
+  Py_CLEAR(clear_module_state->__pyx_tuple__18);
   Py_CLEAR(clear_module_state->__pyx_tuple__20);
-  Py_CLEAR(clear_module_state->__pyx_tuple__22);
+  Py_CLEAR(clear_module_state->__pyx_tuple__21);
   Py_CLEAR(clear_module_state->__pyx_tuple__23);
-  Py_CLEAR(clear_module_state->__pyx_tuple__25);
-  Py_CLEAR(clear_module_state->__pyx_tuple__27);
-  Py_CLEAR(clear_module_state->__pyx_tuple__29);
+  Py_CLEAR(clear_module_state->__pyx_tuple__24);
+  Py_CLEAR(clear_module_state->__pyx_tuple__26);
+  Py_CLEAR(clear_module_state->__pyx_tuple__28);
   Py_CLEAR(clear_module_state->__pyx_tuple__31);
   Py_CLEAR(clear_module_state->__pyx_tuple__33);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__12);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__14);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__16);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__18);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__21);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__24);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__26);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__28);
+  Py_CLEAR(clear_module_state->__pyx_tuple__35);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__13);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__15);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__17);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__19);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__22);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__25);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__27);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__29);
   Py_CLEAR(clear_module_state->__pyx_codeobj__30);
   Py_CLEAR(clear_module_state->__pyx_codeobj__32);
   Py_CLEAR(clear_module_state->__pyx_codeobj__34);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__36);
   return 0;
 }
 #endif
@@ -2701,27 +2728,31 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u_);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0);
   Py_VISIT(traverse_module_state->__pyx_n_s_PickleError);
+  Py_VISIT(traverse_module_state->__pyx_n_s_StopIteration);
   Py_VISIT(traverse_module_state->__pyx_kp_u_String);
   Py_VISIT(traverse_module_state->__pyx_n_s_String_2);
   Py_VISIT(traverse_module_state->__pyx_n_s_String___reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_String___setstate_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_String_apply);
+  Py_VISIT(traverse_module_state->__pyx_n_s_String_reset);
   Py_VISIT(traverse_module_state->__pyx_n_s_String_rest);
   Py_VISIT(traverse_module_state->__pyx_n_s_String_step);
   Py_VISIT(traverse_module_state->__pyx_n_s_String_val);
   Py_VISIT(traverse_module_state->__pyx_kp_u__10);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__11);
   Py_VISIT(traverse_module_state->__pyx_kp_u__2);
   Py_VISIT(traverse_module_state->__pyx_kp_u__3);
-  Py_VISIT(traverse_module_state->__pyx_n_s__35);
+  Py_VISIT(traverse_module_state->__pyx_n_s__37);
   Py_VISIT(traverse_module_state->__pyx_kp_u__4);
   Py_VISIT(traverse_module_state->__pyx_kp_u__5);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__7);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__6);
   Py_VISIT(traverse_module_state->__pyx_kp_u__8);
   Py_VISIT(traverse_module_state->__pyx_kp_u__9);
   Py_VISIT(traverse_module_state->__pyx_n_s_apply);
   Py_VISIT(traverse_module_state->__pyx_n_s_asyncio_coroutines);
   Py_VISIT(traverse_module_state->__pyx_n_s_ch);
   Py_VISIT(traverse_module_state->__pyx_n_s_cline_in_traceback);
+  Py_VISIT(traverse_module_state->__pyx_n_s_complete);
   Py_VISIT(traverse_module_state->__pyx_n_s_crlf);
   Py_VISIT(traverse_module_state->__pyx_n_s_dict);
   Py_VISIT(traverse_module_state->__pyx_n_s_dict_2);
@@ -2738,6 +2769,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u_isenabled);
   Py_VISIT(traverse_module_state->__pyx_n_s_last_quote_index);
   Py_VISIT(traverse_module_state->__pyx_n_s_last_sep_index);
+  Py_VISIT(traverse_module_state->__pyx_n_s_last_sep_pos);
   Py_VISIT(traverse_module_state->__pyx_n_s_left);
   Py_VISIT(traverse_module_state->__pyx_n_s_len);
   Py_VISIT(traverse_module_state->__pyx_n_s_length);
@@ -2758,6 +2790,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_ex);
+  Py_VISIT(traverse_module_state->__pyx_n_s_reset);
+  Py_VISIT(traverse_module_state->__pyx_n_s_reslen);
   Py_VISIT(traverse_module_state->__pyx_n_s_rest);
   Py_VISIT(traverse_module_state->__pyx_n_s_result);
   Py_VISIT(traverse_module_state->__pyx_n_s_self);
@@ -2783,31 +2817,32 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_int_157077085);
   Py_VISIT(traverse_module_state->__pyx_int_229618618);
   Py_VISIT(traverse_module_state->__pyx_int_neg_1);
-  Py_VISIT(traverse_module_state->__pyx_tuple__6);
-  Py_VISIT(traverse_module_state->__pyx_tuple__11);
-  Py_VISIT(traverse_module_state->__pyx_tuple__13);
-  Py_VISIT(traverse_module_state->__pyx_tuple__15);
-  Py_VISIT(traverse_module_state->__pyx_tuple__17);
-  Py_VISIT(traverse_module_state->__pyx_tuple__19);
+  Py_VISIT(traverse_module_state->__pyx_tuple__7);
+  Py_VISIT(traverse_module_state->__pyx_tuple__12);
+  Py_VISIT(traverse_module_state->__pyx_tuple__14);
+  Py_VISIT(traverse_module_state->__pyx_tuple__16);
+  Py_VISIT(traverse_module_state->__pyx_tuple__18);
   Py_VISIT(traverse_module_state->__pyx_tuple__20);
-  Py_VISIT(traverse_module_state->__pyx_tuple__22);
+  Py_VISIT(traverse_module_state->__pyx_tuple__21);
   Py_VISIT(traverse_module_state->__pyx_tuple__23);
-  Py_VISIT(traverse_module_state->__pyx_tuple__25);
-  Py_VISIT(traverse_module_state->__pyx_tuple__27);
-  Py_VISIT(traverse_module_state->__pyx_tuple__29);
+  Py_VISIT(traverse_module_state->__pyx_tuple__24);
+  Py_VISIT(traverse_module_state->__pyx_tuple__26);
+  Py_VISIT(traverse_module_state->__pyx_tuple__28);
   Py_VISIT(traverse_module_state->__pyx_tuple__31);
   Py_VISIT(traverse_module_state->__pyx_tuple__33);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__12);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__14);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__16);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__18);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__21);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__24);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__26);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__28);
+  Py_VISIT(traverse_module_state->__pyx_tuple__35);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__13);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__15);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__17);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__19);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__22);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__25);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__27);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__29);
   Py_VISIT(traverse_module_state->__pyx_codeobj__30);
   Py_VISIT(traverse_module_state->__pyx_codeobj__32);
   Py_VISIT(traverse_module_state->__pyx_codeobj__34);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__36);
   return 0;
 }
 #endif
@@ -2868,27 +2903,31 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u_ __pyx_mstate_global->__pyx_kp_u_
 #define __pyx_kp_s_Incompatible_checksums_0x_x_vs_0 __pyx_mstate_global->__pyx_kp_s_Incompatible_checksums_0x_x_vs_0
 #define __pyx_n_s_PickleError __pyx_mstate_global->__pyx_n_s_PickleError
+#define __pyx_n_s_StopIteration __pyx_mstate_global->__pyx_n_s_StopIteration
 #define __pyx_kp_u_String __pyx_mstate_global->__pyx_kp_u_String
 #define __pyx_n_s_String_2 __pyx_mstate_global->__pyx_n_s_String_2
 #define __pyx_n_s_String___reduce_cython __pyx_mstate_global->__pyx_n_s_String___reduce_cython
 #define __pyx_n_s_String___setstate_cython __pyx_mstate_global->__pyx_n_s_String___setstate_cython
 #define __pyx_n_s_String_apply __pyx_mstate_global->__pyx_n_s_String_apply
+#define __pyx_n_s_String_reset __pyx_mstate_global->__pyx_n_s_String_reset
 #define __pyx_n_s_String_rest __pyx_mstate_global->__pyx_n_s_String_rest
 #define __pyx_n_s_String_step __pyx_mstate_global->__pyx_n_s_String_step
 #define __pyx_n_s_String_val __pyx_mstate_global->__pyx_n_s_String_val
 #define __pyx_kp_u__10 __pyx_mstate_global->__pyx_kp_u__10
+#define __pyx_kp_u__11 __pyx_mstate_global->__pyx_kp_u__11
 #define __pyx_kp_u__2 __pyx_mstate_global->__pyx_kp_u__2
 #define __pyx_kp_u__3 __pyx_mstate_global->__pyx_kp_u__3
-#define __pyx_n_s__35 __pyx_mstate_global->__pyx_n_s__35
+#define __pyx_n_s__37 __pyx_mstate_global->__pyx_n_s__37
 #define __pyx_kp_u__4 __pyx_mstate_global->__pyx_kp_u__4
 #define __pyx_kp_u__5 __pyx_mstate_global->__pyx_kp_u__5
-#define __pyx_kp_u__7 __pyx_mstate_global->__pyx_kp_u__7
+#define __pyx_kp_u__6 __pyx_mstate_global->__pyx_kp_u__6
 #define __pyx_kp_u__8 __pyx_mstate_global->__pyx_kp_u__8
 #define __pyx_kp_u__9 __pyx_mstate_global->__pyx_kp_u__9
 #define __pyx_n_s_apply __pyx_mstate_global->__pyx_n_s_apply
 #define __pyx_n_s_asyncio_coroutines __pyx_mstate_global->__pyx_n_s_asyncio_coroutines
 #define __pyx_n_s_ch __pyx_mstate_global->__pyx_n_s_ch
 #define __pyx_n_s_cline_in_traceback __pyx_mstate_global->__pyx_n_s_cline_in_traceback
+#define __pyx_n_s_complete __pyx_mstate_global->__pyx_n_s_complete
 #define __pyx_n_s_crlf __pyx_mstate_global->__pyx_n_s_crlf
 #define __pyx_n_s_dict __pyx_mstate_global->__pyx_n_s_dict
 #define __pyx_n_s_dict_2 __pyx_mstate_global->__pyx_n_s_dict_2
@@ -2905,6 +2944,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u_isenabled __pyx_mstate_global->__pyx_kp_u_isenabled
 #define __pyx_n_s_last_quote_index __pyx_mstate_global->__pyx_n_s_last_quote_index
 #define __pyx_n_s_last_sep_index __pyx_mstate_global->__pyx_n_s_last_sep_index
+#define __pyx_n_s_last_sep_pos __pyx_mstate_global->__pyx_n_s_last_sep_pos
 #define __pyx_n_s_left __pyx_mstate_global->__pyx_n_s_left
 #define __pyx_n_s_len __pyx_mstate_global->__pyx_n_s_len
 #define __pyx_n_s_length __pyx_mstate_global->__pyx_n_s_length
@@ -2925,6 +2965,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_reduce __pyx_mstate_global->__pyx_n_s_reduce
 #define __pyx_n_s_reduce_cython __pyx_mstate_global->__pyx_n_s_reduce_cython
 #define __pyx_n_s_reduce_ex __pyx_mstate_global->__pyx_n_s_reduce_ex
+#define __pyx_n_s_reset __pyx_mstate_global->__pyx_n_s_reset
+#define __pyx_n_s_reslen __pyx_mstate_global->__pyx_n_s_reslen
 #define __pyx_n_s_rest __pyx_mstate_global->__pyx_n_s_rest
 #define __pyx_n_s_result __pyx_mstate_global->__pyx_n_s_result
 #define __pyx_n_s_self __pyx_mstate_global->__pyx_n_s_self
@@ -2950,31 +2992,32 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_int_157077085 __pyx_mstate_global->__pyx_int_157077085
 #define __pyx_int_229618618 __pyx_mstate_global->__pyx_int_229618618
 #define __pyx_int_neg_1 __pyx_mstate_global->__pyx_int_neg_1
-#define __pyx_tuple__6 __pyx_mstate_global->__pyx_tuple__6
-#define __pyx_tuple__11 __pyx_mstate_global->__pyx_tuple__11
-#define __pyx_tuple__13 __pyx_mstate_global->__pyx_tuple__13
-#define __pyx_tuple__15 __pyx_mstate_global->__pyx_tuple__15
-#define __pyx_tuple__17 __pyx_mstate_global->__pyx_tuple__17
-#define __pyx_tuple__19 __pyx_mstate_global->__pyx_tuple__19
+#define __pyx_tuple__7 __pyx_mstate_global->__pyx_tuple__7
+#define __pyx_tuple__12 __pyx_mstate_global->__pyx_tuple__12
+#define __pyx_tuple__14 __pyx_mstate_global->__pyx_tuple__14
+#define __pyx_tuple__16 __pyx_mstate_global->__pyx_tuple__16
+#define __pyx_tuple__18 __pyx_mstate_global->__pyx_tuple__18
 #define __pyx_tuple__20 __pyx_mstate_global->__pyx_tuple__20
-#define __pyx_tuple__22 __pyx_mstate_global->__pyx_tuple__22
+#define __pyx_tuple__21 __pyx_mstate_global->__pyx_tuple__21
 #define __pyx_tuple__23 __pyx_mstate_global->__pyx_tuple__23
-#define __pyx_tuple__25 __pyx_mstate_global->__pyx_tuple__25
-#define __pyx_tuple__27 __pyx_mstate_global->__pyx_tuple__27
-#define __pyx_tuple__29 __pyx_mstate_global->__pyx_tuple__29
+#define __pyx_tuple__24 __pyx_mstate_global->__pyx_tuple__24
+#define __pyx_tuple__26 __pyx_mstate_global->__pyx_tuple__26
+#define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
 #define __pyx_tuple__31 __pyx_mstate_global->__pyx_tuple__31
 #define __pyx_tuple__33 __pyx_mstate_global->__pyx_tuple__33
-#define __pyx_codeobj__12 __pyx_mstate_global->__pyx_codeobj__12
-#define __pyx_codeobj__14 __pyx_mstate_global->__pyx_codeobj__14
-#define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
-#define __pyx_codeobj__18 __pyx_mstate_global->__pyx_codeobj__18
-#define __pyx_codeobj__21 __pyx_mstate_global->__pyx_codeobj__21
-#define __pyx_codeobj__24 __pyx_mstate_global->__pyx_codeobj__24
-#define __pyx_codeobj__26 __pyx_mstate_global->__pyx_codeobj__26
-#define __pyx_codeobj__28 __pyx_mstate_global->__pyx_codeobj__28
+#define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
+#define __pyx_codeobj__13 __pyx_mstate_global->__pyx_codeobj__13
+#define __pyx_codeobj__15 __pyx_mstate_global->__pyx_codeobj__15
+#define __pyx_codeobj__17 __pyx_mstate_global->__pyx_codeobj__17
+#define __pyx_codeobj__19 __pyx_mstate_global->__pyx_codeobj__19
+#define __pyx_codeobj__22 __pyx_mstate_global->__pyx_codeobj__22
+#define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
+#define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
+#define __pyx_codeobj__29 __pyx_mstate_global->__pyx_codeobj__29
 #define __pyx_codeobj__30 __pyx_mstate_global->__pyx_codeobj__30
 #define __pyx_codeobj__32 __pyx_mstate_global->__pyx_codeobj__32
 #define __pyx_codeobj__34 __pyx_mstate_global->__pyx_codeobj__34
+#define __pyx_codeobj__36 __pyx_mstate_global->__pyx_codeobj__36
 /* #### Code section: module_code ### */
 
 /* "tarina/_string_c.pyx":31
@@ -3130,9 +3173,11 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
   Py_ssize_t __pyx_v_length;
   PyObject *__pyx_v_quoted_sep_index = 0;
   Py_ssize_t __pyx_v_last_sep_index;
+  Py_ssize_t __pyx_v_last_sep_pos;
   Py_ssize_t __pyx_v_last_quote_index;
   Py_ssize_t __pyx_v__len;
   Py_ssize_t __pyx_v_i;
+  Py_ssize_t __pyx_v_reslen;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -3259,7 +3304,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         list quoted_sep_index = []             # <<<<<<<<<<<<<<
  *         Py_ssize_t last_sep_index = 0
- *         Py_ssize_t last_quote_index = 0
+ *         Py_ssize_t last_sep_pos = 0
  */
   __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -3270,31 +3315,58 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         list quoted_sep_index = []
  *         Py_ssize_t last_sep_index = 0             # <<<<<<<<<<<<<<
+ *         Py_ssize_t last_sep_pos = 0
  *         Py_ssize_t last_quote_index = 0
- *         Py_ssize_t _len
  */
   __pyx_v_last_sep_index = 0;
 
   /* "tarina/_string_c.pyx":44
  *         list quoted_sep_index = []
  *         Py_ssize_t last_sep_index = 0
+ *         Py_ssize_t last_sep_pos = 0             # <<<<<<<<<<<<<<
+ *         Py_ssize_t last_quote_index = 0
+ *         Py_ssize_t _len = 0
+ */
+  __pyx_v_last_sep_pos = 0;
+
+  /* "tarina/_string_c.pyx":45
+ *         Py_ssize_t last_sep_index = 0
+ *         Py_ssize_t last_sep_pos = 0
  *         Py_ssize_t last_quote_index = 0             # <<<<<<<<<<<<<<
- *         Py_ssize_t _len
+ *         Py_ssize_t _len = 0
  *         Py_ssize_t i = 0
  */
   __pyx_v_last_quote_index = 0;
 
   /* "tarina/_string_c.pyx":46
+ *         Py_ssize_t last_sep_pos = 0
  *         Py_ssize_t last_quote_index = 0
- *         Py_ssize_t _len
+ *         Py_ssize_t _len = 0             # <<<<<<<<<<<<<<
+ *         Py_ssize_t i = 0
+ *         Py_ssize_t reslen = 0
+ */
+  __pyx_v__len = 0;
+
+  /* "tarina/_string_c.pyx":47
+ *         Py_ssize_t last_quote_index = 0
+ *         Py_ssize_t _len = 0
  *         Py_ssize_t i = 0             # <<<<<<<<<<<<<<
+ *         Py_ssize_t reslen = 0
  * 
- *     while index < length:
  */
   __pyx_v_i = 0;
 
   /* "tarina/_string_c.pyx":48
+ *         Py_ssize_t _len = 0
  *         Py_ssize_t i = 0
+ *         Py_ssize_t reslen = 0             # <<<<<<<<<<<<<<
+ * 
+ *     while index < length:
+ */
+  __pyx_v_reslen = 0;
+
+  /* "tarina/_string_c.pyx":50
+ *         Py_ssize_t reslen = 0
  * 
  *     while index < length:             # <<<<<<<<<<<<<<
  *         ch = PyUnicode_READ_CHAR(text, index)
@@ -3304,7 +3376,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
     __pyx_t_3 = (__pyx_v_index < __pyx_v_length);
     if (!__pyx_t_3) break;
 
-    /* "tarina/_string_c.pyx":49
+    /* "tarina/_string_c.pyx":51
  * 
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)             # <<<<<<<<<<<<<<
@@ -3313,7 +3385,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
     __pyx_v_ch = PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index);
 
-    /* "tarina/_string_c.pyx":50
+    /* "tarina/_string_c.pyx":52
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1             # <<<<<<<<<<<<<<
@@ -3322,7 +3394,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
     __pyx_v_index = (__pyx_v_index + 1);
 
-    /* "tarina/_string_c.pyx":51
+    /* "tarina/_string_c.pyx":53
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if PyDict_Contains(QUOTATION, ch):             # <<<<<<<<<<<<<<
@@ -3331,15 +3403,15 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
     __pyx_t_2 = __pyx_v_6tarina_9_string_c_QUOTATION;
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 51, __pyx_L1_error)
+    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_3 = (__pyx_t_4 != 0);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":52
+      /* "tarina/_string_c.pyx":54
  *         index += 1
  *         if PyDict_Contains(QUOTATION, ch):
  *             if index == 1 + escape + max(last_sep_index, last_quote_index) and quotation == 0:             # <<<<<<<<<<<<<<
@@ -3365,7 +3437,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       __pyx_L8_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":53
+        /* "tarina/_string_c.pyx":55
  *         if PyDict_Contains(QUOTATION, ch):
  *             if index == 1 + escape + max(last_sep_index, last_quote_index) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)             # <<<<<<<<<<<<<<
@@ -3374,14 +3446,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
         __pyx_t_1 = __pyx_v_6tarina_9_string_c_QUOTATION;
         __Pyx_INCREF(__pyx_t_1);
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_9 = PyDict_GetItem(__pyx_t_1, __pyx_t_2);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_v_quotation = PyUnicode_READ_CHAR(((PyObject *)__pyx_t_9), 0);
 
-        /* "tarina/_string_c.pyx":52
+        /* "tarina/_string_c.pyx":54
  *         index += 1
  *         if PyDict_Contains(QUOTATION, ch):
  *             if index == 1 + escape + max(last_sep_index, last_quote_index) and quotation == 0:             # <<<<<<<<<<<<<<
@@ -3391,7 +3463,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
         goto __pyx_L7;
       }
 
-      /* "tarina/_string_c.pyx":55
+      /* "tarina/_string_c.pyx":57
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (
  *                 PyList_GET_SIZE(result) == 0             # <<<<<<<<<<<<<<
@@ -3404,7 +3476,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
         goto __pyx_L11_next_and;
       }
 
-      /* "tarina/_string_c.pyx":56
+      /* "tarina/_string_c.pyx":58
  *             elif (
  *                 PyList_GET_SIZE(result) == 0
  *                 or index == length             # <<<<<<<<<<<<<<
@@ -3417,7 +3489,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
         goto __pyx_L11_next_and;
       }
 
-      /* "tarina/_string_c.pyx":57
+      /* "tarina/_string_c.pyx":59
  *                 PyList_GET_SIZE(result) == 0
  *                 or index == length
  *                 or PyDict_Contains(QUOTATION, PyUnicode_READ_CHAR(text, index))             # <<<<<<<<<<<<<<
@@ -3426,9 +3498,9 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
       __pyx_t_2 = __pyx_v_6tarina_9_string_c_QUOTATION;
       __Pyx_INCREF(__pyx_t_2);
-      __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 57, __pyx_L1_error)
+      __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 59, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_8 = (__pyx_t_4 != 0);
@@ -3437,7 +3509,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
         goto __pyx_L11_next_and;
       }
 
-      /* "tarina/_string_c.pyx":58
+      /* "tarina/_string_c.pyx":60
  *                 or index == length
  *                 or PyDict_Contains(QUOTATION, PyUnicode_READ_CHAR(text, index))
  *                 or str_contains(separator, PyUnicode_READ_CHAR(text, index))             # <<<<<<<<<<<<<<
@@ -3452,7 +3524,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       }
       __pyx_L11_next_and:;
 
-      /* "tarina/_string_c.pyx":59
+      /* "tarina/_string_c.pyx":61
  *                 or PyDict_Contains(QUOTATION, PyUnicode_READ_CHAR(text, index))
  *                 or str_contains(separator, PyUnicode_READ_CHAR(text, index))
  *             ) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -3463,7 +3535,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       __pyx_t_3 = __pyx_t_8;
       __pyx_L10_bool_binop_done:;
 
-      /* "tarina/_string_c.pyx":54
+      /* "tarina/_string_c.pyx":56
  *             if index == 1 + escape + max(last_sep_index, last_quote_index) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (             # <<<<<<<<<<<<<<
@@ -3472,7 +3544,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":60
+        /* "tarina/_string_c.pyx":62
  *                 or str_contains(separator, PyUnicode_READ_CHAR(text, index))
  *             ) and ch == quotation:
  *                 quotation = 0             # <<<<<<<<<<<<<<
@@ -3481,7 +3553,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
         __pyx_v_quotation = 0;
 
-        /* "tarina/_string_c.pyx":61
+        /* "tarina/_string_c.pyx":63
  *             ) and ch == quotation:
  *                 quotation = 0
  *                 last_quote_index = index             # <<<<<<<<<<<<<<
@@ -3490,7 +3562,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
         __pyx_v_last_quote_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":54
+        /* "tarina/_string_c.pyx":56
  *             if index == 1 + escape + max(last_sep_index, last_quote_index) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (             # <<<<<<<<<<<<<<
@@ -3500,7 +3572,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
         goto __pyx_L7;
       }
 
-      /* "tarina/_string_c.pyx":63
+      /* "tarina/_string_c.pyx":65
  *                 last_quote_index = index
  *             else:
  *                 PyList_Append(result, ch)             # <<<<<<<<<<<<<<
@@ -3508,14 +3580,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  *                 result[PyList_GET_SIZE(result)-1] = ch
  */
       /*else*/ {
-        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 63, __pyx_L1_error)
+        __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 65, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       }
       __pyx_L7:;
 
-      /* "tarina/_string_c.pyx":64
+      /* "tarina/_string_c.pyx":66
  *             else:
  *                 PyList_Append(result, ch)
  *             if escape:             # <<<<<<<<<<<<<<
@@ -3524,20 +3596,20 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
       if (__pyx_v_escape) {
 
-        /* "tarina/_string_c.pyx":65
+        /* "tarina/_string_c.pyx":67
  *                 PyList_Append(result, ch)
  *             if escape:
  *                 result[PyList_GET_SIZE(result)-1] = ch             # <<<<<<<<<<<<<<
  *         elif str_contains(separator, ch):
- *             if quotation:
+ *             reslen = PyList_GET_SIZE(result)
  */
-        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_7 = (PyList_GET_SIZE(__pyx_v_result) - 1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_v_result, __pyx_t_7, __pyx_t_1, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 0) < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_v_result, __pyx_t_7, __pyx_t_1, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 0) < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "tarina/_string_c.pyx":64
+        /* "tarina/_string_c.pyx":66
  *             else:
  *                 PyList_Append(result, ch)
  *             if escape:             # <<<<<<<<<<<<<<
@@ -3546,7 +3618,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
       }
 
-      /* "tarina/_string_c.pyx":51
+      /* "tarina/_string_c.pyx":53
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if PyDict_Contains(QUOTATION, ch):             # <<<<<<<<<<<<<<
@@ -3556,76 +3628,94 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       goto __pyx_L6;
     }
 
-    /* "tarina/_string_c.pyx":66
+    /* "tarina/_string_c.pyx":68
  *             if escape:
  *                 result[PyList_GET_SIZE(result)-1] = ch
  *         elif str_contains(separator, ch):             # <<<<<<<<<<<<<<
+ *             reslen = PyList_GET_SIZE(result)
  *             if quotation:
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)
  */
     __pyx_t_3 = str_contains(__pyx_v_separator, __pyx_v_ch);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":67
+      /* "tarina/_string_c.pyx":69
  *                 result[PyList_GET_SIZE(result)-1] = ch
  *         elif str_contains(separator, ch):
+ *             reslen = PyList_GET_SIZE(result)             # <<<<<<<<<<<<<<
+ *             if quotation:
+ *                 PyList_Append(quoted_sep_index, reslen + 1)
+ */
+      __pyx_v_reslen = PyList_GET_SIZE(__pyx_v_result);
+
+      /* "tarina/_string_c.pyx":70
+ *         elif str_contains(separator, ch):
+ *             reslen = PyList_GET_SIZE(result)
  *             if quotation:             # <<<<<<<<<<<<<<
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)
+ *                 PyList_Append(quoted_sep_index, reslen + 1)
  *                 PyList_Append(result, ch)
  */
       __pyx_t_3 = (__pyx_v_quotation != 0);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":68
- *         elif str_contains(separator, ch):
+        /* "tarina/_string_c.pyx":71
+ *             reslen = PyList_GET_SIZE(result)
  *             if quotation:
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)             # <<<<<<<<<<<<<<
+ *                 PyList_Append(quoted_sep_index, reslen + 1)             # <<<<<<<<<<<<<<
  *                 PyList_Append(result, ch)
  *             else:
  */
-        __pyx_t_1 = PyInt_FromSsize_t((PyList_GET_SIZE(__pyx_v_result) + 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+        __pyx_t_1 = PyInt_FromSsize_t((__pyx_v_reslen + 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_4 = PyList_Append(__pyx_v_quoted_sep_index, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
+        __pyx_t_4 = PyList_Append(__pyx_v_quoted_sep_index, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "tarina/_string_c.pyx":69
+        /* "tarina/_string_c.pyx":72
  *             if quotation:
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)
+ *                 PyList_Append(quoted_sep_index, reslen + 1)
  *                 PyList_Append(result, ch)             # <<<<<<<<<<<<<<
  *             else:
  *                 last_sep_index = index
  */
-        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 69, __pyx_L1_error)
+        __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 72, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "tarina/_string_c.pyx":67
- *                 result[PyList_GET_SIZE(result)-1] = ch
+        /* "tarina/_string_c.pyx":70
  *         elif str_contains(separator, ch):
+ *             reslen = PyList_GET_SIZE(result)
  *             if quotation:             # <<<<<<<<<<<<<<
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)
+ *                 PyList_Append(quoted_sep_index, reslen + 1)
  *                 PyList_Append(result, ch)
  */
         goto __pyx_L16;
       }
 
-      /* "tarina/_string_c.pyx":71
+      /* "tarina/_string_c.pyx":74
  *                 PyList_Append(result, ch)
  *             else:
  *                 last_sep_index = index             # <<<<<<<<<<<<<<
- *                 if result and (<object>PyList_GET_ITEM(result, PyList_GET_SIZE(result)-1)) != '\1':
- *                     PyList_Append(result, '\1')
+ *                 last_sep_pos = reslen + 1
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':
  */
       /*else*/ {
         __pyx_v_last_sep_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":72
+        /* "tarina/_string_c.pyx":75
  *             else:
  *                 last_sep_index = index
- *                 if result and (<object>PyList_GET_ITEM(result, PyList_GET_SIZE(result)-1)) != '\1':             # <<<<<<<<<<<<<<
+ *                 last_sep_pos = reslen + 1             # <<<<<<<<<<<<<<
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':
  *                     PyList_Append(result, '\1')
- *         else:
+ */
+        __pyx_v_last_sep_pos = (__pyx_v_reslen + 1);
+
+        /* "tarina/_string_c.pyx":76
+ *                 last_sep_index = index
+ *                 last_sep_pos = reslen + 1
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':             # <<<<<<<<<<<<<<
+ *                     PyList_Append(result, '\1')
+ *                 quoted_sep_index = []
  */
         __pyx_t_8 = (PyList_GET_SIZE(__pyx_v_result) != 0);
         if (__pyx_t_8) {
@@ -3633,58 +3723,70 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
           __pyx_t_3 = __pyx_t_8;
           goto __pyx_L18_bool_binop_done;
         }
-        __pyx_t_9 = PyList_GET_ITEM(__pyx_v_result, (PyList_GET_SIZE(__pyx_v_result) - 1));
-        __pyx_t_8 = (__Pyx_PyUnicode_Equals(((PyObject *)__pyx_t_9), __pyx_kp_u_, Py_NE)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 72, __pyx_L1_error)
+        __pyx_t_9 = PyList_GET_ITEM(__pyx_v_result, (__pyx_v_reslen - 1));
+        __pyx_t_8 = (__Pyx_PyUnicode_Equals(((PyObject *)__pyx_t_9), __pyx_kp_u_, Py_NE)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 76, __pyx_L1_error)
         __pyx_t_3 = __pyx_t_8;
         __pyx_L18_bool_binop_done:;
         if (__pyx_t_3) {
 
-          /* "tarina/_string_c.pyx":73
- *                 last_sep_index = index
- *                 if result and (<object>PyList_GET_ITEM(result, PyList_GET_SIZE(result)-1)) != '\1':
+          /* "tarina/_string_c.pyx":77
+ *                 last_sep_pos = reslen + 1
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':
  *                     PyList_Append(result, '\1')             # <<<<<<<<<<<<<<
+ *                 quoted_sep_index = []
+ *         else:
+ */
+          __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_kp_u_); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 77, __pyx_L1_error)
+
+          /* "tarina/_string_c.pyx":76
+ *                 last_sep_index = index
+ *                 last_sep_pos = reslen + 1
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':             # <<<<<<<<<<<<<<
+ *                     PyList_Append(result, '\1')
+ *                 quoted_sep_index = []
+ */
+        }
+
+        /* "tarina/_string_c.pyx":78
+ *                 if result and (<object>PyList_GET_ITEM(result, reslen-1)) != '\1':
+ *                     PyList_Append(result, '\1')
+ *                 quoted_sep_index = []             # <<<<<<<<<<<<<<
  *         else:
  *             PyList_Append(result, ch)
  */
-          __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_kp_u_); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 73, __pyx_L1_error)
-
-          /* "tarina/_string_c.pyx":72
- *             else:
- *                 last_sep_index = index
- *                 if result and (<object>PyList_GET_ITEM(result, PyList_GET_SIZE(result)-1)) != '\1':             # <<<<<<<<<<<<<<
- *                     PyList_Append(result, '\1')
- *         else:
- */
-        }
+        __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __Pyx_DECREF_SET(__pyx_v_quoted_sep_index, ((PyObject*)__pyx_t_1));
+        __pyx_t_1 = 0;
       }
       __pyx_L16:;
 
-      /* "tarina/_string_c.pyx":66
+      /* "tarina/_string_c.pyx":68
  *             if escape:
  *                 result[PyList_GET_SIZE(result)-1] = ch
  *         elif str_contains(separator, ch):             # <<<<<<<<<<<<<<
+ *             reslen = PyList_GET_SIZE(result)
  *             if quotation:
- *                 PyList_Append(quoted_sep_index, PyList_GET_SIZE(result) + 1)
  */
       goto __pyx_L6;
     }
 
-    /* "tarina/_string_c.pyx":75
- *                     PyList_Append(result, '\1')
+    /* "tarina/_string_c.pyx":80
+ *                 quoted_sep_index = []
  *         else:
  *             PyList_Append(result, ch)             # <<<<<<<<<<<<<<
  *         escape = ch == 92
  *     if PyList_GET_SIZE(result) == 0:
  */
     /*else*/ {
-      __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 75, __pyx_L1_error)
+      __pyx_t_4 = PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __pyx_L6:;
 
-    /* "tarina/_string_c.pyx":76
+    /* "tarina/_string_c.pyx":81
  *         else:
  *             PyList_Append(result, ch)
  *         escape = ch == 92             # <<<<<<<<<<<<<<
@@ -3694,44 +3796,53 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
     __pyx_v_escape = (__pyx_v_ch == 92);
   }
 
-  /* "tarina/_string_c.pyx":77
+  /* "tarina/_string_c.pyx":82
  *             PyList_Append(result, ch)
  *         escape = ch == 92
  *     if PyList_GET_SIZE(result) == 0:             # <<<<<<<<<<<<<<
  *         return []
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
  */
   __pyx_t_3 = (PyList_GET_SIZE(__pyx_v_result) == 0);
   if (__pyx_t_3) {
 
-    /* "tarina/_string_c.pyx":78
+    /* "tarina/_string_c.pyx":83
  *         escape = ch == 92
  *     if PyList_GET_SIZE(result) == 0:
  *         return []             # <<<<<<<<<<<<<<
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):
- *         PyList_Insert(result, last_sep_index, PyUnicode_READ_CHAR(text,  last_quote_index or last_sep_index))
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
+ *     if quotation and _len:
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "tarina/_string_c.pyx":77
+    /* "tarina/_string_c.pyx":82
  *             PyList_Append(result, ch)
  *         escape = ch == 92
  *     if PyList_GET_SIZE(result) == 0:             # <<<<<<<<<<<<<<
  *         return []
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
  */
   }
 
-  /* "tarina/_string_c.pyx":79
+  /* "tarina/_string_c.pyx":84
  *     if PyList_GET_SIZE(result) == 0:
  *         return []
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):             # <<<<<<<<<<<<<<
- *         PyList_Insert(result, last_sep_index, PyUnicode_READ_CHAR(text,  last_quote_index or last_sep_index))
+ *     _len = PyList_GET_SIZE(quoted_sep_index)             # <<<<<<<<<<<<<<
+ *     if quotation and _len:
+ *         PyList_Insert(result, last_sep_pos, PyUnicode_READ_CHAR(text,  last_sep_index or last_quote_index))
+ */
+  __pyx_v__len = PyList_GET_SIZE(__pyx_v_quoted_sep_index);
+
+  /* "tarina/_string_c.pyx":85
+ *         return []
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
+ *     if quotation and _len:             # <<<<<<<<<<<<<<
+ *         PyList_Insert(result, last_sep_pos, PyUnicode_READ_CHAR(text,  last_sep_index or last_quote_index))
  *         # result[first_quoted_sep_index] = '\1'
  */
   __pyx_t_8 = (__pyx_v_quotation != 0);
@@ -3740,42 +3851,33 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
     __pyx_t_3 = __pyx_t_8;
     goto __pyx_L22_bool_binop_done;
   }
-  __pyx_t_8 = (PyList_GET_SIZE(__pyx_v_quoted_sep_index) != 0);
+  __pyx_t_8 = (__pyx_v__len != 0);
   __pyx_t_3 = __pyx_t_8;
   __pyx_L22_bool_binop_done:;
   if (__pyx_t_3) {
 
-    /* "tarina/_string_c.pyx":80
- *         return []
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):
- *         PyList_Insert(result, last_sep_index, PyUnicode_READ_CHAR(text,  last_quote_index or last_sep_index))             # <<<<<<<<<<<<<<
+    /* "tarina/_string_c.pyx":86
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
+ *     if quotation and _len:
+ *         PyList_Insert(result, last_sep_pos, PyUnicode_READ_CHAR(text,  last_sep_index or last_quote_index))             # <<<<<<<<<<<<<<
  *         # result[first_quoted_sep_index] = '\1'
- *         _len = PyList_GET_SIZE(quoted_sep_index)
+ *         while i < _len:
  */
-    if (!__pyx_v_last_quote_index) {
+    if (!__pyx_v_last_sep_index) {
     } else {
-      __pyx_t_7 = __pyx_v_last_quote_index;
+      __pyx_t_7 = __pyx_v_last_sep_index;
       goto __pyx_L24_bool_binop_done;
     }
-    __pyx_t_7 = __pyx_v_last_sep_index;
+    __pyx_t_7 = __pyx_v_last_quote_index;
     __pyx_L24_bool_binop_done:;
-    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(PyUnicode_READ_CHAR(__pyx_v_text, __pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(PyUnicode_READ_CHAR(__pyx_v_text, __pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyList_Insert(__pyx_v_result, __pyx_v_last_sep_index, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_4 = PyList_Insert(__pyx_v_result, __pyx_v_last_sep_pos, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 86, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "tarina/_string_c.pyx":82
- *         PyList_Insert(result, last_sep_index, PyUnicode_READ_CHAR(text,  last_quote_index or last_sep_index))
+    /* "tarina/_string_c.pyx":88
+ *         PyList_Insert(result, last_sep_pos, PyUnicode_READ_CHAR(text,  last_sep_index or last_quote_index))
  *         # result[first_quoted_sep_index] = '\1'
- *         _len = PyList_GET_SIZE(quoted_sep_index)             # <<<<<<<<<<<<<<
- *         while i < _len:
- *             result[PyInt_AS_LONG(<object>PyList_GET_ITEM(quoted_sep_index, i))] = '\1'
- */
-    __pyx_v__len = PyList_GET_SIZE(__pyx_v_quoted_sep_index);
-
-    /* "tarina/_string_c.pyx":83
- *         # result[first_quoted_sep_index] = '\1'
- *         _len = PyList_GET_SIZE(quoted_sep_index)
  *         while i < _len:             # <<<<<<<<<<<<<<
  *             result[PyInt_AS_LONG(<object>PyList_GET_ITEM(quoted_sep_index, i))] = '\1'
  *             i += 1
@@ -3784,8 +3886,8 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       __pyx_t_3 = (__pyx_v_i < __pyx_v__len);
       if (!__pyx_t_3) break;
 
-      /* "tarina/_string_c.pyx":84
- *         _len = PyList_GET_SIZE(quoted_sep_index)
+      /* "tarina/_string_c.pyx":89
+ *         # result[first_quoted_sep_index] = '\1'
  *         while i < _len:
  *             result[PyInt_AS_LONG(<object>PyList_GET_ITEM(quoted_sep_index, i))] = '\1'             # <<<<<<<<<<<<<<
  *             i += 1
@@ -3793,9 +3895,9 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  */
       __pyx_t_9 = PyList_GET_ITEM(__pyx_v_quoted_sep_index, __pyx_v_i);
       __pyx_t_10 = PyInt_AS_LONG(((PyObject *)__pyx_t_9));
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_result, __pyx_t_10, __pyx_kp_u_, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_result, __pyx_t_10, __pyx_kp_u_, long, 1, __Pyx_PyInt_From_long, 1, 0, 0) < 0))) __PYX_ERR(0, 89, __pyx_L1_error)
 
-      /* "tarina/_string_c.pyx":85
+      /* "tarina/_string_c.pyx":90
  *         while i < _len:
  *             result[PyInt_AS_LONG(<object>PyList_GET_ITEM(quoted_sep_index, i))] = '\1'
  *             i += 1             # <<<<<<<<<<<<<<
@@ -3805,16 +3907,16 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
       __pyx_v_i = (__pyx_v_i + 1);
     }
 
-    /* "tarina/_string_c.pyx":79
- *     if PyList_GET_SIZE(result) == 0:
+    /* "tarina/_string_c.pyx":85
  *         return []
- *     if quotation and PyList_GET_SIZE(quoted_sep_index):             # <<<<<<<<<<<<<<
- *         PyList_Insert(result, last_sep_index, PyUnicode_READ_CHAR(text,  last_quote_index or last_sep_index))
+ *     _len = PyList_GET_SIZE(quoted_sep_index)
+ *     if quotation and _len:             # <<<<<<<<<<<<<<
+ *         PyList_Insert(result, last_sep_pos, PyUnicode_READ_CHAR(text,  last_sep_index or last_quote_index))
  *         # result[first_quoted_sep_index] = '\1'
  */
   }
 
-  /* "tarina/_string_c.pyx":86
+  /* "tarina/_string_c.pyx":91
  *             result[PyInt_AS_LONG(<object>PyList_GET_ITEM(quoted_sep_index, i))] = '\1'
  *             i += 1
  *     return PyUnicode_Split(PyUnicode_Join('', result), '\1', -1)             # <<<<<<<<<<<<<<
@@ -3822,9 +3924,9 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_result); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_result); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyUnicode_Split(__pyx_t_1, __pyx_kp_u_, -1L); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Split(__pyx_t_1, __pyx_kp_u_, -1L); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
@@ -3855,7 +3957,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_split(CYTHON_UNUSED PyObject *__pyx
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":89
+/* "tarina/_string_c.pyx":94
  * 
  * 
  * def split_once(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -3922,7 +4024,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 89, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -3930,21 +4032,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 89, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("split_once", 0, 2, 3, 1); __PYX_ERR(0, 89, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("split_once", 0, 2, 3, 1); __PYX_ERR(0, 94, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_crlf);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 89, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once") < 0)) __PYX_ERR(0, 89, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once") < 0)) __PYX_ERR(0, 94, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -3959,14 +4061,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     __pyx_v_text = ((PyObject*)values[0]);
     __pyx_v_separator = ((PyObject*)values[1]);
     if (values[2]) {
-      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 89, __pyx_L3_error)
+      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L3_error)
     } else {
       __pyx_v_crlf = ((int)((int)1));
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("split_once", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 89, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("split_once", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 94, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3980,8 +4082,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 89, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 94, __pyx_L1_error)
   __pyx_r = __pyx_pf_6tarina_9_string_c_2split_once(__pyx_self, __pyx_v_text, __pyx_v_separator, __pyx_v_crlf);
 
   /* function exit code */
@@ -4026,7 +4128,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
   __Pyx_INCREF(__pyx_v_text);
   __Pyx_INCREF(__pyx_v_separator);
 
-  /* "tarina/_string_c.pyx":90
+  /* "tarina/_string_c.pyx":95
  * 
  * def split_once(str text, str separator, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -4035,7 +4137,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   if (__pyx_v_crlf) {
 
-    /* "tarina/_string_c.pyx":91
+    /* "tarina/_string_c.pyx":96
  * def split_once(str text, str separator, bint crlf=True):
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)             # <<<<<<<<<<<<<<
@@ -4044,13 +4146,13 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     __pyx_t_1 = __pyx_v_6tarina_9_string_c_CRLF;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 91, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF_SET(__pyx_v_separator, ((PyObject*)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "tarina/_string_c.pyx":90
+    /* "tarina/_string_c.pyx":95
  * 
  * def split_once(str text, str separator, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -4059,19 +4161,19 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   }
 
-  /* "tarina/_string_c.pyx":92
+  /* "tarina/_string_c.pyx":97
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  *     text = str_strip(text, LEFTSTRIP, separator)             # <<<<<<<<<<<<<<
  *     cdef:
  *         Py_ssize_t index = 0
  */
-  __pyx_t_2 = str_strip(__pyx_v_text, LEFTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_2 = str_strip(__pyx_v_text, LEFTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v_text, ((PyObject*)__pyx_t_2));
   __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":94
+  /* "tarina/_string_c.pyx":99
  *     text = str_strip(text, LEFTSTRIP, separator)
  *     cdef:
  *         Py_ssize_t index = 0             # <<<<<<<<<<<<<<
@@ -4080,19 +4182,19 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_index = 0;
 
-  /* "tarina/_string_c.pyx":95
+  /* "tarina/_string_c.pyx":100
  *     cdef:
  *         Py_ssize_t index = 0
  *         list out_text = []             # <<<<<<<<<<<<<<
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0
  */
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_out_text = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":96
+  /* "tarina/_string_c.pyx":101
  *         Py_ssize_t index = 0
  *         list out_text = []
  *         Py_UCS4 quotation = 0             # <<<<<<<<<<<<<<
@@ -4101,7 +4203,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_quotation = 0;
 
-  /* "tarina/_string_c.pyx":97
+  /* "tarina/_string_c.pyx":102
  *         list out_text = []
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0             # <<<<<<<<<<<<<<
@@ -4110,7 +4212,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_ch = 0;
 
-  /* "tarina/_string_c.pyx":98
+  /* "tarina/_string_c.pyx":103
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0
  *         bint escape = 0             # <<<<<<<<<<<<<<
@@ -4119,7 +4221,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_escape = 0;
 
-  /* "tarina/_string_c.pyx":99
+  /* "tarina/_string_c.pyx":104
  *         Py_UCS4 ch = 0
  *         bint escape = 0
  *         bint sep = 0             # <<<<<<<<<<<<<<
@@ -4128,7 +4230,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_sep = 0;
 
-  /* "tarina/_string_c.pyx":100
+  /* "tarina/_string_c.pyx":105
  *         bint escape = 0
  *         bint sep = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)             # <<<<<<<<<<<<<<
@@ -4137,7 +4239,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_length = PyUnicode_GET_LENGTH(__pyx_v_text);
 
-  /* "tarina/_string_c.pyx":101
+  /* "tarina/_string_c.pyx":106
  *         bint sep = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t first_quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -4146,7 +4248,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_first_quoted_sep_index = -1L;
 
-  /* "tarina/_string_c.pyx":102
+  /* "tarina/_string_c.pyx":107
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t first_quoted_sep_index = -1
  *         Py_ssize_t last_quote_index = 0             # <<<<<<<<<<<<<<
@@ -4155,7 +4257,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   __pyx_v_last_quote_index = 0;
 
-  /* "tarina/_string_c.pyx":103
+  /* "tarina/_string_c.pyx":108
  *         Py_ssize_t first_quoted_sep_index = -1
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:             # <<<<<<<<<<<<<<
@@ -4166,7 +4268,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
     __pyx_t_3 = (__pyx_v_index < __pyx_v_length);
     if (!__pyx_t_3) break;
 
-    /* "tarina/_string_c.pyx":104
+    /* "tarina/_string_c.pyx":109
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)             # <<<<<<<<<<<<<<
@@ -4175,7 +4277,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     __pyx_v_ch = PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index);
 
-    /* "tarina/_string_c.pyx":105
+    /* "tarina/_string_c.pyx":110
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1             # <<<<<<<<<<<<<<
@@ -4184,7 +4286,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     __pyx_v_index = (__pyx_v_index + 1);
 
-    /* "tarina/_string_c.pyx":106
+    /* "tarina/_string_c.pyx":111
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -4194,7 +4296,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
     __pyx_t_3 = str_contains(__pyx_v_separator, __pyx_v_ch);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":107
+      /* "tarina/_string_c.pyx":112
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -4204,7 +4306,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       __pyx_t_3 = (__pyx_v_quotation == 0);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":108
+        /* "tarina/_string_c.pyx":113
  *         if str_contains(separator, ch):
  *             if quotation == 0:
  *                 sep = 1             # <<<<<<<<<<<<<<
@@ -4213,7 +4315,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_v_sep = 1;
 
-        /* "tarina/_string_c.pyx":109
+        /* "tarina/_string_c.pyx":114
  *             if quotation == 0:
  *                 sep = 1
  *                 continue             # <<<<<<<<<<<<<<
@@ -4222,7 +4324,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         goto __pyx_L4_continue;
 
-        /* "tarina/_string_c.pyx":107
+        /* "tarina/_string_c.pyx":112
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -4231,7 +4333,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       }
 
-      /* "tarina/_string_c.pyx":110
+      /* "tarina/_string_c.pyx":115
  *                 sep = 1
  *                 continue
  *             if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -4241,7 +4343,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       __pyx_t_3 = (__pyx_v_first_quoted_sep_index == -1L);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":111
+        /* "tarina/_string_c.pyx":116
  *                 continue
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index             # <<<<<<<<<<<<<<
@@ -4250,7 +4352,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_v_first_quoted_sep_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":110
+        /* "tarina/_string_c.pyx":115
  *                 sep = 1
  *                 continue
  *             if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -4259,7 +4361,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       }
 
-      /* "tarina/_string_c.pyx":106
+      /* "tarina/_string_c.pyx":111
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -4268,7 +4370,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     }
 
-    /* "tarina/_string_c.pyx":112
+    /* "tarina/_string_c.pyx":117
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index
  *         if sep == 1:             # <<<<<<<<<<<<<<
@@ -4278,7 +4380,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
     __pyx_t_3 = (__pyx_v_sep == 1);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":113
+      /* "tarina/_string_c.pyx":118
  *                 first_quoted_sep_index = index
  *         if sep == 1:
  *             index -= 1             # <<<<<<<<<<<<<<
@@ -4287,7 +4389,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       __pyx_v_index = (__pyx_v_index - 1);
 
-      /* "tarina/_string_c.pyx":114
+      /* "tarina/_string_c.pyx":119
  *         if sep == 1:
  *             index -= 1
  *             break             # <<<<<<<<<<<<<<
@@ -4296,7 +4398,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       goto __pyx_L5_break;
 
-      /* "tarina/_string_c.pyx":112
+      /* "tarina/_string_c.pyx":117
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index
  *         if sep == 1:             # <<<<<<<<<<<<<<
@@ -4305,7 +4407,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     }
 
-    /* "tarina/_string_c.pyx":115
+    /* "tarina/_string_c.pyx":120
  *             index -= 1
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -4314,15 +4416,15 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     __pyx_t_2 = __pyx_v_6tarina_9_string_c_QUOTATION;
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_3 = (__pyx_t_4 != 0);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":116
+      /* "tarina/_string_c.pyx":121
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + escape + last_quote_index and quotation == 0:             # <<<<<<<<<<<<<<
@@ -4340,7 +4442,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       __pyx_L12_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":117
+        /* "tarina/_string_c.pyx":122
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + escape + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)             # <<<<<<<<<<<<<<
@@ -4349,14 +4451,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_t_1 = __pyx_v_6tarina_9_string_c_QUOTATION;
         __Pyx_INCREF(__pyx_t_1);
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_6 = PyDict_GetItem(__pyx_t_1, __pyx_t_2);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_v_quotation = PyUnicode_READ_CHAR(((PyObject *)__pyx_t_6), 0);
 
-        /* "tarina/_string_c.pyx":116
+        /* "tarina/_string_c.pyx":121
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + escape + last_quote_index and quotation == 0:             # <<<<<<<<<<<<<<
@@ -4366,7 +4468,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
         goto __pyx_L11;
       }
 
-      /* "tarina/_string_c.pyx":118
+      /* "tarina/_string_c.pyx":123
  *             if index == 1 + escape + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -4390,7 +4492,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       __pyx_L14_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":119
+        /* "tarina/_string_c.pyx":124
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index             # <<<<<<<<<<<<<<
@@ -4399,7 +4501,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_v_last_quote_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":120
+        /* "tarina/_string_c.pyx":125
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index
  *                 first_quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -4408,7 +4510,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_v_first_quoted_sep_index = -1L;
 
-        /* "tarina/_string_c.pyx":121
+        /* "tarina/_string_c.pyx":126
  *                 last_quote_index = index
  *                 first_quoted_sep_index = -1
  *                 quotation = 0             # <<<<<<<<<<<<<<
@@ -4417,7 +4519,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
         __pyx_v_quotation = 0;
 
-        /* "tarina/_string_c.pyx":118
+        /* "tarina/_string_c.pyx":123
  *             if index == 1 + escape + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -4427,7 +4529,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
         goto __pyx_L11;
       }
 
-      /* "tarina/_string_c.pyx":123
+      /* "tarina/_string_c.pyx":128
  *                 quotation = 0
  *             else:
  *                 PyList_Append(out_text, ch)             # <<<<<<<<<<<<<<
@@ -4435,14 +4537,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  *                 out_text[PyList_GET_SIZE(out_text)-1] = ch
  */
       /*else*/ {
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 123, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_4 = PyList_Append(__pyx_v_out_text, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 123, __pyx_L1_error)
+        __pyx_t_4 = PyList_Append(__pyx_v_out_text, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       }
       __pyx_L11:;
 
-      /* "tarina/_string_c.pyx":124
+      /* "tarina/_string_c.pyx":129
  *             else:
  *                 PyList_Append(out_text, ch)
  *             if escape:             # <<<<<<<<<<<<<<
@@ -4451,20 +4553,20 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       if (__pyx_v_escape) {
 
-        /* "tarina/_string_c.pyx":125
+        /* "tarina/_string_c.pyx":130
  *                 PyList_Append(out_text, ch)
  *             if escape:
  *                 out_text[PyList_GET_SIZE(out_text)-1] = ch             # <<<<<<<<<<<<<<
  *             escape = 0
  *         else:
  */
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_7 = (PyList_GET_SIZE(__pyx_v_out_text) - 1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_v_out_text, __pyx_t_7, __pyx_t_2, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 0) < 0))) __PYX_ERR(0, 125, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_v_out_text, __pyx_t_7, __pyx_t_2, Py_ssize_t, 1, PyInt_FromSsize_t, 1, 0, 0) < 0))) __PYX_ERR(0, 130, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "tarina/_string_c.pyx":124
+        /* "tarina/_string_c.pyx":129
  *             else:
  *                 PyList_Append(out_text, ch)
  *             if escape:             # <<<<<<<<<<<<<<
@@ -4473,7 +4575,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       }
 
-      /* "tarina/_string_c.pyx":126
+      /* "tarina/_string_c.pyx":131
  *             if escape:
  *                 out_text[PyList_GET_SIZE(out_text)-1] = ch
  *             escape = 0             # <<<<<<<<<<<<<<
@@ -4482,7 +4584,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
       __pyx_v_escape = 0;
 
-      /* "tarina/_string_c.pyx":115
+      /* "tarina/_string_c.pyx":120
  *             index -= 1
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -4492,7 +4594,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       goto __pyx_L10;
     }
 
-    /* "tarina/_string_c.pyx":128
+    /* "tarina/_string_c.pyx":133
  *             escape = 0
  *         else:
  *             PyList_Append(out_text, ch)             # <<<<<<<<<<<<<<
@@ -4500,14 +4602,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  *     if index == length:
  */
     /*else*/ {
-      __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_4 = PyList_Append(__pyx_v_out_text, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
+      __pyx_t_4 = PyList_Append(__pyx_v_out_text, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 133, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __pyx_L10:;
 
-    /* "tarina/_string_c.pyx":129
+    /* "tarina/_string_c.pyx":134
  *         else:
  *             PyList_Append(out_text, ch)
  *         escape = ch == 92             # <<<<<<<<<<<<<<
@@ -4519,7 +4621,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
   }
   __pyx_L5_break:;
 
-  /* "tarina/_string_c.pyx":130
+  /* "tarina/_string_c.pyx":135
  *             PyList_Append(out_text, ch)
  *         escape = ch == 92
  *     if index == length:             # <<<<<<<<<<<<<<
@@ -4529,7 +4631,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
   __pyx_t_3 = (__pyx_v_index == __pyx_v_length);
   if (__pyx_t_3) {
 
-    /* "tarina/_string_c.pyx":131
+    /* "tarina/_string_c.pyx":136
  *         escape = ch == 92
  *     if index == length:
  *         if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -4539,7 +4641,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
     __pyx_t_3 = (__pyx_v_first_quoted_sep_index == -1L);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":132
+      /* "tarina/_string_c.pyx":137
  *     if index == length:
  *         if first_quoted_sep_index == -1:
  *             return PyUnicode_Join('', out_text) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''             # <<<<<<<<<<<<<<
@@ -4549,29 +4651,29 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
       __Pyx_XDECREF(__pyx_r);
       __pyx_t_3 = (__pyx_v_last_quote_index != 0);
       if (__pyx_t_3) {
-        __pyx_t_1 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_out_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+        __pyx_t_1 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_out_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_2 = __pyx_t_1;
         __pyx_t_1 = 0;
       } else {
-        __pyx_t_1 = str_strip(__pyx_v_text, RIGHTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+        __pyx_t_1 = str_strip(__pyx_v_text, RIGHTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_2 = __pyx_t_1;
         __pyx_t_1 = 0;
       }
-      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_2);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2)) __PYX_ERR(0, 137, __pyx_L1_error);
       __Pyx_INCREF(__pyx_kp_u__2);
       __Pyx_GIVEREF(__pyx_kp_u__2);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 132, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 137, __pyx_L1_error);
       __pyx_t_2 = 0;
       __pyx_r = __pyx_t_1;
       __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "tarina/_string_c.pyx":131
+      /* "tarina/_string_c.pyx":136
  *         escape = ch == 92
  *     if index == length:
  *         if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -4580,7 +4682,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
     }
 
-    /* "tarina/_string_c.pyx":133
+    /* "tarina/_string_c.pyx":138
  *         if first_quoted_sep_index == -1:
  *             return PyUnicode_Join('', out_text) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''
  *         return PyUnicode_Substring(text, 0, first_quoted_sep_index-1), PyUnicode_Substring(text, first_quoted_sep_index, PY_SSIZE_T_MAX)             # <<<<<<<<<<<<<<
@@ -4588,23 +4690,23 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_first_quoted_sep_index - 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_first_quoted_sep_index - 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_first_quoted_sep_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_first_quoted_sep_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error);
     __pyx_t_1 = 0;
     __pyx_t_2 = 0;
     __pyx_r = __pyx_t_8;
     __pyx_t_8 = 0;
     goto __pyx_L0;
 
-    /* "tarina/_string_c.pyx":130
+    /* "tarina/_string_c.pyx":135
  *             PyList_Append(out_text, ch)
  *         escape = ch == 92
  *     if index == length:             # <<<<<<<<<<<<<<
@@ -4613,7 +4715,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  */
   }
 
-  /* "tarina/_string_c.pyx":134
+  /* "tarina/_string_c.pyx":139
  *             return PyUnicode_Join('', out_text) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''
  *         return PyUnicode_Substring(text, 0, first_quoted_sep_index-1), PyUnicode_Substring(text, first_quoted_sep_index, PY_SSIZE_T_MAX)
  *     return PyUnicode_Join('', out_text), PyUnicode_Substring(text, index, PY_SSIZE_T_MAX)             # <<<<<<<<<<<<<<
@@ -4621,23 +4723,23 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_out_text); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_8 = PyUnicode_Join(__pyx_kp_u__2, __pyx_v_out_text); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_8)) __PYX_ERR(0, 134, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_8)) __PYX_ERR(0, 139, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error);
   __pyx_t_8 = 0;
   __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":89
+  /* "tarina/_string_c.pyx":94
  * 
  * 
  * def split_once(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -4661,7 +4763,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_2split_once(CYTHON_UNUSED PyObject 
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":137
+/* "tarina/_string_c.pyx":142
  * 
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -4728,7 +4830,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -4736,21 +4838,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("split_once_without_escape", 0, 2, 3, 1); __PYX_ERR(0, 137, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("split_once_without_escape", 0, 2, 3, 1); __PYX_ERR(0, 142, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_crlf);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once_without_escape") < 0)) __PYX_ERR(0, 137, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once_without_escape") < 0)) __PYX_ERR(0, 142, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -4765,14 +4867,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     __pyx_v_text = ((PyObject*)values[0]);
     __pyx_v_separator = ((PyObject*)values[1]);
     if (values[2]) {
-      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
     } else {
       __pyx_v_crlf = ((int)((int)1));
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("split_once_without_escape", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 137, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("split_once_without_escape", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 142, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4786,8 +4888,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 137, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 137, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 142, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 142, __pyx_L1_error)
   __pyx_r = __pyx_pf_6tarina_9_string_c_4split_once_without_escape(__pyx_self, __pyx_v_text, __pyx_v_separator, __pyx_v_crlf);
 
   /* function exit code */
@@ -4828,7 +4930,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
   __Pyx_INCREF(__pyx_v_text);
   __Pyx_INCREF(__pyx_v_separator);
 
-  /* "tarina/_string_c.pyx":138
+  /* "tarina/_string_c.pyx":143
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -4837,7 +4939,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   if (__pyx_v_crlf) {
 
-    /* "tarina/_string_c.pyx":139
+    /* "tarina/_string_c.pyx":144
  * def split_once_without_escape(str text, str separator, bint crlf=True):
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)             # <<<<<<<<<<<<<<
@@ -4846,13 +4948,13 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     __pyx_t_1 = __pyx_v_6tarina_9_string_c_CRLF;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF_SET(__pyx_v_separator, ((PyObject*)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "tarina/_string_c.pyx":138
+    /* "tarina/_string_c.pyx":143
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -4861,19 +4963,19 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   }
 
-  /* "tarina/_string_c.pyx":140
+  /* "tarina/_string_c.pyx":145
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  *     text = str_strip(text, LEFTSTRIP, separator)             # <<<<<<<<<<<<<<
  *     cdef:
  *         Py_ssize_t index = 0
  */
-  __pyx_t_2 = str_strip(__pyx_v_text, LEFTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_2 = str_strip(__pyx_v_text, LEFTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v_text, ((PyObject*)__pyx_t_2));
   __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":142
+  /* "tarina/_string_c.pyx":147
  *     text = str_strip(text, LEFTSTRIP, separator)
  *     cdef:
  *         Py_ssize_t index = 0             # <<<<<<<<<<<<<<
@@ -4882,7 +4984,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_index = 0;
 
-  /* "tarina/_string_c.pyx":143
+  /* "tarina/_string_c.pyx":148
  *     cdef:
  *         Py_ssize_t index = 0
  *         Py_UCS4 quotation = 0             # <<<<<<<<<<<<<<
@@ -4891,7 +4993,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_quotation = 0;
 
-  /* "tarina/_string_c.pyx":144
+  /* "tarina/_string_c.pyx":149
  *         Py_ssize_t index = 0
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0             # <<<<<<<<<<<<<<
@@ -4900,7 +5002,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_ch = 0;
 
-  /* "tarina/_string_c.pyx":145
+  /* "tarina/_string_c.pyx":150
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)             # <<<<<<<<<<<<<<
@@ -4909,7 +5011,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_length = PyUnicode_GET_LENGTH(__pyx_v_text);
 
-  /* "tarina/_string_c.pyx":146
+  /* "tarina/_string_c.pyx":151
  *         Py_UCS4 ch = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t first_quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -4918,7 +5020,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_first_quoted_sep_index = -1L;
 
-  /* "tarina/_string_c.pyx":147
+  /* "tarina/_string_c.pyx":152
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t first_quoted_sep_index = -1
  *         Py_ssize_t last_quote_index = 0             # <<<<<<<<<<<<<<
@@ -4927,7 +5029,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   __pyx_v_last_quote_index = 0;
 
-  /* "tarina/_string_c.pyx":148
+  /* "tarina/_string_c.pyx":153
  *         Py_ssize_t first_quoted_sep_index = -1
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:             # <<<<<<<<<<<<<<
@@ -4938,7 +5040,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
     __pyx_t_3 = (__pyx_v_index < __pyx_v_length);
     if (!__pyx_t_3) break;
 
-    /* "tarina/_string_c.pyx":149
+    /* "tarina/_string_c.pyx":154
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)             # <<<<<<<<<<<<<<
@@ -4947,7 +5049,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     __pyx_v_ch = PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index);
 
-    /* "tarina/_string_c.pyx":150
+    /* "tarina/_string_c.pyx":155
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1             # <<<<<<<<<<<<<<
@@ -4956,7 +5058,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     __pyx_v_index = (__pyx_v_index + 1);
 
-    /* "tarina/_string_c.pyx":151
+    /* "tarina/_string_c.pyx":156
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -4966,7 +5068,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
     __pyx_t_3 = str_contains(__pyx_v_separator, __pyx_v_ch);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":152
+      /* "tarina/_string_c.pyx":157
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -4976,7 +5078,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       __pyx_t_3 = (__pyx_v_quotation == 0);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":153
+        /* "tarina/_string_c.pyx":158
  *         if str_contains(separator, ch):
  *             if quotation == 0:
  *                 break             # <<<<<<<<<<<<<<
@@ -4985,7 +5087,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         goto __pyx_L5_break;
 
-        /* "tarina/_string_c.pyx":152
+        /* "tarina/_string_c.pyx":157
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -4994,7 +5096,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
       }
 
-      /* "tarina/_string_c.pyx":154
+      /* "tarina/_string_c.pyx":159
  *             if quotation == 0:
  *                 break
  *             if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -5004,7 +5106,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       __pyx_t_3 = (__pyx_v_first_quoted_sep_index == -1L);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":155
+        /* "tarina/_string_c.pyx":160
  *                 break
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index             # <<<<<<<<<<<<<<
@@ -5013,7 +5115,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         __pyx_v_first_quoted_sep_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":154
+        /* "tarina/_string_c.pyx":159
  *             if quotation == 0:
  *                 break
  *             if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -5022,7 +5124,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
       }
 
-      /* "tarina/_string_c.pyx":151
+      /* "tarina/_string_c.pyx":156
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -5031,7 +5133,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     }
 
-    /* "tarina/_string_c.pyx":156
+    /* "tarina/_string_c.pyx":161
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -5040,15 +5142,15 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     __pyx_t_2 = __pyx_v_6tarina_9_string_c_QUOTATION;
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 156, __pyx_L1_error)
+    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_3 = (__pyx_t_4 != 0);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":157
+      /* "tarina/_string_c.pyx":162
  *                 first_quoted_sep_index = index
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + last_quote_index and quotation == 0:             # <<<<<<<<<<<<<<
@@ -5066,7 +5168,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       __pyx_L11_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":158
+        /* "tarina/_string_c.pyx":163
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)             # <<<<<<<<<<<<<<
@@ -5075,14 +5177,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         __pyx_t_1 = __pyx_v_6tarina_9_string_c_QUOTATION;
         __Pyx_INCREF(__pyx_t_1);
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 158, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 163, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_6 = PyDict_GetItem(__pyx_t_1, __pyx_t_2);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_v_quotation = PyUnicode_READ_CHAR(((PyObject *)__pyx_t_6), 0);
 
-        /* "tarina/_string_c.pyx":157
+        /* "tarina/_string_c.pyx":162
  *                 first_quoted_sep_index = index
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + last_quote_index and quotation == 0:             # <<<<<<<<<<<<<<
@@ -5092,7 +5194,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
         goto __pyx_L10;
       }
 
-      /* "tarina/_string_c.pyx":159
+      /* "tarina/_string_c.pyx":164
  *             if index == 1 + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -5116,7 +5218,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       __pyx_L13_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":160
+        /* "tarina/_string_c.pyx":165
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index             # <<<<<<<<<<<<<<
@@ -5125,7 +5227,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         __pyx_v_last_quote_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":161
+        /* "tarina/_string_c.pyx":166
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index
  *                 first_quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -5134,7 +5236,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         __pyx_v_first_quoted_sep_index = -1L;
 
-        /* "tarina/_string_c.pyx":162
+        /* "tarina/_string_c.pyx":167
  *                 last_quote_index = index
  *                 first_quoted_sep_index = -1
  *                 quotation = 0             # <<<<<<<<<<<<<<
@@ -5143,7 +5245,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
         __pyx_v_quotation = 0;
 
-        /* "tarina/_string_c.pyx":159
+        /* "tarina/_string_c.pyx":164
  *             if index == 1 + last_quote_index and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -5153,7 +5255,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       }
       __pyx_L10:;
 
-      /* "tarina/_string_c.pyx":156
+      /* "tarina/_string_c.pyx":161
  *             if first_quoted_sep_index == -1:
  *                 first_quoted_sep_index = index
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -5164,7 +5266,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
   }
   __pyx_L5_break:;
 
-  /* "tarina/_string_c.pyx":163
+  /* "tarina/_string_c.pyx":168
  *                 first_quoted_sep_index = -1
  *                 quotation = 0
  *     if index == length:             # <<<<<<<<<<<<<<
@@ -5174,7 +5276,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
   __pyx_t_3 = (__pyx_v_index == __pyx_v_length);
   if (__pyx_t_3) {
 
-    /* "tarina/_string_c.pyx":164
+    /* "tarina/_string_c.pyx":169
  *                 quotation = 0
  *     if index == length:
  *         if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -5184,7 +5286,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
     __pyx_t_3 = (__pyx_v_first_quoted_sep_index == -1L);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":165
+      /* "tarina/_string_c.pyx":170
  *     if index == length:
  *         if first_quoted_sep_index == -1:
  *             return PyUnicode_Substring(text, 0, last_quote_index) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''             # <<<<<<<<<<<<<<
@@ -5194,29 +5296,29 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
       __Pyx_XDECREF(__pyx_r);
       __pyx_t_3 = (__pyx_v_last_quote_index != 0);
       if (__pyx_t_3) {
-        __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, __pyx_v_last_quote_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
+        __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, __pyx_v_last_quote_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_2 = __pyx_t_1;
         __pyx_t_1 = 0;
       } else {
-        __pyx_t_1 = str_strip(__pyx_v_text, RIGHTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
+        __pyx_t_1 = str_strip(__pyx_v_text, RIGHTSTRIP, __pyx_v_separator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_2 = __pyx_t_1;
         __pyx_t_1 = 0;
       }
-      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
+      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_2);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2)) __PYX_ERR(0, 165, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error);
       __Pyx_INCREF(__pyx_kp_u__2);
       __Pyx_GIVEREF(__pyx_kp_u__2);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 165, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_kp_u__2)) __PYX_ERR(0, 170, __pyx_L1_error);
       __pyx_t_2 = 0;
       __pyx_r = __pyx_t_1;
       __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "tarina/_string_c.pyx":164
+      /* "tarina/_string_c.pyx":169
  *                 quotation = 0
  *     if index == length:
  *         if first_quoted_sep_index == -1:             # <<<<<<<<<<<<<<
@@ -5225,7 +5327,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
     }
 
-    /* "tarina/_string_c.pyx":166
+    /* "tarina/_string_c.pyx":171
  *         if first_quoted_sep_index == -1:
  *             return PyUnicode_Substring(text, 0, last_quote_index) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''
  *         return PyUnicode_Substring(text, 0, first_quoted_sep_index-1), PyUnicode_Substring(text, first_quoted_sep_index, PY_SSIZE_T_MAX)             # <<<<<<<<<<<<<<
@@ -5233,23 +5335,23 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_first_quoted_sep_index - 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_1 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_first_quoted_sep_index - 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_first_quoted_sep_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_first_quoted_sep_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error);
     __pyx_t_1 = 0;
     __pyx_t_2 = 0;
     __pyx_r = __pyx_t_7;
     __pyx_t_7 = 0;
     goto __pyx_L0;
 
-    /* "tarina/_string_c.pyx":163
+    /* "tarina/_string_c.pyx":168
  *                 first_quoted_sep_index = -1
  *                 quotation = 0
  *     if index == length:             # <<<<<<<<<<<<<<
@@ -5258,7 +5360,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  */
   }
 
-  /* "tarina/_string_c.pyx":167
+  /* "tarina/_string_c.pyx":172
  *             return PyUnicode_Substring(text, 0, last_quote_index) if last_quote_index else str_strip(text, RIGHTSTRIP, separator), ''
  *         return PyUnicode_Substring(text, 0, first_quoted_sep_index-1), PyUnicode_Substring(text, first_quoted_sep_index, PY_SSIZE_T_MAX)
  *     return PyUnicode_Substring(text, 0, index-1), PyUnicode_Substring(text, index, PY_SSIZE_T_MAX)             # <<<<<<<<<<<<<<
@@ -5266,23 +5368,23 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_7 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_index - 1)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_7 = PyUnicode_Substring(__pyx_v_text, 0, (__pyx_v_index - 1)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Substring(__pyx_v_text, __pyx_v_index, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_7)) __PYX_ERR(0, 167, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_7)) __PYX_ERR(0, 172, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error);
   __pyx_t_7 = 0;
   __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":137
+  /* "tarina/_string_c.pyx":142
  * 
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -5305,7 +5407,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_4split_once_without_escape(CYTHON_U
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":170
+/* "tarina/_string_c.pyx":175
  * 
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -5351,7 +5453,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
   }
   __Pyx_INCREF(__pyx_v_separator);
 
-  /* "tarina/_string_c.pyx":171
+  /* "tarina/_string_c.pyx":176
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -5360,7 +5462,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   if (__pyx_v_crlf) {
 
-    /* "tarina/_string_c.pyx":172
+    /* "tarina/_string_c.pyx":177
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)             # <<<<<<<<<<<<<<
@@ -5369,13 +5471,13 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     __pyx_t_1 = __pyx_v_6tarina_9_string_c_CRLF;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_Concat(__pyx_v_separator, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF_SET(__pyx_v_separator, ((PyObject*)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "tarina/_string_c.pyx":171
+    /* "tarina/_string_c.pyx":176
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):
  *     if crlf:             # <<<<<<<<<<<<<<
@@ -5384,7 +5486,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   }
 
-  /* "tarina/_string_c.pyx":174
+  /* "tarina/_string_c.pyx":179
  *         separator = PyUnicode_Concat(separator, CRLF)
  *     cdef:
  *         Py_ssize_t index = offset             # <<<<<<<<<<<<<<
@@ -5393,7 +5495,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_index = __pyx_v_offset;
 
-  /* "tarina/_string_c.pyx":175
+  /* "tarina/_string_c.pyx":180
  *     cdef:
  *         Py_ssize_t index = offset
  *         Py_UCS4 quotation = 0             # <<<<<<<<<<<<<<
@@ -5402,7 +5504,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_quotation = 0;
 
-  /* "tarina/_string_c.pyx":176
+  /* "tarina/_string_c.pyx":181
  *         Py_ssize_t index = offset
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0             # <<<<<<<<<<<<<<
@@ -5411,7 +5513,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_ch = 0;
 
-  /* "tarina/_string_c.pyx":177
+  /* "tarina/_string_c.pyx":182
  *         Py_UCS4 quotation = 0
  *         Py_UCS4 ch = 0
  *         Py_ssize_t sep = 0             # <<<<<<<<<<<<<<
@@ -5420,7 +5522,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_sep = 0;
 
-  /* "tarina/_string_c.pyx":178
+  /* "tarina/_string_c.pyx":183
  *         Py_UCS4 ch = 0
  *         Py_ssize_t sep = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)             # <<<<<<<<<<<<<<
@@ -5429,7 +5531,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_length = PyUnicode_GET_LENGTH(__pyx_v_text);
 
-  /* "tarina/_string_c.pyx":179
+  /* "tarina/_string_c.pyx":184
  *         Py_ssize_t sep = 0
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -5438,7 +5540,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_quoted_sep_index = -1L;
 
-  /* "tarina/_string_c.pyx":180
+  /* "tarina/_string_c.pyx":185
  *         Py_ssize_t length = PyUnicode_GET_LENGTH(text)
  *         Py_ssize_t quoted_sep_index = -1
  *         Py_ssize_t quoted_sep = 0             # <<<<<<<<<<<<<<
@@ -5447,7 +5549,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_quoted_sep = 0;
 
-  /* "tarina/_string_c.pyx":181
+  /* "tarina/_string_c.pyx":186
  *         Py_ssize_t quoted_sep_index = -1
  *         Py_ssize_t quoted_sep = 0
  *         Py_ssize_t last_quote_index = 0             # <<<<<<<<<<<<<<
@@ -5456,7 +5558,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   __pyx_v_last_quote_index = 0;
 
-  /* "tarina/_string_c.pyx":182
+  /* "tarina/_string_c.pyx":187
  *         Py_ssize_t quoted_sep = 0
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:             # <<<<<<<<<<<<<<
@@ -5467,7 +5569,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
     __pyx_t_3 = (__pyx_v_index < __pyx_v_length);
     if (!__pyx_t_3) break;
 
-    /* "tarina/_string_c.pyx":183
+    /* "tarina/_string_c.pyx":188
  *         Py_ssize_t last_quote_index = 0
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)             # <<<<<<<<<<<<<<
@@ -5476,7 +5578,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     __pyx_v_ch = PyUnicode_READ_CHAR(__pyx_v_text, __pyx_v_index);
 
-    /* "tarina/_string_c.pyx":184
+    /* "tarina/_string_c.pyx":189
  *     while index < length:
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1             # <<<<<<<<<<<<<<
@@ -5485,7 +5587,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     __pyx_v_index = (__pyx_v_index + 1);
 
-    /* "tarina/_string_c.pyx":185
+    /* "tarina/_string_c.pyx":190
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -5495,7 +5597,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
     __pyx_t_3 = str_contains(__pyx_v_separator, __pyx_v_ch);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":186
+      /* "tarina/_string_c.pyx":191
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -5505,7 +5607,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
       __pyx_t_3 = (__pyx_v_quotation == 0);
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":187
+        /* "tarina/_string_c.pyx":192
  *         if str_contains(separator, ch):
  *             if quotation == 0:
  *                 sep += 1             # <<<<<<<<<<<<<<
@@ -5514,7 +5616,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_v_sep = (__pyx_v_sep + 1);
 
-        /* "tarina/_string_c.pyx":188
+        /* "tarina/_string_c.pyx":193
  *             if quotation == 0:
  *                 sep += 1
  *                 continue             # <<<<<<<<<<<<<<
@@ -5523,7 +5625,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         goto __pyx_L4_continue;
 
-        /* "tarina/_string_c.pyx":186
+        /* "tarina/_string_c.pyx":191
  *         index += 1
  *         if str_contains(separator, ch):
  *             if quotation == 0:             # <<<<<<<<<<<<<<
@@ -5532,7 +5634,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
       }
 
-      /* "tarina/_string_c.pyx":189
+      /* "tarina/_string_c.pyx":194
  *                 sep += 1
  *                 continue
  *             quoted_sep_index = index             # <<<<<<<<<<<<<<
@@ -5541,7 +5643,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
       __pyx_v_quoted_sep_index = __pyx_v_index;
 
-      /* "tarina/_string_c.pyx":190
+      /* "tarina/_string_c.pyx":195
  *                 continue
  *             quoted_sep_index = index
  *             quoted_sep += 1             # <<<<<<<<<<<<<<
@@ -5550,7 +5652,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
       __pyx_v_quoted_sep = (__pyx_v_quoted_sep + 1);
 
-      /* "tarina/_string_c.pyx":185
+      /* "tarina/_string_c.pyx":190
  *         ch = PyUnicode_READ_CHAR(text, index)
  *         index += 1
  *         if str_contains(separator, ch):             # <<<<<<<<<<<<<<
@@ -5559,7 +5661,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     }
 
-    /* "tarina/_string_c.pyx":191
+    /* "tarina/_string_c.pyx":196
  *             quoted_sep_index = index
  *             quoted_sep += 1
  *         if sep:             # <<<<<<<<<<<<<<
@@ -5569,7 +5671,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
     __pyx_t_3 = (__pyx_v_sep != 0);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":192
+      /* "tarina/_string_c.pyx":197
  *             quoted_sep += 1
  *         if sep:
  *             index -= 1             # <<<<<<<<<<<<<<
@@ -5578,7 +5680,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
       __pyx_v_index = (__pyx_v_index - 1);
 
-      /* "tarina/_string_c.pyx":193
+      /* "tarina/_string_c.pyx":198
  *         if sep:
  *             index -= 1
  *             break             # <<<<<<<<<<<<<<
@@ -5587,7 +5689,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
       goto __pyx_L5_break;
 
-      /* "tarina/_string_c.pyx":191
+      /* "tarina/_string_c.pyx":196
  *             quoted_sep_index = index
  *             quoted_sep += 1
  *         if sep:             # <<<<<<<<<<<<<<
@@ -5596,7 +5698,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     }
 
-    /* "tarina/_string_c.pyx":194
+    /* "tarina/_string_c.pyx":199
  *             index -= 1
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -5605,15 +5707,15 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
     __pyx_t_2 = __pyx_v_6tarina_9_string_c_QUOTATION;
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 194, __pyx_L1_error)
+    __pyx_t_4 = PyDict_Contains(__pyx_t_2, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_3 = (__pyx_t_4 != 0);
     if (__pyx_t_3) {
 
-      /* "tarina/_string_c.pyx":195
+      /* "tarina/_string_c.pyx":200
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + (last_quote_index or offset) and quotation == 0:             # <<<<<<<<<<<<<<
@@ -5638,7 +5740,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
       __pyx_L11_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":196
+        /* "tarina/_string_c.pyx":201
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + (last_quote_index or offset) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)             # <<<<<<<<<<<<<<
@@ -5647,14 +5749,14 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_t_1 = __pyx_v_6tarina_9_string_c_QUOTATION;
         __Pyx_INCREF(__pyx_t_1);
-        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 196, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyUnicode_FromOrdinal(__pyx_v_ch); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_7 = PyDict_GetItem(__pyx_t_1, __pyx_t_2);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_v_quotation = PyUnicode_READ_CHAR(((PyObject *)__pyx_t_7), 0);
 
-        /* "tarina/_string_c.pyx":195
+        /* "tarina/_string_c.pyx":200
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #
  *             if index == 1 + (last_quote_index or offset) and quotation == 0:             # <<<<<<<<<<<<<<
@@ -5664,7 +5766,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
         goto __pyx_L10;
       }
 
-      /* "tarina/_string_c.pyx":197
+      /* "tarina/_string_c.pyx":202
  *             if index == 1 + (last_quote_index or offset) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -5688,7 +5790,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
       __pyx_L15_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "tarina/_string_c.pyx":198
+        /* "tarina/_string_c.pyx":203
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index             # <<<<<<<<<<<<<<
@@ -5697,7 +5799,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_v_last_quote_index = __pyx_v_index;
 
-        /* "tarina/_string_c.pyx":199
+        /* "tarina/_string_c.pyx":204
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:
  *                 last_quote_index = index
  *                 quoted_sep_index = -1             # <<<<<<<<<<<<<<
@@ -5706,7 +5808,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_v_quoted_sep_index = -1L;
 
-        /* "tarina/_string_c.pyx":200
+        /* "tarina/_string_c.pyx":205
  *                 last_quote_index = index
  *                 quoted_sep_index = -1
  *                 quoted_sep = 0             # <<<<<<<<<<<<<<
@@ -5715,7 +5817,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_v_quoted_sep = 0;
 
-        /* "tarina/_string_c.pyx":201
+        /* "tarina/_string_c.pyx":206
  *                 quoted_sep_index = -1
  *                 quoted_sep = 0
  *                 quotation = 0             # <<<<<<<<<<<<<<
@@ -5724,7 +5826,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
         __pyx_v_quotation = 0;
 
-        /* "tarina/_string_c.pyx":197
+        /* "tarina/_string_c.pyx":202
  *             if index == 1 + (last_quote_index or offset) and quotation == 0:
  *                 quotation = PyUnicode_READ_CHAR(<str>PyDict_GetItem(QUOTATION, ch), 0)
  *             elif (index == length or str_contains(separator, PyUnicode_READ_CHAR(text, index-2)) == 0) and ch == quotation:             # <<<<<<<<<<<<<<
@@ -5734,7 +5836,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
       }
       __pyx_L10:;
 
-      /* "tarina/_string_c.pyx":194
+      /* "tarina/_string_c.pyx":199
  *             index -= 1
  *             break
  *         if PyDict_Contains(QUOTATION, ch):  #             # <<<<<<<<<<<<<<
@@ -5746,7 +5848,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
   }
   __pyx_L5_break:;
 
-  /* "tarina/_string_c.pyx":202
+  /* "tarina/_string_c.pyx":207
  *                 quoted_sep = 0
  *                 quotation = 0
  *     if index == length and quoted_sep_index != -1:             # <<<<<<<<<<<<<<
@@ -5764,7 +5866,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
   __pyx_L19_bool_binop_done:;
   if (__pyx_t_3) {
 
-    /* "tarina/_string_c.pyx":203
+    /* "tarina/_string_c.pyx":208
  *                 quotation = 0
  *     if index == length and quoted_sep_index != -1:
  *         return quoted_sep_index, quoted_sep             # <<<<<<<<<<<<<<
@@ -5772,23 +5874,23 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_quoted_sep_index); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_quoted_sep_index); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_quoted_sep); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_quoted_sep); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_2)) __PYX_ERR(0, 203, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_1)) __PYX_ERR(0, 203, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error);
     __pyx_t_2 = 0;
     __pyx_t_1 = 0;
     __pyx_r = ((PyObject*)__pyx_t_8);
     __pyx_t_8 = 0;
     goto __pyx_L0;
 
-    /* "tarina/_string_c.pyx":202
+    /* "tarina/_string_c.pyx":207
  *                 quoted_sep = 0
  *                 quotation = 0
  *     if index == length and quoted_sep_index != -1:             # <<<<<<<<<<<<<<
@@ -5797,7 +5899,7 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  */
   }
 
-  /* "tarina/_string_c.pyx":204
+  /* "tarina/_string_c.pyx":209
  *     if index == length and quoted_sep_index != -1:
  *         return quoted_sep_index, quoted_sep
  *     return index, sep             # <<<<<<<<<<<<<<
@@ -5805,23 +5907,23 @@ static CYTHON_INLINE PyObject *__pyx_f_6tarina_9_string_c_split_once_index_only(
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = PyInt_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_8 = PyInt_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_sep); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_sep); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_8)) __PYX_ERR(0, 204, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_8)) __PYX_ERR(0, 209, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error);
   __pyx_t_8 = 0;
   __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":170
+  /* "tarina/_string_c.pyx":175
  * 
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -5905,7 +6007,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -5913,9 +6015,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, 1); __PYX_ERR(0, 170, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, 1); __PYX_ERR(0, 175, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -5923,21 +6025,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, 2); __PYX_ERR(0, 170, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, 2); __PYX_ERR(0, 175, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_crlf);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once_index_only") < 0)) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "split_once_index_only") < 0)) __PYX_ERR(0, 175, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -5952,16 +6054,16 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     }
     __pyx_v_text = ((PyObject*)values[0]);
     __pyx_v_separator = ((PyObject*)values[1]);
-    __pyx_v_offset = __Pyx_PyIndex_AsSsize_t(values[2]); if (unlikely((__pyx_v_offset == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+    __pyx_v_offset = __Pyx_PyIndex_AsSsize_t(values[2]); if (unlikely((__pyx_v_offset == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
     if (values[3]) {
-      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 175, __pyx_L3_error)
     } else {
       __pyx_v_crlf = ((int)1);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 170, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("split_once_index_only", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 175, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5975,8 +6077,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 170, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 170, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 175, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 175, __pyx_L1_error)
   __pyx_r = __pyx_pf_6tarina_9_string_c_6split_once_index_only(__pyx_self, __pyx_v_text, __pyx_v_separator, __pyx_v_offset, __pyx_v_crlf);
 
   /* function exit code */
@@ -6006,7 +6108,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6split_once_index_only(CYTHON_UNUSE
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2.__pyx_n = 1;
   __pyx_t_2.crlf = __pyx_v_crlf;
-  __pyx_t_1 = __pyx_f_6tarina_9_string_c_split_once_index_only(__pyx_v_text, __pyx_v_separator, __pyx_v_offset, 0, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6tarina_9_string_c_split_once_index_only(__pyx_v_text, __pyx_v_separator, __pyx_v_offset, 0, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -6023,7 +6125,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6split_once_index_only(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":214
+/* "tarina/_string_c.pyx":219
  *     cdef public str text
  * 
  *     def __init__(self, str text):             # <<<<<<<<<<<<<<
@@ -6067,12 +6169,12 @@ static int __pyx_pw_6tarina_9_string_c_6String_1__init__(PyObject *__pyx_v_self,
           (void)__Pyx_Arg_NewRef_VARARGS(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 214, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 219, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 214, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 219, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -6083,7 +6185,7 @@ static int __pyx_pw_6tarina_9_string_c_6String_1__init__(PyObject *__pyx_v_self,
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 214, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 219, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6097,7 +6199,7 @@ static int __pyx_pw_6tarina_9_string_c_6String_1__init__(PyObject *__pyx_v_self,
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 214, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyUnicode_Type), 1, "text", 1))) __PYX_ERR(0, 219, __pyx_L1_error)
   __pyx_r = __pyx_pf_6tarina_9_string_c_6String___init__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self), __pyx_v_text);
 
   /* function exit code */
@@ -6120,7 +6222,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "tarina/_string_c.pyx":215
+  /* "tarina/_string_c.pyx":220
  * 
  *     def __init__(self, str text):
  *         self.text = text             # <<<<<<<<<<<<<<
@@ -6133,7 +6235,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
   __Pyx_DECREF(__pyx_v_self->text);
   __pyx_v_self->text = __pyx_v_text;
 
-  /* "tarina/_string_c.pyx":216
+  /* "tarina/_string_c.pyx":221
  *     def __init__(self, str text):
  *         self.text = text
  *         self.len = PyUnicode_GET_LENGTH(text)             # <<<<<<<<<<<<<<
@@ -6142,7 +6244,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
  */
   __pyx_v_self->len = PyUnicode_GET_LENGTH(__pyx_v_text);
 
-  /* "tarina/_string_c.pyx":217
+  /* "tarina/_string_c.pyx":222
  *         self.text = text
  *         self.len = PyUnicode_GET_LENGTH(text)
  *         self.left_index = 0             # <<<<<<<<<<<<<<
@@ -6151,7 +6253,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
  */
   __pyx_v_self->left_index = 0;
 
-  /* "tarina/_string_c.pyx":218
+  /* "tarina/_string_c.pyx":223
  *         self.len = PyUnicode_GET_LENGTH(text)
  *         self.left_index = 0
  *         self.offset = 0             # <<<<<<<<<<<<<<
@@ -6160,7 +6262,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
  */
   __pyx_v_self->offset = 0;
 
-  /* "tarina/_string_c.pyx":219
+  /* "tarina/_string_c.pyx":224
  *         self.left_index = 0
  *         self.offset = 0
  *         self.next_index = 0             # <<<<<<<<<<<<<<
@@ -6169,7 +6271,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
  */
   __pyx_v_self->next_index = 0;
 
-  /* "tarina/_string_c.pyx":214
+  /* "tarina/_string_c.pyx":219
  *     cdef public str text
  * 
  *     def __init__(self, str text):             # <<<<<<<<<<<<<<
@@ -6183,7 +6285,7 @@ static int __pyx_pf_6tarina_9_string_c_6String___init__(struct __pyx_obj_6tarina
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":221
+/* "tarina/_string_c.pyx":226
  *         self.next_index = 0
  * 
  *     def step(self, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -6247,19 +6349,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 226, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_crlf);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 226, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "step") < 0)) __PYX_ERR(0, 221, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "step") < 0)) __PYX_ERR(0, 226, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -6272,14 +6374,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     }
     __pyx_v_separator = ((PyObject*)values[0]);
     if (values[1]) {
-      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L3_error)
+      __pyx_v_crlf = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_crlf == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 226, __pyx_L3_error)
     } else {
       __pyx_v_crlf = ((int)1);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("step", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 221, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("step", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 226, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6293,7 +6395,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_separator), (&PyUnicode_Type), 1, "separator", 1))) __PYX_ERR(0, 226, __pyx_L1_error)
   __pyx_r = __pyx_pf_6tarina_9_string_c_6String_2step(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self), __pyx_v_separator, __pyx_v_crlf);
 
   /* function exit code */
@@ -6325,7 +6427,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("step", 1);
 
-  /* "tarina/_string_c.pyx":222
+  /* "tarina/_string_c.pyx":227
  * 
  *     def step(self, str separator, bint crlf=True):
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)             # <<<<<<<<<<<<<<
@@ -6336,7 +6438,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
   __Pyx_INCREF(__pyx_t_1);
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.crlf = __pyx_v_crlf;
-  __pyx_t_2 = __pyx_f_6tarina_9_string_c_split_once_index_only(((PyObject*)__pyx_t_1), __pyx_v_separator, __pyx_v_self->left_index, 0, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6tarina_9_string_c_split_once_index_only(((PyObject*)__pyx_t_1), __pyx_v_separator, __pyx_v_self->left_index, 0, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_2 != Py_None)) {
@@ -6345,7 +6447,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 222, __pyx_L1_error)
+      __PYX_ERR(0, 227, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     __pyx_t_1 = PyTuple_GET_ITEM(sequence, 0); 
@@ -6353,23 +6455,23 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
     __Pyx_INCREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_t_4);
     #else
-    __pyx_t_1 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
+    __pyx_t_1 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
+    __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     #endif
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   } else {
-    __Pyx_RaiseNoneNotIterableError(); __PYX_ERR(0, 222, __pyx_L1_error)
+    __Pyx_RaiseNoneNotIterableError(); __PYX_ERR(0, 227, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_5 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_5 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_6 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyIndex_AsSsize_t(__pyx_t_4); if (unlikely((__pyx_t_6 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_self->next_index = __pyx_t_5;
   __pyx_v_self->offset = __pyx_t_6;
 
-  /* "tarina/_string_c.pyx":221
+  /* "tarina/_string_c.pyx":226
  *         self.next_index = 0
  * 
  *     def step(self, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
@@ -6392,7 +6494,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_2step(struct __pyx_obj_6tar
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":224
+/* "tarina/_string_c.pyx":229
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  *     def val(self):             # <<<<<<<<<<<<<<
@@ -6451,7 +6553,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_4val(struct __pyx_obj_6tari
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("val", 1);
 
-  /* "tarina/_string_c.pyx":225
+  /* "tarina/_string_c.pyx":230
  * 
  *     def val(self):
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)             # <<<<<<<<<<<<<<
@@ -6461,14 +6563,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_4val(struct __pyx_obj_6tari
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->text;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyUnicode_Substring(__pyx_t_1, __pyx_v_self->left_index, (__pyx_v_self->next_index - __pyx_v_self->offset)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Substring(__pyx_t_1, __pyx_v_self->left_index, (__pyx_v_self->next_index - __pyx_v_self->offset)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":224
+  /* "tarina/_string_c.pyx":229
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  *     def val(self):             # <<<<<<<<<<<<<<
@@ -6488,7 +6590,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_4val(struct __pyx_obj_6tari
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":227
+/* "tarina/_string_c.pyx":232
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  *     def apply(self, int left = -1):             # <<<<<<<<<<<<<<
@@ -6548,12 +6650,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_left);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 232, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "apply") < 0)) __PYX_ERR(0, 227, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "apply") < 0)) __PYX_ERR(0, 232, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -6564,14 +6666,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       }
     }
     if (values[0]) {
-      __pyx_v_left = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_left == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L3_error)
+      __pyx_v_left = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_left == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 232, __pyx_L3_error)
     } else {
       __pyx_v_left = ((int)-1);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("apply", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 227, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("apply", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 232, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6605,7 +6707,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
   Py_ssize_t __pyx_t_2;
   __Pyx_RefNannySetupContext("apply", 1);
 
-  /* "tarina/_string_c.pyx":228
+  /* "tarina/_string_c.pyx":233
  * 
  *     def apply(self, int left = -1):
  *         if left == -1:             # <<<<<<<<<<<<<<
@@ -6615,7 +6717,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
   __pyx_t_1 = (__pyx_v_left == -1L);
   if (__pyx_t_1) {
 
-    /* "tarina/_string_c.pyx":229
+    /* "tarina/_string_c.pyx":234
  *     def apply(self, int left = -1):
  *         if left == -1:
  *             self.left_index = self.next_index             # <<<<<<<<<<<<<<
@@ -6625,7 +6727,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
     __pyx_t_2 = __pyx_v_self->next_index;
     __pyx_v_self->left_index = __pyx_t_2;
 
-    /* "tarina/_string_c.pyx":228
+    /* "tarina/_string_c.pyx":233
  * 
  *     def apply(self, int left = -1):
  *         if left == -1:             # <<<<<<<<<<<<<<
@@ -6635,7 +6737,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
     goto __pyx_L3;
   }
 
-  /* "tarina/_string_c.pyx":231
+  /* "tarina/_string_c.pyx":236
  *             self.left_index = self.next_index
  *         else:
  *             self.next_index = self.left_index = left             # <<<<<<<<<<<<<<
@@ -6648,7 +6750,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
   }
   __pyx_L3:;
 
-  /* "tarina/_string_c.pyx":232
+  /* "tarina/_string_c.pyx":237
  *         else:
  *             self.next_index = self.left_index = left
  *         self.offset = 0             # <<<<<<<<<<<<<<
@@ -6657,7 +6759,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
  */
   __pyx_v_self->offset = 0;
 
-  /* "tarina/_string_c.pyx":227
+  /* "tarina/_string_c.pyx":232
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  *     def apply(self, int left = -1):             # <<<<<<<<<<<<<<
@@ -6672,7 +6774,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6apply(struct __pyx_obj_6ta
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":234
+/* "tarina/_string_c.pyx":239
  *         self.offset = 0
  * 
  *     def rest(self):             # <<<<<<<<<<<<<<
@@ -6731,24 +6833,24 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_8rest(struct __pyx_obj_6tar
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("rest", 1);
 
-  /* "tarina/_string_c.pyx":235
+  /* "tarina/_string_c.pyx":240
  * 
  *     def rest(self):
  *         return PyUnicode_Substring(self.text, self.left_index, self.len)             # <<<<<<<<<<<<<<
  * 
- *     @property
+ *     def reset(self):
  */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->text;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyUnicode_Substring(__pyx_t_1, __pyx_v_self->left_index, __pyx_v_self->len); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Substring(__pyx_t_1, __pyx_v_self->left_index, __pyx_v_self->len); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 240, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":234
+  /* "tarina/_string_c.pyx":239
  *         self.offset = 0
  * 
  *     def rest(self):             # <<<<<<<<<<<<<<
@@ -6768,8 +6870,104 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_8rest(struct __pyx_obj_6tar
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":237
+/* "tarina/_string_c.pyx":242
  *         return PyUnicode_Substring(self.text, self.left_index, self.len)
+ * 
+ *     def reset(self):             # <<<<<<<<<<<<<<
+ *         self.left_index = 0
+ *         self.offset = 0
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_11reset(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6tarina_9_string_c_6String_11reset = {"reset", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_11reset, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_11reset(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("reset (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_MACROS
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  if (unlikely(__pyx_nargs > 0)) {
+    __Pyx_RaiseArgtupleInvalid("reset", 1, 0, 0, __pyx_nargs); return NULL;}
+  if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "reset", 0))) return NULL;
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_10reset(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_10reset(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("reset", 1);
+
+  /* "tarina/_string_c.pyx":243
+ * 
+ *     def reset(self):
+ *         self.left_index = 0             # <<<<<<<<<<<<<<
+ *         self.offset = 0
+ *         self.next_index = 0
+ */
+  __pyx_v_self->left_index = 0;
+
+  /* "tarina/_string_c.pyx":244
+ *     def reset(self):
+ *         self.left_index = 0
+ *         self.offset = 0             # <<<<<<<<<<<<<<
+ *         self.next_index = 0
+ * 
+ */
+  __pyx_v_self->offset = 0;
+
+  /* "tarina/_string_c.pyx":245
+ *         self.left_index = 0
+ *         self.offset = 0
+ *         self.next_index = 0             # <<<<<<<<<<<<<<
+ * 
+ *     @property
+ */
+  __pyx_v_self->next_index = 0;
+
+  /* "tarina/_string_c.pyx":242
+ *         return PyUnicode_Substring(self.text, self.left_index, self.len)
+ * 
+ *     def reset(self):             # <<<<<<<<<<<<<<
+ *         self.left_index = 0
+ *         self.offset = 0
+ */
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "tarina/_string_c.pyx":247
+ *         self.next_index = 0
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def complete(self):
@@ -6800,7 +6998,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_8complete___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "tarina/_string_c.pyx":239
+  /* "tarina/_string_c.pyx":249
  *     @property
  *     def complete(self):
  *         return self.left_index == self.len             # <<<<<<<<<<<<<<
@@ -6808,14 +7006,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_8complete___get__(struct __
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->left_index == __pyx_v_self->len)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->left_index == __pyx_v_self->len)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":237
- *         return PyUnicode_Substring(self.text, self.left_index, self.len)
+  /* "tarina/_string_c.pyx":247
+ *         self.next_index = 0
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def complete(self):
@@ -6833,7 +7031,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_8complete___get__(struct __
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":241
+/* "tarina/_string_c.pyx":251
  *         return self.left_index == self.len
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6865,7 +7063,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_13will_complete___get__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "tarina/_string_c.pyx":243
+  /* "tarina/_string_c.pyx":253
  *     @property
  *     def will_complete(self):
  *         return self.next_index == self.len             # <<<<<<<<<<<<<<
@@ -6873,13 +7071,13 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_13will_complete___get__(str
  *     def __repr__(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->next_index == __pyx_v_self->len)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 243, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->next_index == __pyx_v_self->len)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":241
+  /* "tarina/_string_c.pyx":251
  *         return self.left_index == self.len
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6898,7 +7096,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_13will_complete___get__(str
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":245
+/* "tarina/_string_c.pyx":255
  *         return self.next_index == self.len
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -6907,21 +7105,21 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_13will_complete___get__(str
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_11__repr__(PyObject *__pyx_v_self); /*proto*/
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_11__repr__(PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_13__repr__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_13__repr__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__repr__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_10__repr__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_12__repr__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__repr__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -6933,7 +7131,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 1);
 
-  /* "tarina/_string_c.pyx":246
+  /* "tarina/_string_c.pyx":256
  * 
  *     def __repr__(self):
  *         return f"String({self.text!r}[{self.left_index}:{self.next_index - self.offset}])"             # <<<<<<<<<<<<<<
@@ -6941,7 +7139,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
  *     def __str__(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -6949,7 +7147,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   __pyx_t_2 += 7;
   __Pyx_GIVEREF(__pyx_kp_u_String);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_String);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->text), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->text), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -6960,7 +7158,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   __pyx_t_2 += 1;
   __Pyx_GIVEREF(__pyx_kp_u__3);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__3);
-  __pyx_t_4 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_self->left_index, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_self->left_index, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
@@ -6970,7 +7168,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   __pyx_t_2 += 1;
   __Pyx_GIVEREF(__pyx_kp_u__4);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u__4);
-  __pyx_t_4 = __Pyx_PyUnicode_From_Py_ssize_t((__pyx_v_self->next_index - __pyx_v_self->offset), 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_From_Py_ssize_t((__pyx_v_self->next_index - __pyx_v_self->offset), 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
@@ -6980,14 +7178,14 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   __pyx_t_2 += 2;
   __Pyx_GIVEREF(__pyx_kp_u__5);
   PyTuple_SET_ITEM(__pyx_t_1, 6, __pyx_kp_u__5);
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 7, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 7, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":245
+  /* "tarina/_string_c.pyx":255
  *         return self.next_index == self.len
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -7007,29 +7205,30 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10__repr__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":248
+/* "tarina/_string_c.pyx":258
  *         return f"String({self.text!r}[{self.left_index}:{self.next_index - self.offset}])"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
  *         return self.val()
+ * 
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_13__str__(PyObject *__pyx_v_self); /*proto*/
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_13__str__(PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_15__str__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_15__str__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__str__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_12__str__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_14__str__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_14__str__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -7041,13 +7240,15 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__str__", 1);
 
-  /* "tarina/_string_c.pyx":249
+  /* "tarina/_string_c.pyx":259
  * 
  *     def __str__(self):
  *         return self.val()             # <<<<<<<<<<<<<<
+ * 
+ *     def __iter__(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_val); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_val); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 259, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -7067,7 +7268,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -7075,11 +7276,12 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tarina/_string_c.pyx":248
+  /* "tarina/_string_c.pyx":258
  *         return f"String({self.text!r}[{self.left_index}:{self.next_index - self.offset}])"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
  *         return self.val()
+ * 
  */
 
   /* function exit code */
@@ -7095,7 +7297,311 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_12__str__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":208
+/* "tarina/_string_c.pyx":261
+ *         return self.val()
+ * 
+ *     def __iter__(self):             # <<<<<<<<<<<<<<
+ *         self.reset()
+ *         return self
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_17__iter__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_17__iter__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__iter__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_16__iter__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_16__iter__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  int __pyx_t_4;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__iter__", 1);
+
+  /* "tarina/_string_c.pyx":262
+ * 
+ *     def __iter__(self):
+ *         self.reset()             # <<<<<<<<<<<<<<
+ *         return self
+ * 
+ */
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_reset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = NULL;
+  __pyx_t_4 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+    if (likely(__pyx_t_3)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_2, function);
+      __pyx_t_4 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 262, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "tarina/_string_c.pyx":263
+ *     def __iter__(self):
+ *         self.reset()
+ *         return self             # <<<<<<<<<<<<<<
+ * 
+ *     def __next__(self):
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF((PyObject *)__pyx_v_self);
+  __pyx_r = ((PyObject *)__pyx_v_self);
+  goto __pyx_L0;
+
+  /* "tarina/_string_c.pyx":261
+ *         return self.val()
+ * 
+ *     def __iter__(self):             # <<<<<<<<<<<<<<
+ *         self.reset()
+ *         return self
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_AddTraceback("tarina._string_c.String.__iter__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "tarina/_string_c.pyx":265
+ *         return self
+ * 
+ *     def __next__(self):             # <<<<<<<<<<<<<<
+ *         if self.complete:
+ *             raise StopIteration
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_19__next__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_19__next__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__next__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_18__next__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_18__next__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+  PyObject *__pyx_v_val = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_error_without_exception = 0; /* StopIteration */
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  int __pyx_t_5;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__next__", 1);
+
+  /* "tarina/_string_c.pyx":266
+ * 
+ *     def __next__(self):
+ *         if self.complete:             # <<<<<<<<<<<<<<
+ *             raise StopIteration
+ *         self.step(" ")
+ */
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_complete); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (unlikely(__pyx_t_2)) {
+
+    /* "tarina/_string_c.pyx":267
+ *     def __next__(self):
+ *         if self.complete:
+ *             raise StopIteration             # <<<<<<<<<<<<<<
+ *         self.step(" ")
+ *         val = self.val()
+ */
+    __pyx_error_without_exception = 1;
+    goto __pyx_L1_error;;
+
+    /* "tarina/_string_c.pyx":266
+ * 
+ *     def __next__(self):
+ *         if self.complete:             # <<<<<<<<<<<<<<
+ *             raise StopIteration
+ *         self.step(" ")
+ */
+  }
+
+  /* "tarina/_string_c.pyx":268
+ *         if self.complete:
+ *             raise StopIteration
+ *         self.step(" ")             # <<<<<<<<<<<<<<
+ *         val = self.val()
+ *         self.apply()
+ */
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_step); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = NULL;
+  __pyx_t_5 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+    if (likely(__pyx_t_4)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_3, function);
+      __pyx_t_5 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_kp_u__6};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "tarina/_string_c.pyx":269
+ *             raise StopIteration
+ *         self.step(" ")
+ *         val = self.val()             # <<<<<<<<<<<<<<
+ *         self.apply()
+ *         return val
+ */
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_val); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = NULL;
+  __pyx_t_5 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+    if (likely(__pyx_t_4)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_3, function);
+      __pyx_t_5 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 269, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  }
+  __pyx_v_val = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "tarina/_string_c.pyx":270
+ *         self.step(" ")
+ *         val = self.val()
+ *         self.apply()             # <<<<<<<<<<<<<<
+ *         return val
+ */
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_apply); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = NULL;
+  __pyx_t_5 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+    if (likely(__pyx_t_4)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_3, function);
+      __pyx_t_5 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "tarina/_string_c.pyx":271
+ *         val = self.val()
+ *         self.apply()
+ *         return val             # <<<<<<<<<<<<<<
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_val);
+  __pyx_r = __pyx_v_val;
+  goto __pyx_L0;
+
+  /* "tarina/_string_c.pyx":265
+ *         return self
+ * 
+ *     def __next__(self):             # <<<<<<<<<<<<<<
+ *         if self.complete:
+ *             raise StopIteration
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  if (!__pyx_error_without_exception) {
+    __Pyx_AddTraceback("tarina._string_c.String.__next__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  }
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_val);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "tarina/_string_c.pyx":213
  * 
  * cdef class String:
  *     cdef public Py_ssize_t left_index             # <<<<<<<<<<<<<<
@@ -7127,7 +7633,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10left_index___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->left_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->left_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7165,7 +7671,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_10left_index_2__set__(struct __py
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L1_error)
   __pyx_v_self->left_index = __pyx_t_1;
 
   /* function exit code */
@@ -7178,7 +7684,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_10left_index_2__set__(struct __py
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":209
+/* "tarina/_string_c.pyx":214
  * cdef class String:
  *     cdef public Py_ssize_t left_index
  *     cdef public Py_ssize_t next_index             # <<<<<<<<<<<<<<
@@ -7210,7 +7716,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_10next_index___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->next_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->next_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7248,7 +7754,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_10next_index_2__set__(struct __py
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 214, __pyx_L1_error)
   __pyx_v_self->next_index = __pyx_t_1;
 
   /* function exit code */
@@ -7261,7 +7767,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_10next_index_2__set__(struct __py
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":210
+/* "tarina/_string_c.pyx":215
  *     cdef public Py_ssize_t left_index
  *     cdef public Py_ssize_t next_index
  *     cdef public Py_ssize_t offset             # <<<<<<<<<<<<<<
@@ -7293,7 +7799,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_6offset___get__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7331,7 +7837,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_6offset_2__set__(struct __pyx_obj
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L1_error)
   __pyx_v_self->offset = __pyx_t_1;
 
   /* function exit code */
@@ -7344,7 +7850,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_6offset_2__set__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":211
+/* "tarina/_string_c.pyx":216
  *     cdef public Py_ssize_t next_index
  *     cdef public Py_ssize_t offset
  *     cdef public Py_ssize_t len             # <<<<<<<<<<<<<<
@@ -7376,7 +7882,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_3len___get__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_v_self->len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7414,7 +7920,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_3len_2__set__(struct __pyx_obj_6t
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyIndex_AsSsize_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 216, __pyx_L1_error)
   __pyx_v_self->len = __pyx_t_1;
 
   /* function exit code */
@@ -7427,7 +7933,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_3len_2__set__(struct __pyx_obj_6t
   return __pyx_r;
 }
 
-/* "tarina/_string_c.pyx":212
+/* "tarina/_string_c.pyx":217
  *     cdef public Py_ssize_t offset
  *     cdef public Py_ssize_t len
  *     cdef public str text             # <<<<<<<<<<<<<<
@@ -7489,7 +7995,7 @@ static int __pyx_pf_6tarina_9_string_c_6String_4text_2__set__(struct __pyx_obj_6
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 217, __pyx_L1_error)
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
@@ -7548,15 +8054,15 @@ static int __pyx_pf_6tarina_9_string_c_6String_4text_4__del__(struct __pyx_obj_6
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_15__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_21__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6tarina_9_string_c_6String_15__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_15__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_15__reduce_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_6tarina_9_string_c_6String_21__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_21__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_21__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7581,14 +8087,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("__reduce_cython__", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "__reduce_cython__", 0))) return NULL;
-  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_14__reduce_cython__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_20__reduce_cython__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_14__reduce_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_20__reduce_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self) {
   PyObject *__pyx_v_state = 0;
   PyObject *__pyx_v__dict = 0;
   int __pyx_v_use_setstate;
@@ -7832,15 +8338,15 @@ static PyObject *__pyx_pf_6tarina_9_string_c_6String_14__reduce_cython__(struct 
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_17__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_23__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6tarina_9_string_c_6String_17__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_17__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6tarina_9_string_c_6String_17__setstate_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_6tarina_9_string_c_6String_23__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_23__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6tarina_9_string_c_6String_23__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7914,7 +8420,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_16__setstate_cython__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_6tarina_9_string_c_6String_22__setstate_cython__(((struct __pyx_obj_6tarina_9_string_c_String *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   {
@@ -7927,7 +8433,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6tarina_9_string_c_6String_16__setstate_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_6tarina_9_string_c_6String_22__setstate_cython__(struct __pyx_obj_6tarina_9_string_c_String *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -8122,7 +8628,7 @@ static PyObject *__pyx_pf_6tarina_9_string_c_8__pyx_unpickle_String(CYTHON_UNUSE
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__6, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_tuple__7, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
@@ -8545,8 +9051,13 @@ static int __pyx_setprop_6tarina_9_string_c_6String_text(PyObject *o, PyObject *
   }
 }
 
-static PyObject *__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_11__repr__(PyObject *self, CYTHON_UNUSED PyObject *arg) {
-  return __pyx_pw_6tarina_9_string_c_6String_11__repr__(self);
+static PyObject *__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_13__repr__(PyObject *self, CYTHON_UNUSED PyObject *arg) {
+  return __pyx_pw_6tarina_9_string_c_6String_13__repr__(self);
+}
+static PyObject *__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_19__next__(PyObject *self, CYTHON_UNUSED PyObject *arg) {
+  PyObject *res = __pyx_pw_6tarina_9_string_c_6String_19__next__(self);
+  if (!res && !PyErr_Occurred()) { PyErr_SetNone(PyExc_StopIteration); }
+  return res;
 }
 
 static PyMethodDef __pyx_methods_6tarina_9_string_c_String[] = {
@@ -8554,9 +9065,11 @@ static PyMethodDef __pyx_methods_6tarina_9_string_c_String[] = {
   {"val", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_5val, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {"apply", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_7apply, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {"rest", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_9rest, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_11__repr__, METH_NOARGS|METH_COEXIST, 0},
-  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_15__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_17__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"reset", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_11reset, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_13__repr__, METH_NOARGS|METH_COEXIST, 0},
+  {"__next__", (PyCFunction)__pyx_specialmethod___pyx_pw_6tarina_9_string_c_6String_19__next__, METH_NOARGS|METH_COEXIST, 0},
+  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_21__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6tarina_9_string_c_6String_23__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {0, 0, 0, 0}
 };
 
@@ -8573,8 +9086,10 @@ static struct PyGetSetDef __pyx_getsets_6tarina_9_string_c_String[] = {
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_6tarina_9_string_c_String_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6tarina_9_string_c_String},
-  {Py_tp_repr, (void *)__pyx_pw_6tarina_9_string_c_6String_11__repr__},
-  {Py_tp_str, (void *)__pyx_pw_6tarina_9_string_c_6String_13__str__},
+  {Py_tp_repr, (void *)__pyx_pw_6tarina_9_string_c_6String_13__repr__},
+  {Py_tp_str, (void *)__pyx_pw_6tarina_9_string_c_6String_15__str__},
+  {Py_tp_iter, (void *)__pyx_pw_6tarina_9_string_c_6String_17__iter__},
+  {Py_tp_iternext, (void *)__pyx_pw_6tarina_9_string_c_6String_19__next__},
   {Py_tp_methods, (void *)__pyx_methods_6tarina_9_string_c_String},
   {Py_tp_getset, (void *)__pyx_getsets_6tarina_9_string_c_String},
   {Py_tp_init, (void *)__pyx_pw_6tarina_9_string_c_6String_1__init__},
@@ -8610,13 +9125,13 @@ static PyTypeObject __pyx_type_6tarina_9_string_c_String = {
   #if PY_MAJOR_VERSION >= 3
   0, /*tp_as_async*/
   #endif
-  __pyx_pw_6tarina_9_string_c_6String_11__repr__, /*tp_repr*/
+  __pyx_pw_6tarina_9_string_c_6String_13__repr__, /*tp_repr*/
   0, /*tp_as_number*/
   0, /*tp_as_sequence*/
   0, /*tp_as_mapping*/
   0, /*tp_hash*/
   0, /*tp_call*/
-  __pyx_pw_6tarina_9_string_c_6String_13__str__, /*tp_str*/
+  __pyx_pw_6tarina_9_string_c_6String_15__str__, /*tp_str*/
   0, /*tp_getattro*/
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
@@ -8626,8 +9141,8 @@ static PyTypeObject __pyx_type_6tarina_9_string_c_String = {
   0, /*tp_clear*/
   0, /*tp_richcompare*/
   0, /*tp_weaklistoffset*/
-  0, /*tp_iter*/
-  0, /*tp_iternext*/
+  __pyx_pw_6tarina_9_string_c_6String_17__iter__, /*tp_iter*/
+  __pyx_pw_6tarina_9_string_c_6String_19__next__, /*tp_iternext*/
   __pyx_methods_6tarina_9_string_c_String, /*tp_methods*/
   0, /*tp_members*/
   __pyx_getsets_6tarina_9_string_c_String, /*tp_getset*/
@@ -8691,27 +9206,31 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u_, __pyx_k_, sizeof(__pyx_k_), 0, 1, 0, 0},
     {&__pyx_kp_s_Incompatible_checksums_0x_x_vs_0, __pyx_k_Incompatible_checksums_0x_x_vs_0, sizeof(__pyx_k_Incompatible_checksums_0x_x_vs_0), 0, 0, 1, 0},
     {&__pyx_n_s_PickleError, __pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 0, 1, 1},
+    {&__pyx_n_s_StopIteration, __pyx_k_StopIteration, sizeof(__pyx_k_StopIteration), 0, 0, 1, 1},
     {&__pyx_kp_u_String, __pyx_k_String, sizeof(__pyx_k_String), 0, 1, 0, 0},
     {&__pyx_n_s_String_2, __pyx_k_String_2, sizeof(__pyx_k_String_2), 0, 0, 1, 1},
     {&__pyx_n_s_String___reduce_cython, __pyx_k_String___reduce_cython, sizeof(__pyx_k_String___reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_String___setstate_cython, __pyx_k_String___setstate_cython, sizeof(__pyx_k_String___setstate_cython), 0, 0, 1, 1},
     {&__pyx_n_s_String_apply, __pyx_k_String_apply, sizeof(__pyx_k_String_apply), 0, 0, 1, 1},
+    {&__pyx_n_s_String_reset, __pyx_k_String_reset, sizeof(__pyx_k_String_reset), 0, 0, 1, 1},
     {&__pyx_n_s_String_rest, __pyx_k_String_rest, sizeof(__pyx_k_String_rest), 0, 0, 1, 1},
     {&__pyx_n_s_String_step, __pyx_k_String_step, sizeof(__pyx_k_String_step), 0, 0, 1, 1},
     {&__pyx_n_s_String_val, __pyx_k_String_val, sizeof(__pyx_k_String_val), 0, 0, 1, 1},
     {&__pyx_kp_u__10, __pyx_k__10, sizeof(__pyx_k__10), 0, 1, 0, 0},
+    {&__pyx_kp_u__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 1, 0, 0},
     {&__pyx_kp_u__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0, 0},
     {&__pyx_kp_u__3, __pyx_k__3, sizeof(__pyx_k__3), 0, 1, 0, 0},
-    {&__pyx_n_s__35, __pyx_k__35, sizeof(__pyx_k__35), 0, 0, 1, 1},
+    {&__pyx_n_s__37, __pyx_k__37, sizeof(__pyx_k__37), 0, 0, 1, 1},
     {&__pyx_kp_u__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0, 0},
     {&__pyx_kp_u__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 1, 0, 0},
-    {&__pyx_kp_u__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 1, 0, 0},
+    {&__pyx_kp_u__6, __pyx_k__6, sizeof(__pyx_k__6), 0, 1, 0, 0},
     {&__pyx_kp_u__8, __pyx_k__8, sizeof(__pyx_k__8), 0, 1, 0, 0},
     {&__pyx_kp_u__9, __pyx_k__9, sizeof(__pyx_k__9), 0, 1, 0, 0},
     {&__pyx_n_s_apply, __pyx_k_apply, sizeof(__pyx_k_apply), 0, 0, 1, 1},
     {&__pyx_n_s_asyncio_coroutines, __pyx_k_asyncio_coroutines, sizeof(__pyx_k_asyncio_coroutines), 0, 0, 1, 1},
     {&__pyx_n_s_ch, __pyx_k_ch, sizeof(__pyx_k_ch), 0, 0, 1, 1},
     {&__pyx_n_s_cline_in_traceback, __pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 0, 1, 1},
+    {&__pyx_n_s_complete, __pyx_k_complete, sizeof(__pyx_k_complete), 0, 0, 1, 1},
     {&__pyx_n_s_crlf, __pyx_k_crlf, sizeof(__pyx_k_crlf), 0, 0, 1, 1},
     {&__pyx_n_s_dict, __pyx_k_dict, sizeof(__pyx_k_dict), 0, 0, 1, 1},
     {&__pyx_n_s_dict_2, __pyx_k_dict_2, sizeof(__pyx_k_dict_2), 0, 0, 1, 1},
@@ -8728,6 +9247,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u_isenabled, __pyx_k_isenabled, sizeof(__pyx_k_isenabled), 0, 1, 0, 0},
     {&__pyx_n_s_last_quote_index, __pyx_k_last_quote_index, sizeof(__pyx_k_last_quote_index), 0, 0, 1, 1},
     {&__pyx_n_s_last_sep_index, __pyx_k_last_sep_index, sizeof(__pyx_k_last_sep_index), 0, 0, 1, 1},
+    {&__pyx_n_s_last_sep_pos, __pyx_k_last_sep_pos, sizeof(__pyx_k_last_sep_pos), 0, 0, 1, 1},
     {&__pyx_n_s_left, __pyx_k_left, sizeof(__pyx_k_left), 0, 0, 1, 1},
     {&__pyx_n_s_len, __pyx_k_len, sizeof(__pyx_k_len), 0, 0, 1, 1},
     {&__pyx_n_s_length, __pyx_k_length, sizeof(__pyx_k_length), 0, 0, 1, 1},
@@ -8748,6 +9268,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_reduce, __pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
+    {&__pyx_n_s_reset, __pyx_k_reset, sizeof(__pyx_k_reset), 0, 0, 1, 1},
+    {&__pyx_n_s_reslen, __pyx_k_reslen, sizeof(__pyx_k_reslen), 0, 0, 1, 1},
     {&__pyx_n_s_rest, __pyx_k_rest, sizeof(__pyx_k_rest), 0, 0, 1, 1},
     {&__pyx_n_s_result, __pyx_k_result, sizeof(__pyx_k_result), 0, 0, 1, 1},
     {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
@@ -8775,7 +9297,10 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
+  __pyx_builtin_StopIteration = __Pyx_GetBuiltinName(__pyx_n_s_StopIteration); if (!__pyx_builtin_StopIteration) __PYX_ERR(0, 267, __pyx_L1_error)
   return 0;
+  __pyx_L1_error:;
+  return -1;
 }
 /* #### Code section: cached_constants ### */
 
@@ -8790,9 +9315,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         from pickle import PickleError as __pyx_PickleError
  *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x17de150, 0xdafb3ba, 0x95cce5d) = (left_index, len, next_index, offset, text))" % __pyx_checksum
  */
-  __pyx_tuple__6 = PyTuple_Pack(3, __pyx_int_25026896, __pyx_int_229618618, __pyx_int_157077085); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(1, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__6);
-  __Pyx_GIVEREF(__pyx_tuple__6);
+  __pyx_tuple__7 = PyTuple_Pack(3, __pyx_int_25026896, __pyx_int_229618618, __pyx_int_157077085); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__7);
+  __Pyx_GIVEREF(__pyx_tuple__7);
 
   /* "tarina/_string_c.pyx":31
  * cdef unicode CRLF = "\n\r"
@@ -8801,110 +9326,119 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_tuple__11 = PyTuple_Pack(14, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_escape, __pyx_n_s_result, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_index, __pyx_n_s_length, __pyx_n_s_quoted_sep_index, __pyx_n_s_last_sep_index, __pyx_n_s_last_quote_index, __pyx_n_s_len, __pyx_n_s_i); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(0, 31, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__11);
-  __Pyx_GIVEREF(__pyx_tuple__11);
-  __pyx_codeobj__12 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__11, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split, 31, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__12)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_tuple__12 = PyTuple_Pack(16, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_escape, __pyx_n_s_result, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_index, __pyx_n_s_length, __pyx_n_s_quoted_sep_index, __pyx_n_s_last_sep_index, __pyx_n_s_last_sep_pos, __pyx_n_s_last_quote_index, __pyx_n_s_len, __pyx_n_s_i, __pyx_n_s_reslen); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
+  __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 16, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split, 31, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "tarina/_string_c.pyx":89
+  /* "tarina/_string_c.pyx":94
  * 
  * 
  * def split_once(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_tuple__13 = PyTuple_Pack(12, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_index, __pyx_n_s_out_text, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_escape, __pyx_n_s_sep, __pyx_n_s_length, __pyx_n_s_first_quoted_sep_index, __pyx_n_s_last_quote_index); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(0, 89, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__13);
-  __Pyx_GIVEREF(__pyx_tuple__13);
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__13, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once, 89, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_tuple__14 = PyTuple_Pack(12, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_index, __pyx_n_s_out_text, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_escape, __pyx_n_s_sep, __pyx_n_s_length, __pyx_n_s_first_quoted_sep_index, __pyx_n_s_last_quote_index); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(0, 94, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__14);
+  __Pyx_GIVEREF(__pyx_tuple__14);
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once, 94, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 94, __pyx_L1_error)
 
-  /* "tarina/_string_c.pyx":137
+  /* "tarina/_string_c.pyx":142
  * 
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_tuple__15 = PyTuple_Pack(9, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_index, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_length, __pyx_n_s_first_quoted_sep_index, __pyx_n_s_last_quote_index); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(0, 137, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__15);
-  __Pyx_GIVEREF(__pyx_tuple__15);
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once_without_escape, 137, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_tuple__16 = PyTuple_Pack(9, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_crlf, __pyx_n_s_index, __pyx_n_s_quotation, __pyx_n_s_ch, __pyx_n_s_length, __pyx_n_s_first_quoted_sep_index, __pyx_n_s_last_quote_index); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__16);
+  __Pyx_GIVEREF(__pyx_tuple__16);
+  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once_without_escape, 142, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 142, __pyx_L1_error)
 
-  /* "tarina/_string_c.pyx":170
+  /* "tarina/_string_c.pyx":175
  * 
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_tuple__17 = PyTuple_Pack(4, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_offset, __pyx_n_s_crlf); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__17);
-  __Pyx_GIVEREF(__pyx_tuple__17);
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once_index_only, 170, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __pyx_tuple__19 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__19);
-  __Pyx_GIVEREF(__pyx_tuple__19);
+  __pyx_tuple__18 = PyTuple_Pack(4, __pyx_n_s_text, __pyx_n_s_separator, __pyx_n_s_offset, __pyx_n_s_crlf); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__18);
+  __Pyx_GIVEREF(__pyx_tuple__18);
+  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_split_once_index_only, 175, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_tuple__20 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__20);
+  __Pyx_GIVEREF(__pyx_tuple__20);
 
-  /* "tarina/_string_c.pyx":221
+  /* "tarina/_string_c.pyx":226
  *         self.next_index = 0
  * 
  *     def step(self, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  */
-  __pyx_tuple__20 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_separator, __pyx_n_s_crlf); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 221, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__20);
-  __Pyx_GIVEREF(__pyx_tuple__20);
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_step, 221, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 221, __pyx_L1_error)
-  __pyx_tuple__22 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 221, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__22);
-  __Pyx_GIVEREF(__pyx_tuple__22);
+  __pyx_tuple__21 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_separator, __pyx_n_s_crlf); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__21);
+  __Pyx_GIVEREF(__pyx_tuple__21);
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_step, 226, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__23);
+  __Pyx_GIVEREF(__pyx_tuple__23);
 
-  /* "tarina/_string_c.pyx":224
+  /* "tarina/_string_c.pyx":229
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  *     def val(self):             # <<<<<<<<<<<<<<
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  */
-  __pyx_tuple__23 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 224, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__23);
-  __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_val, 224, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 224, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 229, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__24);
+  __Pyx_GIVEREF(__pyx_tuple__24);
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_val, 229, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 229, __pyx_L1_error)
 
-  /* "tarina/_string_c.pyx":227
+  /* "tarina/_string_c.pyx":232
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  *     def apply(self, int left = -1):             # <<<<<<<<<<<<<<
  *         if left == -1:
  *             self.left_index = self.next_index
  */
-  __pyx_tuple__25 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_left); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 227, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__25);
-  __Pyx_GIVEREF(__pyx_tuple__25);
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_apply, 227, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 227, __pyx_L1_error)
-  __pyx_tuple__27 = PyTuple_Pack(1, __pyx_int_neg_1); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 227, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__27);
-  __Pyx_GIVEREF(__pyx_tuple__27);
+  __pyx_tuple__26 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_left); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__26);
+  __Pyx_GIVEREF(__pyx_tuple__26);
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_apply, 232, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(1, __pyx_int_neg_1); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__28);
+  __Pyx_GIVEREF(__pyx_tuple__28);
 
-  /* "tarina/_string_c.pyx":234
+  /* "tarina/_string_c.pyx":239
  *         self.offset = 0
  * 
  *     def rest(self):             # <<<<<<<<<<<<<<
  *         return PyUnicode_Substring(self.text, self.left_index, self.len)
  * 
  */
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_rest, 234, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_rest, 239, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 239, __pyx_L1_error)
+
+  /* "tarina/_string_c.pyx":242
+ *         return PyUnicode_Substring(self.text, self.left_index, self.len)
+ * 
+ *     def reset(self):             # <<<<<<<<<<<<<<
+ *         self.left_index = 0
+ *         self.offset = 0
+ */
+  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_src_tarina__string_c_pyx, __pyx_n_s_reset, 242, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 242, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_tuple__29 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__29);
-  __Pyx_GIVEREF(__pyx_tuple__29);
-  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__31 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__31);
+  __Pyx_GIVEREF(__pyx_tuple__31);
+  __pyx_codeobj__32 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__31, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__32)) __PYX_ERR(1, 1, __pyx_L1_error)
 
   /* "(tree fragment)":16
  *     else:
@@ -8912,20 +9446,20 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_String__set_state(self, __pyx_state)
  */
-  __pyx_tuple__31 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__31);
-  __Pyx_GIVEREF(__pyx_tuple__31);
-  __pyx_codeobj__32 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__31, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__32)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_tuple__33 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__33);
+  __Pyx_GIVEREF(__pyx_tuple__33);
+  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(1, 16, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_String(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_tuple__33 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__33);
-  __Pyx_GIVEREF(__pyx_tuple__33);
-  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_String, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__35 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__35);
+  __Pyx_GIVEREF(__pyx_tuple__35);
+  __pyx_codeobj__36 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_String, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__36)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -9000,15 +9534,15 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_6tarina_9_string_c_String = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6tarina_9_string_c_String_spec, NULL); if (unlikely(!__pyx_ptype_6tarina_9_string_c_String)) __PYX_ERR(0, 207, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6tarina_9_string_c_String_spec, __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  __pyx_ptype_6tarina_9_string_c_String = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6tarina_9_string_c_String_spec, NULL); if (unlikely(!__pyx_ptype_6tarina_9_string_c_String)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6tarina_9_string_c_String_spec, __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 212, __pyx_L1_error)
   #else
   __pyx_ptype_6tarina_9_string_c_String = &__pyx_type_6tarina_9_string_c_String;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 212, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_6tarina_9_string_c_String->tp_print = 0;
@@ -9018,9 +9552,9 @@ static int __Pyx_modinit_type_init_code(void) {
     __pyx_ptype_6tarina_9_string_c_String->tp_getattro = __Pyx_PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_String_2, (PyObject *) __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_String_2, (PyObject *) __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 212, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_6tarina_9_string_c_String) < 0) __PYX_ERR(0, 212, __pyx_L1_error)
   #endif
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -9361,8 +9895,8 @@ if (!__Pyx_RefNanny) {
  */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_kp_u__8, __pyx_kp_u__8) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_2, __pyx_kp_u__9, __pyx_kp_u__9) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_kp_u__10, __pyx_kp_u__10) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_XGOTREF(__pyx_v_6tarina_9_string_c_QUOTATION);
   __Pyx_DECREF_SET(__pyx_v_6tarina_9_string_c_QUOTATION, ((PyObject*)__pyx_t_2));
   __Pyx_GIVEREF(__pyx_t_2);
@@ -9375,10 +9909,10 @@ if (!__Pyx_RefNanny) {
  * 
  * def split(str text, str separator, bint crlf=True):
  */
-  __Pyx_INCREF(__pyx_kp_u__10);
+  __Pyx_INCREF(__pyx_kp_u__11);
   __Pyx_XGOTREF(__pyx_v_6tarina_9_string_c_CRLF);
-  __Pyx_DECREF_SET(__pyx_v_6tarina_9_string_c_CRLF, __pyx_kp_u__10);
-  __Pyx_GIVEREF(__pyx_kp_u__10);
+  __Pyx_DECREF_SET(__pyx_v_6tarina_9_string_c_CRLF, __pyx_kp_u__11);
+  __Pyx_GIVEREF(__pyx_kp_u__11);
 
   /* "tarina/_string_c.pyx":31
  * cdef unicode CRLF = "\n\r"
@@ -9394,119 +9928,132 @@ if (!__Pyx_RefNanny) {
   __Pyx_GIVEREF(__pyx_t_2);
   if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_1split, 0, __pyx_n_s_split, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__12)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_1split, 0, __pyx_n_s_split, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_split, __pyx_t_2) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":89
+  /* "tarina/_string_c.pyx":94
  * 
  * 
  * def split_once(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(((int)1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(((int)1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_3split_once, 0, __pyx_n_s_split_once, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_3split_once, 0, __pyx_n_s_split_once, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once, __pyx_t_2) < 0) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once, __pyx_t_2) < 0) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":137
+  /* "tarina/_string_c.pyx":142
  * 
  * 
  * def split_once_without_escape(str text, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(((int)1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(((int)1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 137, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_5split_once_without_escape, 0, __pyx_n_s_split_once_without_escape, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_5split_once_without_escape, 0, __pyx_n_s_split_once_without_escape, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once_without_escape, __pyx_t_2) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once_without_escape, __pyx_t_2) < 0) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":170
+  /* "tarina/_string_c.pyx":175
  * 
  * 
  * cpdef inline tuple split_once_index_only(str text, str separator, Py_ssize_t offset, bint crlf=True):             # <<<<<<<<<<<<<<
  *     if crlf:
  *         separator = PyUnicode_Concat(separator, CRLF)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_7split_once_index_only, 0, __pyx_n_s_split_once_index_only, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_7split_once_index_only, 0, __pyx_n_s_split_once_index_only, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__19);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once_index_only, __pyx_t_2) < 0) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__20);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_split_once_index_only, __pyx_t_2) < 0) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "tarina/_string_c.pyx":221
+  /* "tarina/_string_c.pyx":226
  *         self.next_index = 0
  * 
  *     def step(self, str separator, bint crlf=True):             # <<<<<<<<<<<<<<
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_3step, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_step, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_3step, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_step, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__22);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_step, __pyx_t_2) < 0) __PYX_ERR(0, 221, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__23);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_step, __pyx_t_2) < 0) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_6tarina_9_string_c_String);
 
-  /* "tarina/_string_c.pyx":224
+  /* "tarina/_string_c.pyx":229
  *         self.next_index, self.offset = split_once_index_only(self.text, separator, self.left_index, crlf)
  * 
  *     def val(self):             # <<<<<<<<<<<<<<
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_5val, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_val, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 224, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_5val, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_val, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 229, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_val, __pyx_t_2) < 0) __PYX_ERR(0, 224, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_val, __pyx_t_2) < 0) __PYX_ERR(0, 229, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_6tarina_9_string_c_String);
 
-  /* "tarina/_string_c.pyx":227
+  /* "tarina/_string_c.pyx":232
  *         return PyUnicode_Substring(self.text, self.left_index, self.next_index - self.offset)
  * 
  *     def apply(self, int left = -1):             # <<<<<<<<<<<<<<
  *         if left == -1:
  *             self.left_index = self.next_index
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_7apply, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_apply, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_7apply, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_apply, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 232, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__27);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_apply, __pyx_t_2) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__28);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_apply, __pyx_t_2) < 0) __PYX_ERR(0, 232, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_6tarina_9_string_c_String);
 
-  /* "tarina/_string_c.pyx":234
+  /* "tarina/_string_c.pyx":239
  *         self.offset = 0
  * 
  *     def rest(self):             # <<<<<<<<<<<<<<
  *         return PyUnicode_Substring(self.text, self.left_index, self.len)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_9rest, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_rest, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_9rest, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_rest, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_rest, __pyx_t_2) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_rest, __pyx_t_2) < 0) __PYX_ERR(0, 239, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  PyType_Modified(__pyx_ptype_6tarina_9_string_c_String);
+
+  /* "tarina/_string_c.pyx":242
+ *         return PyUnicode_Substring(self.text, self.left_index, self.len)
+ * 
+ *     def reset(self):             # <<<<<<<<<<<<<<
+ *         self.left_index = 0
+ *         self.offset = 0
+ */
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_11reset, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String_reset, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 242, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_reset, __pyx_t_2) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_6tarina_9_string_c_String);
 
@@ -9515,7 +10062,7 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_15__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String___reduce_cython, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_21__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String___reduce_cython, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__32)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_reduce_cython, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -9527,7 +10074,7 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_String__set_state(self, __pyx_state)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_17__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String___setstate_cython, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__32)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_6String_23__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_String___setstate_cython, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_6tarina_9_string_c_String, __pyx_n_s_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -9538,7 +10085,7 @@ if (!__Pyx_RefNanny) {
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_9__pyx_unpickle_String, 0, __pyx_n_s_pyx_unpickle_String, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6tarina_9_string_c_9__pyx_unpickle_String, 0, __pyx_n_s_pyx_unpickle_String, NULL, __pyx_n_s_tarina__string_c, __pyx_d, ((PyObject *)__pyx_codeobj__36)); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_String, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -9621,6 +10168,165 @@ end:
     return (__Pyx_RefNannyAPIStruct *)r;
 }
 #endif
+
+/* PyErrExceptionMatches */
+#if CYTHON_FAST_THREAD_STATE
+static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
+    Py_ssize_t i, n;
+    n = PyTuple_GET_SIZE(tuple);
+#if PY_MAJOR_VERSION >= 3
+    for (i=0; i<n; i++) {
+        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
+    }
+#endif
+    for (i=0; i<n; i++) {
+        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
+    }
+    return 0;
+}
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
+    int result;
+    PyObject *exc_type;
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *current_exception = tstate->current_exception;
+    if (unlikely(!current_exception)) return 0;
+    exc_type = (PyObject*) Py_TYPE(current_exception);
+    if (exc_type == err) return 1;
+#else
+    exc_type = tstate->curexc_type;
+    if (exc_type == err) return 1;
+    if (unlikely(!exc_type)) return 0;
+#endif
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_INCREF(exc_type);
+    #endif
+    if (unlikely(PyTuple_Check(err))) {
+        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
+    } else {
+        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
+    }
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_DECREF(exc_type);
+    #endif
+    return result;
+}
+#endif
+
+/* PyErrFetchRestore */
+#if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *tmp_value;
+    assert(type == NULL || (value != NULL && type == (PyObject*) Py_TYPE(value)));
+    if (value) {
+        #if CYTHON_COMPILING_IN_CPYTHON
+        if (unlikely(((PyBaseExceptionObject*) value)->traceback != tb))
+        #endif
+            PyException_SetTraceback(value, tb);
+    }
+    tmp_value = tstate->current_exception;
+    tstate->current_exception = value;
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+#else
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    tmp_type = tstate->curexc_type;
+    tmp_value = tstate->curexc_value;
+    tmp_tb = tstate->curexc_traceback;
+    tstate->curexc_type = type;
+    tstate->curexc_value = value;
+    tstate->curexc_traceback = tb;
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+#endif
+}
+static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject* exc_value;
+    exc_value = tstate->current_exception;
+    tstate->current_exception = 0;
+    *value = exc_value;
+    *type = NULL;
+    *tb = NULL;
+    if (exc_value) {
+        *type = (PyObject*) Py_TYPE(exc_value);
+        Py_INCREF(*type);
+        #if CYTHON_COMPILING_IN_CPYTHON
+        *tb = ((PyBaseExceptionObject*) exc_value)->traceback;
+        Py_XINCREF(*tb);
+        #else
+        *tb = PyException_GetTraceback(exc_value);
+        #endif
+    }
+#else
+    *type = tstate->curexc_type;
+    *value = tstate->curexc_value;
+    *tb = tstate->curexc_traceback;
+    tstate->curexc_type = 0;
+    tstate->curexc_value = 0;
+    tstate->curexc_traceback = 0;
+#endif
+}
+#endif
+
+/* PyObjectGetAttrStr */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro))
+        return tp->tp_getattro(obj, attr_name);
+#if PY_MAJOR_VERSION < 3
+    if (likely(tp->tp_getattr))
+        return tp->tp_getattr(obj, PyString_AS_STRING(attr_name));
+#endif
+    return PyObject_GetAttr(obj, attr_name);
+}
+#endif
+
+/* PyObjectGetAttrStrNoError */
+#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
+static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        __Pyx_PyErr_Clear();
+}
+#endif
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
+    PyObject *result;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
+    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
+    return result;
+#else
+#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS && PY_VERSION_HEX >= 0x030700B1
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
+        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
+    }
+#endif
+    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
+    if (unlikely(!result)) {
+        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
+    }
+    return result;
+#endif
+}
+
+/* GetBuiltinName */
+static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
+    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_b, name);
+    if (unlikely(!result) && !PyErr_Occurred()) {
+        PyErr_Format(PyExc_NameError,
+#if PY_MAJOR_VERSION >= 3
+            "name '%U' is not defined", name);
+#else
+            "name '%.200s' is not defined", PyString_AS_STRING(name));
+#endif
+    }
+    return result;
+}
 
 /* TupleAndListFromArray */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -10481,20 +11187,6 @@ bad:
 #endif
 }
 
-/* PyObjectGetAttrStr */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro))
-        return tp->tp_getattro(obj, attr_name);
-#if PY_MAJOR_VERSION < 3
-    if (likely(tp->tp_getattr))
-        return tp->tp_getattr(obj, PyString_AS_STRING(attr_name));
-#endif
-    return PyObject_GetAttr(obj, attr_name);
-}
-#endif
-
 /* PyFunctionFastCall */
 #if CYTHON_FAST_PYCALL && !CYTHON_VECTORCALL
 static PyObject* __Pyx_PyFunction_FastCallNoKw(PyCodeObject *co, PyObject **args, Py_ssize_t na,
@@ -10757,108 +11449,6 @@ __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
     return 0;
 }
 
-/* PyErrExceptionMatches */
-#if CYTHON_FAST_THREAD_STATE
-static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
-    Py_ssize_t i, n;
-    n = PyTuple_GET_SIZE(tuple);
-#if PY_MAJOR_VERSION >= 3
-    for (i=0; i<n; i++) {
-        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
-    }
-#endif
-    for (i=0; i<n; i++) {
-        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
-    }
-    return 0;
-}
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
-    int result;
-    PyObject *exc_type;
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *current_exception = tstate->current_exception;
-    if (unlikely(!current_exception)) return 0;
-    exc_type = (PyObject*) Py_TYPE(current_exception);
-    if (exc_type == err) return 1;
-#else
-    exc_type = tstate->curexc_type;
-    if (exc_type == err) return 1;
-    if (unlikely(!exc_type)) return 0;
-#endif
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_INCREF(exc_type);
-    #endif
-    if (unlikely(PyTuple_Check(err))) {
-        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
-    } else {
-        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
-    }
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_DECREF(exc_type);
-    #endif
-    return result;
-}
-#endif
-
-/* PyErrFetchRestore */
-#if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *tmp_value;
-    assert(type == NULL || (value != NULL && type == (PyObject*) Py_TYPE(value)));
-    if (value) {
-        #if CYTHON_COMPILING_IN_CPYTHON
-        if (unlikely(((PyBaseExceptionObject*) value)->traceback != tb))
-        #endif
-            PyException_SetTraceback(value, tb);
-    }
-    tmp_value = tstate->current_exception;
-    tstate->current_exception = value;
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-#else
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    tmp_type = tstate->curexc_type;
-    tmp_value = tstate->curexc_value;
-    tmp_tb = tstate->curexc_traceback;
-    tstate->curexc_type = type;
-    tstate->curexc_value = value;
-    tstate->curexc_traceback = tb;
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
-#endif
-}
-static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject* exc_value;
-    exc_value = tstate->current_exception;
-    tstate->current_exception = 0;
-    *value = exc_value;
-    *type = NULL;
-    *tb = NULL;
-    if (exc_value) {
-        *type = (PyObject*) Py_TYPE(exc_value);
-        Py_INCREF(*type);
-        #if CYTHON_COMPILING_IN_CPYTHON
-        *tb = ((PyBaseExceptionObject*) exc_value)->traceback;
-        Py_XINCREF(*tb);
-        #else
-        *tb = PyException_GetTraceback(exc_value);
-        #endif
-    }
-#else
-    *type = tstate->curexc_type;
-    *value = tstate->curexc_value;
-    *tb = tstate->curexc_traceback;
-    tstate->curexc_type = 0;
-    tstate->curexc_value = 0;
-    tstate->curexc_traceback = 0;
-#endif
-}
-#endif
-
 /* GetAttr3 */
 #if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
 static PyObject *__Pyx_GetAttr3Default(PyObject *d) {
@@ -10889,49 +11479,6 @@ static CYTHON_INLINE PyObject *__Pyx_GetAttr3(PyObject *o, PyObject *n, PyObject
     r = PyObject_GetAttr(o, n);
     return (likely(r)) ? r : __Pyx_GetAttr3Default(d);
 #endif
-}
-
-/* PyObjectGetAttrStrNoError */
-#if __PYX_LIMITED_VERSION_HEX < 0x030d00A1
-static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
-        __Pyx_PyErr_Clear();
-}
-#endif
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
-    PyObject *result;
-#if __PYX_LIMITED_VERSION_HEX >= 0x030d00A1
-    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
-    return result;
-#else
-#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS && PY_VERSION_HEX >= 0x030700B1
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
-        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
-    }
-#endif
-    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
-    if (unlikely(!result)) {
-        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
-    }
-    return result;
-#endif
-}
-
-/* GetBuiltinName */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
-    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_b, name);
-    if (unlikely(!result) && !PyErr_Occurred()) {
-        PyErr_Format(PyExc_NameError,
-#if PY_MAJOR_VERSION >= 3
-            "name '%U' is not defined", name);
-#else
-            "name '%.200s' is not defined", PyString_AS_STRING(name));
-#endif
-    }
-    return result;
 }
 
 /* PyDictVersioning */
@@ -11074,7 +11621,7 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__7);
+        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__8);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -14110,7 +14657,7 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__35);
+        name = __Pyx_NewRef(__pyx_n_s__37);
     }
     return name;
 }

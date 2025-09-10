@@ -16,7 +16,7 @@ short_description: NetApp ONTAP iSCSI or FC igroup configuration
 extends_documentation_fragment:
   - netapp.ontap.netapp.na_ontap
 version_added: 2.6.0
-author: NetApp Ansible Team (@carchi8py) <ng-ansibleteam@netapp.com>
+author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
 
 description:
   - Create/Delete/Rename Igroups and Modify initiators belonging to an igroup
@@ -145,9 +145,9 @@ EXAMPLES = '''
     initiator_group_type: iscsi
     os_type: linux
     initiator_objects:
-        - name: iqn.1994-05.com.redhat:scspa0395855001.rtp.openenglab.netapp.com
-          comment: for test only
-        - name: abc.com:redhat.com
+      - name: iqn.1994-05.com.redhat:scspa0395855001.rtp.openenglab.netapp.com
+        comment: for test only
+      - name: abc.com:redhat.com
     vserver: ansibleVServer
     hostname: "{{ netapp_hostname }}"
     username: "{{ netapp_username }}"

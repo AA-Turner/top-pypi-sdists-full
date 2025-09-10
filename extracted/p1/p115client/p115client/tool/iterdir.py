@@ -113,11 +113,14 @@ def overview_attr(info: Mapping, /) -> OverviewAttr:
 
 
 def make_path_binder(
-    id_to_dirnode: MutableMapping[int, tuple[str, int]], 
+    id_to_dirnode: Mapping[int, tuple[str, int]], 
     escape: None | bool | Callable[[str], str] = True, 
     with_ancestors: bool = False, 
-    key_of_path: str = "path", 
+    with_path: bool = True, 
+    top_id: int = -1, 
     key_of_ancestors: str = "ancestors", 
+    key_of_path: str = "path", 
+    key_of_relpath: str = "relpath", 
 ) -> Callable:
     if isinstance(escape, bool):
         if escape:
@@ -125,61 +128,106 @@ def make_path_binder(
         else:
             escape = posix_escape_name
     escape = cast(None | Callable[[str], str], escape)
-    id_to_path: dict[int, str] = {0: "/"}
-    def get_path(attr: Mapping | tuple[str, int], /) -> str:
-        if isinstance(attr, Mapping):
-            pid = attr["parent_id"]
-            name = attr["name"]
-        else:
-            name, pid = attr
-        if escape is not None:
-            name = escape(name)
-        dirname = id_to_path.get(pid, "")
-        if not dirname and (node := id_to_dirnode.get(pid)):
-            dirname = id_to_path[pid] = get_path(node) + "/"
-        return dirname + name
-    id_to_node = {0: {"id": 0, "parent_id": 0, "name": ""}}
-    push = list.append
+    if escape is not None:
+        from functools import lru_cache
+        escape = lru_cache(maxsize=None)(escape)
+    id_to_ancestors = {0: [{"id": 0, "parent_id": 0, "name": ""}]}
     def get_ancestors(id: int, attr: None | Mapping | tuple[str, int] = None, /) -> list[dict]:
         if not id:
-            return [id_to_node[0]]
-        elif attr is None:
+            return id_to_ancestors[0]
+        is_dir = True
+        if not attr:
             name, pid = id_to_dirnode[id]
         elif isinstance(attr, Mapping):
             pid = attr["parent_id"]
             name = attr["name"]
+            is_dir = attr.get("is_dir", is_dir)
         else:
             name, pid = attr
-        ancestors: list[dict] = []
-        while True:
-            if id in id_to_node:
-                ancestor = id_to_node[id]
-            else:
-                ancestor = id_to_node[id] = {"id": id, "parent_id": pid, "name": name}
-            push(ancestors, ancestor)
-            if not pid:
-                push(ancestors, id_to_node[0])
-                break
-            id = pid
-            try:
-                name, pid = id_to_dirnode[id]
-            except KeyError:
-                break
-        ancestors.reverse()
+        try:
+            pancestors = id_to_ancestors[pid]
+        except KeyError:
+            get_ancestors(pid)
+            pancestors = id_to_ancestors[pid]
+        ancestors = [*pancestors, {"id": id, "parent_id": pid, "name": name}]
+        if is_dir:
+            id_to_ancestors[id] = ancestors
         return ancestors
-    def bind[D: dict](attr: D, /) -> D:
-        if "name" in attr:
-            attr[key_of_path] = get_path(attr)
-            if with_ancestors:
-                attr[key_of_ancestors] = get_ancestors(attr["id"], attr)
-        else:
+    id_to_path: dict[int, str] = {0: "/"}
+    def get_path(id: int, attr: None | Mapping | tuple[str, int] = None, /) -> str:
+        if not id:
+            return id_to_path[0]
+        is_dir = True
+        if not attr:
+            name, pid = id_to_dirnode[id]
+        elif isinstance(attr, Mapping):
             pid = attr["parent_id"]
-            attr[key_of_path] = get_path(id_to_dirnode[pid])
-            if with_ancestors:
-                attr[key_of_ancestors] = get_ancestors(pid)
-        return attr
-    setattr(bind, "get_path", get_path)
+            name = attr["name"]
+            is_dir = attr.get("is_dir", is_dir)
+        else:
+            name, pid = attr
+        if escape is not None:
+            name = escape(name)
+        try:
+            dirname = id_to_path[pid]
+        except KeyError:
+            get_path(pid)
+            dirname = id_to_path[pid]
+        path = dirname + name
+        if is_dir:
+            id_to_path[id] = path + "/"
+        return path
+    with_relpath = top_id >= 0
+    if with_relpath:
+        id_to_relpath: dict[int, str] = {top_id: ""}
+        def get_relpath(id: int, attr: None | Mapping | tuple[str, int] = None, /) -> str:
+            if not id or id == top_id:
+                return id_to_relpath[top_id]
+            is_dir = True
+            if not attr:
+                name, pid = id_to_dirnode[id]
+            elif isinstance(attr, Mapping):
+                pid = attr["parent_id"]
+                name = attr["name"]
+                is_dir = attr.get("is_dir", is_dir)
+            else:
+                name, pid = attr
+            if escape is not None:
+                name = escape(name)
+            try:
+                dirname = id_to_relpath[pid]
+            except KeyError:
+                get_relpath(pid)
+                dirname = id_to_relpath[pid]
+            path = dirname + name
+            if is_dir:
+                id_to_relpath[id] = path + "/"
+            return path
+    if with_ancestors or with_path or with_relpath:
+        def bind[D: dict](attr: D, /) -> D:
+            if "name" in attr:
+                fid = attr["id"]
+                if with_ancestors:
+                    attr[key_of_ancestors] = get_ancestors(fid, attr)
+                if with_path:
+                    attr[key_of_path] = get_path(fid, attr)
+                if with_relpath:
+                    attr[key_of_relpath] = get_relpath(fid, attr)
+            else:
+                pid = attr["parent_id"]
+                if with_ancestors:
+                    attr[key_of_ancestors] = get_ancestors(pid)
+                if with_path:
+                    attr[key_of_path] = get_path(pid)
+                if with_relpath:
+                    attr[key_of_relpath] = get_relpath(pid)
+            return attr
+    else:
+        bind = lambda attr, /: attr
     setattr(bind, "get_ancestors", get_ancestors)
+    setattr(bind, "get_path", get_path)
+    if with_relpath:
+        setattr(bind, "get_relpath", get_relpath)
     return bind
 
 
@@ -330,6 +378,7 @@ def ensure_attr_path[D: dict](
     client: str | PathLike | P115Client | P115OpenClient, 
     attrs: Iterable[D], 
     with_ancestors: bool = False, 
+    with_path: bool = True, 
     escape: None | bool | Callable[[str], str] = True, 
     id_to_dirnode: None | EllipsisType | MutableMapping[int, tuple[str, int]] = None, 
     app: str = "web", 
@@ -343,6 +392,7 @@ def ensure_attr_path[D: dict](
     client: str | PathLike | P115Client | P115OpenClient, 
     attrs: Iterable[D] | AsyncIterable[D], 
     with_ancestors: bool = False, 
+    with_path: bool = True, 
     escape: None | bool | Callable[[str], str] = True, 
     id_to_dirnode: None | EllipsisType | MutableMapping[int, tuple[str, int]] = None, 
     app: str = "web", 
@@ -355,6 +405,7 @@ def ensure_attr_path[D: dict](
     client: str | PathLike | P115Client | P115OpenClient, 
     attrs: Iterable[D] | AsyncIterable[D], 
     with_ancestors: bool = False, 
+    with_path: bool = True, 
     escape: None | bool | Callable[[str], str] = True, 
     id_to_dirnode: None | EllipsisType | MutableMapping[int, tuple[str, int]] = None, 
     app: str = "web", 
@@ -362,7 +413,7 @@ def ensure_attr_path[D: dict](
     async_: Literal[False, True] = False, 
     **request_kwargs, 
 ) -> Iterator[D] | AsyncIterator[D]:
-    """为一组文件信息添加 "path" 字段，可选 "ancestors" 字段
+    """为一组文件信息添加 "path" 字段，可选 "path" 或 "ancestors" 字段
 
     .. caution::
         风控非常严重，请谨慎使用
@@ -370,6 +421,7 @@ def ensure_attr_path[D: dict](
     :param client: 115 客户端或 cookies
     :param attrs: 一组文件或目录的信息
     :param with_ancestors: 文件信息中是否要包含 "ancestors"
+    :param with_path: 文件信息中是否要包含 "path"
     :param escape: 对文件名进行转义
 
         - 如果为 None，则不处理；否则，这个函数用来对文件名中某些符号进行转义，例如 "/" 等
@@ -390,7 +442,12 @@ def ensure_attr_path[D: dict](
         id_to_dirnode = ID_TO_DIRNODE_CACHE[client.user_id]
     elif id_to_dirnode is ...:
         id_to_dirnode = {}
-    bind = make_path_binder(id_to_dirnode, escape=escape, with_ancestors=with_ancestors)
+    bind = make_path_binder(
+        id_to_dirnode, 
+        escape=escape, 
+        with_path=with_path, 
+        with_ancestors=with_ancestors, 
+    )
     dangling_ids: set[int] = set()
     def gen_step():
         from .attr import get_info
@@ -413,7 +470,7 @@ def ensure_attr_path[D: dict](
                     except P115FileNotFoundError:
                         dangling_ids.add(pid)
                 bind(attr)
-                if top_path := attr.get("top_path"):
+                if with_path and (top_path := attr.get("top_path")):
                     attr["relpath"] = attr["path"][(1 if top_path == "/" else len(top_path) + 1):]
                 yield Yield(attr)
     return run_gen_step_iter(gen_step, async_)

@@ -24,14 +24,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
-
-class OneOf:
-    @staticmethod
-    def from_dict(obj, *args, **kwargs):
-        """Noop override to fix missing OneOf import/implementation."""
-        return obj
-
-
 class OpenPGPDistributionResponse(BaseModel):
     """
     The Serializer for the Distribution model.  The serializer deliberately omits the `publication` and `repository_version` field due to plugins typically requiring one or the other but not both.  To include the ``publication`` field, it is recommended plugins define the field::    publication = DetailRelatedField(       required=False,       help_text=_(\"Publication to be served\"),       view_name_pattern=r\"publications(-.*/.*)?-detail\",       queryset=models.Publication.objects.exclude(complete=False),       allow_null=True,   )  To include the ``repository_version`` field, it is recommended plugins define the field::    repository_version = RepositoryVersionRelatedField(       required=False, help_text=_(\"RepositoryVersion to be served\"), allow_null=True   )  Additionally, the serializer omits the ``remote`` field, which is used for pull-through caching feature and only by plugins which use publications. Plugins implementing a pull-through caching should define the field in their derived serializer class like this::    remote = DetailRelatedField(       required=False,       help_text=_('Remote that can be used to fetch content when using pull-through caching.'),       queryset=models.Remote.objects.all(),       allow_null=True   )
@@ -128,21 +120,7 @@ class OpenPGPDistributionResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pulp_href": obj.get("pulp_href"),
-            "prn": obj.get("prn"),
-            "pulp_created": obj.get("pulp_created"),
-            "pulp_last_updated": obj.get("pulp_last_updated"),
-            "base_path": obj.get("base_path"),
-            "base_url": obj.get("base_url"),
-            "content_guard": obj.get("content_guard"),
-            "no_content_change_since": obj.get("no_content_change_since"),
-            "hidden": obj.get("hidden") if obj.get("hidden") is not None else False,
-            "pulp_labels": obj.get("pulp_labels"),
-            "name": obj.get("name"),
-            "repository": obj.get("repository"),
-            "repository_version": obj.get("repository_version")
-        })
+        _obj = cls.model_validate(obj)
         return _obj
 
 

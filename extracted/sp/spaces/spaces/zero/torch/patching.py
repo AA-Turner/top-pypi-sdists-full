@@ -250,9 +250,11 @@ dispatch_mode = DefaultDispatchMode()
 
 def _untyped_storage_new_register(*args, **kwargs):
     cuda = False
-    if (device := kwargs.get('device')) is not None and device.type == 'cuda':
-        cuda = True
-        del kwargs['device']
+    if (device := kwargs.get('device')) is not None:
+        device = torch.device(device)
+        if device.type == 'cuda':
+            cuda = True
+            del kwargs['device']
     storage = torch._C.StorageBase.__new__(*args, **kwargs)
     if cuda:
         storage._zerogpu = True

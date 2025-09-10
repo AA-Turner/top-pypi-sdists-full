@@ -1,15 +1,20 @@
 use std::borrow::Cow;
 
 use itertools::Itertools;
+
 use tombi_future::Boxable;
 use tombi_schema_store::{
     Accessor, CurrentSchema, DocumentSchema, PropertySchema, SchemaAccessor, TableSchema,
     ValueSchema,
 };
 
-use crate::goto_type_definition::{
-    all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
-    one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+use crate::{
+    comment_directive::get_table_comment_directive_content_with_schema_uri,
+    goto_type_definition::{
+        all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
+        comment::get_tombi_value_comment_directive_type_definition,
+        one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+    },
 };
 
 impl GetTypeDefinition for tombi_document_tree::Table {
@@ -27,6 +32,19 @@ impl GetTypeDefinition for tombi_document_tree::Table {
         tracing::trace!("current_schema = {:?}", current_schema);
 
         async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_table_comment_directive_content_with_schema_uri(self, position, accessors)
+            {
+                if let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
+                    comment_directive_context,
+                    schema_uri,
+                )
+                .await
+                {
+                    return Some(hover_content);
+                }
+            }
+
             if let Some(Ok(DocumentSchema {
                 value_schema,
                 schema_uri,
@@ -58,8 +76,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                     ValueSchema::Table(table_schema) => {
                         if let Some(key) = keys.first() {
                             if let Some(value) = self.get(key) {
-                                let key_str = key.to_raw_text(schema_context.toml_version);
-                                let accessor = Accessor::Key(key_str.clone());
+                                let accessor = Accessor::Key(key.value.clone());
                                 let schema_accessor = SchemaAccessor::from(&accessor);
                                 let accessors = accessors
                                     .iter()
@@ -122,7 +139,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     ) in pattern_properties.write().await.iter_mut()
                                     {
                                         if let Ok(pattern) = regex::Regex::new(property_key) {
-                                            if pattern.is_match(&key_str) {
+                                            if pattern.is_match(&key.value) {
                                                 if let Ok(Some(current_schema)) = property_schema
                                                     .resolve(
                                                         current_schema.schema_uri.clone(),
@@ -157,7 +174,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                                     .await;
                                             }
                                         } else {
-                                            tracing::error!(
+                                            tracing::warn!(
                                                 "Invalid regex pattern property: {}",
                                                 property_key
                                             );
@@ -281,7 +298,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
             } else {
                 if let Some(key) = keys.first() {
                     if let Some(value) = self.get(key) {
-                        let accessor = Accessor::Key(key.to_raw_text(schema_context.toml_version));
+                        let accessor = Accessor::Key(key.value.clone());
 
                         return value
                             .get_type_definition(

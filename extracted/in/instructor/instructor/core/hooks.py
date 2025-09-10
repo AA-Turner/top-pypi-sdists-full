@@ -225,3 +225,123 @@ class Hooks:
             self._handlers.pop(hook_name, None)
         else:
             self._handlers.clear()
+
+    def __add__(self, other: Hooks) -> Hooks:
+        """
+        Combine two Hooks instances into a new one.
+
+        This creates a new Hooks instance that contains all handlers from both
+        the current instance and the other instance. Handlers are combined by
+        appending the other's handlers after the current instance's handlers.
+
+        Args:
+            other: Another Hooks instance to combine with this one.
+
+        Returns:
+            A new Hooks instance containing all handlers from both instances.
+
+        Example:
+            >>> hooks1 = Hooks()
+            >>> hooks2 = Hooks()
+            >>> hooks1.on("completion:kwargs", lambda **kw: print("Hook 1"))
+            >>> hooks2.on("completion:kwargs", lambda **kw: print("Hook 2"))
+            >>> combined = hooks1 + hooks2
+            >>> combined.emit_completion_arguments()  # Prints both "Hook 1" and "Hook 2"
+        """
+        if not isinstance(other, Hooks):
+            return NotImplemented
+
+        combined = Hooks()
+
+        # Copy handlers from self
+        for hook_name, handlers in self._handlers.items():
+            combined._handlers[hook_name].extend(handlers.copy())
+
+        # Add handlers from other
+        for hook_name, handlers in other._handlers.items():
+            combined._handlers[hook_name].extend(handlers.copy())
+
+        return combined
+
+    def __iadd__(self, other: Hooks) -> Hooks:
+        """
+        Add another Hooks instance to this one in-place.
+
+        This modifies the current instance by adding all handlers from the other
+        instance. The other instance's handlers are appended after the current
+        instance's handlers for each event type.
+
+        Args:
+            other: Another Hooks instance to add to this one.
+
+        Returns:
+            This Hooks instance (for method chaining).
+
+        Example:
+            >>> hooks1 = Hooks()
+            >>> hooks2 = Hooks()
+            >>> hooks1.on("completion:kwargs", lambda **kw: print("Hook 1"))
+            >>> hooks2.on("completion:kwargs", lambda **kw: print("Hook 2"))
+            >>> hooks1 += hooks2
+            >>> hooks1.emit_completion_arguments()  # Prints both "Hook 1" and "Hook 2"
+        """
+        if not isinstance(other, Hooks):
+            return NotImplemented
+
+        # Add handlers from other to self
+        for hook_name, handlers in other._handlers.items():
+            self._handlers[hook_name].extend(handlers.copy())
+
+        return self
+
+    @classmethod
+    def combine(cls, *hooks_instances: Hooks) -> Hooks:
+        """
+        Combine multiple Hooks instances into a new one.
+
+        This class method creates a new Hooks instance that contains all handlers
+        from all provided instances. Handlers are combined in the order of the
+        provided instances.
+
+        Args:
+            *hooks_instances: Variable number of Hooks instances to combine.
+
+        Returns:
+            A new Hooks instance containing all handlers from all instances.
+
+        Example:
+            >>> hooks1 = Hooks()
+            >>> hooks2 = Hooks()
+            >>> hooks3 = Hooks()
+            >>> hooks1.on("completion:kwargs", lambda **kw: print("Hook 1"))
+            >>> hooks2.on("completion:kwargs", lambda **kw: print("Hook 2"))
+            >>> hooks3.on("completion:kwargs", lambda **kw: print("Hook 3"))
+            >>> combined = Hooks.combine(hooks1, hooks2, hooks3)
+            >>> combined.emit_completion_arguments()  # Prints all three hooks
+        """
+        combined = cls()
+
+        for hooks_instance in hooks_instances:
+            if not isinstance(hooks_instance, cls):
+                raise TypeError(f"Expected Hooks instance, got {type(hooks_instance)}")
+            combined += hooks_instance
+
+        return combined
+
+    def copy(self) -> Hooks:
+        """
+        Create a deep copy of this Hooks instance.
+
+        Returns:
+            A new Hooks instance with all the same handlers.
+
+        Example:
+            >>> original = Hooks()
+            >>> original.on("completion:kwargs", lambda **kw: print("Hook"))
+            >>> copy = original.copy()
+            >>> copy.emit_completion_arguments()  # Prints "Hook"
+        """
+        new_hooks = Hooks()
+        for hook_name, handlers in self._handlers.items():
+            new_hooks._handlers[hook_name].extend(handlers.copy())
+        return new_hooks

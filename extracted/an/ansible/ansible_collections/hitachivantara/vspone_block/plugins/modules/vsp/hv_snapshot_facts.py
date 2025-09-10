@@ -27,6 +27,7 @@ attributes:
     support: full
 extends_documentation_fragment:
 - hitachivantara.vspone_block.common.gateway_note
+- hitachivantara.vspone_block.common.connection_with_type
 options:
   storage_system_info:
     description: Information about the storage system. This field is an optional field.
@@ -37,33 +38,6 @@ options:
         description: The serial number of the storage system.
         type: str
         required: false
-  connection_info:
-    description: Information required to establish a connection to the storage system.
-    type: dict
-    required: true
-    suboptions:
-      address:
-        description: IP address or hostname of the storage system.
-        type: str
-        required: true
-      username:
-        description: Username for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      password:
-        description: Password for authentication. This is a required field if api_token is not provided.
-        type: str
-        required: false
-      api_token:
-        description: This field is used to pass the value of the lock token to operate on locked resources.
-        type: str
-        required: false
-      connection_type:
-        description: Type of connection to the storage system.
-        type: str
-        required: false
-        choices: ['direct']
-        default: 'direct'
   spec:
     description:
       - Specification for the snapshot facts to be gathered.
@@ -120,82 +94,128 @@ ansible_facts:
       type: list
       elements: dict
       contains:
-        storage_serial_number:
-          description: Serial number of the storage system.
-          type: int
-          sample: 810050
-        primary_volume_id:
-          description: Identifier of the primary volume.
-          type: int
-          sample: 1030
-        primary_hex_volume_id:
-          description: Hexadecimal identifier of the primary volume.
-          type: str
-          sample: "00:04:06"
-        secondary_volume_id:
-          description: Identifier of the secondary volume.
-          type: int
-          sample: 1031
-        secondary_hex_volume_id:
-          description: Hexadecimal identifier of the secondary volume.
-          type: str
-          sample: "00:04:07"
-        svol_access_mode:
-          description: Access mode of the secondary volume.
-          type: str
-          sample: ""
-        pool_id:
-          description: Identifier of the pool.
-          type: int
-          sample: 12
-        consistency_group_id:
-          description: Identifier of the consistency group.
-          type: int
-          sample: -1
-        mirror_unit_id:
-          description: Identifier of the mirror unit.
-          type: int
-          sample: 3
-        copy_rate:
-          description: Copy rate of the snapshot.
+        can_cascade:
+          description: Indicates if the snapshot can cascade.
+          type: bool
+          sample: true
+        concordance_rate:
+          description: Concordance rate of the snapshot.
           type: int
           sample: -1
         copy_pace_track_size:
           description: Track size for copy pace.
           type: str
           sample: ""
-        status:
-          description: Status of the snapshot.
-          type: str
-          sample: "PAIR"
-        type:
-          description: Type of the snapshot.
-          type: str
-          sample: ""
-        snapshot_id:
-          description: Identifier of the snapshot.
-          type: str
-          sample: "1030,3"
+        copy_rate:
+          description: Copy rate of the snapshot.
+          type: int
+          sample: -1
+        is_clone:
+          description: Indicates if the snapshot is a clone.
+          type: bool
+          sample: false
+        is_cloned:
+          description: Indicates if the snapshot is cloned.
+          type: bool
+          sample: false
         is_consistency_group:
           description: Indicates if the snapshot is part of a consistency group.
           type: bool
           sample: true
-        primary_or_secondary:
-          description: Indicates if the volume is primary or secondary.
+        is_data_reduction_force_copy:
+          description: Indicates if data reduction force copy is enabled.
+          type: bool
+          sample: true
+        is_redirect_on_write:
+          description: Indicates if redirect-on-write is enabled.
+          type: bool
+          sample: true
+        is_snapshot_data_read_only:
+          description: Indicates if the snapshot data is read-only.
+          type: bool
+          sample: null
+        is_written_in_svol:
+          description: Indicates if data is written in secondary volume.
+          type: bool
+          sample: false
+        mirror_unit_id:
+          description: Identifier of the mirror unit.
+          type: int
+          sample: 3
+        pool_id:
+          description: Identifier of the pool.
+          type: int
+          sample: 1
+        primary_hex_volume_id:
+          description: Hexadecimal identifier of the primary volume.
           type: str
-          sample: "P-VOL"
+          sample: "00:00:A8"
+        primary_volume_id:
+          description: Identifier of the primary volume.
+          type: int
+          sample: 168
+        progress_rate:
+          description: Progress rate of the snapshot.
+          type: int
+          sample: -1
+        pvol_host_groups:
+          description: List of host groups for the primary volume.
+          type: list
+          elements: str
+          sample: []
+        pvol_nvm_subsystem_name:
+          description: NVM subsystem name for the primary volume.
+          type: str
+          sample: ""
+        pvol_processing_status:
+          description: Processing status for the primary volume.
+          type: str
+          sample: "N"
+        retention_period_in_hours:
+          description: Retention period for the snapshot in hours.
+          type: int
+          sample: -1
+        secondary_hex_volume_id:
+          description: Hexadecimal identifier of the secondary volume.
+          type: str
+          sample: "00:00:CD"
+        secondary_volume_id:
+          description: Identifier of the secondary volume.
+          type: int
+          sample: 205
         snapshot_group_name:
           description: Name of the snapshot group.
           type: str
-          sample: "NewNameSPG"
-        can_cascade:
-          description: Indicates if the snapshot can cascade.
-          type: bool
-          sample: true
-        retention_period:
-          description: Retention period for the snapshot.
-          type: int
-          sample: 60
+          sample: "snewar-tia-grp-02"
+        snapshot_id:
+          description: Identifier of the snapshot.
+          type: str
+          sample: "168,3"
+        split_time:
+          description: Split time of the snapshot.
+          type: str
+          sample: ""
+        status:
+          description: Status of the snapshot.
+          type: str
+          sample: "PFUL"
+        svol_host_groups:
+          description: List of host groups for the secondary volume.
+          type: list
+          elements: str
+          sample: []
+        svol_nvm_subsystem_name:
+          description: NVM subsystem name for the secondary volume.
+          type: str
+          sample: ""
+        svol_processing_status:
+          description: Processing status for the secondary volume.
+          type: str
+          sample: ""
+        type:
+          description: Type of the snapshot.
+          type: str
+          sample: "CASCADE"
 """
 
 from ansible.module_utils.basic import AnsibleModule

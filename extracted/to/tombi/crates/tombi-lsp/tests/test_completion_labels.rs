@@ -41,7 +41,7 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
-            async fn tombi_comment_schema_directive(
+            async fn schema_comment_directive(
                 "#:█",
                 Schema(tombi_schema_path()),
             ) -> Ok(["schema", "tombi"]);
@@ -57,7 +57,7 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
-            async fn tombi_comment_schema_directive_and_comment(
+            async fn schema_comment_directive_and_comment(
                 r#"
                 #:schema https://json.schemastore.org/tombi.json
                 # █
@@ -68,7 +68,28 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
-            async fn tombi_comment_schema_directive_and_colon(
+            async fn tombi_comment_directive_toml_version(
+                r#"
+                #:tombi toml-version█
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([".", "="]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn space_tombi_comment_directive_toml_version(
+                r#"
+                    #:tombi   toml-version█
+                key = "value"
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([".", "="]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_comment_directive_and_colon(
                 r#"
                 #:schema https://json.schemastore.org/tombi.json
                 #:█
@@ -584,6 +605,18 @@ mod completion_labels {
                 "''",
             ]);
         }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_toml_version_v1_0_0_comment_directive(
+                r#"
+                toml-version = "v1.0.0" # tombi:█
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([
+                "lint",
+            ]);
+        }
     }
 
     mod pyproject_schema {
@@ -813,6 +846,112 @@ mod completion_labels {
                 "\"\"",
                 "''",
                 "{}",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_leading_comments_directive_newline_name_eq_tombi(
+                r#"
+                # tombi: lint.rules█
+                [project]
+                name = "tombi"
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_comment_directive_newline_name_eq_tombi(
+                r#"
+                [project]
+                # tombi: lint.rules█
+
+                name = "tombi"
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_trailing_comment_directive_newline_name_eq_tombi(
+                r#"
+                [project]  # tombi: lint.rules█
+
+                name = "tombi"
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_comment_directive_name_eq_tombi(
+                r#"
+                [project]
+                # tombi: lint.rules█
+                name = "tombi"
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_name_eq_tombi_comment_directive(
+                r#"
+                [project]
+                name = "tombi" # tombi: lint█
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_description_comment_directive(
+                r#"
+                [project]
+                description = "🦅 TOML Toolkit 🦅 " # tombi: lint█
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_dependencies_eq_array_comment_directive(
+                r#"
+                [project]
+                name = "tombi"
+                dependencies = [
+                    # tombi: lint█
+                ]
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                ".",
+                "="
             ]);
         }
     }
@@ -1191,8 +1330,9 @@ mod completion_labels {
                 "local-date",
                 "local-date-time",
                 "local-time",
-                "object",
                 "offset-date-time",
+                "string",
+                "table",
             ]);
         }
 
@@ -1213,8 +1353,9 @@ mod completion_labels {
                 "local-date",
                 "local-date-time",
                 "local-time",
-                "object",
                 "offset-date-time",
+                "string",
+                "table",
             ]);
         }
     }

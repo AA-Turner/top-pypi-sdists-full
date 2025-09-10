@@ -198,7 +198,7 @@ def _walk_dirs(topdir, loader, decrypt=True, base_path=None, local_follow=False,
         offset += 1
 
     if os.path.islink(topdir) and not local_follow:
-        r_files['symlinks'] = {"src": os.readlink(topdir), "dest": os.path.basename(topdir)}
+        r_files['symlinks'].append({"src": os.readlink(topdir), "dest": os.path.basename(topdir)})
         return r_files
 
     dir_stats = os.stat(topdir)
@@ -265,6 +265,9 @@ class ActionModule(ActionBase):
     def _copy_single_file(self, local_file, dest, source_rel, dest_rel, task_vars, tmp, backup):
         if self._play_context.check_mode:
             module_return = dict(changed=True)
+            if backup:
+                module_return['backup_file'] = 'check-mode-backup-file.bak'
+
             return module_return
 
         # copy the file across to the server
