@@ -683,6 +683,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -708,6 +709,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -734,6 +736,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -759,6 +762,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -785,6 +789,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         like_user_message: bool = False,
     
@@ -812,6 +817,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
             like_user_message: Whether to display the like buttons for user messages in the chatbot.,
         
@@ -840,6 +846,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -865,6 +872,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -891,6 +899,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -916,6 +925,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -942,6 +952,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -967,6 +978,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -993,6 +1005,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -1018,6 +1031,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -1044,6 +1058,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -1069,6 +1084,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -1095,6 +1111,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -1120,6 +1137,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -1146,6 +1164,7 @@ class Chatbot(Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -1171,6 +1190,7 @@ class Chatbot(Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...

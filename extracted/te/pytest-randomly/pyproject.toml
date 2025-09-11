@@ -1,12 +1,12 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools",
+  "setuptools>=77",
 ]
 
 [project]
 name = "pytest-randomly"
-version = "3.16.0"
+version = "4.0.0"
 description = "Pytest plugin to randomly order tests and control random.seed."
 readme = "README.rst"
 keywords = [
@@ -16,6 +16,8 @@ keywords = [
   "randomize",
   "randomly",
 ]
+license = "MIT"
+license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
@@ -24,7 +26,6 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Natural Language :: English",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.9",
@@ -32,6 +33,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
 dependencies = [
@@ -43,15 +45,57 @@ urls.Funding = "https://adamj.eu/books/"
 urls.Repository = "https://github.com/pytest-dev/pytest-randomly"
 entry-points.pytest11.randomly = "pytest_randomly"
 
-[tool.isort]
-add_imports = [
-  "from __future__ import annotations",
+[dependency-groups]
+test = [
+  "coverage[toml]",
+  "factory-boy",
+  "faker",
+  "importlib-metadata>=3.6; python_version<'3.10'",
+  "model-bakery>=1.13",
+  "numpy",
+  "pytest",
+  "pytest-xdist",
 ]
-force_single_line = true
-profile = "black"
+
+[tool.ruff]
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pycodestyle
+  "E",
+  # Pyflakes errors
+  "F",
+  # isort
+  "I",
+  # flake8-simplify
+  "SIM",
+  # flake8-tidy-imports
+  "TID",
+  # pyupgrade
+  "UP",
+  # Pyflakes warnings
+  "W",
+]
+lint.ignore = [
+  # flake8-bugbear opinionated rules
+  "B9",
+  # line-too-long
+  "E501",
+  # suppressible-exception
+  "SIM105",
+  # if-else-block-instead-of-if-exp
+  "SIM108",
+]
+lint.extend-safe-fixes = [
+  # non-pep585-annotation
+  "UP006",
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 addopts = """\

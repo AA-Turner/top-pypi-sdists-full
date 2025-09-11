@@ -30,6 +30,7 @@ from worker_automate_hub.tasks.jobs.entrada_de_notas_9 import entrada_de_notas_9
 from worker_automate_hub.tasks.jobs.entrada_de_notas_9000 import entrada_de_notas_9000
 from worker_automate_hub.tasks.jobs.entrada_de_notas_7139 import entrada_de_notas_7139
 from worker_automate_hub.tasks.jobs.entrada_de_notas_36 import entrada_de_notas_36
+from worker_automate_hub.tasks.jobs.entrada_de_notas_37 import entrada_de_notas_37
 from worker_automate_hub.tasks.jobs.entrada_de_notas_503 import entrada_de_notas_503
 from worker_automate_hub.tasks.jobs.extracao_saldo_estoque import extracao_saldo_estoque
 from worker_automate_hub.tasks.jobs.extracao_saldo_estoque_fiscal import extracao_saldo_estoque_fiscal
@@ -201,7 +202,8 @@ task_definitions = {
     "ca7ac373-e8e7-4ac2-aa7e-298070e0d9a0": extracao_fechamento_contabil,
     "8c28726d-458d-4119-afa0-202695b79a8f": extracao_fechamento_emsys,
     "16debe45-3520-4f63-acfe-ef0e8784fcab": extracao_saldo_estoque,
-    "9cbc6016-7c0e-4a3a-8ee9-fb9dc4b35e33": extracao_saldo_estoque_fiscal
+    "9cbc6016-7c0e-4a3a-8ee9-fb9dc4b35e33": extracao_saldo_estoque_fiscal,
+    "33d9edeb-7cb2-449b-9096-ed9cf3d3f6c3": entrada_de_notas_37,
 }
 
 

@@ -18,7 +18,6 @@ Tests the ability to connect to the SAPI server with the `dwave.cloud.qpu.Client
 test_mock_solver_loading.py duplicates some of these tests against a mock server.
 """
 
-import importlib
 import json
 import sys
 import threading
@@ -39,6 +38,7 @@ from dwave.cloud.config import constants
 from dwave.cloud.config.models import dump_config_v1, PollingStrategy
 from dwave.cloud.exceptions import (
     SolverAuthenticationError, SolverError, SolverNotFoundError)
+from dwave.cloud.regions import get_regions
 from dwave.cloud.solver import StructuredSolver, UnstructuredSolver
 from dwave.cloud.testing import iterable_mock_open, isolated_environ
 from dwave.cloud.utils.decorators import cached
@@ -148,7 +148,7 @@ class SolverLoading(unittest.TestCase):
         """List and retrieve all the solvers."""
         with Client(**config) as client:
             for solver in client.get_solvers():
-                self.assertEqual(client.get_solver(name=solver.id).id, solver.id)
+                self.assertEqual(client.get_solver(name=solver.name).name, solver.name)
 
     def test_load_bad_solvers(self):
         """Try to load a nonexistent solver."""
@@ -163,7 +163,7 @@ class SolverLoading(unittest.TestCase):
 
     def test_get_solver_no_defaults(self):
         """Specialized client returns the correct solver by default."""
-        from dwave.cloud import qpu, sw, hybrid
+        from dwave.cloud.client import qpu, sw, hybrid
 
         conf = config.copy()
         del conf['solver']
@@ -171,23 +171,23 @@ class SolverLoading(unittest.TestCase):
         with Client(**conf) as base_client:
 
             with qpu.Client(**conf) as client:
-                solvers = {s.id for s in base_client.get_solvers(qpu=True)}
+                solvers = {s.name for s in base_client.get_solvers(qpu=True)}
                 if solvers:
-                    self.assertIn(client.get_solver().id, solvers)
+                    self.assertIn(client.get_solver().name, solvers)
                 else:
                     self.assertRaises(SolverError, client.get_solver)
 
             with sw.Client(**conf) as client:
-                solvers = {s.id for s in base_client.get_solvers(software=True)}
+                solvers = {s.name for s in base_client.get_solvers(software=True)}
                 if solvers:
-                    self.assertIn(client.get_solver().id, solvers)
+                    self.assertIn(client.get_solver().name, solvers)
                 else:
                     self.assertRaises(SolverError, client.get_solver)
 
             with hybrid.Client(**conf) as client:
-                solvers = {s.id for s in base_client.get_solvers(hybrid=True)}
+                solvers = {s.name for s in base_client.get_solvers(hybrid=True)}
                 if solvers:
-                    self.assertIn(client.get_solver().id, solvers)
+                    self.assertIn(client.get_solver().name, solvers)
                 else:
                     self.assertRaises(SolverError, client.get_solver)
 
@@ -210,9 +210,9 @@ class ClientConstruction(unittest.TestCase):
                 self.assertEqual(client.config.endpoint, 'endpoint')
                 self.assertEqual(client.config.token, 'token')
                 self.assertIsInstance(client, dwave.cloud.client.Client)
-                self.assertNotIsInstance(client, dwave.cloud.sw.Client)
-                self.assertNotIsInstance(client, dwave.cloud.qpu.Client)
-                self.assertNotIsInstance(client, dwave.cloud.hybrid.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.sw.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.qpu.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.hybrid.Client)
 
     def test_region_default(self):
         conf = {k: k for k in 'token'.split()}
@@ -224,9 +224,9 @@ class ClientConstruction(unittest.TestCase):
                 self.assertEqual(client.config.metadata_api_endpoint, constants.DEFAULT_METADATA_API_ENDPOINT)
                 self.assertEqual(client.config.token, 'token')
                 self.assertIsInstance(client, dwave.cloud.client.Client)
-                self.assertNotIsInstance(client, dwave.cloud.sw.Client)
-                self.assertNotIsInstance(client, dwave.cloud.qpu.Client)
-                self.assertNotIsInstance(client, dwave.cloud.hybrid.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.sw.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.qpu.Client)
+                self.assertNotIsInstance(client, dwave.cloud.client.hybrid.Client)
 
     def test_region_selection_over_defaults(self):
         conf = {k: k for k in 'token'.split()}
@@ -302,26 +302,26 @@ class ClientConstruction(unittest.TestCase):
             with dwave.cloud.client.Client.from_config() as client:
                 self.assertIsInstance(client, dwave.cloud.client.Client)
 
-            with dwave.cloud.qpu.Client.from_config() as client:
-                self.assertIsInstance(client, dwave.cloud.qpu.Client)
+            with dwave.cloud.client.qpu.Client.from_config() as client:
+                self.assertIsInstance(client, dwave.cloud.client.qpu.Client)
 
-            with dwave.cloud.sw.Client.from_config() as client:
-                self.assertIsInstance(client, dwave.cloud.sw.Client)
+            with dwave.cloud.client.sw.Client.from_config() as client:
+                self.assertIsInstance(client, dwave.cloud.client.sw.Client)
 
-            with dwave.cloud.hybrid.Client.from_config() as client:
-                self.assertIsInstance(client, dwave.cloud.hybrid.Client)
+            with dwave.cloud.client.hybrid.Client.from_config() as client:
+                self.assertIsInstance(client, dwave.cloud.client.hybrid.Client)
 
-            with dwave.cloud.qpu.Client.from_config(client='base') as client:
+            with dwave.cloud.client.qpu.Client.from_config(client='base') as client:
                 self.assertIsInstance(client, dwave.cloud.client.Client)
 
             with dwave.cloud.Client.from_config(client='qpu') as client:
-                self.assertIsInstance(client, dwave.cloud.qpu.Client)
+                self.assertIsInstance(client, dwave.cloud.client.qpu.Client)
 
             with dwave.cloud.Client.from_config(client='sw') as client:
-                self.assertIsInstance(client, dwave.cloud.sw.Client)
+                self.assertIsInstance(client, dwave.cloud.client.sw.Client)
 
             with dwave.cloud.Client.from_config(client='hybrid') as client:
-                self.assertIsInstance(client, dwave.cloud.hybrid.Client)
+                self.assertIsInstance(client, dwave.cloud.client.hybrid.Client)
 
     def test_custom_kwargs(self):
         conf = {k: k for k in 'endpoint token'.split()}
@@ -339,18 +339,13 @@ class ClientConstruction(unittest.TestCase):
                 init.assert_called_once_with(
                     endpoint='endpoint', token='token', custom='new-custom')
 
-    def test_solver_features_from_config(self):
-        solver_def = {"qpu": True}
-        conf = {k: k for k in 'endpoint token'.split()}
-        conf.update(solver=json.dumps(solver_def))
-
-        with mock.patch("dwave.cloud.config.loaders.load_profile_from_files", lambda *pa, **kw: conf):
-            with dwave.cloud.Client.from_config() as client:
-                self.assertEqual(client.config.solver, solver_def)
-
-    def test_solver_name_from_config(self):
-        solver_def = {"name__eq": "solver"}
-        conf = {k: k for k in 'endpoint token solver'.split()}
+    @parameterized.expand([
+        ("json", '{"qpu": true}', {"qpu": True}),
+        ("name", "solver", {"name__eq": "solver"}),
+        ("id", "solver;graph_id=123", {"identity__eq": {"name": "solver", "version": {"graph_id": "123"}}}),
+    ])
+    def test_solver_from_config(self, name, solver_inp, solver_def):
+        conf = dict(endpoint='endpoint', token='token', solver=solver_inp)
 
         with mock.patch("dwave.cloud.config.loaders.load_profile_from_files", lambda *pa, **kw: conf):
             with dwave.cloud.Client.from_config() as client:
@@ -659,12 +654,6 @@ class VerifyLazyClientImport(unittest.TestCase):
 
         self.assertEqual(dwave.cloud.client.Client, dwave.cloud.Client)
 
-    @parameterized.expand([("qpu", ), ("sw", ), ("hybrid", )])
-    def test_deprecation(self, name):
-        with self.assertWarns(DeprecationWarning):
-            mod = importlib.import_module(f'dwave.cloud.{name}')
-            self.assertTrue(issubclass(getattr(mod, 'Client'), Client))
-
 
 class VerifyClientCleanup(unittest.TestCase):
 
@@ -716,16 +705,16 @@ class ClientConfigIntegration(unittest.TestCase):
                     response = requests.Response()
                     response.status_code = 200
                     response._content = b'[]'
-                    response.headers = {'Content-Type': 'application/vnd.dwave.sapi.solver-definition-list+json; version=2.0'}
+                    response.headers = {'Content-Type': 'application/vnd.dwave.sapi.solver-definition-list+json; version=3.0'}
                     return response
 
                 with mock.patch("requests.adapters.HTTPAdapter.send", mock_send):
                     client.get_solvers()
 
 
-@isolated_environ(empty=True)
 class MultiRegionSupport(unittest.TestCase):
 
+    @isolated_environ(empty=True)
     def test_region_selection_mocked_end_to_end(self):
         """Given `metadata_api_endpoint` and `region` in a config file,
         when Client is initialized from config,
@@ -751,10 +740,9 @@ class MultiRegionSupport(unittest.TestCase):
             permissive_ssl = {permissive_ssl}
         """
 
-        expected_get_regions_return = {
-            r['code']: {"name": r['name'], "endpoint": r['endpoint']}
-            for r in regions_response
-        }
+        expected_get_regions_return = [
+            models.Region(**region) for region in regions_response
+        ]
 
         def _mocked_session():
             session = mock.Mock()
@@ -764,7 +752,7 @@ class MultiRegionSupport(unittest.TestCase):
             def get(url, **kwargs):
                 response = mock.Mock(['text', 'json'])
                 response.status_code = 200
-                response.json.side_effect = lambda: regions_response
+                response.content = json.dumps(regions_response).encode('utf8')
                 return response
             session.get = get
 
@@ -788,7 +776,7 @@ class MultiRegionSupport(unittest.TestCase):
                     # (i.e. config open mock above fails on CI)
                     with Client.from_config(config_file='config_file') as client:
                         # verify get_regions() returns data from metadata_api_endpoint
-                        regions = client.get_regions()
+                        regions = get_regions(config=client.config)
                         self.assertEqual(regions, expected_get_regions_return)
 
                         # check region endpoint initialized from custom metadata_api_endpoint
@@ -796,6 +784,7 @@ class MultiRegionSupport(unittest.TestCase):
                         self.assertEqual(client.config.region, selected_region)
                         self.assertEqual(client.config.endpoint, selected_endpoint)
 
+    @isolated_environ(empty=True)
     def test_region_endpoint_fallback_when_no_metadata_api(self):
         """Given region in config, and endpoint omitted,
         when Client is initialized from config and MetadataAPI is down,
@@ -812,6 +801,7 @@ class MultiRegionSupport(unittest.TestCase):
                 self.assertEqual(client.config.endpoint, Client.DEFAULT_API_ENDPOINT)
 
     @mock.patch("dwave.cloud.regions.get_regions", get_default_regions)
+    @isolated_environ(empty=True)
     def test_region_endpoint_fallback_when_region_unknown(self):
         """Given invalid region in config, and endpoint omitted,
         when Client is initialized from config,
@@ -827,6 +817,7 @@ class MultiRegionSupport(unittest.TestCase):
                 Client.from_config(region=region)
 
     @mock.patch("dwave.cloud.regions.get_regions", get_default_regions)
+    @isolated_environ(empty=True)
     def test_region_endpoint_null_case(self):
         """Given region as None, and endpoint as None,
         when Client is initialized from config,
@@ -842,12 +833,20 @@ class MultiRegionSupport(unittest.TestCase):
                 self.assertEqual(client.config.endpoint, Client.DEFAULT_API_ENDPOINT)
 
     @unittest.skipUnless(config, "No live server configuration available.")
-    @cached.disabled()
-    def test_region_selection_live_end_to_end(self):
+    @isolated_environ(empty=True)
+    def test_region_selection_default(self):
         with Client(**config) as client:
             self.assertEqual(client.config.region, constants.DEFAULT_REGION)
-            self.assertIn(constants.DEFAULT_REGION, client.config.endpoint)
+            self.assertIn(constants.DEFAULT_SOLVER_API_ENDPOINT, client.config.endpoint)
             self.assertGreater(len(client.get_regions()), 0)
+
+    @unittest.skipUnless(config, "No live server configuration available.")
+    @isolated_environ(empty=True)
+    def test_region_selection_default(self):
+        region = 'eu-central-1'
+        with Client(region=region, **config) as client:
+            self.assertEqual(client.config.region, region)
+            self.assertIn(region, client.config.endpoint)
 
 
 class FeatureBasedSolverSelection(unittest.TestCase):
@@ -873,7 +872,12 @@ class FeatureBasedSolverSelection(unittest.TestCase):
                 "category": "qpu",
                 "tags": ["lower_noise"]
             },
-            "id": "qpu1",
+            "identity": {
+                "name": "qpu1",
+                "version": {
+                    "graph_id": "wg1",
+                },
+            },
             "description": "QPU Chimera solver",
             "status": "online",
             "avg_load": 0.1
@@ -897,7 +901,12 @@ class FeatureBasedSolverSelection(unittest.TestCase):
                 "category": "qpu",
                 "vfyc": True
             },
-            "id": "qpu2",
+            "identity": {
+                "name": "qpu2",
+                "version": {
+                    "graph_id": "wg1",
+                },
+            },
             "description": "QPU Pegasus solver",
             "avg_load": 0.2
         })
@@ -921,7 +930,12 @@ class FeatureBasedSolverSelection(unittest.TestCase):
                 "some_string": "x",
                 "tags": ["tag"]
             },
-            "id": "sw_solver1",
+            "identity": {
+                "name": "sw_solver1",
+                "version": {
+                    "graph_id": "sw1",
+                },
+            },
             "description": "Software solver",
             "avg_load": 0.7
         })
@@ -937,7 +951,9 @@ class FeatureBasedSolverSelection(unittest.TestCase):
                 },
                 "category": "hybrid",
             },
-            "id": "hybrid_v1",
+            "identity": {
+                "name": "hybrid_v1",
+            },
             "description": "Hybrid solver"
         })
 
@@ -989,7 +1005,7 @@ class FeatureBasedSolverSelection(unittest.TestCase):
             finally:
                 return (p.stop() for p in patchers)
 
-        with mock.patch.object(self.software, 'id', 'c4-sw_solver3'):
+        with mock.patch.object(self.software.identity, 'name', 'c4-sw_solver3'):
             # patch categories and re-run the category-based filtering test
             with multi_solver_properties_patch(self.solvers, {'category': ''}):
                 self.test_derived_category_properties()
@@ -1014,6 +1030,25 @@ class FeatureBasedSolverSelection(unittest.TestCase):
         self.assertSolvers(self.client.get_solvers(name__regex='.*[12].*'), self.solvers)
         self.assertSolvers(self.client.get_solvers(name__regex='qpu[12]'), [self.qpu1, self.qpu2])
         self.assertSolvers(self.client.get_solvers(name__regex='^qpu(1|2)$'), [self.qpu1, self.qpu2])
+
+    def test_graph_id(self):
+        self.assertSolvers(self.client.get_solvers(graph_id='wg1'), [self.qpu1, self.qpu2])
+        self.assertSolvers(self.client.get_solvers(graph_id='sw1'), [self.software])
+        self.assertSolvers(self.client.get_solvers(version__graph_id='wg1'), [self.qpu1, self.qpu2])
+        self.assertSolvers(self.client.get_solvers(version=dict(graph_id='wg1')), [self.qpu1, self.qpu2])
+        self.assertSolvers(self.client.get_solvers(graph_id__eq=None), [self.hybrid])
+
+    def test_identity(self):
+        # model-to-model and model-to-dict equality
+        identity = self.qpu1.identity
+        self.assertSolvers(self.client.get_solvers(identity=identity), [self.qpu1])
+        self.assertSolvers(self.client.get_solvers(identity=identity.dict()), [self.qpu1])
+        # partial identity isn't matched
+        self.assertSolvers(self.client.get_solvers(identity=dict(name=identity.name)), [])
+        # mix
+        self.assertSolvers(self.client.get_solvers(name='qpu1', graph_id='wg1'), [self.qpu1])
+        self.assertSolvers(self.client.get_solvers(name='qpu2', graph_id='wg1'), [self.qpu2])
+        self.assertSolvers(self.client.get_solvers(name='qpu1', graph_id='x'), [])
 
     def test_num_qubits(self):
         self.assertSolvers(self.client.get_solvers(num_qubits=5), [self.qpu2])
@@ -1208,7 +1243,7 @@ class FeatureBasedSolverSelection(unittest.TestCase):
             self.assertEqual(client.get_solver(), self.qpu2)
 
             # the default solver should not change when we add order_by
-            self.assertEqual(client.get_solver(order_by='id'), self.qpu2)
+            self.assertEqual(client.get_solver(order_by='name'), self.qpu2)
 
         with Client(endpoint='endpoint', token='token', solver=dict(category='qpu')) as client:
             # mock the network call to fetch all solvers
@@ -1231,7 +1266,7 @@ class FeatureBasedSolverSelection(unittest.TestCase):
             self.assertEqual(client.get_solver(), self.hybrid)
 
             # the default solver can be overridden
-            self.assertEqual(client.get_solver(order_by='-id'), self.software)
+            self.assertEqual(client.get_solver(order_by='-name'), self.software)
 
         with Client(endpoint='endpoint', token='token', solver=dict(qpu=True, order_by='-num_active_qubits')) as client:
             # mock the network call to fetch all solvers
@@ -1267,7 +1302,9 @@ class FeatureBasedSolverSelection(unittest.TestCase):
 
     def test_order_by_callable(self):
         # sort by Solver inferred properties
-        self.assertEqual(self.client.get_solvers(order_by=lambda solver: solver.id), [self.hybrid, self.qpu1, self.qpu2, self.software])
+        by_name = [self.hybrid, self.qpu1, self.qpu2, self.software]
+        self.assertEqual(self.client.get_solvers(order_by=lambda solver: solver.id), by_name)
+        self.assertEqual(self.client.get_solvers(order_by=lambda solver: solver.name), by_name)
         self.assertEqual(self.client.get_solvers(order_by=lambda solver: solver.avg_load), [self.qpu1, self.qpu2, self.software, self.hybrid])
 
         # sort by solver property

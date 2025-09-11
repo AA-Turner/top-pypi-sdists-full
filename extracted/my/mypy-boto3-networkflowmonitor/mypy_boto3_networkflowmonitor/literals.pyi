@@ -44,7 +44,13 @@ __all__ = (
 )
 
 DestinationCategoryType = Literal[
-    "AMAZON_DYNAMODB", "AMAZON_S3", "INTER_AZ", "INTER_VPC", "INTRA_AZ", "UNCLASSIFIED"
+    "AMAZON_DYNAMODB",
+    "AMAZON_S3",
+    "INTER_AZ",
+    "INTER_REGION",
+    "INTER_VPC",
+    "INTRA_AZ",
+    "UNCLASSIFIED",
 ]
 GetQueryResultsMonitorTopContributorsPaginatorName = Literal[
     "get_query_results_monitor_top_contributors"
@@ -86,10 +92,12 @@ MetricUnitType = Literal[
     "Terabytes",
     "Terabytes/Second",
 ]
-MonitorLocalResourceTypeType = Literal["AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC"]
+MonitorLocalResourceTypeType = Literal[
+    "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC", "AWS::Region"
+]
 MonitorMetricType = Literal["DATA_TRANSFERRED", "RETRANSMISSIONS", "ROUND_TRIP_TIME", "TIMEOUTS"]
 MonitorRemoteResourceTypeType = Literal[
-    "AWS::AWSService", "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC"
+    "AWS::AWSService", "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC", "AWS::Region"
 ]
 MonitorStatusType = Literal["ACTIVE", "DELETING", "ERROR", "INACTIVE", "PENDING"]
 QueryStatusType = Literal["CANCELED", "FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]
@@ -124,6 +132,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -135,8 +144,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -378,8 +389,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -512,16 +521,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "get_query_results_monitor_top_contributors",

@@ -7,9 +7,9 @@ from anyscale.service.models import (
     ServiceConfig,
     ServiceLogMode,
     ServiceSortField,
+    ServiceSortOrder,
     ServiceState,
     ServiceStatus,
-    SortOrder,
 )
 
 
@@ -371,6 +371,7 @@ _LIST_ARG_DOCSTRINGS = {
     "sort_order": "Sort direction (`ASC` or `DESC`).",
 }
 
+
 # Public command
 @sdk_command(
     _SERVICE_SDK_SINGLETON_KEY,
@@ -394,7 +395,7 @@ def list(  # noqa: A001
     page_size: Optional[int] = None,
     # Sorting
     sort_field: Optional[Union[str, ServiceSortField]] = None,
-    sort_order: Optional[Union[str, SortOrder]] = None,
+    sort_order: Optional[Union[str, ServiceSortOrder]] = None,
     # Injected SDK
     _private_sdk: Optional[PrivateServiceSDK] = None,
 ) -> ResultIterator[ServiceStatus]:

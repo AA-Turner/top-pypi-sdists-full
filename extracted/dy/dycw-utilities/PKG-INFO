@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.166.24
+Version: 0.166.25
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -14,10 +14,10 @@ Provides-Extra: test
 Requires-Dist: dycw-pytest-only<2.2,>=2.1.1; extra == 'test'
 Requires-Dist: hypothesis<6.139,>=6.138.15; extra == 'test'
 Requires-Dist: pytest-asyncio<1.2,>=1.1.0; extra == 'test'
-Requires-Dist: pytest-cov<6.4,>=6.3.0; extra == 'test'
+Requires-Dist: pytest-cov<7.1,>=7.0.0; extra == 'test'
 Requires-Dist: pytest-instafail<0.6,>=0.5.0; extra == 'test'
 Requires-Dist: pytest-lazy-fixtures<1.4,>=1.3.4; extra == 'test'
-Requires-Dist: pytest-randomly<3.17,>=3.16.0; extra == 'test'
+Requires-Dist: pytest-randomly<4.1,>=4.0.0; extra == 'test'
 Requires-Dist: pytest-regressions<2.9,>=2.8.3; extra == 'test'
 Requires-Dist: pytest-repeat<0.10,>=0.9.4; extra == 'test'
 Requires-Dist: pytest-rerunfailures<16.1,>=16.0.1; extra == 'test'

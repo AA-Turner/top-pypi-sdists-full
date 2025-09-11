@@ -6,8 +6,10 @@ import types
 import click
 
 from launchable.commands.record.tests import tests as record_tests_cmd
+from launchable.commands.retry.flake_detection import flake_detection as flake_detection_cmd
 from launchable.commands.split_subset import split_subset as split_subset_cmd
 from launchable.commands.subset import subset as subset_cmd
+from launchable.testpath import unparse_test_path
 
 
 def cmdname(m):
@@ -41,6 +43,10 @@ def subset(f):
 
 record = types.SimpleNamespace()
 record.tests = lambda f: wrap(f, record_tests_cmd)
+
+
+def flake_detection(f):
+    return wrap(f, flake_detection_cmd)
 
 
 def split_subset(f):
@@ -165,3 +171,27 @@ class CommonSplitSubsetImpls:
             client.run()
 
         return wrap(split_subset, split_subset_cmd, self.cmdname)
+
+
+class CommonFlakeDetectionImpls:
+    def __init__(
+            self,
+            module_name,
+            formatter=unparse_test_path,
+            seperator="\n",
+    ):
+        self.cmdname = cmdname(module_name)
+        self._formatter = formatter
+        self._separator = seperator
+
+    def flake_detection(self):
+        def flake_detection(client):
+            if self._formatter:
+                client.formatter = self._formatter
+
+            if self._separator:
+                client.separator = self._separator
+
+            client.run()
+
+        return wrap(flake_detection, flake_detection_cmd, self.cmdname)

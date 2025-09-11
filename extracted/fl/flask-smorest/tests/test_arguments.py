@@ -294,12 +294,11 @@ class TestArguments:
                     "schema": {"$ref": "#/components/schemas/Multipart"}
                 }
             }
-            assert spec["components"]["schemas"]["Multipart"] == {
-                "type": "object",
-                "properties": {
-                    "file_1": {"type": "string", "format": "binary"},
-                    "file_2": {"type": "string", "format": "binary"},
-                },
+            multipart_spec = spec["components"]["schemas"]["Multipart"]
+            assert multipart_spec["type"] == "object"
+            assert multipart_spec["properties"] == {
+                "file_1": {"type": "string", "format": "binary"},
+                "file_2": {"type": "string", "format": "binary"},
             }
 
     # This is only relevant to OAS3.
@@ -355,3 +354,18 @@ class TestArguments:
             str(error_code)
         ] == build_ref(api.spec, "response", http.HTTPStatus(error_code).name)
         assert http.HTTPStatus(error_code).name in get_responses(api.spec)
+
+    def test_arguments_async_view(self, app, schemas):
+        api = Api(app)
+        blp = Blueprint("test", __name__, url_prefix="/test")
+
+        @blp.route("/")
+        @blp.arguments(schemas.DocSchema, location="query")
+        async def func(arg):
+            return arg, 200
+
+        api.register_blueprint(blp)
+        client = app.test_client()
+        response = client.get("/test/?field=1337")
+        assert response.status_code == 200
+        assert response.json["db_field"] == 1337

@@ -72,7 +72,7 @@ jobs:
     needs: skipcheck
     if: ${{ needs.skipcheck.outputs.skip == 'false' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +81,8 @@ jobs:
         pyarrow-version: [8.0.0, 19.0.1]
         flotilla: [1, 0]
         os: [ubuntu-latest, macos-latest]
+        on-main:
+        - ${{ github.ref == 'refs/heads/main' }}
         exclude:
         - daft-runner: native
           flotilla: 0
@@ -94,7 +96,23 @@ jobs:
           pyarrow-version: 8.0.0
         - os: macos-latest
           flotilla: 0
+        # don't run mac unit tests in PRs
+        - os: macos-latest
+          on-main: false
+
     steps:
+    - name: Free Disk Space (Ubuntu) # only run on ubuntu
+      if: ${{ (runner.os == 'Linux') }}
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        android: false
+        dotnet: false
+        haskell: true
+        large-packages: false
+        docker-images: false
+        swap-storage: true
+
     - uses: actions/checkout@v4
     - uses: moonrepo/setup-rust@v1
       with:
@@ -135,32 +153,15 @@ jobs:
         source .venv/bin/activate
         uv pip install pyarrow==${{ matrix.pyarrow-version }}
 
-    # Rust code coverage does not work on ubuntu-latest, so we only run it on macOS
-    # For more info: https://github.com/Eventual-Inc/Daft/issues/3801
-    - name: Build library and Test with pytest (Linux)
-      if: ${{ (runner.os == 'Linux') }}
+    - name: Build library and Test with pytest
       run: |
-        source .venv/bin/activate
-        maturin develop --uv
-        pytest --ignore tests/integration --collect-only -qq # run this to ensure no weird imports that result in `Collector` errors
-        pytest --cov=daft --ignore tests/integration --durations=50
-        coverage combine -a --data-file='.coverage' || true
-        mkdir -p report-output
-        coverage xml -o ./report-output/coverage-${{ join(matrix.*, '-') }}.xml
-      env:
-        CARGO_TARGET_DIR: ./target
-
-        DAFT_RUNNER: ${{ matrix.daft-runner }}
-        DAFT_FLOTILLA: ${{ matrix.flotilla }}
-
-    - name: Build library and Test with pytest with code coverage (macOS)
-      if: ${{ (runner.os == 'macOS') }}
-      run: |
+        set -o pipefail
         source .venv/bin/activate
         cargo llvm-cov clean --workspace
         maturin develop --uv
         pytest --ignore tests/integration --collect-only -qq # run this to ensure no weird imports that result in `Collector` errors
-        pytest --cov=daft --ignore tests/integration --durations=50
+        pytest --cov=daft --ignore tests/integration --durations=0 | ./tools/capture-durations.sh "pytest_output.txt"
+        python tools/aggregate_test_durations.py pytest_output.txt
         coverage combine -a --data-file='.coverage' || true
         mkdir -p report-output
         coverage xml -o ./report-output/coverage-${{ join(matrix.*, '-') }}.xml
@@ -178,7 +179,6 @@ jobs:
         DAFT_FLOTILLA: ${{ matrix.flotilla }}
 
     - name: Upload coverage report
-      if: ${{ (runner.os == 'macOS') }}
       uses: actions/upload-artifact@v4
       with:
         name: coverage-reports-unit-tests-${{ join(matrix.*, '-') }}
@@ -317,21 +317,27 @@ jobs:
 
     - name: Run TPCH integration tests (native)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/test_tpch.py --durations=50
+        pytest tests/integration/test_tpch.py --durations=0 | ./tools/capture-durations.sh "tpch_pytest_output.txt"
+        python tools/aggregate_test_durations.py tpch_pytest_output.txt
       env:
         DAFT_RUNNER: native
     - name: Run TPCH integration tests (ray)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/test_tpch.py --durations=50
+        pytest tests/integration/test_tpch.py --durations=0 | ./tools/capture-durations.sh "tpch_pytest_output.txt"
+        python tools/aggregate_test_durations.py tpch_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 0
     - name: Run TPCH integration tests (flotilla)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/test_tpch.py --durations=50
+        pytest tests/integration/test_tpch.py --durations=0 | ./tools/capture-durations.sh "tpch_pytest_output.txt"
+        python tools/aggregate_test_durations.py tpch_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 1
@@ -414,9 +420,11 @@ jobs:
         down-flags: --volumes
     - name: Run IO integration tests
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/io -m 'integration and not benchmark' --durations=50
-        pytest tests/io -m 'integration' --durations=50
+        pytest tests/integration/io -m 'integration and not benchmark' --durations=0 | ./tools/capture-durations.sh "io_integration_pytest_output.txt"
+        pytest tests/io -m 'integration' --durations=0 | ./tools/capture-durations.sh "io_integration_pytest_output_2.txt"
+        python tools/aggregate_test_durations.py io_integration_pytest_output.txt io_integration_pytest_output_2.txt
       env:
         DAFT_RUNNER: ${{ matrix.daft-runner }}
         DAFT_FLOTILLA: ${{ matrix.flotilla }}
@@ -518,8 +526,10 @@ jobs:
         down-flags: --volumes
     - name: Run IO integration tests
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/io -m 'integration and not benchmark' --credentials --durations=50
+        pytest tests/integration/io -m 'integration and not benchmark' --credentials --durations=0 | ./tools/capture-durations.sh "io_credentialed_pytest_output.txt"
+        python tools/aggregate_test_durations.py io_credentialed_pytest_output.txt
       env:
         DAFT_RUNNER: ${{ matrix.daft-runner }}
         DAFT_FLOTILLA: ${{ matrix.flotilla }}
@@ -596,21 +606,27 @@ jobs:
 
     - name: Run sql integration tests (native)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/sql -m 'integration or not integration' --durations=50
+        pytest tests/integration/sql -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "sql_pytest_output.txt"
+        python tools/aggregate_test_durations.py sql_pytest_output.txt
       env:
         DAFT_RUNNER: native
     - name: Run sql integration tests (ray)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/sql -m 'integration or not integration' --durations=50
+        pytest tests/integration/sql -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "sql_pytest_output.txt"
+        python tools/aggregate_test_durations.py sql_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 0
     - name: Run sql integration tests (flotilla)
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/sql -m 'integration or not integration' --durations=50
+        pytest tests/integration/sql -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "sql_pytest_output.txt"
+        python tools/aggregate_test_durations.py sql_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 1
@@ -704,16 +720,20 @@ jobs:
     - name: Run Unity integration tests (native)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/unity -m 'integration or not integration' --durations=50
+        pytest tests/integration/unity -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "unity_pytest_output.txt"
+        python tools/aggregate_test_durations.py unity_pytest_output.txt
       env:
         DAFT_RUNNER: native
         UNITY_CATALOG_PORT: 3000
     - name: Run Unity integration tests (ray)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/unity -m 'integration or not integration' --durations=50
+        pytest tests/integration/unity -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "unity_pytest_output.txt"
+        python tools/aggregate_test_durations.py unity_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 0
@@ -721,8 +741,10 @@ jobs:
     - name: Run Unity integration tests (flotilla)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/unity -m 'integration or not integration' --durations=50
+        pytest tests/integration/unity -m 'integration or not integration' --durations=0 | ./tools/capture-durations.sh "unity_pytest_output.txt"
+        python tools/aggregate_test_durations.py unity_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 1
@@ -731,23 +753,29 @@ jobs:
     - name: Run Iceberg integration tests (native)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/iceberg -m 'integration' --durations=50
+        pytest tests/integration/iceberg -m 'integration' --durations=0 | ./tools/capture-durations.sh "iceberg_pytest_output.txt"
+        python tools/aggregate_test_durations.py iceberg_pytest_output.txt
       env:
         DAFT_RUNNER: native
     - name: Run Iceberg integration tests (ray)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/iceberg -m 'integration' --durations=50
+        pytest tests/integration/iceberg -m 'integration' --durations=0 | ./tools/capture-durations.sh "iceberg_pytest_output.txt"
+        python tools/aggregate_test_durations.py iceberg_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 0
     - name: Run Iceberg integration tests (flotilla)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/iceberg -m 'integration' --durations=50
+        pytest tests/integration/iceberg -m 'integration' --durations=0 | ./tools/capture-durations.sh "iceberg_pytest_output.txt"
+        python tools/aggregate_test_durations.py iceberg_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 1
@@ -755,23 +783,29 @@ jobs:
     - name: Run Delta Lake integration tests (native)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/delta_lake -m 'integration' --durations=50
+        pytest tests/integration/delta_lake -m 'integration' --durations=0 | ./tools/capture-durations.sh "delta_lake_pytest_output.txt"
+        python tools/aggregate_test_durations.py delta_lake_pytest_output.txt
       env:
         DAFT_RUNNER: native
     - name: Run Delta Lake integration tests (ray)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/delta_lake -m 'integration' --durations=50
+        pytest tests/integration/delta_lake -m 'integration' --durations=0 | ./tools/capture-durations.sh "delta_lake_pytest_output.txt"
+        python tools/aggregate_test_durations.py delta_lake_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 0
     - name: Run Delta Lake integration tests (flotilla)
       if: always()
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest tests/integration/delta_lake -m 'integration' --durations=50
+        pytest tests/integration/delta_lake -m 'integration' --durations=0 | ./tools/capture-durations.sh "delta_lake_pytest_output.txt"
+        python tools/aggregate_test_durations.py delta_lake_pytest_output.txt
       env:
         DAFT_RUNNER: ray
         DAFT_FLOTILLA: 1
@@ -845,8 +879,10 @@ jobs:
           rm -rf daft
     - name: Run AI provider integration tests
       run: |
+        set -o pipefail
         source .venv/bin/activate
-        pytest -m integration tests/integration/ai --credentials --durations=50
+        pytest -m integration tests/integration/ai --credentials --durations=0 | ./tools/capture-durations.sh "ai_pytest_output.txt"
+        python tools/aggregate_test_durations.py ai_pytest_output.txt
       env:
         DAFT_RUNNER: ${{ matrix.daft-runner }}
         DAFT_ENABLE_AQE: ${{ matrix.enable-aqe }}
@@ -1253,7 +1289,7 @@ jobs:
     - name: Python And Rust Style Check
       run: |
         source .venv/bin/activate
-        pre-commit run --all-files
+        pre-commit run --all-files -v
 
     - name: Send Slack notification on failure
       uses: slackapi/slack-github-action@v2.0.0

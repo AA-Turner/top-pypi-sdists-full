@@ -38,7 +38,7 @@
 /* ===========================================================================
  * deflate() using specialized parameters
  */
-void deflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_buf_size, int32_t level,
+static void deflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_buf_size, int32_t level,
     int32_t window_bits, int32_t mem_level, int32_t strategy, int32_t flush) {
     PREFIX3(stream) c_stream; /* compression stream */
     uint8_t *read_buf;
@@ -123,7 +123,7 @@ void deflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_
 /* ===========================================================================
  * inflate() using specialized parameters
  */
-void inflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_buf_size, int32_t window_bits,
+static void inflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_buf_size, int32_t window_bits,
     int32_t flush) {
     PREFIX3(stream) d_stream; /* decompression stream */
     uint8_t *read_buf;
@@ -168,7 +168,7 @@ void inflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_
         do {
             err = PREFIX(inflate)(&d_stream, flush);
 
-            /* Ignore Z_BUF_ERROR if we are finishing and read buffer size is 
+            /* Ignore Z_BUF_ERROR if we are finishing and read buffer size is
              * purposefully limited */
             if (flush == Z_FINISH && err == Z_BUF_ERROR && read_buf_size != BUFSIZE)
                 err = Z_OK;
@@ -212,7 +212,7 @@ void inflate_params(FILE *fin, FILE *fout, int32_t read_buf_size, int32_t write_
     free(write_buf);
 }
 
-void show_help(void) {
+static void show_help(void) {
     printf("Usage: minideflate [-c][-d][-k] [-f|-h|-R|-F] [-m level] [-r/-t size] [-s flush] [-w bits] [-0 to -9] [input file]\n\n"
            "  -c : write to standard output\n"
            "  -d : decompress\n"

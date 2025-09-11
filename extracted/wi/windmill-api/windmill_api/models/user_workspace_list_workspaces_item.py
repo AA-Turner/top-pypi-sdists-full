@@ -23,6 +23,8 @@ class UserWorkspaceListWorkspacesItem:
         username (str):
         color (str):
         operator_settings (Union[Unset, None, UserWorkspaceListWorkspacesItemOperatorSettings]):
+        parent_workspace_id (Union[Unset, None, str]):
+        created_by (Union[Unset, None, str]):
     """
 
     id: str
@@ -30,6 +32,8 @@ class UserWorkspaceListWorkspacesItem:
     username: str
     color: str
     operator_settings: Union[Unset, None, "UserWorkspaceListWorkspacesItemOperatorSettings"] = UNSET
+    parent_workspace_id: Union[Unset, None, str] = UNSET
+    created_by: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -40,6 +44,9 @@ class UserWorkspaceListWorkspacesItem:
         operator_settings: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.operator_settings, Unset):
             operator_settings = self.operator_settings.to_dict() if self.operator_settings else None
+
+        parent_workspace_id = self.parent_workspace_id
+        created_by = self.created_by
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -53,6 +60,10 @@ class UserWorkspaceListWorkspacesItem:
         )
         if operator_settings is not UNSET:
             field_dict["operator_settings"] = operator_settings
+        if parent_workspace_id is not UNSET:
+            field_dict["parent_workspace_id"] = parent_workspace_id
+        if created_by is not UNSET:
+            field_dict["created_by"] = created_by
 
         return field_dict
 
@@ -80,12 +91,18 @@ class UserWorkspaceListWorkspacesItem:
         else:
             operator_settings = UserWorkspaceListWorkspacesItemOperatorSettings.from_dict(_operator_settings)
 
+        parent_workspace_id = d.pop("parent_workspace_id", UNSET)
+
+        created_by = d.pop("created_by", UNSET)
+
         user_workspace_list_workspaces_item = cls(
             id=id,
             name=name,
             username=username,
             color=color,
             operator_settings=operator_settings,
+            parent_workspace_id=parent_workspace_id,
+            created_by=created_by,
         )
 
         user_workspace_list_workspaces_item.additional_properties = d

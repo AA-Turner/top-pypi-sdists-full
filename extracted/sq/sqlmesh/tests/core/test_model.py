@@ -31,12 +31,12 @@ from sqlmesh.core.config import (
     ModelDefaultsConfig,
     LinterConfig,
 )
+from sqlmesh.core import constants as c
 from sqlmesh.core.context import Context, ExecutionContext
 from sqlmesh.core.dialect import parse
 from sqlmesh.core.engine_adapter.base import MERGE_SOURCE_ALIAS, MERGE_TARGET_ALIAS
 from sqlmesh.core.engine_adapter.duckdb import DuckDBEngineAdapter
 from sqlmesh.core.macros import MacroEvaluator, macro
-from sqlmesh.core import constants as c
 from sqlmesh.core.model import (
     CustomKind,
     PythonModel,
@@ -198,14 +198,7 @@ def test_model_multiple_select_statements():
         load_sql_based_model(expressions)
 
 
-@pytest.mark.parametrize(
-    "query, error",
-    [
-        ("y::int, x::int AS y", "duplicate"),
-        ("* FROM db.table", "require inferrable column types"),
-    ],
-)
-def test_model_validation(query, error):
+def test_model_validation(tmp_path):
     expressions = d.parse(
         f"""
         MODEL (
@@ -213,14 +206,56 @@ def test_model_validation(query, error):
             kind FULL,
         );
 
-        SELECT {query}
+        SELECT
+          y::int,
+          x::int AS y
+        FROM db.ext
+        """
+    )
+
+    ctx = Context(
+        config=Config(linter=LinterConfig(enabled=True, rules=["noambiguousprojections"])),
+        paths=tmp_path,
+    )
+    ctx.upsert_model(load_sql_based_model(expressions, default_catalog="memory"))
+
+    errors = ctx.lint_models(["db.table"], raise_on_error=False)
+    assert errors, "Expected NoAmbiguousProjections violation"
+    assert errors[0].violation_msg == "Found duplicate outer select name 'y'"
+
+    expressions = d.parse(
+        """
+        MODEL (
+            name db.table,
+            kind FULL,
+        );
+
+        SELECT a, a UNION SELECT c, c
+        """
+    )
+
+    ctx.upsert_model(load_sql_based_model(expressions, default_catalog="memory"))
+
+    errors = ctx.lint_models(["db.table"], raise_on_error=False)
+    assert errors, "Expected NoAmbiguousProjections violation"
+    assert errors[0].violation_msg == "Found duplicate outer select name 'a'"
+
+    expressions = d.parse(
+        f"""
+        MODEL (
+            name db.table,
+            kind FULL,
+        );
+
+        SELECT * FROM db.table
         """
     )
 
     model = load_sql_based_model(expressions)
     with pytest.raises(ConfigError) as ex:
         model.validate_definition()
-    assert error in str(ex.value)
+
+    assert "require inferrable column types" in str(ex.value)
 
 
 def test_model_union_query(sushi_context, assert_exp_eq):
@@ -403,23 +438,6 @@ FROM "memory"."sushi"."marketing" AS "marketing"
         sushi_context.get_model(f"sushi.{test_id}").render_query(),
         expected_result(expected_select),
     )
-
-
-def test_model_validation_union_query():
-    expressions = d.parse(
-        """
-        MODEL (
-            name db.table,
-            kind FULL,
-        );
-
-        SELECT a, a UNION SELECT c, c
-        """
-    )
-
-    model = load_sql_based_model(expressions)
-    with pytest.raises(ConfigError, match=r"Found duplicate outer select name 'a'"):
-        model.validate_definition()
 
 
 @use_terminal_console
@@ -8570,6 +8588,23 @@ def test_comments_in_jinja_query():
         model.render_query()
 
 
+def test_jinja_render_parse_error():
+    expressions = d.parse(
+        """
+        MODEL (name db.test_model);
+
+        JINJA_QUERY_BEGIN;
+        {{ unknown_macro() }}
+        JINJA_END;
+        """
+    )
+
+    model = load_sql_based_model(expressions)
+
+    with pytest.raises(ConfigError, match=r"Could not render jinja"):
+        model.render_query()
+
+
 def test_jinja_render_debug_logging(caplog):
     """Test that rendered Jinja expressions are logged for debugging."""
     import logging
@@ -8591,7 +8626,7 @@ def test_jinja_render_debug_logging(caplog):
     model = load_sql_based_model(expressions)
 
     # Attempt to render - this should fail due to invalid SQL syntax
-    with pytest.raises(ConfigError, match=r"Could not render or parse jinja"):
+    with pytest.raises(ConfigError, match=r"Could not parse the rendered jinja"):
         model.render_query()
 
     # Check that the rendered Jinja was logged

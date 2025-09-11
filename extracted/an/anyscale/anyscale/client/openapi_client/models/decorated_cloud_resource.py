@@ -47,7 +47,8 @@ class DecoratedCloudResource(object):
         'kubernetes_config': 'KubernetesConfig',
         'created_at': 'datetime',
         'is_default': 'bool',
-        'operator_status': 'OperatorStatus'
+        'operator_status': 'OperatorStatus',
+        'operator_status_details': 'OperatorStatusDetails'
     }
 
     attribute_map = {
@@ -65,10 +66,11 @@ class DecoratedCloudResource(object):
         'kubernetes_config': 'kubernetes_config',
         'created_at': 'created_at',
         'is_default': 'is_default',
-        'operator_status': 'operator_status'
+        'operator_status': 'operator_status',
+        'operator_status_details': 'operator_status_details'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, created_at=None, is_default=False, operator_status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedCloudResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +91,7 @@ class DecoratedCloudResource(object):
         self._created_at = None
         self._is_default = None
         self._operator_status = None
+        self._operator_status_details = None
         self.discriminator = None
 
         if cloud_resource_id is not None:
@@ -114,6 +117,7 @@ class DecoratedCloudResource(object):
         if is_default is not None:
             self.is_default = is_default
         self.operator_status = operator_status
+        self.operator_status_details = operator_status_details
 
     @property
     def cloud_resource_id(self):
@@ -461,6 +465,29 @@ class DecoratedCloudResource(object):
         """
 
         self._operator_status = operator_status
+
+    @property
+    def operator_status_details(self):
+        """Gets the operator_status_details of this DecoratedCloudResource.  # noqa: E501
+
+        The details of the operator status.  # noqa: E501
+
+        :return: The operator_status_details of this DecoratedCloudResource.  # noqa: E501
+        :rtype: OperatorStatusDetails
+        """
+        return self._operator_status_details
+
+    @operator_status_details.setter
+    def operator_status_details(self, operator_status_details):
+        """Sets the operator_status_details of this DecoratedCloudResource.
+
+        The details of the operator status.  # noqa: E501
+
+        :param operator_status_details: The operator_status_details of this DecoratedCloudResource.  # noqa: E501
+        :type: OperatorStatusDetails
+        """
+
+        self._operator_status_details = operator_status_details
 
     def to_dict(self):
         """Returns the model properties as a dict"""

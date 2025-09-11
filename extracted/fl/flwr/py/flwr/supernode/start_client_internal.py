@@ -21,7 +21,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import partial
-from logging import INFO, WARN
+from logging import INFO
 from pathlib import Path
 from typing import Callable, Optional, Union, cast
 
@@ -35,18 +35,15 @@ from flwr.common import GRPC_MAX_MESSAGE_LENGTH, Context, Message, RecordDict
 from flwr.common.address import parse_address
 from flwr.common.config import get_flwr_dir, get_fused_config_from_fab
 from flwr.common.constant import (
-    CLIENT_OCTET,
     CLIENTAPPIO_API_DEFAULT_SERVER_ADDRESS,
     ISOLATION_MODE_SUBPROCESS,
-    MAX_RETRY_DELAY,
-    SERVER_OCTET,
     TRANSPORT_TYPE_GRPC_ADAPTER,
     TRANSPORT_TYPE_GRPC_RERE,
     TRANSPORT_TYPE_REST,
     TRANSPORT_TYPES,
+    ExecPluginType,
 )
-from flwr.common.exit import ExitCode, flwr_exit
-from flwr.common.exit_handlers import register_exit_handlers
+from flwr.common.exit import ExitCode, flwr_exit, register_signal_handlers
 from flwr.common.grpc import generic_create_grpc_server
 from flwr.common.inflatable import iterate_object_tree
 from flwr.common.inflatable_utils import (
@@ -54,12 +51,13 @@ from flwr.common.inflatable_utils import (
     push_object_contents_from_iterable,
 )
 from flwr.common.logger import log
-from flwr.common.retry_invoker import RetryInvoker, RetryState, exponential
+from flwr.common.retry_invoker import RetryInvoker, _make_simple_grpc_retry_invoker
 from flwr.common.telemetry import EventType
 from flwr.common.typing import Fab, Run, RunNotRunningException, UserConfig
 from flwr.proto.clientappio_pb2_grpc import add_ClientAppIoServicer_to_server
 from flwr.proto.message_pb2 import ObjectTree  # pylint: disable=E0611
 from flwr.supercore.ffs import Ffs, FfsFactory
+from flwr.supercore.grpc_health import run_health_server_grpc_no_tls
 from flwr.supercore.object_store import ObjectStore, ObjectStoreFactory
 from flwr.supernode.nodestate import NodeState, NodeStateFactory
 from flwr.supernode.servicer.clientappio import ClientAppIoServicer
@@ -87,6 +85,7 @@ def start_client_internal(
     flwr_path: Optional[Path] = None,
     isolation: str = ISOLATION_MODE_SUBPROCESS,
     clientappio_api_address: str = CLIENTAPPIO_API_DEFAULT_SERVER_ADDRESS,
+    health_server_address: Optional[str] = None,
 ) -> None:
     """Start a Flower client node which connects to a Flower server.
 
@@ -135,6 +134,9 @@ def start_client_internal(
     clientappio_api_address : str
         (default: `CLIENTAPPIO_API_DEFAULT_SERVER_ADDRESS`)
         The SuperNode gRPC server address.
+    health_server_address : Optional[str] (default: None)
+        The address of the health server. If `None` is provided, the health server will
+        NOT be started.
     """
     if insecure is None:
         insecure = root_certificates is None
@@ -145,6 +147,7 @@ def start_client_internal(
     object_store_factory = ObjectStoreFactory()
 
     # Launch ClientAppIo API server
+    grpc_servers = []
     clientappio_server = run_clientappio_api_grpc(
         address=clientappio_api_address,
         state_factory=state_factory,
@@ -152,18 +155,33 @@ def start_client_internal(
         objectstore_factory=object_store_factory,
         certificates=None,
     )
+    grpc_servers.append(clientappio_server)
+
+    # Launch gRPC health server
+    if health_server_address is not None:
+        health_server = run_health_server_grpc_no_tls(health_server_address)
+        grpc_servers.append(health_server)
 
     # Register handlers for graceful shutdown
-    register_exit_handlers(
+    register_signal_handlers(
         event_type=EventType.RUN_SUPERNODE_LEAVE,
         exit_message="SuperNode terminated gracefully.",
-        grpc_servers=[clientappio_server],
+        grpc_servers=grpc_servers,
     )
 
     # Initialize NodeState, Ffs, and ObjectStore
     state = state_factory.state()
     ffs = ffs_factory.ffs()
     store = object_store_factory.store()
+
+    # Launch the SuperExec if the isolation mode is `subprocess`
+    if isolation == ISOLATION_MODE_SUBPROCESS:
+        command = ["flower-superexec", "--insecure"]
+        command += ["--appio-api-address", clientappio_api_address]
+        command += ["--plugin-type", ExecPluginType.CLIENT_APP]
+        command += ["--parent-pid", str(os.getpid())]
+        # pylint: disable-next=consider-using-with
+        subprocess.Popen(command)
 
     with _init_connection(
         transport=transport,
@@ -207,35 +225,6 @@ def start_client_internal(
                 pull_object=pull_object,
                 confirm_message_received=confirm_message_received,
             )
-
-            # Two isolation modes:
-            # 1. `subprocess`: SuperNode is starting the ClientApp
-            #    process as a subprocess.
-            # 2. `process`: ClientApp process gets started separately
-            #    (via `flwr-clientapp`), for example, in a separate
-            #    Docker container.
-
-            # Mode 1: SuperNode starts ClientApp as subprocess
-            start_subprocess = isolation == ISOLATION_MODE_SUBPROCESS
-
-            if start_subprocess and run_id is not None:
-                _octet, _colon, _port = clientappio_api_address.rpartition(":")
-                io_address = (
-                    f"{CLIENT_OCTET}:{_port}"
-                    if _octet == SERVER_OCTET
-                    else clientappio_api_address
-                )
-                # Start ClientApp subprocess
-                command = [
-                    "flwr-clientapp",
-                    "--clientappio-api-address",
-                    io_address,
-                    "--parent-pid",
-                    str(os.getpid()),
-                    "--insecure",
-                    "--run-once",
-                ]
-                subprocess.run(command, check=False)
 
             # No message has been pulled therefore we can skip the push stage.
             if run_id is None:
@@ -521,44 +510,14 @@ def _make_fleet_connection_retry_invoker(
     connection_error_type: type[Exception] = RpcError,
 ) -> RetryInvoker:
     """Create a retry invoker for fleet connection."""
+    retry_invoker = _make_simple_grpc_retry_invoker()
+    retry_invoker.recoverable_exceptions = connection_error_type
+    if max_retries is not None:
+        retry_invoker.max_tries = max_retries + 1
+    if max_wait_time is not None:
+        retry_invoker.max_time = max_wait_time
 
-    def _on_success(retry_state: RetryState) -> None:
-        if retry_state.tries > 1:
-            log(
-                INFO,
-                "Connection successful after %.2f seconds and %s tries.",
-                retry_state.elapsed_time,
-                retry_state.tries,
-            )
-
-    def _on_backoff(retry_state: RetryState) -> None:
-        if retry_state.tries == 1:
-            log(WARN, "Connection attempt failed, retrying...")
-        else:
-            log(
-                WARN,
-                "Connection attempt failed, retrying in %.2f seconds",
-                retry_state.actual_wait,
-            )
-
-    return RetryInvoker(
-        wait_gen_factory=lambda: exponential(max_delay=MAX_RETRY_DELAY),
-        recoverable_exceptions=connection_error_type,
-        max_tries=max_retries + 1 if max_retries is not None else None,
-        max_time=max_wait_time,
-        on_giveup=lambda retry_state: (
-            log(
-                WARN,
-                "Giving up reconnection after %.2f seconds and %s tries.",
-                retry_state.elapsed_time,
-                retry_state.tries,
-            )
-            if retry_state.tries > 1
-            else None
-        ),
-        on_success=_on_success,
-        on_backoff=_on_backoff,
-    )
+    return retry_invoker
 
 
 def run_clientappio_api_grpc(
@@ -584,6 +543,6 @@ def run_clientappio_api_grpc(
         max_message_length=GRPC_MAX_MESSAGE_LENGTH,
         certificates=certificates,
     )
-    log(INFO, "Starting Flower ClientAppIo gRPC server on %s", address)
+    log(INFO, "Flower Deployment Runtime: Starting ClientAppIo API on %s", address)
     clientappio_grpc_server.start()
     return clientappio_grpc_server

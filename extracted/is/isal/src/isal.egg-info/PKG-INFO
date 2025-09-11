@@ -1,42 +1,32 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: isal
-Version: 1.7.2
-Summary: Faster zlib and gzip compatible compression and decompression by providing python bindings for the ISA-L library.
-Home-page: https://github.com/pycompression/python-isal
+Version: 1.8.0
+Summary: Faster zlib and gzip compatible compression and decompression by providing python bindings for the ISA-L ibrary.
 Author: Leiden University Medical Center
 Author-email: r.h.p.vorderman@lumc.nl
-License: PSF-2.0
-Keywords: isal isa-l compression deflate gzip igzip threads
+License-Expression: PSF-2.0
+Project-URL: homepage, https://github.com/pycompression/python-isal
+Project-URL: documentation, https://python-isal.readthedocs.io
+Keywords: isal,isa-l,compression,deflate,gzip,igzip
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: C
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: System :: Archiving :: Compression
-Classifier: License :: OSI Approved :: Python Software Foundation License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/isal.svg
   :target: https://pypi.org/project/isal/

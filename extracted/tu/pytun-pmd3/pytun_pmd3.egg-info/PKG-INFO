@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytun-pmd3
-Version: 2.2.2
+Version: 3.0.2
 Summary: python-pytun fork with darwin and windows support (IPv6-ONLY)
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
@@ -30,11 +30,11 @@ Keywords: tun,tuntap,darwin,pymobiledevice3,macos,windows
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown

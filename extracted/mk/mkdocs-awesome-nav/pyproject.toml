@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-awesome-nav"
-version = "3.1.2"
+version = "3.2.0"
 description = "A plugin for customizing the navigation structure of your MkDocs site."
 keywords = ["mkdocs", "markdown", "documentation", "navigation"]
 authors = [{name = "Lukas Geiter", email = "info@lukasgeiter.com"}]

@@ -24,7 +24,7 @@ Version: 0.1.2
 """
 import os
 import platform
-from pathlib import Path
+from .read_write_utils import read_from_file
 def get_os_info():
     """
     Get Operating System Information
@@ -301,14 +301,14 @@ def mkGbTrunFroPathTot(k) -> float:
     return trunc(mkGb(s.path.getsize(k)), 5)
 
 
-def get_abs_name_of_this() -> Path:
+def get_abs_name_of_this():
     """
     Returns the absolute name of the current module.
 
     Returns:
         Path: The absolute name of the current module.
     """
-    return Path(__name__).absolute()
+    return os.path.abspath(__name__)
 
 def createFolds(ls: list) -> None:
     """
@@ -319,7 +319,31 @@ def createFolds(ls: list) -> None:
     """
     for k in range(len(ls)):
         mkdirs(ls[k])
-
+def makeAllDirs(path: str) -> str:
+    def make_list(obj):
+        if not isinstance(obj,list):
+            obj = [obj]
+        return obj
+    
+    slash = get_slash()
+    path_parts = path.split(slash)
+    path=''
+    if path_parts:
+        last_part = path_parts[-1]
+        for i,part in enumerate(path_parts):
+            if part == '':
+                part = slash
+            path = os.path.join(path,part)
+            if not os.path.exists(path):
+                if '.' in part and abs(len(path_parts)-1) == i:
+                    return path
+                os.makedirs(path)
+            else:
+                if os.path.isfile(path):
+                    return path
+    return path
+            
+        
 def mkdirs(path: str) -> str:
     """
     Creates a directory and any necessary intermediate directories.
@@ -332,7 +356,11 @@ def mkdirs(path: str) -> str:
     """
     os.makedirs(path, exist_ok=True)
     return path
-
+def make_dirs(*paths):
+    path = path_join(*paths)
+    if not os.path.isfile(path):
+        mkdirs(path)
+    return path
 def file_exists(file_path: str) -> bool:
     """
     Checks if a file exists at the specified path.
@@ -396,15 +424,156 @@ def get_total_size(folder_path: str) -> int:
             item_path = os.path.join(folder_path, item)
             total_size += get_size(item_path)
     return total_size
+
 def get_files(directory):
     file_list = []
     for root,dirs,files in os.walk(directory):
         for file in files:
             file_list.append(os.path.join(root,file))
     return file_list
+
 def get_folders(directory):
     directory_list = []
     for root,dirs,files in os.walk(directory):
         for folder in dirs:
             directory_list.append(os.path.join(root,folder))
     return directory_list
+
+def break_down_find_existing(path):
+    slash = get_slash()
+    test_path=''
+    found_path=None
+    for part in path.split(slash):
+        test_path=os.path.join(test_path,part)
+        if not os.path.exists(test_path):
+            return found_path
+        found_path = test_path
+    return found_path
+
+def get_directory_items(directory):
+    if not os.path.isdir(directory):
+        return []
+    return os.listdir(directory)
+
+def get_directory_files(directory):
+    if not os.path.isdir(directory):
+        return []
+    return get_files(directory)
+
+def get_all_item_paths(directory):
+    directory_items = get_directory_items(directory)
+    item_paths = [os.path.join(directory,item) for item in directory_items if item]
+    return item_paths
+
+def get_all_file_paths(directory):
+    item_paths = get_directory_files(directory) 
+    return item_paths
+
+def get_directory(directory):
+    if not os.path.isdir(directory):
+        os.makedirs(directory,exist_ok=True)
+    return directory
+
+def create_directory(directory,path):
+    directory = os.path.join(directory,path)
+    return get_directory(directory)
+
+
+def initialize_file(directory,basename):
+    directory = get_directory(directory)
+    file_path = create_directory(directory,basename)
+    return get_file_path(file_path)
+
+def join_path(directory,basename):
+    file_path = os.path.join(directory,basename)
+    return file_path
+
+def is_last_itter(i,*itters):
+    itter_len = len(itters)
+    if i+1 == itter_len:
+        return True
+    return False
+
+def path_join(*paths, isfile=False):
+    final_path = os.path.join(*paths)
+    paths_len = len(paths)
+    for i, path in enumerate(paths):
+        if i == 0:
+            final_path = path  # Note: Fixed bug; original code had `final_path = paths`
+        else:
+            final_path = os.path.join(final_path, path)
+        if isfile and is_last_itter(i, paths_len):  # Note: `is_last_itter` is undefined; assuming it checks if last iteration
+            break
+        os.makedirs(final_path, exist_ok=True)      
+    return final_path
+
+def is_file(*paths):
+    item_path = os.path.join(*paths)
+    return os.path.isfile(item_path)
+
+def is_dir(*paths):
+    item_path = os.path.join(*paths)
+    return os.path.isdir(item_path)
+
+def is_path(*paths):
+    item_path = os.path.join(*paths)
+    return item_path if os.path.exists(item_path) else None
+
+def get_all_directories(directory):
+    dir_list = os.listdir(directory)
+    directory_list = [item for item in dir_list if is_dir(directory,item)]
+    return directory_list
+
+def get_all_files(directory=None):
+    directory = directory or os.getcwd()
+    dir_list = os.listdir(directory)
+    file_list = [item for item in dir_list if is_file(directory,item)]
+    return file_list
+
+def get_all_items(directory):
+    dir_list = os.listdir(directory)
+    file_list = [item for item in dir_list if is_path(directory,item)]
+    return file_list
+
+def collate_text_docs(directory=None):
+    return [read_from_file(item) for item in get_all_files(directory=directory)]
+
+def get_dirlist(directory):
+    path = get_directory(directory)
+    if not path:
+        return path
+    dir_list=[]
+    if is_dir(path):
+        dir_list = os.listdir(path)
+    elif is_file(path):
+        dir_list = [os.path.basename(path)]
+    return dir_list
+def get_content(*paths):
+    item_path = os.path.join(*paths)
+    if os.path.isfile(item_path):
+        try:
+            content = read_from_file(item_path)
+            return content
+        except:
+            pass
+    return None
+
+def is_directory_in_paths(path,directory):
+    return directory in path 
+
+def remove_directory(directory,paths=None):
+    paths = make_list_it(paths)
+    shutil.rmtree(audio_dir)
+    for path in paths:
+        remove_path(path=path)
+def remove_path(path=None):
+    if path and os.path.exists(path):
+        if os.path.isdir(path):
+            remove_directory(path)
+        else:
+            os.remove(path)
+def get_file_parts(path):
+    dirName = os.path.dirname(path)
+    baseName = os.path.basename(path)
+    fileName, ext = os.path.splitext(baseName)
+    return {"dirName": dirName, "baseName": baseName, "fileName": fileName, "ext": ext}

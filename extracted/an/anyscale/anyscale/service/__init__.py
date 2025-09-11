@@ -39,9 +39,9 @@ from anyscale.service.models import (
     ServiceConfig,
     ServiceLogMode,
     ServiceSortField,
+    ServiceSortOrder,
     ServiceState,
     ServiceStatus,
-    SortOrder,
 )
 
 
@@ -162,6 +162,9 @@ class ServiceSDK:
         """
         return self._private_sdk.delete(id=id, name=name, cloud=cloud, project=project)
 
+    @sdk_docs(
+        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+    )
     def list(  # noqa: F811, A001
         self,
         *,
@@ -179,7 +182,7 @@ class ServiceSDK:
         page_size: Optional[int] = None,
         # Sorting
         sort_field: Optional[Union[str, ServiceSortField]] = None,
-        sort_order: Optional[Union[str, SortOrder]] = None,
+        sort_order: Optional[Union[str, ServiceSortOrder]] = None,
     ) -> ResultIterator[ServiceStatus]:
         """List services.
 

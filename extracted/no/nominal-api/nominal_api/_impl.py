@@ -14715,16 +14715,16 @@ class module_BatchGetModulesRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'requests': ConjureFieldDefinition('requests', List[module_GetModuleRequest])
+            'requests': ConjureFieldDefinition('requests', List[module_RequestModuleRef])
         }
 
     __slots__: List[str] = ['_requests']
 
-    def __init__(self, requests: List["module_GetModuleRequest"]) -> None:
+    def __init__(self, requests: List["module_RequestModuleRef"]) -> None:
         self._requests = requests
 
     @builtins.property
-    def requests(self) -> List["module_GetModuleRequest"]:
+    def requests(self) -> List["module_RequestModuleRef"]:
         return self._requests
 
 
@@ -14784,19 +14784,19 @@ class module_CreateModuleApplicationRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'module_ref': ConjureFieldDefinition('moduleRef', module_RequestModuleRef),
             'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
         }
 
-    __slots__: List[str] = ['_module_rid', '_asset_rid']
+    __slots__: List[str] = ['_module_ref', '_asset_rid']
 
-    def __init__(self, asset_rid: str, module_rid: str) -> None:
-        self._module_rid = module_rid
+    def __init__(self, asset_rid: str, module_ref: "module_RequestModuleRef") -> None:
+        self._module_ref = module_ref
         self._asset_rid = asset_rid
 
     @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
+    def module_ref(self) -> "module_RequestModuleRef":
+        return self._module_ref
 
     @builtins.property
     def asset_rid(self) -> str:
@@ -15200,29 +15200,6 @@ module_GetDerivedSeriesResponse.__qualname__ = "GetDerivedSeriesResponse"
 module_GetDerivedSeriesResponse.__module__ = "nominal_api.module"
 
 
-class module_GetModuleRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid)
-        }
-
-    __slots__: List[str] = ['_module_rid']
-
-    def __init__(self, module_rid: str) -> None:
-        self._module_rid = module_rid
-
-    @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
-
-
-module_GetModuleRequest.__name__ = "GetModuleRequest"
-module_GetModuleRequest.__qualname__ = "GetModuleRequest"
-module_GetModuleRequest.__module__ = "nominal_api.module"
-
-
 class module_LatestVersionStrategy(ConjureBeanType):
     """This strategy refers to the latest version of the module.
     """
@@ -15247,18 +15224,24 @@ class module_Module(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'metadata': ConjureFieldDefinition('metadata', module_ModuleMetadata),
+            'version_metadata': ConjureFieldDefinition('versionMetadata', module_ModuleVersionMetadata),
             'definition': ConjureFieldDefinition('definition', module_ModuleVersionDefinition)
         }
 
-    __slots__: List[str] = ['_metadata', '_definition']
+    __slots__: List[str] = ['_metadata', '_version_metadata', '_definition']
 
-    def __init__(self, definition: "module_ModuleVersionDefinition", metadata: "module_ModuleMetadata") -> None:
+    def __init__(self, definition: "module_ModuleVersionDefinition", metadata: "module_ModuleMetadata", version_metadata: "module_ModuleVersionMetadata") -> None:
         self._metadata = metadata
+        self._version_metadata = version_metadata
         self._definition = definition
 
     @builtins.property
     def metadata(self) -> "module_ModuleMetadata":
         return self._metadata
+
+    @builtins.property
+    def version_metadata(self) -> "module_ModuleVersionMetadata":
+        return self._version_metadata
 
     @builtins.property
     def definition(self) -> "module_ModuleVersionDefinition":
@@ -15348,7 +15331,8 @@ class module_ModuleMetadata(ConjureBeanType):
 
     @builtins.property
     def name(self) -> str:
-        """The name of the module. This is unique to the module in the current workspace.
+        """The API name for the module. This uniquely identifies the module within the org.
+Note that this cannot be changed after creation.
         """
         return self._name
 
@@ -15414,17 +15398,29 @@ class module_ModuleRef(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid)
+            'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
+            'name': ConjureFieldDefinition('name', str),
+            'version': ConjureFieldDefinition('version', module_ModuleVersion)
         }
 
-    __slots__: List[str] = ['_rid']
+    __slots__: List[str] = ['_rid', '_name', '_version']
 
-    def __init__(self, rid: str) -> None:
+    def __init__(self, name: str, rid: str, version: str) -> None:
         self._rid = rid
+        self._name = name
+        self._version = version
 
     @builtins.property
     def rid(self) -> str:
         return self._rid
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def version(self) -> str:
+        return self._version
 
 
 module_ModuleRef.__name__ = "ModuleRef"
@@ -15726,38 +15722,6 @@ to assets. The Modules Service provides the api for managing these collections a
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_SearchModuleApplicationsResponse, self._return_none_for_unknown_union_types)
 
-    def update_module_application(self, auth_header: str, request: "module_UpdateModuleApplicationRequest") -> "module_UpdateModuleApplicationResponse":
-        """Update a module application.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/scout/v2/module/applications/update'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), module_UpdateModuleApplicationResponse, self._return_none_for_unknown_union_types)
-
     def batch_get_module_applications(self, auth_header: str, request: "module_BatchGetModuleApplicationsRequest") -> "module_BatchGetModuleApplicationsResponse":
         """Get a list of module applications by their RIDs.
         """
@@ -15942,14 +15906,16 @@ class module_ModuleVersionMetadata(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
-            'created_at': ConjureFieldDefinition('createdAt', str)
+            'created_at': ConjureFieldDefinition('createdAt', str),
+            'version': ConjureFieldDefinition('version', module_ModuleVersion)
         }
 
-    __slots__: List[str] = ['_created_by', '_created_at']
+    __slots__: List[str] = ['_created_by', '_created_at', '_version']
 
-    def __init__(self, created_at: str, created_by: str) -> None:
+    def __init__(self, created_at: str, created_by: str, version: str) -> None:
         self._created_by = created_by
         self._created_at = created_at
+        self._version = version
 
     @builtins.property
     def created_by(self) -> str:
@@ -15958,6 +15924,10 @@ class module_ModuleVersionMetadata(ConjureBeanType):
     @builtins.property
     def created_at(self) -> str:
         return self._created_at
+
+    @builtins.property
+    def version(self) -> str:
+        return self._version
 
 
 module_ModuleVersionMetadata.__name__ = "ModuleVersionMetadata"
@@ -16025,41 +15995,58 @@ class module_RequestModuleRef(ConjureUnionType):
     """Request reference to a module. This is used to refer to modules in requests.
     """
     _name: Optional["module_RequestModuleNameRef"] = None
+    _rid: Optional["module_RequestModuleRidRef"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'name': ConjureFieldDefinition('name', module_RequestModuleNameRef)
+            'name': ConjureFieldDefinition('name', module_RequestModuleNameRef),
+            'rid': ConjureFieldDefinition('rid', module_RequestModuleRidRef)
         }
 
     def __init__(
             self,
             name: Optional["module_RequestModuleNameRef"] = None,
+            rid: Optional["module_RequestModuleRidRef"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (name is not None) != 1:
+            if (name is not None) + (rid is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if name is not None:
                 self._name = name
                 self._type = 'name'
+            if rid is not None:
+                self._rid = rid
+                self._type = 'rid'
 
         elif type_of_union == 'name':
             if name is None:
                 raise ValueError('a union value must not be None')
             self._name = name
             self._type = 'name'
+        elif type_of_union == 'rid':
+            if rid is None:
+                raise ValueError('a union value must not be None')
+            self._rid = rid
+            self._type = 'rid'
 
     @builtins.property
     def name(self) -> Optional["module_RequestModuleNameRef"]:
         return self._name
+
+    @builtins.property
+    def rid(self) -> Optional["module_RequestModuleRidRef"]:
+        return self._rid
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, module_RequestModuleRefVisitor):
             raise ValueError('{} is not an instance of module_RequestModuleRefVisitor'.format(visitor.__class__.__name__))
         if self._type == 'name' and self.name is not None:
             return visitor._name(self.name)
+        if self._type == 'rid' and self.rid is not None:
+            return visitor._rid(self.rid)
 
 
 module_RequestModuleRef.__name__ = "RequestModuleRef"
@@ -16073,10 +16060,45 @@ class module_RequestModuleRefVisitor:
     def _name(self, name: "module_RequestModuleNameRef") -> Any:
         pass
 
+    @abstractmethod
+    def _rid(self, rid: "module_RequestModuleRidRef") -> Any:
+        pass
+
 
 module_RequestModuleRefVisitor.__name__ = "RequestModuleRefVisitor"
 module_RequestModuleRefVisitor.__qualname__ = "RequestModuleRefVisitor"
 module_RequestModuleRefVisitor.__module__ = "nominal_api.module"
+
+
+class module_RequestModuleRidRef(ConjureBeanType):
+    """This is used to refer to modules in requests by rid.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
+            'version_strategy': ConjureFieldDefinition('versionStrategy', module_VersionStrategy)
+        }
+
+    __slots__: List[str] = ['_rid', '_version_strategy']
+
+    def __init__(self, rid: str, version_strategy: "module_VersionStrategy") -> None:
+        self._rid = rid
+        self._version_strategy = version_strategy
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
+
+    @builtins.property
+    def version_strategy(self) -> "module_VersionStrategy":
+        return self._version_strategy
+
+
+module_RequestModuleRidRef.__name__ = "RequestModuleRidRef"
+module_RequestModuleRidRef.__qualname__ = "RequestModuleRidRef"
+module_RequestModuleRidRef.__module__ = "nominal_api.module"
 
 
 class module_SearchModuleApplicationsQuery(ConjureUnionType):
@@ -16613,64 +16635,6 @@ class module_SearchModulesSortOptions(ConjureBeanType):
 module_SearchModulesSortOptions.__name__ = "SearchModulesSortOptions"
 module_SearchModulesSortOptions.__qualname__ = "SearchModulesSortOptions"
 module_SearchModulesSortOptions.__module__ = "nominal_api.module"
-
-
-class module_UpdateModuleApplicationRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
-        }
-
-    __slots__: List[str] = ['_module_application_rid', '_module_rid', '_asset_rid']
-
-    def __init__(self, asset_rid: str, module_application_rid: str, module_rid: str) -> None:
-        self._module_application_rid = module_application_rid
-        self._module_rid = module_rid
-        self._asset_rid = asset_rid
-
-    @builtins.property
-    def module_application_rid(self) -> str:
-        return self._module_application_rid
-
-    @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
-
-    @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
-
-
-module_UpdateModuleApplicationRequest.__name__ = "UpdateModuleApplicationRequest"
-module_UpdateModuleApplicationRequest.__qualname__ = "UpdateModuleApplicationRequest"
-module_UpdateModuleApplicationRequest.__module__ = "nominal_api.module"
-
-
-class module_UpdateModuleApplicationResponse(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'result': ConjureFieldDefinition('result', module_ModuleApplication)
-        }
-
-    __slots__: List[str] = ['_result']
-
-    def __init__(self, result: "module_ModuleApplication") -> None:
-        self._result = result
-
-    @builtins.property
-    def result(self) -> "module_ModuleApplication":
-        return self._result
-
-
-module_UpdateModuleApplicationResponse.__name__ = "UpdateModuleApplicationResponse"
-module_UpdateModuleApplicationResponse.__qualname__ = "UpdateModuleApplicationResponse"
-module_UpdateModuleApplicationResponse.__module__ = "nominal_api.module"
 
 
 class module_UpdateModuleRequest(ConjureBeanType):
@@ -35491,6 +35455,8 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
     _is_published: Optional[bool] = None
     _not_: Optional["scout_checks_api_ChecklistSearchQuery"] = None
     _workspace: Optional[str] = None
+    _author_is_current_user: Optional[bool] = None
+    _author_rids: Optional[List[str]] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -35504,7 +35470,9 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             'assignee_rid': ConjureFieldDefinition('assigneeRid', scout_rids_api_UserRid),
             'is_published': ConjureFieldDefinition('isPublished', bool),
             'not_': ConjureFieldDefinition('not', scout_checks_api_ChecklistSearchQuery),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', bool),
+            'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
         }
 
     def __init__(
@@ -35519,10 +35487,12 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             is_published: Optional[bool] = None,
             not_: Optional["scout_checks_api_ChecklistSearchQuery"] = None,
             workspace: Optional[str] = None,
+            author_is_current_user: Optional[bool] = None,
+            author_rids: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (property is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (property is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -35555,6 +35525,12 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if author_is_current_user is not None:
+                self._author_is_current_user = author_is_current_user
+                self._type = 'authorIsCurrentUser'
+            if author_rids is not None:
+                self._author_rids = author_rids
+                self._type = 'authorRids'
 
         elif type_of_union == 'and':
             if and_ is None:
@@ -35606,6 +35582,16 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'authorIsCurrentUser':
+            if author_is_current_user is None:
+                raise ValueError('a union value must not be None')
+            self._author_is_current_user = author_is_current_user
+            self._type = 'authorIsCurrentUser'
+        elif type_of_union == 'authorRids':
+            if author_rids is None:
+                raise ValueError('a union value must not be None')
+            self._author_rids = author_rids
+            self._type = 'authorRids'
 
     @builtins.property
     def and_(self) -> Optional[List["scout_checks_api_ChecklistSearchQuery"]]:
@@ -35647,6 +35633,14 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def author_is_current_user(self) -> Optional[bool]:
+        return self._author_is_current_user
+
+    @builtins.property
+    def author_rids(self) -> Optional[List[str]]:
+        return self._author_rids
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_checks_api_ChecklistSearchQueryVisitor):
             raise ValueError('{} is not an instance of scout_checks_api_ChecklistSearchQueryVisitor'.format(visitor.__class__.__name__))
@@ -35670,6 +35664,10 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             return visitor._not(self.not_)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'authorIsCurrentUser' and self.author_is_current_user is not None:
+            return visitor._author_is_current_user(self.author_is_current_user)
+        if self._type == 'authorRids' and self.author_rids is not None:
+            return visitor._author_rids(self.author_rids)
 
 
 scout_checks_api_ChecklistSearchQuery.__name__ = "ChecklistSearchQuery"
@@ -35717,6 +35715,14 @@ class scout_checks_api_ChecklistSearchQueryVisitor:
 
     @abstractmethod
     def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _author_is_current_user(self, author_is_current_user: bool) -> Any:
+        pass
+
+    @abstractmethod
+    def _author_rids(self, author_rids: List[str]) -> Any:
         pass
 
 

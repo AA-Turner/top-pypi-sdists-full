@@ -96,7 +96,47 @@ os.getlogin()                 # Get the name of the logged-in user
 
 """
 import os
-def write_to_file(*args, file_path: str = None, contents: any = None, **kwargs):
+def break_down_find_existing(path):
+    test_path = ''
+    for part in path.split(os.sep):
+        test_path = os.path.join(test_path, part)
+        if not os.path.exists(test_path):
+            return test_path if test_path else None
+    return test_path
+
+def string_in_keys(strings, kwargs):
+    return next((key for key in kwargs if any(s.lower() in key.lower() for s in strings)), None)
+
+def get_path(paths):
+    for path in paths:
+        if isinstance(path,str):
+            if os.path.isfile(path):
+                return path
+            dirname = os.path.dirname(path)
+            if os.path.exists(dirname):
+                return path
+    return None
+
+def check_read_write_params(*args, **kwargs):
+    file_path = kwargs.get('file_path', None)
+    contents = kwargs.get('contents', None)
+    if contents is None:
+        contents = kwargs.get('data', None)
+
+    # Handle positional arguments
+    if file_path is None and len(args) > 0:
+        file_path = args[0]
+    if contents is None and len(args) > 1:
+        contents = args[1]
+    elif contents is None and len(args) > 0 and file_path != args[0]:
+        contents = args[0]
+
+    if file_path is None or contents is None:
+        raise ValueError("Both 'file_path' and 'contents' (or 'data') are required.")
+
+    return file_path, contents
+
+def write_to_file(file_path=None, contents=None,*args,  **kwargs):
     """
     Write contents to a file. If the file does not exist, it is created.
 
@@ -107,37 +147,14 @@ def write_to_file(*args, file_path: str = None, contents: any = None, **kwargs):
     Returns:
         The contents that were written to the file.
     """
-    if kwargs:
-        if 'file_path' in kwargs.keys():
-            file_path = kwargs['file_path']
-    if not args:
-        if file_path is None or contents is None:
-            print("Missing file path or contents.")
-            return
-    elif len(args) > 1:
-        print("Too many arguments.")
-        return
-    else:
-        if file_path is None:
-            path, file = os.path.split(args[0])
-            _, ext = os.path.splitext(file)
-            if os.path.isdir(path) and ext:
-                file_path = args[0]
-            else:
-                contents = args[0]
-        elif contents is None:
-            contents = args[0]
-        else:
-            print("Redundant arguments.")
-            return
-
-    with open(file_path, 'w', encoding='UTF-8') as f:
-        f.write(contents)
-
-    return contents
+    params = check_read_write_params(file_path=file_path, contents=contents,*args,  **kwargs)
+    if params:
+        with open(params[0], 'w', encoding='UTF-8') as f:
+            f.write(params[1])
+        return contents
 
 
-def read_from_file(*args, file_path:str=None, **kwargs) -> str:
+def read_from_file(file_path) -> str:
     """
     Read the contents of a file.
     
@@ -147,57 +164,10 @@ def read_from_file(*args, file_path:str=None, **kwargs) -> str:
     Returns:
         The contents of the file.
     """
-    if kwargs:
-        if len(kwargs)>1:
-            print("Too many arguments.")
-            return
-        if 'file_path' in kwargs.keys():
-            file_path = kwargs['file_path']
-        elif file_path is None:
-            file_path = list(kwargs.values())[0]
-    if args:
-        if len(args)>1:
-            print("Too many arguments.")
-            return
-        if file_path is None:
-            file_path = args[0] 
-    if file_path is None:
-        path, file = os.path.split(args[0])
-        _, ext = os.path.splitext(file)
-        if os.path.isdir(path) and ext:
-            file_path = args[0]
-        else:
-            contents = args[0]
-    if not os.path.isfile(file_path):
-        print("invalid file path.")
-        return 
     with open(file_path, 'r', encoding='UTF-8') as f:
         return f.read()
-def determine_path_and_content(*args,**kwargs):
-    input([args,kwargs])
-    if kwargs:
-        if len(kwargs)>1:
-            print("Too many arguments.")
-            return
-        if 'file_path' in kwargs.keys():
-            file_path = kwargs['file_path']
-        elif file_path is None:
-            file_path = list(kwargs.values())[0]
-    if args:
-        if len(args)>1:
-            print("Too many arguments.")
-            return
-        if file_path is None:
-            file_path = args[0] 
-    if file_path is None:
-        path, file = os.path.split(args[0])
-        _, ext = os.path.splitext(file)
-        if os.path.isdir(path) and ext:
-            file_path = args[0]
-        else:
-            contents = args[0]
-    return file_path,contents
-def create_and_read_file(file_path: str, contents: str = '') -> str:
+
+def create_and_read_file(file_path=None, contents:str='',*args,  **kwargs) -> str:
     """
     Create a file if it does not exist, then read from it.
     
@@ -208,9 +178,8 @@ def create_and_read_file(file_path: str, contents: str = '') -> str:
     Returns:
         The contents of the file.
     """
-    # If the file does not exist, write the contents to it
     if not os.path.isfile(file_path):
-        write_to_file(file_path=file_path, contents=contents)
+        write_to_file(contents, file_path)
     return read_from_file(file_path)
 def is_file_extension(obj: str) -> bool:
     """
@@ -224,7 +193,7 @@ def is_file_extension(obj: str) -> bool:
     """
     return len(obj) >= 4 and '.' in obj[-4:-3]
 
-def delete_file(file_path:str):
+def delete_file(file_path: str):
     if os.path.isfile(file_path):
         os.remove(file_path)
 

@@ -1559,10 +1559,10 @@ def test_map_blocks():
     assert d.chunks == e.chunks
     assert_eq(e, x + 1)
 
-    e = d.map_blocks(inc, name="increment")
+    e = d.map_blocks(inc, token="increment")
     assert e.name.startswith("increment-")
 
-    assert d.map_blocks(inc, name="foo").name != d.map_blocks(dec, name="foo").name
+    assert d.map_blocks(inc, token="foo").name != d.map_blocks(dec, token="foo").name
 
     d = from_array(x, chunks=(10, 10))
     e = d.map_blocks(lambda x: x[::2, ::2], chunks=(5, 5), dtype=d.dtype)
@@ -3699,6 +3699,11 @@ def test_map_blocks_with_invalid_drop_axis():
             )
 
 
+def test_map_blocks_custom_name():
+    res = da.map_blocks(lambda _: np.arange(4), chunks=(4,), name="foo", dtype=np.int64)
+    assert res.name == "foo", res.name
+
+
 def test_map_blocks_with_changed_dimension_and_broadcast_chunks():
     # https://github.com/dask/dask/issues/4299
     a = da.from_array([1, 2, 3], 3)
@@ -3939,12 +3944,6 @@ def test_elemwise_name():
 
 def test_map_blocks_name():
     assert da.ones(5, chunks=2).map_blocks(inc).name.startswith("inc-")
-
-
-def test_map_blocks_token_deprecated():
-    with pytest.warns(FutureWarning, match="use `name=` instead"):
-        x = da.ones(5, chunks=2).map_blocks(inc, token="foo")
-    assert x.name.startswith("foo-")
 
 
 def test_from_array_names():
@@ -5356,6 +5355,25 @@ def test_dask_array_holds_scipy_sparse_containers(container):
     zz = z.compute(scheduler="single-threaded")
     assert isinstance(zz, kind)
     assert (zz == xx.T).all()
+
+
+@pytest.mark.filterwarnings("ignore:the matrix subclass:PendingDeprecationWarning")
+@pytest.mark.parametrize(
+    "container", [pytest.param("array", marks=skip_if_no_sparray()), "matrix"]
+)
+def test_dask_array_setitem_singleton_sparse(container):
+    pytest.importorskip("scipy.sparse")
+    import scipy.sparse
+
+    cls = scipy.sparse.csr_matrix if container == "matrix" else scipy.sparse.csr_array
+
+    x = cls(scipy.sparse.eye(100))
+    x_dask = da.from_array(x)
+    x[slice(10), slice(10)] = 0
+    x_dask[slice(10), slice(10)] = 0
+    np.testing.assert_almost_equal(
+        x_dask.compute(scheduler="single-threaded").toarray(), x.toarray()
+    )
 
 
 @pytest.mark.parametrize(

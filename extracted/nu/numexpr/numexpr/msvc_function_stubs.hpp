@@ -1,3 +1,5 @@
+#include <float.h>  // for _finite, _isnan on MSVC
+
 #ifndef NUMEXPR_MSVC_FUNCTION_STUBS_HPP
 #define NUMEXPR_MSVC_FUNCTION_STUBS_HPP
 
@@ -43,9 +45,17 @@
 /* The next are directly called from interp_body.cpp */
 #define powf(x, y)    ((float)pow((double)(x), (double)(y)))
 #define floorf(x)    ((float)floor((double)(x)))
+#endif // _MSC_VER < 1400
 
-#endif  // _MSC_VER < 1400
-
+/* Due to casting problems (normally return ints not bools, easiest to define
+non-overloaded wrappers for these functions) */
+// MSVC version: use global ::isfinite / ::isnan
+inline bool isfinitef_(float x) { return !!::_finite(x); }   // MSVC has _finite
+inline bool isnanf_(float x)    { return !!::_isnan(x); }    // MSVC has _isnan
+inline bool isfinited(double x) { return !!::_finite(x); }
+inline bool isnand(double x)    { return !!::_isnan(x); }
+inline bool isinfd(double x) { return !!::isinf(x); }
+inline bool isinff_(float x)    { return !!::isinf(x); }
 
 /* Now the actual stubs */
 
@@ -132,6 +142,20 @@ inline float fmodf2(float x, float y) {
 inline float atan2f2(float x, float y) {
     return atan2f(x, y);
 }
+
+// Boolean output functions
+inline bool isnanf2(float x) {
+    return isnanf_(x);
+}
+
+inline bool isfinitef2(float x) {
+    return isfinitef_(x);
+}
+
+inline bool isinff2(float x) {
+    return isinff_(x);
+}
+
 
 // Needed for allowing the internal casting in numexpr machinery for
 // conjugate operations

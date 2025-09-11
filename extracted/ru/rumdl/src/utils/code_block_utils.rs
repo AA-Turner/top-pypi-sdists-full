@@ -134,8 +134,54 @@ impl CodeBlockUtils {
                 let backtick_length = m.end() - m.start();
                 let start = m.start();
 
-                // Find matching closing backticks
-                if let Some(end_pos) = content[m.end()..].find(&"`".repeat(backtick_length)) {
+                // Check if this is a fence marker (3+ backticks at start of line)
+                if backtick_length >= 3 {
+                    // Check if it's at the start of a line
+                    let at_line_start = start == 0 || content.as_bytes()[start - 1] == b'\n';
+                    if at_line_start {
+                        // This is a fence, not an inline code span - skip it
+                        i = m.end();
+                        continue;
+                    }
+                }
+
+                // Check if these backticks are escaped (preceded by backslash)
+                // In Markdown, \` is an escaped backtick and should not start a code span
+                let is_escaped = start > 0 && content.as_bytes()[start - 1] == b'\\';
+
+                if is_escaped {
+                    // Skip escaped backticks
+                    i = m.end();
+                    continue;
+                }
+
+                // Find matching closing backticks (that are also not escaped)
+                let search_str = &content[m.end()..];
+                let backtick_pattern = "`".repeat(backtick_length);
+
+                // Look for unescaped closing backticks
+                let mut search_pos = 0;
+                let mut found_end = None;
+                while search_pos < search_str.len() {
+                    if let Some(pos) = search_str[search_pos..].find(&backtick_pattern) {
+                        let absolute_pos = m.end() + search_pos + pos;
+                        // Check if these closing backticks are escaped
+                        if absolute_pos > 0 && content.as_bytes()[absolute_pos - 1] == b'\\' {
+                            // These are escaped, keep searching
+                            // Advance past the escaped backticks, but at least by 1
+                            let advance = (pos + backtick_length).max(1);
+                            search_pos += advance;
+                        } else {
+                            // Found unescaped closing backticks
+                            found_end = Some(search_pos + pos);
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                if let Some(end_pos) = found_end {
                     let end = m.end() + end_pos + backtick_length;
                     blocks.push((start, end));
                     i = end;
@@ -265,14 +311,14 @@ mod tests {
 
     #[test]
     fn test_detect_fenced_code_blocks() {
-        // The function detects BOTH fenced blocks and inline code spans
-        // Fenced blocks with backticks also get picked up as inline spans due to the backticks
+        // The function detects fenced blocks and inline code spans
+        // Fence markers (``` at line start) are now skipped in inline span detection
 
         // Basic fenced code block with backticks
         let content = "Some text\n```\ncode here\n```\nMore text";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // Should find: 1 fenced block + 1 inline span (the ```)
-        assert_eq!(blocks.len(), 2);
+        // Should find: 1 fenced block (fences are no longer detected as inline spans)
+        assert_eq!(blocks.len(), 1);
 
         // Check that we have the fenced block
         let fenced_block = blocks
@@ -289,8 +335,8 @@ mod tests {
         // Multiple code blocks
         let content = "Text\n```\ncode1\n```\nMiddle\n~~~\ncode2\n~~~\nEnd";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // 2 fenced blocks + 1 inline span for the ```
-        assert_eq!(blocks.len(), 3);
+        // 2 fenced blocks (fence markers no longer detected as inline spans)
+        assert_eq!(blocks.len(), 2);
     }
 
     #[test]
@@ -298,8 +344,8 @@ mod tests {
         // Code block with language identifier
         let content = "Text\n```rust\nfn main() {}\n```\nMore";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // 1 fenced block + 1 inline span for ```
-        assert_eq!(blocks.len(), 2);
+        // 1 fenced block (fence markers no longer detected as inline spans)
+        assert_eq!(blocks.len(), 1);
         // Check we have the full fenced block
         let fenced = blocks.iter().find(|(s, e)| content[*s..*e].contains("fn main"));
         assert!(fenced.is_some());
@@ -436,8 +482,8 @@ mod tests {
     fn test_code_block_at_start() {
         let content = "```\ncode\n```\nText after";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // 1 fenced + 1 inline span
-        assert_eq!(blocks.len(), 2);
+        // 1 fenced block (fence markers no longer detected as inline spans)
+        assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].0, 0); // Fenced block starts at 0
     }
 
@@ -445,8 +491,8 @@ mod tests {
     fn test_code_block_at_end() {
         let content = "Text before\n```\ncode\n```";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // 1 fenced + 1 inline span
-        assert_eq!(blocks.len(), 2);
+        // 1 fenced block (fence markers no longer detected as inline spans)
+        assert_eq!(blocks.len(), 1);
         // Check we have the fenced block
         let fenced = blocks.iter().find(|(s, e)| content[*s..*e].contains("code"));
         assert!(fenced.is_some());
@@ -494,8 +540,8 @@ mod tests {
         // Fenced code blocks with complex info strings
         let content = "```rust,no_run,should_panic\ncode\n```";
         let blocks = CodeBlockUtils::detect_code_blocks(content);
-        // 1 fenced + 1 inline span
-        assert_eq!(blocks.len(), 2);
+        // 1 fenced block (fence markers no longer detected as inline spans)
+        assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].0, 0);
     }
 

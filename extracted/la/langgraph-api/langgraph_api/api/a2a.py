@@ -22,6 +22,7 @@ from starlette.responses import JSONResponse, Response
 from structlog import getLogger
 from typing_extensions import TypedDict
 
+from langgraph_api import __version__
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
 from langgraph_api.utils.cache import LRUCache
@@ -94,28 +95,6 @@ A2A_PROTOCOL_VERSION = "0.3.0"
 def _client() -> LangGraphClient:
     """Get a client for local operations."""
     return get_client(url=None)
-
-
-def _get_version() -> str:
-    """Get langgraph-api version."""
-    from langgraph_api import __version__
-
-    return __version__
-
-
-def _generate_task_id() -> str:
-    """Generate a unique task ID."""
-    return str(uuid.uuid4())
-
-
-def _generate_context_id() -> str:
-    """Generate a unique context ID."""
-    return str(uuid.uuid4())
-
-
-def _generate_timestamp() -> str:
-    """Generate ISO 8601 timestamp."""
-    return datetime.now(UTC).isoformat()
 
 
 async def _get_assistant(
@@ -469,14 +448,14 @@ def _create_task_response(
                         "text": f"Error executing assistant: {result['__error__']['error']}",
                     }
                 ],
-                "messageId": _generate_task_id(),
+                "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
                 "contextId": context_id,
                 "kind": "message",
             },
         }
     else:
-        artifact_id = _generate_task_id()
+        artifact_id = str(uuid.uuid4())
         artifacts = [
             {
                 "artifactId": artifact_id,
@@ -493,7 +472,7 @@ def _create_task_response(
 
         base_task["status"] = {
             "state": "completed",
-            "timestamp": _generate_timestamp(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         base_task["artifacts"] = artifacts
 
@@ -749,18 +728,17 @@ async def handle_message_send(
             }
 
         context_id = message.get("contextId")
-        thread_id = context_id if context_id else None
 
         try:
-            # Creating + joining separately so we can get the run id
             run = await client.runs.create(
-                thread_id=thread_id,
+                thread_id=context_id,
                 assistant_id=assistant_id,
                 input=input_content,
+                if_not_exists="create",
                 headers=request.headers,
             )
         except Exception as e:
-            error_response = _map_runs_create_error_to_rpc(e, assistant_id, thread_id)
+            error_response = _map_runs_create_error_to_rpc(e, assistant_id, context_id)
             if error_response.get("error", {}).get("code") == ERROR_CODE_INTERNAL_ERROR:
                 raise
             return error_response
@@ -772,7 +750,7 @@ async def handle_message_send(
         )
 
         task_id = run["run_id"]
-        context_id = thread_id or _generate_context_id()
+        context_id = run["thread_id"]
 
         return _create_task_response(
             task_id=task_id,
@@ -884,7 +862,7 @@ async def handle_tasks_get(
             task_response["status"]["message"] = {
                 "role": "agent",
                 "parts": [{"kind": "text", "text": "Task completed successfully"}],
-                "messageId": _generate_task_id(),
+                "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
         elif a2a_state == "failed":
@@ -893,7 +871,7 @@ async def handle_tasks_get(
                 "parts": [
                     {"kind": "text", "text": f"Task failed with status: {lg_status}"}
                 ],
-                "messageId": _generate_task_id(),
+                "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
 
@@ -1021,7 +999,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         "defaultInputModes": ["application/json", "text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],
         "skills": skills,
-        "version": _get_version(),
+        "version": __version__,
     }
 
 

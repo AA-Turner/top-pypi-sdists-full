@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 version.workspace = true
+readme = "README.md"
 
 [package.metadata.release]
 release = false
@@ -16,7 +17,7 @@ name = "moyopy"
 crate-type = ["cdylib"]
 
 [dependencies]
-moyo = { path = "../moyo", version = "0.4.4" }
+moyo = { path = "../moyo", version = "0.4.6" }
 nalgebra.workspace = true
 serde.workspace = true
 serde_json.workspace = true

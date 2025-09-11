@@ -16,6 +16,7 @@ def align(
         "ALIGN_S", "ALIGN_T", "ALIGN_U", "ALIGN_AUTO", "ALIGN_X", "ALIGN_Y"
     ]
     | None = "ALIGN_AUTO",
+    position_mode: typing.Literal["MEAN", "MIN", "MAX"] | None = "MEAN",
 ) -> None:
     """Aligns selected UV vertices on a line
 
@@ -41,6 +42,17 @@ def align(
     ALIGN_Y
     Align Horizontally -- Align UV vertices on a horizontal line.
         :type axis: typing.Literal['ALIGN_S','ALIGN_T','ALIGN_U','ALIGN_AUTO','ALIGN_X','ALIGN_Y'] | None
+        :param position_mode: Position Mode, Method of calculating the alignment position
+
+    MEAN
+    Mean -- Align UVs along the mean position.
+
+    MIN
+    Minimum -- Align UVs along the minimum position.
+
+    MAX
+    Maximum -- Align UVs along the maximum position.
+        :type position_mode: typing.Literal['MEAN','MIN','MAX'] | None
     """
 
 def align_rotation(
@@ -177,6 +189,24 @@ def copy(
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    """
+
+def copy_mirrored_faces(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["POSITIVE", "NEGATIVE"] | None = "POSITIVE",
+    precision: int | None = 3,
+) -> None:
+    """Copy mirror UV coordinates on the X axis based on a mirrored mesh
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param direction: Axis Direction
+    :type direction: typing.Literal['POSITIVE','NEGATIVE'] | None
+    :param precision: Precision, Tolerance for finding vertex duplicates
+    :type precision: int | None
     """
 
 def cube_project(

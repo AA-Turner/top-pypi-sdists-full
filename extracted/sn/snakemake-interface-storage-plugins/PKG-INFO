@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: snakemake-interface-storage-plugins
-Version: 4.2.2
+Version: 4.2.3
 Summary: This package provides a stable interface for interactions between Snakemake and its storage plugins.
 Author: Johannes Koester
 Author-email: johannes.koester@uni-due.de

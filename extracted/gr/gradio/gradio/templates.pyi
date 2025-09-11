@@ -539,6 +539,7 @@ class Microphone(components.Audio):
         waveform_options: WaveformOptions | dict | None = None,
         loop: bool = False,
         recording: bool = False,
+        subtitles: str | Path | None = None,
     ):
         sources = ["microphone"]
         super().__init__(
@@ -570,6 +571,7 @@ class Microphone(components.Audio):
             waveform_options=waveform_options,
             loop=loop,
             recording=recording,
+            subtitles=subtitles,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block

@@ -21,33 +21,35 @@ Author: putkoff
 Date: 05/31/2023
 Version: 0.1.2
 """
+
 import json
 import re
 import os
+import logging
+from .read_write_utils import check_read_write_params, read_from_file, write_to_file
+from .compare_utils import get_closest_match_from_list
+from .path_utils import makeAllDirs
+from .list_utils import make_list
 from typing import List, Union, Dict, Any
+from .class_utils import alias
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+def convert_and_normalize_values(values):
+    for value in values:
+        if isinstance(value, str):
+            yield value.lower()
+        elif isinstance(value, (int, float)):
+            yield value
+        else:
+            yield str(value).lower()
 def json_key_or_default(json_data,key,default_value):
     json_data = safe_json_loads(json_data)
     if not isinstance(json_data,dict) or (isinstance(json_data,dict) and key not in json_data):
         return default_value
     return json_data[key]
 
-def create_and_read_json(file_path: str, json_data: dict = None, error=False, error_msg=True) -> dict:
-    """
-    Create a JSON file if it does not exist, then read from it.
-    
-    Args:
-        file_path (str): The path of the file to create and read from.
-        json_data (dict): The content to write to the file if it does not exist.
-        
-    Returns:
-        dict: The contents of the JSON file.
-    """
-    if error_msg == True:
-        error_msg = f"{file_path} does not exist; creating file with default_data"
-    try_read = safe_read_from_json(file_path, default_value=None)
-    if try_read is None and json_data is not None:
-        safe_dump_to_file(file_path=file_path, data=json_data)
-    return safe_read_from_json(file_path=file_path)
+
 
 def is_valid_json(json_string: str) -> bool:
     """
@@ -66,59 +68,112 @@ def is_valid_json(json_string: str) -> bool:
         return False
 def get_error_msg(error_msg, default_error_msg):
     return error_msg if error_msg else default_error_msg
-
-def safe_dump_to_file(data, file_path, ensure_ascii=False, indent=4):
+def validate_file_path(file_path,is_read=False):
+    if file_path and isinstance(file_path,str):
+        if os.path.isfile(file_path) or os.path.isdir(file_path):
+            return file_path
+        if not is_read:
+            dirname = os.path.dirname(file_path)
+            if os.path.isdir(dirname):
+                return file_path
+def get_file_path(*args,is_read=False,**kwargs):
+    args = list(args)
+    for file_path in args:
+        if validate_file_path(file_path,is_read=is_read):
+            return file_path
+    for file_path in list(kwargs.values()):
+        if validate_file_path(file_path,is_read=is_read):
+            return file_path
+def write_file(data,file_path):
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(str(data))
+def write_json(data,file_path, ensure_ascii=False, indent=4):
+    with open(file_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=ensure_ascii, indent=indent)
+def safe_write_json(data,file_path, ensure_ascii=False, indent=4):
     if isinstance(data, (dict, list, tuple)):
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=ensure_ascii, indent=indent)
+        write_json(data,file_path, ensure_ascii=ensure_ascii, indent=indent)
     else:
-        with open(file_path, 'w', encoding='utf-8') as file:
-            file.write(str(data))
-
-def safe_write_to_json(file_path, data, ensure_ascii=False, indent=4, error=False, error_msg=None):
-    temp_file_path = f"{file_path}.temp"
-    var_data = {"file_path": temp_file_path, "instance": 'w'}
-    error_msg = get_error_msg(error_msg, f"Error writing JSON to '{file_path}'")
-    
-    open_it = all_try(var_data=var_data, function=open, error_msg=error_msg)
-    
-    if open_it:
-        with open_it as file:
-            safe_dump_to_file(data, file, ensure_ascii=ensure_ascii, indent=indent)
-    
-        os.replace(temp_file_path, file_path)
-
-def safe_read_from_json(file_path: str, default_value: Any = None, error: bool = False, error_msg: str = None) -> Any:
-    """
-    Safely read data from a JSON file. If the file reading or JSON decoding fails, returns the default value.
-
-    Args:
-        file_path (str): The path of the file to read.
-        default_value (Any): The value to return if reading or decoding fails. Default is None.
-        error (bool): Whether to raise an exception if an error occurs. Default is False.
-        error_msg (str): Custom error message to display if an error occurs.
-
-    Returns:
-        Any: The decoded JSON data or the default value if reading or decoding fails.
-    """
-    if not os.path.exists(file_path):
-        if error:
-            raise FileNotFoundError(f"File '{file_path}' not found.")
-        if error_msg:
-            print(error_msg)
-        return default_value
-
+        write_file(data,file_path)
+def read_json(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
-        file_content = file.read()
+        return json.load(file)
+def output_read_write_error(e,function_name,file_path,valid_file_path=None,data=None,is_read=False):
+    error_text = f"Error in {function_name};{e}\nFile path: {file_path} "
+  
+    if valid_file_path == None:
+        error_text+=f"\nValid File path: {valid_file_path} "
+    
+    if not is_read:
+        error_text+=f"\nData: {data} "
+    logger.error(error_text)
+def safe_dump_to_file(data, file_path=None, ensure_ascii=False, indent=4, *args, **kwargs):
+    is_read=False
+    file_args = [file_path,data]
+    valid_file_path = get_file_path(*file_args,*args,is_read=is_read,**kwargs)
+    
+    if valid_file_path:
+        file_path = valid_file_path
+        if file_path == file_args[-1]:
+            data = file_args[0]
+    if file_path is not None and data is not None:
+        try:
+            safe_write_json(data,file_path, ensure_ascii=ensure_ascii, indent=indent)
+        except Exception as e:
+            function_name='safe_dump_to_file'
+            output_read_write_error(e,function_name,file_path,valid_file_path,is_read=is_read)
+    else:
+        logger.error("file_path and data must be provided to safe_dump_to_file")
 
+def safe_read_from_json(*args,**kwargs):
+    is_read=True
+    file_path = args[0]
+    valid_file_path = get_file_path(*args,is_read=is_read,**kwargs)
+    if valid_file_path:
+        file_path = valid_file_path
     try:
-        return json.loads(file_content)
-    except json.JSONDecodeError as e:
-        if error:
-            raise e
-        if error_msg:
-            print(error_msg, f': {e}')
-        return default_value
+        return read_json(file_path)
+    except Exception as e:
+        function_name='safe_read_from_json'
+        output_read_write_error(e,function_name,file_path,valid_file_path,is_read=is_read)
+        return None
+
+def create_and_read_json(*args, **kwargs) -> dict:
+    """
+    Create a JSON file if it does not exist, then read from it.
+    
+    Args:
+        file_path (str): The path of the file to create and read from.
+        json_data (dict): The content to write to the file if it does not exist.
+        
+    Returns:
+        dict: The contents of the JSON file.
+    """
+    is_read=True
+    valid_file_path = get_file_path(*args,is_read=is_read,**kwargs)
+    if not valid_file_path:
+        safe_dump_to_file(*args, **kwargs)
+    return safe_read_from_json(*args, **kwargs)
+def read_from_json(*args, **kwargs):
+    return safe_read_from_json(*args, **kwargs)
+def safe_load_from_json(*args, **kwargs):
+    return safe_read_from_json(*args, **kwargs)
+def safe_load_from_file(*args, **kwargs):
+    return safe_read_from_json(*args, **kwargs)
+def safe_read_from_file(*args, **kwargs):
+    return safe_read_from_json(*args, **kwargs)
+def safe_json_reads(*args, **kwargs):
+    return safe_read_from_json(*args, **kwargs)
+
+def safe_dump_to_json(*args, **kwargs):
+    return safe_dump_to_file(*args, **kwargs)
+def safe_write_to_json(*args, **kwargs):
+    return safe_dump_to_file(*args, **kwargs)
+def safe_write_to_file(*args, **kwargs):
+    return safe_dump_to_file(*args, **kwargs)
+
+
+
 def find_keys(data, target_keys):
     def _find_keys_recursive(data, target_keys, values):
         if isinstance(data, dict):
@@ -133,19 +188,46 @@ def find_keys(data, target_keys):
     values = []
     _find_keys_recursive(data, target_keys, values)
     return values
-
+def get_logNone(e):
+    logger(f"{e}")
+    return None
 def try_json_loads(data):
     try:
-        return json.loads(data)
-    except json.JSONDecodeError:
-        return None
-    
+        data = json.loads(data)
+    except Exception as e:
+        data = None#get_logNone(e)
+    return data
 def try_json_load(file):
     try:
-        return json.load(file)
-    except json.JSONDecodeError:
-        return None
-
+        file = json.load(file)
+    except Exception as e:
+        file = get_logNone(e)
+    return file
+def try_json_dump(file):
+    try:
+        file = json.dump(file)
+    except Exception as e:
+        file = get_logNone(e)
+    return file
+def try_json_dumps(data):
+    try:
+        data = json.dumps(data)
+    except Exception as e:
+        data = get_logNone(e)
+    return data
+def safe_json_loads(data):
+    if not isinstance(data,dict):
+        data = try_json_loads(data) or data
+    return data
+def safe_json_load(file):
+    file = try_json_load(file) or file
+    return file
+def safe_json_dump(file):
+    file = try_json_dump(file) or file
+    return file
+def safe_json_dumps(data):
+    data = try_json_dumps(data) or data
+    return data
 def unified_json_loader(file_path, default_value=None, encoding='utf-8'):
     # Try to load from the file
     with open(file_path, 'r', encoding=encoding) as file:
@@ -229,7 +311,7 @@ def all_try(function=None, data=None, var_data=None, error=False, error_msg=None
 def all_try_json_loads(data, error=False, error_msg=None, error_value=(json.JSONDecodeError, TypeError)):
     return all_try(data=data, function=json.loads, error=error, error_msg=error_msg, error_value=error_value)
 
-def safe_json_loads(data, default_value=None, error=False, error_msg=None): 
+def safe_json_loadss(data, default_value=None, error=False, error_msg=None): 
     """ Safely attempts to load a JSON string. Returns the original data or a default value if parsing fails.
     Args:
         data (str): The JSON string to parse.
@@ -377,3 +459,259 @@ def format_json_key_values(json_data, indent=0):
 
     return formatted_string
 
+def find_matching_dicts(dict_objs:(dict or list)=None,keys:(str or list)=None,values:(str or list)=None):
+    values = make_list(values) if values is not None else []
+    dict_objs = make_list(dict_objs) if dict_objs is not None else [{}]
+    keys = make_list(keys) if keys is not None else []
+    bool_list_og = [False for i in range(len(keys))]
+    found_dicts = []
+    for dict_obj in dict_objs:
+        bool_list = bool_list_og
+        for i,key in enumerate(keys):
+            if key in list(dict_obj.keys()):
+                if dict_obj[key] == values[i]:
+                    bool_list[i]=True
+                    if False not in bool_list:
+                        found_dicts.append(dict_obj)
+    return found_dicts
+
+def closest_dictionary(dict_objs:dict=None,values:(str or list)=None):
+    values = make_list(values) if values is not None else []
+    dict_objs = make_list(dict_objs) if dict_objs is not None else [{}]
+    total_values = [value for dict_obj in dict_objs for value in dict_obj.values()]
+    matched_objs = [get_closest_match_from_list(value, total_values) for value in values]
+    bool_list_og = [False for i in range(len(matched_objs))]
+    for dict_obj in dict_objs:
+        bool_list = bool_list_og
+        for key, key_value in dict_obj.items():
+            for i,matched_obj in enumerate(matched_objs):
+                if key_value.lower() == matched_obj.lower():
+                    bool_list[i]=True
+                    if False not in bool_list:
+                        return dict_obj
+    return None
+
+def get_dict_from_string(string, file_path=None):
+    bracket_count = 0
+    start_index = None
+    for i, char in enumerate(string):
+        if char == '{':
+            bracket_count += 1
+            if start_index is None:
+                start_index = i
+        elif char == '}':
+            bracket_count -= 1
+            if bracket_count == 0 and start_index is not None:
+                json_data = safe_json_loads(string[start_index:i+1])
+                if file_path:
+                    safe_dump_to_file(file_path=makeAllDirs(file_path), data=json_data)
+                return json_data
+    return None
+                    
+def closest_dictionary(dict_objs=None, values=None):
+    values = make_list(values) if values is not None else []
+    dict_objs = make_list(dict_objs) if dict_objs is not None else [{}]
+    total_values = [value for dict_obj in dict_objs for value in dict_obj.values()]
+    matched_objs = [get_closest_match_from_list(value, total_values) for value in values]
+
+    for dict_obj in dict_objs:
+        # Using all() with a generator expression for efficiency
+        if all(match in convert_and_normalize_values(dict_obj.values()) for match in matched_objs):
+            return dict_obj
+    return None                  
+
+def get_all_keys(dict_data,keys=[]):
+  if isinstance(dict_data,dict):
+    for key,value in dict_data.items():
+      keys.append(key)
+      keys = get_all_keys(value,keys=keys)
+  return keys
+
+def update_dict_value(data, paths, new_value):
+    """
+    Traverses a dictionary to the specified key path and updates its value.
+    
+    Args:
+        data (dict): The dictionary to traverse.
+        paths (list): The list of keys leading to the target value.
+        new_value (any): The new value to assign to the specified key.
+
+    Returns:
+        dict: The updated dictionary.
+    """
+    d = data
+    for key in paths[:-1]:
+        # Traverse the dictionary up to the second-to-last key
+        d = d[key]
+    # Update the value at the final key
+    d[paths[-1]] = new_value
+    return data
+def get_all_key_values(keys=None,dict_obj=None):
+    keys = keys or []
+    dict_obj = dict_obj or {}
+    new_dict_obj = {}
+    for key in keys:
+        values = dict_obj.get(key)
+        if values:
+            new_dict_obj[key]=values
+    return new_dict_obj
+
+def get_all_values(keys=None,dict_obj=None):
+    keys = keys or []
+    dict_obj = dict_obj or {}
+    values=[]
+    for key in keys:
+        value = dict_obj.get(key)
+        if value:
+            values.append(value)
+    return values
+
+def safe_update_json_datas(
+    json_data: dict,
+    update_data: dict,
+    valid_keys: list[str] | None = None,
+    invalid_keys: list[str] | None = None
+) -> dict:
+    """
+    - If valid_keys is provided (non-empty), only update keys in that list.
+    - Else if invalid_keys is provided, update all keys except those in invalid_keys,
+      and delete any existing keys that are in invalid_keys.
+    - Else update every key.
+    In all cases, overwrite values unconditionally.
+    """
+    valid = set(make_list(valid_keys or []))
+    invalid = set(make_list(invalid_keys or []))
+
+    for key, value in update_data.items():
+        if valid:
+            if key in valid:
+                json_data[key] = value
+        elif invalid:
+            if key in invalid:
+                json_data.pop(key, None)
+            else:
+                json_data[key] = value
+        else:
+            json_data[key] = value
+
+    return json_data
+
+def get_json_file_path(file_path,data=None):
+    data = data or {}
+    if not os.path.isfile(file_path):
+        safe_dump_to_file(data={},file_path=file_path)
+    return file_path
+
+def get_json_file_data(file_path):
+    if os.path.isfile(file_path):
+        return safe_load_from_json(file_path)
+
+def get_create_json_data(file_path,data=None):
+    get_json_file_path(file_path,data=data)
+    return get_json_file_data(file_path)
+
+def get_json_data(file_path):
+    file_path = get_file_path(file_path)
+    data = safe_read_from_json(file_path)
+    return data
+
+def save_updated_json_data(data,file_path):
+    data = data or {}
+    new_data = get_json_data(file_path)
+    new_data.update(data)
+    safe_dump_to_file(new_data,file_path)
+    
+def safe_updated_json_data(
+    data,
+    file_path,
+    valid_keys=None,
+    invalid_keys=None
+):
+    update_data = data or {}
+    json_data = get_create_json_data(file_path, data={})
+    new_data = safe_update_json_datas(
+        json_data=json_data,
+        update_data=update_data,
+        valid_keys=valid_keys,
+        invalid_keys=invalid_keys   # ← now correct
+    )
+    return new_data
+def safe_save_updated_json_data(data,
+                            file_path,
+                            valid_keys=None,
+                            invalid_keys=None
+                            ):
+    new_data = safe_updated_json_data(data=data,
+                            file_path=file_path,
+                            valid_keys=valid_keys,
+                            invalid_keys=invalid_keys
+                            )    
+    safe_dump_to_file(new_data,file_path)
+    return new_data
+
+def get_result_from_data(key,func,**data):
+    result_data = func(**data)
+    result = result_data.get(key)
+    return result
+
+def dump_if_json(obj):
+    """Convert a dictionary to a JSON string if the object is a dictionary."""
+    if isinstance(obj, dict):
+        return json.dumps(obj)
+    return obj
+def get_desired_key_values(obj,keys=None,defaults=None):
+    defaults = defaults or {}
+    if keys == None:
+        return obj
+    new_dict={}
+    for key,value in defaults.items():
+       new_dict[key] = obj.get(key) or defaults.get(key)
+    if obj and isinstance(obj,dict):
+        for key in keys:
+            new_dict[key] = obj.get(key) or defaults.get(key)
+    return new_dict
+def makeParams(*arg,**kwargs):
+   arg=make_list(arg)
+   arg.append({k: v for k, v in kwargs.items() if v is not None})
+   return arg
+
+def get_only_kwargs(varList,*args,**kwargs):
+    new_kwargs={}
+    for i,arg in enumerate(args):
+        key_variable = varList[i]
+        kwargs[key_variable]=arg
+    for key,value in kwargs.items():
+        if key in varList:
+            new_kwargs[key] = value
+    return new_kwargs
+
+def flatten_json(data, parent_key='', sep='_'):
+    """
+    Flatten a JSON object into a single dictionary with keys indicating the nested structure.
+
+    Args:
+        data (dict): The JSON object to flatten.
+        parent_key (str): The base key to use for nested keys (used in recursive calls).
+        sep (str): The separator to use between keys.
+
+    Returns:
+        dict: The flattened JSON object.
+    """
+    items = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            new_key = f"{parent_key}{sep}{key}" if parent_key else key
+            if isinstance(value, dict):
+                items.extend(flatten_json(value, new_key, sep=sep).items())
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    items.extend(flatten_json(item, f"{new_key}{sep}{i}", sep=sep).items())
+            else:
+                items.append((new_key, value))
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            items.extend(flatten_json(item, f"{parent_key}{sep}{i}", sep=sep).items())
+    else:
+        items.append((parent_key, data))
+
+    return dict(items)

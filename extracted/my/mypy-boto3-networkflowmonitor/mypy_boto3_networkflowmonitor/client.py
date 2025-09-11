@@ -153,9 +153,8 @@ class NetworkFlowMonitorClient(BaseClient):
 
     def create_scope(self, **kwargs: Unpack[CreateScopeInputTypeDef]) -> CreateScopeOutputTypeDef:
         """
-        Create a scope of resources that you want to be available for Network Flow
-        Monitor to generate metrics for, when you have active agents on those resources
-        sending metrics reports to the Network Flow Monitor backend.
+        In Network Flow Monitor, you specify a scope for the service to generate
+        metrics for.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/create_scope.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/client/#create_scope)

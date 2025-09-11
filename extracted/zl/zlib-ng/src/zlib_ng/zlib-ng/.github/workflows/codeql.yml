@@ -1,5 +1,4 @@
 name: "CodeQL"
-
 on:
   push:
     branches: [ "develop" ]
@@ -7,7 +6,9 @@ on:
     branches: [ "develop" ]
   schedule:
     - cron: "27 17 * * 0"
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   analyze:
     name: Analyze
@@ -29,15 +30,15 @@ jobs:
           show-progress: 'false'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"

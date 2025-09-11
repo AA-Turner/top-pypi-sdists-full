@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyserde
-Version: 0.25.0
+Version: 0.25.1
 Summary: Yet another serialization library on top of dataclasses
 License: MIT
 Author: yukinarit

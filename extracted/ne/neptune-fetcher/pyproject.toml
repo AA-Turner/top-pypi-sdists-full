@@ -37,7 +37,7 @@ documentation = "https://docs.neptune.ai/fetcher_setup"
 license = "Apache License 2.0"
 name = "neptune-fetcher"
 readme = "README.md"
-version = "0.21.0"
+version = "0.22.0"
 classifiers = [
     "Development Status :: 7 - Inactive",
     "Environment :: Console",

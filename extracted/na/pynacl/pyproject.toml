@@ -1,15 +1,65 @@
 [build-system]
-# Must be kept in sync with `setup_requirements` in `setup.py`
+# Must be kept in sync with `dependencies` below
 requires = [
-    "setuptools>=40.8.0",
+    "setuptools>=61.0.0,!=74.0.0",
     "wheel",
-    "cffi>=1.4.1; python_implementation != 'PyPy'",
+    "cffi>=1.4.1; platform_python_implementation != 'PyPy' and python_version < '3.14'",
+    "cffi>=2.0.0; platform_python_implementation != 'PyPy' and python_version >= '3.14'",
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
+[project]
+dynamic = ["readme"]
+
+name = "PyNaCl"
+# Must be kept in sync with `src/nacl/__init__.py`
+version = "1.6.0"
+authors = [
+    {name = "The PyNaCl developers", email = "cryptography-dev@python.org"}
+]
+description = "Python binding to the Networking and Cryptography (NaCl) library"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "cffi>=1.4.1; platform_python_implementation != 'PyPy' and python_version < '3.14'",
+    "cffi>=2.0.0; platform_python_implementation != 'PyPy' and python_version >= '3.14'",
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest >=7.4.0",
+    "pytest-cov >=2.10.1",
+    "pytest-xdist >=3.5.0",
+    "hypothesis>=3.27.0",
+]
+docs = [
+    "sphinx<7",
+    "sphinx_rtd_theme"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pyca/pynacl"
+"Bug Tracker" = "https://github.com/pyca/pynacl/issues"
+"Documentation" = "https://pynacl.readthedocs.io"
+
+[tool.ruff]
 line-length = 79
-target-version = ["py36"]
+exclude = ["src/libsodium"]
+
 
 [tool.mypy]
 show_error_codes = true
@@ -79,3 +129,32 @@ disallow_any_decorated = false
 # It's not useful to annotate each test function as `-> None`.
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source = ["nacl", "tests/"]
+
+[tool.coverage.paths]
+source = [
+    "src/nacl",
+    "*.nox/*/lib*/python*/site-packages/nacl",
+    "*.nox/*/lib*/pypy*/site-packages/nacl",
+    "*.nox\\*\\Lib\\site-packages\\nacl",
+]
+tests = ["tests/", "*tests\\"]
+
+[tool.coverage.report]
+exclude_also = [
+    "@abc.abstractmethod",
+    "@typing.overload",
+    "if typing.TYPE_CHECKING",
+]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.pytest.ini_options]
+addopts = "-r s --capture=no"
+console_output_style = "progress-even-when-capture-no"
+

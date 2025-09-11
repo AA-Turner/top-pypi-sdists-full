@@ -67,7 +67,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
-    # Require MLFlow as a dependency of the plugin, so that plugin users can
+    # Require MLflow as a dependency of the plugin, so that plugin users can
     # simply install the plugin and then immediately use it with MLflow
     install_requires=["boto3>=1.34", "mlflow>=2.8"],
     extras_require={"test": test_requirements, "test_prerelease": test_prerelease_requirements},
@@ -79,7 +79,7 @@ setup(
         "mlflow.model_registry_store": "arn=sagemaker_mlflow.mlflow_sagemaker_registry_store:MlflowSageMakerRegistryStore"
     },
     version=read_version(),
-    description="AWS Plugin for MLFlow with SageMaker",
+    description="AWS Plugin for MLflow with SageMaker",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
 )

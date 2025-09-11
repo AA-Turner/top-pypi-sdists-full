@@ -14,11 +14,7 @@ def create_client_response(
     dto: type[DTO],
 ) -> DTO:
     response.raise_for_status()
-    response_body = response.json()
-    if isinstance(response_body, list):
-        return dto(root=response_body)
-    else:
-        return dto(**response_body)
+    return dto.model_validate(response.json())
 
 
 class EndpointsBase(str, Enum):

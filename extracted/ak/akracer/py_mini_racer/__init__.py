@@ -2,7 +2,7 @@ from . import py_mini_racer
 
 __author__ = 'Albert King'
 __email__ = 'albertandking@gmail.com'
-__version__ = '0.0.13'
+__version__ = '0.0.14'
 
 MiniRacer = py_mini_racer.MiniRacer
 

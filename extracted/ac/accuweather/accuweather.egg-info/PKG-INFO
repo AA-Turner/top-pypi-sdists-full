@@ -1,12 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: accuweather
-Version: 4.2.0
+Version: 4.2.1
 Summary: Python wrapper for getting weather data from AccuWeather API.
 Author: Maciej Bieniek
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/bieniu/accuweather
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -18,7 +17,21 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.4
-Requires-Dist: orjson
+Requires-Dist: orjson>=3.8.1
+Provides-Extra: test
+Requires-Dist: aioresponses==0.7.8; extra == "test"
+Requires-Dist: coverage==7.10.6; extra == "test"
+Requires-Dist: mypy==1.17.1; extra == "test"
+Requires-Dist: pytest-asyncio==1.1.0; extra == "test"
+Requires-Dist: pytest-cov==6.3.0; extra == "test"
+Requires-Dist: pytest-error-for-skips==2.0.2; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pytest==8.4.2; extra == "test"
+Requires-Dist: ruff==0.12.12; extra == "test"
+Requires-Dist: syrupy==4.9.1; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pre-commit==4.3.0; extra == "dev"
+Dynamic: license-file
 
 [![GitHub Release][releases-shield]][releases]
 [![PyPI][pypi-releases-shield]][pypi-releases]
@@ -34,7 +47,7 @@ Python wrapper for getting weather data from AccuWeather API.
 
 ## API key
 
-To generate API key go to https://developer.accuweather.com/user/register and after registration create an app.
+To generate API key go to https://developer.accuweather.com/subscriptions and after registration create an app.
 
 
 ## How to use package

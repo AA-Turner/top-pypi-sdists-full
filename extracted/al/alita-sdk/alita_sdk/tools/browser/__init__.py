@@ -12,6 +12,8 @@ from ..utils import get_max_toolkit_length, clean_string, TOOLKIT_SPLITTER
 from ...configurations.browser import BrowserConfiguration
 from logging import getLogger
 
+from ...configurations.pgvector import PgVectorConfiguration
+
 logger = getLogger(__name__)
 
 name = "browser"
@@ -21,6 +23,8 @@ def get_tools(tool):
     return BrowserToolkit().get_toolkit(
         selected_tools=tool['settings'].get('selected_tools', []),
         browser_configuration=tool['settings']['browser_configuration'],
+        pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
+        embedding_model=tool['settings'].get('embedding_model'),
         toolkit_name=tool.get('toolkit_name', '')
     ).get_tools()
 
@@ -51,8 +55,17 @@ class BrowserToolkit(BaseToolkit):
 
         return create_model(
             name,
-            __config__=ConfigDict(json_schema_extra={'metadata': {"label": "Browser", "icon_url": None, "categories": ["testing"], "extra_categories": ["web scraping", "search", "crawler"]}}),
-            browser_configuration=(BrowserConfiguration, Field(description="Browser Configuration", json_schema_extra={'configuration_types': ['browser']})),
+            __config__=ConfigDict(json_schema_extra={'metadata': {"label": "Browser", "icon_url": None,
+                                                                  "categories": ["testing"],
+                                                                  "extra_categories": [
+                                                                      "web scraping", "search", "crawler"
+                                                                  ]}}),
+            browser_configuration=(Optional[BrowserConfiguration],
+                                   Field(description="Browser Configuration (required for tools and `google`)",
+                                         default=None, json_schema_extra={'configuration_types': ['browser']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration],
+                                    Field(description="PgVector configuration (required for tools `multi_url_crawler`)",
+                                          default=None, json_schema_extra={'configuration_types': ['pgvector']})),
             selected_tools=(List[Literal[tuple(selected_tools)]],
                             Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __validators__={
@@ -65,9 +78,15 @@ class BrowserToolkit(BaseToolkit):
         if selected_tools is None:
             selected_tools = []
 
-        wrapper_payload = {
+        wrapper_payload_google = {
             **kwargs,
             **kwargs.get('browser_configuration', {}),
+            **kwargs.get('pgvector_configuration', {}),
+        }
+
+        wrapper_payload_rag_based = {
+            **kwargs,
+            **kwargs.get('pgvector_configuration', {}),
         }
 
         tools = []
@@ -85,7 +104,7 @@ class BrowserToolkit(BaseToolkit):
             if tool == 'single_url_crawler':
                 tool_entry = SingleURLCrawler()
             elif tool == 'multi_url_crawler':
-                tool_entry = MultiURLCrawler()
+                tool_entry = MultiURLCrawler(**wrapper_payload_rag_based)
             elif tool == 'get_html_content':
                 tool_entry = GetHTMLContent()
             elif tool == 'get_pdf_content':
@@ -93,7 +112,8 @@ class BrowserToolkit(BaseToolkit):
             elif tool == 'google':
                 try:
                     google_api_wrapper = GoogleSearchAPIWrapper(
-                        **wrapper_payload
+                        google_api_key=wrapper_payload_google.get('google_api_key'),
+                        google_cse_id=wrapper_payload_google.get('google_cse_id')
                     )
                     tool_entry = GoogleSearchResults(api_wrapper=google_api_wrapper)
                     # rename the tool to avoid conflicts

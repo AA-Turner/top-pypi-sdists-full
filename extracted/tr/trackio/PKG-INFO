@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trackio
-Version: 0.3.3
+Version: 0.3.4
 Summary: A lightweight, local-first, and free experiment tracking library built on top of Hugging Face Datasets and Spaces.
 Project-URL: homepage, https://github.com/gradio-app/trackio
 Project-URL: repository, https://github.com/gradio-app/trackio

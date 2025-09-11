@@ -35,31 +35,31 @@ class GeminiTargetDetails(object):
     """
     openapi_types = {
         'api_key': 'str',
-        'base_url': 'str',
+        'gemini_url': 'str',
         'model': 'str'
     }
 
     attribute_map = {
         'api_key': 'api_key',
-        'base_url': 'base_url',
+        'gemini_url': 'gemini_url',
         'model': 'model'
     }
 
-    def __init__(self, api_key=None, base_url=None, model=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, api_key=None, gemini_url=None, model=None, local_vars_configuration=None):  # noqa: E501
         """GeminiTargetDetails - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._api_key = None
-        self._base_url = None
+        self._gemini_url = None
         self._model = None
         self.discriminator = None
 
         if api_key is not None:
             self.api_key = api_key
-        if base_url is not None:
-            self.base_url = base_url
+        if gemini_url is not None:
+            self.gemini_url = gemini_url
         if model is not None:
             self.model = model
 
@@ -85,25 +85,25 @@ class GeminiTargetDetails(object):
         self._api_key = api_key
 
     @property
-    def base_url(self):
-        """Gets the base_url of this GeminiTargetDetails.  # noqa: E501
+    def gemini_url(self):
+        """Gets the gemini_url of this GeminiTargetDetails.  # noqa: E501
 
 
-        :return: The base_url of this GeminiTargetDetails.  # noqa: E501
+        :return: The gemini_url of this GeminiTargetDetails.  # noqa: E501
         :rtype: str
         """
-        return self._base_url
+        return self._gemini_url
 
-    @base_url.setter
-    def base_url(self, base_url):
-        """Sets the base_url of this GeminiTargetDetails.
+    @gemini_url.setter
+    def gemini_url(self, gemini_url):
+        """Sets the gemini_url of this GeminiTargetDetails.
 
 
-        :param base_url: The base_url of this GeminiTargetDetails.  # noqa: E501
+        :param gemini_url: The gemini_url of this GeminiTargetDetails.  # noqa: E501
         :type: str
         """
 
-        self._base_url = base_url
+        self._gemini_url = gemini_url
 
     @property
     def model(self):

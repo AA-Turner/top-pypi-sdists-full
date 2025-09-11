@@ -137,13 +137,9 @@ def filter_json_list_values(json_list:list,keys:list)->None:
                     unique_values.append(json_obj[key])
         all_keys[key]= unique_values
     return all_keys
-def get_highest_value_obj(obj_list:list,function):
-    highest=[obj_list[0],function(obj_list[0])]
-    for obj in obj_list[1:]:
-        comp = [obj,function(obj)]
-        if comp[1] > highest[1]:
-            highest=comp
-    return highest[0]
+def get_highest_value_obj(obj_list, function):
+    return max(obj_list, key=function)
+
 def safe_list_return(current_list,list_num=0):
     if len(current_list) >= list_num+1:
         return current_list[int(list_num)]
@@ -162,3 +158,42 @@ def compare_lists(list_1,list_2):
         if each not in list_2:
             return False
     return True
+def remove_from_list(list_obj, key, value):
+    return [obj for obj in list_obj if not (isinstance(obj, dict) and obj.get(key) == value)]
+
+def list_set(obj):
+    try:
+        obj = list(set(obj))
+    except Exception as e:
+        print(f"{e}")
+    return obj
+
+def get_symetric_difference(obj_1,obj_2):
+    set1 = set(obj_1)
+    set2 = set(obj_2)
+    # Find elements that are unique to each list
+    unique_elements = set1.symmetric_difference(set2)
+    # Convert the set back to a list, if needed
+    return list(unique_elements)
+def make_list(obj:any) -> list:
+    """
+    Converts the input object to a list. If the object is already a list, it is returned as is.
+    
+    Args:
+        obj: The object to convert.
+        
+    Returns:
+        list: The object as a list.
+    """
+    if isinstance(obj,str):
+        if ',' in obj:
+            obj = obj.split(',')
+    if isinstance(obj,set) or isinstance(obj,tuple):
+        return list(obj)
+    if isinstance(obj, list):
+        return obj
+    return [obj]
+
+def make_list_it(obj=None):
+    obj = make_list(obj or [])
+    return obj

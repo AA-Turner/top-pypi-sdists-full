@@ -51,5 +51,8 @@ insta = { workspace = true }
 [target.'cfg(target_vendor = "apple")'.dependencies]
 libc = { workspace = true }
 
+[features]
+test-uv = []
+
 [lints]
 workspace = true

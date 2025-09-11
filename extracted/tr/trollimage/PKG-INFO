@@ -1,26 +1,44 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: trollimage
-Version: 1.26.0
+Version: 1.27.0
 Summary: Pytroll imaging library
 Home-page: https://github.com/pytroll/trollimage
 Author: Martin Raspaud
 Author-email: martin.raspaud@smhi.se
+License: GPL-3.0-or-later
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
+Requires-Python: >=3.11
 License-File: LICENSE.txt
 License-File: LICENSE_RIO_COLOR.txt
-Requires-Dist: numpy>=1.20
+Requires-Dist: numpy>=1.25
 Requires-Dist: pillow
 Provides-Extra: geotiff
 Requires-Dist: rasterio>=1.0; extra == "geotiff"
 Provides-Extra: xarray
 Requires-Dist: xarray; extra == "xarray"
 Requires-Dist: dask[array]; extra == "xarray"
+Provides-Extra: tests
+Requires-Dist: xarray; extra == "tests"
+Requires-Dist: dask[array]; extra == "tests"
+Requires-Dist: pyproj; extra == "tests"
+Requires-Dist: pyresample; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Trollimage
 ==========

@@ -16,19 +16,13 @@ from dbt_semantic_interfaces.implementations.base import (
 from dbt_semantic_interfaces.implementations.element_config import (
     PydanticSemanticLayerElementConfig,
 )
-from dbt_semantic_interfaces.implementations.elements.measure import (
-    PydanticMeasureAggregationParameters,
-    PydanticNonAdditiveDimensionParameters,
-)
 from dbt_semantic_interfaces.implementations.filters.where_filter import (
     PydanticWhereFilterIntersection,
 )
 from dbt_semantic_interfaces.implementations.metadata import PydanticMetadata
 from dbt_semantic_interfaces.protocols import Metric, ProtocolHint
-from dbt_semantic_interfaces.protocols.metric import ConversionTypeParams
 from dbt_semantic_interfaces.references import MeasureReference, MetricReference
 from dbt_semantic_interfaces.type_enums import (
-    AggregationType,
     ConversionCalculationType,
     MetricType,
     PeriodAggregation,
@@ -158,10 +152,8 @@ class PydanticMetricInput(HashableBaseModel):
 class PydanticConversionTypeParams(HashableBaseModel):
     """Type params to provide context for conversion metrics properties."""
 
-    base_measure: Optional[PydanticMetricInputMeasure]
-    base_metric: Optional[PydanticMetricInput]
-    conversion_measure: Optional[PydanticMetricInputMeasure]
-    conversion_metric: Optional[PydanticMetricInput]
+    base_measure: PydanticMetricInputMeasure
+    conversion_measure: PydanticMetricInputMeasure
     entity: str
     calculation: ConversionCalculationType = ConversionCalculationType.CONVERSION_RATE
     window: Optional[PydanticMetricTimeWindow]
@@ -174,21 +166,6 @@ class PydanticCumulativeTypeParams(HashableBaseModel):
     window: Optional[PydanticMetricTimeWindow]
     grain_to_date: Optional[str]
     period_agg: PeriodAggregation = PeriodAggregation.FIRST
-    metric: Optional[PydanticMetricInput]
-
-
-class PydanticMetricAggregationParams(HashableBaseModel):
-    """Type params to provide context for metrics that are used as source nodes."""
-
-    semantic_model: str
-
-    # TODO SL-4116: make sure we recreate/reuse all the validations for measures
-    # for these fields, too.
-    agg: AggregationType
-    agg_params: Optional[PydanticMeasureAggregationParameters]
-    agg_time_dimension: Optional[str]
-    non_additive_dimension: Optional[PydanticNonAdditiveDimensionParameters]
-    expr: Optional[str]
 
 
 class PydanticMetricTypeParams(HashableBaseModel):
@@ -202,26 +179,11 @@ class PydanticMetricTypeParams(HashableBaseModel):
     window: Optional[PydanticMetricTimeWindow]
     # Legacy, will not support custom granularity
     grain_to_date: Optional[TimeGranularity]
-    # Only used for derived metrics so far
     metrics: Optional[List[PydanticMetricInput]]
     conversion_type_params: Optional[PydanticConversionTypeParams]
     cumulative_type_params: Optional[PydanticCumulativeTypeParams]
 
     input_measures: List[PydanticMetricInputMeasure] = Field(default_factory=list)
-
-    # TODO SL-4116: Validate that we accept measure-only config fields here IFF
-    # this is a simple metric and does not have a measure argument.
-    # This field is required and allowed IFF this metric is a simple metric
-    # that does not have any measure arguments.
-    metric_aggregation_params: Optional[PydanticMetricAggregationParams]
-
-    # These fields are allowed for simple metrics only.
-    # Previously, these lived in the "PydanticMetricInput",
-    # which was only everattached to a consumer metric.  Now, they are attached to the
-    # producing metric, which may require more total metrics to be created.
-    # TODO: SL-4116: Add validation that these are only on simple metrics.
-    join_to_timespine: bool = False
-    fill_nulls_with: Optional[int] = None
 
 
 class PydanticMetric(HashableBaseModel, ModelWithMetadataParsing, ProtocolHint[Metric]):
@@ -252,7 +214,7 @@ class PydanticMetric(HashableBaseModel, ModelWithMetadataParsing, ProtocolHint[M
         if isinstance(grain_to_date, str):
             data["type_params"]["cumulative_type_params"]["grain_to_date"] = grain_to_date.lower()
 
-        # Ensure offset_to_grain is lowercased (only used in derived metrics)
+        # Ensure offset_to_grain is lowercased
         input_metrics = type_params.get("metrics", [])
         if input_metrics:
             for input_metric in input_metrics:
@@ -285,14 +247,6 @@ class PydanticMetric(HashableBaseModel, ModelWithMetadataParsing, ProtocolHint[M
                 self.type_params.numerator is not None and self.type_params.denominator is not None
             ), f"{self} is metric type {MetricType.RATIO}, so neither the numerator and denominator should not be None"
             return (self.type_params.numerator, self.type_params.denominator)
-        elif self.type is MetricType.CONVERSION:
-            conversion_type_params = PydanticMetric.get_checked_conversion_type_params(metric=self)
-            metrics: Set[PydanticMetricInput] = set()
-            if conversion_type_params.base_metric is not None:
-                metrics.add(conversion_type_params.base_metric)
-            if conversion_type_params.conversion_metric is not None:
-                metrics.add(conversion_type_params.conversion_metric)
-            return list(metrics)
         else:
             assert_values_exhausted(self.type)
 
@@ -315,20 +269,11 @@ class PydanticMetric(HashableBaseModel, ModelWithMetadataParsing, ProtocolHint[M
                     PydanticMetric.all_input_measures_for_metric(metric=nested_metric, metric_index=metric_index)
                 )
         elif metric.type is MetricType.CONVERSION:
-            conversion_type_params = PydanticMetric.get_checked_conversion_type_params(metric=metric)
-            if conversion_type_params.base_measure is not None:
-                measures.add(conversion_type_params.base_measure.measure_reference)
-            if conversion_type_params.conversion_measure is not None:
-                measures.add(conversion_type_params.conversion_measure.measure_reference)
+            conversion_type_params = metric.type_params.conversion_type_params
+            assert conversion_type_params, "Conversion metric should have conversion_type_params."
+            measures.add(conversion_type_params.base_measure.measure_reference)
+            measures.add(conversion_type_params.conversion_measure.measure_reference)
         else:
             assert_values_exhausted(metric.type)
 
         return measures
-
-    @staticmethod
-    def get_checked_conversion_type_params(metric: Metric) -> ConversionTypeParams:
-        """Returns the conversion type params for a metric, checking that they are valid."""
-        assert metric.type is MetricType.CONVERSION, "Only conversion metrics can have conversion type params."
-        conversion_type_params = metric.type_params.conversion_type_params
-        assert conversion_type_params, f"Conversion metric '{metric.name}' must have conversion_type_params."
-        return conversion_type_params

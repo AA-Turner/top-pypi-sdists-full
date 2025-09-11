@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PySwitchbot
-Version: 0.69.0
+Version: 0.70.0
 Summary: A library to communicate with Switchbot
 Home-page: https://github.com/sblibs/pySwitchbot/
 Author: Daniel Hjelseth Hoyer

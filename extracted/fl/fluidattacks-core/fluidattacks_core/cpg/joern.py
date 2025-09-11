@@ -52,6 +52,7 @@ class Language(Enum):
             SiftsLanguage.JavaScript: cls.JavaScript,
             SiftsLanguage.LLVM: cls.LLVM,
             SiftsLanguage.NewC: cls.NewC,
+            SiftsLanguage.TypeScript: cls.JavaScript,
         }
         if language in dict_language:
             return dict_language[language]

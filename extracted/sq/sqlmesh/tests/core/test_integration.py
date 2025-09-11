@@ -1347,6 +1347,46 @@ def test_indirect_non_breaking_change_after_forward_only_in_dev(init_and_plan_co
     )
 
 
+@time_machine.travel("2023-01-08 15:00:00 UTC")
+def test_changes_downstream_of_indirect_non_breaking_snapshot_without_intervals(
+    init_and_plan_context: t.Callable,
+):
+    context, plan = init_and_plan_context("examples/sushi")
+    context.apply(plan)
+
+    # Make a breaking change first but don't backfill it
+    model = context.get_model("sushi.orders")
+    model = model.copy(update={"stamp": "force new version"})
+    context.upsert_model(model)
+    plan_builder = context.plan_builder(
+        "dev", skip_backfill=True, skip_tests=True, no_auto_categorization=True
+    )
+    plan_builder.set_choice(context.get_snapshot(model), SnapshotChangeCategory.BREAKING)
+    context.apply(plan_builder.build())
+
+    # Now make a non-breaking change to the same snapshot.
+    model = model.copy(update={"stamp": "force another new version"})
+    context.upsert_model(model)
+    plan_builder = context.plan_builder(
+        "dev", skip_backfill=True, skip_tests=True, no_auto_categorization=True
+    )
+    plan_builder.set_choice(context.get_snapshot(model), SnapshotChangeCategory.NON_BREAKING)
+    context.apply(plan_builder.build())
+
+    # Now make a change to a model downstream of the above model.
+    downstream_model = context.get_model("sushi.top_waiters")
+    downstream_model = downstream_model.copy(update={"stamp": "yet another new version"})
+    context.upsert_model(downstream_model)
+    plan = context.plan_builder("dev", skip_tests=True).build()
+
+    # If the parent is not representative then the child cannot be deployable
+    deployability_index = plan.deployability_index
+    assert not deployability_index.is_representative(
+        context.get_snapshot("sushi.waiter_revenue_by_day")
+    )
+    assert not deployability_index.is_deployable(context.get_snapshot("sushi.top_waiters"))
+
+
 @time_machine.travel("2023-01-08 15:00:00 UTC", tick=True)
 def test_metadata_change_after_forward_only_results_in_migration(init_and_plan_context: t.Callable):
     context, plan = init_and_plan_context("examples/sushi")
@@ -1670,6 +1710,83 @@ def test_plan_ignore_cron(
         ]
         == "2023-01-08 14:59:59.999999"
     )
+
+
+@time_machine.travel("2023-01-08 15:00:00 UTC")
+def test_run_respects_excluded_transitive_dependencies(init_and_plan_context: t.Callable):
+    context, _ = init_and_plan_context("examples/sushi")
+
+    # Graph: C <- B <- A
+    # B is a transitive dependency linking A and C
+    # Note that the alphabetical ordering of the model names is intentional and helps
+    # surface the problem
+    expressions_a = d.parse(
+        f"""
+        MODEL (
+            name memory.sushi.test_model_c,
+            kind FULL,
+            allow_partials true,
+            cron '@hourly',
+        );
+
+        SELECT @execution_ts AS execution_ts
+        """
+    )
+    model_c = load_sql_based_model(expressions_a)
+    context.upsert_model(model_c)
+
+    # A VIEW model with no partials allowed and a daily cron instead of hourly.
+    expressions_b = d.parse(
+        f"""
+        MODEL (
+            name memory.sushi.test_model_b,
+            kind VIEW,
+            allow_partials false,
+            cron '@daily',
+        );
+
+        SELECT * FROM memory.sushi.test_model_c
+        """
+    )
+    model_b = load_sql_based_model(expressions_b)
+    context.upsert_model(model_b)
+
+    expressions_a = d.parse(
+        f"""
+        MODEL (
+            name memory.sushi.test_model_a,
+            kind FULL,
+            allow_partials true,
+            cron '@hourly',
+        );
+
+        SELECT * FROM memory.sushi.test_model_b
+        """
+    )
+    model_a = load_sql_based_model(expressions_a)
+    context.upsert_model(model_a)
+
+    context.plan("prod", skip_tests=True, auto_apply=True, no_prompts=True)
+    assert (
+        context.fetchdf("SELECT execution_ts FROM memory.sushi.test_model_c")["execution_ts"].iloc[
+            0
+        ]
+        == "2023-01-08 15:00:00"
+    )
+
+    with time_machine.travel("2023-01-08 17:00:00 UTC", tick=False):
+        context.run(
+            "prod",
+            select_models=["*test_model_c", "*test_model_a"],
+            no_auto_upstream=True,
+            ignore_cron=True,
+        )
+        assert (
+            context.fetchdf("SELECT execution_ts FROM memory.sushi.test_model_a")[
+                "execution_ts"
+            ].iloc[0]
+            == "2023-01-08 17:00:00"
+        )
 
 
 @time_machine.travel("2023-01-08 15:00:00 UTC")

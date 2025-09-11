@@ -920,12 +920,12 @@ class EntryExtras:
     def __neg__(self):
         return -self.Price
 
-def std_colorize(m,n,c,start='',end=''):
-    #start=f"[DB]{Back.grey_11}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Back.grey_11)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.grey_11}{Fore.light_red}{'-'*(os.get_terminal_size().columns-(len(Fore.light_red)+(len(Back.grey_11)*2)+len(Style.reset)))} Stop {Style.reset}"):
+def std_colorize(m,n,c,start=f'',end=''):
+    #start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
         if ((n % 2) != 0) and n > 0:
-            msg=f'{start}{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m}{Style.reset}{end}'
+            msg=f'{start}{Fore.cyan}i{n}/{Fore.light_yellow}L{n+1}{Fore.light_red} of {c}T {Fore.dark_goldenrod}{m}{Style.reset}{end}'
         else:
-            msg=f'{start}{Fore.light_cyan}{n}/{Fore.green_yellow}{n+1}{Fore.orange_red_1} of {c} {Fore.light_salmon_1}{m}{Style.reset}{end}'
+            msg=f'{start}{Fore.light_cyan}i{n}/{Fore.green_yellow}L{n+1}{Fore.orange_red_1} of {c}T {Fore.light_salmon_1}{m}{Style.reset}{end}'
         return msg
 
 class Template:
@@ -4446,6 +4446,40 @@ class ClipBoordEditor:
                 print(e,"ClipBoordEditor class")
                 return
 
+def detectGetOrSet(name,value,setValue=False,literal=False):
+        value=str(value)
+        with Session(ENGINE) as session:
+            q=session.query(SystemPreference).filter(SystemPreference.name==name).first()
+            ivalue=None
+            if q:
+                try:
+                    if setValue:
+                        if not literal:
+                            q.value_4_Json2DictString=json.dumps({name:eval(value)})
+                        else:
+                            q.value_4_Json2DictString=json.dumps({name:value})
+                        session.commit()
+                        session.refresh(q)
+                    ivalue=json.loads(q.value_4_Json2DictString)[name]
+                except Exception as e:
+                    if not literal:
+                        q.value_4_Json2DictString=json.dumps({name:eval(value)})
+                    else:
+                        q.value_4_Json2DictString=json.dumps({name:value})
+                    session.commit()
+                    session.refresh(q)
+                    ivalue=json.loads(q.value_4_Json2DictString)[name]
+            else:
+                if not literal:
+                    q=SystemPreference(name=name,value_4_Json2DictString=json.dumps({name:eval(value)}))
+                else:
+                    q=SystemPreference(name=name,value_4_Json2DictString=json.dumps({name:value}))
+                session.add(q)
+                session.commit()
+                session.refresh(q)
+                ivalue=json.loads(q.value_4_Json2DictString)[name]
+            return ivalue
+
 class DateMetrics(BASE,Template):
     __tablename__="DateMetrics"
     dmid=Column(Integer,primary_key=True)
@@ -4503,44 +4537,17 @@ class DateMetrics(BASE,Template):
     def __init__(self,**kwargs):
         print("gathering DateMetrics with events and weather, this happens on EVERY BOOT, 1 Million Calls Per Month, Must have API Key in ./api_key")
         kwargs['__tablename__']=self.__tablename__
-        self.location='5 Crossroads Blvd, Carmel-By-The-Sea, CA 93923'
+        self.location='3844 Stream Dr, Gloucester, VA 23061'
+        tmp=self.location
+        self.location=detectGetOrSet("WeatherCollectLocation",self.location,setValue=False,literal=True)
+        if self.location is None:
+            self.location=tmp
+
         self.init(**kwargs,)
         if kwargs.get("dmid") == None:
             self.setDateDefaults()
             self.setWeatherDefaults()
-def detectGetOrSet(name,value,setValue=False,literal=False):
-        value=str(value)
-        with Session(ENGINE) as session:
-            q=session.query(SystemPreference).filter(SystemPreference.name==name).first()
-            ivalue=None
-            if q:
-                try:
-                    if setValue:
-                        if not literal:
-                            q.value_4_Json2DictString=json.dumps({name:eval(value)})
-                        else:
-                            q.value_4_Json2DictString=json.dumps({name:value})
-                        session.commit()
-                        session.refresh(q)
-                    ivalue=json.loads(q.value_4_Json2DictString)[name]
-                except Exception as e:
-                    if not literal:
-                        q.value_4_Json2DictString=json.dumps({name:eval(value)})
-                    else:
-                        q.value_4_Json2DictString=json.dumps({name:value})
-                    session.commit()
-                    session.refresh(q)
-                    ivalue=json.loads(q.value_4_Json2DictString)[name]
-            else:
-                if not literal:
-                    q=SystemPreference(name=name,value_4_Json2DictString=json.dumps({name:eval(value)}))
-                else:
-                    q=SystemPreference(name=name,value_4_Json2DictString=json.dumps({name:value}))
-                session.add(q)
-                session.commit()
-                session.refresh(q)
-                ivalue=json.loads(q.value_4_Json2DictString)[name]
-            return ivalue
+
 apikey=""
 dm_api_key=detectGetOrSet("dm_api_key",apikey,setValue=False,literal=True)
 with open("./api_key","w") as f:

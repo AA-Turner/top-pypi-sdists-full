@@ -2,13 +2,13 @@
 
 import asyncio
 import atexit
-import json
 from datetime import UTC, datetime
 from enum import Enum
 from functools import partial
 from typing import TypedDict, Unpack
 
 import aiohttp
+import simplejson
 from aiolimiter import AsyncLimiter
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -70,7 +70,7 @@ class TracksClient:
                     limit=self._config["concurrency_limit"],
                 ),
                 headers={"Accept-Encoding": "gzip"},
-                json_serialize=partial(json.dumps, default=_serialize),  # type: ignore[misc]
+                json_serialize=partial(simplejson.dumps, default=_serialize),  # type: ignore[misc]
             )
         return self._session
 

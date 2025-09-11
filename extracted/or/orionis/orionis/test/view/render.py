@@ -10,32 +10,52 @@ class TestingResultRender(ITestingResultRender):
     def __init__(
         self,
         result,
-        storage_path: str,
+        storage_path: str | Path,
+        filename: str = 'orionis-test-results.html',
         persist: bool = False
     ) -> None:
         """
-        Initializes the TestingResultRender instance.
+        Initializes a TestingResultRender instance for rendering test results into an HTML report.
 
         Parameters
         ----------
-        result : Any
-            The test result data to be rendered in the report.
-        storage_path : str
+        result : dict or list
+            The test result data to be rendered in the report. Must be a dictionary or a list.
+        storage_path : str or Path
             Directory path where the HTML report will be saved. The directory is created if it does not exist.
+        filename : str, optional
+            The name of the HTML report file (default is 'orionis-test-results.html').
         persist : bool, optional
             If True, enables persistent storage for test reports (default is False).
 
         Returns
         -------
         None
+            This method does not return any value.
         """
-        self.__filename = 'orionis-test-results.html'
+
+        # Validate filename input
+        if not isinstance(filename, str) or not filename.strip():
+            raise ValueError('Filename must be a non-empty string.')
+        self.__filename = filename
+
+        # Validate result input
+        if not isinstance(result, (dict, list)):
+            raise ValueError('Result must be a dictionary or a list.')
         self.__result = result
-        self.__persist = persist
+
+        # Validate storage_path input
+        if not isinstance(storage_path, (str, Path)):
+            raise ValueError('Storage path must be a string or a Path object.')
         self.__storage_path = storage_path
 
+        # Validate persist input
+        if not isinstance(persist, bool):
+            raise ValueError('Persist must be a boolean value.')
+        self.__persist = persist
+
         # Ensure storage_path is a Path object and create the directory if it doesn't exist
-        storage_dir = Path(storage_path)
+        storage_dir = Path(storage_path) if isinstance(storage_path, str) else storage_path
         storage_dir.mkdir(parents=True, exist_ok=True)
 
         # Set the absolute path for the report file
@@ -45,24 +65,35 @@ class TestingResultRender(ITestingResultRender):
         self
     ) -> str:
         """
-        Renders the test results into an HTML report file.
+        Generates an HTML report from the test results and writes it to a file.
 
-        If persistence is enabled, retrieves the last 10 reports from the database and includes them in the report.
-        Otherwise, only the current in-memory test result is used. The method reads a template file, replaces
-        placeholders with the test results and persistence mode, writes the rendered content to a report file,
+        Depending on the persistence mode, the report will include either the current in-memory test result
+        or the last 10 persisted test results from the database. The method reads an HTML template file,
+        replaces placeholders with the test results and persistence mode, writes the rendered content to a report file,
         and attempts to open the report in the default web browser on supported platforms.
+
+        Parameters
+        ----------
+        self : TestingResultRender
+            Instance of the TestingResultRender class.
 
         Returns
         -------
         str
             The absolute path to the generated HTML report file.
+
+        Notes
+        -----
+        - If persistence is enabled, the last 10 test reports are retrieved from the database and included in the report.
+        - If persistence is disabled, only the current test result is included.
+        - The report is automatically opened in the default web browser on Windows and macOS platforms.
         """
+
         # Determine the source of test results based on persistence mode
         if self.__persist:
 
             # If persistence is enabled, fetch the last 10 reports from SQLite
-            logs = TestLogs(self.__storage_path)
-            reports = logs.get(last=10)
+            reports = TestLogs(self.__storage_path).get(last=10)
 
             # Parse each report's JSON data into a list
             results_list = [json.loads(report[1]) for report in reports]
@@ -97,13 +128,10 @@ class TestingResultRender(ITestingResultRender):
 
         # Open the generated report in the default web browser if running on Windows or macOS.
         try:
-
             # Check the operating system and open the report in a web browser if applicable
             if ((os.name == 'nt') or (os.name == 'posix' and sys.platform == 'darwin')):
                 import webbrowser
                 webbrowser.open(self.__report_path.as_uri())
-
         finally:
-
             # Return the absolute path to the generated report
             return str(self.__report_path)

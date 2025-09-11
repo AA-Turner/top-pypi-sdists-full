@@ -52,3 +52,5 @@ def record_tests(client, reports):
 
 
 split_subset = launchable.CommonSplitSubsetImpls(__name__).split_subset()
+
+launchable.CommonFlakeDetectionImpls(__name__).flake_detection()

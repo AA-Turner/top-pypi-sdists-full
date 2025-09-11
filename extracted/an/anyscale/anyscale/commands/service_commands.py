@@ -31,10 +31,10 @@ from anyscale.service.models import (
     ServiceConfig,
     ServiceLogMode,
     ServiceSortField,
+    ServiceSortOrder,
     ServiceState,
     ServiceStatus,
     ServiceVersionStatus,
-    SortOrder,
 )
 from anyscale.util import (
     AnyscaleJSONEncoder,
@@ -658,13 +658,13 @@ def validate_max_items(ctx, param, value):
     return validate_non_negative_arg(ctx, param, value)
 
 
-def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], SortOrder]:
+def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], ServiceSortOrder]:
     """
     Given a raw sort string (e.g. "-created_at"), return
     (canonical_field_name, SortOrder).
     """
     if not sort:
-        return None, SortOrder.ASC
+        return None, ServiceSortOrder.ASC
 
     # build case-insensitive map of allowed fields
     allowed = {f.value.lower(): f.value for f in ServiceSortField.__members__.values()}
@@ -672,10 +672,10 @@ def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], SortOrder]:
     # detect leading '-' for descending
     if sort.startswith("-"):
         raw = sort[1:]
-        order = SortOrder.DESC
+        order = ServiceSortOrder.DESC
     else:
         raw = sort
-        order = SortOrder.ASC
+        order = ServiceSortOrder.ASC
 
     key = raw.lower()
     if key not in allowed:
@@ -726,7 +726,10 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
 
 
 @service_cli.command(
-    name="list", help="List services.", cls=AnyscaleCommand,
+    name="list",
+    help="List services.",
+    cls=AnyscaleCommand,
+    example=command_examples.SERVICE_LIST_EXAMPLE,
 )
 @click.option("--service-id", "--id", help="ID of the service to display.")
 @click.option("--name", "-n", help="Name of the service to display.")
@@ -979,7 +982,7 @@ def terminate(
         anyscale.service.terminate(id=service_id)
         log.info(f"Service {service_id} terminate initiated.")
         log.info(
-            f'View the service in the UI at {get_endpoint(f"/services/{service_id}")}'
+            f"View the service in the UI at {get_endpoint(f'/services/{service_id}')}"
         )
     except Exception as e:  # noqa: BLE001
         log.error(f"Error terminating service: {e}")

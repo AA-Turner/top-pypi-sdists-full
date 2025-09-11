@@ -123,74 +123,19 @@ except ImportError:
 _IS_SYNC = False
 
 
-class AsyncConnection:
-    """Store a connection with some metadata.
+class AsyncBaseConnection:
+    """A base connection object for server and kms connections."""
 
-    :param conn: a raw connection object
-    :param pool: a Pool instance
-    :param address: the server's (host, port)
-    :param id: the id of this socket in it's pool
-    :param is_sdam: SDAM connections do not call hello on creation
-    """
-
-    def __init__(
-        self,
-        conn: AsyncNetworkingInterface,
-        pool: Pool,
-        address: tuple[str, int],
-        id: int,
-        is_sdam: bool,
-    ):
-        self.pool_ref = weakref.ref(pool)
+    def __init__(self, conn: AsyncNetworkingInterface, opts: PoolOptions):
         self.conn = conn
-        self.address = address
-        self.id = id
-        self.is_sdam = is_sdam
-        self.closed = False
-        self.last_checkin_time = time.monotonic()
-        self.performed_handshake = False
-        self.is_writable: bool = False
-        self.max_wire_version = MAX_WIRE_VERSION
-        self.max_bson_size = MAX_BSON_SIZE
-        self.max_message_size = MAX_MESSAGE_SIZE
-        self.max_write_batch_size = MAX_WRITE_BATCH_SIZE
-        self.supports_sessions = False
-        self.hello_ok: bool = False
-        self.is_mongos = False
-        self.op_msg_enabled = False
-        self.listeners = pool.opts._event_listeners
-        self.enabled_for_cmap = pool.enabled_for_cmap
-        self.enabled_for_logging = pool.enabled_for_logging
-        self.compression_settings = pool.opts._compression_settings
-        self.compression_context: Union[SnappyContext, ZlibContext, ZstdContext, None] = None
         self.socket_checker: SocketChecker = SocketChecker()
-        self.oidc_token_gen_id: Optional[int] = None
-        # Support for mechanism negotiation on the initial handshake.
-        self.negotiated_mechs: Optional[list[str]] = None
-        self.auth_ctx: Optional[_AuthContext] = None
-
-        # The pool's generation changes with each reset() so we can close
-        # sockets created before the last reset.
-        self.pool_gen = pool.gen
-        self.generation = self.pool_gen.get_overall()
-        self.ready = False
         self.cancel_context: _CancellationContext = _CancellationContext()
-        self.opts = pool.opts
-        self.more_to_come: bool = False
-        # For load balancer support.
-        self.service_id: Optional[ObjectId] = None
-        self.server_connection_id: Optional[int] = None
-        # When executing a transaction in load balancing mode, this flag is
-        # set to true to indicate that the session now owns the connection.
-        self.pinned_txn = False
-        self.pinned_cursor = False
-        self.active = False
-        self.last_timeout = self.opts.socket_timeout
-        self.connect_rtt = 0.0
-        self._client_id = pool._client_id
-        self.creation_time = time.monotonic()
-        # For gossiping $clusterTime from the connection handshake to the client.
-        self._cluster_time = None
+        self.is_sdam = False
+        self.closed = False
+        self.last_timeout: float | None = None
+        self.more_to_come = False
+        self.opts = opts
+        self.max_wire_version = -1
 
     def set_conn_timeout(self, timeout: Optional[float]) -> None:
         """Cache last timeout to avoid duplicate calls to conn.settimeout."""
@@ -200,7 +145,7 @@ class AsyncConnection:
         self.conn.get_conn.settimeout(timeout)
 
     def apply_timeout(
-        self, client: AsyncMongoClient, cmd: Optional[MutableMapping[str, Any]]
+        self, client: AsyncMongoClient[Any], cmd: Optional[MutableMapping[str, Any]]
     ) -> Optional[float]:
         # CSOT: use remaining timeout when set.
         timeout = _csot.remaining()
@@ -219,16 +164,110 @@ class AsyncConnection:
             formatted = format_timeout_details(timeout_details)
             # CSOT: raise an error without running the command since we know it will time out.
             errmsg = f"operation would exceed time limit, remaining timeout:{timeout:.5f} <= network round trip time:{rtt:.5f} {formatted}"
-            raise ExecutionTimeout(
-                errmsg,
-                50,
-                {"ok": 0, "errmsg": errmsg, "code": 50},
-                self.max_wire_version,
-            )
+            if self.max_wire_version != -1:
+                raise ExecutionTimeout(
+                    errmsg,
+                    50,
+                    {"ok": 0, "errmsg": errmsg, "code": 50},
+                    self.max_wire_version,
+                )
+            else:
+                raise TimeoutError(errmsg)
         if cmd is not None:
             cmd["maxTimeMS"] = int(max_time_ms * 1000)
         self.set_conn_timeout(timeout)
         return timeout
+
+    async def close_conn(self, reason: Optional[str]) -> None:
+        """Close this connection with a reason."""
+        if self.closed:
+            return
+        await self._close_conn()
+
+    async def _close_conn(self) -> None:
+        """Close this connection."""
+        if self.closed:
+            return
+        self.closed = True
+        self.cancel_context.cancel()
+        # Note: We catch exceptions to avoid spurious errors on interpreter
+        # shutdown.
+        try:
+            await self.conn.close()
+        except Exception:  # noqa: S110
+            pass
+
+    def conn_closed(self) -> bool:
+        """Return True if we know socket has been closed, False otherwise."""
+        if _IS_SYNC:
+            return self.socket_checker.socket_closed(self.conn.get_conn)
+        else:
+            return self.conn.is_closing()
+
+
+class AsyncConnection(AsyncBaseConnection):
+    """Store a connection with some metadata.
+
+    :param conn: a raw connection object
+    :param pool: a Pool instance
+    :param address: the server's (host, port)
+    :param id: the id of this socket in it's pool
+    :param is_sdam: SDAM connections do not call hello on creation
+    """
+
+    def __init__(
+        self,
+        conn: AsyncNetworkingInterface,
+        pool: Pool,
+        address: tuple[str, int],
+        id: int,
+        is_sdam: bool,
+    ):
+        super().__init__(conn, pool.opts)
+        self.pool_ref = weakref.ref(pool)
+        self.address: tuple[str, int] = address
+        self.id: int = id
+        self.is_sdam = is_sdam
+        self.last_checkin_time = time.monotonic()
+        self.performed_handshake = False
+        self.is_writable: bool = False
+        self.max_wire_version = MAX_WIRE_VERSION
+        self.max_bson_size: int = MAX_BSON_SIZE
+        self.max_message_size: int = MAX_MESSAGE_SIZE
+        self.max_write_batch_size: int = MAX_WRITE_BATCH_SIZE
+        self.supports_sessions = False
+        self.hello_ok: bool = False
+        self.is_mongos: bool = False
+        self.op_msg_enabled = False
+        self.listeners = pool.opts._event_listeners
+        self.enabled_for_cmap = pool.enabled_for_cmap
+        self.enabled_for_logging = pool.enabled_for_logging
+        self.compression_settings = pool.opts._compression_settings
+        self.compression_context: Union[SnappyContext, ZlibContext, ZstdContext, None] = None
+        self.oidc_token_gen_id: Optional[int] = None
+        # Support for mechanism negotiation on the initial handshake.
+        self.negotiated_mechs: Optional[list[str]] = None
+        self.auth_ctx: Optional[_AuthContext] = None
+
+        # The pool's generation changes with each reset() so we can close
+        # sockets created before the last reset.
+        self.pool_gen = pool.gen
+        self.generation = self.pool_gen.get_overall()
+        self.ready = False
+        # For load balancer support.
+        self.service_id: Optional[ObjectId] = None
+        self.server_connection_id: Optional[int] = None
+        # When executing a transaction in load balancing mode, this flag is
+        # set to true to indicate that the session now owns the connection.
+        self.pinned_txn = False
+        self.pinned_cursor = False
+        self.active = False
+        self.last_timeout = self.opts.socket_timeout
+        self.connect_rtt = 0.0
+        self._client_id = pool._client_id
+        self.creation_time = time.monotonic()
+        # For gossiping $clusterTime from the connection handshake to the client.
+        self._cluster_time = None
 
     def pin_txn(self) -> None:
         self.pinned_txn = True
@@ -254,7 +293,7 @@ class AsyncConnection:
         else:
             return {HelloCompat.LEGACY_CMD: 1, "helloOk": True}
 
-    async def hello(self) -> Hello:
+    async def hello(self) -> Hello[dict[str, Any]]:
         return await self._hello(None, None)
 
     async def _hello(
@@ -356,7 +395,7 @@ class AsyncConnection:
         dbname: str,
         spec: MutableMapping[str, Any],
         read_preference: _ServerMode = ReadPreference.PRIMARY,
-        codec_options: CodecOptions = DEFAULT_CODEC_OPTIONS,
+        codec_options: CodecOptions[Mapping[str, Any]] = DEFAULT_CODEC_OPTIONS,  # type: ignore[assignment]
         check: bool = True,
         allowable_errors: Optional[Sequence[Union[str, int]]] = None,
         read_concern: Optional[ReadConcern] = None,
@@ -364,7 +403,7 @@ class AsyncConnection:
         parse_write_concern_error: bool = False,
         collation: Optional[_CollationIn] = None,
         session: Optional[AsyncClientSession] = None,
-        client: Optional[AsyncMongoClient] = None,
+        client: Optional[AsyncMongoClient[Any]] = None,
         retryable_write: bool = False,
         publish_events: bool = True,
         user_fields: Optional[Mapping[str, Any]] = None,
@@ -416,7 +455,7 @@ class AsyncConnection:
                 spec,
                 self.is_mongos,
                 read_preference,
-                codec_options,
+                codec_options,  # type: ignore[arg-type]
                 session,
                 client,
                 check,
@@ -488,7 +527,7 @@ class AsyncConnection:
         await self.send_message(msg, max_doc_size)
 
     async def write_command(
-        self, request_id: int, msg: bytes, codec_options: CodecOptions
+        self, request_id: int, msg: bytes, codec_options: CodecOptions[Mapping[str, Any]]
     ) -> dict[str, Any]:
         """Send "insert" etc. command, returning response as a dict.
 
@@ -540,7 +579,7 @@ class AsyncConnection:
                 )
 
     def validate_session(
-        self, client: Optional[AsyncMongoClient], session: Optional[AsyncClientSession]
+        self, client: Optional[AsyncMongoClient[Any]], session: Optional[AsyncClientSession]
     ) -> None:
         """Validate this session before use with client.
 
@@ -573,31 +612,11 @@ class AsyncConnection:
                     error=reason,
                 )
 
-    async def _close_conn(self) -> None:
-        """Close this connection."""
-        if self.closed:
-            return
-        self.closed = True
-        self.cancel_context.cancel()
-        # Note: We catch exceptions to avoid spurious errors on interpreter
-        # shutdown.
-        try:
-            await self.conn.close()
-        except Exception:  # noqa: S110
-            pass
-
-    def conn_closed(self) -> bool:
-        """Return True if we know socket has been closed, False otherwise."""
-        if _IS_SYNC:
-            return self.socket_checker.socket_closed(self.conn.get_conn)
-        else:
-            return self.conn.is_closing()
-
     def send_cluster_time(
         self,
         command: MutableMapping[str, Any],
         session: Optional[AsyncClientSession],
-        client: Optional[AsyncMongoClient],
+        client: Optional[AsyncMongoClient[Any]],
     ) -> None:
         """Add $clusterTime."""
         if client:
@@ -731,7 +750,7 @@ class Pool:
         # LIFO pool. Sockets are ordered on idle time. Sockets claimed
         # and returned to pool from the left side. Stale sockets removed
         # from the right side.
-        self.conns: collections.deque = collections.deque()
+        self.conns: collections.deque[AsyncConnection] = collections.deque()
         self.active_contexts: set[_CancellationContext] = set()
         self.lock = _async_create_lock()
         self._max_connecting_cond = _async_create_condition(self.lock)
@@ -838,8 +857,8 @@ class Pool:
             if service_id is None:
                 sockets, self.conns = self.conns, collections.deque()
             else:
-                discard: collections.deque = collections.deque()
-                keep: collections.deque = collections.deque()
+                discard: collections.deque = collections.deque()  # type: ignore[type-arg]
+                keep: collections.deque = collections.deque()  # type: ignore[type-arg]
                 for conn in self.conns:
                     if conn.service_id == service_id:
                         discard.append(conn)
@@ -865,7 +884,7 @@ class Pool:
         if close:
             if not _IS_SYNC:
                 await asyncio.gather(
-                    *[conn.close_conn(ConnectionClosedReason.POOL_CLOSED) for conn in sockets],
+                    *[conn.close_conn(ConnectionClosedReason.POOL_CLOSED) for conn in sockets],  # type: ignore[func-returns-value]
                     return_exceptions=True,
                 )
             else:
@@ -902,7 +921,7 @@ class Pool:
                     )
             if not _IS_SYNC:
                 await asyncio.gather(
-                    *[conn.close_conn(ConnectionClosedReason.STALE) for conn in sockets],
+                    *[conn.close_conn(ConnectionClosedReason.STALE) for conn in sockets],  # type: ignore[func-returns-value]
                     return_exceptions=True,
                 )
             else:
@@ -916,7 +935,7 @@ class Pool:
         self.is_writable = is_writable
         async with self.lock:
             for _socket in self.conns:
-                _socket.update_is_writable(self.is_writable)
+                _socket.update_is_writable(self.is_writable)  # type: ignore[arg-type]
 
     async def reset(
         self, service_id: Optional[ObjectId] = None, interrupt_connections: bool = False
@@ -955,7 +974,7 @@ class Pool:
                     close_conns.append(self.conns.pop())
             if not _IS_SYNC:
                 await asyncio.gather(
-                    *[conn.close_conn(ConnectionClosedReason.IDLE) for conn in close_conns],
+                    *[conn.close_conn(ConnectionClosedReason.IDLE) for conn in close_conns],  # type: ignore[func-returns-value]
                     return_exceptions=True,
                 )
             else:
@@ -1476,4 +1495,4 @@ class Pool:
         # not safe to acquire a lock in __del__.
         if _IS_SYNC:
             for conn in self.conns:
-                conn.close_conn(None)
+                conn.close_conn(None)  # type: ignore[unused-coroutine]

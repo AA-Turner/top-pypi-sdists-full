@@ -2,7 +2,7 @@
 name = "cocoindex"
 # Version used for local development is always higher than others to take precedence.
 # Will be overridden for specific release versions.
-version = "0.2.7"
+version = "0.2.9"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
@@ -145,3 +145,4 @@ azure_storage_blobs = { version = "0.21.0", default-features = false, features =
     "enable_reqwest_rustls",
     "hmac_rust",
 ] }
+serde_path_to_error = "0.1.17"

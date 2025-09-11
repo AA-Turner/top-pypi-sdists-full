@@ -27,7 +27,7 @@ setup(
     packages=find_packages(include=["t_nextgen", "t_nextgen.*"]),
     test_suite="tests",
     url="https://www.thoughtful.ai/",
-    version="0.4.21",
+    version="0.4.25",
     zip_safe=False,
     install_requires=install_requirements,
 )

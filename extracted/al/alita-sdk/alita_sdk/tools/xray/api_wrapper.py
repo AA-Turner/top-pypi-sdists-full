@@ -9,14 +9,9 @@ from langchain_core.tools import ToolException
 from pydantic import PrivateAttr, SecretStr, create_model, model_validator, Field
 from python_graphql_client import GraphqlClient
 
-from ..elitea_base import (
-    BaseVectorStoreToolApiWrapper,
-    extend_with_vector_tools,
-)
 from ..non_code_indexer_toolkit import NonCodeIndexerToolkit
 from ..utils.available_tools_decorator import extend_with_parent_available_tools
 from ...runtime.utils.utils import IndexerKeywords
-from ..utils.content_parser import file_extension_by_chunker
 
 try:
     from alita_sdk.runtime.langchain.interfaces.llm_processor import get_embeddings
@@ -566,6 +561,8 @@ class XrayApiWrapper(NonCodeIndexerToolkit):
 
     def _index_tool_params(self, **kwargs) -> dict[str, tuple[type, Field]]:
         return {
+            'chunking_tool': (Literal['json', ''],
+                              Field(description="Name of chunking tool for base document", default='json')),
             'jql': (Optional[str], Field(description="""JQL query for searching test cases in Xray.
 
             Standard JQL query syntax for filtering Xray test cases. Examples:
@@ -600,8 +597,6 @@ class XrayApiWrapper(NonCodeIndexerToolkit):
             'skip_attachment_extensions': (Optional[List[str]], Field(
                 description="List of file extensions to skip when processing attachments (e.g., ['.exe', '.zip', '.bin'])",
                 default=None)),
-            'chunking_tool': (Literal['json', ''],
-                              Field(description="Name of chunking tool for base document", default='json')),
         }
 
     def _get_tests_direct(self, jql: str) -> List[Dict]:

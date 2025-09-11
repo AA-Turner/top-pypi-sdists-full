@@ -140,6 +140,7 @@ class ChattyAssetContainerWithCollection(ChattyAssetBaseContainer[T, P], ABC):
         try:
             logger.debug(f"{self.__class__.__name__} deleting item {id}")
             deleted_item = super().delete(id)
+            self.delete_preview(id)
             execution_context.set_event_time(datetime.now(ZoneInfo("UTC")))
             self.collection.delete(id, deletion_type)
             return deleted_item

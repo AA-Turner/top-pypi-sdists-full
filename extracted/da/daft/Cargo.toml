@@ -259,10 +259,10 @@ crate-type = ["cdylib"]
 name = "daft"
 
 [package]
-edition = "2021"
+edition = "2024"
 name = "daft"
 publish = false
-version = "0.6.0"
+version = "0.6.1"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -328,6 +328,7 @@ comfy-table = "7.1.1"
 derive_builder = "0.20.2"
 educe = "0.6.0"
 futures = "0.3.30"
+hashbrown = "0.16"
 html-escape = "0.2.13"
 indexmap = "2.9.0"
 indicatif = "0.18"
@@ -655,5 +656,5 @@ level = "deny"
 priority = 1
 
 [workspace.package]
-edition = "2021"
-version = "0.6.0"
+edition = "2024"
+version = "0.6.1"

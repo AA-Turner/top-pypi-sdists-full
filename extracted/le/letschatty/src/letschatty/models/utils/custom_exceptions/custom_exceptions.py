@@ -177,7 +177,6 @@ class MaximumFollowUpsReached(CustomException):
         self.area = area
         super().__init__(message, status_code=status_code, **context_data)
 
-
 class PostponeFollowUp(CustomException):
     def __init__(self, time_delta:timedelta,message="Follow up postponed", status_code=400, **context_data):
         self.time_delta = time_delta
@@ -189,4 +188,8 @@ class SmartFollowUpStrategyNotSet(CustomException):
 
 class MissingAIAgentForSmartFollowUp(CustomException):
     def __init__(self, message="Missing AI agent for smart follow up", status_code=400, **context_data):
+        super().__init__(message, status_code=status_code, **context_data)
+
+class OpenAIError(CustomException):
+    def __init__(self, message="OpenAI error", status_code=400, **context_data):
         super().__init__(message, status_code=status_code, **context_data)

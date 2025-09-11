@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ghstack
-Version: 0.11.0
+Version: 0.12.0
 Summary: Stack diff support for GitHub
 Author: Edward Z. Yang
 Author-email: Edward Z. Yang <ezyang@mit.edu>
@@ -14,7 +14,7 @@ Requires-Dist: requests>=2,<3
 Requires-Dist: typing-extensions>=3
 Requires-Dist: click>=8,<9
 Requires-Dist: flake8>=7.0.0,<8.0.0
-Requires-Python: >=3.8.1, <4.0.0
+Requires-Python: >=3.9.1, <4.0.0
 Project-URL: repository, https://github.com/ezyang/ghstack
 Description-Content-Type: text/markdown
 
@@ -28,7 +28,7 @@ uv tool install ghstack
 
 ghstack is tested with 
 [several different Python versions](https://github.com/ezyang/ghstack/blob/master/.github/workflows/test.yml#L13). 
-It requires at least Python 3.8.1.
+It requires at least Python 3.9.1.
 
 ## How to setup
 

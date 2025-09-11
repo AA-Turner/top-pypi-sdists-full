@@ -3,7 +3,7 @@ project(casadi C CXX)
 
 set(CASADI_MAJOR_VERSION 3)
 set(CASADI_MINOR_VERSION 7)
-set(CASADI_PATCH_VERSION 1)
+set(CASADI_PATCH_VERSION 2)
 set(CASADI_IS_RELEASE 1)
 
 set(CASADI_VERSION ${CASADI_MAJOR_VERSION}.${CASADI_MINOR_VERSION}.${CASADI_PATCH_VERSION})
@@ -447,7 +447,7 @@ endforeach()
 # Set rpath
 if(WITH_SELFCONTAINED)
   if(APPLE)
-    set(CMAKE_INSTALL_RPATH "@loader_path/")
+    set(CMAKE_INSTALL_RPATH "@loader_path")
   else()
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
   endif()

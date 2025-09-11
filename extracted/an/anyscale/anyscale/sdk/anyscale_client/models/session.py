@@ -61,6 +61,7 @@ class Session(object):
         'serve_metrics_dashboard_url': 'str',
         'serve_deployment_metrics_dashboard_url': 'str',
         'serve_llm_metrics_dashboard_url': 'str',
+        'supports_full_grafana_view': 'bool',
         'persistent_metrics_url': 'str',
         'connect_url': 'str',
         'jupyter_notebook_url': 'str',
@@ -116,6 +117,7 @@ class Session(object):
         'serve_metrics_dashboard_url': 'serve_metrics_dashboard_url',
         'serve_deployment_metrics_dashboard_url': 'serve_deployment_metrics_dashboard_url',
         'serve_llm_metrics_dashboard_url': 'serve_llm_metrics_dashboard_url',
+        'supports_full_grafana_view': 'supports_full_grafana_view',
         'persistent_metrics_url': 'persistent_metrics_url',
         'connect_url': 'connect_url',
         'jupyter_notebook_url': 'jupyter_notebook_url',
@@ -142,7 +144,7 @@ class Session(object):
         'ray_dashboard_snapshot_last_reported_at': 'ray_dashboard_snapshot_last_reported_at'
     }
 
-    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, supports_full_grafana_view=False, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, local_vars_configuration=None):  # noqa: E501
         """Session - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -176,6 +178,7 @@ class Session(object):
         self._serve_metrics_dashboard_url = None
         self._serve_deployment_metrics_dashboard_url = None
         self._serve_llm_metrics_dashboard_url = None
+        self._supports_full_grafana_view = None
         self._persistent_metrics_url = None
         self._connect_url = None
         self._jupyter_notebook_url = None
@@ -250,6 +253,8 @@ class Session(object):
             self.serve_deployment_metrics_dashboard_url = serve_deployment_metrics_dashboard_url
         if serve_llm_metrics_dashboard_url is not None:
             self.serve_llm_metrics_dashboard_url = serve_llm_metrics_dashboard_url
+        if supports_full_grafana_view is not None:
+            self.supports_full_grafana_view = supports_full_grafana_view
         if persistent_metrics_url is not None:
             self.persistent_metrics_url = persistent_metrics_url
         if connect_url is not None:
@@ -953,6 +958,29 @@ class Session(object):
         """
 
         self._serve_llm_metrics_dashboard_url = serve_llm_metrics_dashboard_url
+
+    @property
+    def supports_full_grafana_view(self):
+        """Gets the supports_full_grafana_view of this Session.  # noqa: E501
+
+        Whether the session supports full Grafana embedding view. This field will only be populated after the Session finishes starting.  # noqa: E501
+
+        :return: The supports_full_grafana_view of this Session.  # noqa: E501
+        :rtype: bool
+        """
+        return self._supports_full_grafana_view
+
+    @supports_full_grafana_view.setter
+    def supports_full_grafana_view(self, supports_full_grafana_view):
+        """Sets the supports_full_grafana_view of this Session.
+
+        Whether the session supports full Grafana embedding view. This field will only be populated after the Session finishes starting.  # noqa: E501
+
+        :param supports_full_grafana_view: The supports_full_grafana_view of this Session.  # noqa: E501
+        :type: bool
+        """
+
+        self._supports_full_grafana_view = supports_full_grafana_view
 
     @property
     def persistent_metrics_url(self):

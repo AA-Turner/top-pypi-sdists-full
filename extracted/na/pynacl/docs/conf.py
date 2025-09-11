@@ -99,7 +99,6 @@ pygments_style = "sphinx"
 # a list of builtin themes.
 if sphinx_rtd_theme:
     html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 else:
     html_theme = "default"
 
@@ -177,9 +176,13 @@ html_static_path = ["_static"]
 htmlhelp_basename = "PyNaCldoc"
 
 
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"http://docs.python.org/": None}
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 # Retry requests in the linkcheck builder so that we're resilient against
 # transient network errors.
 linkcheck_retries = 10
+linkcheck_timeout = 5
+
+linkcheck_ignore = [
+    "https://www.gnu.org/software/make/manual/html_node/Parallel.html"
+]

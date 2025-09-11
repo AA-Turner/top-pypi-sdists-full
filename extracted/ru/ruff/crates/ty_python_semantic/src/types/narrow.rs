@@ -174,10 +174,10 @@ impl ClassInfoConstraintFunction {
     fn generate_constraint<'db>(self, db: &'db dyn Db, classinfo: Type<'db>) -> Option<Type<'db>> {
         let constraint_fn = |class: ClassLiteral<'db>| match self {
             ClassInfoConstraintFunction::IsInstance => {
-                Type::instance(db, class.default_specialization(db))
+                Type::instance(db, class.top_materialization(db))
             }
             ClassInfoConstraintFunction::IsSubclass => {
-                SubclassOfType::from(db, class.default_specialization(db))
+                SubclassOfType::from(db, class.top_materialization(db))
             }
         };
 
@@ -240,7 +240,7 @@ impl ClassInfoConstraintFunction {
             | Type::Callable(_)
             | Type::DataclassDecorator(_)
             | Type::Never
-            | Type::MethodWrapper(_)
+            | Type::KnownBoundMethod(_)
             | Type::ModuleLiteral(_)
             | Type::FunctionLiteral(_)
             | Type::ProtocolInstance(_)
@@ -640,6 +640,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                     if !element.is_single_valued(self.db)
                         && !element.is_literal_string()
                         && !element.is_bool(self.db)
+                        && (!element.is_enum(self.db) || element.overrides_equality(self.db))
                     {
                         builder = builder.add(*element);
                     }
@@ -675,6 +676,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                     if element.is_single_valued(self.db)
                         || element.is_literal_string()
                         || element.is_bool(self.db)
+                        || (element.is_enum(self.db) && !element.overrides_equality(self.db))
                     {
                         single_builder = single_builder.add(*element);
                     } else {

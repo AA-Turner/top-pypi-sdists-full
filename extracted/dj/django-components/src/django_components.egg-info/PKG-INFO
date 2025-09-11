@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django_components
-Version: 0.141.4
+Version: 0.141.5
 Summary: A way to create simple reusable template components in Django.
 Author-email: Emil Stenström <emil@emilstenstrom.se>, Juro Oravec <juraj.oravec.josefson@gmail.com>
 License: MIT

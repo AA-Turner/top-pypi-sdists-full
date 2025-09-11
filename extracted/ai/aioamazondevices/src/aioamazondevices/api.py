@@ -20,6 +20,7 @@ from aiohttp import (
     ClientConnectorError,
     ClientResponse,
     ClientSession,
+    ContentTypeError,
 )
 from bs4 import BeautifulSoup, Tag
 from langcodes import Language, standardize_tag
@@ -29,6 +30,7 @@ from yarl import URL
 from . import __version__
 from .const import (
     _LOGGER,
+    ALEXA_INFO_SKILLS,
     AMAZON_APP_BUNDLE_ID,
     AMAZON_APP_ID,
     AMAZON_APP_NAME,
@@ -534,7 +536,7 @@ class AmazonEchoApi:
             input_data=body,
             json_data=True,
         )
-        resp_json = await raw_resp.json()
+        resp_json = await self._response_to_json(raw_resp)
 
         if raw_resp.status != HTTPStatus.OK:
             msg = resp_json["response"]["error"]["message"]
@@ -599,7 +601,7 @@ class AmazonEchoApi:
             json_data=True,
         )
 
-        return cast("dict", await raw_resp.json())
+        return await self._response_to_json(raw_resp)
 
     async def _get_sensors_states(
         self,
@@ -654,6 +656,19 @@ class AmazonEchoApi:
             )
 
         return device_sensors
+
+    async def _response_to_json(self, raw_resp: ClientResponse) -> dict[str, Any]:
+        """Convert response to JSON, if possible."""
+        try:
+            data = await raw_resp.json(loads=orjson.loads)
+            if not data:
+                _LOGGER.warning("Empty JSON data received")
+                data = {}
+            return cast("dict[str, Any]", data)
+        except ContentTypeError as exc:
+            raise ValueError("Response not in JSON format") from exc
+        except orjson.JSONDecodeError as exc:
+            raise ValueError("Response with corrupted JSON format") from exc
 
     async def login_mode_interactive(self, otp_code: str) -> dict[str, Any]:
         """Login to Amazon interactively via OTP."""
@@ -756,7 +771,7 @@ class AmazonEchoApi:
             method=HTTPMethod.GET,
             url=f"https://alexa.amazon.{self._domain}/api/welcome",
         )
-        json_data = await raw_resp.json()
+        json_data = await self._response_to_json(raw_resp)
         return cast(
             "str", json_data.get("alexaHostName", f"alexa.amazon.{self._domain}")
         )
@@ -802,8 +817,7 @@ class AmazonEchoApi:
             url=f"https://alexa.amazon.{self._domain}{URI_DEVICES}",
         )
 
-        response_data = await raw_resp.text()
-        json_data = {} if len(response_data) == 0 else await raw_resp.json()
+        json_data = await self._response_to_json(raw_resp)
 
         _LOGGER.debug("JSON devices data: %s", scrub_fields(json_data))
 
@@ -865,7 +879,7 @@ class AmazonEchoApi:
             )
             return False
 
-        resp_json = await raw_resp.json()
+        resp_json = await self._response_to_json(raw_resp)
         if not (authentication := resp_json.get("authentication")):
             _LOGGER.debug('Session not authenticated: reply missing "authentication"')
             return False
@@ -985,6 +999,10 @@ class AmazonEchoApi:
                     "uri": "connection://AMAZON.Launch/" + message_body,
                 },
             }
+        elif message_type in ALEXA_INFO_SKILLS:
+            payload = {
+                **base_payload,
+            }
         else:
             raise ValueError(f"Message type <{message_type}> is not recognised")
 
@@ -1075,6 +1093,14 @@ class AmazonEchoApi:
             device, AmazonSequenceType.LaunchSkill, message_body
         )
 
+    async def call_alexa_info_skill(
+        self,
+        device: AmazonDevice,
+        message_type: str,
+    ) -> None:
+        """Call Info skill.  See ALEXA_INFO_SKILLS . const."""
+        return await self._send_message(device, message_type, "")
+
     async def set_do_not_disturb(self, device: AmazonDevice, state: bool) -> None:
         """Set do_not_disturb flag."""
         payload = {
@@ -1124,7 +1150,7 @@ class AmazonEchoApi:
             _LOGGER.debug("Failed to refresh data")
             return False, {}
 
-        json_response = await raw_resp.json()
+        json_response = await self._response_to_json(raw_resp)
         _LOGGER.debug("Refresh data json:\n%s ", json_response)
 
         if data_type == REFRESH_ACCESS_TOKEN and (
@@ -1132,7 +1158,7 @@ class AmazonEchoApi:
         ):
             self._login_stored_data[REFRESH_ACCESS_TOKEN] = new_token
             self.expires_in = datetime.now(tz=UTC).timestamp() + int(
-                json_response.get("expires_in")
+                json_response.get("expires_in", 0)
             )
             return True, json_response
 

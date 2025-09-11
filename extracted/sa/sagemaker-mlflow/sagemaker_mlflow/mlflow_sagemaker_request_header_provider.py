@@ -23,7 +23,7 @@ class MlflowSageMakerRequestHeaderProvider(RequestHeaderProvider):
         return True
 
     def request_headers(self):
-        """Returns plugin headers used by SageMaker MLFlow
+        """Returns plugin headers used by SageMaker MLflow
 
         Returns:
             dict: Dictionary containing the headers that are needed for routing.

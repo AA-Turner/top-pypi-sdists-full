@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.15.0
+Version: 1.16.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -108,7 +108,7 @@ Provides-Extra: motherduck
 Requires-Dist: duckdb>=0.9; extra == 'motherduck'
 Requires-Dist: pyarrow>=16.0.0; extra == 'motherduck'
 Provides-Extra: mssql
-Requires-Dist: pyodbc>=4.0.39; (python_version < '3.13') and extra == 'mssql'
+Requires-Dist: pyodbc>=4.0.39; extra == 'mssql'
 Provides-Extra: parquet
 Requires-Dist: pyarrow>=16.0.0; extra == 'parquet'
 Provides-Extra: postgis
@@ -138,7 +138,7 @@ Requires-Dist: sqlalchemy>=1.4; extra == 'sqlalchemy'
 Provides-Extra: synapse
 Requires-Dist: adlfs>=2024.7.0; extra == 'synapse'
 Requires-Dist: pyarrow>=16.0.0; extra == 'synapse'
-Requires-Dist: pyodbc>=4.0.39; (python_version < '3.13') and extra == 'synapse'
+Requires-Dist: pyodbc>=4.0.39; extra == 'synapse'
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client>=3.22; extra == 'weaviate'
 Provides-Extra: workspace

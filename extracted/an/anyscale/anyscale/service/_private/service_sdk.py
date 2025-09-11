@@ -24,13 +24,13 @@ from anyscale.sdk.anyscale_client.models import (
     ServiceConfig as ExternalAPIServiceConfig,
     ServiceEventCurrentState,
     ServiceSortField,
-    SortOrder,
     TracingConfig as APITracingConfg,
 )
 from anyscale.service.models import (
     RayGCSExternalStorageConfig,
     ServiceConfig,
     ServiceLogMode,
+    ServiceSortOrder,
     ServiceState,
     ServiceStatus,
     ServiceVersionStatus,
@@ -252,7 +252,9 @@ class PrivateServiceSDK(WorkloadSDK):
                 "are ignored when performing an in_place update."
             )
 
-        existing_config: ProductionServiceV2VersionModel = existing_service.primary_version
+        existing_config: ProductionServiceV2VersionModel = (
+            existing_service.primary_version
+        )
         query_auth_token_enabled = existing_service.auth_token is not None
         cloud_id = self.client.get_cloud_id(
             compute_config_id=existing_config.compute_config_id
@@ -437,10 +439,10 @@ class PrivateServiceSDK(WorkloadSDK):
                 raise ValueError("max_surge_percent must be between 0 and 100.")
 
         name = config.name or self._get_default_name()
-        existing_service: Optional[
-            DecoratedProductionServiceV2APIModel
-        ] = self.client.get_service(
-            name=name, cloud=config.cloud, project=config.project
+        existing_service: Optional[DecoratedProductionServiceV2APIModel] = (
+            self.client.get_service(
+                name=name, cloud=config.cloud, project=config.project
+            )
         )
         if existing_service is None:
             self.logger.info(f"Starting new service '{name}'.")
@@ -585,7 +587,6 @@ class PrivateServiceSDK(WorkloadSDK):
         project_id: str,
         query_auth_token_enabled: bool,
     ) -> ServiceVersionStatus:
-
         image_uri, image_build, project, compute_config = await asyncio.gather(
             asyncio.to_thread(
                 self._image_sdk.get_image_uri_from_build_id, model.build_id
@@ -734,9 +735,8 @@ class PrivateServiceSDK(WorkloadSDK):
         page_size: Optional[int] = None,  # Controls items fetched per API call
         # Sorting
         sort_field: Optional[Union[str, ServiceSortField]] = None,
-        sort_order: Optional[Union[str, SortOrder]] = None,
+        sort_order: Optional[Union[str, ServiceSortOrder]] = None,
     ) -> ResultIterator[ServiceStatus]:
-
         if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
             raise ValueError(
                 f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
@@ -875,7 +875,7 @@ class PrivateServiceSDK(WorkloadSDK):
 
 
 def _normalize_state_filter(
-    states: Optional[Union[List[ServiceState], List[str]]]
+    states: Optional[Union[List[ServiceState], List[str]]],
 ) -> Optional[List[str]]:
     if states is None:
         return None

@@ -34,9 +34,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-solutions-constructs/aws-eventbridge-lambda",
-    "2.92.1",
+    "2.92.2",
     __name__[0:-6],
-    "aws-eventbridge-lambda@2.92.1.jsii.tgz",
+    "aws-eventbridge-lambda@2.92.2.jsii.tgz",
 )
 
 __all__ = [

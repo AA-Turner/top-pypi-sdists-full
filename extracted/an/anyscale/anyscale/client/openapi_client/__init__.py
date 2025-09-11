@@ -432,9 +432,12 @@ from openapi_client.models.operation_error import OperationError
 from openapi_client.models.operation_progress import OperationProgress
 from openapi_client.models.operation_result import OperationResult
 from openapi_client.models.operator_branch import OperatorBranch
+from openapi_client.models.operator_check_result import OperatorCheckResult
+from openapi_client.models.operator_check_status import OperatorCheckStatus
 from openapi_client.models.operator_id import OperatorId
 from openapi_client.models.operator_metrics import OperatorMetrics
 from openapi_client.models.operator_status import OperatorStatus
+from openapi_client.models.operator_status_details import OperatorStatusDetails
 from openapi_client.models.organization import Organization
 from openapi_client.models.organization_collaborator import OrganizationCollaborator
 from openapi_client.models.organization_configuration import OrganizationConfiguration

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+from itertools import chain
 from typing import TYPE_CHECKING, Optional
 
 import libcst as cst
@@ -119,6 +120,32 @@ class GlobalAssignmentTransformer(cst.CSTTransformer):
 
         return updated_node
 
+    def _find_insertion_index(self, updated_node: cst.Module) -> int:
+        """Find the position of the last import statement in the top-level of the module."""
+        insert_index = 0
+        for i, stmt in enumerate(updated_node.body):
+            is_top_level_import = isinstance(stmt, cst.SimpleStatementLine) and any(
+                isinstance(child, (cst.Import, cst.ImportFrom)) for child in stmt.body
+            )
+
+            is_conditional_import = isinstance(stmt, cst.If) and all(
+                isinstance(inner, cst.SimpleStatementLine)
+                and all(isinstance(child, (cst.Import, cst.ImportFrom)) for child in inner.body)
+                for inner in stmt.body.body
+            )
+
+            if is_top_level_import or is_conditional_import:
+                insert_index = i + 1
+
+            # Stop scanning once we reach a class or function definition.
+            # Imports are supposed to be at the top of the file, but they can technically appear anywhere, even at the bottom of the file.
+            # Without this check, a stray import later in the file
+            # would incorrectly shift our insertion index below actual code definitions.
+            if isinstance(stmt, (cst.ClassDef, cst.FunctionDef)):
+                break
+
+        return insert_index
+
     def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
         # Add any new assignments that weren't in the original file
         new_statements = list(updated_node.body)
@@ -131,18 +158,26 @@ class GlobalAssignmentTransformer(cst.CSTTransformer):
         ]
 
         if assignments_to_append:
-            # Add a blank line before appending new assignments if needed
-            if new_statements and not isinstance(new_statements[-1], cst.EmptyLine):
-                new_statements.append(cst.SimpleStatementLine([cst.Pass()], leading_lines=[cst.EmptyLine()]))
-                new_statements.pop()  # Remove the Pass statement but keep the empty line
+            # after last top-level imports
+            insert_index = self._find_insertion_index(updated_node)
 
-            # Add the new assignments
-            new_statements.extend(
-                [
-                    cst.SimpleStatementLine([assignment], leading_lines=[cst.EmptyLine()])
-                    for assignment in assignments_to_append
-                ]
-            )
+            assignment_lines = [
+                cst.SimpleStatementLine([assignment], leading_lines=[cst.EmptyLine()])
+                for assignment in assignments_to_append
+            ]
+
+            new_statements = list(chain(new_statements[:insert_index], assignment_lines, new_statements[insert_index:]))
+
+            # Add a blank line after the last assignment if needed
+            after_index = insert_index + len(assignment_lines)
+            if after_index < len(new_statements):
+                next_stmt = new_statements[after_index]
+                # If there's no empty line, add one
+                has_empty = any(isinstance(line, cst.EmptyLine) for line in next_stmt.leading_lines)
+                if not has_empty:
+                    new_statements[after_index] = next_stmt.with_changes(
+                        leading_lines=[cst.EmptyLine(), *next_stmt.leading_lines]
+                    )
 
         return updated_node.with_changes(body=new_statements)
 
@@ -300,12 +335,12 @@ class ImportInserter(cst.CSTTransformer):
         return updated_node
 
 
-def extract_global_statements(source_code: str) -> list[cst.SimpleStatementLine]:
+def extract_global_statements(source_code: str) -> tuple[cst.Module, list[cst.SimpleStatementLine]]:
     """Extract global statements from source code."""
     module = cst.parse_module(source_code)
     collector = GlobalStatementCollector()
     module.visit(collector)
-    return collector.global_statements
+    return module, collector.global_statements
 
 
 def find_last_import_line(target_code: str) -> int:
@@ -338,30 +373,41 @@ def delete___future___aliased_imports(module_code: str) -> str:
 
 
 def add_global_assignments(src_module_code: str, dst_module_code: str) -> str:
-    non_assignment_global_statements = extract_global_statements(src_module_code)
+    src_module, new_added_global_statements = extract_global_statements(src_module_code)
+    dst_module, existing_global_statements = extract_global_statements(dst_module_code)
 
-    # Find the last import line in target
-    last_import_line = find_last_import_line(dst_module_code)
+    unique_global_statements = []
+    for stmt in new_added_global_statements:
+        if any(
+            stmt is existing_stmt or stmt.deep_equals(existing_stmt) for existing_stmt in existing_global_statements
+        ):
+            continue
+        unique_global_statements.append(stmt)
 
-    # Parse the target code
-    target_module = cst.parse_module(dst_module_code)
+    mod_dst_code = dst_module_code
+    # Insert unique global statements if any
+    if unique_global_statements:
+        last_import_line = find_last_import_line(dst_module_code)
+        # Reuse already-parsed dst_module
+        transformer = ImportInserter(unique_global_statements, last_import_line)
+        # Use visit inplace, don't parse again
+        modified_module = dst_module.visit(transformer)
+        mod_dst_code = modified_module.code
+        # Parse the code after insertion
+        original_module = cst.parse_module(mod_dst_code)
+    else:
+        # No new statements to insert, reuse already-parsed dst_module
+        original_module = dst_module
 
-    # Create transformer to insert non_assignment_global_statements
-    transformer = ImportInserter(non_assignment_global_statements, last_import_line)
-    #
-    # # Apply transformation
-    modified_module = target_module.visit(transformer)
-    dst_module_code = modified_module.code
-
-    # Parse the code
-    original_module = cst.parse_module(dst_module_code)
-    new_module = cst.parse_module(src_module_code)
-
+    # Parse the src_module_code once only (already done above: src_module)
     # Collect assignments from the new file
     new_collector = GlobalAssignmentCollector()
-    new_module.visit(new_collector)
+    src_module.visit(new_collector)
+    # Only create transformer if there are assignments to insert/transform
+    if not new_collector.assignments:  # nothing to transform
+        return mod_dst_code
 
-    # Transform the original file
+    # Transform the original destination module
     transformer = GlobalAssignmentTransformer(new_collector.assignments, new_collector.assignment_order)
     transformed_module = original_module.visit(transformer)
 

@@ -49,7 +49,8 @@ class ZeroGPUCompiledModel:
     def __call__(self, *args, **kwargs):
         if (compiled_model := self.compiled_model.get()) is None:
             compiled_model = cast(AOTICompiledModel, torch._inductor.aoti_load_package(self.archive_file))
-            compiled_model.load_constants(self.weights.constants_map, check_full_update=True, user_managed=True)
+            constant_map = {name: self.weights.constants_map[name] for name in compiled_model.get_constant_fqns()}
+            compiled_model.load_constants(constant_map, check_full_update=True, user_managed=True)
             self.compiled_model.set(compiled_model)
         return compiled_model(*args, **kwargs)
     def __reduce__(self):

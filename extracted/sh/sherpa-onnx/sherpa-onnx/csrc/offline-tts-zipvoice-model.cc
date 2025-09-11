@@ -5,6 +5,7 @@
 #include "sherpa-onnx/csrc/offline-tts-zipvoice-model.h"
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <random>
 #include <string>
@@ -103,7 +104,8 @@ class OfflineTtsZipvoiceModel::Impl {
     int64_t feat_dim = meta_data_.feat_dim;
 
     std::vector<float> x_data(batch_size * num_frames * feat_dim);
-    std::default_random_engine rng(std::random_device{}());
+    std::random_device rd;
+    std::default_random_engine rng(rd());
     std::normal_distribution<float> norm(0, 1);
     for (auto &v : x_data) v = norm(rng);
     std::vector<int64_t> x_shape = {batch_size, num_frames, feat_dim};

@@ -32,11 +32,13 @@ __all__ = (
     "KeyExportabilityType",
     "KeyMaterialTypeType",
     "KeyOriginType",
+    "KeyReplicationStateType",
     "KeyStateType",
     "KeyUsageType",
     "ListAliasesPaginatorName",
     "ListKeysPaginatorName",
     "ListTagsForResourcePaginatorName",
+    "MultiRegionKeyTypeType",
     "PaginatorName",
     "PaymentCryptographyControlPlaneServiceName",
     "ResourceServiceName",
@@ -86,7 +88,7 @@ KeyAlgorithmType = Literal[
     "TDES_2KEY",
     "TDES_3KEY",
 ]
-KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC"]
+KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC", "SHA_1"]
 KeyClassType = Literal["ASYMMETRIC_KEY_PAIR", "PRIVATE_KEY", "PUBLIC_KEY", "SYMMETRIC_KEY"]
 KeyDerivationFunctionType = Literal["ANSI_X963", "NIST_SP800"]
 KeyDerivationHashAlgorithmType = Literal["SHA_256", "SHA_384", "SHA_512"]
@@ -99,6 +101,7 @@ KeyMaterialTypeType = Literal[
     "TRUSTED_PUBLIC_KEY_CERTIFICATE",
 ]
 KeyOriginType = Literal["AWS_PAYMENT_CRYPTOGRAPHY", "EXTERNAL"]
+KeyReplicationStateType = Literal["DELETE_IN_PROGRESS", "FAILED", "IN_PROGRESS", "SYNCHRONIZED"]
 KeyStateType = Literal["CREATE_COMPLETE", "CREATE_IN_PROGRESS", "DELETE_COMPLETE", "DELETE_PENDING"]
 KeyUsageType = Literal[
     "TR31_B0_BASE_DERIVATION_KEY",
@@ -128,6 +131,7 @@ KeyUsageType = Literal[
 ListAliasesPaginatorName = Literal["list_aliases"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
+MultiRegionKeyTypeType = Literal["PRIMARY", "REPLICA"]
 SymmetricKeyAlgorithmType = Literal[
     "AES_128",
     "AES_192",
@@ -170,6 +174,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -181,8 +186,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -424,8 +431,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -558,15 +563,6 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_aliases", "list_keys", "list_tags_for_resource"]

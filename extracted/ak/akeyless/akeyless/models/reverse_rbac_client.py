@@ -35,26 +35,31 @@ class ReverseRBACClient(object):
     """
     openapi_types = {
         'assocs': 'list[AuthMethodRoleAssociation]',
+        'auth_method_id': 'int',
         'auth_method_name': 'str'
     }
 
     attribute_map = {
         'assocs': 'assocs',
+        'auth_method_id': 'auth_method_id',
         'auth_method_name': 'auth_method_name'
     }
 
-    def __init__(self, assocs=None, auth_method_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, assocs=None, auth_method_id=None, auth_method_name=None, local_vars_configuration=None):  # noqa: E501
         """ReverseRBACClient - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._assocs = None
+        self._auth_method_id = None
         self._auth_method_name = None
         self.discriminator = None
 
         if assocs is not None:
             self.assocs = assocs
+        if auth_method_id is not None:
+            self.auth_method_id = auth_method_id
         if auth_method_name is not None:
             self.auth_method_name = auth_method_name
 
@@ -78,6 +83,27 @@ class ReverseRBACClient(object):
         """
 
         self._assocs = assocs
+
+    @property
+    def auth_method_id(self):
+        """Gets the auth_method_id of this ReverseRBACClient.  # noqa: E501
+
+
+        :return: The auth_method_id of this ReverseRBACClient.  # noqa: E501
+        :rtype: int
+        """
+        return self._auth_method_id
+
+    @auth_method_id.setter
+    def auth_method_id(self, auth_method_id):
+        """Sets the auth_method_id of this ReverseRBACClient.
+
+
+        :param auth_method_id: The auth_method_id of this ReverseRBACClient.  # noqa: E501
+        :type: int
+        """
+
+        self._auth_method_id = auth_method_id
 
     @property
     def auth_method_name(self):

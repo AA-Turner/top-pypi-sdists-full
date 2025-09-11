@@ -167,6 +167,8 @@ def prepare_session_data(data_dict: dict):
         package_datetime=data_dict.get("package_datetime"),
         package_version=data_dict.get("package_version"),
         package_name=data_dict.get("package_name"),
+        from_branch_name=data_dict.get("from_branch_name"),
+        from_build_num=data_dict.get("from_build_num"),
     )
 
 

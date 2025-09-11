@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.13.2
+Version: 3.13.3
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -31,15 +31,15 @@ Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10.0
 Requires-Dist: chardetng-py>=0.3.5
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
-Requires-Dist: html-to-markdown[lxml]>=1.9.1
+Requires-Dist: html-to-markdown[lxml]>=1.10.0
 Requires-Dist: mcp>=1.13.0
 Requires-Dist: msgspec>=0.18.0
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: playa-pdf>=0.7.0
-Requires-Dist: polars>=1.33.0
+Requires-Dist: polars>=1.33.1
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pypdfium2==4.30.0
-Requires-Dist: python-calamine>=0.5.2
+Requires-Dist: python-calamine>=0.5.3
 Requires-Dist: python-pptx>=1.0.2
 Requires-Dist: typing-extensions>=4.15.0; python_version < '3.12'
 Provides-Extra: additional-extensions
@@ -55,17 +55,17 @@ Requires-Dist: keybert>=0.9.0; extra == 'all'
 Requires-Dist: litestar[opentelemetry,standard,structlog]>=2.17.0; extra == 'all'
 Requires-Dist: mailparse>=1.0.15; extra == 'all'
 Requires-Dist: paddleocr>=3.2.0; extra == 'all'
-Requires-Dist: paddlepaddle>=3.1.1; extra == 'all'
+Requires-Dist: paddlepaddle>=3.2.0; extra == 'all'
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'all'
 Requires-Dist: rich>=14.1.0; extra == 'all'
-Requires-Dist: semantic-text-splitter>=0.27.0; extra == 'all'
+Requires-Dist: semantic-text-splitter>=0.28.0; extra == 'all'
 Requires-Dist: setuptools>=80.9.0; extra == 'all'
 Requires-Dist: spacy>=3.8.7; extra == 'all'
 Requires-Dist: tomli>=2.0.0; (python_version < '3.11') and extra == 'all'
 Provides-Extra: api
 Requires-Dist: litestar[opentelemetry,standard,structlog]>=2.17.0; extra == 'api'
 Provides-Extra: chunking
-Requires-Dist: semantic-text-splitter>=0.27.0; extra == 'chunking'
+Requires-Dist: semantic-text-splitter>=0.28.0; extra == 'chunking'
 Provides-Extra: cli
 Requires-Dist: click>=8.2.1; extra == 'cli'
 Requires-Dist: rich>=14.1.0; extra == 'cli'
@@ -85,7 +85,7 @@ Provides-Extra: langdetect
 Requires-Dist: fast-langdetect>=0.3.2; extra == 'langdetect'
 Provides-Extra: paddleocr
 Requires-Dist: paddleocr>=3.2.0; extra == 'paddleocr'
-Requires-Dist: paddlepaddle>=3.1.1; extra == 'paddleocr'
+Requires-Dist: paddlepaddle>=3.2.0; extra == 'paddleocr'
 Requires-Dist: setuptools>=80.9.0; extra == 'paddleocr'
 Description-Content-Type: text/markdown
 

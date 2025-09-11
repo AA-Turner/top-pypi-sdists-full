@@ -16,15 +16,18 @@ import os
 import sys
 import ast
 import orjson
+import shutil
 import subprocess
 from collections import abc
 from configparser import ConfigParser
 from datetime import datetime
 from functools import wraps, partial
+from pathlib import Path
 from timeit import default_timer as timer
 from typing import Optional
 
 import click
+import diskcache
 import requests.exceptions
 
 from dwave.cloud import api
@@ -44,10 +47,12 @@ from dwave.cloud.exceptions import (
     RequestTimeout, PollingTimeout)
 from dwave.cloud.config import (
     load_profile_from_files, load_config_from_files, load_config, get_default_config,
-    get_configfile_path, get_default_configfile_path, get_configfile_paths)
+    get_configfile_path, get_default_configfile_path, get_configfile_paths,
+    get_cache_dir)
 from dwave.cloud.config.models import validate_config_v1
 from dwave.cloud.regions import get_regions
 from dwave.cloud.auth.flows import LeapAuthFlow, OAuthError
+from dwave.cloud.auth.creds import _get_creds_paths, Credentials
 
 
 # show defaults for all click options when printing --help
@@ -391,7 +396,9 @@ def _get_client_solver(config, output=None):
     except Exception as e:
         raise CLIError("Unexpected error while fetching solver: {!r}".format(e), 5)
 
-    output("Using solver: {solver_id}", solver_id=solver.id)
+    output("Using solver: {solver_name}", solver_name=solver.name)
+    if solver.identity.version:
+        output("Working graph version: {graph_id}", graph_id=solver.graph_id)
 
     return (client, solver)
 
@@ -581,12 +588,12 @@ def solvers(config_file, profile, endpoint, region, client_type, solver_def,
 
         if list_solvers:
             for solver in solvers:
-                click.echo(solver.id)
+                click.echo(solver.name)
             return
 
         # ~YAML output
         for solver in solvers:
-            click.echo("Solver: {}".format(solver.id))
+            click.echo("Solver: {}".format(solver.name))
             click.echo("  Parameters:")
             for name, val in sorted(solver.parameters.items()):
                 click.echo("    {}: {}".format(name, strtrunc(val) if val else '?'))
@@ -1199,3 +1206,94 @@ def _get_sapi_token_for_leap_project(
     token = account.get_project_token(project=project)
 
     return (project, token)
+
+
+@cli.group()
+def cache():
+    """Interact with Ocean cache."""
+
+
+def _get_cache_info() -> dict[str, list[dict]]:
+    def _stats(cache: diskcache.Cache) -> dict:
+        return {
+            'count': len(cache),
+            'size': cache.volume(),
+        }
+
+    def _cache(path: Path) -> dict:
+        with diskcache.Cache(disk=diskcache.JSONDisk, directory=path) as cache:
+            return dict(path=path) | _stats(cache)
+
+    def _creds(path: Path) -> dict:
+        with Credentials(creds_file=path) as cache:
+            return dict(path=path) | _stats(cache)
+
+    def _existing(paths: list[Path]) -> list[Path]:
+        return [p for p in paths if p.exists()]
+
+    return {
+        # used for solvers, regions
+        'API cache': [
+            _cache(path) for path in _existing([Path(get_cache_dir()) / 'api'])
+        ],
+
+        # used by @cached decorator (not in use currently by cc)
+        'Function decorator cache': [
+            _cache(path) for path in _existing([Path(get_cache_dir()) / 'func'])
+        ],
+
+        # used to store leap auth creds
+        'Auth credentials cache': [
+            _creds(Path(path)) for path in _get_creds_paths(only_existing=True)
+        ],
+    }
+
+
+@cache.command(name='ls')
+@standardized_output
+def cache_list(*, output):
+    """List cache directories."""
+
+    info = _get_cache_info()
+
+    for name, collection in info.items():
+        for stats in collection:
+            output(f"{stats['path']}")
+
+    if not sum(map(len, info.values())):
+        output("Cache empty.")
+
+
+@cache.command(name='info')
+@standardized_output
+def cache_info(*, output):
+    """Show information about the cache."""
+
+    info = _get_cache_info()
+
+    for name, collection in info.items():
+        output(f"{name}:")
+        for stats in collection:
+            output(f"  - Path: {stats['path']}")
+            output(f"    Items: {stats['count']}")
+            output(f"    Size: {stats['size'] / 2**20:.2f} MiB")
+        if not collection:
+            output("  (empty)")
+
+
+@cache.command(name='purge')
+@standardized_output
+def cache_purge(*, output):
+    """Remove all items from the cache."""
+
+    info = _get_cache_info()
+
+    for name, collection in info.items():
+        for stats in collection:
+            path: Path = stats['path']
+            if path.is_file():
+                path.unlink()
+            else:
+                shutil.rmtree(path)
+
+    output("Cache purged.")

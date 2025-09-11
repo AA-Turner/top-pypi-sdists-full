@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: akracer
-Version: 0.0.13
+Version: 0.0.14
 Summary: akracer is next version of py_mini_racer
 Project-URL: Documentation, https://github.com/akfamily/akracer#readme
 Project-URL: Issues, https://github.com/akfamily/akracer/issues
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -37,6 +38,8 @@ pip install akracer
 
 1. `HATCH_INDEX_USER` 为 `__token__`
 2. `HATCH_INDEX_AUTH` 为 `pypi-xxxx`
+3. 如果使用 PyCharm 则可以在 `Settings -> Tools -> Terminal -> Environment variables` 中设置
+4. 具体的值在 `.pypirc` 文件中，其中 `pypi-xxxx` 为对应的 token 是从 pypi 项目的设置中生成的
 
 ### 定制化
 
@@ -50,7 +53,9 @@ pip install akracer
 3. 构建版本：`hatch build`
 4. 发布版本：`hatch publish`
 
-注意：第一次上传需要在 `hatch publish -u __token__ -a pypi-xxxx` 中配置好token
+注意：第一次上传需要在 `hatch publish -u __token__ -a pypi-xxxx` 中配置好 token，参考
+https://hatch.pypa.io/latest/publish/#authentication 其中的 pypi-xxxx 为对应的 token 是从
+pypi 项目的设置中生成的。
 
 ### 动态链接库
 

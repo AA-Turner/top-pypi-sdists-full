@@ -48,6 +48,7 @@ class EmailRequestInput:
     ccEmails: Optional[List[EmailRecipient]] = None
     bccEmails: Optional[List[EmailRecipient]] = None
     attachments: Optional[List[EmailAttachment]] = None
+    replyToEmails: Optional[List[EmailRecipient]] = None
 
     def __post_init__(self):
         if len(self.toEmails) < 1:
@@ -56,6 +57,8 @@ class EmailRequestInput:
             raise SPyValueError(f"A non blank subject must be provided")
         if not self.content or self.content.isspace():
             raise SPyValueError(f"A non blank content must be provided")
+        if self.replyToEmails is not None and len(self.replyToEmails) > 1:
+            raise SPyValueError(f"Only one reply-to email address is currently allowed")
 
     def to_dict(self) -> Dict:
         return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
@@ -67,7 +70,7 @@ AttachmentType = Union[EmailAttachment, List[EmailAttachment]]
 
 def _create_email_request_input(to: RecipientType, subject: str, content: str,
                                 cc: Optional[RecipientType], bcc: Optional[RecipientType],
-                                attachments: Optional[AttachmentType]) -> EmailRequestInput:
+                                attachments: Optional[AttachmentType], reply_to: Optional[RecipientType]) -> EmailRequestInput:
     def standardize_recipient_list(recipients: Optional[RecipientType]) -> Optional[List[EmailRecipient]]:
         if recipients is None:
             return None
@@ -90,9 +93,10 @@ def _create_email_request_input(to: RecipientType, subject: str, content: str,
     to = standardize_recipient_list(to)
     cc = standardize_recipient_list(cc)
     bcc = standardize_recipient_list(bcc)
+    reply_to = standardize_recipient_list(reply_to)
     attachments = standardize_attachments_list(attachments)
     return EmailRequestInput(toEmails=to, subject=subject, content=content, ccEmails=cc, bccEmails=bcc,
-                             attachments=attachments)
+                             attachments=attachments, replyToEmails=reply_to)
 
 
 def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> None:
@@ -117,6 +121,8 @@ def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> Non
             cc_emails = [_convert_recipient_spy_to_sdk(e) for e in spy_input.ccEmails] if spy_input.ccEmails else None
             bcc_emails = [_convert_recipient_spy_to_sdk(e) for e in
                           spy_input.bccEmails] if spy_input.bccEmails else None
+            reply_to_emails = [_convert_recipient_spy_to_sdk(e) for e in
+                               spy_input.replyToEmails] if spy_input.replyToEmails else None
             attachments = [_convert_attachment_spy_to_sdk(a) for a in
                            spy_input.attachments] if spy_input.attachments else None
             return SendEmailInputV1(subject=spy_input.subject,
@@ -124,11 +130,18 @@ def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> Non
                                     to_emails=to_emails,
                                     cc_emails=cc_emails,
                                     bcc_emails=bcc_emails,
+                                    reply_to=reply_to_emails,
                                     attachments=attachments)
 
         try:
             notifier_api = NotifierApi(session.client)
             converted_body = _convert_input_spy_to_sdk(email_body)
+
+            # Check if reply-to is supported and remove it if not
+            if email_body.replyToEmails is not None and not _login.is_sdk_module_version_at_least(66, 37):
+                # Remove reply_to from the converted body if SDK doesn't support it
+                converted_body.reply_to = None
+
             notifier_api.send_email(body=converted_body)
         except Exception as ex:
             if isinstance(ex, ApiException):
@@ -154,8 +167,8 @@ def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> Non
 @Status.handle_keyboard_interrupt()
 def send_email(to: RecipientType, subject: str, content: str, *,
                cc: Optional[RecipientType] = None, bcc: Optional[RecipientType] = None,
-               attachments: Optional[AttachmentType] = None, errors: Optional[str] = None,
-               quiet: Optional[bool] = None, status: Optional[Status] = None,
+               attachments: Optional[AttachmentType] = None, reply_to: Optional[RecipientType] = None,
+               errors: Optional[str] = None, quiet: Optional[bool] = None, status: Optional[Status] = None,
                session: Optional[Session] = None) -> None:
     """
     Sends an email notification.
@@ -182,6 +195,9 @@ def send_email(to: RecipientType, subject: str, content: str, *,
 
     attachments : EmailAttachment, List[EmailAttachment], default None
         Attachments to be sent with the email.
+
+    reply_to : str, EmailRecipient, List[str or EmailRecipient], default None
+        Reply-To recipients list. Only one reply-to email address is allowed.
 
     errors : {'raise', 'catalog'}, default 'raise'
         If 'raise', any errors encountered will cause an exception. If
@@ -221,7 +237,8 @@ def send_email(to: RecipientType, subject: str, content: str, *,
     >>>            cc="some_user@seeq.com",
     >>>            bcc=['bcc.recipient@seeq.com', 'another.bcc@seeq.com'],
     >>>            subject='Subject',
-    >>>            content='Email content')
+    >>>            content='Email content',
+    >>>            reply_to="reply@seeq.com")
 
     An example with an attachment:
 
@@ -243,6 +260,7 @@ def send_email(to: RecipientType, subject: str, content: str, *,
         (cc, 'cc', (str, EmailRecipient, List)),
         (bcc, 'bcc', (str, EmailRecipient, List)),
         (attachments, 'attachments', (EmailAttachment, List)),
+        (reply_to, 'reply_to', (str, EmailRecipient, List)),
         (errors, 'errors', str),
         (quiet, 'quiet', bool),
         (status, 'status', Status),
@@ -251,7 +269,7 @@ def send_email(to: RecipientType, subject: str, content: str, *,
 
     _login.validate_login(session, status)
 
-    email_request_body: EmailRequestInput = _create_email_request_input(to, subject, content, cc, bcc, attachments)
+    email_request_body: EmailRequestInput = _create_email_request_input(to, subject, content, cc, bcc, attachments, reply_to)
 
     status.update('Sending...', Status.RUNNING)
 

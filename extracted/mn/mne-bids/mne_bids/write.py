@@ -11,7 +11,7 @@ import shutil
 import sys
 import warnings
 from collections import OrderedDict, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import mne
@@ -37,6 +37,7 @@ from scipy import linalg
 
 from mne_bids import (
     BIDSPath,
+    __version__,
     get_anonymization_daysback,
     get_bids_path_from_fname,
     read_raw_bids,
@@ -367,8 +368,7 @@ def _events_json(fname, extra_columns=None, has_trial_type=True, overwrite=False
         },
         "sample": {
             "Description": (
-                "The event onset time in number of sampling points."
-                "First sample is 0."
+                "The event onset time in number of sampling points.First sample is 0."
             ),
         },
         "value": {
@@ -418,7 +418,7 @@ def _readme(datatype, fname, overwrite=False):
         MNE-BIDS citation to the existing README, unless it
         already contains that citation.
     """
-    if os.path.isfile(fname) and not overwrite:
+    if fname.is_file() and not overwrite:
         with open(fname, encoding="utf-8-sig") as fid:
             orig_data = fid.read()
         mne_bids_ref = REFERENCES["mne-bids"] in orig_data
@@ -479,8 +479,6 @@ def _participants_tsv(raw, subject_id, fname, overwrite=False):
 
         # determine the age of the participant
         age = subject_info.get("birthday", None)
-        if isinstance(age, tuple):  # XXX: can be removed once MNE >= 1.8 is required
-            age = date(*age)
         meas_date = raw.info.get("meas_date", None)
         if isinstance(meas_date, tuple | list | np.ndarray):
             meas_date = meas_date[0]
@@ -1177,8 +1175,7 @@ def _write_raw_brainvision(raw, bids_fname, events, overwrite):
     # ensuring that int16 can represent the data in original units.
     if raw.orig_format != "single":
         warn(
-            f'Encountered data in "{raw.orig_format}" format. '
-            "Converting to float32.",
+            f'Encountered data in "{raw.orig_format}" format. Converting to float32.',
             RuntimeWarning,
         )
 
@@ -1301,7 +1298,9 @@ def make_dataset_description(
         doi:10.5281/zenodo.3686061).
     generated_by : list of dict | None
         Used to specify provenance of the dataset. See BIDS specification
-        for details.
+        for details. If ``None``, a basic description containing MNE-BIDS name, version,
+        and URL will be generated for you. To suppress this behavior, pass an empty
+        list.
     source_datasets : list of dict | None
         Used to specify the locations and relevant attributes of all source
         datasets. Each dict in the list represents one source dataset and
@@ -1353,9 +1352,16 @@ def make_dataset_description(
                 )
             if not set(i.keys()).issubset(generated_by_keys):
                 raise ValueError(msg_key.format(i.keys() - generated_by_keys))
+    elif generated_by is not None:
+        raise ValueError(msg_type.format("generated_by"))
     else:
-        if generated_by is not None:
-            raise ValueError(msg_type.format("generated_by"))
+        generated_by = [
+            dict(
+                Name="MNE-BIDS",
+                Version=__version__,
+                CodeURL="https://mne.tools/mne-bids/",
+            )
+        ]
 
     source_ds_keys = set(["URL", "DOI", "Version"])
     if isinstance(source_datasets, list):
@@ -1734,13 +1740,12 @@ def write_raw_bids(
 
     if events is not None and event_id is None and event_metadata is None:
         raise ValueError(
-            "You passed events, but no event_id dictionary " "or event_metadata."
+            "You passed events, but no event_id dictionary or event_metadata."
         )
 
     if event_metadata is not None and extra_columns_descriptions is None:
         raise ValueError(
-            "You passed event_metadata, but no "
-            "extra_columns_descriptions dictionary."
+            "You passed event_metadata, but no extra_columns_descriptions dictionary."
         )
 
     if event_metadata is not None:
@@ -1920,7 +1925,7 @@ def write_raw_bids(
     if associated_er_path is not None:
         if not associated_er_path.exists():
             raise FileNotFoundError(
-                f"Empty-room data file not found: " f"{associated_er_path}"
+                f"Empty-room data file not found: {associated_er_path}"
             )
 
         # Turn it into a path relative to the BIDS root
@@ -1965,7 +1970,7 @@ def write_raw_bids(
             "This violates the BIDS specifications. "
             "Please ensure there is only one README file."
         )
-    readme_fname = str((found_readmes or [bids_path.root / "README"])[0])
+    readme_fname = Path((found_readmes or [bids_path.root / "README"])[0])
 
     participants_tsv_fname = op.join(bids_path.root, "participants.tsv")
     participants_json_fname = participants_tsv_fname.replace(".tsv", ".json")
@@ -2264,7 +2269,7 @@ def write_raw_bids(
         keep_source=keep_source,
         overwrite=overwrite,
     )
-    logger.info(f"Wrote {scans_path.fpath} entry with " f"{scan_relative_fpath}.")
+    logger.info(f"Wrote {scans_path.fpath} entry with {scan_relative_fpath}.")
 
     return bids_path
 
@@ -2348,7 +2353,7 @@ def _get_t1w_mgh(fs_subject, fs_subjects_dir):
     import nibabel as nib
 
     fs_subjects_dir = get_subjects_dir(fs_subjects_dir, raise_error=True)
-    t1_fname = Path(fs_subjects_dir) / fs_subject / "mri" / "T1.mgz"
+    t1_fname = fs_subjects_dir / fs_subject / "mri" / "T1.mgz"
     if not t1_fname.exists():
         raise ValueError(
             "Freesurfer recon-all subject folder "
@@ -2723,9 +2728,9 @@ def write_meg_calibration(calibration, bids_path, *, verbose=None):
     Examples
     --------
     >>> data_path = mne.datasets.testing.data_path(download=False) # doctest: +SKIP
-    >>> calibration_fname = op.join(data_path, 'SSS', 'sss_cal_3053.dat') # doctest: +SKIP
+    >>> calibration_fname = data_path / 'SSS' / 'sss_cal_3053.dat' # doctest: +SKIP
     >>> bids_path = BIDSPath(subject='01', session='test',
-    ...                      root=op.join(data_path, 'mne_bids')) # doctest: +SKIP
+    ...                      root=data_path / 'mne_bids') # doctest: +SKIP
     >>> write_meg_calibration(calibration_fname, bids_path) # doctest: +SKIP
     Writing fine-calibration file to ...sub-01_ses-test_acq-calibration_meg.dat...
     """  # noqa: E501
@@ -3018,7 +3023,7 @@ def anonymize_dataset(
     if "emptyroom" in subject_mapping and subject_mapping["emptyroom"] != "emptyroom":
         warn(
             f'You requested to change the "emptyroom" subject ID '
-            f'(to {subject_mapping["emptyroom"]}). It is not '
+            f"(to {subject_mapping['emptyroom']}). It is not "
             f"recommended to do this!"
         )
 
@@ -3102,7 +3107,7 @@ def anonymize_dataset(
     if subjects_missing_mapping_keys:
         raise IndexError(
             f"The subject_mapping dictionary does not contain an entry for "
-            f'subject ID: {", ".join(subjects_missing_mapping_keys)}'
+            f"subject ID: {', '.join(subjects_missing_mapping_keys)}"
         )
 
     _, unique_vals_idx, counts = np.unique(
@@ -3113,11 +3118,11 @@ def anonymize_dataset(
         keys = np.array(list(subject_mapping.values()))[non_unique_vals_idx]
         raise ValueError(
             f"The subject_mapping dictionary contains duplicated anonymized "
-            f'subjet IDs: {", ".join(keys)}'
+            f"subjet IDs: {', '.join(keys)}"
         )
 
     # Produce some logging output
-    msg = f"\n" f"    Input:  {bids_root_in}\n" f"    Output: {bids_root_out}\n" f"\n"
+    msg = f"\n    Input:  {bids_root_in}\n    Output: {bids_root_out}\n\n"
     if daysback is None:
         msg += "Not shifting recording dates (found anatomical scans only).\n"
     else:

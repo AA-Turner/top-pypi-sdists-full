@@ -10516,7 +10516,7 @@ l_csend_fsm_parse_start = {
 
 # region client
 l_userbot_cmd_acc = {
-    'ru': "👩🏽‍💻 <b>Аккаунт:</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>Био:</b> {2}",
+    'ru': "👩🏽‍💻 <b>Информация:</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>Био:</b> {2}",
     'en': "👩🏽‍💻 <b>Account:</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>Bio:</b> {2}",
     'es': "👩🏽‍💻 <b>Cuenta:</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>Biografía:</b> {2}",
     'fr': "👩🏽‍💻 <b>Compte :</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>Bio :</b> {2}",
@@ -10524,7 +10524,7 @@ l_userbot_cmd_acc = {
     'ar': "👩🏽‍💻 <b>الحساب:</b> {0}\n[<b>id</b>=<code>{1}</code>]\n<b>السيرة الذاتية:</b> {2}",
 }
 l_userbot_cmd_acc2 = {
-    'ru': "👩🏽‍💻 <b>Аккаунт:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}]",
+    'ru': "👩🏽‍💻 <b>Информация:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}]",
     'en': "👩🏽‍💻 <b>Account:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}]",
     'es': "👩🏽‍💻 <b>Cuenta:</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}]",
     'fr': "👩🏽‍💻 <b>Compte :</b> {0}\n[<b>id</b>=<code>{1}</code>, +{2}]",

@@ -14,12 +14,6 @@
 
 import enum
 
-# note: for backwards compatibility in 0.13.1+
-# TODO: remove in 0.14.0
-from dwave.cloud.config.constants import (
-    DEFAULT_METADATA_API_ENDPOINT, DEFAULT_REGION,
-    DEFAULT_SOLVER_API_ENDPOINT, DEFAULT_LEAP_API_ENDPOINT)
-
 
 # Default API version
 DEFAULT_API_MEDIA_TYPE = 'application/vnd.dwave+json'
@@ -68,3 +62,11 @@ class ProblemType(str, enum.Enum):
     CQM = "cqm"
     DQM = "dqm"
     NL = "nl"
+
+
+class DeprecationContext(str, enum.Enum):
+    API = "api"                 # API changes such as endpoints, data structures, and headers
+    FEATURE = "feature"         # solver feature is deprecated
+    PARAMETER = "parameter"     # solver parameter is deprecated
+    SOLVER = "solver"           # solver or solver type is deprecated
+    OTHER = "other"

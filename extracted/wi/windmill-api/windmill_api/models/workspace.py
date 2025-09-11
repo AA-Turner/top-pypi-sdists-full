@@ -17,6 +17,7 @@ class Workspace:
         owner (str):
         domain (Union[Unset, str]):
         color (Union[Unset, str]):
+        parent_workspace_id (Union[Unset, None, str]):
     """
 
     id: str
@@ -24,6 +25,7 @@ class Workspace:
     owner: str
     domain: Union[Unset, str] = UNSET
     color: Union[Unset, str] = UNSET
+    parent_workspace_id: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -32,6 +34,7 @@ class Workspace:
         owner = self.owner
         domain = self.domain
         color = self.color
+        parent_workspace_id = self.parent_workspace_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -46,6 +49,8 @@ class Workspace:
             field_dict["domain"] = domain
         if color is not UNSET:
             field_dict["color"] = color
+        if parent_workspace_id is not UNSET:
+            field_dict["parent_workspace_id"] = parent_workspace_id
 
         return field_dict
 
@@ -62,12 +67,15 @@ class Workspace:
 
         color = d.pop("color", UNSET)
 
+        parent_workspace_id = d.pop("parent_workspace_id", UNSET)
+
         workspace = cls(
             id=id,
             name=name,
             owner=owner,
             domain=domain,
             color=color,
+            parent_workspace_id=parent_workspace_id,
         )
 
         workspace.additional_properties = d

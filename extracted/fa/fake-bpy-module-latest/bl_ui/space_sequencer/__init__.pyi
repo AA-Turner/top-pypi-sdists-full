@@ -459,6 +459,42 @@ class SEQUENCER_MT_marker(_bpy_types.Menu):
         :param context:
         """
 
+class SEQUENCER_MT_modifier_add(_bpy_types.Menu):
+    MODIFIER_TYPES_I18N_CONTEXT: typing.Any
+    MODIFIER_TYPES_TO_LABELS: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def operator_modifier_add(cls, layout, mod_type) -> None:
+        """
+
+        :param layout:
+        :param mod_type:
+        """
+
 class SEQUENCER_MT_navigation(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -908,6 +944,31 @@ class SEQUENCER_MT_strip_mirror(_bpy_types.Menu):
         """
 
         :param context:
+        """
+
+class SEQUENCER_MT_strip_modifiers(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
         """
 
 class SEQUENCER_MT_strip_movie(_bpy_types.Menu):

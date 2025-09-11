@@ -47,6 +47,7 @@ EXTENSIONS = [
 
 cython_directives: dict[str, Any] = {
     "language_level": "3",
+    "freethreading_compatible": True,
 }
 
 
@@ -70,7 +71,7 @@ class CythonCoverageBuildExtCommand(build_ext):
 
     def run(self):
         """Build extensions and handle cython coverage flags."""
-        define_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")]
+        define_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_25_API_VERSION")]
         if self.cython_coverage:
             print("Enabling directives/macros for Cython coverage support")
             cython_directives.update({
@@ -99,21 +100,25 @@ setup(name="trollimage",
       long_description=long_description,
       author='Martin Raspaud',
       author_email='martin.raspaud@smhi.se',
-      classifiers=["Development Status :: 5 - Production/Stable",
-                   "Intended Audience :: Science/Research",
-                   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-                   "Operating System :: OS Independent",
-                   "Programming Language :: Python",
-                   "Topic :: Scientific/Engineering"],
+      classifiers=[
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Science/Research",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python",
+          "Topic :: Scientific/Engineering",
+          "Programming Language :: Python :: Free Threading :: 1 - Unstable",
+      ],
+      license="GPL-3.0-or-later",
+      license_files=["LICENSE.txt", "LICENSE_RIO_COLOR.txt"],
       url="https://github.com/pytroll/trollimage",
       packages=find_packages(),
       zip_safe=False,
-      install_requires=['numpy>=1.20', 'pillow'],
-      python_requires='>=3.9',
+      install_requires=['numpy>=1.25', 'pillow'],
+      python_requires='>=3.11',
       extras_require={
           'geotiff': ['rasterio>=1.0'],
           'xarray': ['xarray', 'dask[array]'],
+          'tests': ['xarray', 'dask[array]', 'pyproj', 'pyresample', 'pytest'],
       },
-      tests_require=['xarray', 'dask[array]', 'pyproj', 'pyresample'],
       ext_modules=EXTENSIONS,
       )

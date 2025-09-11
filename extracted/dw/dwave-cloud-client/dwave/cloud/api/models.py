@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Annotated, Any, Optional, Union
 
 from pydantic import BaseModel, RootModel, ConfigDict
 from pydantic.functional_validators import AfterValidator
 
+import dwave.cloud.config
 from dwave.cloud.api import constants
 from dwave.cloud.utils.coders import coerce_numpy_to_python
 
@@ -52,8 +55,52 @@ class _RootSetterMixin:
         return setattr(self.root, name, value)
 
 
+class _DictMixin:
+    """Add `.dict()` method."""
+
+    def dict(self):
+        return self.model_dump(exclude_unset=True, exclude_none=True)
+
+
+class _DictEqualityMixin:
+    """Enable equality testing against a dict. Requires `.dict` method."""
+
+    def __eq__(self, other):
+        if isinstance(other, dict):
+            return self.dict() == other
+        return super().__eq__(other)
+
+
+class SolverVersion(_DictMixin, _DictEqualityMixin, BaseModel):
+    # allow additional version specifiers in the future
+    model_config = ConfigDict(extra='allow')
+
+    graph_id: Optional[str] = None              # QPU solvers require graph_id
+
+
+class SolverIdentity(_DictMixin, _DictEqualityMixin, BaseModel):
+    name: str
+    version: Optional[SolverVersion] = None     # only QPU solvers have `version` structure
+
+    def __str__(self):
+        return self.to_id()
+
+    def to_id(self) -> str:
+        """Serialize to a unique string representation that includes the ``name``
+        and all ``version`` fields.
+        """
+        return dwave.cloud.config.loaders._solver_identity_as_id(self.dict())
+
+    @classmethod
+    def from_id(cls, id: str) -> SolverIdentity:
+        """Construct a ``SolverIdentity`` model from the unique string representation
+        generated with :meth:`.to_id` or ``str()``.
+        """
+        return cls(**dwave.cloud.config.loaders._solver_id_as_identity(id))
+
+
 class SolverCompleteConfiguration(BaseModel):
-    id: str
+    identity: SolverIdentity
     status: str
     description: str
     properties: dict
@@ -63,6 +110,8 @@ class SolverCompleteConfiguration(BaseModel):
 class SolverFilteredConfiguration(BaseModel):
     # no required fields, and no ignored fields
     model_config = ConfigDict(extra='allow')
+
+    identity: Optional[SolverIdentity] = None
 
 
 # NOTE: we implement getitem interface so that `SolverConfiguration` can be
@@ -75,7 +124,7 @@ class SolverConfiguration(_RootGetterMixin, _RootSetterMixin, RootModel):
 class ProblemInitialStatus(BaseModel):
     id: str
     type: constants.ProblemType
-    solver: str
+    solver: SolverIdentity
     label: Optional[str] = None
     status: constants.ProblemStatus
     submitted_on: datetime
@@ -139,7 +188,7 @@ class ProblemData(_RootGetterMixin, RootModel):
 
 
 class ProblemMetadata(BaseModel):
-    solver: str
+    solver: SolverIdentity
     type: constants.ProblemType
     label: Optional[str] = None
     status: constants.ProblemStatus
@@ -154,13 +203,13 @@ class ProblemInfo(BaseModel):
     data: ProblemData
     params: dict[str, AnyIncludingNumpy]
     metadata: ProblemMetadata
-    answer: ProblemAnswer
+    answer: Optional[ProblemAnswer] = None          # missing unless problem status is COMPLETED
 
 
 class ProblemJob(BaseModel):
     data: ProblemData
     params: dict[str, AnyIncludingNumpy]
-    solver: str
+    solver: SolverIdentity
     type: constants.ProblemType
     label: Optional[str] = None
 
@@ -228,3 +277,25 @@ class _LeapTokenWrapper(BaseModel):
 
 class _LeapProjectTokenResponse(BaseModel):
     data: _LeapTokenWrapper
+
+
+# Leap deprecation messages
+
+class DeprecationMessage(_DictMixin, BaseModel):
+    id: str
+    context: constants.DeprecationContext
+    deprecated: Optional[datetime] = None
+    link: Optional[str] = None
+    message: str
+    sunset: datetime
+
+    @property
+    def is_app_level_deprecation(self) -> bool:
+        """True when deprecation context implies a user application
+        change is required, hence the warning should be user-visible.
+        """
+        return self.context in (
+            constants.DeprecationContext.FEATURE,
+            constants.DeprecationContext.PARAMETER,
+            constants.DeprecationContext.SOLVER,
+        )

@@ -1,13 +1,15 @@
+import io
 import re
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+import unittest
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
+from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn
 from rich.text import Text
-from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.test.contracts.printer import ITestPrinter
 from orionis.test.entities.result import TestResult
 from orionis.test.enums import TestStatus
@@ -45,9 +47,6 @@ class TestPrinter(ITestPrinter):
         # Calculate the panel width as a percentage of the console width
         self.__panel_width: int = int(self.__rich_console.width * (width / 100))
 
-        # Define keywords to detect debugging or dump calls in test code
-        self.__debbug_keywords: list = ['self.dd', 'self.dump']
-
         # Store the flag indicating whether to print results
         self.__print_result: bool = print_result
 
@@ -56,59 +55,106 @@ class TestPrinter(ITestPrinter):
         value: Any
     ) -> None:
         """
-        Print a value to the console using the Rich library.
+        Print a value to the console using the Rich library, supporting strings, lists, and other objects.
 
         Parameters
         ----------
         value : Any
-            The value to be printed. Can be a string, object, or list.
+            The value to be printed. Can be a string, a list of items, or any other object.
 
         Returns
         -------
         None
+            This method does not return any value. Output is sent directly to the console.
+
+        Notes
+        -----
+        - If result printing is disabled (`self.__print_result` is False), no output will be produced.
+        - Strings are printed as-is.
+        - Lists are iterated and each item is printed on a separate line.
+        - Other objects are converted to string before printing.
         """
-        # If not printing results, return early
+
+        # If printing results is disabled, do not output anything
         if self.__print_result is False:
             return
 
-        # If the value is a string, print it directly
+        # Print string values directly
         if isinstance(value, str):
             self.__rich_console.print(value)
 
-        # If the value is a list, print each item on a new line
+        # Print each item of a list on a new line
         elif isinstance(value, list):
             for item in value:
                 self.__rich_console.print(item)
 
-        # For any other object, print its string representation
+        # For other object types, print their string representation
         else:
             self.__rich_console.print(str(value))
 
+    def line(
+        self,
+        count: int = 1
+    ) -> None:
+        """
+        Print a specified number of blank lines to the console for spacing.
+
+        Parameters
+        ----------
+        count : int, optional
+            The number of blank lines to print (default is 1).
+        Returns
+        -------
+        None
+            This method does not return any value. Blank lines are printed directly to the console.
+        Notes
+        -----
+        - If result printing is disabled (`self.__print_result` is False), no output will be produced.
+        - The method uses the Rich console's built-in line printing functionality.
+        """
+
+        # If printing results is disabled, do not output anything
+        if self.__print_result is False:
+            return
+
+        # Print the specified number of blank lines
+        self.__rich_console.line(count)
+
     def zeroTestsMessage(self) -> None:
         """
-        Display a message indicating that no tests were found to execute.
+        Display a styled message indicating that no tests were found to execute.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
         None
+            This method does not return any value. The message is printed directly to the console.
+
+        Notes
+        -----
+        - If result printing is disabled (`self.__print_result` is False), no output will be produced.
+        - The message is displayed in a Rich panel with a yellow border and centered title.
         """
-        # If not printing results, return early
+        # If printing results is disabled, do not output anything
         if self.__print_result is False:
             return
 
-        # Print the message inside a styled Rich panel (not as an error)
+        # Print a styled panel to indicate that no tests were found
         self.__rich_console.print(
             Panel(
                 "No tests found to execute.",
-                border_style="yellow",
-                title="No Tests",
-                title_align="center",
-                width=self.__panel_width,
-                padding=(0, 1)
+                border_style="yellow",              # Use yellow to indicate a warning or neutral state
+                title="No Tests",                   # Panel title
+                title_align="center",               # Center the title
+                width=self.__panel_width,           # Set panel width based on console configuration
+                padding=(0, 1)                      # Add horizontal padding for better appearance
             )
         )
 
-        # Add a blank line after the panel for spacing
+        # Add a blank line after the panel for visual spacing
         self.__rich_console.line(1)
 
     def startMessage(
@@ -119,52 +165,95 @@ class TestPrinter(ITestPrinter):
         max_workers: int
     ):
         """
-        Display a formatted start message for the test execution session.
+        Display a formatted start message for the beginning of a test execution session.
 
         Parameters
         ----------
         length_tests : int
-            The total number of tests to be executed in the session.
+            Total number of tests scheduled for execution in the session.
         execution_mode : str
-            The mode of execution for the tests. Accepts "parallel" or "sequential".
+            The mode of test execution. Should be either "parallel" or "sequential".
         max_workers : int
-            The number of worker threads or processes to use if running in parallel mode.
+            Number of worker threads or processes to use if running in parallel mode.
 
         Returns
         -------
         None
+            This method does not return any value. It prints a styled panel to the console with session details.
+
+        Notes
+        -----
+        - If result printing is disabled (`self.__print_result` is False), no output will be produced.
+        - The panel displays the total number of tests, execution mode, and the timestamp when the session started.
+        - The execution mode text will indicate parallel execution with the number of workers if applicable.
         """
-        # If not printing results, return early
+
+        # If printing results is disabled, do not output anything
         if self.__print_result is False:
             return
 
-        # Determine the execution mode text for display
+        # Format the execution mode text for display
         mode_text = f"[stat]Parallel with {max_workers} workers[/stat]" if execution_mode == "parallel" else "Sequential"
 
         # Prepare the lines of information to display in the panel
         textlines = [
-            f"[bold]Total Tests:[/bold] [dim]{length_tests}[/dim]",
-            f"[bold]Mode:[/bold] [dim]{mode_text}[/dim]",
-            f"[bold]Started at:[/bold] [dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]"
+            f"[bold]Total Tests:[/bold] [dim]{length_tests}[/dim]",                                 # Show total number of tests
+            f"[bold]Mode:[/bold] [dim]{mode_text}[/dim]",                                           # Show execution mode
+            f"[bold]Started at:[/bold] [dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]"   # Show start timestamp
         ]
-
-        # Add a blank line before the panel
-        self.__rich_console.line(1)
 
         # Print the panel with the formatted text lines
         self.__rich_console.print(
             Panel(
-                str('\n').join(textlines),
-                border_style="blue",
-                title=self.__panel_title,
-                title_align="center",
-                width=self.__panel_width,
-                padding=(0, 1)
+                str('\n').join(textlines),           # Join all lines for panel content
+                border_style="blue",                 # Use blue border for the panel
+                title=self.__panel_title,            # Set the panel title
+                title_align="center",                # Center the panel title
+                width=self.__panel_width,            # Set panel width based on console configuration
+                padding=(0, 1)                       # Add horizontal padding for better appearance
             )
         )
 
-        # Add a blank line after the panel
+        # Add a blank line after the panel for spacing
         self.__rich_console.line(1)
+
+    def progressBar(
+        self
+    ) -> Progress:
+        """
+        Create and return a Rich Progress bar instance for tracking task progress in the console.
+
+        Parameters
+        ----------
+        self : TestPrinter
+            The instance of the TestPrinter class.
+
+        Returns
+        -------
+        Progress
+            A Rich Progress object configured with:
+                - A cyan-colored task description column.
+                - A visual progress bar.
+                - A percentage completion indicator.
+                - Output directed to the configured Rich console.
+                - Transient display (disappears after completion).
+                - Disabled if result printing is turned off.
+
+        Notes
+        -----
+        - If printing is disabled (`self.__print_result` is False), the progress bar will not be shown.
+        - The progress bar is suitable for tracking the progress of tasks such as test execution.
+        """
+
+        # Create and return a Rich Progress bar instance with custom columns and settings
+        return Progress(
+            TextColumn("[cyan]{task.description}"),  # Task description in cyan
+            BarColumn(),                             # Visual progress bar
+            TaskProgressColumn(),                    # Percentage completion indicator
+            console=self.__rich_console,             # Output to the configured Rich console
+            transient=True,                          # Remove the bar after completion
+            disable=not self.__print_result          # Disable if printing is turned off
+        )
 
     def finishMessage(
         self,
@@ -214,57 +303,71 @@ class TestPrinter(ITestPrinter):
     def executePanel(
         self,
         *,
-        flatten_test_suite: list,
-        callable: callable
-    ):
+        func: callable,
+        live_console: bool = True
+    ) -> unittest.TestResult:
         """
-        Execute a test suite panel with optional live console output and debugging detection.
+        Executes a callable within a styled Rich panel, optionally using a live console for dynamic updates.
 
         Parameters
         ----------
-        flatten_test_suite : list
-            The flattened list of test case instances or test suite items to be executed.
-        callable : callable
-            The function or method to execute the test suite.
+        func : callable
+            The function or method to execute. It should take no arguments and return a result.
+        live_console : bool, optional
+            If True, displays a live updating panel during execution (default is True).
+            If False, displays a static panel before execution.
 
         Returns
         -------
-        Any
-            Returns the result produced by the provided callable after execution.
+        unittest.TestResult
+            The result returned by the executed callable, typically a `unittest.TestResult` object.
+
+        Notes
+        -----
+        - If result printing is disabled, the callable is executed without any panel or output.
+        - If `live_console` is True, a transient live panel is shown while the callable executes.
+        - If `live_console` is False, a static panel is printed before execution.
+        - The method always returns the result of the provided callable, regardless of output mode.
         """
-        # Determine if the test suite contains active debugging or dump calls
-        use_debugger = self.__withDebugger(
-            flatten_test_suite=flatten_test_suite
-        )
+
+        # Ensure the provided func is actually callable
+        if not callable(func):
+            raise ValueError("The 'func' parameter must be a callable (function or method).")
 
         # Only display output if printing results is enabled
         if self.__print_result:
 
-            # Prepare a minimal running message as a single line, using the configured panel width
-            running_panel = Panel(
-                "[yellow]⏳ Running...[/yellow]",
-                border_style="yellow",
-                width=self.__panel_width,
-                padding=(0, 1)
-            )
+            # If live_console is True, use a live panel for dynamic updates
+            if live_console:
 
-            # If no debugger/dump calls, use a live panel for dynamic updates
-            if not use_debugger:
+                # Prepare a minimal running message as a single line, using the configured panel width
+                running_panel = Panel(
+                    "[yellow]⏳ Running...[/yellow]",
+                    border_style="yellow",
+                    width=self.__panel_width,
+                    padding=(0, 1)
+                )
 
-                # Execute the test suite and return its result
+                # Execute the callable within a live Rich panel context
                 with Live(running_panel, console=self.__rich_console, refresh_per_second=4, transient=True):
-                    return callable()
-
+                    return func()
             else:
 
-                # If debugger/dump calls are present, print a static panel before running
+                # Prepare a panel with a message indicating that test results will follow
+                running_panel = Panel(
+                    "[yellow]🧪 Running tests...[/yellow]",
+                    border_style="green",
+                    width=self.__panel_width,
+                    padding=(0, 1)
+                )
+
+                # If live_console is False, print a static panel before running
                 self.__rich_console.print(running_panel)
-                return callable()
+                return func()
 
         else:
-
-            # If result printing is disabled, execute the test suite without any panel
-            return callable()
+            # If result printing is disabled, execute the callable without any panel
+            return func()
 
     def linkWebReport(
         self,
@@ -528,54 +631,6 @@ class TestPrinter(ITestPrinter):
         max_width = self.__rich_console.width - 2
         display_msg = msg if len(msg) <= max_width else msg[:max_width - 3] + "..."
         self.__rich_console.print(display_msg, highlight=False)
-
-    def __withDebugger(
-        self,
-        flatten_test_suite: list
-    ) -> bool:
-        """
-        Determine if any test case in the provided flattened test suite contains active debugging or dumping calls.
-
-        Parameters
-        ----------
-        flatten_test_suite : list
-            A list of test case instances whose source code will be inspected for debugging or dumping calls.
-
-        Returns
-        -------
-        bool
-            True if any test case contains an active (non-commented) call to a debugging or dumping method.
-            False if no such calls are found or if an exception occurs during inspection.
-        """
-        try:
-
-            # Iterate through each test case in the flattened test suite
-            for test_case in flatten_test_suite:
-
-                # Retrieve the source code of the test case using reflection
-                source = ReflectionInstance(test_case).getSourceCode()
-
-                # Check each line of the source code
-                for line in source.splitlines():
-
-                    # Strip leading and trailing whitespace from the line
-                    stripped = line.strip()
-
-                    # Skip lines that are commented out
-                    if stripped.startswith('#') or re.match(r'^\s*#', line):
-                        continue
-
-                    # If any debug keyword is present in the line, return True
-                    if any(keyword in line for keyword in self.__debbug_keywords):
-                        return True
-
-            # No debug or dump calls found in any test case
-            return False
-
-        except Exception:
-
-            # If any error occurs during inspection, return False
-            return False
 
     def __sanitizeTraceback(
         self,

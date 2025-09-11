@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: umepr
-Version: 0.0.1b35
+Version: 0.0.1b37
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -20,7 +20,7 @@ Requires-Dist: rioxarray>=0.15.0
 Requires-Dist: scipy>=1.13.1
 Requires-Dist: shapely>=2.0.7
 Requires-Dist: tqdm>=4.67.1
-Requires-Dist: umep>=0.0.1b45
+Requires-Dist: umep>=0.0.1b47
 Requires-Dist: xarray>=2024.7.0
 License-File: LICENSE
 Summary: rust implementation of urban multi-scale environmental predictor

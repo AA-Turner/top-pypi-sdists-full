@@ -65,7 +65,7 @@ class argonRunner:
             passwd=passwd,
             salt=salt,
             dgst_len=dgst_len,
-            maxmem=2 ** maxmem,
+            maxmem=2**maxmem,
             iters=iters,
             mode=mode,
             pwhash=out.decode("ascii").rstrip(),
@@ -101,7 +101,6 @@ class argonRunner:
 
 
 if __name__ == "__main__":
-
     p = argparse.ArgumentParser()
     p.add_argument("-x", "--executable", dest="exe", required=True)
     p.add_argument(

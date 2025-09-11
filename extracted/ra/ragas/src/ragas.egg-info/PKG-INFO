@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ragas
-Version: 0.3.3
+Version: 0.3.4
 Summary: Evaluation framework for RAG and LLM applications
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -225,6 +225,8 @@ Requires-Dist: tqdm
 Requires-Dist: instructor
 Requires-Dist: gitpython
 Requires-Dist: pillow>=10.4.0
+Requires-Dist: networkx
+Requires-Dist: scikit-network
 Requires-Dist: langchain
 Requires-Dist: langchain-core
 Requires-Dist: langchain-community

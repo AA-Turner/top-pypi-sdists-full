@@ -632,6 +632,12 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         ))
 
         # Add detections to the counting summary (standard pattern for detection use cases)
+        # Ensure display label is present for UI (does not affect logic/counters)
+        for _d in processed_data:
+            if "display_name" not in _d:
+                name = _d.get("person_name")
+                # Use person_name only if recognized; otherwise leave empty to honor probation logic
+                _d["display_name"] = name if _d.get("recognition_status") == "known" else (_d.get("display_name", "") or "")
         counting_summary["detections"] = processed_data
 
         alerts = self._check_alerts(counting_summary, frame_number, config)
@@ -1288,6 +1294,8 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                     "person_id": detection.get("person_id"),
                     # Use display_name for front-end label suppression policy
                     "person_name": detection.get("display_name", ""),
+                    # Explicit label field for UI overlays
+                    "label": detection.get("display_name", ""),
                     "recognition_status": detection.get(
                         "recognition_status", "unknown"
                     ),
@@ -1589,6 +1597,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                     # Face recognition fields
                     "person_id": det.get("person_id"),
                     "person_name": det.get("person_name"),
+                    "label": det.get("display_name", ""),
                     "recognition_status": det.get("recognition_status"),
                     "enrolled": det.get("enrolled"),
                     "embedding": det.get("embedding", []),

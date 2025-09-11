@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codeflash
-Version: 0.16.6
+Version: 0.16.7
 Summary: Client for codeflash.ai - automatic code performance optimization, powered by AI
 Project-URL: Homepage, https://codeflash.ai
 Author-email: "CodeFlash Inc." <contact@codeflash.ai>
@@ -12,6 +12,7 @@ Requires-Dist: codeflash-benchmark
 Requires-Dist: coverage>=7.6.4
 Requires-Dist: crosshair-tool>=0.0.78
 Requires-Dist: dill>=0.3.8
+Requires-Dist: filelock
 Requires-Dist: gitpython>=3.1.31
 Requires-Dist: humanize>=4.0.0
 Requires-Dist: inquirer>=3.0.0

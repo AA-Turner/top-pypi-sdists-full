@@ -3,7 +3,7 @@
 
 [project]
 name = "tombi"  # tombi: lint.rules.type-mismatch.disabled = true
-version = "0.6.1"  # We use git tags for versioning. This is just a placeholder.
+version = "0.6.3"  # We use git tags for versioning. This is just a placeholder.
 description = "🦅 TOML Toolkit 🦅 "
 readme = "python/tombi/README.md"
 requires-python = ">=3.10"

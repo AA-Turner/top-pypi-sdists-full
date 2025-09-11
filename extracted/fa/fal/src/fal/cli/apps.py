@@ -8,7 +8,7 @@ import fal.cli.runners as runners
 from fal.sdk import RunnerState
 
 from ._utils import get_client
-from .parser import FalClientParser, get_output_parser
+from .parser import FalClientParser, SinceAction, get_output_parser
 
 if TYPE_CHECKING:
     from fal.sdk import AliasInfo, ApplicationInfo
@@ -291,27 +291,38 @@ def _add_set_rev_parser(subparsers, parents):
 def _runners(args):
     client = get_client(args.host, args.team)
     with client.connect() as connection:
-        alias_runners = connection.list_alias_runners(alias=args.app_name)
+        start_time = getattr(args, "since", None)
+        alias_runners = connection.list_alias_runners(
+            alias=args.app_name, start_time=start_time
+        )
+    if getattr(args, "state", None):
+        states = set(args.state)
+        if "all" not in states:
+            alias_runners = [r for r in alias_runners if r.state.value in states]
+    if args.output == "pretty":
+        runners_table = runners.runners_table(alias_runners)
+        pending_runners = [
+            runner for runner in alias_runners if runner.state == RunnerState.PENDING
+        ]
+        setup_runners = [
+            runner for runner in alias_runners if runner.state == RunnerState.SETUP
+        ]
+        args.console.print(
+            f"Runners: {len(alias_runners) - len(pending_runners) - len(setup_runners)}"
+        )
+        args.console.print(f"Runners Pending: {len(pending_runners)}")
+        args.console.print(f"Runners Setting Up: {len(setup_runners)}")
+        # Drop the alias column, which is the first column
+        runners_table.columns.pop(0)
+        args.console.print(runners_table)
 
-    runners_table = runners.runners_table(alias_runners)
-    pending_runners = [
-        runner for runner in alias_runners if runner.state == RunnerState.PENDING
-    ]
-    setup_runners = [
-        runner for runner in alias_runners if runner.state == RunnerState.SETUP
-    ]
-    args.console.print(
-        f"Runners: {len(alias_runners) - len(pending_runners) - len(setup_runners)}"
-    )
-    args.console.print(f"Runners Pending: {len(pending_runners)}")
-    args.console.print(f"Runners Setting Up: {len(setup_runners)}")
-    # Drop the alias column, which is the first column
-    runners_table.columns.pop(0)
-    args.console.print(runners_table)
-
-    requests_table = runners.runners_requests_table(alias_runners)
-    args.console.print(f"Requests: {len(requests_table.rows)}")
-    args.console.print(requests_table)
+        requests_table = runners.runners_requests_table(alias_runners)
+        args.console.print(f"Requests: {len(requests_table.rows)}")
+        args.console.print(requests_table)
+    elif args.output == "json":
+        runners._list_json(args, alias_runners)
+    else:
+        raise AssertionError(f"Invalid output format: {args.output}")
 
 
 def _add_runners_parser(subparsers, parents):
@@ -320,11 +331,29 @@ def _add_runners_parser(subparsers, parents):
         "runners",
         description=runners_help,
         help=runners_help,
-        parents=parents,
+        parents=[*parents, get_output_parser()],
     )
     parser.add_argument(
         "app_name",
         help="Application name.",
+    )
+    parser.add_argument(
+        "--since",
+        default=None,
+        action=SinceAction,
+        limit="1 day",
+        help=(
+            "Show dead runners since the given time. "
+            "Accepts 'now', relative like '30m', '1h', '1d', "
+            "or an ISO timestamp. Max 24 hours."
+        ),
+    )
+    parser.add_argument(
+        "--state",
+        choices=["all", "running", "pending", "setup", "dead"],
+        nargs="+",
+        default=None,
+        help=("Filter by runner state(s). Choose one or more, or 'all'(default)."),
     )
     parser.set_defaults(func=_runners)
 

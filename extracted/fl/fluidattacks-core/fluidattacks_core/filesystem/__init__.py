@@ -33,6 +33,8 @@ def _detect_languages_in_dir(files: Iterable[str]) -> list[Language]:
         glob_hit = any(any(fnmatch(f, pat) for pat in patterns) for f in names)
         if glob_hit:
             hits.append(lang)
+    if Language.TypeScript in hits:
+        hits.remove(Language.JavaScript)
     return hits
 
 

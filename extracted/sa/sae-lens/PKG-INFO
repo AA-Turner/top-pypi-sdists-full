@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sae-lens
-Version: 6.11.1
+Version: 6.12.1
 Summary: Training and Analyzing Sparse Autoencoders (SAEs)
 License: MIT
 Keywords: deep-learning,sparse-autoencoders,mechanistic-interpretability,PyTorch

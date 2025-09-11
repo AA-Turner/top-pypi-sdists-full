@@ -288,12 +288,13 @@ slide_vartime(signed char *r, const unsigned char *a)
     }
 }
 
+static volatile unsigned char optblocker_u8;
+
 int
 ge25519_frombytes(ge25519_p3 *h, const unsigned char *s)
 {
     fe25519 u;
     fe25519 v;
-    fe25519 v3;
     fe25519 vxx;
     fe25519 m_root_check, p_root_check;
     fe25519 negx;
@@ -307,15 +308,9 @@ ge25519_frombytes(ge25519_p3 *h, const unsigned char *s)
     fe25519_sub(u, u, h->Z); /* u = y^2-1 */
     fe25519_add(v, v, h->Z); /* v = dy^2+1 */
 
-    fe25519_sq(v3, v);
-    fe25519_mul(v3, v3, v); /* v3 = v^3 */
-    fe25519_sq(h->X, v3);
-    fe25519_mul(h->X, h->X, v);
-    fe25519_mul(h->X, h->X, u); /* x = uv^7 */
-
-    fe25519_pow22523(h->X, h->X); /* x = (uv^7)^((q-5)/8) */
-    fe25519_mul(h->X, h->X, v3);
-    fe25519_mul(h->X, h->X, u); /* x = uv^3(uv^7)^((q-5)/8) */
+    fe25519_mul(h->X, u, v);
+    fe25519_pow22523(h->X, h->X);
+    fe25519_mul(h->X, u, h->X); /* u((uv)^((q-5)/8)) */
 
     fe25519_sq(vxx, h->X);
     fe25519_mul(vxx, vxx, v);
@@ -327,7 +322,7 @@ ge25519_frombytes(ge25519_p3 *h, const unsigned char *s)
     fe25519_cmov(h->X, x_sqrtm1, 1 - has_m_root);
 
     fe25519_neg(negx, h->X);
-    fe25519_cmov(h->X, negx, fe25519_isnegative(h->X) ^ (s[31] >> 7));
+    fe25519_cmov(h->X, negx, fe25519_isnegative(h->X) ^ (((s[31] >> 5) ^ optblocker_u8) >> 2));
     fe25519_mul(h->T, h->X, h->Y);
 
     return (has_m_root | has_p_root) - 1;
@@ -570,26 +565,39 @@ ge25519_precomp_0(ge25519_precomp *h)
 static unsigned char
 equal(signed char b, signed char c)
 {
-    unsigned char ub = b;
-    unsigned char uc = c;
-    unsigned char x  = ub ^ uc; /* 0: yes; 1..255: no */
-    uint32_t      y  = (uint32_t) x; /* 0: yes; 1..255: no */
+#if defined(HAVE_INLINE_ASM) && defined(__x86_64__)
+    int32_t b32 = (int32_t) b, c32 = (int32_t) c, q32, z32;
+    __asm__ ("xorl %0,%0\n movl $1,%1\n cmpb %b3,%b2\n cmovel %1,%0" :
+             "=&r"(z32), "=&r"(q32) : "q"(b32), "q"(c32) : "cc");
+    return (unsigned char) z32;
+#elif defined(HAVE_INLINE_ASM) && defined(__aarch64__)
+    unsigned char z;
+    __asm__ ("and %w0,%w1,255\n cmp %w0,%w2,uxtb\n cset %w0,eq" :
+             "=&r"(z) : "r"(b), "r"(c) : "cc");
+    return z;
+#else
+    const unsigned char x  = (unsigned char) b ^ (unsigned char) c; /* 0: yes; 1..255: no */
+    uint32_t            y  = (uint32_t) x; /* 0: yes; 1..255: no */
 
-    y -= 1;   /* 4294967295: yes; 0..254: no */
-    y >>= 31; /* 1: yes; 0: no */
-
-    return y;
+    y--;
+    return ((y >> 29) ^ optblocker_u8) >> 2; /* 1: yes; 0: no */
+#endif
 }
 
 static unsigned char
 negative(signed char b)
 {
-    /* 18446744073709551361..18446744073709551615: yes; 0..255: no */
-    uint64_t x = b;
-
-    x >>= 63; /* 1: yes; 0: no */
-
+#if defined(HAVE_INLINE_ASM) && defined(__x86_64__)
+    __asm__ ("shrb $7,%0" : "+r"(b) : : "cc");
+    return b;
+#elif defined(HAVE_INLINE_ASM) && defined(__aarch64__)
+    uint8_t x;
+    __asm__ ("ubfx %w0,%w1,7,1" : "=r"(x) : "r"(b) : );
     return x;
+#else
+    const uint8_t x = (uint8_t) b; /* 0..127: no 128..255: yes */
+    return ((x >> 5) ^ optblocker_u8) >> 2; /* 1: yes; 0: no */
+#endif
 }
 
 static void
@@ -2519,6 +2527,21 @@ sc25519_is_canonical(const unsigned char s[32])
     return (c != 0);
 }
 
+/* multiply by the cofactor */
+static void
+ge25519_clear_cofactor(ge25519_p3 *p3)
+{
+    ge25519_p1p1 p1;
+    ge25519_p2   p2;
+
+    ge25519_p3_dbl(&p1, p3);
+    ge25519_p1p1_to_p2(&p2, &p1);
+    ge25519_p2_dbl(&p1, &p2);
+    ge25519_p1p1_to_p2(&p2, &p1);
+    ge25519_p2_dbl(&p1, &p2);
+    ge25519_p1p1_to_p3(p3, &p1);
+}
+
 static void
 ge25519_elligator2(unsigned char s[32], const fe25519 r, const unsigned char x_sign)
 {
@@ -2527,8 +2550,6 @@ ge25519_elligator2(unsigned char s[32], const fe25519 r, const unsigned char x_s
     fe25519      rr2;
     fe25519      x, x2, x3;
     ge25519_p3   p3;
-    ge25519_p1p1 p1;
-    ge25519_p2   p2;
     unsigned int notsquare;
 
     fe25519_sq2(rr2, r);
@@ -2572,14 +2593,7 @@ ge25519_elligator2(unsigned char s[32], const fe25519 r, const unsigned char x_s
         abort(); /* LCOV_EXCL_LINE */
     }
 
-    /* multiply by the cofactor */
-    ge25519_p3_dbl(&p1, &p3);
-    ge25519_p1p1_to_p2(&p2, &p1);
-    ge25519_p2_dbl(&p1, &p2);
-    ge25519_p1p1_to_p2(&p2, &p1);
-    ge25519_p2_dbl(&p1, &p2);
-    ge25519_p1p1_to_p3(&p3, &p1);
-
+    ge25519_clear_cofactor(&p3);
     ge25519_p3_tobytes(s, &p3);
 }
 
@@ -2615,7 +2629,7 @@ ge25519_from_hash(unsigned char s[32], const unsigned char h[64])
     gl[31] &= 0x7f;
     fe25519_frombytes(fe_f, fl);
     fe25519_frombytes(fe_g, gl);
-    fe_f[0] += (h[32] >> 7) * 19;
+    fe_f[0] += (((h[32] >> 5) ^ optblocker_u8) >> 2) * 19;
     for (i = 0; i < sizeof (fe25519) / sizeof fe_f[0]; i++) {
         fe_f[i] += 38 * fe_g[i];
     }
@@ -2675,7 +2689,7 @@ ristretto255_is_canonical(const unsigned char *s)
     }
     c = (((unsigned int) c) - 1U) >> 8;
     d = (0xed - 1U - (unsigned int) s[0]) >> 8;
-    e = s[31] >> 7;
+    e = ((s[31] >> 5) ^ optblocker_u8) >> 2;
 
     return 1 - (((c & d) | e | s[0]) & 1);
 }

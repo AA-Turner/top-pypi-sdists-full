@@ -1,39 +1,18 @@
 Metadata-Version: 2.4
 Name: graphemeu
-Version: 0.7.2
+Version: 0.8.0
 Summary: Unicode grapheme helpers
 Project-URL: Homepage, https://github.com/timendum/grapheme
 Project-URL: Documentation, https://graphemeu.readthedocs.io/
 Author-email: Alvin Lindstam <alvin.lindstam@gmail.com>
 Maintainer: Timendum
-License: Copyright (c) 2017 The Python Packaging Authority (PyPA)
-        Copyright (c) 2014 Mapbox
-        Copyright (c) 2017 Alvin Lindstam
-        Copyright (c) 2025 Timendum
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+License: MIT
 License-File: LICENSE
 Keywords: grapheme,unicode
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Provides-Extra: dev
 Requires-Dist: pytest; extra == 'dev'
 Provides-Extra: docs
@@ -185,7 +164,7 @@ The steps necessary for this:
    `Annex #29 <http://unicode.org/reports/tr29/>`_ (see modifications).
 2. Download the `data files <http://www.unicode.org/Public/>`_ from unicode into the unicode-data folder.
    For the given version, some are in `ucd` and some are in `ucd/auxiliary`.
-3. Run `make process-data-files` to parse those files (will update the
+3. Run `./unicode-data/read_property_file.py` to parse those files (will update the
    `grapheme_break_property.json` and `derived_core_property.json` files).
 4. Update the unicode version in the documentation and in the source code.
 5. Bump the version.

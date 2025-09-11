@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-awesome-nav
-Version: 3.1.2
+Version: 3.2.0
 Summary: A plugin for customizing the navigation structure of your MkDocs site.
 Keywords: mkdocs,markdown,documentation,navigation
 Author-email: Lukas Geiter <info@lukasgeiter.com>

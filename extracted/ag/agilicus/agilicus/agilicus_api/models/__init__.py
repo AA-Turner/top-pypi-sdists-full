@@ -388,6 +388,8 @@ from agilicus_api.model.licensed_feature import LicensedFeature
 from agilicus_api.model.licensed_feature_name import LicensedFeatureName
 from agilicus_api.model.licensed_product import LicensedProduct
 from agilicus_api.model.licensed_product_name import LicensedProductName
+from agilicus_api.model.licensed_product_price import LicensedProductPrice
+from agilicus_api.model.licensed_product_price_breakdown import LicensedProductPriceBreakdown
 from agilicus_api.model.list_api_keys_response import ListAPIKeysResponse
 from agilicus_api.model.list_access_requests_response import ListAccessRequestsResponse
 from agilicus_api.model.list_active_users_response import ListActiveUsersResponse

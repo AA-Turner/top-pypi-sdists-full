@@ -85,7 +85,7 @@ class TracerWrapper(object):
                 return obj
 
             obj.__image_uploader = image_uploader
-            obj.__resource = Resource(attributes=TracerWrapper.resource_attributes)
+            obj.__resource = Resource.create(TracerWrapper.resource_attributes)
             obj.__tracer_provider = init_tracer_provider(resource=obj.__resource, sampler=sampler)
 
             # Handle multiple processors case
@@ -455,7 +455,7 @@ def init_instrumentations(
         elif instrument == Instruments.COHERE:
             if init_cohere_instrumentor():
                 instrument_set = True
-        elif instrument == Instruments.CREW:
+        elif instrument == Instruments.CREWAI:
             if init_crewai_instrumentor():
                 instrument_set = True
         elif instrument == Instruments.GOOGLE_GENERATIVEAI:
@@ -537,6 +537,9 @@ def init_instrumentations(
                 instrument_set = True
         elif instrument == Instruments.WEAVIATE:
             if init_weaviate_instrumentor():
+                instrument_set = True
+        elif instrument == Instruments.WRITER:
+            if init_writer_instrumentor():
                 instrument_set = True
         else:
             print(Fore.RED + f"Warning: {instrument} instrumentation does not exist.")
@@ -996,6 +999,24 @@ def init_weaviate_instrumentor():
             return True
     except Exception as e:
         logging.warning(f"Error initializing Weaviate instrumentor: {e}")
+        Telemetry().log_exception(e)
+    return False
+
+
+def init_writer_instrumentor():
+    try:
+        if is_package_installed("writer-sdk"):
+            Telemetry().capture("instrumentation:writer:init")
+            from opentelemetry.instrumentation.writer import WriterInstrumentor
+
+            instrumentor = WriterInstrumentor(
+                exception_logger=lambda e: Telemetry().log_exception(e),
+            )
+            if not instrumentor.is_instrumented_by_opentelemetry:
+                instrumentor.instrument()
+            return True
+    except Exception as e:
+        logging.error(f"Error initializing Writer instrumentor: {e}")
         Telemetry().log_exception(e)
     return False
 

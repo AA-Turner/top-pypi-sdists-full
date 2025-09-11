@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_payment_cryptography.type_defs import AliasTypeDef
+    from types_boto3_payment_cryptography.type_defs import AddKeyReplicationRegionsInputTypeDef
 
-    data: AliasTypeDef = ...
+    data: AddKeyReplicationRegionsInputTypeDef = ...
     ```
 """
 
@@ -29,8 +29,10 @@ from .literals import (
     KeyExportabilityType,
     KeyMaterialTypeType,
     KeyOriginType,
+    KeyReplicationStateType,
     KeyStateType,
     KeyUsageType,
+    MultiRegionKeyTypeType,
     SymmetricKeyAlgorithmType,
     WrappedKeyMaterialFormatType,
     WrappingKeySpecType,
@@ -49,6 +51,8 @@ else:
 
 
 __all__ = (
+    "AddKeyReplicationRegionsInputTypeDef",
+    "AddKeyReplicationRegionsOutputTypeDef",
     "AliasTypeDef",
     "CreateAliasInputTypeDef",
     "CreateAliasOutputTypeDef",
@@ -58,6 +62,10 @@ __all__ = (
     "DeleteKeyInputTypeDef",
     "DeleteKeyOutputTypeDef",
     "DiffieHellmanDerivationDataTypeDef",
+    "DisableDefaultKeyReplicationRegionsInputTypeDef",
+    "DisableDefaultKeyReplicationRegionsOutputTypeDef",
+    "EnableDefaultKeyReplicationRegionsInputTypeDef",
+    "EnableDefaultKeyReplicationRegionsOutputTypeDef",
     "ExportAttributesTypeDef",
     "ExportDiffieHellmanTr31KeyBlockTypeDef",
     "ExportDukptInitialKeyTypeDef",
@@ -69,6 +77,7 @@ __all__ = (
     "ExportTr34KeyBlockTypeDef",
     "GetAliasInputTypeDef",
     "GetAliasOutputTypeDef",
+    "GetDefaultKeyReplicationRegionsOutputTypeDef",
     "GetKeyInputTypeDef",
     "GetKeyOutputTypeDef",
     "GetParametersForExportInputTypeDef",
@@ -99,6 +108,9 @@ __all__ = (
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
     "PaginatorConfigTypeDef",
+    "RemoveKeyReplicationRegionsInputTypeDef",
+    "RemoveKeyReplicationRegionsOutputTypeDef",
+    "ReplicationStatusTypeTypeDef",
     "ResponseMetadataTypeDef",
     "RestoreKeyInputTypeDef",
     "RestoreKeyOutputTypeDef",
@@ -117,14 +129,9 @@ __all__ = (
 )
 
 
-class AliasTypeDef(TypedDict):
-    AliasName: str
-    KeyArn: NotRequired[str]
-
-
-class CreateAliasInputTypeDef(TypedDict):
-    AliasName: str
-    KeyArn: NotRequired[str]
+class AddKeyReplicationRegionsInputTypeDef(TypedDict):
+    KeyIdentifier: str
+    ReplicationRegions: Sequence[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -133,6 +140,16 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: Dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class AliasTypeDef(TypedDict):
+    AliasName: str
+    KeyArn: NotRequired[str]
+
+
+class CreateAliasInputTypeDef(TypedDict):
+    AliasName: str
+    KeyArn: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -151,6 +168,14 @@ class DeleteKeyInputTypeDef(TypedDict):
 
 class DiffieHellmanDerivationDataTypeDef(TypedDict):
     SharedInformation: NotRequired[str]
+
+
+class DisableDefaultKeyReplicationRegionsInputTypeDef(TypedDict):
+    ReplicationRegions: Sequence[str]
+
+
+class EnableDefaultKeyReplicationRegionsInputTypeDef(TypedDict):
+    ReplicationRegions: Sequence[str]
 
 
 class ExportDukptInitialKeyTypeDef(TypedDict):
@@ -219,6 +244,11 @@ class KeyModesOfUseTypeDef(TypedDict):
     NoRestrictions: NotRequired[bool]
 
 
+class ReplicationStatusTypeTypeDef(TypedDict):
+    Status: KeyReplicationStateType
+    StatusMessage: NotRequired[str]
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -243,6 +273,11 @@ class ListTagsForResourceInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class RemoveKeyReplicationRegionsInputTypeDef(TypedDict):
+    KeyIdentifier: str
+    ReplicationRegions: Sequence[str]
+
+
 class RestoreKeyInputTypeDef(TypedDict):
     KeyIdentifier: str
 
@@ -265,13 +300,18 @@ class UpdateAliasInputTypeDef(TypedDict):
     KeyArn: NotRequired[str]
 
 
-class CreateAliasOutputTypeDef(TypedDict):
-    Alias: AliasTypeDef
+class DisableDefaultKeyReplicationRegionsOutputTypeDef(TypedDict):
+    EnabledReplicationRegions: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetAliasOutputTypeDef(TypedDict):
-    Alias: AliasTypeDef
+class EnableDefaultKeyReplicationRegionsOutputTypeDef(TypedDict):
+    EnabledReplicationRegions: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDefaultKeyReplicationRegionsOutputTypeDef(TypedDict):
+    EnabledReplicationRegions: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -296,6 +336,16 @@ class GetParametersForImportOutputTypeDef(TypedDict):
 class GetPublicKeyCertificateOutputTypeDef(TypedDict):
     KeyCertificate: str
     KeyCertificateChain: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAliasOutputTypeDef(TypedDict):
+    Alias: AliasTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAliasOutputTypeDef(TypedDict):
+    Alias: AliasTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -378,6 +428,7 @@ class CreateKeyInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
     DeriveKeyUsage: NotRequired[DeriveKeyUsageType]
+    ReplicationRegions: NotRequired[Sequence[str]]
 
 
 class ImportKeyCryptogramTypeDef(TypedDict):
@@ -395,6 +446,8 @@ class KeySummaryTypeDef(TypedDict):
     KeyCheckValue: str
     Exportable: bool
     Enabled: bool
+    MultiRegionKeyType: NotRequired[MultiRegionKeyTypeType]
+    PrimaryRegion: NotRequired[str]
 
 
 class KeyTypeDef(TypedDict):
@@ -412,6 +465,10 @@ class KeyTypeDef(TypedDict):
     DeletePendingTimestamp: NotRequired[datetime]
     DeleteTimestamp: NotRequired[datetime]
     DeriveKeyUsage: NotRequired[DeriveKeyUsageType]
+    MultiRegionKeyType: NotRequired[MultiRegionKeyTypeType]
+    PrimaryRegion: NotRequired[str]
+    ReplicationStatus: NotRequired[Dict[str, ReplicationStatusTypeTypeDef]]
+    UsingDefaultReplicationRegions: NotRequired[bool]
 
 
 class RootCertificatePublicKeyTypeDef(TypedDict):
@@ -456,6 +513,11 @@ class ListKeysOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class AddKeyReplicationRegionsOutputTypeDef(TypedDict):
+    Key: KeyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateKeyOutputTypeDef(TypedDict):
     Key: KeyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -472,6 +534,11 @@ class GetKeyOutputTypeDef(TypedDict):
 
 
 class ImportKeyOutputTypeDef(TypedDict):
+    Key: KeyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RemoveKeyReplicationRegionsOutputTypeDef(TypedDict):
     Key: KeyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -512,6 +579,7 @@ class ImportKeyInputTypeDef(TypedDict):
     KeyCheckValueAlgorithm: NotRequired[KeyCheckValueAlgorithmType]
     Enabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    ReplicationRegions: NotRequired[Sequence[str]]
 
 
 class ExportKeyInputTypeDef(TypedDict):

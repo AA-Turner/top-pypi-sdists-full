@@ -20,7 +20,7 @@ logger = get_logger(__file__)
 
 DEFAULT_QUEUE = "user-queue"
 PRIORITY_CLASSES = ["low-priority", "high-priority"]
-ALLOWED_GPUS = ["H100-MEGA-80GB", "A100-80GB", "A100"]
+ALLOWED_GPUS = ["H100", "H100-MEGA-80GB", "A100-80GB", "A100"]
 
 
 def set_tcpxo_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:

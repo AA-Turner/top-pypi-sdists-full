@@ -149,6 +149,20 @@ class OperationRegistrableEngine:
         for chunk in _TEST_AGENT_ENGINE_STREAM_QUERY_RESPONSE:
             yield chunk
 
+    async def bidi_stream_query(self, input_queue: asyncio.Queue) -> AsyncIterable[Any]:
+        """Runs the bidi stream engine."""
+        while True:
+            chunk = await input_queue.get()
+            yield chunk
+
+    async def custom_bidi_stream_method(
+        self, input_queue: asyncio.Queue
+    ) -> AsyncIterable[Any]:
+        """Runs the async bidi stream engine."""
+        while True:
+            chunk = await input_queue.get()
+            yield chunk
+
     def clone(self):
         return self
 
@@ -169,6 +183,10 @@ class OperationRegistrableEngine:
             _TEST_ASYNC_STREAM_API_MODE: [
                 _TEST_DEFAULT_ASYNC_STREAM_METHOD_NAME,
                 _TEST_CUSTOM_ASYNC_STREAM_METHOD_NAME,
+            ],
+            _TEST_BIDI_STREAM_API_MODE: [
+                _TEST_DEFAULT_BIDI_STREAM_METHOD_NAME,
+                _TEST_CUSTOM_BIDI_STREAM_METHOD_NAME,
             ],
         }
 
@@ -323,21 +341,27 @@ _TEST_STANDARD_API_MODE = _agent_engines_utils._STANDARD_API_MODE
 _TEST_ASYNC_API_MODE = _agent_engines_utils._ASYNC_API_MODE
 _TEST_STREAM_API_MODE = _agent_engines_utils._STREAM_API_MODE
 _TEST_ASYNC_STREAM_API_MODE = _agent_engines_utils._ASYNC_STREAM_API_MODE
+_TEST_BIDI_STREAM_API_MODE = _agent_engines_utils._BIDI_STREAM_API_MODE
 _TEST_DEFAULT_METHOD_NAME = _agent_engines_utils._DEFAULT_METHOD_NAME
 _TEST_DEFAULT_ASYNC_METHOD_NAME = _agent_engines_utils._DEFAULT_ASYNC_METHOD_NAME
 _TEST_DEFAULT_STREAM_METHOD_NAME = _agent_engines_utils._DEFAULT_STREAM_METHOD_NAME
 _TEST_DEFAULT_ASYNC_STREAM_METHOD_NAME = (
     _agent_engines_utils._DEFAULT_ASYNC_STREAM_METHOD_NAME
 )
+_TEST_DEFAULT_BIDI_STREAM_METHOD_NAME = (
+    _agent_engines_utils._DEFAULT_BIDI_STREAM_METHOD_NAME
+)
 _TEST_CAPITALIZE_ENGINE_METHOD_DOCSTRING = "Runs the engine."
 _TEST_STREAM_METHOD_DOCSTRING = "Runs the stream engine."
 _TEST_ASYNC_STREAM_METHOD_DOCSTRING = "Runs the async stream engine."
+_TEST_BIDI_STREAM_METHOD_DOCSTRING = "Runs the bidi stream engine."
 _TEST_MODE_KEY_IN_SCHEMA = _agent_engines_utils._MODE_KEY_IN_SCHEMA
 _TEST_METHOD_NAME_KEY_IN_SCHEMA = _agent_engines_utils._METHOD_NAME_KEY_IN_SCHEMA
 _TEST_CUSTOM_METHOD_NAME = "custom_method"
 _TEST_CUSTOM_ASYNC_METHOD_NAME = "custom_async_method"
 _TEST_CUSTOM_STREAM_METHOD_NAME = "custom_stream_method"
 _TEST_CUSTOM_ASYNC_STREAM_METHOD_NAME = "custom_async_stream_method"
+_TEST_CUSTOM_BIDI_STREAM_METHOD_NAME = "custom_bidi_stream_method"
 _TEST_CUSTOM_METHOD_DEFAULT_DOCSTRING = """
     Runs the Agent Engine to serve the user request.
 
@@ -501,6 +525,7 @@ _TEST_AGENT_ENGINE_RESOURCE_LIMITS = {
     "memory": "4Gi",
 }
 _TEST_AGENT_ENGINE_CONTAINER_CONCURRENCY = 4
+_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT = "test-custom-service-account"
 _TEST_AGENT_ENGINE_ENCRYPTION_SPEC = {"kms_key_name": "test-kms-key"}
 _TEST_AGENT_ENGINE_SPEC = _genai_types.ReasoningEngineSpecDict(
     agent_framework=_TEST_AGENT_ENGINE_FRAMEWORK,
@@ -526,6 +551,7 @@ _TEST_AGENT_ENGINE_SPEC = _genai_types.ReasoningEngineSpecDict(
         dependency_files_gcs_uri=_TEST_AGENT_ENGINE_DEPENDENCY_FILES_GCS_URI,
         requirements_gcs_uri=_TEST_AGENT_ENGINE_REQUIREMENTS_GCS_URI,
     ),
+    service_account=_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
 )
 _TEST_AGENT_ENGINE_STREAM_QUERY_RESPONSE = [{"output": "hello"}, {"output": "world"}]
 _TEST_AGENT_ENGINE_OPERATION_SCHEMAS = []
@@ -539,16 +565,16 @@ _TEST_AGENT_ENGINE_CUSTOM_METHOD_SCHEMA = _agent_engines_utils._generate_schema(
     OperationRegistrableEngine().custom_method,
     schema_name=_TEST_CUSTOM_METHOD_NAME,
 )
-_TEST_AGENT_ENGINE_CUSTOM_METHOD_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_STANDARD_API_MODE
+_TEST_AGENT_ENGINE_CUSTOM_METHOD_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_STANDARD_API_MODE
+)
 _TEST_AGENT_ENGINE_ASYNC_CUSTOM_METHOD_SCHEMA = _agent_engines_utils._generate_schema(
     OperationRegistrableEngine().custom_async_method,
     schema_name=_TEST_CUSTOM_ASYNC_METHOD_NAME,
 )
-_TEST_AGENT_ENGINE_ASYNC_CUSTOM_METHOD_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_ASYNC_API_MODE
+_TEST_AGENT_ENGINE_ASYNC_CUSTOM_METHOD_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_ASYNC_API_MODE
+)
 _TEST_AGENT_ENGINE_STREAM_QUERY_SCHEMA = _agent_engines_utils._generate_schema(
     StreamQueryEngine().stream_query,
     schema_name=_TEST_DEFAULT_STREAM_METHOD_NAME,
@@ -558,25 +584,41 @@ _TEST_AGENT_ENGINE_CUSTOM_STREAM_QUERY_SCHEMA = _agent_engines_utils._generate_s
     OperationRegistrableEngine().custom_stream_method,
     schema_name=_TEST_CUSTOM_STREAM_METHOD_NAME,
 )
-_TEST_AGENT_ENGINE_CUSTOM_STREAM_QUERY_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_STREAM_API_MODE
+_TEST_AGENT_ENGINE_CUSTOM_STREAM_QUERY_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_STREAM_API_MODE
+)
 _TEST_AGENT_ENGINE_ASYNC_STREAM_QUERY_SCHEMA = _agent_engines_utils._generate_schema(
     AsyncStreamQueryEngine().async_stream_query,
     schema_name=_TEST_DEFAULT_ASYNC_STREAM_METHOD_NAME,
 )
-_TEST_AGENT_ENGINE_ASYNC_STREAM_QUERY_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_ASYNC_STREAM_API_MODE
+_TEST_AGENT_ENGINE_ASYNC_STREAM_QUERY_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_ASYNC_STREAM_API_MODE
+)
 _TEST_AGENT_ENGINE_CUSTOM_ASYNC_STREAM_QUERY_SCHEMA = (
     _agent_engines_utils._generate_schema(
         OperationRegistrableEngine().custom_async_stream_method,
         schema_name=_TEST_CUSTOM_ASYNC_STREAM_METHOD_NAME,
     )
 )
-_TEST_AGENT_ENGINE_CUSTOM_ASYNC_STREAM_QUERY_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_ASYNC_STREAM_API_MODE
+_TEST_AGENT_ENGINE_CUSTOM_ASYNC_STREAM_QUERY_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_ASYNC_STREAM_API_MODE
+)
+_TEST_AGENT_ENGINE_BIDI_STREAM_QUERY_SCHEMA = _agent_engines_utils._generate_schema(
+    OperationRegistrableEngine().bidi_stream_query,
+    schema_name=_TEST_DEFAULT_BIDI_STREAM_METHOD_NAME,
+)
+_TEST_AGENT_ENGINE_BIDI_STREAM_QUERY_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_BIDI_STREAM_API_MODE
+)
+_TEST_AGENT_ENGINE_CUSTOM_BIDI_STREAM_QUERY_SCHEMA = (
+    _agent_engines_utils._generate_schema(
+        OperationRegistrableEngine().custom_bidi_stream_method,
+        schema_name=_TEST_CUSTOM_BIDI_STREAM_METHOD_NAME,
+    )
+)
+_TEST_AGENT_ENGINE_CUSTOM_BIDI_STREAM_QUERY_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_BIDI_STREAM_API_MODE
+)
 _TEST_OPERATION_REGISTRABLE_SCHEMAS = [
     _TEST_AGENT_ENGINE_QUERY_SCHEMA,
     _TEST_AGENT_ENGINE_CUSTOM_METHOD_SCHEMA,
@@ -586,6 +628,8 @@ _TEST_OPERATION_REGISTRABLE_SCHEMAS = [
     _TEST_AGENT_ENGINE_CUSTOM_STREAM_QUERY_SCHEMA,
     _TEST_AGENT_ENGINE_ASYNC_STREAM_QUERY_SCHEMA,
     _TEST_AGENT_ENGINE_CUSTOM_ASYNC_STREAM_QUERY_SCHEMA,
+    _TEST_AGENT_ENGINE_BIDI_STREAM_QUERY_SCHEMA,
+    _TEST_AGENT_ENGINE_CUSTOM_BIDI_STREAM_QUERY_SCHEMA,
 ]
 _TEST_OPERATION_NOT_REGISTERED_SCHEMAS = [
     _TEST_AGENT_ENGINE_CUSTOM_METHOD_SCHEMA,
@@ -601,9 +645,9 @@ _TEST_METHOD_TO_BE_UNREGISTERED_SCHEMA = _agent_engines_utils._generate_schema(
     MethodToBeUnregisteredEngine().method_to_be_unregistered,
     schema_name=_TEST_METHOD_TO_BE_UNREGISTERED_NAME,
 )
-_TEST_METHOD_TO_BE_UNREGISTERED_SCHEMA[
-    _TEST_MODE_KEY_IN_SCHEMA
-] = _TEST_STANDARD_API_MODE
+_TEST_METHOD_TO_BE_UNREGISTERED_SCHEMA[_TEST_MODE_KEY_IN_SCHEMA] = (
+    _TEST_STANDARD_API_MODE
+)
 _TEST_ASYNC_QUERY_SCHEMAS = [_TEST_AGENT_ENGINE_ASYNC_METHOD_SCHEMA]
 _TEST_STREAM_QUERY_SCHEMAS = [
     _TEST_AGENT_ENGINE_STREAM_QUERY_SCHEMA,
@@ -803,6 +847,7 @@ class TestAgentEngineHelpers:
             gcs_dir_name=_TEST_GCS_DIR_NAME,
             extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
             env_vars=_TEST_AGENT_ENGINE_ENV_VARS_INPUT,
+            service_account=_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
             psc_interface_config=_TEST_AGENT_ENGINE_PSC_INTERFACE_CONFIG,
             min_instances=_TEST_AGENT_ENGINE_MIN_INSTANCES,
             max_instances=_TEST_AGENT_ENGINE_MAX_INSTANCES,
@@ -841,6 +886,10 @@ class TestAgentEngineHelpers:
         }
         assert config["encryption_spec"] == _TEST_AGENT_ENGINE_ENCRYPTION_SPEC
         assert config["spec"]["class_methods"] == [_TEST_AGENT_ENGINE_CLASS_METHOD_1]
+        assert (
+            config["spec"]["service_account"]
+            == _TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT
+        )
 
     @mock.patch.object(_agent_engines_utils, "_prepare")
     def test_update_agent_engine_config_full(self, mock_prepare):
@@ -854,6 +903,7 @@ class TestAgentEngineHelpers:
             gcs_dir_name=_TEST_GCS_DIR_NAME,
             extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
             env_vars=_TEST_AGENT_ENGINE_ENV_VARS_INPUT,
+            service_account=_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
         )
         assert config["display_name"] == _TEST_AGENT_ENGINE_DISPLAY_NAME
         assert config["description"] == _TEST_AGENT_ENGINE_DESCRIPTION
@@ -880,6 +930,10 @@ class TestAgentEngineHelpers:
             ],
         }
         assert config["spec"]["class_methods"] == [_TEST_AGENT_ENGINE_CLASS_METHOD_1]
+        assert (
+            config["spec"]["service_account"]
+            == _TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT
+        )
         assert config["update_mask"] == ",".join(
             [
                 "display_name",
@@ -889,6 +943,7 @@ class TestAgentEngineHelpers:
                 "spec.package_spec.requirements_gcs_uri",
                 "spec.deployment_spec.env",
                 "spec.deployment_spec.secret_env",
+                "spec.service_account",
                 "spec.class_methods",
                 "spec.agent_framework",
             ]
@@ -1289,6 +1344,7 @@ class TestAgentEngine:
                 gcs_dir_name=None,
                 extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
                 env_vars=_TEST_AGENT_ENGINE_ENV_VARS_INPUT,
+                service_account=None,
                 context_spec=None,
                 psc_interface_config=None,
                 min_instances=None,
@@ -1311,6 +1367,86 @@ class TestAgentEngine:
                             "python_version": _TEST_PYTHON_VERSION,
                             "requirements_gcs_uri": _TEST_AGENT_ENGINE_REQUIREMENTS_GCS_URI,
                         },
+                    },
+                },
+                None,
+            )
+
+    @mock.patch.object(agent_engines.AgentEngines, "_create_config")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
+    def test_create_agent_engine_with_custom_service_account(
+        self,
+        mock_await_operation,
+        mock_create_config,
+    ):
+        mock_create_config.return_value = {
+            "display_name": _TEST_AGENT_ENGINE_DISPLAY_NAME,
+            "description": _TEST_AGENT_ENGINE_DESCRIPTION,
+            "spec": {
+                "package_spec": {
+                    "python_version": _TEST_PYTHON_VERSION,
+                    "pickle_object_gcs_uri": _TEST_AGENT_ENGINE_GCS_URI,
+                    "requirements_gcs_uri": _TEST_AGENT_ENGINE_REQUIREMENTS_GCS_URI,
+                },
+                "class_methods": [_TEST_AGENT_ENGINE_CLASS_METHOD_1],
+                "service_account": _TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
+                "agent_framework": _TEST_AGENT_ENGINE_FRAMEWORK,
+            },
+        }
+        mock_await_operation.return_value = _genai_types.AgentEngineOperation(
+            response=_genai_types.ReasoningEngine(
+                name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
+                spec=_TEST_AGENT_ENGINE_SPEC,
+            )
+        )
+        with mock.patch.object(
+            self.client.agent_engines._api_client, "request"
+        ) as request_mock:
+            request_mock.return_value = genai_types.HttpResponse(body="")
+            self.client.agent_engines.create(
+                agent=self.test_agent,
+                config=_genai_types.AgentEngineConfig(
+                    display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
+                    requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+                    extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
+                    staging_bucket=_TEST_STAGING_BUCKET,
+                    service_account=_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
+                ),
+            )
+            mock_create_config.assert_called_with(
+                mode="create",
+                agent=self.test_agent,
+                staging_bucket=_TEST_STAGING_BUCKET,
+                requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+                display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
+                description=None,
+                gcs_dir_name=None,
+                extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
+                env_vars=None,
+                service_account=_TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
+                context_spec=None,
+                psc_interface_config=None,
+                min_instances=None,
+                max_instances=None,
+                resource_limits=None,
+                container_concurrency=None,
+                encryption_spec=None,
+            )
+            request_mock.assert_called_with(
+                "post",
+                "reasoningEngines",
+                {
+                    "displayName": _TEST_AGENT_ENGINE_DISPLAY_NAME,
+                    "description": _TEST_AGENT_ENGINE_DESCRIPTION,
+                    "spec": {
+                        "agentFramework": _TEST_AGENT_ENGINE_FRAMEWORK,
+                        "classMethods": [_TEST_AGENT_ENGINE_CLASS_METHOD_1],
+                        "packageSpec": {
+                            "pickle_object_gcs_uri": _TEST_AGENT_ENGINE_GCS_URI,
+                            "python_version": _TEST_PYTHON_VERSION,
+                            "requirements_gcs_uri": _TEST_AGENT_ENGINE_REQUIREMENTS_GCS_URI,
+                        },
+                        "serviceAccount": _TEST_AGENT_ENGINE_CUSTOM_SERVICE_ACCOUNT,
                     },
                 },
                 None,
@@ -1779,6 +1915,20 @@ class TestAgentEngine:
                         ),
                         _TEST_ASYNC_STREAM_API_MODE,
                     ),
+                    (
+                        _agent_engines_utils._generate_schema(
+                            OperationRegistrableEngine().bidi_stream_query,
+                            schema_name=_TEST_DEFAULT_BIDI_STREAM_METHOD_NAME,
+                        ),
+                        _TEST_BIDI_STREAM_API_MODE,
+                    ),
+                    (
+                        _agent_engines_utils._generate_schema(
+                            OperationRegistrableEngine().custom_bidi_stream_method,
+                            schema_name=_TEST_CUSTOM_BIDI_STREAM_METHOD_NAME,
+                        ),
+                        _TEST_BIDI_STREAM_API_MODE,
+                    ),
                 ],
             ),
             (
@@ -1923,7 +2073,7 @@ class TestAgentEngineErrors:
                     "register the API methods: "
                     "https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/develop/custom#custom-methods. "
                     "Error: {Unsupported api mode: `UNKNOWN_API_MODE`, "
-                    "Supported modes are: ``, `async`, `async_stream`, `stream`.}"
+                    "Supported modes are: ``, `a2a_extension`, `async`, `async_stream`, `stream`.}"
                 ),
             ),
         ],

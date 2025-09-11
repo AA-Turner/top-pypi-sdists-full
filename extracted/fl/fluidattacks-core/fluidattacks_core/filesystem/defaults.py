@@ -206,12 +206,6 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
         "names": {
             "build.gradle.kts",
             "settings.gradle.kts",
-            "build.gradle",
-            "settings.gradle",
-            "gradle.properties",
-            "pom.xml",
-            "gradlew",
-            "gradlew.bat",
         },
         "globs": [],
     },

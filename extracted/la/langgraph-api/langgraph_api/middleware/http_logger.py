@@ -5,10 +5,12 @@ import structlog
 from starlette.requests import ClientDisconnect
 from starlette.types import Message, Receive, Scope, Send
 
+from langgraph_api.config import MOUNT_PREFIX
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.utils.headers import should_include_header_in_logs
 
 asgi = structlog.stdlib.get_logger("asgi")
+
 
 PATHS_IGNORE = {"/ok", "/metrics"}
 
@@ -37,7 +39,10 @@ class AccessLoggerMiddleware:
             self.debug_enabled = False
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("path") in PATHS_IGNORE:
+        if (
+            scope["type"] != "http"
+            or scope.get("path", "").replace(MOUNT_PREFIX or "", "") in PATHS_IGNORE
+        ):
             return await self.app(scope, receive, send)  # pragma: no cover
 
         loop = asyncio.get_event_loop()

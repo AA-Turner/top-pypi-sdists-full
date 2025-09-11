@@ -724,7 +724,7 @@ class ServiceModel(ModelBase):
     state: ServiceState = field(metadata={"docstring": "Current state of the service."})
 
 
-class SortOrder(ModelEnum):
+class ServiceSortOrder(ModelEnum):
     """Enum for sort order directions."""
 
     ASC = "ASC"

@@ -26,6 +26,7 @@ extern crate starlark;
 extern crate starlark_derive;
 extern crate thiserror;
 
+use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::sync::Mutex;
 
@@ -36,6 +37,7 @@ use crate::pyo3::prelude::*;
 use gazebo::prelude::*;
 
 use crate::starlark::collections::SmallMap;
+use crate::starlark::typing::AstModuleTypecheck;
 use allocative::Allocative;
 use dupe::Dupe;
 use pyo3::sync::MutexExt;
@@ -45,7 +47,7 @@ use starlark::eval::Arguments;
 use starlark::starlark_simple_value;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
-use starlark::values::{Heap, NoSerialize, ProvidesStaticType, StarlarkValue, Value};
+use starlark::values::{FreezeResult, Heap, NoSerialize, ProvidesStaticType, StarlarkValue, Value};
 use starlark_derive::starlark_value;
 use thiserror::Error;
 
@@ -63,7 +65,7 @@ enum JsonError {
     UnrepresentableNumber(String),
 }
 
-fn serde_to_starlark<'v>(x: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+fn serde_to_starlark(x: serde_json::Value, heap: &Heap) -> anyhow::Result<Value<'_>> {
     match x {
         serde_json::Value::Null => Ok(Value::new_none()),
         serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
@@ -130,6 +132,14 @@ fn convert_starlark_err<T>(err: starlark::Result<T>) -> Result<T, PyErr> {
     match err {
         Ok(t) => Ok(t),
         Err(e) => Err(StarlarkError::new_err(e.to_string())),
+    }
+}
+
+fn convert_freeze_err<T>(err: FreezeResult<T>) -> Result<T, PyErr> {
+    match err {
+        Ok(t) => Ok(t),
+        // FIXME: Could also format the additional contexts provided.
+        Err(e) => Err(StarlarkError::new_err(e.err_msg)),
     }
 }
 
@@ -207,6 +217,7 @@ impl ResolvedSpan {
 /// .. autoattribute:: span
 ///
 ///     A :class:`ResolvedSpan`.
+/// .. automethod:: __str__
 #[pyclass]
 struct ResolvedFileSpan(starlark::codemap::ResolvedFileSpan);
 
@@ -219,6 +230,9 @@ impl ResolvedFileSpan {
     #[getter]
     fn span(&self) -> ResolvedSpan {
         ResolvedSpan(self.0.span)
+    }
+    fn __str__(&self) -> String {
+        format!("{}", self.0)
     }
 }
 
@@ -320,6 +334,29 @@ impl Lint {
     }
     fn __str__(&self) -> String {
         self.to_string()
+    }
+}
+
+// }}}
+
+// {{{ Error
+
+/// .. attribute:: span: ResolvedFileSpan | None
+/// .. automethod:: __str__
+#[pyclass]
+struct Error(starlark::Error);
+
+#[pymethods]
+impl Error {
+    #[getter]
+    fn span(&self) -> Option<ResolvedFileSpan> {
+        match self.0.span() {
+            Some(span) => Some(ResolvedFileSpan(span.resolve())),
+            None => None,
+        }
+    }
+    fn __str__(&self) -> String {
+        self.0.to_string()
     }
 }
 
@@ -440,19 +477,48 @@ impl Dialect {
 
 // }}}
 
+// {{{ Interface
+
+/// Opaque for now.
+#[pyclass(frozen)]
+struct Interface(starlark::typing::Interface);
+
+#[pymethods]
+impl Interface {}
+
+// }}}
+
+// {{{ AstLoad
+
+/// .. attribute:: module_id
+/// .. attribute:: symbols
+
+#[pyclass]
+struct AstLoad {
+    #[pyo3(get)]
+    pub module_id: String,
+    #[pyo3(get)]
+    pub symbols: HashMap<String, String>,
+}
+
+// }}}
+
 // {{{ AstModule
 
 /// See :func:`parse` to create objects of this type,
 /// and :func:`eval` to evaluate them.
 ///
 /// .. automethod:: lint
+/// .. automethod:: loads
+/// .. automethod:: typecheck
 #[pyclass]
 struct AstModule(starlark::syntax::AstModule);
 
 /// Parse Starlark source code as a string and return an AST.
 #[pyfunction]
 #[pyo3(
-    signature = (filename, content, dialect=None)
+    signature = (filename, content, dialect=None),
+    text_signature = "(filename: str, content: str, dialect: Dialect | None = None) -> AstModule"
 )]
 fn parse(filename: &str, content: &str, dialect: Option<Dialect>) -> PyResult<AstModule> {
     let dialect = match dialect {
@@ -476,6 +542,47 @@ impl AstModule {
             problem: lint.problem.clone(),
             original: lint.original.clone(),
         })
+    }
+
+    #[pyo3(text_signature = "() -> list[AstLoad]")]
+    fn loads(&self) -> Vec<AstLoad> {
+        self.0
+            .loads()
+            .iter()
+            .map(|ld| -> AstLoad {
+                AstLoad {
+                    module_id: ld.module_id.to_string(),
+                    symbols: ld
+                        .symbols
+                        .iter()
+                        .map(|(imp_as, name)| (imp_as.to_string(), name.to_string()))
+                        .collect(),
+                }
+            })
+            .collect()
+    }
+
+    #[pyo3(
+        text_signature = "(globals: Globals, loads: dict[str, Interface]) -> tuple[list[Error], None, None]"
+    )]
+    fn typecheck<'py>(
+        slf: Bound<'py, AstModule>,
+        globals: &Globals,
+        py_loads: HashMap<String, Bound<'py, Interface>>,
+    ) -> (Vec<Error>, Interface, ()) {
+        // FIXME: Can we get by without cloning all the interfaces?
+        let loads: HashMap<String, starlark::typing::Interface> = py_loads
+            .iter()
+            .map(|(name, iface)| (name.clone(), iface.get().0.clone()))
+            .collect();
+        // FIXME: Can we make do without cloning the module?
+        let (mut errors, _typemap, iface, _approximations) =
+            slf.borrow().0.clone().typecheck(&globals.0, &loads);
+        (
+            errors.drain(..).map(|err| Error(err)).collect(),
+            Interface(iface),
+            (),
+        )
     }
 }
 
@@ -626,7 +733,7 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut starlark::eval::Evaluator<'v, '_>,
+        eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         Python::with_gil(|py| -> starlark::Result<Value<'v>> {
             // Handle positional arguments
@@ -668,6 +775,15 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
 #[pyclass]
 struct Module(Mutex<starlark::environment::Module>);
 
+// Rust infers that Module is not Send because Module contains 'extra_value',
+// which is a Value, and this change prevents Values from ever being Send:
+// https://github.com/facebook/starlark-rust/commit/6af7319980c5f4227b5642a49c4c520e96b5c06a
+// In our case, extra_value isn't used, so here we go pretending to know better.
+// It will probably be useful to disable this on every update to starlark to
+// see if there are other reasons for Module to not be Send.
+unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
+
 #[pymethods]
 impl Module {
     #[new]
@@ -698,11 +814,12 @@ impl Module {
         self_locked.set(name, b);
     }
 
+    #[pyo3(text_signature = "() -> FrozenModule")]
     fn freeze(slf: &Bound<Self>) -> PyResult<FrozenModule> {
         let self_ref = slf.borrow_mut();
         let mut self_locked = self_ref.0.lock().unwrap();
         let module = std::mem::replace(&mut *self_locked, starlark::environment::Module::new());
-        Ok(FrozenModule(convert_anyhow_err(module.freeze())?))
+        Ok(FrozenModule(convert_freeze_err(module.freeze())?))
     }
 }
 
@@ -732,11 +849,13 @@ impl FileLoader {
 }
 
 impl starlark::eval::FileLoader for FileLoader {
-    fn load(&self, path: &str) -> anyhow::Result<starlark::environment::FrozenModule> {
+    fn load(&self, path: &str) -> starlark::Result<starlark::environment::FrozenModule> {
         Python::with_gil(
-            |py| -> anyhow::Result<starlark::environment::FrozenModule> {
-                let fmod: Py<FrozenModule> =
-                    self.callable.call1(py, (path.to_string(),))?.extract(py)?;
+            |py| -> starlark::Result<starlark::environment::FrozenModule> {
+                let fmod: Py<FrozenModule> = convert_to_starlark_err(
+                    convert_to_starlark_err(self.callable.call1(py, (path.to_string(),)))?
+                        .extract(py),
+                )?;
                 // FIXME: Can this be done without cloning the module?
                 let fmod_clone = fmod.borrow(py).0.clone();
                 Ok(fmod_clone)
@@ -749,24 +868,11 @@ impl starlark::eval::FileLoader for FileLoader {
 
 // {{{ eval
 
-fn empty_ast() -> AstModule {
-    AstModule(
-        starlark::syntax::AstModule::parse(
-            "<empty>",
-            "".to_string(),
-            &starlark::syntax::Dialect::Standard,
-        )
-        .unwrap(),
-    )
-}
-
-/// Note that this *consumes* the *ast* argument, which is unusable after
-/// being passed to this fucntion.
-///
 /// :returns: the value returned by the evaluation, after :ref:`object-conversion`.
 #[pyfunction]
 #[pyo3(
-    signature = (module, ast, globals, file_loader=None)
+    signature = (module, ast, globals, file_loader=None),
+    text_signature = "(module: Module, ast: AstModule, globals: Globals, file_loader: FileLoader | None = None) -> object"
 )]
 fn eval(
     module: &mut Module,
@@ -775,12 +881,10 @@ fn eval(
     file_loader: Option<&Bound<FileLoader>>,
 ) -> PyResult<PyObject> {
     let tail = |evaluator: &mut starlark::eval::Evaluator| {
-        // Stupid: eval_module consumes the AST.
-        // Python would like it to live on,  but starlark-rust says no.
-        value_to_pyobject(convert_starlark_err(evaluator.eval_module(
-            std::mem::replace(&mut *ast.borrow_mut(), empty_ast()).0,
-            &globals.0,
-        ))?)
+        // Stupid: eval_module consumes the AST. Clone it.
+        value_to_pyobject(convert_starlark_err(
+            evaluator.eval_module(ast.borrow().0.clone(), &globals.0),
+        )?)
     };
 
     let mod_locked = module.0.lock_py_attached(ast.py()).unwrap();
@@ -808,8 +912,11 @@ fn starlark_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ResolvedFileSpan>()?;
     m.add_class::<EvalSeverity>()?;
     m.add_class::<Lint>()?;
+    m.add_class::<Error>()?;
     m.add_class::<DialectTypes>()?;
     m.add_class::<Dialect>()?;
+    m.add_class::<Interface>()?;
+    m.add_class::<AstLoad>()?;
     m.add_class::<AstModule>()?;
     m.add_class::<LibraryExtension>()?;
     m.add_class::<Globals>()?;

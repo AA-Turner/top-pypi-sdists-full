@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: janaf
-Version: 1.1.1
+Version: 1.1.2
 Summary: Python wrapper for NIST-JANAF Thermochemical Tables
 Project-URL: Repository, https://github.com/n-takumasa/py-janaf
 Author-email: Takumasa Nakamura <n.takumasa@gmail.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.8
@@ -15,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
@@ -26,6 +26,7 @@ Requires-Dist: aiohttp; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: mypy[install-types]; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-github-actions-annotate-failures; extra == 'dev'
 Requires-Dist: pytest>=8; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: tox-uv; extra == 'dev'
@@ -40,6 +41,7 @@ Requires-Dist: aiohttp; extra == 'script'
 Provides-Extra: test
 Requires-Dist: matplotlib; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest-github-actions-annotate-failures; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'
 Provides-Extra: type
 Requires-Dist: aiofiles; extra == 'type'
@@ -47,6 +49,7 @@ Requires-Dist: aiohttp; extra == 'type'
 Requires-Dist: matplotlib; extra == 'type'
 Requires-Dist: mypy[install-types]; extra == 'type'
 Requires-Dist: pytest-cov; extra == 'type'
+Requires-Dist: pytest-github-actions-annotate-failures; extra == 'type'
 Requires-Dist: pytest>=8; extra == 'type'
 Description-Content-Type: text/markdown
 
@@ -103,8 +106,8 @@ shape: (62, 9)
 ## Credit
 
 Following files are distributed in [NIST-JANAF Tables](https://janaf.nist.gov/):
-* [py-janaf/janaf/janaf.json](https://github.com/n-takumasa/py-janaf/blob/main/janaf/janaf.json)
-* [py-janaf/janaf/data/](https://github.com/n-takumasa/py-janaf/tree/main/janaf/data)
+* [py-janaf/src/janaf/janaf.json](https://github.com/n-takumasa/py-janaf/blob/main/src/janaf/janaf.json)
+* [py-janaf/src/janaf/data/](https://github.com/n-takumasa/py-janaf/tree/main/src/janaf/data)
 
 ### [NIST-JANAF Tables - Credits](https://janaf.nist.gov/janbanr.html)
 

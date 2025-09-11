@@ -93,10 +93,11 @@ class Image(StreamingInput, Component):
         placeholder: str | None = None,
         show_fullscreen_button: bool = True,
         webcam_constraints: dict[str, Any] | None = None,
+        watermark: str | Path | PIL.Image.Image | np.ndarray | None = None,
     ):
         """
         Parameters:
-            value: A PIL Image, numpy array, path or URL for the default value that Image component is going to take. If a function is provided, the function will be called each time the app loads to set the initial value of this component.
+            value: A `PIL.Image`, `numpy.array`, `pathlib.Path`, or `str` filepath or URL for the default value that Image component is going to take. If a function is provided, the function will be called each time the app loads to set the initial value of this component.
             format: File format (e.g. "png" or "gif"). Used to save image if it does not already have a valid format (e.g. if the image is being returned to the frontend as a numpy array or PIL Image). The format should be supported by the PIL library. Applies both when this component is used as an input or output. This parameter has no effect on SVG files.
             height: The height of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image file or numpy array, but will affect the displayed image.
             width: The width of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image file or numpy array, but will affect the displayed image.
@@ -124,6 +125,7 @@ class Image(StreamingInput, Component):
             placeholder: Custom text for the upload area. Overrides default upload messages when provided. Accepts new lines and `#` to designate a heading.
             show_fullscreen_button: If True, will show a fullscreen icon in the corner of the component that allows user to view the image in fullscreen mode. If False, icon does not appear.
             webcam_constraints: A dictionary that allows developers to specify custom media constraints for the webcam stream. This parameter provides flexibility to control the video stream's properties, such as resolution and front or rear camera on mobile devices. See $demo/webcam_constraints
+            watermark: If provided and this component is used to display a `value` image, the `watermark` image will be displayed on the bottom right of the `value` image, 10 pixels from the bottom and 10 pixels from the right. The watermark image will not be resized. Supports `PIL.Image`, `numpy.array`, `pathlib.Path`, and `str` filepaths. SVGs and GIFs are not supported as `watermark` images nor can they be watermarked.
         """
         self.format = format
 
@@ -179,6 +181,7 @@ class Image(StreamingInput, Component):
         )
         self.show_fullscreen_button = show_fullscreen_button
         self.placeholder = placeholder
+        self.watermark = watermark
 
         super().__init__(
             label=label,
@@ -235,6 +238,7 @@ class Image(StreamingInput, Component):
         """
         return image_utils.postprocess_image(
             value,
+            watermark=self.watermark,
             cache_dir=self.GRADIO_CACHE,
             format=self.format,
         )
@@ -288,6 +292,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -313,6 +318,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -339,6 +345,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -364,6 +371,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -390,6 +398,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         stream_every: float = 0.5,
     
@@ -419,6 +428,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
             stream_every: The latency (in seconds) at which stream chunks are sent to the backend. Defaults to 0.5 seconds. Parameter only used for the `.stream()` event.,
         
@@ -449,6 +459,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -474,6 +485,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -500,6 +512,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -525,6 +538,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...
@@ -551,6 +565,7 @@ class Image(StreamingInput, Component):
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
+        validator: Callable[..., Any] | None = None,
     
         ) -> Dependency:
         """
@@ -576,6 +591,7 @@ class Image(StreamingInput, Component):
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
         
         """
         ...

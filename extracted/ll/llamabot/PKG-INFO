@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llamabot
-Version: 0.13.7
+Version: 0.13.8
 Summary: A Pythonic interface to LLMs.
 Project-URL: Documentation, https://ericmjl.github.io/llamabot
 Project-URL: Source Code, https://github.com/ericmjl/llamabot
@@ -89,7 +89,7 @@ All models supported by [LiteLLM](https://github.com/BerriAI/litellm) are suppor
 To install LlamaBot:
 
 ```python
-pip install llamabot==0.13.7
+pip install llamabot==0.13.8
 ```
 
 This will give you the minimum set of dependencies for running LlamaBot.

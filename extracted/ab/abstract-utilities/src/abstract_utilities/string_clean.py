@@ -21,6 +21,7 @@ Author: putkoff
 Date: 05/31/2023
 Version: 0.1.2
 """
+import os
 def quoteIt(st: str, ls: list) -> str:
     """
     Quotes specific elements in a string.
@@ -43,7 +44,7 @@ def quoteIt(st: str, ls: list) -> str:
     return st
 
 
-def eatInner(x: str or list, ls: list) -> any:
+def eatInner(string: str, list_objects:(str or list)) -> any:
     """
     Removes characters from the inner part of a string or list.
 
@@ -54,14 +55,20 @@ def eatInner(x: str or list, ls: list) -> any:
     Returns:
         any: The modified string or list.
     """
-    for i in range(len(x)):
-        if x[0] not in ls:
-            return x
-        x = x[1:]
-    return ''
+    if not isinstance(list_objects,list):
+        list_objects = [list_objects]
+    if not isinstance(string,str):
+        string = str(string)
+    if string and list_objects:
+        for char in string:
+            if string:
+                if char not in list_objects:
+                    return string
+                string = string[1:]
+    return string
 
 
-def eatOuter(x: str or list, ls: list) -> any:
+def eatOuter(string: str, list_objects:(str or list)) -> any:
     """
     Removes characters from the outer part of a string or list.
 
@@ -72,12 +79,18 @@ def eatOuter(x: str or list, ls: list) -> any:
     Returns:
         any: The modified string or list.
     """
-    for i in range(len(x)):
-        if x[-1] not in ls:
-            return x
-        x = x[:-1]
-    return ''
-def eatAll(x: str or list, ls: list) -> any:
+    if not isinstance(list_objects,list):
+        list_objects = [list_objects]
+    if not isinstance(string,str):
+        string = str(string)
+    if string and list_objects:
+        for i in range(len(string)):
+            if string:
+                if string[-1] not in list_objects:
+                    return string
+                string = string[:-1]
+    return string
+def eatAll(string: str, list_objects:(str or list)) -> any:
     """
     Removes characters from both the inner and outer parts of a string or list.
 
@@ -88,7 +101,15 @@ def eatAll(x: str or list, ls: list) -> any:
     Returns:
         any: The modified string or list.
     """
-    return eatOuter(eatInner(x, ls), ls)
+    if not isinstance(list_objects,list):
+        list_objects = [list_objects]
+    if not isinstance(string,str):
+        string = str(string)
+    if string and list_objects:
+        string = eatInner(string, list_objects)
+    if string and list_objects:
+        string = eatOuter(string, list_objects)
+    return string
 def safe_split(obj, ls):
     """
     Safely splits a string using multiple delimiters.
@@ -153,3 +174,17 @@ def truncate_text(text, max_chars):
             truncated = truncated[:last_word_end]
     return truncated
 
+def url_join(*paths):
+    final_url = os.path.join(*paths)
+    for i,path in enumerate(paths):
+        if i == 0:
+            final_path = path  # Note: Fixed bug; original code had `final_path = paths`
+        else:
+            final_path = eatOuter(final_path, '/')
+            path = eatInner(path, '/')
+            final_path = f"{final_path}/{path}"
+    return final_path
+       
+    
+def capitalize(string):
+    return string[:1].upper() + string[1:].lower() if string else string

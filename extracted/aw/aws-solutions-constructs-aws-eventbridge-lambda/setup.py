@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-solutions-constructs.aws-eventbridge-lambda",
-    "version": "2.92.1",
+    "version": "2.92.2",
     "description": "CDK Constructs for deploying AWS Events Rule that inveokes AWS Lambda",
     "license": "Apache-2.0",
     "url": "https://github.com/awslabs/aws-solutions-constructs.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_solutions_constructs.aws_eventbridge_lambda._jsii": [
-            "aws-eventbridge-lambda@2.92.1.jsii.tgz"
+            "aws-eventbridge-lambda@2.92.2.jsii.tgz"
         ],
         "aws_solutions_constructs.aws_eventbridge_lambda": [
             "py.typed"
@@ -34,8 +34,8 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.212.0, <3.0.0",
-        "aws-solutions-constructs.core==2.92.1",
+        "aws-cdk-lib>=2.214.0, <3.0.0",
+        "aws-solutions-constructs.core==2.92.2",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.111.0, <2.0.0",
         "publication>=0.0.3",

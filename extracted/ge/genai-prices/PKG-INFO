@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: genai-prices
-Version: 0.0.25
+Version: 0.0.27
 Summary: Calculate prices for calling LLM inference APIs.
 Author: Samuel Colvin
 Author-email: Samuel Colvin <samuel@pydantic.dev>
 License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

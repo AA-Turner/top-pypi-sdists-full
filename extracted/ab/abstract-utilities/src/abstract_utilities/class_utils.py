@@ -46,6 +46,7 @@ Each function is furnished with its own docstring that elaborates on its purpose
 """
 import inspect
 import json
+import functools
 def get_type_list() -> list:
     """Get a list of common Python types."""
     return ['None','str','int','float','bool','list','tuple','set','dict','frozenset','bytearray','bytes','memoryview','range','enumerate','zip','filter','map','property','slice','super','type','Exception','object']
@@ -55,7 +56,14 @@ def remove_key(js: dict, key: any) -> dict:
     no action is taken."""
     js.pop(key, None)
     return js
-
+def get_set_attr(parent,attr_name,value=None,valueFunc=None,default=False,*args,**kwargs):
+    attr_value = getattr(parent,attr_name,default)
+    if attr_value == False:
+        if value is None and valueFunc is not None:
+            value = valueFunc(*args,**kwargs)
+        setattr(parent,attr_name,value)
+        attr_value = getattr(parent,attr_name,default)
+    return attr_value
 def get_module_obj(instance: any, obj: any):
     """
     Retrieves an object from a module.
@@ -67,7 +75,7 @@ def get_module_obj(instance: any, obj: any):
     Returns:
         any: The retrieved object.
     """
-    return getattr(module, obj)
+    return getattr(instance, obj)
 
 def spec_type_mod(obj: any, st: str) -> bool:
     """
@@ -330,3 +338,35 @@ def mk_fun(module,function):
       print(f"The function {function} exists.")
     else:
       print(f"The function {function} does not exist.")
+
+def alias(*aliases):
+    """
+    Decorator to create multiple names for a function.
+    
+    Args:
+        *aliases: Names to assign to the function.
+    
+    Returns:
+        callable: Decorated function.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        # Assign aliases in the module's globals
+        for name in aliases:
+            globals()[name] = func
+        return wrapper
+    return decorator
+def get_class_inputs(cls, *args, **kwargs):
+    fields = list(cls.__annotations__.keys())
+    values = {}
+    args = list(args)
+    for field in fields:
+        if field in kwargs:
+            values[field] = kwargs[field]
+        elif args:
+            values[field] = args.pop(0)
+        else:
+            values[field] = getattr(cls(), field)
+    return cls(**values)

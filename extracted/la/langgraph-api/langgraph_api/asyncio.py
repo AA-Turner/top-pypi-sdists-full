@@ -115,11 +115,16 @@ def create_task(
 
 
 def run_coroutine_threadsafe(
-    coro: Coroutine[Any, Any, T], ignore_exceptions: tuple[type[Exception], ...] = ()
+    coro: Coroutine[Any, Any, T],
+    ignore_exceptions: tuple[type[Exception], ...] = (),
+    *,
+    loop: asyncio.AbstractEventLoop | None = None,
 ) -> concurrent.futures.Future[T] | concurrent.futures.Future[None]:
-    if _MAIN_LOOP is None:
+    if loop is None:
+        loop = _MAIN_LOOP
+    if loop is None:
         raise RuntimeError("No event loop set")
-    future = asyncio.run_coroutine_threadsafe(coro, _MAIN_LOOP)
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
     future.add_done_callback(partial(_create_task_done_callback, ignore_exceptions))
     return future
 

@@ -1072,24 +1072,6 @@ def face_split_by_edges(
     :type undo: bool | None
     """
 
-def faces_mirror_uv(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-    *,
-    direction: typing.Literal["POSITIVE", "NEGATIVE"] | None = "POSITIVE",
-    precision: int | None = 3,
-) -> None:
-    """Copy mirror UV coordinates on the X axis based on a mirrored mesh
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param direction: Axis Direction
-    :type direction: typing.Literal['POSITIVE','NEGATIVE'] | None
-    :param precision: Precision, Tolerance for finding vertex duplicates
-    :type precision: int | None
-    """
-
 def faces_select_linked_flat(
     execution_context: int | str | None = None,
     undo: bool | None = None,

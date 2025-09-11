@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.5.1)
-
 macro(configure_test_executable target)
     target_include_directories(${target} PRIVATE ${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR})
     set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -94,15 +92,9 @@ endif()
 
 if(WITH_GTEST OR WITH_BENCHMARKS)
     if(CMAKE_VERSION VERSION_LESS 3.12)
-        message(WARNING "Minimum cmake version of 3.12 not met for GoogleTest or benchmarks!")
-
-        set(WITH_GTEST OFF)
-        set(WITH_GTEST OFF PARENT_SCOPE)
-
+        message(WARNING "Minimum cmake version of 3.12 not met for Google benchmark!")
         set(WITH_BENCHMARKS OFF)
         set(WITH_BENCHMARKS OFF PARENT_SCOPE)
-    else()
-        enable_language(CXX)
     endif()
 endif()
 
@@ -112,7 +104,9 @@ endif()
 
 if(WITH_GTEST)
     # Google test requires at least C++11
-    set(CMAKE_CXX_STANDARD 11)
+    if(NOT DEFINED CMAKE_CXX_STANDARD)
+        set(CMAKE_CXX_STANDARD 11)
+    endif()
 
     # Google test requires MSAN instrumented LLVM C++ libraries
     if(WITH_SANITIZER STREQUAL "Memory")
@@ -127,7 +121,7 @@ if(WITH_GTEST)
         find_package(GTest)
     endif()
 
-    if(NOT TARGET GTest::GTest)
+    if(NOT TARGET GTest::GTest AND NOT CMAKE_VERSION VERSION_LESS 3.11)
         include(FetchContent)
 
         # Prevent overriding the parent project's compiler/linker settings for Windows
@@ -143,11 +137,12 @@ if(WITH_GTEST)
             if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 5.3)
                 set(GTEST_TAG release-1.10.0)
             else()
-                set(GTEST_TAG release-1.11.0)
+                set(GTEST_TAG release-1.12.1)
             endif()
         endif()
 
         # Fetch Google test source code from official repository
+        message(STATUS "Git checking out GoogleTest ${GTEST_TAG}")
         FetchContent_Declare(googletest
             GIT_REPOSITORY ${GTEST_REPOSITORY}
             GIT_TAG ${GTEST_TAG})
@@ -161,99 +156,110 @@ if(WITH_GTEST)
         add_library(GTest::Main ALIAS gtest_main)
     endif()
 
-    set(TEST_SRCS
-        test_compress.cc
-        test_compress_bound.cc
-        test_cve-2003-0107.cc
-        test_deflate_bound.cc
-        test_deflate_copy.cc
-        test_deflate_dict.cc
-        test_deflate_hash_head_0.cc
-        test_deflate_header.cc
-        test_deflate_params.cc
-        test_deflate_pending.cc
-        test_deflate_prime.cc
-        test_deflate_quick_bi_valid.cc
-        test_deflate_quick_block_open.cc
-        test_deflate_tune.cc
-        test_dict.cc
-        test_inflate_adler32.cc
-        test_large_buffers.cc
-        test_raw.cc
-        test_small_buffers.cc
-        test_small_window.cc
-        )
+    if(TARGET GTest::GTest)
+        set(TEST_SRCS
+            test_compress.cc
+            test_compress_bound.cc
+            test_cve-2003-0107.cc
+            test_deflate_bound.cc
+            test_deflate_copy.cc
+            test_deflate_dict.cc
+            test_deflate_hash_head_0.cc
+            test_deflate_header.cc
+            test_deflate_params.cc
+            test_deflate_pending.cc
+            test_deflate_prime.cc
+            test_deflate_quick_bi_valid.cc
+            test_deflate_quick_block_open.cc
+            test_deflate_tune.cc
+            test_dict.cc
+            test_inflate_adler32.cc
+            test_inflate_copy.cc
+            test_large_buffers.cc
+            test_raw.cc
+            test_small_buffers.cc
+            test_small_window.cc
+            )
 
-    if(WITH_GZFILEOP)
-        list(APPEND TEST_SRCS test_gzio.cc)
-    endif()
+        if(WITH_GZFILEOP)
+            list(APPEND TEST_SRCS test_gzio.cc)
+        endif()
 
-    if(ZLIBNG_ENABLE_TESTS)
-        list(APPEND TEST_SRCS
-             test_adler32.cc             # adler32_neon(), etc
-             test_aligned_alloc.cc       # zng_alloc_aligned()
-             test_compare256.cc          # compare256_neon(), etc
-             test_crc32.cc               # crc32_acle(), etc
-             test_inflate_sync.cc        # expects a certain compressed block layout
-             test_main.cc                # cpu_check_features()
-             test_version.cc             # expects a fixed version string
-             )
-    endif()
+        if(ZLIBNG_ENABLE_TESTS)
+            list(APPEND TEST_SRCS
+                test_adler32.cc             # adler32_neon(), etc
+                test_compare256.cc          # compare256_neon(), etc
+                test_compare256_rle.cc      # compare256_rle(), etc
+                test_crc32.cc               # crc32_acle(), etc
+                test_inflate_sync.cc        # expects a certain compressed block layout
+                test_main.cc                # cpu_check_features()
+                test_version.cc             # expects a fixed version string
+                )
+        endif()
 
-    add_executable(gtest_zlib ${TEST_SRCS})
-    configure_test_executable(gtest_zlib)
+        add_executable(gtest_zlib ${TEST_SRCS})
+        configure_test_executable(gtest_zlib)
 
-    if(WITH_SANITIZER STREQUAL "Memory")
-        target_link_directories(gtest_zlib PRIVATE $ENV{LLVM_BUILD_DIR}/lib)
-        target_link_options(gtest_zlib PRIVATE
-            -stdlib=libc++
-            -lc++abi
-            -fsanitize=memory
-            -fsanitize-memory-track-origins)
-    endif()
+        if(MSVC)
+            target_compile_options(gtest_zlib PRIVATE /wd4389 /EHsc)
+        endif()
 
-    if(NOT ZLIB_COMPAT AND DEFINED ZLIB_LIBRARIES AND DEFINED ZLIB_INCLUDE_DIRS)
-        if(NOT IS_ABSOLUTE ${ZLIB_LIBRARIES})
-            get_filename_component(ZLIB_ABSOLUTE_PATH
-                "${CMAKE_CURRENT_SOURCE_DIR}/${ZLIB_LIBRARIES}"
-                ABSOLUTE)
+        if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+            target_compile_options(gtest_zlib PRIVATE -D_XOPEN_SOURCE=700)
+        endif()
+
+        if(WITH_SANITIZER STREQUAL "Memory")
+            target_link_directories(gtest_zlib PRIVATE $ENV{LLVM_BUILD_DIR}/lib)
+            target_link_options(gtest_zlib PRIVATE
+                -stdlib=libc++
+                -lc++abi
+                -fsanitize=memory
+                -fsanitize-memory-track-origins)
+        endif()
+
+        if(NOT ZLIB_COMPAT AND DEFINED ZLIB_LIBRARIES AND DEFINED ZLIB_INCLUDE_DIRS)
+            if(NOT IS_ABSOLUTE ${ZLIB_LIBRARIES})
+                get_filename_component(ZLIB_ABSOLUTE_PATH
+                    "${CMAKE_CURRENT_SOURCE_DIR}/${ZLIB_LIBRARIES}"
+                    ABSOLUTE)
+            else()
+                set(ZLIB_ABSOLUTE_PATH ${ZLIB_LIBRARIES})
+            endif()
+
+            add_library(external_zlib STATIC IMPORTED)
+            set_property(TARGET external_zlib PROPERTY IMPORTED_LOCATION ${ZLIB_ABSOLUTE_PATH})
+            message(STATUS "Added dual linking tests against zlib")
+            message(STATUS "  Zlib include dirs: ${ZLIB_INCLUDE_DIRS}")
+            message(STATUS "  Zlib libraries: ${ZLIB_ABSOLUTE_PATH}")
+
+            target_sources(gtest_zlib PRIVATE test_compress_dual.cc)
+            target_include_directories(gtest_zlib PRIVATE ${ZLIB_INCLUDE_DIRS})
+            target_link_libraries(gtest_zlib external_zlib)
+        endif()
+
+        if(NOT DEFINED BUILD_SHARED_LIBS)
+            # Link statically in order to test internal zlib-ng functions.
+            target_link_libraries(gtest_zlib zlibstatic)
         else()
-            set(ZLIB_ABSOLUTE_PATH ${ZLIB_LIBRARIES})
+            target_link_libraries(gtest_zlib zlib)
         endif()
 
-        add_library(external_zlib STATIC IMPORTED)
-        set_property(TARGET external_zlib PROPERTY IMPORTED_LOCATION ${ZLIB_ABSOLUTE_PATH})
-        message(STATUS "Added dual linking tests against zlib")
-        message(STATUS "  Zlib include dirs: ${ZLIB_INCLUDE_DIRS}")
-        message(STATUS "  Zlib libraries: ${ZLIB_ABSOLUTE_PATH}")
-
-        target_sources(gtest_zlib PRIVATE test_compress_dual.cc)
-        target_include_directories(gtest_zlib PRIVATE ${ZLIB_INCLUDE_DIRS})
-        target_link_libraries(gtest_zlib external_zlib)
-    endif()
-
-    if(NOT DEFINED BUILD_SHARED_LIBS)
-        # Link statically in order to test internal zlib-ng functions.
-        target_link_libraries(gtest_zlib zlibstatic)
-    else()
-        target_link_libraries(gtest_zlib zlib)
-    endif()
-
-    if(BUILD_SHARED_LIBS)
-        target_link_libraries(gtest_zlib GTest::Main)
-    endif()
-    target_link_libraries(gtest_zlib GTest::GTest)
-
-    find_package(Threads)
-    if(Threads_FOUND AND NOT BASEARCH_WASM32_FOUND)
-        target_sources(gtest_zlib PRIVATE test_deflate_concurrency.cc)
-        if(UNIX AND NOT APPLE)
-            # On Linux, use a workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52590
-            target_link_libraries(gtest_zlib -Wl,--whole-archive -lpthread -Wl,--no-whole-archive)
+        if(BUILD_SHARED_LIBS)
+            target_link_libraries(gtest_zlib GTest::Main)
         endif()
-        target_link_libraries(gtest_zlib Threads::Threads)
-    endif()
+        target_link_libraries(gtest_zlib GTest::GTest)
 
-    add_test(NAME gtest_zlib
-        COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:gtest_zlib>)
+        find_package(Threads)
+        if(Threads_FOUND AND NOT BASEARCH_WASM32_FOUND)
+            target_sources(gtest_zlib PRIVATE test_deflate_concurrency.cc)
+            if(UNIX AND NOT APPLE)
+                # On Linux, use a workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52590
+                target_link_libraries(gtest_zlib -Wl,--whole-archive -lpthread -Wl,--no-whole-archive)
+            endif()
+            target_link_libraries(gtest_zlib Threads::Threads)
+        endif()
+
+        add_test(NAME gtest_zlib
+            COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:gtest_zlib>)
+    endif()
 endif()

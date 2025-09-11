@@ -2204,6 +2204,17 @@ def sockets_sync(
     :type node_name: str
     """
 
+def test_inlining_shader_nodes(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Create a new inlined shader node tree as is consumed by renderers
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
 def translate_attach(
     execution_context: int | str | None = None,
     undo: bool | None = None,

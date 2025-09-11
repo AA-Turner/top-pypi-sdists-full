@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clangd
-Version: 21.1.0
+Version: 21.1.1
 Summary: binaries for clangd, a clang-based C++ language server (LSP)
 Keywords: clangd,llvm,clang,lsp,cpp,c
 Author: LLVM team, Dan Ilan
@@ -15,13 +15,13 @@ Classifier: Topic :: Software Development
 Project-URL: Documentation, https://clangd.llvm.org/
 Project-URL: Source, https://github.com/jmpfar/clangd-wheel
 Provides-Extra: test
-Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest==8.4.2; extra == "test"
 Requires-Dist: pytest-sugar==1.1.1; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pylspclient==0.1.2; extra == "test"
 Provides-Extra: dev
 Requires-Dist: clangd[test]; extra == "dev"
-Requires-Dist: ruff==0.12.10; extra == "dev"
+Requires-Dist: ruff==0.12.12; extra == "dev"
 Description-Content-Type: text/markdown
 
 # Clangd python wheel

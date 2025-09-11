@@ -1,32 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zlib-ng
-Version: 0.5.1
+Version: 1.0.0
 Summary: Drop-in replacement for zlib and gzip modules using zlib-ng
-Home-page: https://github.com/pycompression/python-zlib-ng
 Author: Leiden University Medical Center
 Author-email: r.h.p.vorderman@lumc.nl
-License: PSF-2.0
-Keywords: zlib-ng zlib compression deflate gzip
+License-Expression: PSF-2.0
+Project-URL: homepage, https://github.com/pycompression/python-zlib-ng
+Project-URL: documentation, https://python-zlib-ng.readthedocs.io
+Keywords: zlib-ng,zlib,compression,deflate,gzip
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: C
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: System :: Archiving :: Compression
-Classifier: License :: OSI Approved :: Python Software Foundation License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/zlib-ng.svg
   :target: https://pypi.org/project/zlib-ng/

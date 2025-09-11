@@ -28,7 +28,7 @@ def get_forthcoming_label(rst):
             if len(section.children) > 0 and isinstance(section.children[0], docutils.nodes.title):
                 title = section.children[0]
         if title and len(title.children) > 0 and isinstance(title.children[0], docutils.nodes.Text):
-            title_text = title.children[0].rawsource
+            title_text = title.children[0]
             if FORTHCOMING_LABEL.lower() in title_text.lower():
                 if forthcoming_label:
                     raise RuntimeError('Found multiple forthcoming sections')
@@ -112,3 +112,7 @@ def main(sysargs=None):
     for (changelog_path, data) in new_changelog_data:
         with open(changelog_path, 'wb') as f:
             f.write(data.encode('utf-8'))
+
+
+if __name__ == '__main__':
+    sys.exit(main())

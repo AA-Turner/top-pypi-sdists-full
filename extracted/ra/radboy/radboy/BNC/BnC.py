@@ -267,7 +267,8 @@ class BnCUi:
 				total=0
 				for num,r in enumerate(results.all()):
 					total+=(r.Value*r.Qty)
-					msg=f'''{num}/{ct-1} ->[{Fore.light_green}{r.Name}{Style.reset}] {Fore.grey_50}({r.Qty}*${r.Value})=({Fore.light_yellow}${round(r.Value*r.Qty,2)}{Fore.grey_50}) of {Fore.light_red}${round(total,3)}{Style.reset}'''
+					msg=f'''{Fore.light_green}[{r.Name}]{Fore.grey_50}({r.Qty}*${r.Value})=({Fore.light_yellow}${decc(r.Value*r.Qty)}{Fore.grey_50}) of {Fore.light_red}${decc(total)}'''
+					msg=std_colorize(msg,num,ct)
 					print(msg)
 				session.commit()
 				session.flush()
@@ -451,7 +452,7 @@ class BnCUi:
 								print(f"{Fore.light_red}Nothing in the Bank!{Style.reset}")
 							else:
 								for num,r in enumerate(results):
-									msg=f'''{num}/{ct-1} -> {r}'''
+									msg=std_colorize(r,num,ct)
 									print(msg)
 								which=Prompt.__init2__(self,func=self.mkint,ptext=f"{self.cashpoolTotal()}Which CashPool Item?",helpText=f"type a number between [0-{ct-1}]",data={'default':0})
 								if which in [None,]:

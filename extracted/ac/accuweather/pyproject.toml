@@ -3,15 +3,14 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name        = "accuweather"
-version     = "4.2.0"
-license     = {text = "Apache-2.0"}
+name = "accuweather"
+version = "4.2.1"
+license = "Apache-2.0"
 description = "Python wrapper for getting weather data from AccuWeather API."
-readme      = "README.md"
-authors     = [{name = "Maciej Bieniek"}]
+readme = "README.md"
+authors = [{name = "Maciej Bieniek"}]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -23,7 +22,24 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies    = [
     "aiohttp>=3.9.4",
-    "orjson",
+    "orjson>=3.8.1",
+]
+
+[project.optional-dependencies]
+test = [
+  "aioresponses==0.7.8",
+  "coverage==7.10.6",
+  "mypy==1.17.1",
+  "pytest-asyncio==1.1.0",
+  "pytest-cov==6.3.0",
+  "pytest-error-for-skips==2.0.2",
+  "pytest-timeout==2.4.0",
+  "pytest==8.4.2",
+  "ruff==0.12.12",
+  "syrupy==4.9.1",
+]
+dev = [
+  "pre-commit==4.3.0",
 ]
 
 [project.urls]
@@ -66,7 +82,6 @@ lint.ignore = [
     "D213",     # Multi-line docstring summary should start at the second line
     "EM101",    # Exception must not use a string literal, assign to variable first
     "EM102",    # Exception must not use an f-string literal, assign to variable first
-    "ISC001",   # Single line implicit string concatenation
     "PLR0913",  # Too many arguments to function call
     "PTH123",   # `open()` should be replaced by `Path.open()`
     "TC002",   # Move third-party import into a type-checking block
@@ -107,8 +122,7 @@ python =
 commands =
   pytest --timeout=30 --cov=accuweather --cov-report=xml {posargs} --error-for-skips
 deps =
-  -rrequirements.txt
-  -rrequirements-test.txt
+  .[test]
 
 [testenv:lint]
 basepython = python3

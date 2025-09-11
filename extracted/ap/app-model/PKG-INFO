@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: app-model
-Version: 0.4.0
+Version: 0.5.0
 Summary: Generic application schema implemented in python
 Project-URL: homepage, https://github.com/pyapp-kit/app-model
 Project-URL: repository, https://github.com/pyapp-kit/app-model
@@ -23,11 +23,10 @@ Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: >=3.9
 Requires-Dist: in-n-out>=0.1.5
 Requires-Dist: psygnal>=0.10
-Requires-Dist: pydantic-compat>=0.1.1
-Requires-Dist: pydantic>=1.10.18
+Requires-Dist: pydantic>=2.8
 Requires-Dist: typing-extensions>=4.12
 Provides-Extra: pyqt5
-Requires-Dist: pyqt5-qt5<=5.15.2; (sys_platform == 'win32') and extra == 'pyqt5'
+Requires-Dist: pyqt5-qt5==5.15.2; (sys_platform == 'win32') and extra == 'pyqt5'
 Requires-Dist: pyqt5-qt5>=5.15.4; (sys_platform != 'win32') and extra == 'pyqt5'
 Requires-Dist: pyqt5>=5.15.10; extra == 'pyqt5'
 Requires-Dist: qtpy>=2.4.0; extra == 'pyqt5'

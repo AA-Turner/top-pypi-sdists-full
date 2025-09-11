@@ -27,6 +27,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import ListAliasesPaginator, ListKeysPaginator, ListTagsForResourcePaginator
 from .type_defs import (
+    AddKeyReplicationRegionsInputTypeDef,
+    AddKeyReplicationRegionsOutputTypeDef,
     CreateAliasInputTypeDef,
     CreateAliasOutputTypeDef,
     CreateKeyInputTypeDef,
@@ -34,10 +36,15 @@ from .type_defs import (
     DeleteAliasInputTypeDef,
     DeleteKeyInputTypeDef,
     DeleteKeyOutputTypeDef,
+    DisableDefaultKeyReplicationRegionsInputTypeDef,
+    DisableDefaultKeyReplicationRegionsOutputTypeDef,
+    EnableDefaultKeyReplicationRegionsInputTypeDef,
+    EnableDefaultKeyReplicationRegionsOutputTypeDef,
     ExportKeyInputTypeDef,
     ExportKeyOutputTypeDef,
     GetAliasInputTypeDef,
     GetAliasOutputTypeDef,
+    GetDefaultKeyReplicationRegionsOutputTypeDef,
     GetKeyInputTypeDef,
     GetKeyOutputTypeDef,
     GetParametersForExportInputTypeDef,
@@ -54,6 +61,8 @@ from .type_defs import (
     ListKeysOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    RemoveKeyReplicationRegionsInputTypeDef,
+    RemoveKeyReplicationRegionsOutputTypeDef,
     RestoreKeyInputTypeDef,
     RestoreKeyOutputTypeDef,
     StartKeyUsageInputTypeDef,
@@ -128,6 +137,18 @@ class PaymentCryptographyControlPlaneClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#generate_presigned_url)
         """
 
+    def add_key_replication_regions(
+        self, **kwargs: Unpack[AddKeyReplicationRegionsInputTypeDef]
+    ) -> AddKeyReplicationRegionsOutputTypeDef:
+        """
+        Adds replication Amazon Web Services Regions to an existing Amazon Web Services
+        Payment Cryptography key, enabling the key to be used for cryptographic
+        operations in additional Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/add_key_replication_regions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#add_key_replication_regions)
+        """
+
     def create_alias(self, **kwargs: Unpack[CreateAliasInputTypeDef]) -> CreateAliasOutputTypeDef:
         """
         Creates an <i>alias</i>, or a friendly name, for an Amazon Web Services Payment
@@ -164,6 +185,30 @@ class PaymentCryptographyControlPlaneClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#delete_key)
         """
 
+    def disable_default_key_replication_regions(
+        self, **kwargs: Unpack[DisableDefaultKeyReplicationRegionsInputTypeDef]
+    ) -> DisableDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Disables multi-region key replication settings for the specified Amazon Web
+        Services Regions in your account, preventing new keys from being automatically
+        replicated to those regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/disable_default_key_replication_regions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#disable_default_key_replication_regions)
+        """
+
+    def enable_default_key_replication_regions(
+        self, **kwargs: Unpack[EnableDefaultKeyReplicationRegionsInputTypeDef]
+    ) -> EnableDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Enables multi-region key replication settings for your account, causing new
+        keys to be automatically replicated to the specified Amazon Web Services
+        Regions when created.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/enable_default_key_replication_regions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#enable_default_key_replication_regions)
+        """
+
     def export_key(self, **kwargs: Unpack[ExportKeyInputTypeDef]) -> ExportKeyOutputTypeDef:
         """
         Exports a key from Amazon Web Services Payment Cryptography.
@@ -180,10 +225,20 @@ class PaymentCryptographyControlPlaneClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#get_alias)
         """
 
+    def get_default_key_replication_regions(self) -> GetDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Retrieves the list of regions where default key replication is currently
+        enabled for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_default_key_replication_regions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#get_default_key_replication_regions)
+        """
+
     def get_key(self, **kwargs: Unpack[GetKeyInputTypeDef]) -> GetKeyOutputTypeDef:
         """
-        Gets the key material for an Amazon Web Services Payment Cryptography key,
-        including the immutable and mutable data specified when the key was created.
+        Gets the key metadata for an Amazon Web Services Payment Cryptography key,
+        including the immutable and mutable attributes specified when the key was
+        created.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_key.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#get_key)
@@ -258,6 +313,18 @@ class PaymentCryptographyControlPlaneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/list_tags_for_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#list_tags_for_resource)
+        """
+
+    def remove_key_replication_regions(
+        self, **kwargs: Unpack[RemoveKeyReplicationRegionsInputTypeDef]
+    ) -> RemoveKeyReplicationRegionsOutputTypeDef:
+        """
+        Removes Replication Regions from an existing Amazon Web Services Payment
+        Cryptography key, disabling the key's availability for cryptographic operations
+        in the specified Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/remove_key_replication_regions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#remove_key_replication_regions)
         """
 
     def restore_key(self, **kwargs: Unpack[RestoreKeyInputTypeDef]) -> RestoreKeyOutputTypeDef:

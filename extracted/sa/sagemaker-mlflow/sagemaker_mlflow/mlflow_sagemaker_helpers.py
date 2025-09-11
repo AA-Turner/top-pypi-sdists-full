@@ -49,7 +49,7 @@ def validate_and_parse_arn(tracking_server_arn: str) -> Arn:
     return arn
 
 def get_tracking_server_url(tracking_server_arn: str) -> str:
-    """Returns the url used by SageMaker MLFlow
+    """Returns the url used by SageMaker MLflow
 
     Args:
        tracking_server_arn (str): Tracking Server Arn
@@ -75,6 +75,8 @@ def get_dns_suffix(partition: str) -> str:
         str: DNS suffix of the partition
     """
     if partition == "aws":
+        return "aws"
+    elif partition == "aws-us-gov":
         return "aws"
     else:
         raise MlflowSageMakerException(f"Partition {partition} Not supported.")

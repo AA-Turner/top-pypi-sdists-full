@@ -29,7 +29,7 @@ import zigpy.appdb
 import zigpy.backups
 import zigpy.config as conf
 from zigpy.const import INTERFERENCE_MESSAGE
-from zigpy.datastructures import PriorityDynamicBoundedSemaphore
+from zigpy.datastructures import RequestLimiter
 import zigpy.device
 import zigpy.endpoint
 import zigpy.exceptions
@@ -79,8 +79,9 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
         self._watchdog_task: asyncio.Task | None = None
 
-        self._concurrent_requests_semaphore = PriorityDynamicBoundedSemaphore(
-            self._config[conf.CONF_MAX_CONCURRENT_REQUESTS]
+        self._concurrent_requests_semaphore = RequestLimiter(
+            max_concurrency=self._config[conf.CONF_MAX_CONCURRENT_REQUESTS],
+            capacities=self._config[conf.CONF_EXPERIMENTAL][conf.CONF_CONCURRENCY],
         )
 
         self.ota = zigpy.ota.OTA(self._config[conf.CONF_OTA], self)
@@ -91,6 +92,11 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             zigpy.device.Device | zigpy.listeners.Singleton,
             collections.deque[zigpy.listeners.BaseRequestListener],
         ] = collections.defaultdict(lambda: collections.deque([]))
+
+        # Add callback storage
+        self._packet_callbacks: collections.defaultdict[
+            t.AddrModeAddress | None, list[typing.Callable[[t.ZigbeePacket], None]]
+        ] = collections.defaultdict(list)
 
         # Context variable for request priority context manager
         self._packet_priority_var = contextvars.ContextVar(
@@ -779,19 +785,19 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             LOGGER.debug(
                 "Critical priority request received (%s), skipping queue with %d requests",
                 priority,
-                self._concurrent_requests_semaphore.num_waiting,
+                self._concurrent_requests_semaphore.waiting_requests,
             )
             manager = nullcontext()
             was_locked = False
         else:
             manager = self._concurrent_requests_semaphore(priority=priority)
-            was_locked = self._concurrent_requests_semaphore.locked()
+            was_locked = self._concurrent_requests_semaphore.locked(priority=priority)
 
         if was_locked:
             LOGGER.debug(
                 "Max concurrency (%s) reached, delaying request (%s enqueued)",
-                self._concurrent_requests_semaphore.max_value,
-                self._concurrent_requests_semaphore.num_waiting,
+                self._concurrent_requests_semaphore.active_requests,
+                self._concurrent_requests_semaphore.waiting_requests,
             )
 
         async with manager:
@@ -1194,6 +1200,54 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         else:
             raise ValueError(f"Invalid address: {address!r}")
 
+    def register_packet_callback(
+        self,
+        filter: t.AddrModeAddress | None,
+        callback: typing.Callable[[t.ZigbeePacket], None],
+    ) -> typing.Callable[[], None]:
+        """Register a callback that is called when a Zigbee packet is received.
+
+        Args:
+        ----
+            filter: Optional address filter. If None, callback receives all packets.
+            If provided, only packets from this source address trigger the callback.
+            callback: Function to call when a matching packet is received.
+
+        Returns:
+        -------
+            A callable that can be used to unregister the callback.
+
+        """
+        self._packet_callbacks[filter].append(callback)
+
+        def cancel_callback() -> None:
+            """Remove the callback."""
+            with contextlib.suppress(ValueError):
+                self._packet_callbacks[filter].remove(callback)
+
+        return cancel_callback
+
+    def notify_packet_callbacks(self, packet: t.ZigbeePacket) -> None:
+        """Notify registered packet callbacks about a received Zigbee packet."""
+
+        # Notify global callbacks (registered with None filter)
+        for callback in self._packet_callbacks[None]:
+            try:
+                callback(packet)
+            except Exception:
+                LOGGER.exception("Error in global packet callback: %s", callback)
+
+        # Notify address-specific callbacks
+        for callback in self._packet_callbacks[packet.src]:
+            try:
+                callback(packet)
+            except Exception:
+                LOGGER.exception(
+                    "Error in packet callback for address %s: %s",
+                    packet.src,
+                    callback,
+                )
+
     def register_callback_listener(
         self,
         src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
@@ -1290,6 +1344,26 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     ) -> None:
         """Permit a node to join with the provided link key."""
         raise NotImplementedError  # pragma: no cover
+
+    async def can_write_network_settings(
+        self,
+        *,
+        network_info: zigpy.state.NetworkInfo,
+        node_info: zigpy.state.NodeInfo,
+    ) -> bool:
+        """Returns `True` if the radio can write the given network settings.
+
+        If restoration is not possible, `CannotWriteNetworkSettings` is raised.
+        If restoration is possible in a destructive way (e.g. write-once tokens),
+        `DestructiveWriteNetworkSettings` is raised.
+
+        Some radio firmwares do not support writing every network setting in a backup
+        (ZiGate cannot set the PAN ID, older EZSP can only write the EUI64 once, etc.).
+        Not all situations, however, are critical failures: if we are restoring a
+        backup where the PAN ID does not change or the EUI64 remains the same, we can
+        restore the backup successfully.
+        """
+        return True
 
     @abc.abstractmethod
     async def write_network_info(

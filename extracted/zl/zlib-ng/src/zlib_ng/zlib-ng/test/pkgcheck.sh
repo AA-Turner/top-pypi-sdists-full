@@ -79,8 +79,11 @@ Darwin)
   # What CPU are we running on, exactly?
   sysctl -n machdep.cpu.brand_string
   sysctl -n machdep.cpu.features
-  sysctl -n machdep.cpu.leaf7_features
-  sysctl -n machdep.cpu.extfeatures
+  if test "$(uname -m)" = "x86_64"
+  then
+    sysctl -n machdep.cpu.leaf7_features
+    sysctl -n machdep.cpu.extfeatures
+  fi
   ;;
 esac
 
@@ -149,6 +152,9 @@ Darwin)
   strip -x -no_uuid "$dylib2"
   ;;
 esac
+
+# Remove cmake target files to avoid mismatch with configure
+find pkgtmp2 -type f -name '*.cmake' -exec rm '{}' \;
 
 # The ar on newer systems defaults to -D (i.e. deterministic),
 # but FreeBSD 12.1, Debian 8, and Ubuntu 14.04 seem to not do that.

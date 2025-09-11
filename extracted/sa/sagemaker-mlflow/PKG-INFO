@@ -1,7 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sagemaker-mlflow
-Version: 0.1.0
-Summary: AWS Plugin for MLFlow with SageMaker
+Version: 0.1.1
+Summary: AWS Plugin for MLflow with SageMaker
 Home-page: https://github.com/aws/sagemaker-mlflow
 Author: Amazon Web Services
 License: Apache License 2.0
@@ -34,14 +34,26 @@ Provides-Extra: test-prerelease
 Requires-Dist: mlflow; extra == "test-prerelease"
 Requires-Dist: packaging; extra == "test-prerelease"
 Requires-Dist: pytest; extra == "test-prerelease"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
-# SageMaker MLFlow Plugin
+# SageMaker MLflow Plugin
 
 ## What does this Plugin do?
 
-This plugin generates Signature V4 headers in each outgoing request to the SageMaker MLFlow service and also determines
-the URL of the SageMaker MLFlow service. It generates a token with the SigV4 Algorithm that the service will use to
-conduct Authentication and Authorization.
+This plugin generates Signature V4 headers in each outgoing request to the Amazon SageMaker with MLflow capability,
+determines the URL of capability to connect to tracking servers, and registers models to the SageMaker Model Registry.
+It generates a token with the SigV4 Algorithm that the service will use to conduct Authentication and Authorization
+using AWS IAM.
 
 ## Installation
 

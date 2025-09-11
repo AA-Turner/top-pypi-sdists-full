@@ -2,6 +2,7 @@
 
 Usage: python -m anyscale._private.docgen --help
 """
+
 import os
 
 import click
@@ -81,6 +82,8 @@ from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStat
 from anyscale.service.models import (
     RayGCSExternalStorageConfig,
     ServiceConfig,
+    ServiceSortField,
+    ServiceSortOrder,
     ServiceState,
     ServiceStatus,
     ServiceVersionState,
@@ -253,6 +256,7 @@ ALL_MODULES = [
         filename="service-api.md",
         cli_prefix="anyscale service",
         cli_commands=[
+            service_commands.list,
             service_commands.deploy,
             service_commands.status,
             service_commands.wait,
@@ -263,6 +267,7 @@ ALL_MODULES = [
         ],
         sdk_prefix="anyscale.service",
         sdk_commands=[
+            anyscale.service.list,
             anyscale.service.deploy,
             anyscale.service.status,
             anyscale.service.wait,
@@ -279,6 +284,8 @@ ALL_MODULES = [
             ServiceState,
             ServiceVersionStatus,
             ServiceVersionState,
+            ServiceSortField,
+            ServiceSortOrder,
         ],
         # The following commands are legacy
         legacy_sdk_commands={

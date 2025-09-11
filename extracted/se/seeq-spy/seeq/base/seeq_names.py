@@ -274,6 +274,16 @@ class SeeqNames:
             suffix = 'suffix'
             property_values = 'propertyValues'
             ancestor_property = 'ancestorProperty'
+            column_id = 'columnId'
+            boolean_value = 'booleanValue'
+            string_value = 'stringValue'
+            numeric_value = 'numericValue'
+            uom_string = 'uomString'
+            u_u_i_d_value = 'uuidValue'
+            timestamp_value = 'timestampValue'
+            datasource_id = 'datasourceId'
+            column_definition_id = 'columnDefinitionId'
+            params = 'parameters'
         
         class Rules:
             ancestor = 'ancestor'
@@ -571,7 +581,6 @@ class SeeqNames:
         jobs = 'Jobs'
         logs = 'Logs'
         trees = 'Trees'
-        sample_series = 'SampleSeries'
         signals = 'Signals'
         capsules = 'Capsules'
         conditions = 'Conditions'
@@ -608,10 +617,10 @@ class SeeqNames:
         table_definitions = 'TableDefinitions'
         hierarchies = 'Hierarchies'
         models = 'Models'
-        table_overrides = 'TableOverrides'
         graph_q_l = 'GraphQL'
         unstable = 'Unstable'
         scim = 'SCIM'
+        markdown_items = 'MarkdownItems'
     
     class Channels:
         agents_status = 'agents-status'
@@ -649,7 +658,6 @@ class SeeqNames:
         asset_trees = '/trees/assets'
         signals = '/signals'
         samples = '/samples'
-        plot_samples = '/plot-samples'
         capsules = '/capsules'
         conditions = '/conditions'
         condition_monitors = '/condition-monitors'
@@ -705,6 +713,7 @@ class SeeqNames:
         models = '/models'
         graph_q_l = '/graphql'
         cache = '/cache'
+        markdown_items = '/markdown-items'
         scim_users = 'Users'
         scim_groups = 'Groups'
         scim_token = 'token'
@@ -899,6 +908,7 @@ class SeeqNames:
         formula_package = 'FormulaPackage'
         formula_doc = 'FormulaDoc'
         formula_package_doc = 'FormulaPackageDoc'
+        signal_monitor = 'SignalMonitor'
         threshold_metric = 'ThresholdMetric'
         display = 'Display'
         display_template = 'DisplayTemplate'
@@ -926,6 +936,7 @@ class SeeqNames:
         version_history = 'VersionHistory'
         model = 'Model'
         hierarchy = 'Hierarchy'
+        markdown_item = 'MarkdownItem'
     
     class TopicDocumentAttributes:
         data_seeq_content = 'data-seeq-content'
@@ -1207,6 +1218,7 @@ class SeeqNames:
         webhook_url = 'Webhook Url'
         first_run_look_back = 'First Run Look Back'
         capsule_event_types = 'Capsule Event Types'
+        sample_event_types = 'Sample Event Types'
         finder_configurations = 'Finder Configurations'
         include_hierarchy = 'Include Hierarchy'
         hierarchy_searches = 'Hierarchy Searches'
@@ -1292,6 +1304,8 @@ class SeeqNames:
         item_table_id = 'Item Table Id'
         alias = 'Alias'
         features = 'Features'
+        markdown = 'Markdown'
+        purpose = 'Purpose'
     
 
 

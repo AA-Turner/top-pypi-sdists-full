@@ -1,24 +1,40 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyNaCl
-Version: 1.5.0
+Version: 1.6.0
 Summary: Python binding to the Networking and Cryptography (NaCl) library
 Home-page: https://github.com/pyca/pynacl/
-Author: The PyNaCl developers
-Author-email: cryptography-dev@python.org
-License: Apache License 2.0
-Platform: UNKNOWN
+Author-email: The PyNaCl developers <cryptography-dev@python.org>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/pyca/pynacl
+Project-URL: Bug Tracker, https://github.com/pyca/pynacl/issues
+Project-URL: Documentation, https://pynacl.readthedocs.io
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.6
-Provides-Extra: tests
-Provides-Extra: docs
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.8
 License-File: LICENSE
+Requires-Dist: cffi>=1.4.1; platform_python_implementation != "PyPy" and python_version < "3.14"
+Requires-Dist: cffi>=2.0.0; platform_python_implementation != "PyPy" and python_version >= "3.14"
+Provides-Extra: tests
+Requires-Dist: pytest>=7.4.0; extra == "tests"
+Requires-Dist: pytest-cov>=2.10.1; extra == "tests"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "tests"
+Requires-Dist: hypothesis>=3.27.0; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: sphinx<7; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
 
 ===============================================
 PyNaCl: Python binding to the libsodium library
@@ -28,16 +44,9 @@ PyNaCl: Python binding to the libsodium library
     :target: https://pypi.org/project/PyNaCl/
     :alt: Latest Version
 
-.. image:: https://codecov.io/github/pyca/pynacl/coverage.svg?branch=main
-    :target: https://codecov.io/github/pyca/pynacl?branch=main
-
-.. image:: https://img.shields.io/pypi/pyversions/pynacl.svg
-    :target: https://pypi.org/project/PyNaCl/
-    :alt: Compatible Python Versions
-
 PyNaCl is a Python binding to `libsodium`_, which is a fork of the
 `Networking and Cryptography library`_. These libraries have a stated goal of
-improving usability, security and speed. It supports Python 3.6+ as well as
+improving usability, security and speed. It supports Python 3.8+ as well as
 PyPy 3.
 
 .. _libsodium: https://github.com/jedisct1/libsodium
@@ -55,7 +64,7 @@ Features
 `Changelog`_
 ------------
 
-.. _Changelog: https://pynacl.readthedocs.io/en/stable/changelog/
+.. _Changelog: https://pynacl.readthedocs.io/en/latest/changelog/
 
 Installation
 ============
@@ -111,6 +120,15 @@ distribution, you can disable the bundled copy during install by running:
 
 Changelog
 =========
+
+1.6.0 (2025-09-11)
+------------------
+* **BACKWARDS INCOMPATIBLE:** Removed support for Python 3.6 and 3.7.
+* Added support for the low level AEAD AES bindings.
+* Added support for ``crypto_core_ed25519_from_uniform``.
+* Update ``libsodium`` to 1.0.20-stable (2025-08-27 build).
+* Added support for free-threaded Python 3.14.
+* Added support for Windows on ARM wheels.
 
 1.5.0 (2022-01-07)
 ------------------
@@ -184,7 +202,7 @@ Changelog
   and restructured high-level password hashing implementation to expose
   the same interface for all hashers.
 * Added support for 128 bit ``siphashx24`` variant of ``siphash24``.
-* Added support for ``from_seed`` APIs for X25519 keypair generation.
+* Added support for ``from_seed`` APIs for X25519 key pair generation.
 * Dropped support for Python 3.3.
 
 1.1.2 - 2017-03-31
@@ -237,5 +255,3 @@ Changelog
   calls these functions (e.g. `nacl.c.crypto_box_keypair()`), you must review
   the new docstrings and update your code/imports to match the new
   conventions.
-
-

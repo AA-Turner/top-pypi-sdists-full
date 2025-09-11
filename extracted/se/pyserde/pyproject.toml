@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyserde"
-version = "0.25.0"  # using poetry-dynamic-versioning
+version = "0.25.1"  # using poetry-dynamic-versioning
 description = "Yet another serialization library on top of dataclasses"
 authors = ["yukinarit <yukinarit84@gmail.com>"]
 license = "MIT"

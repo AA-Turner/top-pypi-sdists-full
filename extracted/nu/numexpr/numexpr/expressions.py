@@ -366,6 +366,10 @@ functions = {
     'complex': func(complex, 'complex'),
     'conj': func(numpy.conj, 'complex'),
 
+    'isnan': func(numpy.isnan, 'bool'),
+    'isfinite': func(numpy.isfinite, 'bool'),
+    'isinf': func(numpy.isinf, 'bool'),
+
     'sum': gen_reduce_axis_func('sum'),
     'prod': gen_reduce_axis_func('prod'),
     'min': gen_reduce_axis_func('min'),
@@ -521,4 +525,6 @@ class FuncNode(OpNode):
     def __init__(self, opcode=None, args=None, kind=None):
         if (kind is None) and (args is not None):
             kind = commonKind(args)
+        if opcode in ("isnan", "isfinite", "isinf"): # bodge for boolean return functions
+            kind = 'bool'
         OpNode.__init__(self, opcode, args, kind)

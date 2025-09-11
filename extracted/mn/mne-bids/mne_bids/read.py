@@ -5,7 +5,6 @@
 
 import json
 import os
-import os.path as op
 import re
 from datetime import datetime, timedelta, timezone
 from difflib import get_close_matches
@@ -126,7 +125,7 @@ def _read_events(events, event_id, raw, bids_path=None):
     # retrieve events
     if isinstance(events, np.ndarray):
         if events.ndim != 2:
-            raise ValueError("Events must have two dimensions, " f"found {events.ndim}")
+            raise ValueError(f"Events must have two dimensions, found {events.ndim}")
         if events.shape[1] != 3:
             raise ValueError(
                 "Events must have second dimension of length 3, "
@@ -164,7 +163,7 @@ def _read_events(events, event_id, raw, bids_path=None):
                     f"The provided raw data contains annotations, but "
                     f'"event_id" does not contain entries for all annotation '
                     f"descriptions. The following entries are missing: "
-                    f'{", ".join(desc_without_id)}'
+                    f"{', '.join(desc_without_id)}"
                 )
 
     # If we have events, convert them to Annotations so they can be easily
@@ -174,7 +173,7 @@ def _read_events(events, event_id, raw, bids_path=None):
         if ids_without_desc:
             raise ValueError(
                 f"No description was specified for the following event(s): "
-                f'{", ".join([str(x) for x in sorted(ids_without_desc)])}. '
+                f"{', '.join([str(x) for x in sorted(ids_without_desc)])}. "
                 f"Please add them to the event_id dictionary, or drop them "
                 f"from the events array."
             )
@@ -409,9 +408,7 @@ def _handle_scans_reading(scans_fname, raw, bids_path):
             # Convert time offset to UTC
             acq_time = acq_time.astimezone(timezone.utc)
 
-        logger.debug(
-            f"Loaded {scans_fname} scans file to set " f"acq_time as {acq_time}."
-        )
+        logger.debug(f"Loaded {scans_fname} scans file to set acq_time as {acq_time}.")
         # First set measurement date to None and then call call anonymize() to
         # remove any traces of the measurement date we wish
         # to replace – it might lurk out in more places than just
@@ -526,90 +523,210 @@ def _handle_info_reading(sidecar_fname, raw):
     return raw
 
 
-def _handle_events_reading(events_fname, raw):
-    """Read associated events.tsv and populate raw.
+def events_file_to_annotation_kwargs(events_fname: str | Path) -> dict:
+    r"""
+    Read the ``events.tsv`` file and extract onset, duration, and description.
 
-    Handle onset, duration, and description of each event.
+    Parameters
+    ----------
+    events_fname : str
+        The file path to the ``events.tsv`` file.
+
+    Returns
+    -------
+    kwargs_dict : dict
+
+        A dictionary containing the following keys:
+
+        - 'onset' : np.ndarray
+            The onset times of the events in seconds.
+        - 'duration' : np.ndarray
+            The durations of the events in seconds.
+        - 'description' : np.ndarray
+            The descriptions of the events.
+        - 'event_id' : dict
+            A dictionary mapping event descriptions to integer event IDs.
+        - 'extras' : list of dict
+            A list of dictionaries containing additional columns from the
+            ``events.tsv`` file. Each dictionary corresponds to a row.
+            This corresponds to the ``extras`` argument of class
+            :class:`mne.Annotations`.
+
+    Notes
+    -----
+    The function handles the following cases:
+
+    - If the ``trial_type`` column is available, it uses it for event descriptions.
+    - If the ``stim_type`` column is available, it uses it for backward compatibility.
+    - If the ``value`` column is available, it uses it to create the ``event_id``.
+    - If none of the above columns are available, it defaults to using 'n/a' for
+      descriptions and 1 for event IDs.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from pathlib import Path
+    >>> import tempfile
+    >>>
+    >>> # Create a sample DataFrame
+    >>> data = {
+    ...     'onset': [0.1, 0.2, 0.3],
+    ...     'duration': [0.1, 0.1, 0.1],
+    ...     'trial_type': ['event1', 'event2', 'event1'],
+    ...     'value': [1, 2, 1],
+    ...     'sample': [10, 20, 30]
+            'foo': ['a', 'b', 'c'],
+    ... }
+    >>> df = pd.DataFrame(data)
+    >>>
+    >>> # Write the DataFrame to a temporary file
+    >>> temp_dir = tempfile.gettempdir()
+    >>> events_file = Path(temp_dir) / 'events.tsv'
+    >>> df.to_csv(events_file, sep='\t', index=False)
+    >>>
+    >>> # Read the events file using the function
+    >>> events_dict = events_file_to_annotation_kwargs(events_file)
+    >>> events_dict
+    {'onset': array([0.1, 0.2, 0.3]),
+    'duration': array([0.1, 0.1, 0.1]),
+    'description': array(['event1', 'event2', 'event1'], dtype='<U6'),
+    'event_id': {'event1': 1, 'event2': 2},
+    'extras': [{'foo': 'a'}, {'foo': 'b'}, {'foo': 'c'}]}
+
     """
     logger.info(f"Reading events from {events_fname}.")
     events_dict = _from_tsv(events_fname)
 
-    # Get the descriptions of the events
+    # drop events where onset is n/a; we can't annotate them and thus don't need entries
+    # for them in event_id either
+    events_dict = _drop(events_dict, "n/a", "onset")
+
+    # Get event descriptions. Use `trial_type` column if available.
     if "trial_type" in events_dict:
         trial_type_col_name = "trial_type"
-    elif "stim_type" in events_dict:  # Backward-compat with old datasets.
+    # allow `stim_type` for backward-compat with old datasets.
+    elif "stim_type" in events_dict:
         trial_type_col_name = "stim_type"
         warn(
-            f'The events file, {events_fname}, contains a "stim_type" '
-            f'column. This column should be renamed to "trial_type" for '
-            f"BIDS compatibility."
+            f'The events file, {events_fname}, contains a "stim_type" column. This '
+            'column should be renamed to "trial_type" for BIDS compatibility.'
         )
+    # If we lack proper event descriptions, perhaps we have at least an event value?
+    elif "value" in events_dict:
+        trial_type_col_name = "value"
+    # Worst case: all events become `n/a` and all values become `1`
     else:
         trial_type_col_name = None
+        descrs = np.full(len(events_dict["onset"]), "n/a")
+        event_id = {descrs[0]: 1}
 
     if trial_type_col_name is not None:
         # Drop events unrelated to a trial type
         events_dict = _drop(events_dict, "n/a", trial_type_col_name)
-
+        trial_types = events_dict[trial_type_col_name]
+        # handle event values (if provided); ensure pairings are 1 value per description
         if "value" in events_dict:
-            # Check whether the `trial_type` <> `value` mapping is unique.
-            trial_types = events_dict[trial_type_col_name]
             values = np.asarray(events_dict["value"], dtype=str)
             for trial_type in np.unique(trial_types):
                 idx = np.where(trial_type == np.atleast_1d(trial_types))[0]
                 matching_values = values[idx]
-
                 if len(np.unique(matching_values)) > 1:
-                    # Event type descriptors are ambiguous; create hierarchical
-                    # event descriptors.
+                    # Event type descriptors are ambiguous; create hierarchical event
+                    # descriptors (to ensure trial_type -> integerID is 1:1)
                     logger.info(
-                        f'The event "{trial_type}" refers to multiple event '
-                        f"values. Creating hierarchical event names."
+                        f'The event "{trial_type}" refers to multiple event values.'
+                        "Creating hierarchical event names."
                     )
                     for ii in idx:
-                        value = values[ii]
-                        value = "na" if value == "n/a" else value
+                        # strip `/` from `n/a` before incorporating into trial type name
+                        value = values[ii] if values[ii] != "n/a" else "na"
                         new_name = f"{trial_type}/{value}"
-                        logger.info(
-                            f"    Renaming event: {trial_type} -> " f"{new_name}"
-                        )
+                        logger.info(f"    Renaming event: {trial_type} -> {new_name}")
                         trial_types[ii] = new_name
-            descriptions = np.asarray(trial_types, dtype=str)
+            # make a copy with rows dropped where `value` is `n/a` (only for making our
+            # `event_id` dict; `value = n/a` doesn't prevent making annotations).
+            culled = _drop(events_dict, "n/a", "value")
+            # Often (but not always!) the `value` column was written by MNE-BIDS and
+            # represents integer event IDs (as would be found in MNE-Python events
+            # arrays / event_id dicts). But in case not, let's be defensive:
+            culled_vals = culled["value"]
+            try:
+                culled_vals = np.asarray(culled_vals, dtype=float)
+            except ValueError:  # contained strings or complex numbers
+                pass
+            else:
+                try:
+                    culled_vals = culled_vals.astype(int)
+                except ValueError:  # numeric, but has some non-integer values
+                    pass
+            event_id = dict(zip(culled[trial_type_col_name], culled_vals))
         else:
-            descriptions = np.asarray(events_dict[trial_type_col_name], dtype=str)
-    elif "value" in events_dict:
-        # If we don't have a proper description of the events, perhaps we have
-        # at least an event value?
-        # Drop events unrelated to value
-        events_dict = _drop(events_dict, "n/a", "value")
-        descriptions = np.asarray(events_dict["value"], dtype=str)
+            event_id = dict(zip(trial_types, np.arange(len(trial_types))))
+        descrs = np.asarray(trial_types, dtype=str)
 
-    # Worst case, we go with 'n/a' for all events
-    else:
-        descriptions = np.array(["n/a"] * len(events_dict["onset"]), dtype=str)
-
-    # Deal with "n/a" strings before converting to float
-    onsets = np.array(
-        [np.nan if on == "n/a" else on for on in events_dict["onset"]], dtype=float
-    )
-    durations = np.array(
+    # convert onsets & durations to floats ("n/a" onsets were already dropped)
+    ons = np.asarray(events_dict["onset"], dtype=float)
+    durs = np.array(
         [0 if du == "n/a" else du for du in events_dict["duration"]], dtype=float
     )
 
-    # Keep only events where onset is known
-    good_events_idx = ~np.isnan(onsets)
-    onsets = onsets[good_events_idx]
-    durations = durations[good_events_idx]
-    descriptions = descriptions[good_events_idx]
-    del good_events_idx
-
-    # Add events as Annotations, but keep essential Annotations present in
-    # raw file
-    annot_from_raw = raw.annotations.copy()
-
-    annot_from_events = mne.Annotations(
-        onset=onsets, duration=durations, description=descriptions
+    extras = None
+    extra_columns = list(
+        set(events_dict)
+        - {
+            "onset",
+            "duration",
+            "value",
+            "trial_type",
+            "stim_type",
+            "sample",
+        }
     )
+    if extra_columns:
+        extras = [
+            dict(zip(extra_columns, values))
+            for values in zip(*[events_dict[col] for col in extra_columns])
+        ]
+
+    return {
+        "onset": ons,
+        "duration": durs,
+        "description": descrs,
+        "event_id": event_id,
+        "extras": extras,
+    }
+
+
+def _handle_events_reading(events_fname, raw):
+    """Read associated events.tsv and convert valid events to annotations on Raw."""
+    annotations_info = events_file_to_annotation_kwargs(events_fname)
+    event_id = annotations_info["event_id"]
+
+    # Add events as Annotations, but keep essential Annotations present in raw file
+    annot_from_raw = raw.annotations.copy()
+    try:
+        annot_from_events = mne.Annotations(
+            onset=annotations_info["onset"],
+            duration=annotations_info["duration"],
+            description=annotations_info["description"],
+            extras=annotations_info["extras"],
+        )
+    except TypeError:
+        if (
+            annotations_info["extras"] is not None
+            and len(annotations_info["extras"]) > 0
+        ):
+            warn(
+                "The version of MNE-Python you are using (<1.10) "
+                "does not support the extras argument in mne.Annotations. "
+                f"The extra column(s) {list(annotations_info['extras'][0].keys())} "
+                "will be ignored."
+            )
+        annot_from_events = mne.Annotations(
+            onset=annotations_info["onset"],
+            duration=annotations_info["duration"],
+            description=annotations_info["description"],
+        )
     raw.set_annotations(annot_from_events)
 
     annot_idx_to_keep = [
@@ -622,7 +739,7 @@ def _handle_events_reading(events_fname, raw):
     if len(annot_to_keep):
         raw.set_annotations(raw.annotations + annot_to_keep)
 
-    return raw
+    return raw, event_id
 
 
 def _get_bads_from_tsv_data(tsv_data):
@@ -731,7 +848,7 @@ def _handle_channels_reading(channels_fname, raw):
     if ch_diff:
         warn(
             f"Cannot set channel type for the following channels, as they "
-            f'are missing in the raw data: {", ".join(sorted(ch_diff))}'
+            f"are missing in the raw data: {', '.join(sorted(ch_diff))}"
         )
     raw.set_channel_types(
         channel_type_bids_mne_map_available_channels, on_unit_change="ignore"
@@ -747,7 +864,7 @@ def _handle_channels_reading(channels_fname, raw):
             warn(
                 f'Cannot set "bad" status for the following channels, as '
                 f"they are missing in the raw data: "
-                f'{", ".join(sorted(ch_diff))}'
+                f"{', '.join(sorted(ch_diff))}"
             )
 
         raw.info["bads"] = bads_avail
@@ -756,7 +873,9 @@ def _handle_channels_reading(channels_fname, raw):
 
 
 @verbose
-def read_raw_bids(bids_path, extra_params=None, verbose=None):
+def read_raw_bids(
+    bids_path, extra_params=None, *, return_event_dict=False, verbose=None
+):
     """Read BIDS compatible data.
 
     Will attempt to read associated events.tsv and channels.tsv files to
@@ -781,12 +900,21 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
         Note that the ``exclude`` parameter, which is supported by some
         MNE-Python readers, is not supported; instead, you need to subset
         your channels **after** reading.
+    return_event_dict : bool
+        Whether to return a dictionary that maps annotation descriptions to integer
+        event IDs, in addition to the :class:`~mne.io.Raw` object. If a ``value`` column
+        is present in the ``*_events.tsv`` file, it will be used as the source of the
+        integer event ID values (events with ``value="n/a"`` will be omitted).
     %(verbose)s
 
     Returns
     -------
     raw : mne.io.Raw
         The data as MNE-Python Raw object.
+    event_id : dict
+        A mapping from event descriptions to integer event IDs, suitable for,
+        e.g., passing to :func:`mne.events_from_annotations`. Only returned if
+        ``return_event_dict=True``.
 
     Raises
     ------
@@ -809,6 +937,12 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
             '"bids_path" must be a BIDSPath object. Please '
             "instantiate using mne_bids.BIDSPath()."
         )
+    for required in ["root", "subject", "task"]:
+        if not getattr(bids_path, required):
+            raise RuntimeError(
+                '"bids_path" must contain `root`, `subject`, and `task` '
+                f"attributes but it's missing `{required}`."
+            )
 
     bids_path = bids_path.copy()
     sub = bids_path.subject
@@ -867,7 +1001,7 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
             and raw_path.is_symlink()
         ):
             target_path = raw_path.resolve()
-            logger.info(f"Resolving symbolic link: " f"{raw_path} -> {target_path}")
+            logger.info(f"Resolving symbolic link: {raw_path} -> {target_path}")
             raw_path = target_path
         config_path = None
 
@@ -923,9 +1057,8 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
     events_fname = _find_matching_sidecar(
         bids_path, suffix="events", extension=".tsv", on_error=on_error
     )
-
     if events_fname is not None:
-        raw = _handle_events_reading(events_fname, raw)
+        raw, event_id = _handle_events_reading(events_fname, raw)
 
     # Try to find an associated channels.tsv to get information about the
     # status and type of present channels
@@ -980,7 +1113,7 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
     # read in associated subject info from participants.tsv
     participants_tsv_path = bids_root / "participants.tsv"
     subject = f"sub-{bids_path.subject}"
-    if op.exists(participants_tsv_path):
+    if participants_tsv_path.exists():
         raw = _handle_participants_reading(
             participants_fname=participants_tsv_path, raw=raw, subject=subject
         )
@@ -989,6 +1122,8 @@ def read_raw_bids(bids_path, extra_params=None, verbose=None):
         raw.info["subject_info"] = dict()
 
     assert raw.annotations.orig_time == raw.info["meas_date"]
+    if return_event_dict:
+        return raw, event_id
     return raw
 
 
@@ -1115,7 +1250,7 @@ def get_head_mri_trans(
 
     if t1w_json_path is None or not t1w_json_path.exists():
         raise FileNotFoundError(
-            f"Did not find T1w JSON sidecar file, tried location: " f"{t1w_json_path}"
+            f"Did not find T1w JSON sidecar file, tried location: {t1w_json_path}"
         )
     for extension in (".nii", ".nii.gz"):
         t1w_path_candidate = t1w_json_path.with_suffix(extension)
@@ -1126,7 +1261,7 @@ def get_head_mri_trans(
     if not t1w_bids_path.fpath.exists():
         raise FileNotFoundError(
             f"Did not find T1w recording file, tried location: "
-            f'{t1w_path_candidate.name.replace(".nii.gz", "")}[.nii, .nii.gz]'
+            f"{t1w_path_candidate.name.replace('.nii.gz', '')}[.nii, .nii.gz]"
         )
 
     # Get MRI landmarks from the JSON sidecar
@@ -1173,7 +1308,7 @@ def get_head_mri_trans(
         fs_subject = f"sub-{meg_bids_path.subject}"
 
     fs_subjects_dir = get_subjects_dir(fs_subjects_dir, raise_error=False)
-    fs_t1_path = Path(fs_subjects_dir) / fs_subject / "mri" / "T1.mgz"
+    fs_t1_path = fs_subjects_dir / fs_subject / "mri" / "T1.mgz"
     if not fs_t1_path.exists():
         raise ValueError(
             f"Could not find {fs_t1_path}. Consider running FreeSurfer's "

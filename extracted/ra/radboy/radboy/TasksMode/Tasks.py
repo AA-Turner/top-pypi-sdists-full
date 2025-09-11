@@ -883,7 +883,32 @@ SALES TAX ON APPLICABLE TANGIBLE ITEMS = (PRICE + CRV) * TTL TAX RATE
 
                     result=tax_rate
                     return result
-
+                    
+                def dim_weight():
+                    #dimensional weight
+                    data={
+                    'Height':{
+                    'default':2,
+                    'type':'dec.dec'
+                    },
+                    'Width':{
+                    'default':2,
+                    'type':'dec.dec'
+                    },
+                    'Length':{
+                    'default':2,
+                    'type':'dec.dec'
+                    },
+                    'DIM Rate (USPostal:166/FedEx&&UPS:139)':{
+                    'default':166,
+                    'type':'dec.dec'
+                    }
+                    }
+                    fb=FormBuilder(data=data)
+                    if fb is None:
+                        return
+                    dim_weight=(fb['Height']*fb['Width']*fb['Length'])/fb['DIM Rate (USPostal:166/FedEx&&UPS:139)']
+                    return dim_weight
                 
                 self.options={
                     f'{uuid1()}':{
@@ -945,6 +970,11 @@ SALES TAX ON APPLICABLE TANGIBLE ITEMS = (PRICE + CRV) * TTL TAX RATE
                         'cmds':generate_cmds(startcmd=['tax','tx',],endCmd=['information','info.','info','i',]),
                         'desc':f'{Fore.light_yellow}Display Tax Information for Reference{Fore.medium_violet_red}this is not for everyone, just anyone that\'s been where I have been.{Style.reset}',
                         'exec':tax_info
+                    },
+                    f'{uuid1()}':{
+                        'cmds':generate_cmds(startcmd=['dim','dimensional',],endCmd=['wt','weight.',]),
+                        'desc':f'{Fore.light_yellow}Calculate dimensional weight for package {Fore.medium_violet_red}whichever is greater the actual weight, or the dimensional weight is what will be charged{Style.reset}',
+                        'exec':dim_weight
                     },
 
                     

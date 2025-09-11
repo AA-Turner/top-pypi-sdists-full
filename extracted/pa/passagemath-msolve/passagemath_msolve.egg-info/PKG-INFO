@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-msolve
-Version: 10.6.18
+Version: 10.6.19
 Summary: passagemath: Polynomial system solving through algebraic methods with msolve
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -30,10 +30,10 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
-Requires-Dist: passagemath-categories~=10.6.18.0
-Requires-Dist: passagemath-flint~=10.6.18.0
-Requires-Dist: passagemath-modules~=10.6.18.0
-Requires-Dist: passagemath-repl~=10.6.18.0
+Requires-Dist: passagemath-categories~=10.6.19.0
+Requires-Dist: passagemath-flint~=10.6.19.0
+Requires-Dist: passagemath-modules~=10.6.19.0
+Requires-Dist: passagemath-repl~=10.6.19.0
 Provides-Extra: test
 
 ============================================================================

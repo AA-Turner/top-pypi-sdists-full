@@ -95,9 +95,11 @@ from pyrogram.raw.types import InputPrivacyKeyStatusTimestamp, InputPrivacyValue
     InputPrivacyKeyAddedByPhone, InputPrivacyKeyForwards, InputPrivacyKeyPhoneNumber, InputPrivacyValueAllowContacts, \
     AccountDaysTTL, InputPrivacyValueDisallowAll, InputPrivacyKeyPhoneCall, InputPrivacyKeyVoiceMessages, \
     InputPrivacyKeyProfilePhoto
-# from pytgcalls import PyTgCalls
-# from pytgcalls.types import MediaStream, AudioQuality, VideoQuality, GroupCallConfig
-# from pytgcalls.types import Update, GroupCallParticipant
+
+from pytgcalls import PyTgCalls
+from pytgcalls.types import MediaStream, AudioQuality, VideoQuality, GroupCallConfig
+from pytgcalls.types import Update, GroupCallParticipant
+
 from pytoniq_core import Address, begin_cell, Cell, StateInit
 from rembg import remove
 from stegano import lsb, exifHeader
@@ -8968,10 +8970,10 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
         if extra: print(f"{extra=}")
         parsed_data = dict(parse_qsl(init_data))  # return k/v, but not dict!
         if "auth_date" not in parsed_data: return result
-        auth_date = utils.timestamp_to_datetime(int(parsed_data['auth_date']))  # web_app opened seconds
-        # print(f'seconds {(datetime.now() - auth_date).seconds}', init_data)
-        # if (datetime.now() - auth_date).seconds > 2000 or "hash" not in parsed_data: return
-        if (datetime.now() - auth_date).seconds > 20000 or "hash" not in parsed_data: return result
+        auth_date = datetime.fromtimestamp(int(parsed_data['auth_date']), tz=timezone.utc)  # web_app opened seconds
+        # print(f'seconds {(datetime.now(timezone.utc) - auth_date).seconds}', init_data)
+        # if (datetime.now(timezone.utc) - auth_date).seconds > 2000 or "hash" not in parsed_data: return
+        if (datetime.now(timezone.utc) - auth_date).seconds > 20000 or "hash" not in parsed_data: return result
 
         hash_ = parsed_data.pop("hash")
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items(), key=itemgetter(0)))
@@ -9268,7 +9270,9 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
             schema_name = 'CHANNEL'
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = 'GROUPP'
-
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
+        
         sql = f"SELECT USER_TID, USER_GAMES, USER_VARS, USER_LSTS FROM {schema_name}_{tid}.USER WHERE USER_TID=$1"
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
@@ -10086,6 +10090,8 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
             schema_name = "CHANNEL"
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = "GROUPP"
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
 
         sql = f"SELECT {schema_name}_TID FROM \"{schema_name}\""
         data_ents = await db_select_pg(sql, (), BASE_P)
@@ -10100,7 +10106,7 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
             entry_day = random.randint(1, 28)
             entry_date = f"{entry_month}-{entry_day:02}"
             entry_dt_obj = datetime.strptime(entry_date, '%Y-%m-%d')
-            entry_dt = f"{entry_dt_obj.strftime('%d-%m-%Y')}_{datetime.now().strftime('%H-%M-%S')}"
+            entry_dt = f"{entry_dt_obj.strftime('%d-%m-%Y')}_{datetime.now(timezone.utc).strftime('%H-%M-%S')}"
             utm = random.choice(["/start", "/startapp"])
 
             valid_months = [m for m in months if
@@ -10812,8 +10818,7 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
 
 
 # region pst
-async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_USERNAME, PROJECT_TYPE,
-                    is_paid=False):
+async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_UN, is_paid=False):
     result = {'result': True, 'bot': True, 'post': data_web['post']}
     try:
         chat_id = int(data_user['user']['id'])
@@ -10837,11 +10842,13 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_MEDIA = post['POST_MEDIA']
         POST_BUTTONS = post['POST_BUTTONS']
         POST_CHKBOX = post['POST_CHKBOX']
+        POST_BLOG = post.get('POST_BLOG', '')
         if POST_TEXT:
             print(f"before balance_html_tags_async {POST_TEXT}")
             POST_TEXT = await balance_html_tags_async(POST_TEXT)
             print(f"after balance_html_tags_async {POST_TEXT}")
-        POST_BLOG = await region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE)
+        if PROJECT_UN != 'FereyUserBot':
+            POST_BLOG = await region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN)
 
         POST_ISPAY = POST_CHKBOX.get('POST_ISPAY', False)
         POST_STARS = POST_CHKBOX.get('POST_STARS', '1')
@@ -10854,7 +10861,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_ISPRIVATE = post.get('POST_ISPRIVATE', False)  # why not POST_CHKBOX?
 
         targets = []
-        if POST_TARGETTYPE == 'ids' and PROJECT_USERNAME == 'FereyBotBot':
+        if POST_TARGETTYPE == 'ids' and PROJECT_UN == 'FereyBotBot':
             targets = list({t.strip() for t in POST_TARGET.split() if t.strip().isdigit() and len(t.strip()) >= 7})
             POST_TARGET = ' '.join(targets)
         POST_LZ = data_web['lz']
@@ -10864,8 +10871,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_DT = await get_utc_from_local(POST_DT, POST_TZ)
         POST_DT = datetime.strptime(POST_DT, "%Y-%m-%dT%H:%M") if POST_DT else None
 
-        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and (POST_TARGETTYPE == 'all' or len(targets) > 1):
-            POST_DT = datetime.now().replace(second=0, microsecond=0)
+        if not POST_DT and PROJECT_UN == 'FereyBotBot' and (POST_TARGETTYPE == 'all' or len(targets) > 1):
+            POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        elif not POST_DT and PROJECT_UN == 'FereyUserBot' and POST_TARGETTYPE == 'me':
+            POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
         POST_TR = post['POST_TR'] if 'POST_TR' in post else ''
         POST_TR = await get_utc_from_local(POST_TR, POST_TZ)
         POST_TR_ = POST_TR = datetime.strptime(POST_TR, "%Y-%m-%dT%H:%M") if POST_TR else None
@@ -10883,22 +10892,22 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         except:
             pass
 
-        if PROJECT_USERNAME == 'FereyPostBot':
+        if PROJECT_UN == 'FereyPostBot':
             HASH_STR = f"pst-{ENT_TID}-{POST_TID}"
             HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
             sql = "INSERT INTO \"HASH\" (HASH_STR, HASH_VAL) VALUES ($1, $2) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
-            POST_WEB = f"https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}&mode=fullscreen"
+            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}&mode=fullscreen"
         else:
             web_val = f"pst-{tid_tmp}-{POST_TID}"
             print(f"{web_val=}")
             HASH_VAL = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
-            POST_WEB = f"https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}-{tid_tmp}"
+            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}-{tid_tmp}"
 
         print(f"{result=}, {POST_APPTOKEN=}")
         if ENT_TOKEN and len(POST_MEDIA):
             # region need start
-            if PROJECT_USERNAME in ['FereyChannelBot', 'FereyGroupBot']:
+            if PROJECT_UN in ['FereyChannelBot', 'FereyGroupBot']:
                 extra_bot = Bot(token=ENT_TOKEN)
                 try:
                     if not ENT_USERNAME: ENT_USERNAME = (await extra_bot.get_me()).username
@@ -10910,7 +10919,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                     print(f'{member_=}')
                     if member_.status not in ['administrator', 'creator']:
                         await bot.send_message(chat_id=chat_id,
-                                               text=l_chn_no_rights_for_media[lz].format(PROJECT_USERNAME))
+                                               text=l_chn_no_rights_for_media[lz].format(PROJECT_UN))
                         await bot.leave_chat(ENT_TID)
                         result['bot'] = False
                 except Exception as e:
@@ -10957,7 +10966,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             print(f"--------------------------------------------------------")
             print(f"after {POST_MEDIA=}")
 
-        if PROJECT_USERNAME == 'FereyPostBot' and POST_TYPE in ['voice', 'audio'] and len(
+        if PROJECT_UN == 'FereyPostBot' and POST_TYPE in ['voice', 'audio'] and len(
                 POST_MEDIA) == 1 and 'filev_id' not in POST_MEDIA[0]:
             asyncio.create_task(convert_to_vinyl(bot, chat_id, ENT_TID, POST_TID, MEDIA_D, EXTRA_D, POST_MEDIA, BASE_P))
 
@@ -11012,10 +11021,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                                                                    currency='XTR',
                                                                    prices=prices)
 
-                prf = 'p' if PROJECT_USERNAME in ['FereyBotBot'] else ''
+                prf = 'p' if PROJECT_UN in ['FereyBotBot'] else ''
                 web_val = f"{prf}pay-{tid_tmp}-{POST_TID}-{POST_STARS}-{tid_tmp}"
                 HASH_VAL = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
-                POST_PAY = f"https://t.me/{PROJECT_USERNAME}/web?startapp={prf}pay-{HASH_VAL}-{tid_tmp}"
+                POST_PAY = f"https://t.me/{PROJECT_UN}/web?startapp={prf}pay-{HASH_VAL}-{tid_tmp}"
 
                 await extra_bot.session.close()
             except Exception as e:
@@ -11025,10 +11034,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
 
         if ENT_TOKEN:
             print(f" = = = = = =  ={ENT_TOKEN=}")
-            if PROJECT_USERNAME == 'FereyChannelBot':
+            if PROJECT_UN == 'FereyChannelBot':
                 sql = "UPDATE \"CHANNEL\" SET CHANNEL_CPAYTOKEN=$1 WHERE CHANNEL_TID=$2"
                 await db_change_pg(sql, (ENT_TOKEN, str(ENT_TID),), BASE_P)
-            elif PROJECT_USERNAME == 'FereyGroupBot':
+            elif PROJECT_UN == 'FereyGroupBot':
                 sql = "UPDATE \"GROUPP\" SET GROUPP_CPAYTOKEN=$1 WHERE GROUPP_TID=$2"
                 await db_change_pg(sql, (ENT_TOKEN, str(ENT_TID),), BASE_P)
         print(f"{POST_PAY=}, {POST_STARS=}")
@@ -11039,7 +11048,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         if any(item['knd'] == 'nft' for item in POST_BUTTONS):
             HASH_STR = f"nft-{tid_tmp}-{POST_TID}"
             HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
-            POST_NFT = f'https://t.me/{PROJECT_USERNAME}/web?startapp=nft-{HASH_VAL}-{tid_tmp}'
+            POST_NFT = f'https://t.me/{PROJECT_UN}/web?startapp=nft-{HASH_VAL}-{tid_tmp}'
         print(f"{POST_NFT=}")
         # endregion
 
@@ -11052,19 +11061,22 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         # endregion
 
         # region db
-        schema_prefix = 'USER'
-        if PROJECT_USERNAME == 'FereyBotBot':
-            schema_prefix = 'BOT'
-        elif PROJECT_USERNAME == 'FereyChannelBot':
-            schema_prefix = 'CHANNEL'
-        elif PROJECT_USERNAME == 'FereyGroupBot':
-            schema_prefix = 'GROUPP'
+        schema_name = 'USER'
+        if PROJECT_UN == 'FereyBotBot':
+            schema_name = 'BOT'
+        elif PROJECT_UN == 'FereyChannelBot':
+            schema_name = 'CHANNEL'
+        elif PROJECT_UN == 'FereyGroupBot':
+            schema_name = 'GROUPP'
+        elif PROJECT_UN == 'FereyUserBot':
+            schema_name = 'UB'
 
-        print(f"{ENT_TID=}, {POST_TID=}, {schema_prefix=}")
-        sql = f"DELETE FROM {schema_prefix}_{tid_tmp}.LANG WHERE POST_TID=$1"
-        await db_change_pg(sql, (POST_TID,), BASE_P)
+        print(f"{ENT_TID=}, {POST_TID=}, {schema_name=}")
+        if PROJECT_UN not in ['FereyUserBot']:
+            sql = f"DELETE FROM {schema_name}_{tid_tmp}.LANG WHERE POST_TID=$1"
+            await db_change_pg(sql, (POST_TID,), BASE_P)
 
-        sql = f"SELECT POST_TID, POST_MEDIA FROM {schema_prefix}_{tid_tmp}.POST WHERE POST_TID=$1"
+        sql = f"SELECT POST_TID, POST_MEDIA FROM {schema_name}_{tid_tmp}.POST WHERE POST_TID=$1"
         data_media = await db_select_pg(sql, (POST_TID,), BASE_P)
         if len(data_media):
             POST_TID, POST_MEDIA_OLD = data_media[0]
@@ -11101,7 +11113,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
 
         print(f"before post_save-db_change_pg")
         sql = f""" 
-            INSERT INTO {schema_prefix}_{tid_tmp}.POST (
+            INSERT INTO {schema_name}_{tid_tmp}.POST (
                 POST_TID, POST_CHATTID, POST_USERTID, POST_USERTUN, POST_TARGETTYPE, POST_TARGET,
                 POST_TYPE, POST_TEXT, POST_MEDIA, POST_BUTTONS, POST_CHKBOX, 
                 POST_WEB, POST_PAY, POST_INVOICE, POST_NFT, POST_BLOG, POST_ISPRIVATE, 
@@ -11152,8 +11164,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
     return result
 
 
-async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PROJECT_USERNAME, is_private=True,
-                   is_paid=False):
+async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PROJECT_UN, is_priv=True, is_paid=False):
     result = False
     try:
         # region data
@@ -11181,21 +11192,23 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         POST_ISPAY = POST_CHKBOX['POST_ISPAY'] if 'POST_ISPAY' in POST_CHKBOX else False
         POST_STARS = POST_CHKBOX['POST_STARS'] if 'POST_STARS' in POST_CHKBOX else 1
 
-        if not is_private:
+        if not is_priv:
             chat_id = int(ENT_TID)
             POST_CHKBOX['POST_EFFECT'] = None
         if len(POST_MEDIA) > 1 and POST_ISGALLERY: len_ = len(POST_MEDIA)
 
         schema_name = 'USER'
-        if PROJECT_USERNAME == 'FereyBotBot':
+        if PROJECT_UN == 'FereyBotBot':
             schema_name = 'BOT'
             for it in POST_MEDIA:
                 it['file_id'] = it['fileb_id']
                 it['file_id_note'] = it['fileb_id_note']
-        elif PROJECT_USERNAME == 'FereyChannelBot':
+        elif PROJECT_UN == 'FereyChannelBot':
             schema_name = 'CHANNEL'
-        elif PROJECT_USERNAME == 'FereyGroupBot':
+        elif PROJECT_UN == 'FereyGroupBot':
             schema_name = 'GROUPP'
+        elif PROJECT_UN == 'FereyUserBot':
+            schema_name = 'UB'
 
         reply_markup = InlineKeyboardBuilder()
         # endregion
@@ -11229,7 +11242,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                                             # link_preview_options=lp_options,
                                             reply_markup=reply_markup.as_markup())
 
-            if PROJECT_USERNAME in ['FereyChannelBot', 'FereyGroupBot'] and not is_private:
+            if PROJECT_UN in ['FereyChannelBot', 'FereyGroupBot'] and not is_priv:
                 sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
                 await db_change_pg(sql, (result.message_id, POST_TID,), BASE_P)
             return result
@@ -11253,18 +11266,18 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                 types.InlineKeyboardButton(text="ᴿᵁᴺ", callback_data=f'pst_{ENT_TID}_{POST_TID}_0_1_1_run'))
         else:
             reply_markup = await get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS,
-                                            BASE_P, PROJECT_USERNAME)
+                                            BASE_P, PROJECT_UN)
         # endregion
 
         # region send
         print(f"send ======================== {chat_id=}, {POST_TYPE=}")
         if not is_paid and POST_ISPAY and POST_TYPE in ['photo', 'video']:
-            if PROJECT_USERNAME in ['FereyChannelBot']:
+            if PROJECT_UN in ['FereyChannelBot']:
                 sql = f"SELECT CHANNEL_CPAYTOKEN FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
                 data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
-            elif PROJECT_USERNAME == 'FereyGroupBot':
+            elif PROJECT_UN == 'FereyGroupBot':
                 sql = f"SELECT GROUPP_CPAYTOKEN FROM \"GROUPP\" WHERE GROUPP_TID=$1"
                 data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
@@ -11358,7 +11371,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
             if POST_ISWATER and POST_WATER:
                 if 'filew_id' not in POST_MEDIA[index]:
                     BOT_TOKEN = None
-                    if PROJECT_USERNAME == 'FereyBotBot':
+                    if PROJECT_UN == 'FereyBotBot':
                         sql = f"SELECT BOT_TOKEN FROM \"BOT\" WHERE BOT_TID=$1"
                         data_ent = await db_select_pg(sql, (ENT_TID,), BASE_P)
                         if len(data_ent): BOT_TOKEN = data_ent[0][0]
@@ -11566,8 +11579,8 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region msgid
         print(chat_id, ENT_TID)
-        if result and (int(chat_id) == int(ENT_TID) or PROJECT_USERNAME in ['FereyChannelBot',
-                                                                            'FereyGroupBot'] and not is_private):
+        if result and (int(chat_id) == int(ENT_TID) or PROJECT_UN in ['FereyChannelBot',
+                                                                            'FereyGroupBot'] and not is_priv):
             print('indeid')
             if isinstance(result, list):
                 POST_MSGID = ' '.join([str(it.message_id) for it in result if it.message_id])
@@ -11608,7 +11621,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                     asyncio.create_task(
                         podcast_start(bot, POST_USERTID, lz, ENT_TID, POST_TID, POST_TYPE, POST_TEXT,
                                       POST_MEDIA[0]['file_id'], POST_MEDIA[0]['file_name'], is_paid, BASE_S,
-                                      MEDIA_D, BASE_P, PROJECT_USERNAME))
+                                      MEDIA_D, BASE_P, PROJECT_UN))
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -11643,7 +11656,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
     except Exception as e:
-        if PROJECT_USERNAME == 'FereyBotBot' and any(x in str(e).lower() for x in ['forbidden', 'chat not found', 'blocked by the user']) and is_private:
+        if PROJECT_UN == 'FereyBotBot' and any(x in str(e).lower() for x in ['forbidden', 'chat not found', 'blocked by the user']) and is_priv:
             sql = f"DELETE FROM BOT_{ENT_TID}.USER WHERE USER_TID=$1"
             await db_change_pg(sql, (chat_id,), BASE_P)
         logger.info(log_ % str(e))
@@ -11727,7 +11740,7 @@ async def balance_html_tags_async(txt, self_closing=None):
     return result
 
 
-async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE='bot'):
+async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN):
     """
     Версия без импортов внутри функции.
     Убирает/разворачивает все <span>, <div>, <tg-spoiler> и не остаёт запрещённых тегов.
@@ -11940,7 +11953,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
         ENT_USERNAME = ''
         ENT_LINK = ''
         try:
-            if PROJECT_TYPE == 'bot':
+            if PROJECT_UN == 'FereyBotBot':
                 sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
                 data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                 if not len(data_bot):
@@ -11949,17 +11962,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 ENT_USERNAME = f"@{BOT_USERNAME}"
                 ENT_NAME = BOT_FIRSTNAME
                 ENT_LINK = f"https://t.me/{BOT_USERNAME}"
-            elif PROJECT_TYPE == 'user':
-                sql = "SELECT UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK FROM UB WHERE UB_TID=$1"
-                data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
-                UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK = data_bot[0]
-                if UB_USERNAME:
-                    ENT_USERNAME = f"@{UB_USERNAME}"
-                    ENT_LINK = f"https://t.me/{UB_USERNAME.strip('@')}"
-                else:
-                    ENT_USERNAME = UB_FIRSTNAME
-                    ENT_LINK = f"https://t.me/"
-            elif PROJECT_TYPE == 'post':
+            elif PROJECT_UN == 'FereyPostBot':
                 ENT_USERNAME = '@FereyPostBot'
                 ENT_NAME = '🫧 Ferey Post App'
                 ENT_LINK = 'https://t.me/FereyPostBot'
@@ -12099,6 +12102,8 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
             schema_name = 'CHANNEL'
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = 'GROUPP'
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
 
         if POST_BUTTONS and len(POST_BUTTONS):
             sql = f"SELECT BTN_BID FROM {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH WHERE ENT_VID=$1"
@@ -12379,7 +12384,7 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
         except:
             pass
 
-        dt_ = utils.datetime_to_timestamp(datetime.now() + timedelta(minutes=1))
+        dt_ = utils.datetime_to_timestamp(datetime.now(timezone.utc) + timedelta(minutes=1))
         call = await app.invoke(
             CreateGroupCall(peer=peer, random_id=dt_, rtmp_stream=False, title=l_podcast_start[lz], schedule_date=dt_))
         await asyncio.sleep(10)
@@ -12392,8 +12397,8 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
         @call_py.on_update()
         async def participant_handler(_: PyTgCalls, update: Update):
             try:
-                if not getattr(update, 'participant', None): return
-                if update.participant.action != GroupCallParticipant.Action.JOINED: return
+                if not getattr(update, 'action', None): return
+                if update.action != GroupCallParticipant.Action.JOINED: return
 
                 if not str(update.participant.user_id).startswith('-100'):
                     await add_to_push_podcast(bot, app, update.participant.user_id, ENT_TID, POST_ID, BASE_P,
@@ -12431,6 +12436,8 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_P, PROJE
             schema_name = 'CHANNEL'
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = 'GROUPP'
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
 
         try:
             result = await bot.get_chat(user_id)
@@ -12878,37 +12885,43 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
     result = {'answer': False, 'param': ''}
     try:
         # region data
-        print(f"podcast_start_app start!")
         ENT_TID = int(ENT_TID) if str(ENT_TID).startswith('-') else str(ENT_TID)
-        peer = await app.resolve_peer(ENT_TID)
-        try:
-            get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
-            get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
-            if not len(get_join_as_lst):
-                title = f"👩🏽‍💻 Landing Channel #{random.randrange(100, 999)}"
-                res = await app.create_channel(title=title, description=f"verified chan 💙{random.randrange(100, 999)}")
-                peer_chan = await app.resolve_peer(res.id)
-                newusername_ = ''.join(random.choice(string.ascii_letters) for _ in range(random.randrange(10, 20)))
-                username_chan = f"{newusername_}_{random.randrange(100, 999)}_chan"[0:31]
-                _ = await app.invoke(UpdateUsername(channel=peer_chan, username=username_chan))
-                print(f"@{username_chan}: {title}")
-                get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
-                get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
+        print(f"podcast_start_app start..{ENT_TID=}")
+        peer = await app.resolve_peer(UB_TID)
+        peer_chan = await app.resolve_peer(ENT_TID)
+        # try:
+        #     get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
+        #     get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
+        #     print(f"{get_join_as_lst=}")
+        #     if not len(get_join_as_lst):
+        #         title = f"👩🏽‍💻 Landing Channel #{random.randrange(100, 999)}"
+        #         res = await app.create_channel(title=title, description=f"verified chan 💙{random.randrange(100, 999)}")
+        #         peer_chan = await app.resolve_peer(res.id)
+        #         newusername_ = ''.join(random.choice(string.ascii_letters) for _ in range(random.randrange(10, 20)))
+        #         username_chan = f"{newusername_}_{random.randrange(100, 999)}_chan"[0:31]
+        #         _ = await app.invoke(UpdateUsername(channel=peer_chan, username=username_chan))
+        #         print(f"@{username_chan}: {title}")
+        #         get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
+        #         get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
+        #
+        #     if len(get_join_as_lst):
+        #         peer_chan = await app.resolve_peer(int(f"-100{get_join_as_lst[-1].channel_id}"))
+        #         await app.invoke(SaveDefaultGroupCallJoinAs(peer=peer, join_as=peer_chan))
+        # except Exception as e:
+        #     logger.info(log_ % str(e))
+        #     await asyncio.sleep(round(random.uniform(0, 1), 2))
 
-            if len(get_join_as_lst):
-                peer_chan = await app.resolve_peer(int(f"-100{get_join_as_lst[-1].channel_id}"))
-                await app.invoke(SaveDefaultGroupCallJoinAs(peer=peer, join_as=peer_chan))
+        try:
+            dt_ = utils.datetime_to_timestamp(datetime.now(timezone.utc) + timedelta(minutes=1))
+            call = await app.invoke(
+                CreateGroupCall(peer=peer, random_id=dt_, rtmp_stream=False,
+                                title=l_podcast_start[lz], schedule_date=dt_))
+            await asyncio.sleep(10)
+            call = InputGroupCall(id=call.updates[0].call.id, access_hash=call.updates[0].call.access_hash)
+            await app.invoke(StartScheduledGroupCall(call=call))
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-
-        dt_ = utils.datetime_to_timestamp(datetime.now() + timedelta(minutes=1))
-        call = await app.invoke(
-            CreateGroupCall(peer=peer, random_id=dt_, rtmp_stream=False, title=l_podcast_start[lz], schedule_date=dt_))
-        await asyncio.sleep(10)
-        call = InputGroupCall(id=call.updates[0].call.id, access_hash=call.updates[0].call.access_hash)
-        await app.invoke(StartScheduledGroupCall(call=call))
-        await call_py.start()
 
         schema_name = 'USER'
         if PROJECT_USERNAME == 'FereyBotBot':
@@ -12917,33 +12930,38 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
             schema_name = 'CHANNEL'
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = 'GROUPP'
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
         # endregion
 
+        await call_py.start()
         max_cnt = 256
         while max_cnt > 0:
             max_cnt -= 1
             # region begins of POCAST_TID
-            sql = "SELECT UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST FROM UB WHERE UB_TID=$1"
+            sql = "SELECT UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST FROM \"UB\" WHERE UB_TID=$1"
             data_ub = await db_select_pg(sql, (UB_TID,), BASE_P)
             print(f"{UB_TID=}, {data_ub=}")
             if not len(data_ub): return result
             UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST = data_ub[0]
-            if not (UB_CPODCAST[0] == '☑' and UB_CPODCASTSRC and UB_CPODCASTDST): return result
+            status_, loop_, order_ = UB_CPODCAST
+
+            if not (status_ == '☑' and UB_CPODCASTSRC and UB_CPODCASTDST): return result
             try:
                 POCAST_TIDs = json.loads(UB_CPODCASTSRC)
             except:
                 POCAST_TIDs = []
-            status_, loop_, order_ = UB_CPODCAST
+
             if order_ != '☑': random.shuffle(POCAST_TIDs)
             if not len(POCAST_TIDs): return result
             # endregion
 
             for POCAST_TID in POCAST_TIDs:
                 print(f"{POCAST_TIDs=}, {UB_CPODCAST=}")
-                sql = f"SELECT POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST WHERE POST_TID=$1"
-                data_post = await db_select_pg(sql, (int(POCAST_TID),), BASE_P)
+                sql = (f"SELECT POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA "
+                       f"FROM {schema_name}_{UB_TID}.POST WHERE POST_TID=$1")
+                data_post = await db_select_pg(sql, (str(POCAST_TID),), BASE_P)
                 print(f"{data_post=}")
-                if not len(data_post) and not len(POCAST_TIDs): return result
                 if not len(data_post): continue
                 POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA = data_post[0]
 
@@ -12970,16 +12988,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                             await extra_bot.download_file(file.file_path, str(POST_FILENAME))
                             stream = MediaStream(POST_FILENAME, AudioQuality.HIGH)
 
-                            try:
-                                if POST_FILENAME.lower().endswith('.ogg'):
-                                    ogg_audio = AudioSegment.from_ogg(POST_FILENAME)
-                                    duration = int(len(ogg_audio) / 1000)
-                                else:
-                                    audio_ = AudioSegment.from_mp3(POST_FILENAME)
-                                    duration = int(audio_.duration_seconds)
-                            except Exception as e:
-                                logger.info(log_ % str(e))
-                                await asyncio.sleep(round(random.uniform(0, 1), 2))
+                            duration = await get_media_duration(POST_FILENAME)
                         elif POST_TYPE in ['video', 'video_note'] or is_video_:
                             file = await extra_bot.get_file(POSTB_FID)
                             await extra_bot.download_file(file.file_path, str(POST_FILENAME))
@@ -12987,14 +12996,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                             # stream = MediaStream(POST_FILENAME, AudioQuality.MEDIUM, VideoQuality.SD_480p)
                             stream = MediaStream(POST_FILENAME, AudioQuality.LOW, VideoQuality.SD_360p)
 
-                            try:
-                                cap = cv2.VideoCapture(str(POST_FILENAME))
-                                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                                fps = cap.get(cv2.CAP_PROP_FPS)
-                                duration = frame_count / fps
-                            except Exception as e:
-                                logger.info(log_ % str(e))
-                                await asyncio.sleep(round(random.uniform(0, 1), 2))
+                            duration = await get_media_duration(POST_FILENAME)
                         elif POST_TYPE in ['photo', 'animation', 'gif']:
                             file = await extra_bot.get_file(POSTB_FID)
                             await extra_bot.download_file(file.file_path, str(POST_FILENAME))
@@ -13011,7 +13013,9 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                         # await tgcalls_app(app, lz, ENT_TID, stream, duration)
 
                         duration = 7200 if duration > 7200 else duration
-                        await call_py.play(chat_id=ENT_TID, stream=stream,
+                        print(f"{duration=}, {peer_chan=}, {ENT_TID=}, {stream=}")
+                        await call_py.play(chat_id=ENT_TID,
+                                           stream=stream,
                                            config=GroupCallConfig(join_as=peer_chan, auto_start=True))
                         await asyncio.sleep(duration)
                         logger.info(log_ % f"podcast_start_app finishing... {item=}")
@@ -13023,16 +13027,16 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                         await extra_bot.session.close()
 
             # region loop
-            status_, loop_, order_ = UB_CPODCAST
             if loop_ != '☑':
-                sql = "SELECT UB_CPODCAST FROM UB WHERE UB_TID=$1"
+                sql = "SELECT UB_TID, UB_CPODCAST FROM \"UB\" WHERE UB_TID=$1"
                 data_config = await db_select_pg(sql, (UB_TID,), BASE_P)
-                UB_CPODCAST = data_config[0][0]
+                if not len(data_config): return
+                UB_TID, UB_CPODCAST = data_config[0]
 
-                if len(UB_CPODCAST) > 0: UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"
+                UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"
                 print(f"loop: {UB_CPODCAST=}")
-                sql = "UPDATE UB SET UB_CPODCAST=$1 WHERE UB_TID=$2"
-                await db_change_pg(sql, (UB_CPODCAST, UB_TID), BASE_P)
+                sql = "UPDATE \"UB\" SET UB_CPODCAST=$1 WHERE UB_TID=$2"
+                await db_change_pg(sql, (UB_CPODCAST, UB_TID,), BASE_P)
                 result = {'answer': 'loop', 'param': UB_CPODCAST}
                 return result
             # endregion
@@ -13079,7 +13083,7 @@ async def tgcalls_app(app, lz, ENT_TID, stream, duration):
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
 
-        dt_ = utils.datetime_to_timestamp(datetime.now() + timedelta(minutes=1))
+        dt_ = utils.datetime_to_timestamp(datetime.now(timezone.utc) + timedelta(minutes=1))
         call = await app.invoke(
             CreateGroupCall(peer=peer, random_id=dt_, rtmp_stream=False, title=l_podcast_start[lz], schedule_date=dt_))
         await asyncio.sleep(10)
@@ -13112,6 +13116,8 @@ async def get_btn_pushes(BOT_TID, MSG_BUTTONS, ENT_VID, ENT_TYPE, BASE_P, PROJEC
             schema_name = 'CHANNEL'
         elif PROJECT_USERNAME == 'FereyGroupBot':
             schema_name = 'GROUPP'
+        elif PROJECT_USERNAME == 'FereyUserBot':
+            schema_name = 'UB'
 
         sql = f"""
             SELECT BTN_BID, COUNT(*) 
@@ -13452,7 +13458,6 @@ async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, conte
     return result
 
 
-# ЗАМЕНИТЬ/ДОБАВИТЬ: безопасный запуск команды с возможностью прерывания
 async def run_cmd(cmd0, timeout=None):
     """
     Запускает команду shell, ждёт stdout/stderr. При timeout — убивает процесс.
@@ -13481,6 +13486,68 @@ async def run_cmd(cmd0, timeout=None):
     out_s = out_.decode(errors='ignore') if out_ else ""
     err_s = err_.decode(errors='ignore') if err_ else ""
     return rc, out_s, err_s
+
+
+async def get_media_duration(path: str, ffprobe_path: str = "ffprobe", timeout: float = 3.0) -> float:
+    if not path or not os.path.exists(path):
+        return 0.0
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            ffprobe_path, "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            raise
+        out = stdout.decode().strip()
+        if out:
+            try:
+                val = float(out)
+                if val > 0 and not (val == float("inf")):
+                    return val
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    try:
+        from mutagen import File as MutagenFile  # type: ignore
+        m = MutagenFile(path)
+        if m is not None:
+            dur = getattr(m.info, "length", None)
+            if dur:
+                return float(dur)
+    except Exception:
+        pass
+
+    try:
+        from pydub import AudioSegment  # type: ignore
+        audio = AudioSegment.from_file(path)
+        return len(audio) / 1000.0
+    except Exception:
+        pass
+
+    try:
+        import cv2  # type: ignore
+        cap = cv2.VideoCapture(str(path))
+        if cap is not None and cap.isOpened():
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
+            fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+            cap.release()
+            if fps > 0 and frame_count > 0:
+                return float(frame_count) / float(fps)
+    except Exception:
+        pass
+
+    return 0.0
 # endregion
 
 
@@ -16122,7 +16189,7 @@ async def template_sender(CONF_P, EXTRA_D, MEDIA_D):
     post_media_type = 'photo'
     post_media_name = os.path.join(MEDIA_D, (r_conf('logo_name', CONF_P))[0])
     post_pin = False
-    tmp_date = datetime.now() + timedelta(days=3)
+    tmp_date = datetime.now(timezone.utc) + timedelta(days=3)
     post_time = datetime(tmp_date.year, tmp_date.month, tmp_date.day, hour=20, minute=0)
     await save_post_to_google_drive(CONF_P, EXTRA_D, post_txt, post_btn, post_url, post_media_name, post_media_type,
                                     post_pin, post_time, post_media_options)
@@ -16136,7 +16203,7 @@ async def template_sender(CONF_P, EXTRA_D, MEDIA_D):
     post_media_type = 'photo'
     post_media_name = os.path.join(MEDIA_D, (r_conf('logo_name', CONF_P))[0])
     post_pin = True
-    tmp_date = datetime.now() + timedelta(days=4)
+    tmp_date = datetime.now(timezone.utc) + timedelta(days=4)
     post_time = datetime(tmp_date.year, tmp_date.month, tmp_date.day, hour=20, minute=0)
     await save_post_to_google_drive(CONF_P, EXTRA_D, post_txt, post_btn, post_url, post_media_name, post_media_type,
                                     post_pin, post_time, post_media_options)
@@ -16188,9 +16255,9 @@ async def scheduled_hour(part_of_hour, CONF_P, EXTRA_D, INI_D):
     await api_update_send_folder(CONF_P, EXTRA_D, INI_D)
     await asyncio.sleep(part_of_hour + 200)
     while True:
-        logger.info(log_ % f'start sending...{str(datetime.now())}')
+        logger.info(log_ % f'start sending...{str(datetime.now(timezone.utc))}')
         await api_update_send_folder(CONF_P, EXTRA_D, INI_D)
-        await asyncio.sleep(one_hour - (datetime.now()).minute * 60 + 200)
+        await asyncio.sleep(one_hour - (datetime.now(timezone.utc)).minute * 60 + 200)
 
 
 async def read_likes(BASE_P, POST_ID=1):
@@ -19826,7 +19893,7 @@ async def is_my_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BA
                 logger.info(log_ % wait_)
                 await asyncio.sleep(round(random.uniform(5, 10), 2))
 
-                till_time = (datetime.now() + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
+                till_time = (datetime.now(timezone.utc) + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
                 sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
                 SESSION_STATUS = f'Wait {till_time}'
                 await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -19900,7 +19967,7 @@ async def is_invite_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S
                 logger.info(log_ % wait_)
                 await asyncio.sleep(round(random.uniform(5, 10), 2))
 
-                till_time = (datetime.now() + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
+                till_time = (datetime.now(timezone.utc) + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
                 sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
                 SESSION_STATUS = f'Wait {till_time}'
                 await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -19939,7 +20006,7 @@ async def join_my_chat(bot, app, chat_id, link, SESSION_TID, BASE_S):
         logger.info(text)
         await asyncio.sleep(round(random.uniform(5, 10), 2))
 
-        till_time = (datetime.now() + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
+        till_time = (datetime.now(timezone.utc) + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
         sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
         SESSION_STATUS = f'Wait {till_time}'
         await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -20042,7 +20109,7 @@ async def get_chat_members(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE
                 logger.info(log_ % wait_)
                 await asyncio.sleep(round(random.uniform(5, 10), 2))
 
-                till_time = (datetime.now() + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
+                till_time = (datetime.now(timezone.utc) + timedelta(seconds=e.value + 1)).strftime("%d-%m-%Y_%H-%M")
                 sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
                 SESSION_STATUS = f'Wait {till_time}'
                 await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -20137,7 +20204,7 @@ async def check_session_flood(SESSION_TID, BASE_S):
             hour = int(time_.split('-')[0])
             minute = int(time_.split('-')[1])
 
-            diff = datetime.now() - datetime(year=year, month=month, day=day, hour=hour, minute=minute)
+            diff = datetime.now(timezone.utc) - datetime(year=year, month=month, day=day, hour=hour, minute=minute)
 
             if diff.days >= 0:
                 sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
@@ -20167,10 +20234,10 @@ async def check_session_limit(SESSION_TID, LIMIT_NAME, LIMIT, BASE_S):
             month = int(date_[1])
             year = int(date_[2])
 
-            diff = datetime.now() - datetime(year=year, month=month, day=day)
+            diff = datetime.now(timezone.utc) - datetime(year=year, month=month, day=day)
 
             if diff.days > 0:
-                result = f"0 {datetime.now().strftime('%d-%m-%Y')}"
+                result = f"0 {datetime.now(timezone.utc).strftime('%d-%m-%Y')}"
                 sql = f"UPDATE SESSION SET {LIMIT_NAME} = ? WHERE SESSION_TID = ?"
                 await db_change_pg(sql, (result, SESSION_TID,), BASE_S)
             elif msg_by_day < LIMIT:
@@ -20630,7 +20697,7 @@ async def get_list_of_send_folder(CONF_P, EXTRA_D):
         try:
             parent_folder = v[2]
             name_folder = v[0]
-            datetime_ = datetime.now()
+            datetime_ = datetime.now(timezone.utc)
             if parent_folder == '' and datetime_ < datetime.strptime(name_folder, "%d-%m-%Y %H:%M").replace(
                     tzinfo=timezone.utc):
                 tmp.append([name_folder, k])
@@ -21032,7 +21099,7 @@ async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, EN
             sql = "SELECT BOT_TOKENTGPH, BOT_PAGETGPH, BOT_JSONTGPH FROM \"BOT\" WHERE BOT_TID=$1"
             data = await db_select_pg(sql, (ENT_TID,), BASE_P)
         else:
-            sql = "SELECT UB_TOKENTGPH, UB_PAGETGPH, UB_JSONTGPH FROM UB WHERE UB_TID=$1"
+            sql = "SELECT UB_TOKENTGPH, UB_PAGETGPH, UB_JSONTGPH FROM \"UB\" WHERE UB_TID=$1"
             data = await db_select_pg(sql, (ENT_TID,), BASE_P)
 
         if len(data):
@@ -21091,10 +21158,10 @@ async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, B
                 ENT_JSONTGPH = page_2['url']
 
                 if entity_type == 'bot':
-                    sql = "UPDATE BOT SET BOT_TOKENTGPH=$1, BOT_PAGETGPH=$2, BOT_JSONTGPH=$3 WHERE BOT_TID=$4"
+                    sql = "UPDATE \"BOT\" SET BOT_TOKENTGPH=$1, BOT_PAGETGPH=$2, BOT_JSONTGPH=$3 WHERE BOT_TID=$4"
                     await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_P)
                 else:
-                    sql = "UPDATE UB SET UB_TOKENTGPH=$1, UB_PAGETGPH=$2, UB_JSONTGPH=$3 WHERE UB_TID=$4"
+                    sql = "UPDATE \"UB\" SET UB_TOKENTGPH=$1, UB_PAGETGPH=$2, UB_JSONTGPH=$3 WHERE UB_TID=$4"
                     await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_P)
                 return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
             except Exception as e:

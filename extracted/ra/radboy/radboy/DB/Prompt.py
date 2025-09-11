@@ -35,6 +35,7 @@ import zipfile,pydoc
 import math
 import enum
 from radboy.DB.types import *
+import asyncio
 
 try:
     import resource
@@ -51,12 +52,12 @@ except Exception as e:
                 ru_maxrss=0
             return use()
 
-def std_colorize(m,n,c,start='',end=''):
+def std_colorize(m,n,c,start=f'',end=''):
     #start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
         if ((n % 2) != 0) and n > 0:
-            msg=f'{start}{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m}{Style.reset}{end}'
+            msg=f'{start}{Fore.cyan}i{n}/{Fore.light_yellow}L{n+1}{Fore.light_red} of {c}T {Fore.dark_goldenrod}{m}{Style.reset}{end}'
         else:
-            msg=f'{start}{Fore.light_cyan}{n}/{Fore.green_yellow}{n+1}{Fore.orange_red_1} of {c} {Fore.light_salmon_1}{m}{Style.reset}{end}'
+            msg=f'{start}{Fore.light_cyan}i{n}/{Fore.green_yellow}L{n+1}{Fore.orange_red_1} of {c}T {Fore.light_salmon_1}{m}{Style.reset}{end}'
         return msg
 '''Formula/Price menu options'''
 PRICE=['quick price','qprc','price','prc']
@@ -2744,7 +2745,10 @@ which will result in a cmd of 'ls Shelf'{Style.reset}
                     elif cmd.lower() in ["bldls tax","buildtax","buildlstax","build list tax","bld ls tx",'lsbldtx','list build tax','ls bld tx','bldtx']:
                         bldls(mode=db.BooleanAnswers.setFieldInList_MODES.index('ONLY_SHOW_TAXED'))
                     elif cmd.lower() in ["bldls no txcrv","build no tax crv","buildlsnotaxcrv","build list no tax crv","bld ls ntxcrv",'lsbldntxcrv','list build no tax crv','ls bld ntx crv','bldntxcrv']:
-                        bldls(mode=db.BooleanAnswers.setFieldInList_MODES.index('NO_CRV_NO_TAX'))                        
+                        bldls(mode=db.BooleanAnswers.setFieldInList_MODES.index('NO_CRV_NO_TAX'))            
+                    elif cmd.lower() in generate_cmds(startcmd=['check','chk'],endCmd=['weather','wthr','dm','dmu']):
+                        print(f"Weather Collection is done:{asyncio.run(db.theWeather())}")
+                        continue                      
                     elif cmd.lower() in ["bldls showall","build showall","buildlssa","build list sa","bld ls sa",'lsbldsa','list build showall','ls bld sa','bld sa']:
                         bldls(mode=db.BooleanAnswers.setFieldInList_MODES.index('SHOWALL'))                        
                     elif cmd.lower() in generate_cmds(startcmd=["lsbld","buildls","bldls","bld"],endCmd=["ncrvtxd","nocrv txd","ncrv txd","no crv taxed"]):

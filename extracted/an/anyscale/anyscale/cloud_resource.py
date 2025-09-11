@@ -50,6 +50,8 @@ S3_ARN_PREFIX = "arn:aws:s3:::"
 S3_STORAGE_PREFIX = "s3://"
 GCS_STORAGE_PREFIX = "gs://"
 
+HTTPS_INGRESS_PORT = 443
+
 
 def compare_dicts_diff(d1: Dict[Any, Any], d2: Dict[Any, Any]) -> str:
     """Returns a string representation of the difference of the two dictionaries.
@@ -480,8 +482,6 @@ def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
             raise e
         anyscale_security_groups.append(anyscale_security_group)
 
-    expected_open_ports = [443, 22]  # 443 is for HTTPS ingress, 22 is for SSH
-
     inbound_ip_permissions = [
         ip_permission
         for anyscale_security_group in anyscale_security_groups
@@ -499,20 +499,20 @@ def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
     }
 
     # Check inbound permissions
-    missing_open_ports = []
-    for port in expected_open_ports:
-        if not any(
-            inbound_ip_permission_port == port
-            for inbound_ip_permission_port in inbound_ip_permissions_with_specific_port
-        ):
-            missing_open_ports.append(port)
-    if missing_open_ports:
+    if not any(
+        inbound_ip_permission_port == HTTPS_INGRESS_PORT
+        for inbound_ip_permission_port in inbound_ip_permissions_with_specific_port
+    ):
         logger.warning(
-            f"Security groups {aws_security_group_ids} do not contain inbound permission for ports: {missing_open_ports}. These ports are used for interaction with the clusters from Anyscale UI. Please make sure to configure them according to https://docs.anyscale.com/cloud-deployment/aws/manage-clouds#appendix-detailed-resource-requirements"
+            f"Security groups {aws_security_group_ids} do not contain inbound permission for port {HTTPS_INGRESS_PORT}. This port is used for interaction with the clusters from Anyscale UI."
         )
         if strict:
             return False
 
+    expected_open_ports = [
+        HTTPS_INGRESS_PORT,
+        22,
+    ]  # 22 was previously used for SSH but is no longer required.
     if len(inbound_ip_permissions_with_specific_port) > len(expected_open_ports):
         logger.warning(
             f"Security groups {aws_security_group_ids} allows access to more than {expected_open_ports}. This may not be safe by default."

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-tools
-Version: 0.2.6
+Version: 0.2.7
 Summary: A collection of specialized tools for Strands Agents
 Project-URL: Homepage, https://github.com/strands-agents/tools
 Project-URL: Bug Tracker, https://github.com/strands-agents/tools/issues
@@ -203,6 +203,7 @@ Below is a comprehensive table of all available tools, how to use them with an a
 | nova_reels | `agent.tool.nova_reels(action="create", text="A cinematic shot of mountains", s3_bucket="my-bucket")` | Create high-quality videos using Amazon Bedrock Nova Reel with configurable parameters via environment variables |
 | agent_core_memory | `agent.tool.agent_core_memory(action="record", content="Hello, I like vegetarian food")` | Store and retrieve memories with Amazon Bedrock Agent Core Memory service |
 | mem0_memory | `agent.tool.mem0_memory(action="store", content="Remember I like to play tennis", user_id="alex")` | Store user and agent memories across agent runs to provide personalized experience |
+| bright_data | `agent.tool.bright_data(action="scrape_as_markdown", url="https://example.com")` | Web scraping, search queries, screenshot capture, and structured data extraction from websites and different data feeds|
 | memory | `agent.tool.memory(action="retrieve", query="product features")` | Store, retrieve, list, and manage documents in Amazon Bedrock Knowledge Bases with configurable parameters via environment variables |
 | environment | `agent.tool.environment(action="list", prefix="AWS_")` | Managing environment variables, configuration management |
 | generate_image_stability | `agent.tool.generate_image_stability(prompt="A tranquil pool")` | Creating images using Stability AI models |
@@ -912,11 +913,25 @@ The Mem0 Memory Tool supports three different backend configurations:
    - Uses FAISS as the local vector store backend
    - Requires faiss-cpu package for local vector storage
 
+4. **Neptune Analytics** (Optional Graph backend for search enhancement):
+   - Uses Neptune Analytics as the graph store backend to enhance memory recall.
+   - Requires AWS credentials and Neptune Analytics configuration
+   ```
+   # Configure your Neptune Analytics graph ID in the .env file:
+   export NEPTUNE_ANALYTICS_GRAPH_IDENTIFIER=sample-graph-id
+   
+   # Configure your Neptune Analytics graph ID in Python code:
+   import os
+   os.environ['NEPTUNE_ANALYTICS_GRAPH_IDENTIFIER'] = "g-sample-graph-id"
+   
+   ```
+
 | Environment Variable | Description | Default | Required For |
 |----------------------|-------------|---------|--------------|
 | MEM0_API_KEY | Mem0 Platform API key | None | Mem0 Platform |
 | OPENSEARCH_HOST | OpenSearch Host URL | None | OpenSearch |
 | AWS_REGION | AWS Region for OpenSearch | us-west-2 | OpenSearch |
+| NEPTUNE_ANALYTICS_GRAPH_IDENTIFIER | Neptune Analytics Graph Identifier | None | Neptune Analytics |
 | DEV | Enable development mode (bypasses confirmations) | false | All modes |
 | MEM0_LLM_PROVIDER | LLM provider for memory processing | aws_bedrock | All modes |
 | MEM0_LLM_MODEL | LLM model for memory processing | anthropic.claude-3-5-haiku-20241022-v1:0 | All modes |
@@ -930,13 +945,23 @@ The Mem0 Memory Tool supports three different backend configurations:
 - If `MEM0_API_KEY` is set, the tool will use the Mem0 Platform
 - If `OPENSEARCH_HOST` is set, the tool will use OpenSearch
 - If neither is set, the tool will default to FAISS (requires `faiss-cpu` package)
+- If `NEPTUNE_ANALYTICS_GRAPH_IDENTIFIER` is set, the tool will configure Neptune Analytics as graph store to enhance memory search
 - LLM configuration applies to all backend modes and allows customization of the language model used for memory processing
+
+#### Bright Data Tool
+
+| Environment Variable | Description | Default |
+|----------------------|-------------|---------|
+| BRIGHTDATA_API_KEY | Bright Data API Key | None |
+| BRIGHTDATA_ZONE | Bright Data Web Unlocker Zone | web_unlocker1 |
+
 #### Memory Tool
 
 | Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | MEMORY_DEFAULT_MAX_RESULTS | Default maximum results for list operations | 50 |
 | MEMORY_DEFAULT_MIN_SCORE | Default minimum relevance score for filtering results | 0.4 |
+
 #### Nova Reels Tool
 
 | Environment Variable | Description | Default |

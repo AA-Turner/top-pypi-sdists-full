@@ -37,6 +37,7 @@ from test.asynchronous import (
 )
 from test.asynchronous.utils import async_get_pool, flaky
 from test.asynchronous.utils_spec_runner import SpecRunnerTask
+from test.helpers_shared import ALL_KMS_PROVIDERS, DEFAULT_KMS_TLS
 from test.unified_format_shared import (
     KMS_TLS_OPTS,
     PLACEHOLDER_MAP,
@@ -61,6 +62,8 @@ from test.utils_shared import (
 from test.version import Version
 from typing import Any, Dict, List, Mapping, Optional
 
+import pytest
+
 import pymongo
 from bson import SON, json_util
 from bson.codec_options import DEFAULT_CODEC_OPTIONS
@@ -76,7 +79,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.asynchronous.encryption import AsyncClientEncryption
 from pymongo.asynchronous.helpers import anext
 from pymongo.driver_info import DriverInfo
-from pymongo.encryption_options import _HAVE_PYMONGOCRYPT
+from pymongo.encryption_options import _HAVE_PYMONGOCRYPT, AutoEncryptionOpts
 from pymongo.errors import (
     AutoReconnect,
     BulkWriteError,
@@ -154,8 +157,18 @@ async def is_run_on_requirement_satisfied(requirement):
     csfle_satisfied = True
     req_csfle = requirement.get("csfle")
     if req_csfle is True:
-        min_version_satisfied = Version.from_string("4.2") <= server_version
+        # Don't overwrite unsatisfied minimum version requirements.
+        if min_version_satisfied:
+            min_version_satisfied = Version.from_string("4.2") <= server_version
         csfle_satisfied = _HAVE_PYMONGOCRYPT and min_version_satisfied
+    elif isinstance(req_csfle, dict) and "minLibmongocryptVersion" in req_csfle:
+        csfle_satisfied = False
+        req_version = req_csfle["minLibmongocryptVersion"]
+        if _HAVE_PYMONGOCRYPT:
+            from pymongocrypt import libmongocrypt_version
+
+            if Version.from_string(libmongocrypt_version()) >= Version.from_string(req_version):
+                csfle_satisfied = True
 
     return (
         topology_satisfied
@@ -242,6 +255,10 @@ class EntityMapUtil:
                 raise ValueError(f"Could not find a placeholder value for {path}")
             return PLACEHOLDER_MAP[path]
 
+        # Distinguish between temp and non-temp aws credentials.
+        if path.endswith("/kmsProviders/aws") and "sessionToken" in current:
+            path = path.replace("aws", "aws_temp")
+
         for key in list(current):
             value = current[key]
             if isinstance(value, dict):
@@ -258,6 +275,21 @@ class EntityMapUtil:
         if entity_type == "client":
             kwargs: dict = {}
             observe_events = spec.get("observeEvents", [])
+
+            if "autoEncryptOpts" in spec:
+                auto_encrypt_opts = spec["autoEncryptOpts"].copy()
+                auto_encrypt_kwargs: dict = dict(kms_tls_options=DEFAULT_KMS_TLS)
+                kms_providers = auto_encrypt_opts.pop("kmsProviders", ALL_KMS_PROVIDERS.copy())
+                key_vault_namespace = auto_encrypt_opts.pop("keyVaultNamespace")
+                extra_opts = auto_encrypt_opts.pop("extraOptions", {})
+                for key, value in extra_opts.items():
+                    auto_encrypt_kwargs[camel_to_snake(key)] = value
+                for key, value in auto_encrypt_opts.items():
+                    auto_encrypt_kwargs[camel_to_snake(key)] = value
+                auto_encryption_opts = AutoEncryptionOpts(
+                    kms_providers, key_vault_namespace, **auto_encrypt_kwargs
+                )
+                kwargs["auto_encryption_opts"] = auto_encryption_opts
 
             # The unified tests use topologyOpeningEvent, we use topologyOpenedEvent
             for i in range(len(observe_events)):
@@ -430,7 +462,7 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
     a class attribute ``TEST_SPEC``.
     """
 
-    SCHEMA_VERSION = Version.from_string("1.22")
+    SCHEMA_VERSION = Version.from_string("1.25")
     RUN_ON_LOAD_BALANCER = True
     TEST_SPEC: Any
     TEST_PATH = ""  # This gets filled in by generate_test_classes
@@ -462,6 +494,13 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
                 wc = WriteConcern(w="majority")
             else:
                 wc = WriteConcern(w=1)
+
+            # Remove any encryption collections associated with the collection.
+            collections = await db.list_collection_names()
+            for collection in collections:
+                if collection in [f"enxcol_.{coll_name}.esc", f"enxcol_.{coll_name}.ecoc"]:
+                    await db.drop_collection(collection)
+
             if documents:
                 if opts:
                     await db.create_collection(coll_name, **opts)
@@ -515,22 +554,25 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
 
     def maybe_skip_test(self, spec):
         # add any special-casing for skipping tests here
-        if "Client side error in command starting transaction" in spec["description"]:
+        class_name = self.__class__.__name__.lower()
+        description = spec["description"].lower()
+
+        if "client side error in command starting transaction" in description:
             self.skipTest("Implement PYTHON-1894")
-        if "timeoutMS applied to entire download" in spec["description"]:
+        if "type=symbol" in description:
+            self.skipTest("PyMongo does not support the symbol type")
+        if "timeoutms applied to entire download" in description:
             self.skipTest("PyMongo's open_download_stream does not cap the stream's lifetime")
         if any(
-            x in spec["description"]
+            x in description
             for x in [
-                "First insertOne is never committed",
-                "Second updateOne is never committed",
-                "Third updateOne is never committed",
+                "first insertone is never committed",
+                "second updateone is never committed",
+                "third updateone is never committed",
             ]
         ):
             self.skipTest("Implement PYTHON-4597")
 
-        class_name = self.__class__.__name__.lower()
-        description = spec["description"].lower()
         if "csot" in class_name:
             # Skip tests that are too slow to run on a given platform.
             slow_macos = [
@@ -564,8 +606,6 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
                 self.skipTest("CSOT not implemented for watch()")
             if "cursors" in class_name:
                 self.skipTest("CSOT not implemented for cursors")
-            if "dropindex on collection" in description:
-                self.skipTest("PYTHON-5491")
             if (
                 "tailable" in class_name
                 or "tailable" in description
@@ -749,6 +789,38 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             cursor.batch_size(batch_size)
 
         return cursor
+
+    async def _collectionOperation_assertIndexExists(self, target, **kwargs):
+        collection = self.client[kwargs["database_name"]][kwargs["collection_name"]]
+        index_names = [idx["name"] async for idx in await collection.list_indexes()]
+        self.assertIn(kwargs["index_name"], index_names)
+
+    async def _collectionOperation_assertIndexNotExists(self, target, **kwargs):
+        collection = self.client[kwargs["database_name"]][kwargs["collection_name"]]
+        async for index in await collection.list_indexes():
+            self.assertNotEqual(kwargs["indexName"], index["name"])
+
+    async def _collectionOperation_assertCollectionExists(self, target, **kwargs):
+        database_name = kwargs["database_name"]
+        collection_name = kwargs["collection_name"]
+        collection_name_list = await self.client.get_database(database_name).list_collection_names()
+        self.assertIn(collection_name, collection_name_list)
+
+    async def _databaseOperation_assertIndexExists(self, target, **kwargs):
+        collection = self.client[kwargs["database_name"]][kwargs["collection_name"]]
+        index_names = [idx["name"] async for idx in await collection.list_indexes()]
+        self.assertIn(kwargs["index_name"], index_names)
+
+    async def _databaseOperation_assertIndexNotExists(self, target, **kwargs):
+        collection = self.client[kwargs["database_name"]][kwargs["collection_name"]]
+        async for index in await collection.list_indexes():
+            self.assertNotEqual(kwargs["indexName"], index["name"])
+
+    async def _databaseOperation_assertCollectionExists(self, target, **kwargs):
+        database_name = kwargs["database_name"]
+        collection_name = kwargs["collection_name"]
+        collection_name_list = await self.client.get_database(database_name).list_collection_names()
+        self.assertIn(collection_name, collection_name_list)
 
     async def kill_all_sessions(self):
         if getattr(self, "client", None) is None:
@@ -997,7 +1069,7 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             raise
         else:
             if expect_error:
-                self.fail(f'Excepted error {expect_error} but "{opname}" succeeded: {result}')
+                self.fail(f'Expected error {expect_error} but "{opname}" succeeded: {result}')
 
         if expect_result:
             actual = coerce_result(opname, result)
@@ -1516,7 +1588,14 @@ def generate_test_classes(
             TEST_SPEC = test_spec
             EXPECTED_FAILURES = expected_failures
 
-        return SpecTestBase
+        base = SpecTestBase
+
+        # Add "encryption" marker if the "csfle" runOnRequirement is set.
+        for req in test_spec.get("runOnRequirements", []):
+            if "csfle" in req:
+                base = pytest.mark.encryption(base)
+
+        return base
 
     for dirpath, _, filenames in os.walk(test_path):
         dirname = os.path.split(dirpath)[-1]

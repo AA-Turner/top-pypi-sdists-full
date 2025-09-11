@@ -31,6 +31,10 @@ class Fragment(NamedTuple):
     buf: bytes
 
 
+def fragment_loads(data: bytes) -> Fragment:
+    return Fragment(data)
+
+
 def decimal_encoder(dec_value: Decimal) -> int | float:
     """
     Encodes a Decimal as int of there's no exponent, otherwise float

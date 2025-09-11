@@ -18,7 +18,8 @@ if Config.zero_gpu:
 
     if torch.is_in_bad_fork():
         raise RuntimeError(
-            "CUDA has been initialized before importing the `spaces` package"
+            "CUDA has been initialized before importing the `spaces` package. "
+            "Try importing `spaces` before any other CUDA-related package."
         )
 
     def startup():

@@ -40,7 +40,6 @@ import time
 import copy
 import queue
 import logging
-import warnings
 import operator
 import threading
 
@@ -57,8 +56,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
 
 import orjson
-import requests
-import urllib3
 from dateutil.parser import parse as parse_datetime
 from plucky import pluck
 
@@ -72,13 +69,11 @@ from dwave.cloud.config import constants as config_constants
 from dwave.cloud.config.models import ClientConfig, PollingStrategy
 from dwave.cloud.solver import available_solvers, StructuredSolver, UnstructuredSolver
 from dwave.cloud.concurrency import PriorityThreadPoolExecutor
-from dwave.cloud.regions import get_regions, resolve_endpoints
+from dwave.cloud.regions import resolve_endpoints
 from dwave.cloud.upload import ChunkedData
 from dwave.cloud.events import dispatches_events
 from dwave.cloud.utils.decorators import retried
-from dwave.cloud.utils.exception import is_caused_by
 from dwave.cloud.utils.http import PretimedHTTPAdapter, BaseUrlSession, default_user_agent
-from dwave.cloud.utils.logging import get_caller_name
 from dwave.cloud.utils.time import datetime_to_timestamp, utcnow
 
 __all__ = ['Client']
@@ -86,14 +81,17 @@ __all__ = ['Client']
 logger = logging.getLogger(__name__)
 
 
-def _ensure_active(method):
-    def _method(obj, *args, **kwargs):
-        with obj._closed_lock:
-            if obj._closed:
-                raise UseAfterCloseError(
-                    f"{method.__name__} cannot be called after client has been closed")
-            return method(obj, *args, **kwargs)
-    return _method
+def _ensure_active(*, allow_while_closing=False):
+    def _decorator(method):
+        @wraps(method)
+        def _method(obj, *args, **kwargs):
+            with obj._close_lock:
+                if obj._closed or (not allow_while_closing and obj._closing):
+                    raise UseAfterCloseError(
+                        f"{method.__name__} cannot be called after client has been closed")
+                return method(obj, *args, **kwargs)
+        return _method
+    return _decorator
 
 
 class Client(object):
@@ -298,6 +296,9 @@ class Client(object):
     DEFAULT_API_ENDPOINT = config_constants.DEFAULT_SOLVER_API_ENDPOINT
     DEFAULT_API_REGION = config_constants.DEFAULT_REGION
 
+    # Should we wait for all jobs to complete on client.close() by default?
+    DEFAULT_WAIT_ON_CLOSE = True
+
     # Class-level defaults for all constructor and factory arguments
     DEFAULTS = {
         # factory only
@@ -376,6 +377,9 @@ class Client(object):
     # Binary-ref answer download parameters
     _DOWNLOAD_ANSWER_THREAD_COUNT = 2
 
+    # SAPI deprecation message handling; keep private for now
+    _DEFAULT_ON_DEPRECATION_CONFIG = dict(log=True, warn=True, store=True)
+
     @classmethod
     def from_config(cls, config_file=None, profile=None, client=None, **kwargs):
         """Client factory method to instantiate a client instance from configuration.
@@ -446,12 +450,42 @@ class Client(object):
         logger.debug("Creating %s.Client() with: %r", _client, config)
         return _clients[_client](**config)
 
+    class _WaitableCounter:
+        """A thread-safe counter, with an ability to block until the count
+        reaches zero (use :meth:`.wait`).
+        """
+
+        def __init__(self, value: int = 0):
+            self._cond = threading.Condition()
+            self._value = value
+
+        def __repr__(self):
+            return f"{type(self).__name__}(value={self._value})"
+
+        def inc(self):
+            with self._cond:
+                self._value += 1
+
+        def dec(self) -> bool:
+            with self._cond:
+                if self._value > 0:
+                    self._value -= 1
+                if self._value == 0:
+                    self._cond.notify_all()
+
+        def wait(self):
+            with self._cond:
+                if self._value > 0:
+                    self._cond.wait()
+
     @dispatches_events('client_init')
     def __init__(self, **kwargs):
         logger.debug("Client init called with: %r", kwargs)
 
         self._closed = False
-        self._closed_lock = threading.Lock()
+        self._closing = False
+        self._close_lock = threading.Lock()
+        self._jobs = self._WaitableCounter()
 
         # derive instance-level defaults from class defaults and init defaults
         self.defaults = copy.deepcopy(self.DEFAULTS)
@@ -530,7 +564,10 @@ class Client(object):
         self._download_answer_executor = \
             ThreadPoolExecutor(self._DOWNLOAD_ANSWER_THREAD_COUNT)
 
-    class _Session(api.client.VersionedAPISessionMixin, BaseUrlSession):
+    class _Session(api.client.VersionedAPISessionMixin,
+                   api.client.DeprecationAwareSessionMixin,
+                   api.client.LoggingSessionMixin,
+                   BaseUrlSession):
         pass
 
     def create_session(self):
@@ -545,7 +582,8 @@ class Client(object):
         if not endpoint.endswith('/'):
             endpoint += '/'
 
-        session = self._Session(base_url=endpoint, strict_mode=True)
+        session = self._Session(base_url=endpoint, strict_mode=True,
+                                on_deprecation=self._DEFAULT_ON_DEPRECATION_CONFIG)
         session.mount('http://', PretimedHTTPAdapter(
             timeout=self.config.request_timeout,
             max_retries=self.config.request_retry.to_urllib3_retry()))
@@ -610,11 +648,21 @@ class Client(object):
                                 self._poll_workers, self._load_workers):
                 worker.join()
 
-    def close(self):
+    def close(self, wait: Optional[bool] = None):
         """Perform a clean shutdown.
 
         Waits for all the currently scheduled work to finish, kills the workers,
         and closes the connection pool.
+
+        Args:
+            wait:
+                When set to true (the default), allow all (remote) jobs to finish
+                and their results to be downloaded before shutting down the client.
+                New jobs are never accepted while closing.
+
+                .. versionadded:: 0.14.0
+                    The ``wait`` parameter. By default, we now wait for all jobs
+                    to finish on client close.
 
         Where possible, it is recommended you use a context manager
         (a :code:`with Client.from_config(...) as` construct) to ensure your
@@ -630,19 +678,37 @@ class Client(object):
             >>> client.close()    # doctest: +SKIP
 
         """
-        with self._closed_lock:
-            if self._closed:
+        if wait is None:
+            wait = self.DEFAULT_WAIT_ON_CLOSE
+
+        logger.debug("Client.close(wait=%r) initiated while active jobs: %r",
+                     wait, self._jobs)
+
+        with self._close_lock:
+            if self._closing or self._closed:
                 return
 
-            # this client can't be used anymore
-            # note: mark it closed early to prevent job submission while closing!
-            self._closed = True
+            if wait:
+                # by marking client as closing, we allow *only some* job submissions
+                # (like poll and answer download)
+                self._closing = True
+            else:
+                # this client can't be used anymore
+                # note: mark it closed early to prevent job submission while closing!
+                self._closed = True
 
-        self._shutdown_threads(wait=True)
+        # if wait was True, we have to wait for organic shutdown to mark the client closed
+        if wait:
+            self._jobs.wait()
 
         solvers_session = getattr(self, '_solvers_session', None)
         if solvers_session:
             solvers_session.close()
+
+        self._shutdown_threads(wait=wait)
+
+        with self._close_lock:
+            self._closed = True
 
     def __enter__(self):
         """Let connections be used in with blocks."""
@@ -650,7 +716,7 @@ class Client(object):
 
     def __exit__(self, *args):
         """At the end of a with block perform a clean shutdown of the connection."""
-        self.close()
+        self.close(wait=self.DEFAULT_WAIT_ON_CLOSE)
         return False
 
     @staticmethod
@@ -668,40 +734,13 @@ class Client(object):
 
                 @staticmethod
                 def is_solver_handled(solver):
-                    return solver and solver.id.startswith('My_Solver_')
+                    return solver and solver.name.startswith('My_Solver_')
 
         """
         return True
 
-    def get_regions(self, refresh: bool = False) -> dict[str, dict[str, str]]:
-        """Retrieve available API regions.
-
-        Args:
-            refresh:
-                Force cache refresh.
-
-        Returns:
-            Mapping of region details (name and endpoint) over region codes.
-
-        .. deprecated:: 0.11.0
-            :meth:`.Client.get_regions` method is deprecated in favor of
-            :func:`dwave.cloud.regions.get_regions` function and will be
-            removed in 0.14.0.
-
-        """
-        warnings.warn(
-            f"`Client.get_regions` method is deprecated since "
-            f"dwave-cloud-client 0.11.0, and will be removed in 0.14.0. "
-            f"Use `dwave.cloud.regions.get_regions` for greater flexibility instead.",
-            DeprecationWarning, stacklevel=2)
-
-        rs = get_regions(config=self.config, refresh=refresh,
-                         maxage=self._REGIONS_CACHE_MAXAGE)
-
-        return {r.code: {"name": r.name, "endpoint": r.endpoint} for r in rs}
-
     @property
-    @_ensure_active
+    @_ensure_active(allow_while_closing=False)
     def solvers_session(self) -> api.resources.Solvers:
         session = getattr(self, '_solvers_session', None)
 
@@ -721,21 +760,21 @@ class Client(object):
                        ) -> list[Union[StructuredSolver, UnstructuredSolver]]:
 
         static_fields = 'all,-status,-avg_load'
-        dynamic_fields = 'none,+id,+status,+avg_load'
+        dynamic_fields = 'none,+identity,+status,+avg_load'
 
         if name is not None:
             logger.info("Fetching definition of a solver with name=%r", name)
 
             try:
                 solver = self.solvers_session.get_solver(
-                    solver_id=name, filter=static_fields, refresh_=refresh_)
+                    solver_name=name, filter=static_fields, refresh_=refresh_)
                 status = self.solvers_session.get_solver(
-                    solver_id=name, filter=dynamic_fields, refresh_=refresh_,
+                    solver_name=name, filter=dynamic_fields, refresh_=refresh_,
                     maxage_=self._DEFAULT_SOLVERS_DYNAMIC_PART_MAXAGE)
 
                 # merge static and dynamic properties
-                solver.status = status.get('status')
-                solver.avg_load = status.get('avg_load')
+                solver.status = status.get('status', 'offline')
+                solver.avg_load = status.get('avg_load', 0)
 
                 solvers = [solver]
 
@@ -753,14 +792,14 @@ class Client(object):
 
             # add dynamic properties to static solvers
             # note: allow solver list mismatch
-            statuses = {solver.id: solver for solver in dynamic}
+            statuses = {solver.identity.name: solver for solver in dynamic}
             for solver in solvers:
-                solver.status = statuses.get(solver.id, {}).get('status', 'offline')
-                solver.avg_load = statuses.get(solver.id, {}).get('avg_load', 0)
+                solver.status = statuses.get(solver.identity.name, {}).get('status', 'offline')
+                solver.avg_load = statuses.get(solver.identity.name, {}).get('avg_load', 0)
 
         logger.info("Received solver data for %d solver(s).", len(solvers))
         if logger.isEnabledFor(logging.TRACE):
-            logger.trace("Solver data received for solver name=%r: %r", name, solvers)
+            logger.trace("Solver data received for solver %r: %r", name, solvers)
 
         instantiated_solvers = []
         for solver_desc in solvers:
@@ -794,6 +833,7 @@ class Client(object):
 
         """
         future = Future(None, id_)
+        self._jobs.inc()
         self._load(future)
         return future
 
@@ -926,8 +966,12 @@ class Client(object):
 
         Derived properies are:
 
-        * `name` (str): Solver name/id.
+        * `identity` (str): Solver identity dict. Includes a name, and possibly version(s).
+        * `name` (str): Solver name.
+        * `version` (dict): QPU solver version dict (contains at least `graph_id`)
+        * `graph_id` (str): QPU solver working graph id
         * `qpu` (bool): Solver is a QPU?
+        * `hybrid` (bool): Solver is a hybrid quantum-classical solver?
         * `software` (bool): Solver is a software solver?
         * `online` (bool, default=True): Is solver online?
         * `num_active_qubits` (int): Number of active qubits. Less then or equal to `num_qubits`.
@@ -972,13 +1016,16 @@ class Client(object):
                 qubits__issuperset={30, 31, 32},    # qubits 30, 31 and 32 must exist
                 supported_problem_types__issubset={'ising', 'qubo'},
                                                     # require Ising, QUBO or both to be supported
-                name='Advantage_system4.1',         # full solver name/ID match
+                name='Advantage_system4.1',         # solver name match
                 name__regex='Advantage.*',          # partial/regex-based solver name match
+                graph_id='01abcd1234',              # QPU solver working graph id match
                 chip_id__regex='Advantage_.*',      # chip ID prefix must be Advantage_
                 topology__type__eq="pegasus"        # topology.type must be Pegasus
                 topology__type="pegasus"            # same as above, `eq` implied even for nested properties
             )
         """
+        logger.debug('get_solvers(refresh=%r, order_by=%r, **filters=%r)',
+                     refresh, order_by, filters)
 
         def covers_op(prop, val):
             """Does LHS `prop` (range) fully cover RHS `val` (range or item)?"""
@@ -1073,7 +1120,7 @@ class Client(object):
                 return op(pluck(solver.properties, path), val)
             else:
                 op = ops[op_name or 'eq']
-                return op(None, val)
+                return op(pluck(solver, path), val)
 
         # param validation
         sort_reverse = False
@@ -1110,6 +1157,11 @@ class Client(object):
             query['name'] = filters['name']
         if 'name__eq' in filters:
             query['name'] = filters['name__eq']
+
+        # shortcircuit lookup if identity defines a name
+        identity = filters.get('identity__eq', filters.get('identity', {}))
+        if 'name' in identity:
+            query['name'] = identity['name']
 
         # filter
         try:
@@ -1179,21 +1231,21 @@ class Client(object):
             >>> from dwave.cloud import Client
             >>> client = Client.from_config()    # doctest: +SKIP
             >>> client.get_solvers()   # doctest: +SKIP
-            BQMSolver(id='hybrid_binary_quadratic_model_version2p'),
-            DQMSolver(id='hybrid_discrete_quadratic_model_version1p'),
-            CQMSolver(id='hybrid_constrained_quadratic_model_version1p'),
-            StructuredSolver(id='Advantage_system6.1')]
+            BQMSolver(name='hybrid_binary_quadratic_model_version2p'),
+            DQMSolver(name='hybrid_discrete_quadratic_model_version1p'),
+            CQMSolver(name='hybrid_constrained_quadratic_model_version1p'),
+            StructuredSolver(name='Advantage_system6.4', graph_id='01dae5a273')]
             >>> solver1 = client.get_solver()    # doctest: +SKIP
             >>> solver2 = client.get_solver(supported_problem_types__issubset={'cqm'})    # doctest: +SKIP
             >>> solver1.name  # doctest: +SKIP
-            'Advantage_system6.1'
+            'Advantage_system6.4'
             >>> solver2.name   # doctest: +SKIP
             'hybrid_constrained_quadratic_model_version1p'
             >>> # code that uses client
             >>> client.close() # doctest: +SKIP
 
         """
-        logger.info("Requested a solver that best matches feature filters=%r", filters)
+        logger.debug(f"get_solver({name=}, {refresh=}, {filters=})")
 
         # backward compatibility: name as the first feature
         if name is not None:
@@ -1222,12 +1274,13 @@ class Client(object):
         except IndexError:
             raise SolverNotFoundError("Solver with the requested features not available")
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=False)
     def _submit(self, body, future):
         """Enqueue a problem for submission to the server.
 
         This method is thread safe.
         """
+        self._jobs.inc()
         self._submission_queue.put(self._submit.Message(body, future))
 
     _submit.Message = namedtuple('Message', ['body', 'future'])
@@ -1257,6 +1310,7 @@ class Client(object):
                     logger.info("Problem encoding prior to submit "
                                 "failed with: %r", exc)
                     item.future._set_exception(exc)
+                    self._jobs.dec()
                     task_done()
 
                 else:
@@ -1272,7 +1326,7 @@ class Client(object):
 
         session = self.create_session()
         session.set_accept(media_type='application/vnd.dwave.sapi.problems+json',
-                           accept_version='>=2.1,<3')
+                           accept_version='~=3.0', ask_version='3.0.0')
         try:
             while True:
                 # Pull as many problems as we can, block on the first one,
@@ -1321,6 +1375,7 @@ class Client(object):
                                  len(ready_problems), exc)
                     for msg in ready_problems:
                         msg.future._set_exception(exc)
+                        self._jobs.dec()
                         task_done()
                     continue
 
@@ -1330,6 +1385,7 @@ class Client(object):
                         self._handle_problem_status(msg, submission.future)
                     except Exception as exc:
                         submission.future._set_exception(exc)
+                        self._jobs.dec()
                     finally:
                         task_done()
 
@@ -1407,9 +1463,17 @@ class Client(object):
                     # An alternative to making this call here would be to pass
                     # self in with the message
                     if future.solver is None:
-                        future.solver = self.get_solver(name=message['solver'])
+                        future.solver = self.get_solver(identity=message['solver'])
 
                     future._set_message(message)
+
+                    # decode the result as part of download (i.e. resolve answer refs)
+                    # note: this is (possibly) blocking, but that's OK because
+                    # we're running from a daemon thread (likely from `_do_load_results`)
+                    future.result()
+
+                    self._jobs.dec()
+
                 # If the problem is complete, but we don't have the result data
                 # put the problem in the queue for loading results.
                 else:
@@ -1432,8 +1496,9 @@ class Client(object):
             # If there were any unhandled errors we need to release the
             # lock in the future, otherwise deadlock occurs.
             future._set_exception(exc)
+            self._jobs.dec()
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=False)
     def _cancel(self, id_, future):
         """Enqueue a problem to be canceled.
 
@@ -1449,7 +1514,7 @@ class Client(object):
         """
         session = self.create_session()
         session.set_accept(media_type='application/vnd.dwave.sapi.problems+json',
-                           accept_version='>=2.1,<3')
+                           accept_version='~=3.0', ask_version='3.0.0')
         try:
             while True:
                 # Pull as many problems as we can, block when none are available.
@@ -1476,6 +1541,7 @@ class Client(object):
                     for _, future in item_list:
                         if future is not None:
                             future._set_exception(exc)
+                            self._jobs.dec()
 
                 # Mark all the ids as processed regardless of success or failure.
                 for _ in item_list:
@@ -1487,7 +1553,7 @@ class Client(object):
         finally:
             session.close()
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=True)
     def _poll(self, future: Future) -> None:
         """Enqueue a problem to poll the server for status."""
 
@@ -1549,7 +1615,7 @@ class Client(object):
         """
         session = self.create_session()
         session.set_accept(media_type='application/vnd.dwave.sapi.problems+json',
-                           accept_version='>=2.1,<3')
+                           accept_version='~=3.0', ask_version='3.0.0')
         try:
             # grouped futures (all scheduled within _POLL_GROUP_TIMEFRAME)
             # and/or up to _STATUS_QUERY_SIZE (depending on strategy)
@@ -1652,6 +1718,7 @@ class Client(object):
                 except Exception as exc:
                     for id_ in frame_futures.keys():
                         frame_futures[id_]._set_exception(exc)
+                        self._jobs.dec()
 
                 for id_ in frame_futures.keys():
                     task_done()
@@ -1666,7 +1733,7 @@ class Client(object):
         finally:
             session.close()
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=True)
     def _load(self, future):
         """Enqueue a problem to download results from the server.
 
@@ -1688,7 +1755,7 @@ class Client(object):
         """
         session = self.create_session()
         session.set_accept(media_type='application/vnd.dwave.sapi.problem+json',
-                           accept_version='>=2.1,<3')
+                           accept_version='~=3.0', ask_version='3.0.0')
         try:
             while True:
                 # Select a problem
@@ -1707,6 +1774,7 @@ class Client(object):
                 except Exception as exc:
                     logger.debug("Answer load request failed with %r", exc)
                     future._set_exception(exc)
+                    self._jobs.dec()
                     self._load_queue.task_done()
                     continue
 
@@ -1720,7 +1788,7 @@ class Client(object):
         finally:
             session.close()
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=True)
     def _download_answer_binary_ref(self, *, auth_method: str, url: str,
                                     output: Optional[io.IOBase] = None) -> concurrent.futures.Future:
         """Initiate binary-ref answer download, returning the binary data in
@@ -1760,7 +1828,7 @@ class Client(object):
 
         return output
 
-    @_ensure_active
+    @_ensure_active(allow_while_closing=False)
     def upload_problem_encoded(self, problem, problem_id=None, **kwargs):
         """Initiate multipart problem upload, returning the Problem ID in a
         :class:`~concurrent.futures.Future`.
@@ -1810,28 +1878,13 @@ class Client(object):
             :class:`~dwave.cloud.exceptions.RequestTimeout`.
         """
 
-        caller = get_caller_name()
-        if logger.isEnabledFor(logging.TRACE):
-            logger.trace("[%s] request: session.%s(*%r, **%r)",
-                         caller, meth.__name__, args, kwargs)
-
         # execute request
         try:
             response = meth(*args, **kwargs)
+            # note: LoggingSessionMixin will wrap timeout exceptions as RequestTimeout
         except api.exceptions.ResourceBadResponseError as e:
             # returned by VersionedAPISessionMixin; wrap for backwards-compatibility
             raise InvalidAPIResponseError(e) from e
-        except Exception as exc:
-            if is_caused_by(exc, (requests.exceptions.Timeout,
-                                  urllib3.exceptions.TimeoutError)):
-                raise RequestTimeout
-            else:
-                raise
-
-        # parse response
-        if logger.isEnabledFor(logging.TRACE):
-            logger.trace("[%s] response: (code=%r, content=%r, headers=%r)",
-                         caller, response.status_code, response.content, response.headers)
 
         # workaround for charset_normalizer episode in requests>=2.26.0,
         # where decoding of an empty json object '{}' fails.

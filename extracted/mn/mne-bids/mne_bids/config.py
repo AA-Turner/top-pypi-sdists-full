@@ -174,6 +174,7 @@ ALLOWED_FILENAME_SUFFIX = [
     "eeg",
     "ieeg",
     "T1w",
+    "T2w",
     "FLASH",  # datatype
     "participants",
     "scans",
@@ -235,7 +236,7 @@ ALLOWED_PATH_ENTITIES_SHORT = {
     "run": "run",
     "proc": "processing",
     "space": "space",
-    "rec": "recording",
+    "recording": "recording",
     "split": "split",
     "desc": "description",
 }
@@ -530,8 +531,7 @@ def _map_options(what, key, fro, to):
         mapped_option = mapping_mne_bids.get(key, None)
     else:
         raise RuntimeError(
-            f"fro value {fro} and to value {to} are not "
-            "accepted. Use 'mne', or 'bids'."
+            f"fro value {fro} and to value {to} are not accepted. Use 'mne', or 'bids'."
         )
 
     return mapped_option

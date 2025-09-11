@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.17.46
+Version: 1.17.48
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Home-page: https://github.com/akfamily/akshare
 Author: AKFamily
@@ -34,7 +34,7 @@ Requires-Dist: decorator>=4.4.2
 Requires-Dist: nest_asyncio>=1.6.0
 Requires-Dist: mini-racer>=0.12.4; platform_system != "Linux"
 Requires-Dist: py-mini-racer>=0.6.0; platform_system == "Linux"
-Requires-Dist: akracer[py-mini-racer]>=0.0.13; platform_system == "Linux"
+Requires-Dist: akracer>=0.0.13; platform_system == "Linux"
 Provides-Extra: full
 Requires-Dist: akqmt; extra == "full"
 Provides-Extra: qmt

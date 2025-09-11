@@ -53,7 +53,7 @@ class TextToImageResource(SyncAPIResource):
     def create(
         self,
         *,
-        model: Literal["gen4_image", "gen4_image_turbo"],
+        model: Literal["gen4_image_turbo", "gen4_image"],
         prompt_text: str,
         ratio: Literal[
             "1920:1080",
@@ -156,7 +156,7 @@ class AsyncTextToImageResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        model: Literal["gen4_image", "gen4_image_turbo"],
+        model: Literal["gen4_image_turbo", "gen4_image"],
         prompt_text: str,
         ratio: Literal[
             "1920:1080",

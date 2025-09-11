@@ -28,10 +28,13 @@ from dwave.cloud.testing import iterable_mock_open
 from dwave.cloud.config import (
     get_configfile_paths, load_config_from_files, load_config,
     parse_float, parse_int, parse_boolean, get_cache_dir, update_config)
+from dwave.cloud.config.loaders import (
+    _solver_id_as_identity, _solver_identity_as_id)
 from dwave.cloud.config.constants import DEFAULT_METADATA_API_ENDPOINT
 from dwave.cloud.config.exceptions import ConfigFileParseError, ConfigFileReadError
 from dwave.cloud.config.models import ClientConfig, PollingStrategy
 from dwave.cloud.config.models import validate_config_v1, load_config_v1, dump_config_v1
+from dwave.cloud.testing import isolated_environ
 
 
 class TestConfigParsing(unittest.TestCase):
@@ -74,9 +77,11 @@ class TestConfigParsing(unittest.TestCase):
     def setUp(self):
         # clear `config_load`-relevant environment variables before testing, so
         # we only need to patch the ones that we are currently testing
-        for key in frozenset(os.environ.keys()):
-            if key.startswith("DWAVE_") or key.startswith("DW_INTERNAL__"):
-                os.environ.pop(key, None)
+        # also, make sure the env is isolated to prevent interference with other tests
+        self._env = isolated_environ(remove_dwave=True).start()
+
+    def tearDown(self):
+        self._env.stop()
 
     def test_config_load_from_file__invalid_format__duplicate_sections(self):
         """Config loading should fail with ``ConfigFileParseError`` for invalid
@@ -459,6 +464,45 @@ class TestConfigUtils(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_boolean('x')
 
+    @parameterized.expand([
+        (dict(name='name'), 'name'),
+        (dict(name='qpu', version=dict(graph_id='123')), 'qpu;graph_id=123'),
+        (dict(name='qpu', version=dict(a='a', b='b')), 'qpu;a=a;b=b'),
+        (dict(name='qpu;a=b', version=dict(a=';', b='=')), 'qpu%3Ba%3Db;a=%3B;b=%3D'),
+        (dict(name='|_%.:', version={";": '"'}), '%7C_%25.%3A;%3B=%22'),
+    ])
+    def test_solver_identity_serialization(self, identity_dict, id_string):
+        # note: some overlap with SolverIdentity.to_id/.from_id tests
+
+        with self.subTest('serialization'):
+            self.assertEqual(_solver_identity_as_id(identity_dict), id_string)
+
+        with self.subTest('deserialization'):
+            self.assertEqual(_solver_id_as_identity(id_string), identity_dict)
+
+        with self.subTest('str-dict-str'):
+            self.assertEqual(_solver_identity_as_id(_solver_id_as_identity(id_string)), id_string)
+
+        with self.subTest('dict-str-dict'):
+            self.assertEqual(_solver_id_as_identity(_solver_identity_as_id(identity_dict)), identity_dict)
+
+    def test_solver_identity_edge_cases(self):
+        with self.assertRaises(ValueError):
+            _solver_identity_as_id({})
+
+        with self.assertRaises(ValueError):
+            _solver_id_as_identity(';')
+
+        with self.assertRaises(ValueError):
+            _solver_id_as_identity('x;')
+
+        self.assertEqual(_solver_id_as_identity('a;b==1'), {'name': 'a', 'version': {'b': '=1'}})
+        self.assertEqual(_solver_id_as_identity(' x '), {'name': 'x'})
+        self.assertEqual(_solver_id_as_identity(' x%20 '), {'name': 'x '})
+
+        self.assertEqual(_solver_identity_as_id({'name': 'name', 'version': {}}), 'name')
+        self.assertEqual(_solver_identity_as_id({'name': 'name', 'version': None}), 'name')
+
     def test_cache_dir(self):
         path = get_cache_dir(create=True)
         self.assertTrue(os.path.isdir(path))
@@ -577,11 +621,13 @@ class TestConfigModel(unittest.TestCase):
         ("blank", '', {}),
         ("empty", '  ', {}),
         ("string", "name", dict(name__eq="name")),
+        ("identity string", "name;graph_id=123", dict(identity__eq=dict(name="name", version=dict(graph_id="123")))),
         ("simple dict", dict(name="name"), dict(name="name")),
         ("features dict", dict(feature__op="val", x="y"), dict(feature__op="val", x="y")),
         ("valid json", '{"key": "val"}', dict(key="val")),
-        ("valid json non-dict", '"name"', dict(name__eq='"name"')),
-        ("invalid json", "{name}", dict(name__eq="{name}")),
+        ("valid json non-dict", '"id"', dict(id__eq='"id"')),
+        ("invalid json, partial identity", "{name}", dict(name__eq="{name}")),
+        ("invalid json, invalid identity", ";;", dict(id__eq=";;")),
     ])
     def test_solver(self, name, raw_value, model_value):
         self._verify(raw_config={"solver": raw_value},

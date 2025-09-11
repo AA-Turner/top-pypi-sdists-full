@@ -75,7 +75,7 @@ class ReasoningPart(_message.Message):
     def __init__(self, reasoning: _Optional[str] = ...) -> None: ...
 
 class StreamChatResponse(_message.Message):
-    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "mutation_json")
+    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "workbook_mutation")
     FINISH_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     TEXT_START_FIELD_NUMBER: _ClassVar[int]
@@ -84,7 +84,7 @@ class StreamChatResponse(_message.Message):
     REASONING_START_FIELD_NUMBER: _ClassVar[int]
     REASONING_DELTA_FIELD_NUMBER: _ClassVar[int]
     REASONING_END_FIELD_NUMBER: _ClassVar[int]
-    MUTATION_JSON_FIELD_NUMBER: _ClassVar[int]
+    WORKBOOK_MUTATION_FIELD_NUMBER: _ClassVar[int]
     finish: Finish
     error: Error
     text_start: TextStart
@@ -93,8 +93,8 @@ class StreamChatResponse(_message.Message):
     reasoning_start: ReasoningStart
     reasoning_delta: ReasoningDelta
     reasoning_end: ReasoningEnd
-    mutation_json: MutationJson
-    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., mutation_json: _Optional[_Union[MutationJson, _Mapping]] = ...) -> None: ...
+    workbook_mutation: WorkbookMutation
+    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., workbook_mutation: _Optional[_Union[WorkbookMutation, _Mapping]] = ...) -> None: ...
 
 class Finish(_message.Message):
     __slots__ = ()
@@ -146,10 +146,58 @@ class ReasoningEnd(_message.Message):
     id: str
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
-class MutationJson(_message.Message):
-    __slots__ = ("id", "notebook_as_json")
+class AddTabMutation(_message.Message):
+    __slots__ = ("tab_id", "tab_name")
+    TAB_ID_FIELD_NUMBER: _ClassVar[int]
+    TAB_NAME_FIELD_NUMBER: _ClassVar[int]
+    tab_id: str
+    tab_name: str
+    def __init__(self, tab_id: _Optional[str] = ..., tab_name: _Optional[str] = ...) -> None: ...
+
+class AddOrUpdatePanelMutation(_message.Message):
+    __slots__ = ("panel_as_json", "panel_id", "tab_id")
+    PANEL_AS_JSON_FIELD_NUMBER: _ClassVar[int]
+    PANEL_ID_FIELD_NUMBER: _ClassVar[int]
+    TAB_ID_FIELD_NUMBER: _ClassVar[int]
+    panel_as_json: str
+    panel_id: str
+    tab_id: str
+    def __init__(self, panel_as_json: _Optional[str] = ..., panel_id: _Optional[str] = ..., tab_id: _Optional[str] = ...) -> None: ...
+
+class RemovePanelsMutation(_message.Message):
+    __slots__ = ("panel_ids",)
+    PANEL_IDS_FIELD_NUMBER: _ClassVar[int]
+    panel_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, panel_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class AddOrReplaceVariableMutation(_message.Message):
+    __slots__ = ("compute_spec_as_json", "variable_name", "display_name")
+    COMPUTE_SPEC_AS_JSON_FIELD_NUMBER: _ClassVar[int]
+    VARIABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    compute_spec_as_json: str
+    variable_name: str
+    display_name: str
+    def __init__(self, compute_spec_as_json: _Optional[str] = ..., variable_name: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
+
+class DeleteVariablesMutation(_message.Message):
+    __slots__ = ("variable_names",)
+    VARIABLE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    variable_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, variable_names: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class WorkbookMutation(_message.Message):
+    __slots__ = ("id", "add_tab", "add_or_update_panel", "remove_panels", "add_or_replace_variable", "delete_variables")
     ID_FIELD_NUMBER: _ClassVar[int]
-    NOTEBOOK_AS_JSON_FIELD_NUMBER: _ClassVar[int]
+    ADD_TAB_FIELD_NUMBER: _ClassVar[int]
+    ADD_OR_UPDATE_PANEL_FIELD_NUMBER: _ClassVar[int]
+    REMOVE_PANELS_FIELD_NUMBER: _ClassVar[int]
+    ADD_OR_REPLACE_VARIABLE_FIELD_NUMBER: _ClassVar[int]
+    DELETE_VARIABLES_FIELD_NUMBER: _ClassVar[int]
     id: str
-    notebook_as_json: str
-    def __init__(self, id: _Optional[str] = ..., notebook_as_json: _Optional[str] = ...) -> None: ...
+    add_tab: AddTabMutation
+    add_or_update_panel: AddOrUpdatePanelMutation
+    remove_panels: RemovePanelsMutation
+    add_or_replace_variable: AddOrReplaceVariableMutation
+    delete_variables: DeleteVariablesMutation
+    def __init__(self, id: _Optional[str] = ..., add_tab: _Optional[_Union[AddTabMutation, _Mapping]] = ..., add_or_update_panel: _Optional[_Union[AddOrUpdatePanelMutation, _Mapping]] = ..., remove_panels: _Optional[_Union[RemovePanelsMutation, _Mapping]] = ..., add_or_replace_variable: _Optional[_Union[AddOrReplaceVariableMutation, _Mapping]] = ..., delete_variables: _Optional[_Union[DeleteVariablesMutation, _Mapping]] = ...) -> None: ...

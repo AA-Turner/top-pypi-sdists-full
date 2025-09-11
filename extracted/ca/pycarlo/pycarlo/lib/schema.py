@@ -4899,10 +4899,11 @@ class TagAssignmentObjectType(sgqlc.types.Enum):
 
     * `CUSTOM_RULE_MONITOR`None
     * `METRIC_MONITOR`None
+    * `TABLE_MONITOR`None
     """
 
     __schema__ = schema
-    __choices__ = ("CUSTOM_RULE_MONITOR", "METRIC_MONITOR")
+    __choices__ = ("CUSTOM_RULE_MONITOR", "METRIC_MONITOR", "TABLE_MONITOR")
 
 
 class TagType(sgqlc.types.Enum):
@@ -10437,6 +10438,7 @@ class IMonitor(sgqlc.types.Interface):
         "resource_id",
         "entities",
         "entity_mcons",
+        "entity_count",
         "schedule_type",
         "name",
         "rule_name",
@@ -10510,6 +10512,9 @@ class IMonitor(sgqlc.types.Interface):
 
     entity_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="entityMcons")
     """MCONs for monitored tables/views"""
+
+    entity_count = sgqlc.types.Field(Int, graphql_name="entityCount")
+    """Number of monitored entities"""
 
     schedule_type = sgqlc.types.Field(String, graphql_name="scheduleType")
     """Monitor scheduling type"""
@@ -25530,6 +25535,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_quality_dimension",
+                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
+                ),
+                (
                     "description",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(String), graphql_name="description", default=None
@@ -25554,6 +25563,14 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="tags",
+                        default=None,
+                    ),
+                ),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
                 (
                     "warehouse_uuid",
@@ -25572,6 +25589,8 @@ class Mutation(sgqlc.types.Type):
       conditions for the table monitor
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String!]`): The monitor notification audiences
+    * `data_quality_dimension` (`String`): Data quality dimension of
+      the monitor.
     * `description` (`String!`): Description of rule
     * `domain_restrictions` (`[UUID!]`): The domains to restrict to
     * `dry_run` (`Boolean`): Dry run the monitor creation or update
@@ -25582,6 +25601,7 @@ class Mutation(sgqlc.types.Type):
       `""`)
     * `priority` (`String`): The default priority for alerts involving
       this monitor
+    * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
     * `uuid` (`UUID`): UUID of the table monitor, to update existing
       monito
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
@@ -49357,10 +49377,29 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                (
+                    "transforms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
+                        graphql_name="transforms",
+                        default=None,
+                    ),
+                ),
+                (
+                    "evaluation_mode",
+                    sgqlc.types.Arg(Boolean, graphql_name="evaluationMode", default=False),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=10)),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
             )
         ),
     )
-    """(experimental) Preview traces for a specific span node
+    """(experimental) Sample agent span data with optional transforms and
+    filtering
 
     Arguments:
 
@@ -49368,6 +49407,14 @@ class Query(sgqlc.types.Type):
       traces
     * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
       agent span fields (agent, workflow, task, span_name)
+    * `filters` (`FilterGroupInput`): Structured SQL filtering
+      conditions to apply to query
+    * `transforms` (`[TransformInput!]`): Transforms to apply to the
+      data source
+    * `evaluation_mode` (`Boolean`): Return only columns for
+      evaluation testing (prompts, completions) (default: `false`)
+    * `limit` (`Int`): Number of sample rows to return (default: `10`)
+    * `connection_id` (`UUID`): Connection UUID
     """
 
     evaluate_agent_monitor_data_source = sgqlc.types.Field(
@@ -73804,6 +73851,8 @@ class TableMonitor(sgqlc.types.Type, Node):
         "audiences",
         "failure_audiences",
         "alert_conditions",
+        "tags",
+        "data_quality_dimension",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -73878,6 +73927,14 @@ class TableMonitor(sgqlc.types.Type, Node):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertCondition))),
         graphql_name="alertConditions",
     )
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairOutput)), graphql_name="tags"
+    )
+    """The monitor tags."""
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+    """Data quality dimension of the monitor."""
 
 
 class TablePartitionKeys(sgqlc.types.Type, Node):

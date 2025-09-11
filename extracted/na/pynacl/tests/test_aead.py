@@ -21,6 +21,7 @@ import pytest
 
 import nacl.bindings as b
 import nacl.exceptions as exc
+from nacl._sodium import lib
 
 from .utils import read_kv_test_vectors
 
@@ -43,6 +44,24 @@ def xchacha20poly1305_ietf_vectors() -> List[Dict[str, bytes]]:
     return read_kv_test_vectors(DATA, delimiter=b":", newrecord=b"AEAD")
 
 
+def aegis256_vectors() -> List[Dict[str, bytes]]:
+    # NIST vectors derived format
+    DATA = "aegis256.txt"
+    return read_kv_test_vectors(DATA, delimiter=b":", newrecord=b"AEAD")
+
+
+def aegis128l_vectors() -> List[Dict[str, bytes]]:
+    # NIST vectors derived format
+    DATA = "aegis128l.txt"
+    return read_kv_test_vectors(DATA, delimiter=b":", newrecord=b"AEAD")
+
+
+def aes256gcm_vectors() -> List[Dict[str, bytes]]:
+    # NIST vectors derived format
+    DATA = "aes256gcm.txt"
+    return read_kv_test_vectors(DATA, delimiter=b":", newrecord=b"AEAD")
+
+
 class Construction(NamedTuple):
     encrypt: Callable[[bytes, Optional[bytes], bytes, bytes], bytes]
     decrypt: Callable[[bytes, Optional[bytes], bytes, bytes], bytes]
@@ -61,11 +80,29 @@ def _getconstruction(construction: bytes) -> Construction:
         decrypt = b.crypto_aead_chacha20poly1305_ietf_decrypt
         NPUB = b.crypto_aead_chacha20poly1305_ietf_NPUBBYTES
         KEYBYTES = b.crypto_aead_chacha20poly1305_ietf_KEYBYTES
-    else:
+    elif construction == b"xchacha20-poly1305":
         encrypt = b.crypto_aead_xchacha20poly1305_ietf_encrypt
         decrypt = b.crypto_aead_xchacha20poly1305_ietf_decrypt
         NPUB = b.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
         KEYBYTES = b.crypto_aead_xchacha20poly1305_ietf_KEYBYTES
+    elif construction == b"aegis256":
+        encrypt = b.crypto_aead_aegis256_encrypt
+        decrypt = b.crypto_aead_aegis256_decrypt
+        NPUB = b.crypto_aead_aegis256_NPUBBYTES
+        KEYBYTES = b.crypto_aead_aegis256_KEYBYTES
+    elif construction == b"aegis128l":
+        encrypt = b.crypto_aead_aegis128l_encrypt
+        decrypt = b.crypto_aead_aegis128l_decrypt
+        NPUB = b.crypto_aead_aegis128l_NPUBBYTES
+        KEYBYTES = b.crypto_aead_aegis128l_KEYBYTES
+    else:
+        assert construction == b"aes256gcm"
+        if lib.crypto_aead_aes256gcm_is_available() != 1:
+            pytest.skip("aes256gcm not supported")
+        encrypt = b.crypto_aead_aes256gcm_encrypt
+        decrypt = b.crypto_aead_aes256gcm_decrypt
+        NPUB = b.crypto_aead_aes256gcm_NPUBBYTES
+        KEYBYTES = b.crypto_aead_aes256gcm_KEYBYTES
 
     return Construction(encrypt, decrypt, NPUB, KEYBYTES)
 
@@ -74,9 +111,12 @@ def _getconstruction(construction: bytes) -> Construction:
     "kv",
     chacha20poly1305_agl_vectors()
     + chacha20poly1305_ietf_vectors()
-    + xchacha20poly1305_ietf_vectors(),
+    + xchacha20poly1305_ietf_vectors()
+    + aegis256_vectors()
+    + aegis128l_vectors()
+    + aes256gcm_vectors(),
 )
-def test_chacha20poly1305_variants_kat(kv: Dict[str, bytes]):
+def test_variants_kat(kv: Dict[str, bytes]):
     msg = binascii.unhexlify(kv["IN"])
     ad = binascii.unhexlify(kv["AD"])
     nonce = binascii.unhexlify(kv["NONCE"])
@@ -90,42 +130,84 @@ def test_chacha20poly1305_variants_kat(kv: Dict[str, bytes]):
 
 @given(
     sampled_from(
-        (b"chacha20-poly1305-old", b"chacha20-poly1305", b"xchacha20-poly1305")
+        (
+            b"chacha20-poly1305-old",
+            b"chacha20-poly1305",
+            b"xchacha20-poly1305",
+            b"aegis256",
+            b"aegis128l",
+            b"aes256gcm",
+        )
     ),
     binary(min_size=0, max_size=100),
-    binary(min_size=0, max_size=50),
-    binary(
-        min_size=b.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES,
-        max_size=b.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES,
-    ),
-    binary(
-        min_size=b.crypto_aead_chacha20poly1305_KEYBYTES,
-        max_size=b.crypto_aead_chacha20poly1305_KEYBYTES,
-    ),
+    binary(min_size=1, max_size=50),
+    binary(min_size=32, max_size=32),
+    binary(min_size=32, max_size=32),
 )
 @settings(deadline=None, max_examples=20)
-def test_chacha20poly1305_variants_roundtrip(
+def test_variants_roundtrip_aad(
     construction: bytes, message: bytes, aad: bytes, nonce: bytes, key: bytes
 ):
-
     c = _getconstruction(construction)
     unonce = nonce[: c.NPUB]
+    ukey = key[: c.KEYBYTES]
 
-    ct = c.encrypt(message, aad, unonce, key)
-    pt = c.decrypt(ct, aad, unonce, key)
+    ct = c.encrypt(message, aad, unonce, ukey)
+    pt = c.decrypt(ct, aad, unonce, ukey)
 
     assert pt == message
     with pytest.raises(exc.CryptoError):
         ct1 = bytearray(ct)
         ct1[0] = ct1[0] ^ 0xFF
-        c.decrypt(ct1, aad, unonce, key)
+        c.decrypt(ct1, aad, unonce, ukey)
+
+
+@given(
+    sampled_from(
+        (
+            b"chacha20-poly1305-old",
+            b"chacha20-poly1305",
+            b"xchacha20-poly1305",
+            b"aegis256",
+            b"aegis128l",
+            b"aes256gcm",
+        )
+    ),
+    binary(min_size=0, max_size=100),
+    binary(min_size=0, max_size=0),
+    binary(min_size=32, max_size=32),
+    binary(min_size=32, max_size=32),
+)
+@settings(deadline=None, max_examples=20)
+def test_variants_roundtrip_no_aad(
+    construction: bytes, message: bytes, aad: bytes, nonce: bytes, key: bytes
+):
+    c = _getconstruction(construction)
+    unonce = nonce[: c.NPUB]
+    ukey = key[: c.KEYBYTES]
+
+    ct = c.encrypt(message, aad, unonce, ukey)
+    pt = c.decrypt(ct, aad, unonce, ukey)
+
+    assert pt == message
+    with pytest.raises(exc.CryptoError):
+        ct1 = bytearray(ct)
+        ct1[0] = ct1[0] ^ 0xFF
+        c.decrypt(ct1, aad, unonce, ukey)
 
 
 @pytest.mark.parametrize(
     "construction",
-    [b"chacha20-poly1305-old", b"chacha20-poly1305", b"xchacha20-poly1305"],
+    [
+        b"chacha20-poly1305-old",
+        b"chacha20-poly1305",
+        b"xchacha20-poly1305",
+        b"aegis256",
+        b"aegis128l",
+        b"aes256gcm",
+    ],
 )
-def test_chacha20poly1305_variants_wrong_params(construction: bytes):
+def test_variants_wrong_params(construction: bytes):
     c = _getconstruction(construction)
     nonce = b"\x00" * c.NPUB
     key = b"\x00" * c.KEYBYTES
@@ -148,9 +230,16 @@ def test_chacha20poly1305_variants_wrong_params(construction: bytes):
 
 @pytest.mark.parametrize(
     "construction",
-    [b"chacha20-poly1305-old", b"chacha20-poly1305", b"xchacha20-poly1305"],
+    [
+        b"chacha20-poly1305-old",
+        b"chacha20-poly1305",
+        b"xchacha20-poly1305",
+        b"aegis256",
+        b"aegis128l",
+        b"aes256gcm",
+    ],
 )
-def test_chacha20poly1305_variants_str_msg(construction: bytes):
+def test_variants_str_msg(construction: bytes):
     c = _getconstruction(construction)
     nonce = b"\x00" * c.NPUB
     key = b"\x00" * c.KEYBYTES

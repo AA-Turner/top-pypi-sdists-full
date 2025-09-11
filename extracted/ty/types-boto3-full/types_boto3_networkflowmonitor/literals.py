@@ -46,7 +46,13 @@ __all__ = (
 
 
 DestinationCategoryType = Literal[
-    "AMAZON_DYNAMODB", "AMAZON_S3", "INTER_AZ", "INTER_VPC", "INTRA_AZ", "UNCLASSIFIED"
+    "AMAZON_DYNAMODB",
+    "AMAZON_S3",
+    "INTER_AZ",
+    "INTER_REGION",
+    "INTER_VPC",
+    "INTRA_AZ",
+    "UNCLASSIFIED",
 ]
 GetQueryResultsMonitorTopContributorsPaginatorName = Literal[
     "get_query_results_monitor_top_contributors"
@@ -88,10 +94,12 @@ MetricUnitType = Literal[
     "Terabytes",
     "Terabytes/Second",
 ]
-MonitorLocalResourceTypeType = Literal["AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC"]
+MonitorLocalResourceTypeType = Literal[
+    "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC", "AWS::Region"
+]
 MonitorMetricType = Literal["DATA_TRANSFERRED", "RETRANSMISSIONS", "ROUND_TRIP_TIME", "TIMEOUTS"]
 MonitorRemoteResourceTypeType = Literal[
-    "AWS::AWSService", "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC"
+    "AWS::AWSService", "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC", "AWS::Region"
 ]
 MonitorStatusType = Literal["ACTIVE", "DELETING", "ERROR", "INACTIVE", "PENDING"]
 QueryStatusType = Literal["CANCELED", "FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]

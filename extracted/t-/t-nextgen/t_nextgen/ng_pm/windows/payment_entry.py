@@ -20,6 +20,9 @@ if IS_WINDOWS_OS:
     from pywinauto.base_wrapper import ElementNotEnabled
     from pywinauto.keyboard import send_keys
     from pywinauto.timings import wait_until
+
+from t_desktop.decorators import retry_if_pywin_error
+from t_desktop.decorators import capture_screenshot_if_pywin_error
 from t_ocr import Textract
 from t_ocr.pages import TextractPage
 from PIL import Image, ImageFilter
@@ -651,11 +654,16 @@ class PaymentEntryWindow(NextGenWindow):
         self.logger.debug("Maximizing Payment Entry Window.")
         self.window.maximize()
 
+    @retry_if_pywin_error(retries=2, delay=5)
+    @capture_screenshot_if_pywin_error()
     def click_new_button(self) -> None:
         """Click New Button."""
         self.logger.debug("Clicking New Button.")
         with contextlib.suppress(_ctypes.COMError):
             self.window.child_window(title="_cmdAction_0", control_type="Button").click()
+            self.desktop_app.wait_until_element_visible(
+                title="_txtActiveSearch_103", control_type="Edit", timeout=30, retries=3
+            )
 
     def enter_text_in_enc_clm_field(self, text: str) -> None:
         """This method inserts text in the Enc/Clm #.

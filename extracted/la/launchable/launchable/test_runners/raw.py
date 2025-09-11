@@ -47,6 +47,8 @@ def subset(client, test_path_file):
 
 split_subset = launchable.CommonSplitSubsetImpls(__name__, formatter=unparse_test_path, seperator='\n').split_subset()
 
+launchable.CommonFlakeDetectionImpls(__name__).flake_detection()
+
 
 @click.argument('test_result_files', required=True, type=click.Path(exists=True), nargs=-1)
 @launchable.record.tests
