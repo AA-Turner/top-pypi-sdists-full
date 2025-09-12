@@ -7,6 +7,7 @@ from typing import Dict, FrozenSet, List, Optional, Sequence, Set, Tuple
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
 from dbt_semantic_interfaces.references import EntityReference, SemanticModelReference, TimeDimensionReference
+from metricflow_semantics.errors.error_classes import FeatureNotSupportedError
 from metricflow_semantics.filters.time_constraint import TimeRangeConstraint
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat
@@ -20,7 +21,6 @@ from metricflow_semantics.specs.spec_set_transforms import ToElementNameSet
 from metricflow_semantics.specs.where_filter.where_filter_spec import WhereFilterSpec
 from metricflow_semantics.sql.sql_join_type import SqlJoinType
 
-from metricflow.dataflow.builder.node_data_set import DataflowPlanNodeOutputDataSetResolver
 from metricflow.dataflow.builder.partitions import PartitionJoinResolver
 from metricflow.dataflow.dataflow_plan import (
     DataflowPlanNode,
@@ -30,6 +30,7 @@ from metricflow.dataflow.nodes.filter_elements import FilterElementsNode
 from metricflow.dataflow.nodes.join_to_base import JoinDescription, JoinOnEntitiesNode
 from metricflow.dataflow.nodes.metric_time_transform import MetricTimeDimensionTransformNode
 from metricflow.dataflow.nodes.where_filter import WhereConstraintNode
+from metricflow.plan_conversion.to_sql_plan.dataflow_to_subquery import DataflowNodeToSqlSubqueryVisitor
 from metricflow.validation.dataflow_join_validator import JoinDataflowOutputValidator
 
 logger = logging.getLogger(__name__)
@@ -197,7 +198,7 @@ class PredicatePushdownState:
                 eligible_types.append(LinkableElementType.DIMENSION)
             elif enabled_type is PredicateInputType.TIME_DIMENSION or enabled_type is PredicateInputType.ENTITY:
                 # TODO: Remove as support for time dimensions and entities becomes available
-                raise NotImplementedError(
+                raise FeatureNotSupportedError(
                     "Predicate pushdown is not currently supported for where filter predicates with time dimension or "
                     f"entity references, but this pushdown state is enabled for {enabled_type}."
                 )
@@ -330,7 +331,7 @@ class PreJoinNodeProcessor:
     def __init__(  # noqa: D107
         self,
         semantic_model_lookup: SemanticModelLookup,
-        node_data_set_resolver: DataflowPlanNodeOutputDataSetResolver,
+        node_data_set_resolver: DataflowNodeToSqlSubqueryVisitor,
     ):
         self._node_data_set_resolver = node_data_set_resolver
         self._partition_resolver = PartitionJoinResolver(semantic_model_lookup)
@@ -401,10 +402,17 @@ class PreJoinNodeProcessor:
         """Processes where filter specs and evaluates their fitness for pushdown against the provided node set."""
         eligible_filter_specs_by_model: Dict[SemanticModelReference, Sequence[WhereFilterSpec]] = {}
         for spec in where_filter_specs:
-            semantic_models = set(element.semantic_model_origin for element in spec.linkable_elements)
-            invalid_element_types = [
-                element for element in spec.linkable_elements if element.element_type not in enabled_element_types
-            ]
+            semantic_models = {
+                semantic_model_reference
+                for annotated_spec in spec.element_set.annotated_specs
+                for semantic_model_reference in annotated_spec.origin_semantic_model_references
+            }
+
+            invalid_element_types = {
+                annotated_spec.element_type
+                for annotated_spec in spec.element_set.annotated_specs
+                if annotated_spec.element_type not in enabled_element_types
+            }
             if len(semantic_models) == 1 and len(invalid_element_types) == 0:
                 model = semantic_models.pop()
                 eligible_filter_specs_by_model[model] = tuple(eligible_filter_specs_by_model.get(model, tuple())) + (
@@ -468,7 +476,7 @@ class PreJoinNodeProcessor:
     ) -> Sequence[MultiHopJoinCandidate]:
         """Assemble nodes representing all possible one-hop joins."""
         if len(desired_linkable_spec.entity_links) > MAX_JOIN_HOPS:
-            raise NotImplementedError(
+            raise FeatureNotSupportedError(
                 f"Multi-hop joins with more than {MAX_JOIN_HOPS} entity links not yet supported. "
                 f"Got: {desired_linkable_spec}"
             )

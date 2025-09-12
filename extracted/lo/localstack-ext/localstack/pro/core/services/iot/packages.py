@@ -1,8 +1,6 @@
 _B='latest'
 _A='2.0.20'
-import logging
-from typing import List
-import distro
+import logging,distro
 from localstack.constants import ARTIFACTS_REPO
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import NodePackageInstaller,PermissionDownloadInstaller

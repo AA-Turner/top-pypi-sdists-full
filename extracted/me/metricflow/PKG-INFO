@@ -1,8 +1,6 @@
 Metadata-Version: 2.4
 Name: metricflow
-Version: 0.207.3
-Dynamic: Requires-Dist
-Dynamic: Provides-Extra
+Version: 0.208.0
 Summary: Translates a simple metric definition into reusable SQL and executes it against the SQL engine of your choice.
 Project-URL: Documentation, https://docs.getdbt.com/docs/build/about-metricflow
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow
@@ -18,8 +16,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: <3.13,>=3.9
-Requires-Dist: dbt-semantic-interfaces<0.8,>=0.7.4
-Requires-Dist: dbt-semantic-interfaces<0.8.0,>=0.7.2
+Requires-Dist: dbt-semantic-interfaces==0.9.3.dev1
+Requires-Dist: dbt-semantic-interfaces~=0.9.3.dev1
 Requires-Dist: graphviz<0.21,>=0.18.2
 Requires-Dist: jinja2<3.7.0,>=3.1.6
 Requires-Dist: more-itertools<10.2.0,>=8.10.0
@@ -28,6 +26,25 @@ Requires-Dist: python-dateutil<2.10.0,>=2.9.0
 Requires-Dist: rapidfuzz<4.0,>=3.0
 Requires-Dist: tabulate>=0.8.9
 Requires-Dist: typing-extensions<5.0,>=4.4
+Provides-Extra: dev-env-requirements
+Requires-Dist: click>=8.1.6; extra == 'dev-env-requirements'
+Requires-Dist: dbt-core<1.11.0,>=1.10.4; extra == 'dev-env-requirements'
+Requires-Dist: dbt-duckdb<1.9.0,>=1.8.0; extra == 'dev-env-requirements'
+Requires-Dist: duckdb!=1.2.1; extra == 'dev-env-requirements'
+Requires-Dist: halo<0.1.0,>=0.0.31; extra == 'dev-env-requirements'
+Requires-Dist: mypy<1.8.0,>=1.7.0; extra == 'dev-env-requirements'
+Requires-Dist: pre-commit<3.3.0,>=3.2.2; extra == 'dev-env-requirements'
+Requires-Dist: pympler<=2.0,>=1.1; extra == 'dev-env-requirements'
+Requires-Dist: pytest-mock<3.15.0,>=3.14.0; extra == 'dev-env-requirements'
+Requires-Dist: pytest-xdist<3.7.0,>=3.6.0; extra == 'dev-env-requirements'
+Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev-env-requirements'
+Requires-Dist: pyyaml<7.0.0,>=6.0; extra == 'dev-env-requirements'
+Requires-Dist: tabulate>=0.8.9; extra == 'dev-env-requirements'
+Requires-Dist: termcolor<4.0,>=3.0; extra == 'dev-env-requirements'
+Requires-Dist: types-python-dateutil; extra == 'dev-env-requirements'
+Requires-Dist: types-pyyaml; extra == 'dev-env-requirements'
+Requires-Dist: types-tabulate; extra == 'dev-env-requirements'
+Requires-Dist: update-checker<0.19.0,>=0.18.0; extra == 'dev-env-requirements'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -62,9 +79,10 @@ Description-Content-Type: text/markdown
 
 See our latest updates in the [Metricflow Changelog](https://github.com/dbt-labs/metricflow/blob/main/CHANGELOG.md)!
 
-MetricFlow is a semantic layer that makes it easy to organize metric definitions. It takes those definitions and generates legible and reusable SQL. This makes it easy to get consistent metrics output broken down by attributes (dimensions) of interest.
+MetricFlow is a semantic layer that simplifies defining and managing metrics. It compiles these metric definitions into clear, reusable SQL, ensuring consistent and accurate results when analyzing data by relevant attributes (dimensions).
 
-The name comes from the approach taken to generate metrics. A query is compiled into a query plan (represented below) called a dataflow that constructs metrics. The plan is then optimized and rendered to engine-specific SQL.
+The name “MetricFlow” reflects its approach: metric requests are compiled into a dataflow-based query plan, which is then optimized and translated into engine-specific SQL.
+
 
 <p align="center">
 <img src="https://github.com/dbt-labs/metricflow/raw/main/assets/example_plan.svg" height="500"/>
@@ -130,6 +148,6 @@ To get started on direct contributions, head on over to our [contributor guide](
 MetricFlow is source-available software.
 
 Version 0 to 0.140.0 was covered by the Affero GPL license.
-Version 0.150.0 and greater is covered by the BSL license..
+Version 0.150.0 and greater is covered by the BSL license.
 
 MetricFlow is built by [dbt Labs](https://www.getdbt.com/).

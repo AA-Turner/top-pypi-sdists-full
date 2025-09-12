@@ -35,9 +35,9 @@ license-files = [ "LICENSE" ]
 requires-python = ">=3.10"
 dependencies = [
     {%- if extras %}
-    "singer-sdk[{{ extras|join(',') }}]~=0.48.1",
+    "singer-sdk[{{ extras|join(',') }}]~=0.49.0",
     {%- else %}
-    "singer-sdk~=0.48.1",
+    "singer-sdk~=0.49.0",
     {%- endif %}
     {%- if cookiecutter.stream_type in ["REST", "GraphQL"] %}
     "requests~=2.32.3",
@@ -45,6 +45,7 @@ dependencies = [
     {%- if cookiecutter.stream_type == "SQL" %}
     "sqlalchemy~=2.0.36",
     {%- endif %}
+    "typing-extensions>=4.5.0; python_version < '3.13'",
 ]
 
 [project.optional-dependencies]
@@ -69,6 +70,7 @@ test = [
 ]
 typing = [
     "mypy>=1.16.0",
+    "ty>=0.0.1-alpha.16",
     {%- if cookiecutter.stream_type == "SQL" %}
     "sqlalchemy-stubs",
     {%- else %}
@@ -96,7 +98,12 @@ warn_unused_configs = true
 plugins = "sqlmypy"
 {%- endif %}
 
+[tool.ruff]
+line-length = 100
+required-version = ">=0.13"
+
 [tool.ruff.lint]
+future-annotations = true
 ignore = [
     "COM812",  # missing-trailing-comma
 ]
@@ -143,4 +150,7 @@ commands = [ [ "pytest", { replace = "posargs", default = [ "tests" ], extend = 
 
 [tool.tox.env.typing]
 dependency_groups = [ "test", "typing" ]
-commands = [ [ "mypy", { replace = "posargs", default = [ "{{cookiecutter.library_name}}", "tests" ], extend = true } ] ]
+commands = [
+    [ "mypy", { replace = "posargs", default = [ "{{cookiecutter.library_name}}", "tests" ], extend = true } ],
+    [ "ty", "check", { replace = "posargs", default = [ "{{cookiecutter.library_name}}", "tests" ], extend = true } ],
+]

@@ -1,5 +1,5 @@
 import json
-from typing import Dict
+from typing import Dict, Optional
 from uuid import UUID
 
 import click
@@ -37,13 +37,23 @@ class ConnectionOperationsService(BaseOnboardingService):
     def update_credentials(
         self,
         connection_id: UUID,
-        changes: Dict,
+        changes: Optional[Dict] = None,
         should_validate: bool = True,
         should_replace: bool = False,
+        remove_ssl_ca: bool = False,
+        **kwargs,
     ) -> None:
         """
         Update credentials for a connection
         """
+        changes = changes or {}
+
+        if ssl_options := self.load_ssl_options(options=kwargs):
+            changes["ssl_options"] = ssl_options
+
+        if remove_ssl_ca:
+            changes["ssl_options"] = {}
+
         self.echo_operation_status(
             self._request_wrapper.make_request_v2(
                 query=UPDATE_CREDENTIALS_MUTATION,

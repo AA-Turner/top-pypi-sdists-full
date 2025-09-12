@@ -70,7 +70,7 @@ from marimo._server.session.serialize import (
 )
 from marimo._server.session.session_view import SessionView
 from marimo._server.tokens import AuthToken, SkewProtectionToken
-from marimo._server.types import QueueType
+from marimo._server.types import ProcessLike
 from marimo._server.utils import print_, print_tabbed
 from marimo._types.ids import CellId_t, ConsumerId, SessionId
 from marimo._utils.disposable import Disposable
@@ -93,23 +93,28 @@ class QueueManager:
 
         # Control messages for the kernel (run, set UI element, set config, etc
         # ) are sent through the control queue
-        self.control_queue: QueueType[requests.ControlRequest] = (
-            context.Queue() if context is not None else queue.Queue()
-        )
+        self.control_queue: Union[
+            mp.Queue[requests.ControlRequest],
+            queue.Queue[requests.ControlRequest],
+        ] = context.Queue() if context is not None else queue.Queue()
 
         # Set UI element queues are stored in both the control queue and
         # this queue, so that the backend can merge/batch set-ui-element
         # requests.
-        self.set_ui_element_queue: QueueType[
-            requests.SetUIElementValueRequest
+        self.set_ui_element_queue: Union[
+            mp.Queue[requests.SetUIElementValueRequest],
+            queue.Queue[requests.SetUIElementValueRequest],
         ] = context.Queue() if context is not None else queue.Queue()
 
         # Code completion requests are sent through a separate queue
-        self.completion_queue: QueueType[requests.CodeCompletionRequest] = (
-            context.Queue() if context is not None else queue.Queue()
-        )
+        self.completion_queue: Union[
+            mp.Queue[requests.CodeCompletionRequest],
+            queue.Queue[requests.CodeCompletionRequest],
+        ] = context.Queue() if context is not None else queue.Queue()
 
-        self.win32_interrupt_queue: QueueType[bool] | None
+        self.win32_interrupt_queue: (
+            Union[mp.Queue[bool], queue.Queue[bool]] | None
+        )
         if sys.platform == "win32":
             self.win32_interrupt_queue = (
                 context.Queue() if context is not None else queue.Queue()
@@ -119,7 +124,7 @@ class QueueManager:
 
         # Input messages for the user's Python code are sent through the
         # input queue
-        self.input_queue: QueueType[str] = (
+        self.input_queue: Union[mp.Queue[str], queue.Queue[str]] = (
             context.Queue(maxsize=1)
             if context is not None
             else queue.Queue(maxsize=1)
@@ -171,7 +176,7 @@ class KernelManager:
         virtual_files_supported: bool,
         redirect_console_to_browser: bool,
     ) -> None:
-        self.kernel_task: Optional[threading.Thread | mp.Process] = None
+        self.kernel_task: Optional[ProcessLike | threading.Thread] = None
         self.queue_manager = queue_manager
         self.mode = mode
         self.configs = configs
@@ -296,10 +301,14 @@ class KernelManager:
         return self.kernel_task is not None and self.kernel_task.is_alive()
 
     def interrupt_kernel(self) -> None:
-        if (
-            isinstance(self.kernel_task, mp.Process)
-            and self.kernel_task.pid is not None
-        ):
+        if self.kernel_task is None:
+            return
+
+        if isinstance(self.kernel_task, threading.Thread):
+            # no interruptions in run mode
+            return
+
+        if self.kernel_task.pid is not None:
             q = self.queue_manager.win32_interrupt_queue
             if sys.platform == "win32" and q is not None:
                 LOGGER.debug("Queueing interrupt request for kernel.")
@@ -311,7 +320,14 @@ class KernelManager:
     def close_kernel(self) -> None:
         assert self.kernel_task is not None, "kernel not started"
 
-        if isinstance(self.kernel_task, mp.Process):
+        if isinstance(self.kernel_task, threading.Thread):
+            # in run mode
+            if self.kernel_task.is_alive():
+                # We don't join the kernel thread because we don't want to server
+                # to block on it finishing
+                self.queue_manager.control_queue.put(requests.StopRequest())
+        else:
+            # otherwise we have something that is `ProcessLike`
             if self.profile_path is not None and self.kernel_task.is_alive():
                 self.queue_manager.control_queue.put(requests.StopRequest())
                 # Hack: Wait for kernel to exit and write out profile;
@@ -330,10 +346,6 @@ class KernelManager:
                 self.kernel_task.terminate()
             if self._read_conn is not None:
                 self._read_conn.close()
-        elif self.kernel_task.is_alive():
-            # We don't join the kernel thread because we don't want to server
-            # to block on it finishing
-            self.queue_manager.control_queue.put(requests.StopRequest())
 
     @property
     def kernel_connection(self) -> TypedConnection[KernelMessage]:

@@ -2,7 +2,7 @@ import fastapi.requests
 from fastapi import APIRouter
 
 from project.api.authorize import APIAuthorizeData, api_authorize, require_api_key_dbm_api_authorize_middleware
-from project.api.const import APIErrorCodes, APIErrorSpecificationCodes
+from project.api.api_error_codes import APIErrorCodes, APIErrorSpecificationCodes
 from project.api.schema.common import BaseSO
 from project.api.schema.out.common.error import ErrorCommonSO
 

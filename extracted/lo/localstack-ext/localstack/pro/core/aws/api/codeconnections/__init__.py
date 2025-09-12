@@ -67,6 +67,7 @@ class ProviderType(StrEnum):
     GitHubEnterpriseServer = "GitHubEnterpriseServer"
     GitLab = "GitLab"
     GitLabSelfManaged = "GitLabSelfManaged"
+    AzureDevOps = "AzureDevOps"
 
 
 class PublishDeploymentStatus(StrEnum):

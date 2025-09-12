@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "letschatty"
-version = "0.4.161"  # Or whichever is your latest version
+version = "0.4.164"  # Or whichever is your latest version
 description = "Models and custom classes to work across the Chattyverse"
 authors = ["Axel <axel@letschatty.com>"]
 license = "MIT"

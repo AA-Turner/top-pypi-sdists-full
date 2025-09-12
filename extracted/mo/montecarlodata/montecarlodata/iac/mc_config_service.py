@@ -742,6 +742,7 @@ class MonteCarloConfigService:
                     response {
                       configTemplateAsDict
                       errors
+                      warnings
                     }
                   }
                 }
@@ -773,6 +774,11 @@ class MonteCarloConfigService:
             errors_str = "\n".join(errors)  # type: ignore
             complain_and_abort(f"Errors encountered during export:\n{errors_str}")
             return
+
+        warnings = response.convert_ui_monitors_to_config_template.response.warnings  # type: ignore
+        if warnings:
+            warnings_str = "\n".join(warnings)  # type: ignore
+            self._print_func(f"Warnings encountered during export:\n{warnings_str}")
 
         self._export_project(
             project_dir,

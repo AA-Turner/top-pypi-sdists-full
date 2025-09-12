@@ -11,8 +11,11 @@ from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
 from dbt_semantic_interfaces.references import SemanticModelReference
 from typing_extensions import override
 
+from metricflow_semantics.collection_helpers.mf_type_aliases import AnyLengthTuple
+from metricflow_semantics.experimental.ordered_set import MutableOrderedSet
+from metricflow_semantics.experimental.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
-from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
+from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
 from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
 from metricflow_semantics.model.semantics.linkable_element import (
     ElementPathKey,
@@ -22,6 +25,7 @@ from metricflow_semantics.model.semantics.linkable_element import (
     LinkableEntity,
     LinkableMetric,
 )
+from metricflow_semantics.model.semantics.linkable_element_set_base import AnnotatedSpec, BaseLinkableElementSet
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.entity_spec import EntitySpec
 from metricflow_semantics.specs.group_by_metric_spec import GroupByMetricSpec
@@ -33,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class LinkableElementSet(SemanticModelDerivation):
+class LinkableElementSet(BaseLinkableElementSet):
     """Container class for storing all linkable elements for a metric.
 
     TODO: There are similarities with LinkableSpecSet - consider consolidation.
@@ -90,14 +94,6 @@ class LinkableElementSet(SemanticModelDerivation):
             + len(self.path_key_to_linkable_entities)
             + len(self.path_key_to_linkable_metrics)
         )
-
-        # Check time dimensions have the grain set.
-        for path_key, linkable_dimensions in self.path_key_to_linkable_dimensions.items():
-            if path_key.element_type is LinkableElementType.TIME_DIMENSION:
-                for linkable_dimension in linkable_dimensions:
-                    assert (
-                        linkable_dimension.time_granularity is not None
-                    ), f"{path_key} has a dimension without the time granularity set: {linkable_dimension}"
 
     @staticmethod
     def merge_by_path_key(linkable_element_sets: Sequence[LinkableElementSet]) -> LinkableElementSet:
@@ -184,7 +180,7 @@ class LinkableElementSet(SemanticModelDerivation):
                         key=lambda linkable_dimension: (
                             linkable_dimension.semantic_model_origin.semantic_model_name
                             if linkable_dimension.defined_in_semantic_model
-                            else ""
+                            else linkable_dimension.join_path.left_semantic_model_reference.semantic_model_name
                         ),
                     )
                 )
@@ -355,6 +351,43 @@ class LinkableElementSet(SemanticModelDerivation):
 
         return specs
 
+    @override
+    @cached_property
+    def annotated_specs(self) -> Sequence[AnnotatedSpec]:
+        path_key_to_linkable_elements: dict[ElementPathKey, AnyLengthTuple[LinkableElement]] = {
+            **self.path_key_to_linkable_dimensions,
+            **self.path_key_to_linkable_entities,
+            **self.path_key_to_linkable_metrics,
+        }
+
+        annotated_specs = []
+
+        for path_key, linkable_elements in path_key_to_linkable_elements.items():
+            origin_model_ids: MutableOrderedSet[SemanticModelId] = MutableOrderedSet()
+            properties: MutableOrderedSet[LinkableElementProperty] = MutableOrderedSet()
+            derived_from_semantic_models: MutableOrderedSet[SemanticModelReference] = MutableOrderedSet()
+            for linkable_element in linkable_elements:
+                origin_model_ids.add(
+                    SemanticModelId.get_instance(linkable_element.semantic_model_origin.semantic_model_name)
+                )
+                properties.update(linkable_element.properties)
+                derived_from_semantic_models.update(linkable_element.derived_from_semantic_models)
+
+            annotated_specs.append(
+                AnnotatedSpec.create(
+                    element_type=path_key.element_type,
+                    element_name=path_key.element_name,
+                    entity_links=path_key.entity_links,
+                    time_grain=path_key.time_granularity,
+                    date_part=path_key.date_part,
+                    metric_subquery_entity_links=path_key.metric_subquery_entity_links,
+                    properties=properties,
+                    origin_model_ids=origin_model_ids,
+                    derived_from_semantic_models=derived_from_semantic_models,
+                )
+            )
+        return tuple(annotated_specs)
+
     @staticmethod
     def _path_key_to_spec(path_key: ElementPathKey) -> LinkableInstanceSpec:
         """Helper method to convert ElementPathKey instances to LinkableInstanceSpecs.
@@ -368,7 +401,6 @@ class LinkableElementSet(SemanticModelDerivation):
                 entity_links=path_key.entity_links,
             )
         elif path_key.element_type is LinkableElementType.TIME_DIMENSION:
-            assert path_key.time_granularity is not None
             return TimeDimensionSpec(
                 element_name=path_key.element_name,
                 entity_links=path_key.entity_links,
@@ -395,7 +427,7 @@ class LinkableElementSet(SemanticModelDerivation):
         Returns a new set consisting of the elements in the `LinkableElementSet` that have a corresponding spec that
         match all the given spec patterns.
         """
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         # Spec patterns need all specs to match properly e.g. `MinimumTimeGrainPattern`.
         matching_specs: Sequence[InstanceSpec] = self.specs
@@ -425,7 +457,9 @@ class LinkableElementSet(SemanticModelDerivation):
             path_key_to_linkable_entities=path_key_to_linkable_entities,
             path_key_to_linkable_metrics=path_key_to_linkable_metrics,
         )
-        logger.debug(LazyFormat(lambda: f"Filtering valid linkable elements took: {time.time() - start_time:.2f}s"))
+        logger.debug(
+            LazyFormat(lambda: f"Filtering valid linkable elements took: {time.perf_counter() - start_time:.2f}s")
+        )
         return filtered_elements
 
     def filter_by_left_semantic_model(
@@ -463,3 +497,16 @@ class LinkableElementSet(SemanticModelDerivation):
             path_key_to_linkable_entities=path_key_to_linkable_entities,
             path_key_to_linkable_metrics=path_key_to_linkable_metrics,
         )
+
+    @override
+    @property
+    def is_empty(self) -> bool:
+        return len(self.specs) == 0
+
+    @override
+    def intersection(self, *others: LinkableElementSet) -> LinkableElementSet:
+        return LinkableElementSet.intersection_by_path_key((self,) + others)
+
+    @override
+    def union(self, *others: LinkableElementSet) -> LinkableElementSet:
+        return LinkableElementSet.merge_by_path_key((self,) + others)

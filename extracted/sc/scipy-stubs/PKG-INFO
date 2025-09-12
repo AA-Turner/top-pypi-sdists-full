@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.16.1.1
+Version: 1.16.2.0
 Summary: Type annotations for SciPy
 Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
 Author: Joren Hammudoglu
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Stubs Only
 Requires-Dist: optype[numpy]>=0.13.4,<0.14
-Requires-Dist: scipy>=1.16.1,<1.17 ; extra == 'scipy'
+Requires-Dist: scipy>=1.16.2,<1.17 ; extra == 'scipy'
 Maintainer: Joren Hammudoglu, SciPy Developers
 Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>
 Requires-Python: >=3.11
@@ -32,49 +32,14 @@ Description-Content-Type: text/markdown
 
 # scipy-stubs
 
-Precise type hints for **all** of <a href="https://github.com/scipy/scipy">SciPy</a>.
+Reliable type annotations for <a href="https://github.com/scipy/scipy">SciPy</a>
 
-[![PyPI](https://img.shields.io/pypi/v/scipy-stubs?color=blue&style=flat-square)](https://pypi.org/project/scipy-stubs/)
-[![scipy-stubs - conda-forge](https://anaconda.org/conda-forge/scipy-stubs/badges/version.svg)](https://anaconda.org/conda-forge/scipy-stubs)
-![Python Versions](https://img.shields.io/pypi/pyversions/scipy-stubs?color=blue&style=flat-square)
-![license](https://img.shields.io/github/license/scipy/scipy-stubs?color=violet&style=flat-square)
-![PyPI Downloads](https://img.shields.io/pypi/dm/scipy-stubs?color=violet&style=flat-square)
+[![GitHub License](https://img.shields.io/github/license/scipy/scipy-stubs?style=flat-square&color=333)](https://github.com/scipy/scipy-stubs/blob/master/LICENSE)
+![Python Versions](https://img.shields.io/pypi/pyversions/scipy-stubs?style=flat-square&color=333)
+[![PyPI - Version](https://img.shields.io/pypi/v/scipy-stubs?style=flat-square&label=PyPI&color=333)](https://pypi.org/project/scipy-stubs/)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/scipy-stubs?style=flat-square&color=333)](https://anaconda.org/conda-forge/scipy-stubs)
 
-[![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![basedpyright](https://img.shields.io/badge/basedpyright-checked-42b983)](https://detachhead.github.io/basedpyright)
-[![pyright](https://microsoft.github.io/pyright/img/pyright_badge.svg)](https://github.com/microsoft/pyright)
-[![mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://github.com/python/mypy)
-![typed](https://img.shields.io/pypi/types/scipy-stubs?color=white)
-
-## Quick Start
-
-Install `scipy-stubs` and start getting better type hints immediately:
-
-```bash
-pip install scipy-stubs
-```
-
-That's it! Your IDE and type checker will now provide precise type information for SciPy functions:
-
-## Examples
-
-Prevent mistakes with precise type hints:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/e50eb3db-7cb5-41e7-a56b-a563e9bd28d6">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/7905d0ea-693c-4b5f-aaf9-4af0d11a520f">
-  <img alt="bug prevention demo" src="https://github.com/user-attachments/assets/7905d0ea-693c-4b5f-aaf9-4af0d11a520f">
-</picture>
-
-Accurate annotations for dtypes and shapes:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/c8a5d204-13ca-4fe8-8d83-95d55ca9b9df">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2170df07-3491-480e-985f-24494e7d5d3f">
-  <img alt="precise type inference demo" src="https://github.com/user-attachments/assets/2170df07-3491-480e-985f-24494e7d5d3f">
-</picture>
-
-## Why use scipy-stubs?
+## Features
 
 ### Enhanced Development Experience
 
@@ -92,7 +57,33 @@ Accurate annotations for dtypes and shapes:
 
 - **Array shape awareness**: Many functions include shape-type information for better array handling
 - **Generic types**: Comprehensive generic classes for sparse arrays, distributions, linear operators, and more
-- **Complete coverage**: Type hints are provided for the entire SciPy API
+- **Complete coverage**: Type annotations are provided for the entire SciPy API
+
+### Thoroughly Tested and Reliable
+
+- **stubtest validation**: Ensures all type annotations match the actual SciPy runtime behavior
+- **Comprehensive type-tests**: Validates type checker behavior with real-world usage patterns
+- **Regression testing**: Uses [mypy_primer][PRIMER] to test against popular open-source projects, preventing breaking changes
+
+[PRIMER]: https://github.com/hauntsaninja/mypy_primer
+
+## Examples
+
+### Accurate type hints for shapes and dtypes
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/c8a5d204-13ca-4fe8-8d83-95d55ca9b9df">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2170df07-3491-480e-985f-24494e7d5d3f">
+  <img alt="precise type inference demo" src="https://github.com/user-attachments/assets/2170df07-3491-480e-985f-24494e7d5d3f">
+</picture>
+
+### Prevent mistakes with precise type hints
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/e50eb3db-7cb5-41e7-a56b-a563e9bd28d6">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/7905d0ea-693c-4b5f-aaf9-4af0d11a520f">
+  <img alt="bug prevention demo" src="https://github.com/user-attachments/assets/7905d0ea-693c-4b5f-aaf9-4af0d11a520f">
+</picture>
 
 <!-- NOTE: SciPy permalinks to the following `#installation` anchor; don't modify it! -->
 
@@ -317,22 +308,36 @@ See the [CONTRIBUTING.md](https://github.com/scipy/scipy-stubs/blob/master/CONTR
 - [Artisan](https://github.com/artisan-roaster-scope/artisan)
 - [Arviz](https://github.com/arviz-devs/arviz)
 - [asammdf](https://github.com/danielhrisca/asammdf)
+- [Chemotools](https://github.com/paucablop/chemotools)
 - [Colour](https://github.com/colour-science/colour)
+- [Colour - Visuals](https://github.com/colour-science/colour-visuals)
 - [CSAPS](https://github.com/espdev/csaps)
+- [cuPyNumeric](https://github.com/nv-legate/cupynumeric)
 - [Efax](https://github.com/NeilGirdhar/efax)
 - [Fast GraphRAG](https://github.com/circlemind-ai/fast-graphrag)
 - [foamlib](https://github.com/gerlero/foamlib)
 - [Freqtrade](https://github.com/freqtrade/freqtrade)
+- [gurobi-logtools](https://github.com/Gurobi/gurobi-logtools)
+- [JAX](https://github.com/jax-ml/jax)
 - [librosa](https://github.com/librosa/librosa)
 - [Lmo](https://github.com/jorenham/Lmo)
 - [MouseTracks](https://github.com/huntfx/MouseTracks)
+- Mozilla ([mozanalysis](https://github.com/mozilla/mozanalysis))
 - [mypy_primer](https://github.com/hauntsaninja/mypy_primer)
+- [Namer](https://github.com/ThePornDatabase/namer)
 - [NeuroGym](https://github.com/neurogym/neurogym)
 - [Optuna](https://github.com/optuna/optuna)
+- [pandas-stubs](https://github.com/pandas-dev/pandas-stubs)
+- [Pandera](https://github.com/unionai-oss/pandera)
+- [ProgressiVis](https://github.com/progressivis/progressivis)
+- [pysmo](https://github.com/pysmo/pysmo)
+- [PyTensor](https://github.com/pymc-devs/pytensor)
 - [radioactivedecay](https://github.com/radioactivedecay/radioactivedecay)
 - [Scanpy](https://github.com/scverse/scanpy)
 - [TQEC](https://github.com/tqec/tqec)
+- [traccuracy](https://github.com/live-image-tracking-tools/traccuracy)
 - [Ultralytics](https://github.com/ultralytics/ultralytics)
+- Vega ([Altair](https://github.com/vega/altair))
 - [Voctomix](https://github.com/voc/voctomix)
 - [xarray](https://github.com/pydata/xarray)
 

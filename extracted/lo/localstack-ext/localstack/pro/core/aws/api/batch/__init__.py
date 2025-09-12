@@ -105,8 +105,16 @@ class JobDefinitionType(StrEnum):
     multinode = "multinode"
 
 
+class JobQueueType(StrEnum):
+    EKS = "EKS"
+    ECS = "ECS"
+    ECS_FARGATE = "ECS_FARGATE"
+    SAGEMAKER_TRAINING = "SAGEMAKER_TRAINING"
+
+
 class JobStateTimeLimitActionsAction(StrEnum):
     CANCEL = "CANCEL"
+    TERMINATE = "TERMINATE"
 
 
 class JobStateTimeLimitActionsState(StrEnum):
@@ -153,6 +161,48 @@ class ResourceType(StrEnum):
 class RetryAction(StrEnum):
     RETRY = "RETRY"
     EXIT = "EXIT"
+
+
+class ServiceEnvironmentState(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class ServiceEnvironmentStatus(StrEnum):
+    CREATING = "CREATING"
+    UPDATING = "UPDATING"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
+    VALID = "VALID"
+    INVALID = "INVALID"
+
+
+class ServiceEnvironmentType(StrEnum):
+    SAGEMAKER_TRAINING = "SAGEMAKER_TRAINING"
+
+
+class ServiceJobRetryAction(StrEnum):
+    RETRY = "RETRY"
+    EXIT = "EXIT"
+
+
+class ServiceJobStatus(StrEnum):
+    SUBMITTED = "SUBMITTED"
+    PENDING = "PENDING"
+    RUNNABLE = "RUNNABLE"
+    SCHEDULED = "SCHEDULED"
+    STARTING = "STARTING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
+class ServiceJobType(StrEnum):
+    SAGEMAKER_TRAINING = "SAGEMAKER_TRAINING"
+
+
+class ServiceResourceIdName(StrEnum):
+    TrainingJobArn = "TrainingJobArn"
 
 
 class UserdataType(StrEnum):
@@ -281,6 +331,19 @@ class CancelJobResponse(TypedDict, total=False):
     pass
 
 
+class CapacityLimit(TypedDict, total=False):
+    """Defines the capacity limit for a service environment. This structure
+    specifies the maximum amount of resources that can be used by service
+    jobs in the environment.
+    """
+
+    maxCapacity: Optional[Integer]
+    capacityUnit: Optional[String]
+
+
+CapacityLimits = List[CapacityLimit]
+
+
 class EksConfiguration(TypedDict, total=False):
     """Configuration for the Amazon EKS cluster that supports the Batch compute
     environment. The cluster must exist before the compute environment can
@@ -379,52 +442,50 @@ class LaunchTemplateSpecification(TypedDict, total=False):
 
 
 TagsMap = Dict[String, String]
-ComputeResource = TypedDict(
-    "ComputeResource",
-    {
-        "type": CRType,
-        "allocationStrategy": Optional[CRAllocationStrategy],
-        "minvCpus": Optional[Integer],
-        "maxvCpus": Integer,
-        "desiredvCpus": Optional[Integer],
-        "instanceTypes": Optional[StringList],
-        "imageId": Optional[String],
-        "subnets": StringList,
-        "securityGroupIds": Optional[StringList],
-        "ec2KeyPair": Optional[String],
-        "instanceRole": Optional[String],
-        "tags": Optional[TagsMap],
-        "placementGroup": Optional[String],
-        "bidPercentage": Optional[Integer],
-        "spotIamFleetRole": Optional[String],
-        "launchTemplate": Optional[LaunchTemplateSpecification],
-        "ec2Configuration": Optional[Ec2ConfigurationList],
-    },
-    total=False,
-)
+
+
+class ComputeResource(TypedDict, total=False):
+    type: CRType
+    allocationStrategy: Optional[CRAllocationStrategy]
+    minvCpus: Optional[Integer]
+    maxvCpus: Integer
+    desiredvCpus: Optional[Integer]
+    instanceTypes: Optional[StringList]
+    imageId: Optional[String]
+    subnets: StringList
+    securityGroupIds: Optional[StringList]
+    ec2KeyPair: Optional[String]
+    instanceRole: Optional[String]
+    tags: Optional[TagsMap]
+    placementGroup: Optional[String]
+    bidPercentage: Optional[Integer]
+    spotIamFleetRole: Optional[String]
+    launchTemplate: Optional[LaunchTemplateSpecification]
+    ec2Configuration: Optional[Ec2ConfigurationList]
+
+
 TagrisTagsMap = Dict[TagKey, TagValue]
-ComputeEnvironmentDetail = TypedDict(
-    "ComputeEnvironmentDetail",
-    {
-        "computeEnvironmentName": String,
-        "computeEnvironmentArn": String,
-        "unmanagedvCpus": Optional[Integer],
-        "ecsClusterArn": Optional[String],
-        "tags": Optional[TagrisTagsMap],
-        "type": Optional[CEType],
-        "state": Optional[CEState],
-        "status": Optional[CEStatus],
-        "statusReason": Optional[String],
-        "computeResources": Optional[ComputeResource],
-        "serviceRole": Optional[String],
-        "updatePolicy": Optional[UpdatePolicy],
-        "eksConfiguration": Optional[EksConfiguration],
-        "containerOrchestrationType": Optional[OrchestrationType],
-        "uuid": Optional[String],
-        "context": Optional[String],
-    },
-    total=False,
-)
+
+
+class ComputeEnvironmentDetail(TypedDict, total=False):
+    computeEnvironmentName: String
+    computeEnvironmentArn: String
+    unmanagedvCpus: Optional[Integer]
+    ecsClusterArn: Optional[String]
+    tags: Optional[TagrisTagsMap]
+    type: Optional[CEType]
+    state: Optional[CEState]
+    status: Optional[CEStatus]
+    statusReason: Optional[String]
+    computeResources: Optional[ComputeResource]
+    serviceRole: Optional[String]
+    updatePolicy: Optional[UpdatePolicy]
+    eksConfiguration: Optional[EksConfiguration]
+    containerOrchestrationType: Optional[OrchestrationType]
+    uuid: Optional[String]
+    context: Optional[String]
+
+
 ComputeEnvironmentDetailList = List[ComputeEnvironmentDetail]
 
 
@@ -449,29 +510,26 @@ class ComputeEnvironmentOrder(TypedDict, total=False):
 
 
 ComputeEnvironmentOrders = List[ComputeEnvironmentOrder]
-ComputeResourceUpdate = TypedDict(
-    "ComputeResourceUpdate",
-    {
-        "minvCpus": Optional[Integer],
-        "maxvCpus": Optional[Integer],
-        "desiredvCpus": Optional[Integer],
-        "subnets": Optional[StringList],
-        "securityGroupIds": Optional[StringList],
-        "allocationStrategy": Optional[CRUpdateAllocationStrategy],
-        "instanceTypes": Optional[StringList],
-        "ec2KeyPair": Optional[String],
-        "instanceRole": Optional[String],
-        "tags": Optional[TagsMap],
-        "placementGroup": Optional[String],
-        "bidPercentage": Optional[Integer],
-        "launchTemplate": Optional[LaunchTemplateSpecification],
-        "ec2Configuration": Optional[Ec2ConfigurationList],
-        "updateToLatestImageVersion": Optional[Boolean],
-        "type": Optional[CRType],
-        "imageId": Optional[String],
-    },
-    total=False,
-)
+
+
+class ComputeResourceUpdate(TypedDict, total=False):
+    minvCpus: Optional[Integer]
+    maxvCpus: Optional[Integer]
+    desiredvCpus: Optional[Integer]
+    subnets: Optional[StringList]
+    securityGroupIds: Optional[StringList]
+    allocationStrategy: Optional[CRUpdateAllocationStrategy]
+    instanceTypes: Optional[StringList]
+    ec2KeyPair: Optional[String]
+    instanceRole: Optional[String]
+    tags: Optional[TagsMap]
+    placementGroup: Optional[String]
+    bidPercentage: Optional[Integer]
+    launchTemplate: Optional[LaunchTemplateSpecification]
+    ec2Configuration: Optional[Ec2ConfigurationList]
+    updateToLatestImageVersion: Optional[Boolean]
+    type: Optional[CRType]
+    imageId: Optional[String]
 
 
 class ConsumableResourceRequirement(TypedDict, total=False):
@@ -622,14 +680,11 @@ class LinuxParameters(TypedDict, total=False):
     swappiness: Optional[Integer]
 
 
-ResourceRequirement = TypedDict(
-    "ResourceRequirement",
-    {
-        "value": String,
-        "type": ResourceType,
-    },
-    total=False,
-)
+class ResourceRequirement(TypedDict, total=False):
+    value: String
+    type: ResourceType
+
+
 ResourceRequirements = List[ResourceRequirement]
 
 
@@ -811,21 +866,16 @@ class ContainerSummary(TypedDict, total=False):
     reason: Optional[String]
 
 
-CreateComputeEnvironmentRequest = TypedDict(
-    "CreateComputeEnvironmentRequest",
-    {
-        "computeEnvironmentName": String,
-        "type": CEType,
-        "state": Optional[CEState],
-        "unmanagedvCpus": Optional[Integer],
-        "computeResources": Optional[ComputeResource],
-        "serviceRole": Optional[String],
-        "tags": Optional[TagrisTagsMap],
-        "eksConfiguration": Optional[EksConfiguration],
-        "context": Optional[String],
-    },
-    total=False,
-)
+class CreateComputeEnvironmentRequest(TypedDict, total=False):
+    computeEnvironmentName: String
+    type: CEType
+    state: Optional[CEState]
+    unmanagedvCpus: Optional[Integer]
+    computeResources: Optional[ComputeResource]
+    serviceRole: Optional[String]
+    tags: Optional[TagrisTagsMap]
+    eksConfiguration: Optional[EksConfiguration]
+    context: Optional[String]
 
 
 class CreateComputeEnvironmentResponse(TypedDict, total=False):
@@ -860,6 +910,19 @@ class JobStateTimeLimitAction(TypedDict, total=False):
 JobStateTimeLimitActions = List[JobStateTimeLimitAction]
 
 
+class ServiceEnvironmentOrder(TypedDict, total=False):
+    """Specifies the order of a service environment for a job queue. This
+    determines the priority order when multiple service environments are
+    associated with the same job queue.
+    """
+
+    order: Integer
+    serviceEnvironment: String
+
+
+ServiceEnvironmentOrders = List[ServiceEnvironmentOrder]
+
+
 class CreateJobQueueRequest(ServiceRequest):
     """Contains the parameters for ``CreateJobQueue``."""
 
@@ -867,7 +930,9 @@ class CreateJobQueueRequest(ServiceRequest):
     state: Optional[JQState]
     schedulingPolicyArn: Optional[String]
     priority: Integer
-    computeEnvironmentOrder: ComputeEnvironmentOrders
+    computeEnvironmentOrder: Optional[ComputeEnvironmentOrders]
+    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
+    jobQueueType: Optional[JobQueueType]
     tags: Optional[TagrisTagsMap]
     jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
 
@@ -911,6 +976,19 @@ class CreateSchedulingPolicyResponse(TypedDict, total=False):
     arn: String
 
 
+class CreateServiceEnvironmentRequest(ServiceRequest):
+    serviceEnvironmentName: String
+    serviceEnvironmentType: ServiceEnvironmentType
+    state: Optional[ServiceEnvironmentState]
+    capacityLimits: CapacityLimits
+    tags: Optional[TagrisTagsMap]
+
+
+class CreateServiceEnvironmentResponse(TypedDict, total=False):
+    serviceEnvironmentName: String
+    serviceEnvironmentArn: String
+
+
 class DeleteComputeEnvironmentRequest(ServiceRequest):
     """Contains the parameters for ``DeleteComputeEnvironment``."""
 
@@ -946,6 +1024,14 @@ class DeleteSchedulingPolicyRequest(ServiceRequest):
 
 
 class DeleteSchedulingPolicyResponse(TypedDict, total=False):
+    pass
+
+
+class DeleteServiceEnvironmentRequest(ServiceRequest):
+    serviceEnvironment: String
+
+
+class DeleteServiceEnvironmentResponse(TypedDict, total=False):
     pass
 
 
@@ -1190,14 +1276,11 @@ class EksProperties(TypedDict, total=False):
 
 
 FirelensConfigurationOptionsMap = Dict[String, String]
-FirelensConfiguration = TypedDict(
-    "FirelensConfiguration",
-    {
-        "type": FirelensConfigurationType,
-        "options": Optional[FirelensConfigurationOptionsMap],
-    },
-    total=False,
-)
+
+
+class FirelensConfiguration(TypedDict, total=False):
+    type: FirelensConfigurationType
+    options: Optional[FirelensConfigurationOptionsMap]
 
 
 class TaskContainerDependency(TypedDict, total=False):
@@ -1334,30 +1417,29 @@ class RetryStrategy(TypedDict, total=False):
 
 
 ParametersMap = Dict[String, String]
-JobDefinition = TypedDict(
-    "JobDefinition",
-    {
-        "jobDefinitionName": String,
-        "jobDefinitionArn": String,
-        "revision": Integer,
-        "status": Optional[String],
-        "type": String,
-        "schedulingPriority": Optional[Integer],
-        "parameters": Optional[ParametersMap],
-        "retryStrategy": Optional[RetryStrategy],
-        "containerProperties": Optional[ContainerProperties],
-        "timeout": Optional[JobTimeout],
-        "nodeProperties": Optional[NodeProperties],
-        "tags": Optional[TagrisTagsMap],
-        "propagateTags": Optional[Boolean],
-        "platformCapabilities": Optional[PlatformCapabilityList],
-        "ecsProperties": Optional[EcsProperties],
-        "eksProperties": Optional[EksProperties],
-        "containerOrchestrationType": Optional[OrchestrationType],
-        "consumableResourceProperties": Optional[ConsumableResourceProperties],
-    },
-    total=False,
-)
+
+
+class JobDefinition(TypedDict, total=False):
+    jobDefinitionName: String
+    jobDefinitionArn: String
+    revision: Integer
+    status: Optional[String]
+    type: String
+    schedulingPriority: Optional[Integer]
+    parameters: Optional[ParametersMap]
+    retryStrategy: Optional[RetryStrategy]
+    containerProperties: Optional[ContainerProperties]
+    timeout: Optional[JobTimeout]
+    nodeProperties: Optional[NodeProperties]
+    tags: Optional[TagrisTagsMap]
+    propagateTags: Optional[Boolean]
+    platformCapabilities: Optional[PlatformCapabilityList]
+    ecsProperties: Optional[EcsProperties]
+    eksProperties: Optional[EksProperties]
+    containerOrchestrationType: Optional[OrchestrationType]
+    consumableResourceProperties: Optional[ConsumableResourceProperties]
+
+
 JobDefinitionList = List[JobDefinition]
 
 
@@ -1385,6 +1467,8 @@ class JobQueueDetail(TypedDict, total=False):
     statusReason: Optional[String]
     priority: Integer
     computeEnvironmentOrder: ComputeEnvironmentOrders
+    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
+    jobQueueType: Optional[JobQueueType]
     tags: Optional[TagrisTagsMap]
     jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
 
@@ -1548,14 +1632,11 @@ class NodeDetails(TypedDict, total=False):
     isMainNode: Optional[Boolean]
 
 
-JobDependency = TypedDict(
-    "JobDependency",
-    {
-        "jobId": Optional[String],
-        "type": Optional[ArrayJobDependency],
-    },
-    total=False,
-)
+class JobDependency(TypedDict, total=False):
+    jobId: Optional[String]
+    type: Optional[ArrayJobDependency]
+
+
 JobDependencyList = List[JobDependency]
 
 
@@ -1621,6 +1702,118 @@ SchedulingPolicyDetailList = List[SchedulingPolicyDetail]
 
 class DescribeSchedulingPoliciesResponse(TypedDict, total=False):
     schedulingPolicies: Optional[SchedulingPolicyDetailList]
+
+
+class DescribeServiceEnvironmentsRequest(ServiceRequest):
+    serviceEnvironments: Optional[StringList]
+    maxResults: Optional[Integer]
+    nextToken: Optional[String]
+
+
+class ServiceEnvironmentDetail(TypedDict, total=False):
+    """Detailed information about a service environment, including its
+    configuration, state, and capacity limits.
+    """
+
+    serviceEnvironmentName: String
+    serviceEnvironmentArn: String
+    serviceEnvironmentType: ServiceEnvironmentType
+    state: Optional[ServiceEnvironmentState]
+    status: Optional[ServiceEnvironmentStatus]
+    capacityLimits: CapacityLimits
+    tags: Optional[TagrisTagsMap]
+
+
+ServiceEnvironmentDetailList = List[ServiceEnvironmentDetail]
+
+
+class DescribeServiceEnvironmentsResponse(TypedDict, total=False):
+    serviceEnvironments: Optional[ServiceEnvironmentDetailList]
+    nextToken: Optional[String]
+
+
+class DescribeServiceJobRequest(ServiceRequest):
+    jobId: String
+
+
+class ServiceJobTimeout(TypedDict, total=False):
+    """The timeout configuration for service jobs."""
+
+    attemptDurationSeconds: Optional[Integer]
+
+
+class ServiceJobEvaluateOnExit(TypedDict, total=False):
+    """Specifies conditions for when to exit or retry a service job based on
+    the exit status or status reason.
+    """
+
+    action: Optional[ServiceJobRetryAction]
+    onStatusReason: Optional[String]
+
+
+ServiceJobEvaluateOnExitList = List[ServiceJobEvaluateOnExit]
+
+
+class ServiceJobRetryStrategy(TypedDict, total=False):
+    """The retry strategy for service jobs. This defines how many times to
+    retry a failed service job and under what conditions. For more
+    information, see `Service job retry
+    strategies <https://docs.aws.amazon.com/batch/latest/userguide/service-job-retries.html>`__
+    in the *Batch User Guide*.
+    """
+
+    attempts: Integer
+    evaluateOnExit: Optional[ServiceJobEvaluateOnExitList]
+
+
+class ServiceResourceId(TypedDict, total=False):
+    """The Batch unique identifier."""
+
+    name: ServiceResourceIdName
+    value: String
+
+
+class LatestServiceJobAttempt(TypedDict, total=False):
+    """Information about the latest attempt of a service job. A Service job can
+    transition from ``SCHEDULED`` back to ``RUNNABLE`` state when they
+    encounter capacity constraints.
+    """
+
+    serviceResourceId: Optional[ServiceResourceId]
+
+
+class ServiceJobAttemptDetail(TypedDict, total=False):
+    """Detailed information about an attempt to run a service job."""
+
+    serviceResourceId: Optional[ServiceResourceId]
+    startedAt: Optional[Long]
+    stoppedAt: Optional[Long]
+    statusReason: Optional[String]
+
+
+ServiceJobAttemptDetails = List[ServiceJobAttemptDetail]
+
+
+class DescribeServiceJobResponse(TypedDict, total=False):
+    attempts: Optional[ServiceJobAttemptDetails]
+    createdAt: Optional[Long]
+    isTerminated: Optional[Boolean]
+    jobArn: Optional[String]
+    jobId: String
+    jobName: String
+    jobQueue: String
+    latestAttempt: Optional[LatestServiceJobAttempt]
+    retryStrategy: Optional[ServiceJobRetryStrategy]
+    schedulingPriority: Optional[Integer]
+    serviceRequestPayload: Optional[String]
+    serviceJobType: ServiceJobType
+    shareIdentifier: Optional[String]
+    startedAt: Long
+    status: ServiceJobStatus
+    statusReason: Optional[String]
+    stoppedAt: Optional[Long]
+    tags: Optional[TagrisTagsMap]
+    timeoutConfig: Optional[ServiceJobTimeout]
 
 
 class TaskContainerOverrides(TypedDict, total=False):
@@ -1851,6 +2044,38 @@ class ListSchedulingPoliciesResponse(TypedDict, total=False):
     nextToken: Optional[String]
 
 
+class ListServiceJobsRequest(ServiceRequest):
+    jobQueue: Optional[String]
+    jobStatus: Optional[ServiceJobStatus]
+    maxResults: Optional[Integer]
+    nextToken: Optional[String]
+    filters: Optional[ListJobsFilterList]
+
+
+class ServiceJobSummary(TypedDict, total=False):
+    """Summary information about a service job."""
+
+    latestAttempt: Optional[LatestServiceJobAttempt]
+    createdAt: Optional[Long]
+    jobArn: Optional[String]
+    jobId: String
+    jobName: String
+    serviceJobType: ServiceJobType
+    shareIdentifier: Optional[String]
+    status: Optional[ServiceJobStatus]
+    statusReason: Optional[String]
+    startedAt: Optional[Long]
+    stoppedAt: Optional[Long]
+
+
+ServiceJobSummaryList = List[ServiceJobSummary]
+
+
+class ListServiceJobsResponse(TypedDict, total=False):
+    jobSummaryList: ServiceJobSummaryList
+    nextToken: Optional[String]
+
+
 class ListTagsForResourceRequest(ServiceRequest):
     """Contains the parameters for ``ListTagsForResource``."""
 
@@ -1894,26 +2119,21 @@ class NodeOverrides(TypedDict, total=False):
     nodePropertyOverrides: Optional[NodePropertyOverrides]
 
 
-RegisterJobDefinitionRequest = TypedDict(
-    "RegisterJobDefinitionRequest",
-    {
-        "jobDefinitionName": String,
-        "type": JobDefinitionType,
-        "parameters": Optional[ParametersMap],
-        "schedulingPriority": Optional[Integer],
-        "containerProperties": Optional[ContainerProperties],
-        "nodeProperties": Optional[NodeProperties],
-        "retryStrategy": Optional[RetryStrategy],
-        "propagateTags": Optional[Boolean],
-        "timeout": Optional[JobTimeout],
-        "tags": Optional[TagrisTagsMap],
-        "platformCapabilities": Optional[PlatformCapabilityList],
-        "eksProperties": Optional[EksProperties],
-        "ecsProperties": Optional[EcsProperties],
-        "consumableResourceProperties": Optional[ConsumableResourceProperties],
-    },
-    total=False,
-)
+class RegisterJobDefinitionRequest(TypedDict, total=False):
+    jobDefinitionName: String
+    type: JobDefinitionType
+    parameters: Optional[ParametersMap]
+    schedulingPriority: Optional[Integer]
+    containerProperties: Optional[ContainerProperties]
+    nodeProperties: Optional[NodeProperties]
+    retryStrategy: Optional[RetryStrategy]
+    propagateTags: Optional[Boolean]
+    timeout: Optional[JobTimeout]
+    tags: Optional[TagrisTagsMap]
+    platformCapabilities: Optional[PlatformCapabilityList]
+    eksProperties: Optional[EksProperties]
+    ecsProperties: Optional[EcsProperties]
+    consumableResourceProperties: Optional[ConsumableResourceProperties]
 
 
 class RegisterJobDefinitionResponse(TypedDict, total=False):
@@ -1950,6 +2170,25 @@ class SubmitJobResponse(TypedDict, total=False):
     jobId: String
 
 
+class SubmitServiceJobRequest(ServiceRequest):
+    jobName: String
+    jobQueue: String
+    retryStrategy: Optional[ServiceJobRetryStrategy]
+    schedulingPriority: Optional[Integer]
+    serviceRequestPayload: String
+    serviceJobType: ServiceJobType
+    shareIdentifier: Optional[String]
+    timeoutConfig: Optional[ServiceJobTimeout]
+    tags: Optional[TagrisTagsMap]
+    clientToken: Optional[ClientRequestToken]
+
+
+class SubmitServiceJobResponse(TypedDict, total=False):
+    jobArn: Optional[String]
+    jobName: String
+    jobId: String
+
+
 TagKeysList = List[TagKey]
 
 
@@ -1972,6 +2211,15 @@ class TerminateJobRequest(ServiceRequest):
 
 
 class TerminateJobResponse(TypedDict, total=False):
+    pass
+
+
+class TerminateServiceJobRequest(ServiceRequest):
+    jobId: String
+    reason: String
+
+
+class TerminateServiceJobResponse(TypedDict, total=False):
     pass
 
 
@@ -2024,6 +2272,7 @@ class UpdateJobQueueRequest(ServiceRequest):
     schedulingPolicyArn: Optional[String]
     priority: Optional[Integer]
     computeEnvironmentOrder: Optional[ComputeEnvironmentOrders]
+    serviceEnvironmentOrder: Optional[ServiceEnvironmentOrders]
     jobStateTimeLimitActions: Optional[JobStateTimeLimitActions]
 
 
@@ -2041,6 +2290,17 @@ class UpdateSchedulingPolicyRequest(ServiceRequest):
 
 class UpdateSchedulingPolicyResponse(TypedDict, total=False):
     pass
+
+
+class UpdateServiceEnvironmentRequest(ServiceRequest):
+    serviceEnvironment: String
+    state: Optional[ServiceEnvironmentState]
+    capacityLimits: Optional[CapacityLimits]
+
+
+class UpdateServiceEnvironmentResponse(TypedDict, total=False):
+    serviceEnvironmentName: String
+    serviceEnvironmentArn: String
 
 
 class BatchApi:
@@ -2226,9 +2486,11 @@ class BatchApi:
         context: RequestContext,
         job_queue_name: String,
         priority: Integer,
-        compute_environment_order: ComputeEnvironmentOrders,
         state: JQState | None = None,
         scheduling_policy_arn: String | None = None,
+        compute_environment_order: ComputeEnvironmentOrders | None = None,
+        service_environment_order: ServiceEnvironmentOrders | None = None,
+        job_queue_type: JobQueueType | None = None,
         tags: TagrisTagsMap | None = None,
         job_state_time_limit_actions: JobStateTimeLimitActions | None = None,
         **kwargs,
@@ -2245,10 +2507,13 @@ class BatchApi:
 
         :param job_queue_name: The name of the job queue.
         :param priority: The priority of the job queue.
-        :param compute_environment_order: The set of compute environments mapped to a job queue and their order
-        relative to each other.
         :param state: The state of the job queue.
         :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the fair-share scheduling policy.
+        :param compute_environment_order: The set of compute environments mapped to a job queue and their order
+        relative to each other.
+        :param service_environment_order: A list of service environments that this job queue can use to allocate
+        jobs.
+        :param job_queue_type: The type of job queue.
         :param tags: The tags that you apply to the job queue to help you categorize and
         organize your resources.
         :param job_state_time_limit_actions: The set of actions that Batch performs on jobs that remain at the head
@@ -2275,6 +2540,33 @@ class BatchApi:
         :param tags: The tags that you apply to the scheduling policy to help you categorize
         and organize your resources.
         :returns: CreateSchedulingPolicyResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateServiceEnvironment")
+    def create_service_environment(
+        self,
+        context: RequestContext,
+        service_environment_name: String,
+        service_environment_type: ServiceEnvironmentType,
+        capacity_limits: CapacityLimits,
+        state: ServiceEnvironmentState | None = None,
+        tags: TagrisTagsMap | None = None,
+        **kwargs,
+    ) -> CreateServiceEnvironmentResponse:
+        """Creates a service environment for running service jobs. Service
+        environments define capacity limits for specific service types such as
+        SageMaker Training jobs.
+
+        :param service_environment_name: The name for the service environment.
+        :param service_environment_type: The type of service environment.
+        :param capacity_limits: The capacity limits for the service environment.
+        :param state: The state of the service environment.
+        :param tags: The tags that you apply to the service environment to help you
+        categorize and organize your resources.
+        :returns: CreateServiceEnvironmentResponse
         :raises ClientException:
         :raises ServerException:
         """
@@ -2345,6 +2637,22 @@ class BatchApi:
 
         :param arn: The Amazon Resource Name (ARN) of the scheduling policy to delete.
         :returns: DeleteSchedulingPolicyResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteServiceEnvironment")
+    def delete_service_environment(
+        self, context: RequestContext, service_environment: String, **kwargs
+    ) -> DeleteServiceEnvironmentResponse:
+        """Deletes a Service environment. Before you can delete a service
+        environment, you must first set its state to ``DISABLED`` with the
+        ``UpdateServiceEnvironment`` API operation and disassociate it from any
+        job queues with the ``UpdateJobQueue`` API operation.
+
+        :param service_environment: The name or ARN of the service environment to delete.
+        :returns: DeleteServiceEnvironmentResponse
         :raises ClientException:
         :raises ServerException:
         """
@@ -2487,6 +2795,42 @@ class BatchApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeServiceEnvironments")
+    def describe_service_environments(
+        self,
+        context: RequestContext,
+        service_environments: StringList | None = None,
+        max_results: Integer | None = None,
+        next_token: String | None = None,
+        **kwargs,
+    ) -> DescribeServiceEnvironmentsResponse:
+        """Describes one or more of your service environments.
+
+        :param service_environments: An array of service environment names or ARN entries.
+        :param max_results: The maximum number of results returned by
+        ``DescribeServiceEnvironments`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated
+        ``DescribeServiceEnvironments`` request where ``maxResults`` was used
+        and the results exceeded the value of that parameter.
+        :returns: DescribeServiceEnvironmentsResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeServiceJob")
+    def describe_service_job(
+        self, context: RequestContext, job_id: String, **kwargs
+    ) -> DescribeServiceJobResponse:
+        """The details of a service job.
+
+        :param job_id: The job ID for the service job to describe.
+        :returns: DescribeServiceJobResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("GetJobQueueSnapshot")
     def get_job_queue_snapshot(
         self, context: RequestContext, job_queue: String, **kwargs
@@ -2610,6 +2954,33 @@ class BatchApi:
         ``ListSchedulingPolicies`` request where ``maxResults`` was used and the
         results exceeded the value of that parameter.
         :returns: ListSchedulingPoliciesResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("ListServiceJobs")
+    def list_service_jobs(
+        self,
+        context: RequestContext,
+        job_queue: String | None = None,
+        job_status: ServiceJobStatus | None = None,
+        max_results: Integer | None = None,
+        next_token: String | None = None,
+        filters: ListJobsFilterList | None = None,
+        **kwargs,
+    ) -> ListServiceJobsResponse:
+        """Returns a list of service jobs for a specified job queue.
+
+        :param job_queue: The name or ARN of the job queue with which to list service jobs.
+        :param job_status: The job status with which to filter service jobs.
+        :param max_results: The maximum number of results returned by ``ListServiceJobs`` in
+        paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated
+        ``ListServiceJobs`` request where ``maxResults`` was used and the
+        results exceeded the value of that parameter.
+        :param filters: The filter to apply to the query.
+        :returns: ListServiceJobsResponse
         :raises ClientException:
         :raises ServerException:
         """
@@ -2739,6 +3110,44 @@ class BatchApi:
         """
         raise NotImplementedError
 
+    @handler("SubmitServiceJob")
+    def submit_service_job(
+        self,
+        context: RequestContext,
+        job_name: String,
+        job_queue: String,
+        service_request_payload: String,
+        service_job_type: ServiceJobType,
+        retry_strategy: ServiceJobRetryStrategy | None = None,
+        scheduling_priority: Integer | None = None,
+        share_identifier: String | None = None,
+        timeout_config: ServiceJobTimeout | None = None,
+        tags: TagrisTagsMap | None = None,
+        client_token: ClientRequestToken | None = None,
+        **kwargs,
+    ) -> SubmitServiceJobResponse:
+        """Submits a service job to a specified job queue to run on SageMaker AI. A
+        service job is a unit of work that you submit to Batch for execution on
+        SageMaker AI.
+
+        :param job_name: The name of the service job.
+        :param job_queue: The job queue into which the service job is submitted.
+        :param service_request_payload: The request, in JSON, for the service that the SubmitServiceJob
+        operation is queueing.
+        :param service_job_type: The type of service job.
+        :param retry_strategy: The retry strategy to use for failed service jobs that are submitted
+        with this service job request.
+        :param scheduling_priority: The scheduling priority of the service job.
+        :param share_identifier: The share identifier for the service job.
+        :param timeout_config: The timeout configuration for the service job.
+        :param tags: The tags that you apply to the service job request.
+        :param client_token: A unique identifier for the request.
+        :returns: SubmitServiceJobResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("TagResource")
     def tag_resource(
         self, context: RequestContext, resource_arn: String, tags: TagrisTagsMap, **kwargs
@@ -2773,6 +3182,21 @@ class BatchApi:
         :param reason: A message to attach to the job that explains the reason for canceling
         it.
         :returns: TerminateJobResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("TerminateServiceJob")
+    def terminate_service_job(
+        self, context: RequestContext, job_id: String, reason: String, **kwargs
+    ) -> TerminateServiceJobResponse:
+        """Terminates a service job in a job queue.
+
+        :param job_id: The service job ID of the service job to terminate.
+        :param reason: A message to attach to the service job that explains the reason for
+        canceling it.
+        :returns: TerminateServiceJobResponse
         :raises ClientException:
         :raises ServerException:
         """
@@ -2833,7 +3257,7 @@ class BatchApi:
         :param quantity: The change in the total quantity of the consumable resource.
         :param client_token: If this parameter is specified and two update requests with identical
         payloads and ``clientToken`` s are received, these requests are
-        considered the same request and the second request is rejected.
+        considered the same request.
         :returns: UpdateConsumableResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -2849,6 +3273,7 @@ class BatchApi:
         scheduling_policy_arn: String | None = None,
         priority: Integer | None = None,
         compute_environment_order: ComputeEnvironmentOrders | None = None,
+        service_environment_order: ServiceEnvironmentOrders | None = None,
         job_state_time_limit_actions: JobStateTimeLimitActions | None = None,
         **kwargs,
     ) -> UpdateJobQueueResponse:
@@ -2860,6 +3285,7 @@ class BatchApi:
         :param priority: The priority of the job queue.
         :param compute_environment_order: Details the set of compute environments mapped to a job queue and their
         order relative to each other.
+        :param service_environment_order: The order of the service environment associated with the job queue.
         :param job_state_time_limit_actions: The set of actions that Batch perform on jobs that remain at the head of
         the job queue in the specified state longer than specified times.
         :returns: UpdateJobQueueResponse
@@ -2881,6 +3307,28 @@ class BatchApi:
         :param arn: The Amazon Resource Name (ARN) of the scheduling policy to update.
         :param fairshare_policy: The fair-share policy scheduling details.
         :returns: UpdateSchedulingPolicyResponse
+        :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateServiceEnvironment")
+    def update_service_environment(
+        self,
+        context: RequestContext,
+        service_environment: String,
+        state: ServiceEnvironmentState | None = None,
+        capacity_limits: CapacityLimits | None = None,
+        **kwargs,
+    ) -> UpdateServiceEnvironmentResponse:
+        """Updates a service environment. You can update the state of a service
+        environment from ``ENABLED`` to ``DISABLED`` to prevent new service jobs
+        from being placed in the service environment.
+
+        :param service_environment: The name or ARN of the service environment to update.
+        :param state: The state of the service environment.
+        :param capacity_limits: The capacity limits for the service environment.
+        :returns: UpdateServiceEnvironmentResponse
         :raises ClientException:
         :raises ServerException:
         """

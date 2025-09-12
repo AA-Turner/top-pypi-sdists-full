@@ -18,7 +18,7 @@ Usage example:
                 ),
             ),
         ),
-        Property("ratio", NumberType, examples=[0.25, 0.75, 1.0]),
+        Property("ratio", DecimalType, examples=[0.25, 0.75, 1.0]),
         Property("days_active", IntegerType),
         Property("updated_on", DateTimeType),
         Property("is_deleted", BooleanType),
@@ -55,8 +55,7 @@ from __future__ import annotations
 import json
 import typing as t
 
-import sqlalchemy.types
-from jsonschema import ValidationError, validators
+from jsonschema import validators
 
 from singer_sdk.helpers._compat import SingerSDKDeprecationWarning, deprecated
 from singer_sdk.helpers._typing import (
@@ -67,15 +66,9 @@ from singer_sdk.helpers._typing import (
 )
 
 if t.TYPE_CHECKING:
-    import sys
-
+    import sqlalchemy.types
+    from jsonschema import ValidationError
     from jsonschema.protocols import Validator
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias  # noqa: ICN003
-    else:
-        from typing_extensions import TypeAlias
-
 
 __all__ = [
     "DEFAULT_JSONSCHEMA_VALIDATOR",
@@ -84,6 +77,7 @@ __all__ = [
     "CustomType",
     "DateTimeType",
     "DateType",
+    "DecimalType",
     "DurationType",
     "EmailType",
     "HostnameType",
@@ -92,7 +86,6 @@ __all__ = [
     "IntegerType",
     "JSONPointerType",
     "JSONTypeHelper",
-    "NumberType",
     "ObjectType",
     "PropertiesList",
     "Property",
@@ -109,15 +102,7 @@ __all__ = [
     "to_sql_type",
 ]
 
-_JsonValue: TypeAlias = t.Union[
-    str,
-    int,
-    float,
-    bool,
-    list,
-    dict,
-    None,
-]
+_JsonValue: t.TypeAlias = str | int | float | bool | list | dict | None
 
 DEFAULT_JSONSCHEMA_VALIDATOR = validators.Draft202012Validator
 
@@ -563,25 +548,29 @@ class IntegerType(_NumericType[int]):
     __type_name__ = "integer"
 
 
-class NumberType(_NumericType[float]):
-    """Number type.
+class DecimalType(_NumericType[float]):
+    """Decimal type.
 
     Examples:
-        >>> NumberType.type_dict
+        >>> DecimalType.type_dict
         {'type': ['number']}
-        >>> NumberType().type_dict
+        >>> DecimalType().type_dict
         {'type': ['number']}
-        >>> NumberType(allowed_values=[1.0, 2.0]).type_dict
+        >>> DecimalType(allowed_values=[1.0, 2.0]).type_dict
         {'type': ['number'], 'enum': [1.0, 2.0]}
-        >>> NumberType(minimum=0, maximum=10).type_dict
+        >>> DecimalType(minimum=0, maximum=10).type_dict
         {'type': ['number'], 'minimum': 0, 'maximum': 10}
-        >>> NumberType(exclusive_minimum=0, exclusive_maximum=10).type_dict
+        >>> DecimalType(exclusive_minimum=0, exclusive_maximum=10).type_dict
         {'type': ['number'], 'exclusiveMinimum': 0, 'exclusiveMaximum': 10}
-        >>> NumberType(multiple_of=2).type_dict
+        >>> DecimalType(multiple_of=2).type_dict
         {'type': ['number'], 'multipleOf': 2}
     """
 
     __type_name__ = "number"
+
+
+class NumberType(DecimalType):
+    """Number type (deprecated)."""
 
 
 W = t.TypeVar("W", bound=JSONTypeHelper)
@@ -766,7 +755,7 @@ class ObjectType(JSONTypeHelper):
     def __init__(
         self,
         *properties: Property,
-        additional_properties: W | type[W] | bool | None = None,
+        additional_properties: W | type[W] | bool | None = True,
         pattern_properties: t.Mapping[str, W | type[W]] | None = None,
         **kwargs: t.Any,
     ) -> None:
@@ -784,7 +773,7 @@ class ObjectType(JSONTypeHelper):
             >>> t = ObjectType(
             ...     Property("name", StringType, required=True),
             ...     Property("age", IntegerType),
-            ...     Property("height", NumberType),
+            ...     Property("height", DecimalType),
             ...     additional_properties=False,
             ... )
             >>> print(t.to_json(indent=2))
@@ -817,7 +806,7 @@ class ObjectType(JSONTypeHelper):
             >>> t = ObjectType(
             ...     Property("name", StringType, required=True),
             ...     Property("age", IntegerType),
-            ...     Property("height", NumberType),
+            ...     Property("height", DecimalType),
             ...     additional_properties=StringType,
             ... )
             >>> print(t.to_json(indent=2))
@@ -1008,7 +997,8 @@ class AllOf(JSONTypeHelper):
                     "null"
                   ]
                 }
-              }
+              },
+              "additionalProperties": true
             },
             {
               "type": "object",
@@ -1019,7 +1009,8 @@ class AllOf(JSONTypeHelper):
                     "null"
                   ]
                 }
-              }
+              },
+              "additionalProperties": true
             }
           ]
         }
@@ -1107,19 +1098,21 @@ class DiscriminatedUnion(OneOf):
                   },
                   "required": [
                     "species"
-                  ]
+                  ],
+                  "additionalProperties": true
                 },
                 {
                   "type": "object",
                   "properties": {
                     "species": {
-                        "const": "dog",
-                        "description": "Discriminator for object of type 'dog'."
+                      "const": "dog",
+                      "description": "Discriminator for object of type 'dog'."
                     }
                   },
                   "required": [
                     "species"
-                  ]
+                  ],
+                  "additionalProperties": true
                 }
               ]
             }
@@ -1258,6 +1251,21 @@ class PropertiesList(ObjectType):
         }
     """
 
+    def __init__(
+        self,
+        *args: t.Any,
+        additional_properties: W | type[W] | bool | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        """Initialize PropertiesList.
+
+        Args:
+            *args: Arguments to pass to the parent class.
+            additional_properties: Additional properties to allow.
+            **kwargs: Keyword arguments to pass to the parent class.
+        """
+        super().__init__(*args, additional_properties=additional_properties, **kwargs)
+
     def items(self) -> t.ItemsView[str, Property]:
         """Get wrapped properties.
 
@@ -1313,6 +1321,8 @@ def to_jsonschema_type(
     Returns:
         A compatible JSON Schema type definition.
     """
+    import sqlalchemy.types  # noqa: PLC0415
+
     sqltype_lookup: dict[str, dict] = {
         # NOTE: This is an ordered mapping, with earlier mappings taking precedence.
         #       If the SQL-provided type contains the type name on the left, the mapping
@@ -1390,6 +1400,8 @@ def to_sql_type(  # noqa: PLR0911, C901
     Returns:
         The SQL type.
     """
+    import sqlalchemy.types  # noqa: PLC0415
+
     if _jsonschema_type_check(jsonschema_type, ("object",)):
         return sqlalchemy.types.VARCHAR()
 

@@ -27,8 +27,14 @@ from orbax.checkpoint._src.metadata import checkpoint as checkpoint_metadata
 
 
 
-# TODO(b/326119183) Support configuration of temporary path detection
-# (currently handled by `tmp_checkpoints` util methods).
+TMP_DIR_SUFFIX = '.orbax-checkpoint-tmp'
+COMMIT_SUCCESS_FILE = 'commit_success.txt'
+
+
+class ValidationError(ValueError):
+  """Raised when a TemporaryPath or its final path is invalid."""
+
+
 class TemporaryPath(abc.ABC):
   """Class that represents a temporary path.
 
@@ -43,6 +49,36 @@ class TemporaryPath(abc.ABC):
 
   @classmethod
   @abc.abstractmethod
+  async def validate(
+      cls,
+      temporary_path: epath.Path,
+  ):
+    """Validates the temporary path or raises a ValidationError."""
+    ...
+
+  @classmethod
+  @abc.abstractmethod
+  async def validate_final(
+      cls,
+      final_path: epath.Path,
+  ):
+    """Validates the final path or raises a ValidationError."""
+    ...
+
+  @classmethod
+  @abc.abstractmethod
+  def from_temporary(
+      cls,
+      temporary_path: epath.Path,
+      *,
+      file_options: options_lib.FileOptions | None = None,
+      use_snapshot: bool | None = None,
+  ) -> TemporaryPath:
+    """Creates a TemporaryPath from a temporary path."""
+    ...
+
+  @classmethod
+  @abc.abstractmethod
   def from_final(
       cls,
       final_path: epath.Path,
@@ -51,6 +87,7 @@ class TemporaryPath(abc.ABC):
           checkpoint_metadata.MetadataStore | None
       ) = None,
       file_options: options_lib.FileOptions | None = None,
+      use_snapshot: bool | None = None,
   ) -> TemporaryPath:
     """Creates a TemporaryPath from a final path."""
     ...

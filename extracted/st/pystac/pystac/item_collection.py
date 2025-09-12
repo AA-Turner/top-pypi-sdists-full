@@ -23,7 +23,8 @@ C = TypeVar("C", bound="ItemCollection")
 
 class ItemCollection(Collection[pystac.Item]):
     """Implementation of a GeoJSON FeatureCollection whose features are all STAC
-    Items.
+    Items,
+    as defined by `STAC API - ItemCollection Fragment <https://github.com/radiantearth/stac-api-spec/blob/release/v1.0.0/fragments/itemcollection/README.md>`_.
 
     All :class:`~pystac.Item` instances passed to the :class:`ItemCollection` instance
     during instantiation are cloned and have their ``"root"`` URL cleared. Instances of
@@ -149,7 +150,7 @@ class ItemCollection(Collection[pystac.Item]):
         jinja_env = get_jinja_env()
         if jinja_env:
             template = jinja_env.get_template("JSON.jinja2")
-            return str(template.render(dict=self.to_dict()))
+            return str(template.render(dict=self.to_dict(), plain=escape(repr(self))))
         else:
             return escape(repr(self))
 

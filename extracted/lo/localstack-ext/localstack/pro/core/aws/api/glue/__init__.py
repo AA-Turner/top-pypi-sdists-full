@@ -10,6 +10,7 @@ AccountId = str
 AllowedValueDescriptionString = str
 AllowedValueValueString = str
 ApiVersion = str
+ApplicationArn = str
 ArnString = str
 AttemptCount = int
 AuditContextString = str
@@ -49,6 +50,7 @@ ConnectionSchemaVersion = int
 ConnectionString = str
 ContextKey = str
 ContextValue = str
+ContinuousSync = bool
 CrawlId = str
 CrawlerConfiguration = str
 CrawlerSecurityConfiguration = str
@@ -104,6 +106,8 @@ HashString = str
 IAMRoleArn = str
 IcebergTransformString = str
 IdString = str
+IdentityCenterInstanceArn = str
+IdentityCenterScope = str
 IdleTimeout = int
 Integer = int
 IntegerFlag = int
@@ -174,6 +178,7 @@ Password = str
 Path = str
 PolicyJsonString = str
 PositiveInteger = int
+PreProcessingQueryString = str
 PredicateString = str
 Prob = float
 PropertyDescriptionString = str
@@ -251,6 +256,7 @@ tableNameString = str
 class AdditionalOptionKeys(StrEnum):
     performanceTuning_caching = "performanceTuning.caching"
     observations_scope = "observations.scope"
+    compositeRuleEvaluation_method = "compositeRuleEvaluation.method"
 
 
 class AggFunction(StrEnum):
@@ -373,6 +379,11 @@ class ComputeEnvironment(StrEnum):
     SPARK = "SPARK"
     ATHENA = "ATHENA"
     PYTHON = "PYTHON"
+
+
+class ConfigurationSource(StrEnum):
+    catalog = "catalog"
+    table = "table"
 
 
 class ConnectionPropertyKey(StrEnum):
@@ -549,6 +560,12 @@ class DataQualityRuleResultStatus(StrEnum):
 
 class DatabaseAttributes(StrEnum):
     NAME = "NAME"
+    TARGET_DATABASE = "TARGET_DATABASE"
+
+
+class DdbExportType(StrEnum):
+    ddb = "ddb"
+    s3 = "s3"
 
 
 class DeleteBehavior(StrEnum):
@@ -901,8 +918,11 @@ class PermissionType(StrEnum):
 
 class PiiType(StrEnum):
     RowAudit = "RowAudit"
+    RowHashing = "RowHashing"
     RowMasking = "RowMasking"
+    RowPartialMasking = "RowPartialMasking"
     ColumnAudit = "ColumnAudit"
+    ColumnHashing = "ColumnHashing"
     ColumnMasking = "ColumnMasking"
 
 
@@ -1767,6 +1787,7 @@ class GlueStudioSchemaColumn(TypedDict, total=False):
 
     Name: GlueStudioColumnNameString
     Type: Optional[ColumnTypeString]
+    GlueStudioType: Optional[ColumnTypeString]
 
 
 GlueStudioSchemaColumnList = List[GlueStudioSchemaColumn]
@@ -1923,6 +1944,19 @@ class AuthenticationConfigurationInput(TypedDict, total=False):
 
 
 AuthenticationTypes = List[AuthenticationType]
+
+
+class AutoDataQuality(TypedDict, total=False):
+    """Specifies configuration options for automatic data quality evaluation in
+    Glue jobs. This structure enables automated data quality checks and
+    monitoring during ETL operations, helping to ensure data integrity and
+    reliability without manual intervention.
+    """
+
+    IsEnabled: Optional[BooleanValue]
+    EvaluationContext: Optional[EnclosedInStringProperty]
+
+
 ValueStringList = List[ValueString]
 
 
@@ -2564,6 +2598,19 @@ DataQualityRuleResults = List[DataQualityRuleResult]
 GlueTableAdditionalOptions = Dict[NameString, DescriptionString]
 
 
+class DataQualityGlueTable(TypedDict, total=False):
+    """The database and table in the Glue Data Catalog that is used for input
+    or output data for Data Quality Operations.
+    """
+
+    DatabaseName: NameString
+    TableName: NameString
+    CatalogId: Optional[NameString]
+    ConnectionName: Optional[NameString]
+    AdditionalOptions: Optional[GlueTableAdditionalOptions]
+    PreProcessingQuery: Optional[PreProcessingQueryString]
+
+
 class GlueTable(TypedDict, total=False):
     """The database and table in the Glue Data Catalog that is used for input
     or output data.
@@ -2579,7 +2626,8 @@ class GlueTable(TypedDict, total=False):
 class DataSource(TypedDict, total=False):
     """A data source (an Glue table) for which you want data quality results."""
 
-    GlueTable: GlueTable
+    GlueTable: Optional[GlueTable]
+    DataQualityGlueTable: Optional[DataQualityGlueTable]
 
 
 class DataQualityResult(TypedDict, total=False):
@@ -2682,6 +2730,147 @@ class SourceControlDetails(TypedDict, total=False):
     LastCommitId: Optional[Generic512CharString]
     AuthStrategy: Optional[SourceControlAuthStrategy]
     AuthToken: Optional[Generic512CharString]
+
+
+class DDBELTConnectionOptions(TypedDict, total=False):
+    """Specifies connection options for DynamoDB ELT (Extract, Load, Transform)
+    operations. This structure contains configuration parameters for
+    connecting to and extracting data from DynamoDB tables using the ELT
+    connector.
+    """
+
+    DynamodbExport: Optional[DdbExportType]
+    DynamodbUnnestDDBJson: Optional[BooleanValue]
+    DynamodbTableArn: EnclosedInStringProperty
+    DynamodbS3Bucket: Optional[EnclosedInStringProperty]
+    DynamodbS3Prefix: Optional[EnclosedInStringProperty]
+    DynamodbS3BucketOwner: Optional[EnclosedInStringProperty]
+    DynamodbStsRoleArn: Optional[EnclosedInStringProperty]
+
+
+class DynamoDBELTConnectorSource(TypedDict, total=False):
+    """Specifies a DynamoDB ELT connector source for extracting data from
+    DynamoDB tables.
+    """
+
+    Name: NodeName
+    ConnectionOptions: Optional[DDBELTConnectionOptions]
+    OutputSchemas: Optional[GlueSchemas]
+
+
+class DirectSchemaChangePolicy(TypedDict, total=False):
+    """A policy that specifies update behavior for the crawler."""
+
+    EnableUpdateCatalog: Optional[BoxedBoolean]
+    UpdateBehavior: Optional[UpdateCatalogBehavior]
+    Table: Optional[EnclosedInStringProperty]
+    Database: Optional[EnclosedInStringProperty]
+
+
+class S3HyperDirectTarget(TypedDict, total=False):
+    """Specifies a HyperDirect data target that writes to Amazon S3."""
+
+    Name: NodeName
+    Inputs: OneInput
+    Format: Optional[TargetFormat]
+    PartitionKeys: Optional[GlueStudioPathList]
+    Path: EnclosedInStringProperty
+    Compression: Optional[HyperTargetCompressionType]
+    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
+    OutputSchemas: Optional[GlueSchemas]
+
+
+BoxedLong = int
+
+
+class S3DirectSourceAdditionalOptions(TypedDict, total=False):
+    """Specifies additional connection options for the Amazon S3 data store."""
+
+    BoundedSize: Optional[BoxedLong]
+    BoundedFiles: Optional[BoxedLong]
+    EnableSamplePath: Optional[BoxedBoolean]
+    SamplePath: Optional[EnclosedInStringProperty]
+
+
+class S3ExcelSource(TypedDict, total=False):
+    """Specifies an S3 Excel data source."""
+
+    Name: NodeName
+    Paths: EnclosedInStringProperties
+    CompressionType: Optional[ParquetCompressionType]
+    Exclusions: Optional[EnclosedInStringProperties]
+    GroupSize: Optional[EnclosedInStringProperty]
+    GroupFiles: Optional[EnclosedInStringProperty]
+    Recurse: Optional[BoxedBoolean]
+    MaxBand: Optional[BoxedNonNegativeInt]
+    MaxFilesInBand: Optional[BoxedNonNegativeInt]
+    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
+    NumberRows: Optional[BoxedLong]
+    SkipFooter: Optional[BoxedNonNegativeInt]
+    OutputSchemas: Optional[GlueSchemas]
+
+
+class S3IcebergDirectTarget(TypedDict, total=False):
+    """Specifies a target that writes to an Iceberg data source in Amazon S3."""
+
+    Name: NodeName
+    Inputs: OneInput
+    PartitionKeys: Optional[GlueStudioPathList]
+    Path: EnclosedInStringProperty
+    Format: TargetFormat
+    AdditionalOptions: Optional[AdditionalOptions]
+    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
+    Compression: IcebergTargetCompressionType
+    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
+    OutputSchemas: Optional[GlueSchemas]
+
+
+class CatalogSchemaChangePolicy(TypedDict, total=False):
+    """A policy that specifies update behavior for the crawler."""
+
+    EnableUpdateCatalog: Optional[BoxedBoolean]
+    UpdateBehavior: Optional[UpdateCatalogBehavior]
+
+
+class S3IcebergCatalogTarget(TypedDict, total=False):
+    """Specifies an Apache Iceberg catalog target that writes data to Amazon S3
+    and registers the table in the Glue Data Catalog.
+    """
+
+    Name: NodeName
+    Inputs: OneInput
+    PartitionKeys: Optional[GlueStudioPathList]
+    Table: EnclosedInStringProperty
+    Database: EnclosedInStringProperty
+    AdditionalOptions: Optional[AdditionalOptions]
+    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
+
+
+class CatalogIcebergSource(TypedDict, total=False):
+    """Specifies an Apache Iceberg data source that is registered in the Glue
+    Data Catalog.
+    """
+
+    Name: NodeName
+    Database: EnclosedInStringProperty
+    Table: EnclosedInStringProperty
+    AdditionalIcebergOptions: Optional[AdditionalOptions]
+    OutputSchemas: Optional[GlueSchemas]
+
+
+class S3CatalogIcebergSource(TypedDict, total=False):
+    """Specifies an Apache Iceberg data source that is registered in the Glue
+    Data Catalog. The Iceberg data source must be stored in Amazon S3.
+    """
+
+    Name: NodeName
+    Database: EnclosedInStringProperty
+    Table: EnclosedInStringProperty
+    AdditionalIcebergOptions: Optional[AdditionalOptions]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 ConnectorOptions = Dict[GenericString, GenericString]
@@ -2832,15 +3021,6 @@ class EvaluateDataQualityMultiFrame(TypedDict, total=False):
     StopJobOnFailureOptions: Optional[DQStopJobOnFailureOptions]
 
 
-class DirectSchemaChangePolicy(TypedDict, total=False):
-    """A policy that specifies update behavior for the crawler."""
-
-    EnableUpdateCatalog: Optional[BoxedBoolean]
-    UpdateBehavior: Optional[UpdateCatalogBehavior]
-    Table: Optional[EnclosedInStringProperty]
-    Database: Optional[EnclosedInStringProperty]
-
-
 class S3DeltaDirectTarget(TypedDict, total=False):
     """Specifies a target that writes to a Delta Lake data source in Amazon S3."""
 
@@ -2853,13 +3033,7 @@ class S3DeltaDirectTarget(TypedDict, total=False):
     Format: TargetFormat
     AdditionalOptions: Optional[AdditionalOptions]
     SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-
-
-class CatalogSchemaChangePolicy(TypedDict, total=False):
-    """A policy that specifies update behavior for the crawler."""
-
-    EnableUpdateCatalog: Optional[BoxedBoolean]
-    UpdateBehavior: Optional[UpdateCatalogBehavior]
+    AutoDataQuality: Optional[AutoDataQuality]
 
 
 class S3DeltaCatalogTarget(TypedDict, total=False):
@@ -2874,18 +3048,8 @@ class S3DeltaCatalogTarget(TypedDict, total=False):
     Database: EnclosedInStringProperty
     AdditionalOptions: Optional[AdditionalOptions]
     SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
-
-
-BoxedLong = int
-
-
-class S3DirectSourceAdditionalOptions(TypedDict, total=False):
-    """Specifies additional connection options for the Amazon S3 data store."""
-
-    BoundedSize: Optional[BoxedLong]
-    BoundedFiles: Optional[BoxedLong]
-    EnableSamplePath: Optional[BoxedBoolean]
-    SamplePath: Optional[EnclosedInStringProperty]
+    AutoDataQuality: Optional[AutoDataQuality]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 class S3DeltaSource(TypedDict, total=False):
@@ -2931,6 +3095,7 @@ class DirectJDBCSource(TypedDict, total=False):
     ConnectionName: EnclosedInStringProperty
     ConnectionType: JDBCConnectionType
     RedshiftTmpDir: Optional[EnclosedInStringProperty]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 class S3HudiDirectTarget(TypedDict, total=False):
@@ -2945,6 +3110,7 @@ class S3HudiDirectTarget(TypedDict, total=False):
     Format: TargetFormat
     AdditionalOptions: AdditionalOptions
     SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
 
 
 class S3HudiCatalogTarget(TypedDict, total=False):
@@ -2959,6 +3125,8 @@ class S3HudiCatalogTarget(TypedDict, total=False):
     Database: EnclosedInStringProperty
     AdditionalOptions: AdditionalOptions
     SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 class S3HudiSource(TypedDict, total=False):
@@ -3032,6 +3200,52 @@ class DynamicTransform(TypedDict, total=False):
     Path: EnclosedInStringProperty
     Version: Optional[EnclosedInStringProperty]
     OutputSchemas: Optional[GlueSchemas]
+
+
+class FilterValue(TypedDict, total=False):
+    """Represents a single entry in the list of values for a
+    ``FilterExpression``.
+    """
+
+    Type: FilterValueType
+    Value: EnclosedInStringProperties
+
+
+FilterValues = List[FilterValue]
+
+
+class FilterExpression(TypedDict, total=False):
+    """Specifies a filter expression."""
+
+    Operation: FilterOperation
+    Negated: Optional[BoxedBoolean]
+    Values: FilterValues
+
+
+FilterExpressions = List[FilterExpression]
+
+
+class GroupFilters(TypedDict, total=False):
+    """Specifies a group of filters with a logical operator that determines how
+    the filters are combined to evaluate routing conditions.
+    """
+
+    GroupName: GenericLimitedString
+    Filters: FilterExpressions
+    LogicalOperator: FilterLogicalOperator
+
+
+GroupFiltersList = List[GroupFilters]
+
+
+class Route(TypedDict, total=False):
+    """Specifies a route node that directs data to different output paths based
+    on defined filtering conditions.
+    """
+
+    Name: NodeName
+    Inputs: OneInput
+    GroupFiltersList: GroupFiltersList
 
 
 class PostgreSQLCatalogTarget(TypedDict, total=False):
@@ -3157,6 +3371,13 @@ class PIIDetection(TypedDict, total=False):
     SampleFraction: Optional[BoxedDoubleFraction]
     ThresholdFraction: Optional[BoxedDoubleFraction]
     MaskValue: Optional[MaskValue]
+    RedactText: Optional[EnclosedInStringProperty]
+    RedactChar: Optional[EnclosedInStringProperty]
+    MatchPattern: Optional[EnclosedInStringProperty]
+    NumLeftCharsToExclude: Optional[BoxedPositiveInt]
+    NumRightCharsToExclude: Optional[BoxedPositiveInt]
+    DetectionParameters: Optional[EnclosedInStringProperty]
+    DetectionSensitivity: Optional[EnclosedInStringProperty]
 
 
 TwoInputs = List[NodeId]
@@ -3305,6 +3526,7 @@ class KinesisStreamingSourceOptions(TypedDict, total=False):
     AddRecordTimestamp: Optional[EnclosedInStringProperty]
     EmitConsumerLagMetrics: Optional[EnclosedInStringProperty]
     StartingTimestamp: Optional[Iso8601DateTime]
+    FanoutConsumerARN: Optional[EnclosedInStringProperty]
 
 
 class CatalogKinesisSource(TypedDict, total=False):
@@ -3371,29 +3593,6 @@ class CustomCode(TypedDict, total=False):
     Code: ExtendedString
     ClassName: EnclosedInStringProperty
     OutputSchemas: Optional[GlueSchemas]
-
-
-class FilterValue(TypedDict, total=False):
-    """Represents a single entry in the list of values for a
-    ``FilterExpression``.
-    """
-
-    Type: FilterValueType
-    Value: EnclosedInStringProperties
-
-
-FilterValues = List[FilterValue]
-
-
-class FilterExpression(TypedDict, total=False):
-    """Specifies a filter expression."""
-
-    Operation: FilterOperation
-    Negated: Optional[BoxedBoolean]
-    Values: FilterValues
-
-
-FilterExpressions = List[FilterExpression]
 
 
 class Filter(TypedDict, total=False):
@@ -3506,20 +3705,6 @@ class SelectFields(TypedDict, total=False):
     Paths: GlueStudioPathList
 
 
-class S3IcebergDirectTarget(TypedDict, total=False):
-    """Specifies a target that writes to an Iceberg data source in Amazon S3."""
-
-    Name: NodeName
-    Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
-    Path: EnclosedInStringProperty
-    Format: TargetFormat
-    AdditionalOptions: Optional[AdditionalOptions]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    Compression: IcebergTargetCompressionType
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
-
-
 class S3DirectTarget(TypedDict, total=False):
     """Specifies a data target that writes to Amazon S3."""
 
@@ -3531,17 +3716,8 @@ class S3DirectTarget(TypedDict, total=False):
     NumberTargetPartitions: Optional[NumberTargetPartitionsString]
     Format: TargetFormat
     SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-
-
-class S3HyperDirectTarget(TypedDict, total=False):
-    """Specifies a HyperDirect data target that writes to Amazon S3."""
-
-    Name: NodeName
-    Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
-    Path: EnclosedInStringProperty
-    Compression: Optional[HyperTargetCompressionType]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 class S3GlueParquetTarget(TypedDict, total=False):
@@ -3556,6 +3732,7 @@ class S3GlueParquetTarget(TypedDict, total=False):
     Compression: Optional[ParquetCompressionType]
     NumberTargetPartitions: Optional[NumberTargetPartitionsString]
     SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
 
 
 class S3CatalogTarget(TypedDict, total=False):
@@ -3569,6 +3746,7 @@ class S3CatalogTarget(TypedDict, total=False):
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
     SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
+    AutoDataQuality: Optional[AutoDataQuality]
 
 
 EnclosedInStringPropertiesMinOne = List[EnclosedInStringProperty]
@@ -3623,12 +3801,21 @@ class JDBCConnectorTarget(TypedDict, total=False):
     OutputSchemas: Optional[GlueSchemas]
 
 
+class DDBELTCatalogAdditionalOptions(TypedDict, total=False):
+    """Specifies additional options for DynamoDB ELT catalog operations."""
+
+    DynamodbExport: Optional[EnclosedInStringProperty]
+    DynamodbUnnestDDBJson: Optional[BooleanValue]
+
+
 class DynamoDBCatalogSource(TypedDict, total=False):
     """Specifies a DynamoDB data source in the Glue Data Catalog."""
 
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
+    PitrEnabled: Optional[BoxedBoolean]
+    AdditionalOptions: Optional[DDBELTCatalogAdditionalOptions]
 
 
 class RelationalCatalogSource(TypedDict, total=False):
@@ -3670,24 +3857,6 @@ class S3JsonSource(TypedDict, total=False):
     AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
     JsonPath: Optional[EnclosedInStringProperty]
     Multiline: Optional[BoxedBoolean]
-    OutputSchemas: Optional[GlueSchemas]
-
-
-class S3ExcelSource(TypedDict, total=False):
-    """Specifies an S3 Excel data source."""
-
-    Name: NodeName
-    Paths: EnclosedInStringProperties
-    CompressionType: Optional[ParquetCompressionType]
-    Exclusions: Optional[EnclosedInStringProperties]
-    GroupSize: Optional[EnclosedInStringProperty]
-    GroupFiles: Optional[EnclosedInStringProperty]
-    Recurse: Optional[BoxedBoolean]
-    MaxBand: Optional[BoxedNonNegativeInt]
-    MaxFilesInBand: Optional[BoxedNonNegativeInt]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    NumberRows: Optional[BoxedLong]
-    SkipFooter: Optional[BoxedNonNegativeInt]
     OutputSchemas: Optional[GlueSchemas]
 
 
@@ -3743,6 +3912,8 @@ class CatalogSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
+    PartitionPredicate: Optional[EnclosedInStringProperty]
+    OutputSchemas: Optional[GlueSchemas]
 
 
 class SparkConnectorSource(TypedDict, total=False):
@@ -3785,86 +3956,88 @@ class JDBCConnectorSource(TypedDict, total=False):
     OutputSchemas: Optional[GlueSchemas]
 
 
-CodeGenConfigurationNode = TypedDict(
-    "CodeGenConfigurationNode",
-    {
-        "AthenaConnectorSource": Optional[AthenaConnectorSource],
-        "JDBCConnectorSource": Optional[JDBCConnectorSource],
-        "SparkConnectorSource": Optional[SparkConnectorSource],
-        "CatalogSource": Optional[CatalogSource],
-        "RedshiftSource": Optional[RedshiftSource],
-        "S3CatalogSource": Optional[S3CatalogSource],
-        "S3CsvSource": Optional[S3CsvSource],
-        "S3ExcelSource": Optional[S3ExcelSource],
-        "S3JsonSource": Optional[S3JsonSource],
-        "S3ParquetSource": Optional[S3ParquetSource],
-        "RelationalCatalogSource": Optional[RelationalCatalogSource],
-        "DynamoDBCatalogSource": Optional[DynamoDBCatalogSource],
-        "JDBCConnectorTarget": Optional[JDBCConnectorTarget],
-        "SparkConnectorTarget": Optional[SparkConnectorTarget],
-        "CatalogTarget": Optional[BasicCatalogTarget],
-        "RedshiftTarget": Optional[RedshiftTarget],
-        "S3CatalogTarget": Optional[S3CatalogTarget],
-        "S3GlueParquetTarget": Optional[S3GlueParquetTarget],
-        "S3HyperDirectTarget": Optional[S3HyperDirectTarget],
-        "S3DirectTarget": Optional[S3DirectTarget],
-        "S3IcebergDirectTarget": Optional[S3IcebergDirectTarget],
-        "ApplyMapping": Optional[ApplyMapping],
-        "SelectFields": Optional[SelectFields],
-        "DropFields": Optional[DropFields],
-        "RenameField": Optional[RenameField],
-        "Spigot": Optional[Spigot],
-        "Join": Optional[Join],
-        "SplitFields": Optional[SplitFields],
-        "SelectFromCollection": Optional[SelectFromCollection],
-        "FillMissingValues": Optional[FillMissingValues],
-        "Filter": Optional[Filter],
-        "CustomCode": Optional[CustomCode],
-        "SparkSQL": Optional[SparkSQL],
-        "DirectKinesisSource": Optional[DirectKinesisSource],
-        "DirectKafkaSource": Optional[DirectKafkaSource],
-        "CatalogKinesisSource": Optional[CatalogKinesisSource],
-        "CatalogKafkaSource": Optional[CatalogKafkaSource],
-        "DropNullFields": Optional[DropNullFields],
-        "Merge": Optional[Merge],
-        "Union": Optional[Union_],
-        "PIIDetection": Optional[PIIDetection],
-        "Aggregate": Optional[Aggregate],
-        "DropDuplicates": Optional[DropDuplicates],
-        "GovernedCatalogTarget": Optional[GovernedCatalogTarget],
-        "GovernedCatalogSource": Optional[GovernedCatalogSource],
-        "MicrosoftSQLServerCatalogSource": Optional[MicrosoftSQLServerCatalogSource],
-        "MySQLCatalogSource": Optional[MySQLCatalogSource],
-        "OracleSQLCatalogSource": Optional[OracleSQLCatalogSource],
-        "PostgreSQLCatalogSource": Optional[PostgreSQLCatalogSource],
-        "MicrosoftSQLServerCatalogTarget": Optional[MicrosoftSQLServerCatalogTarget],
-        "MySQLCatalogTarget": Optional[MySQLCatalogTarget],
-        "OracleSQLCatalogTarget": Optional[OracleSQLCatalogTarget],
-        "PostgreSQLCatalogTarget": Optional[PostgreSQLCatalogTarget],
-        "DynamicTransform": Optional[DynamicTransform],
-        "EvaluateDataQuality": Optional[EvaluateDataQuality],
-        "S3CatalogHudiSource": Optional[S3CatalogHudiSource],
-        "CatalogHudiSource": Optional[CatalogHudiSource],
-        "S3HudiSource": Optional[S3HudiSource],
-        "S3HudiCatalogTarget": Optional[S3HudiCatalogTarget],
-        "S3HudiDirectTarget": Optional[S3HudiDirectTarget],
-        "DirectJDBCSource": Optional[DirectJDBCSource],
-        "S3CatalogDeltaSource": Optional[S3CatalogDeltaSource],
-        "CatalogDeltaSource": Optional[CatalogDeltaSource],
-        "S3DeltaSource": Optional[S3DeltaSource],
-        "S3DeltaCatalogTarget": Optional[S3DeltaCatalogTarget],
-        "S3DeltaDirectTarget": Optional[S3DeltaDirectTarget],
-        "AmazonRedshiftSource": Optional[AmazonRedshiftSource],
-        "AmazonRedshiftTarget": Optional[AmazonRedshiftTarget],
-        "EvaluateDataQualityMultiFrame": Optional[EvaluateDataQualityMultiFrame],
-        "Recipe": Optional[Recipe],
-        "SnowflakeSource": Optional[SnowflakeSource],
-        "SnowflakeTarget": Optional[SnowflakeTarget],
-        "ConnectorDataSource": Optional[ConnectorDataSource],
-        "ConnectorDataTarget": Optional[ConnectorDataTarget],
-    },
-    total=False,
-)
+class CodeGenConfigurationNode(TypedDict, total=False):
+    AthenaConnectorSource: Optional[AthenaConnectorSource]
+    JDBCConnectorSource: Optional[JDBCConnectorSource]
+    SparkConnectorSource: Optional[SparkConnectorSource]
+    CatalogSource: Optional[CatalogSource]
+    RedshiftSource: Optional[RedshiftSource]
+    S3CatalogSource: Optional[S3CatalogSource]
+    S3CsvSource: Optional[S3CsvSource]
+    S3JsonSource: Optional[S3JsonSource]
+    S3ParquetSource: Optional[S3ParquetSource]
+    RelationalCatalogSource: Optional[RelationalCatalogSource]
+    DynamoDBCatalogSource: Optional[DynamoDBCatalogSource]
+    JDBCConnectorTarget: Optional[JDBCConnectorTarget]
+    SparkConnectorTarget: Optional[SparkConnectorTarget]
+    CatalogTarget: Optional[BasicCatalogTarget]
+    RedshiftTarget: Optional[RedshiftTarget]
+    S3CatalogTarget: Optional[S3CatalogTarget]
+    S3GlueParquetTarget: Optional[S3GlueParquetTarget]
+    S3DirectTarget: Optional[S3DirectTarget]
+    ApplyMapping: Optional[ApplyMapping]
+    SelectFields: Optional[SelectFields]
+    DropFields: Optional[DropFields]
+    RenameField: Optional[RenameField]
+    Spigot: Optional[Spigot]
+    Join: Optional[Join]
+    SplitFields: Optional[SplitFields]
+    SelectFromCollection: Optional[SelectFromCollection]
+    FillMissingValues: Optional[FillMissingValues]
+    Filter: Optional[Filter]
+    CustomCode: Optional[CustomCode]
+    SparkSQL: Optional[SparkSQL]
+    DirectKinesisSource: Optional[DirectKinesisSource]
+    DirectKafkaSource: Optional[DirectKafkaSource]
+    CatalogKinesisSource: Optional[CatalogKinesisSource]
+    CatalogKafkaSource: Optional[CatalogKafkaSource]
+    DropNullFields: Optional[DropNullFields]
+    Merge: Optional[Merge]
+    Union: Optional[Union_]
+    PIIDetection: Optional[PIIDetection]
+    Aggregate: Optional[Aggregate]
+    DropDuplicates: Optional[DropDuplicates]
+    GovernedCatalogTarget: Optional[GovernedCatalogTarget]
+    GovernedCatalogSource: Optional[GovernedCatalogSource]
+    MicrosoftSQLServerCatalogSource: Optional[MicrosoftSQLServerCatalogSource]
+    MySQLCatalogSource: Optional[MySQLCatalogSource]
+    OracleSQLCatalogSource: Optional[OracleSQLCatalogSource]
+    PostgreSQLCatalogSource: Optional[PostgreSQLCatalogSource]
+    MicrosoftSQLServerCatalogTarget: Optional[MicrosoftSQLServerCatalogTarget]
+    MySQLCatalogTarget: Optional[MySQLCatalogTarget]
+    OracleSQLCatalogTarget: Optional[OracleSQLCatalogTarget]
+    PostgreSQLCatalogTarget: Optional[PostgreSQLCatalogTarget]
+    Route: Optional[Route]
+    DynamicTransform: Optional[DynamicTransform]
+    EvaluateDataQuality: Optional[EvaluateDataQuality]
+    S3CatalogHudiSource: Optional[S3CatalogHudiSource]
+    CatalogHudiSource: Optional[CatalogHudiSource]
+    S3HudiSource: Optional[S3HudiSource]
+    S3HudiCatalogTarget: Optional[S3HudiCatalogTarget]
+    S3HudiDirectTarget: Optional[S3HudiDirectTarget]
+    DirectJDBCSource: Optional[DirectJDBCSource]
+    S3CatalogDeltaSource: Optional[S3CatalogDeltaSource]
+    CatalogDeltaSource: Optional[CatalogDeltaSource]
+    S3DeltaSource: Optional[S3DeltaSource]
+    S3DeltaCatalogTarget: Optional[S3DeltaCatalogTarget]
+    S3DeltaDirectTarget: Optional[S3DeltaDirectTarget]
+    AmazonRedshiftSource: Optional[AmazonRedshiftSource]
+    AmazonRedshiftTarget: Optional[AmazonRedshiftTarget]
+    EvaluateDataQualityMultiFrame: Optional[EvaluateDataQualityMultiFrame]
+    Recipe: Optional[Recipe]
+    SnowflakeSource: Optional[SnowflakeSource]
+    SnowflakeTarget: Optional[SnowflakeTarget]
+    ConnectorDataSource: Optional[ConnectorDataSource]
+    ConnectorDataTarget: Optional[ConnectorDataTarget]
+    S3CatalogIcebergSource: Optional[S3CatalogIcebergSource]
+    CatalogIcebergSource: Optional[CatalogIcebergSource]
+    S3IcebergCatalogTarget: Optional[S3IcebergCatalogTarget]
+    S3IcebergDirectTarget: Optional[S3IcebergDirectTarget]
+    S3ExcelSource: Optional[S3ExcelSource]
+    S3HyperDirectTarget: Optional[S3HyperDirectTarget]
+    DynamoDBELTConnectorSource: Optional[DynamoDBELTConnectorSource]
+
+
 CodeGenConfigurationNodes = Dict[NodeId, CodeGenConfigurationNode]
 ConnectionStringList = List[ConnectionString]
 
@@ -3962,28 +4135,24 @@ class BatchGetPartitionResponse(TypedDict, total=False):
     UnprocessedKeys: Optional[BatchGetPartitionValueList]
 
 
-BatchGetTableOptimizerEntry = TypedDict(
-    "BatchGetTableOptimizerEntry",
-    {
-        "catalogId": Optional[CatalogIdString],
-        "databaseName": Optional[databaseNameString],
-        "tableName": Optional[tableNameString],
-        "type": Optional[TableOptimizerType],
-    },
-    total=False,
-)
+class BatchGetTableOptimizerEntry(TypedDict, total=False):
+    catalogId: Optional[CatalogIdString]
+    databaseName: Optional[databaseNameString]
+    tableName: Optional[tableNameString]
+    type: Optional[TableOptimizerType]
+
+
 BatchGetTableOptimizerEntries = List[BatchGetTableOptimizerEntry]
-BatchGetTableOptimizerError = TypedDict(
-    "BatchGetTableOptimizerError",
-    {
-        "error": Optional[ErrorDetail],
-        "catalogId": Optional[CatalogIdString],
-        "databaseName": Optional[databaseNameString],
-        "tableName": Optional[tableNameString],
-        "type": Optional[TableOptimizerType],
-    },
-    total=False,
-)
+
+
+class BatchGetTableOptimizerError(TypedDict, total=False):
+    error: Optional[ErrorDetail]
+    catalogId: Optional[CatalogIdString]
+    databaseName: Optional[databaseNameString]
+    tableName: Optional[tableNameString]
+    type: Optional[TableOptimizerType]
+
+
 BatchGetTableOptimizerErrors = List[BatchGetTableOptimizerError]
 
 
@@ -4079,6 +4248,7 @@ class IcebergOrphanFileDeletionConfiguration(TypedDict, total=False):
 
     orphanFileRetentionPeriodInDays: Optional[NullableInteger]
     location: Optional[MessageString]
+    runRateInHours: Optional[NullableInteger]
 
 
 class OrphanFileDeletionConfiguration(TypedDict, total=False):
@@ -4093,6 +4263,7 @@ class IcebergRetentionConfiguration(TypedDict, total=False):
     snapshotRetentionPeriodInDays: Optional[NullableInteger]
     numberOfSnapshotsToRetain: Optional[NullableInteger]
     cleanExpiredFiles: Optional[NullableBoolean]
+    runRateInHours: Optional[NullableInteger]
 
 
 class RetentionConfiguration(TypedDict, total=False):
@@ -4108,6 +4279,8 @@ class IcebergCompactionConfiguration(TypedDict, total=False):
     """
 
     strategy: Optional[CompactionStrategy]
+    minInputFiles: Optional[NullableInteger]
+    deleteFileThreshold: Optional[NullableInteger]
 
 
 class CompactionConfiguration(TypedDict, total=False):
@@ -4142,15 +4315,11 @@ class TableOptimizerConfiguration(TypedDict, total=False):
     orphanFileDeletionConfiguration: Optional[OrphanFileDeletionConfiguration]
 
 
-TableOptimizer = TypedDict(
-    "TableOptimizer",
-    {
-        "type": Optional[TableOptimizerType],
-        "configuration": Optional[TableOptimizerConfiguration],
-        "lastRun": Optional[TableOptimizerRun],
-    },
-    total=False,
-)
+class TableOptimizer(TypedDict, total=False):
+    type: Optional[TableOptimizerType]
+    configuration: Optional[TableOptimizerConfiguration]
+    lastRun: Optional[TableOptimizerRun]
+    configurationSource: Optional[ConfigurationSource]
 
 
 class BatchTableOptimizer(TypedDict, total=False):
@@ -4635,6 +4804,19 @@ class PrincipalPermissions(TypedDict, total=False):
 PrincipalPermissionsList = List[PrincipalPermissions]
 
 
+class IcebergOptimizationPropertiesOutput(TypedDict, total=False):
+    """A structure that contains the output properties of Iceberg table
+    optimization configuration for your catalog resource in the Glue Data
+    Catalog.
+    """
+
+    RoleArn: Optional[IAMRoleArn]
+    Compaction: Optional[ParametersMap]
+    Retention: Optional[ParametersMap]
+    OrphanFileDeletion: Optional[ParametersMap]
+    LastUpdatedTime: Optional[Timestamp]
+
+
 class DataLakeAccessPropertiesOutput(TypedDict, total=False):
     """The output properties of the data lake access configuration for your
     catalog resource in the Glue Data Catalog.
@@ -4656,6 +4838,7 @@ class CatalogPropertiesOutput(TypedDict, total=False):
     """
 
     DataLakeAccessProperties: Optional[DataLakeAccessPropertiesOutput]
+    IcebergOptimizationProperties: Optional[IcebergOptimizationPropertiesOutput]
     CustomProperties: Optional[ParametersMap]
 
 
@@ -4713,6 +4896,18 @@ class CatalogImportStatus(TypedDict, total=False):
     ImportedBy: Optional[NameString]
 
 
+class IcebergOptimizationProperties(TypedDict, total=False):
+    """A structure that specifies Iceberg table optimization properties for the
+    catalog, including configurations for compaction, retention, and orphan
+    file deletion operations.
+    """
+
+    RoleArn: Optional[IAMRoleArn]
+    Compaction: Optional[ParametersMap]
+    Retention: Optional[ParametersMap]
+    OrphanFileDeletion: Optional[ParametersMap]
+
+
 class DataLakeAccessProperties(TypedDict, total=False):
     """Input properties to configure data lake access for your catalog resource
     in the Glue Data Catalog.
@@ -4730,6 +4925,7 @@ class CatalogProperties(TypedDict, total=False):
     """
 
     DataLakeAccessProperties: Optional[DataLakeAccessProperties]
+    IcebergOptimizationProperties: Optional[IcebergOptimizationProperties]
     CustomProperties: Optional[ParametersMap]
 
 
@@ -5505,6 +5701,22 @@ class CreateDevEndpointResponse(TypedDict, total=False):
     Arguments: Optional[MapValue]
 
 
+IdentityCenterScopesList = List[IdentityCenterScope]
+
+
+class CreateGlueIdentityCenterConfigurationRequest(ServiceRequest):
+    """Request to create a new Glue Identity Center configuration."""
+
+    InstanceArn: IdentityCenterInstanceArn
+    Scopes: Optional[IdentityCenterScopesList]
+
+
+class CreateGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
+    """Response from creating a new Glue Identity Center configuration."""
+
+    ApplicationArn: Optional[ApplicationArn]
+
+
 StringToStringMap = Dict[NullableString, NullableString]
 
 
@@ -5610,6 +5822,7 @@ class IntegrationConfig(TypedDict, total=False):
 
     RefreshInterval: Optional[String128]
     SourceProperties: Optional[IntegrationSourcePropertiesMap]
+    ContinuousSync: Optional[ContinuousSync]
 
 
 class Tag(TypedDict, total=False):
@@ -6465,6 +6678,18 @@ class DeleteDevEndpointResponse(TypedDict, total=False):
     pass
 
 
+class DeleteGlueIdentityCenterConfigurationRequest(ServiceRequest):
+    """Request to delete the existing Glue Identity Center configuration."""
+
+    pass
+
+
+class DeleteGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
+    """Response from deleting the Glue Identity Center configuration."""
+
+    pass
+
+
 class DeleteIntegrationRequest(ServiceRequest):
     IntegrationIdentifier: String128
 
@@ -7299,6 +7524,23 @@ class GetEntityRecordsResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class GetGlueIdentityCenterConfigurationRequest(ServiceRequest):
+    """Request to retrieve the Glue Identity Center configuration."""
+
+    pass
+
+
+OrchestrationStringList = List[GenericString]
+
+
+class GetGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
+    """Response containing the Glue Identity Center configuration details."""
+
+    ApplicationArn: Optional[ApplicationArn]
+    InstanceArn: Optional[IdentityCenterInstanceArn]
+    Scopes: Optional[OrchestrationStringList]
+
+
 class GetIntegrationResourcePropertyRequest(ServiceRequest):
     ResourceArn: String128
 
@@ -7854,7 +8096,6 @@ class GetStatementRequest(ServiceRequest):
 
 
 LongValue = int
-OrchestrationStringList = List[GenericString]
 
 
 class StatementOutputData(TypedDict, total=False):
@@ -8775,6 +9016,7 @@ class ModifyIntegrationRequest(ServiceRequest):
     IntegrationIdentifier: String128
     Description: Optional[IntegrationDescription]
     DataFilter: Optional[String2048]
+    IntegrationConfig: Optional[IntegrationConfig]
     IntegrationName: Optional[String128]
 
 
@@ -8791,6 +9033,7 @@ class ModifyIntegrationResponse(TypedDict, total=False):
     CreateTime: IntegrationTimestamp
     Errors: Optional[IntegrationErrorList]
     DataFilter: Optional[String2048]
+    IntegrationConfig: Optional[IntegrationConfig]
 
 
 NodeIdList = List[NameString]
@@ -9422,10 +9665,21 @@ class UpdateDevEndpointResponse(TypedDict, total=False):
     pass
 
 
+class UpdateGlueIdentityCenterConfigurationRequest(ServiceRequest):
+    """Request to update an existing Glue Identity Center configuration."""
+
+    Scopes: Optional[IdentityCenterScopesList]
+
+
+class UpdateGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
+    """Response from updating an existing Glue Identity Center configuration."""
+
+    pass
+
+
 class UpdateIcebergTableInput(TypedDict, total=False):
     """Contains the update operations to be applied to an existing Iceberg
-    table in AWS Glue Data Catalog, defining the new state of the table
-    metadata.
+    table inGlue Data Catalog, defining the new state of the table metadata.
     """
 
     Updates: IcebergTableUpdateList
@@ -9978,7 +10232,10 @@ class GlueApi:
         client_token: HashString | None = None,
         **kwargs,
     ) -> BatchPutDataQualityStatisticAnnotationResponse:
-        """Annotate datapoints over time for a specific data quality statistic.
+        """Annotate datapoints over time for a specific data quality statistic. The
+        API requires both profileID and statisticID as part of the
+        InclusionAnnotation input. The API only works for a single statisticId
+        across multiple profiles.
 
         :param inclusion_annotations: A list of ``DatapointInclusionAnnotation``'s.
         :param client_token: Client Token.
@@ -10487,6 +10744,32 @@ class GlueApi:
         :raises InvalidInputException:
         :raises ValidationException:
         :raises ResourceNumberLimitExceededException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateGlueIdentityCenterConfiguration")
+    def create_glue_identity_center_configuration(
+        self,
+        context: RequestContext,
+        instance_arn: IdentityCenterInstanceArn,
+        scopes: IdentityCenterScopesList | None = None,
+        **kwargs,
+    ) -> CreateGlueIdentityCenterConfigurationResponse:
+        """Creates a new Glue Identity Center configuration to enable integration
+        between Glue and Amazon Web Services IAM Identity Center for
+        authentication and authorization.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the Identity Center instance to be
+        associated with the Glue configuration.
+        :param scopes: A list of Identity Center scopes that define the permissions and access
+        levels for the Glue configuration.
+        :returns: CreateGlueIdentityCenterConfigurationResponse
+        :raises InvalidInputException:
+        :raises AlreadyExistsException:
+        :raises InternalServiceException:
+        :raises OperationTimeoutException:
+        :raises AccessDeniedException:
+        :raises ConcurrentModificationException:
         """
         raise NotImplementedError
 
@@ -11413,6 +11696,23 @@ class GlueApi:
         :raises InternalServiceException:
         :raises OperationTimeoutException:
         :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteGlueIdentityCenterConfiguration")
+    def delete_glue_identity_center_configuration(
+        self, context: RequestContext, **kwargs
+    ) -> DeleteGlueIdentityCenterConfigurationResponse:
+        """Deletes the existing Glue Identity Center configuration, removing the
+        integration between Glue and Amazon Web Services IAM Identity Center.
+
+        :returns: DeleteGlueIdentityCenterConfigurationResponse
+        :raises InvalidInputException:
+        :raises EntityNotFoundException:
+        :raises InternalServiceException:
+        :raises OperationTimeoutException:
+        :raises AccessDeniedException:
+        :raises ConcurrentModificationException:
         """
         raise NotImplementedError
 
@@ -12604,6 +12904,24 @@ class GlueApi:
         :raises ValidationException:
         :raises FederationSourceException:
         :raises AccessDeniedException:
+        """
+        raise NotImplementedError
+
+    @handler("GetGlueIdentityCenterConfiguration")
+    def get_glue_identity_center_configuration(
+        self, context: RequestContext, **kwargs
+    ) -> GetGlueIdentityCenterConfigurationResponse:
+        """Retrieves the current Glue Identity Center configuration details,
+        including the associated Identity Center instance and application
+        information.
+
+        :returns: GetGlueIdentityCenterConfigurationResponse
+        :raises InvalidInputException:
+        :raises EntityNotFoundException:
+        :raises InternalServiceException:
+        :raises OperationTimeoutException:
+        :raises AccessDeniedException:
+        :raises ConcurrentModificationException:
         """
         raise NotImplementedError
 
@@ -14378,6 +14696,7 @@ class GlueApi:
         integration_identifier: String128,
         description: IntegrationDescription | None = None,
         data_filter: String2048 | None = None,
+        integration_config: IntegrationConfig | None = None,
         integration_name: String128 | None = None,
         **kwargs,
     ) -> ModifyIntegrationResponse:
@@ -14386,6 +14705,7 @@ class GlueApi:
         :param integration_identifier: The Amazon Resource Name (ARN) for the integration.
         :param description: A description of the integration.
         :param data_filter: Selects source tables for the integration using Maxwell filter syntax.
+        :param integration_config: Properties associated with the integration.
         :param integration_name: A unique name for an integration in Glue.
         :returns: ModifyIntegrationResponse
         :raises ValidationException:
@@ -15705,6 +16025,25 @@ class GlueApi:
         :raises OperationTimeoutException:
         :raises InvalidInputException:
         :raises ValidationException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateGlueIdentityCenterConfiguration")
+    def update_glue_identity_center_configuration(
+        self, context: RequestContext, scopes: IdentityCenterScopesList | None = None, **kwargs
+    ) -> UpdateGlueIdentityCenterConfigurationResponse:
+        """Updates the existing Glue Identity Center configuration, allowing
+        modification of scopes and permissions for the integration.
+
+        :param scopes: A list of Identity Center scopes that define the updated permissions and
+        access levels for the Glue configuration.
+        :returns: UpdateGlueIdentityCenterConfigurationResponse
+        :raises InvalidInputException:
+        :raises EntityNotFoundException:
+        :raises InternalServiceException:
+        :raises OperationTimeoutException:
+        :raises AccessDeniedException:
+        :raises ConcurrentModificationException:
         """
         raise NotImplementedError
 

@@ -7,17 +7,15 @@ use std::sync::Arc;
 
 use crate::value::{value_to_object, PyValue};
 use crate::variable::PyVariable;
-use zen_engine::handler::custom_node_adapter::{
-    CustomDecisionNode as BaseCustomDecisionNode, CustomNodeRequest,
-};
-use zen_engine::handler::node::NodeResponse;
+use zen_engine::nodes::custom::{CustomDecisionNode as BaseCustomDecisionNode, CustomNodeRequest};
+use zen_engine::nodes::NodeResponse;
 use zen_expression::Variable;
 
 #[derive(Serialize)]
 struct CustomDecisionNode {
-    pub id: String,
-    pub name: String,
-    pub kind: String,
+    pub id: Arc<str>,
+    pub name: Arc<str>,
+    pub kind: Arc<str>,
     pub config: Arc<Value>,
 }
 
@@ -102,7 +100,7 @@ impl From<NodeResponse> for PyNodeResponse {
     fn from(value: NodeResponse) -> Self {
         Self {
             output: value.output.to_value(),
-            trace_data: value.trace_data,
+            trace_data: value.trace_data.map(|v| v.to_value()),
         }
     }
 }
@@ -111,7 +109,7 @@ impl From<PyNodeResponse> for NodeResponse {
     fn from(value: PyNodeResponse) -> Self {
         Self {
             output: value.output.into(),
-            trace_data: value.trace_data,
+            trace_data: value.trace_data.map(|v| v.into()),
         }
     }
 }

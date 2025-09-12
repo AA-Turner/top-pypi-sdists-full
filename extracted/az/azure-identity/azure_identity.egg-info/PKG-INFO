@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: azure-identity
-Version: 1.24.0
+Version: 1.25.0
 Summary: Microsoft Azure Identity Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -16,7 +15,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -25,18 +23,7 @@ Requires-Dist: cryptography>=2.5
 Requires-Dist: msal>=1.30.0
 Requires-Dist: msal-extensions>=1.2.0
 Requires-Dist: typing-extensions>=4.0.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Azure Identity client library for Python
 
@@ -319,6 +306,7 @@ Not all credentials require this configuration. Credentials that authenticate th
 |[`AzureCliCredential`][cli_cred_ref]| Authenticates in a development environment with the Azure CLI. | [Azure CLI authentication](https://learn.microsoft.com/cli/azure/authenticate-azure-cli)
 |[`AzureDeveloperCliCredential`][azd_cli_cred_ref]| Authenticates in a development environment with the Azure Developer CLI. | [Azure Developer CLI Reference](https://learn.microsoft.com/azure/developer/azure-developer-cli/reference)
 |[`AzurePowerShellCredential`][powershell_cred_ref]| Authenticates in a development environment with the Azure PowerShell. | [Azure PowerShell authentication](https://learn.microsoft.com/powershell/azure/authenticate-azureps)
+|[`VisualStudioCodeCredential`][vsc_cred_ref]| Authenticates in a development environment with Visual Studio Code. |
 
 ## Environment variables
 
@@ -444,21 +432,39 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [token_cred_ref]: https://learn.microsoft.com/python/api/azure-core/azure.core.credentials.tokencredential?view=azure-python
 [supports_token_info_ref]: https://learn.microsoft.com/python/api/azure-core/azure.core.credentials.supportstokeninfo?view=azure-python
 [troubleshooting_guide]: https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/TROUBLESHOOTING.md
+[vsc_cred_ref]: https://aka.ms/azsdk/python/identity/vscodecredential
 [workload_id_cred_ref]: https://aka.ms/azsdk/python/identity/workloadidentitycredential
 
-
 # Release History
+
+## 1.25.0 (2025-09-11)
+
+### Features Added
+
+- `AzureDeveloperCliCredential` now supports `claims` in `get_token` and `get_token_info`. ([#42568](https://github.com/Azure/azure-sdk-for-python/pull/42568))
+- Added new keyword argument `require_envvar` to `DefaultAzureCredential` to enforce the presence of the `AZURE_TOKEN_CREDENTIALS` environment variable. ([#42660](https://github.com/Azure/azure-sdk-for-python/pull/42660))
+
+### Bugs Fixed
+
+- Fixed an issue where `AzureDeveloperCliCredential` would time out during token requests when `azd` prompts for user interaction. This issue commonly occurred in environments where the `AZD_DEBUG` environment variable was set, causing the Azure Developer CLI to display additional prompts that interfered with automated token acquisition. ([#42535](https://github.com/Azure/azure-sdk-for-python/pull/42535))
+- Fixed an issue where credentials configured with a default tenant ID of "organizations" (such as `InteractiveBrowserCredential` and `DeviceCodeCredential`) would fail authentication when a specific tenant ID was provided in `get_token` or `get_token_info` method calls. ([#42721](https://github.com/Azure/azure-sdk-for-python/pull/42721))
+
+### Other Changes
+
+- Updated `SharedTokenCacheCredential` to raise `CredentialUnavailableError` instead of `ClientAuthenticationError` during token refresh failures when within the context of `DefaultAzureCredential`. ([#42934](https://github.com/Azure/azure-sdk-for-python/pull/42934))
 
 ## 1.24.0 (2025-08-07)
 
 ### Bugs Fixed
 
 - Fixed an issue where CAE (Continuous Access Evaluation) caches were not properly used by `AuthorizationCodeCredential` and the asynchronous `OnBehalfOfCredential`. ([#42145](https://github.com/Azure/azure-sdk-for-python/pull/42145))
+- Fixed an issue where brokered authentication was not included in the `DefaultAzureCredential` chain when `AZURE_TOKEN_CREDENTIALS` was set to `dev`. ([#42599](https://github.com/Azure/azure-sdk-for-python/pull/42599))
 
 ### Other Changes
 
 - `ManagedIdentityCredential` now retries IMDS 410 status responses for at least 70 seconds total duration as required by [Azure IMDS documentation](https://learn.microsoft.com/azure/virtual-machines/instance-metadata-service?tabs=windows#errors-and-debugging).  ([#42330](https://github.com/Azure/azure-sdk-for-python/pull/42330))
 - Improved `DefaultAzureCredential` diagnostics when `WorkloadIdentityCredential` initialization fails. If DAC fails to find a successful credential in the chain, the reason `WorkloadIdentityCredential` failed will be included in the error message. ([#42346](https://github.com/Azure/azure-sdk-for-python/pull/42346))
+- `AzureCliCredential` and `AzurePowerShellCredential` now raise `ClientAuthenticationError` when `claims` are provided to `get_token` or `get_token_info`, as these credentials do not support claims challenges. The error message includes instructions for handling claims authentication scenarios. ([#42568](https://github.com/Azure/azure-sdk-for-python/pull/42568))
 
 ## 1.24.0b1 (2025-07-17)
 

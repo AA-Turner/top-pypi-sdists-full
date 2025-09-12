@@ -1,7 +1,6 @@
-_A=None
 import functools,json,logging,os
 from abc import ABC
-from typing import Any,Dict
+from typing import Any
 from localstack.utils.objects import SubtypesInstanceManager
 ESC=27
 INDENTATION=2
@@ -29,7 +28,7 @@ class TreeRendererRich(TreeRenderer):
 class Tree:
 	def __init__(A,name,obj):A.name=name;A.object=obj;A.expanded=True
 	def render(A,depth,width):return A.pad(f"{' '*INDENTATION*depth}{A.icon()} {A.name}",width)
-	@functools.lru_cache(maxsize=_A)
+	@functools.cache
 	def children(self):
 		A=self
 		def B(key,value):
@@ -52,7 +51,7 @@ class Tree:
 			for(C,D)in B.traverse():yield(C,D+1)
 	def pad(A,data,width):return data+' '*(width-len(data))
 class TreeRendererCurses(TreeRenderer):
-	LOG=_A
+	LOG=None
 	@staticmethod
 	def impl_name():return'curses'
 	def render_tree(B,dict_obj,tree_name):
@@ -64,13 +63,13 @@ class TreeRendererCurses(TreeRenderer):
 		finally:os.close(0);os.close(1);os.dup(A[0]);os.dup(A[1])
 	@staticmethod
 	def curses_main(win,tree):
-		C=win;import curses as A;C.clear();C.refresh();A.nl();A.noecho();C.timeout(0);C.nodelay(False);tree.expand();B=3;F=_A;A.use_default_colors()
+		C=win;import curses as A;C.clear();C.refresh();A.nl();A.noecho();C.timeout(0);C.nodelay(False);tree.expand();B=3;F=None;A.use_default_colors()
 		while True:
 			C.clear();A.init_pair(1,A.COLOR_WHITE,A.COLOR_BLUE);E=0;G=max(0,B-A.LINES+3)
 			for(H,I)in tree.traverse():
 				if E==B:
 					C.attrset(A.color_pair(1)|A.A_BOLD)
-					if F:getattr(H,F)();F=_A
+					if F:getattr(H,F)();F=None
 				else:C.attrset(A.color_pair(0))
 				if 0<=E-G<A.LINES-1:C.addstr(E-G,0,H.render(I,A.COLS))
 				E+=1

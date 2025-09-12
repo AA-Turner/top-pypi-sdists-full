@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`aws`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs).
+Refer to the Terraform Registry for docs: [`aws`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AwsProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.provider.AwsProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs aws}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs aws}.'''
 
     def __init__(
         self,
@@ -86,44 +86,44 @@ class AwsProvider(
         use_dualstack_endpoint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs aws} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs aws} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_key: The access key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#access_key AwsProvider#access_key}
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#alias AwsProvider#alias}
-        :param allowed_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.
-        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role AwsProvider#assume_role}
-        :param assume_role_with_web_identity: assume_role_with_web_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
-        :param custom_ca_bundle: File containing custom root and intermediate certificates. Can also be configured using the ``AWS_CA_BUNDLE`` environment variable. (Setting ``ca_bundle`` in the shared config file is not supported.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
-        :param default_tags: default_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#default_tags AwsProvider#default_tags}
-        :param ec2_metadata_service_endpoint: Address of the EC2 metadata service endpoint to use. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
-        :param ec2_metadata_service_endpoint_mode: Protocol to use with EC2 metadata service endpoint.Valid values are ``IPv4`` and ``IPv6``. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
-        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#endpoints AwsProvider#endpoints}
-        :param forbidden_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.
-        :param http_proxy: URL of a proxy to use for HTTP requests when accessing the AWS API. Can also be set using the ``HTTP_PROXY`` or ``http_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#http_proxy AwsProvider#http_proxy}
-        :param https_proxy: URL of a proxy to use for HTTPS requests when accessing the AWS API. Can also be set using the ``HTTPS_PROXY`` or ``https_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#https_proxy AwsProvider#https_proxy}
-        :param ignore_tags: ignore_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ignore_tags AwsProvider#ignore_tags}
-        :param insecure: Explicitly allow the provider to perform "insecure" SSL requests. If omitted, default value is ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#insecure AwsProvider#insecure}
-        :param max_retries: The maximum number of times an AWS API request is being executed. If the API request still fails, an error is thrown. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#max_retries AwsProvider#max_retries}
-        :param no_proxy: Comma-separated list of hosts that should not use HTTP or HTTPS proxies. Can also be set using the ``NO_PROXY`` or ``no_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#no_proxy AwsProvider#no_proxy}
-        :param profile: The profile for API operations. If not set, the default profile created with ``aws configure`` will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#profile AwsProvider#profile}
-        :param region: The region where AWS operations will take place. Examples are us-east-1, us-west-2, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#region AwsProvider#region}
-        :param retry_mode: Specifies how retries are attempted. Valid values are ``standard`` and ``adaptive``. Can also be configured using the ``AWS_RETRY_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#retry_mode AwsProvider#retry_mode}
-        :param s3_us_east1_regional_endpoint: Specifies whether S3 API calls in the ``us-east-1`` region use the legacy global endpoint or a regional endpoint. Valid values are ``legacy`` or ``regional``. Can also be configured using the ``AWS_S3_US_EAST_1_REGIONAL_ENDPOINT`` environment variable or the ``s3_us_east_1_regional_endpoint`` shared config file parameter Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
-        :param s3_use_path_style: Set this to true to enable the request to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible (https://BUCKET.s3.amazonaws.com/KEY). Specific to the Amazon S3 service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
-        :param secret_key: The secret key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#secret_key AwsProvider#secret_key}
-        :param shared_config_files: List of paths to shared config files. If not set, defaults to [~/.aws/config]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_config_files AwsProvider#shared_config_files}
-        :param shared_credentials_files: List of paths to shared credentials files. If not set, defaults to [~/.aws/credentials]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
-        :param skip_credentials_validation: Skip the credentials validation via STS API. Used for AWS API implementations that do not have STS available/implemented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
-        :param skip_metadata_api_check: Skip the AWS Metadata API check. Used for AWS API implementations that do not have a metadata api endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
-        :param skip_region_validation: Skip static validation of region name. Used by users of alternative AWS-like APIs or users w/ access to regions that are not public (yet). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_region_validation AwsProvider#skip_region_validation}
-        :param skip_requesting_account_id: Skip requesting the account ID. Used for AWS API implementations that do not have IAM/STS API and/or metadata API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
-        :param sts_region: The region where AWS STS operations will take place. Examples are us-east-1 and us-west-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sts_region AwsProvider#sts_region}
-        :param token: session token. A session token is only required if you are using temporary security credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token AwsProvider#token}
-        :param token_bucket_rate_limiter_capacity: The capacity of the AWS SDK's token bucket rate limiter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
-        :param use_dualstack_endpoint: Resolve an endpoint with DualStack capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
-        :param use_fips_endpoint: Resolve an endpoint with FIPS capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
+        :param access_key: The access key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#access_key AwsProvider#access_key}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#alias AwsProvider#alias}
+        :param allowed_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.
+        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role AwsProvider#assume_role}
+        :param assume_role_with_web_identity: assume_role_with_web_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
+        :param custom_ca_bundle: File containing custom root and intermediate certificates. Can also be configured using the ``AWS_CA_BUNDLE`` environment variable. (Setting ``ca_bundle`` in the shared config file is not supported.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
+        :param default_tags: default_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#default_tags AwsProvider#default_tags}
+        :param ec2_metadata_service_endpoint: Address of the EC2 metadata service endpoint to use. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
+        :param ec2_metadata_service_endpoint_mode: Protocol to use with EC2 metadata service endpoint.Valid values are ``IPv4`` and ``IPv6``. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
+        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#endpoints AwsProvider#endpoints}
+        :param forbidden_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.
+        :param http_proxy: URL of a proxy to use for HTTP requests when accessing the AWS API. Can also be set using the ``HTTP_PROXY`` or ``http_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#http_proxy AwsProvider#http_proxy}
+        :param https_proxy: URL of a proxy to use for HTTPS requests when accessing the AWS API. Can also be set using the ``HTTPS_PROXY`` or ``https_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#https_proxy AwsProvider#https_proxy}
+        :param ignore_tags: ignore_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ignore_tags AwsProvider#ignore_tags}
+        :param insecure: Explicitly allow the provider to perform "insecure" SSL requests. If omitted, default value is ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#insecure AwsProvider#insecure}
+        :param max_retries: The maximum number of times an AWS API request is being executed. If the API request still fails, an error is thrown. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#max_retries AwsProvider#max_retries}
+        :param no_proxy: Comma-separated list of hosts that should not use HTTP or HTTPS proxies. Can also be set using the ``NO_PROXY`` or ``no_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#no_proxy AwsProvider#no_proxy}
+        :param profile: The profile for API operations. If not set, the default profile created with ``aws configure`` will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#profile AwsProvider#profile}
+        :param region: The region where AWS operations will take place. Examples are us-east-1, us-west-2, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#region AwsProvider#region}
+        :param retry_mode: Specifies how retries are attempted. Valid values are ``standard`` and ``adaptive``. Can also be configured using the ``AWS_RETRY_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#retry_mode AwsProvider#retry_mode}
+        :param s3_us_east1_regional_endpoint: Specifies whether S3 API calls in the ``us-east-1`` region use the legacy global endpoint or a regional endpoint. Valid values are ``legacy`` or ``regional``. Can also be configured using the ``AWS_S3_US_EAST_1_REGIONAL_ENDPOINT`` environment variable or the ``s3_us_east_1_regional_endpoint`` shared config file parameter Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
+        :param s3_use_path_style: Set this to true to enable the request to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible (https://BUCKET.s3.amazonaws.com/KEY). Specific to the Amazon S3 service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
+        :param secret_key: The secret key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#secret_key AwsProvider#secret_key}
+        :param shared_config_files: List of paths to shared config files. If not set, defaults to [~/.aws/config]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_config_files AwsProvider#shared_config_files}
+        :param shared_credentials_files: List of paths to shared credentials files. If not set, defaults to [~/.aws/credentials]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
+        :param skip_credentials_validation: Skip the credentials validation via STS API. Used for AWS API implementations that do not have STS available/implemented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
+        :param skip_metadata_api_check: Skip the AWS Metadata API check. Used for AWS API implementations that do not have a metadata api endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
+        :param skip_region_validation: Skip static validation of region name. Used by users of alternative AWS-like APIs or users w/ access to regions that are not public (yet). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_region_validation AwsProvider#skip_region_validation}
+        :param skip_requesting_account_id: Skip requesting the account ID. Used for AWS API implementations that do not have IAM/STS API and/or metadata API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
+        :param sts_region: The region where AWS STS operations will take place. Examples are us-east-1 and us-west-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sts_region AwsProvider#sts_region}
+        :param token: session token. A session token is only required if you are using temporary security credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token AwsProvider#token}
+        :param token_bucket_rate_limiter_capacity: The capacity of the AWS SDK's token bucket rate limiter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
+        :param use_dualstack_endpoint: Resolve an endpoint with DualStack capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
+        :param use_fips_endpoint: Resolve an endpoint with FIPS capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57740e84c090e6dbbe5013b04d4825b1e91195924e8b2a3215a201c1b6c1db94)
@@ -181,7 +181,7 @@ class AwsProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AwsProvider to import.
-        :param import_from_id: The id of the existing AwsProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AwsProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AwsProvider to import is found.
         '''
         if __debug__:
@@ -1060,15 +1060,15 @@ class AwsProviderAssumeRole:
         transitive_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param duration: The duration, between 15 minutes and 12 hours, of the role session. Valid time units are ns, us (or µs), ms, s, h, or m. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#duration AwsProvider#duration}
-        :param external_id: A unique identifier that might be required when you assume a role in another account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#external_id AwsProvider#external_id}
-        :param policy: IAM Policy JSON describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy AwsProvider#policy}
-        :param policy_arns: Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy_arns AwsProvider#policy_arns}
-        :param role_arn: Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#role_arn AwsProvider#role_arn}
-        :param session_name: An identifier for the assumed role session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#session_name AwsProvider#session_name}
-        :param source_identity: Source identity specified by the principal assuming the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#source_identity AwsProvider#source_identity}
-        :param tags: Assume role session tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#tags AwsProvider#tags}
-        :param transitive_tag_keys: Assume role session tag keys to pass to any subsequent sessions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transitive_tag_keys AwsProvider#transitive_tag_keys}
+        :param duration: The duration, between 15 minutes and 12 hours, of the role session. Valid time units are ns, us (or µs), ms, s, h, or m. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#duration AwsProvider#duration}
+        :param external_id: A unique identifier that might be required when you assume a role in another account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#external_id AwsProvider#external_id}
+        :param policy: IAM Policy JSON describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy AwsProvider#policy}
+        :param policy_arns: Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy_arns AwsProvider#policy_arns}
+        :param role_arn: Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#role_arn AwsProvider#role_arn}
+        :param session_name: An identifier for the assumed role session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#session_name AwsProvider#session_name}
+        :param source_identity: Source identity specified by the principal assuming the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#source_identity AwsProvider#source_identity}
+        :param tags: Assume role session tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#tags AwsProvider#tags}
+        :param transitive_tag_keys: Assume role session tag keys to pass to any subsequent sessions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transitive_tag_keys AwsProvider#transitive_tag_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e13c9cf89749eaaf5dd0a7fae994b4dd66132f149e51e34cc333614df59c7ace)
@@ -1107,7 +1107,7 @@ class AwsProviderAssumeRole:
 
         Valid time units are ns, us (or µs), ms, s, h, or m.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#duration AwsProvider#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#duration AwsProvider#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1116,7 +1116,7 @@ class AwsProviderAssumeRole:
     def external_id(self) -> typing.Optional[builtins.str]:
         '''A unique identifier that might be required when you assume a role in another account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#external_id AwsProvider#external_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#external_id AwsProvider#external_id}
         '''
         result = self._values.get("external_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1125,7 +1125,7 @@ class AwsProviderAssumeRole:
     def policy(self) -> typing.Optional[builtins.str]:
         '''IAM Policy JSON describing further restricting permissions for the IAM Role being assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy AwsProvider#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy AwsProvider#policy}
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1134,7 +1134,7 @@ class AwsProviderAssumeRole:
     def policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy_arns AwsProvider#policy_arns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy_arns AwsProvider#policy_arns}
         '''
         result = self._values.get("policy_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1143,7 +1143,7 @@ class AwsProviderAssumeRole:
     def role_arn(self) -> typing.Optional[builtins.str]:
         '''Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#role_arn AwsProvider#role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#role_arn AwsProvider#role_arn}
         '''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1152,7 +1152,7 @@ class AwsProviderAssumeRole:
     def session_name(self) -> typing.Optional[builtins.str]:
         '''An identifier for the assumed role session.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#session_name AwsProvider#session_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#session_name AwsProvider#session_name}
         '''
         result = self._values.get("session_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1161,7 +1161,7 @@ class AwsProviderAssumeRole:
     def source_identity(self) -> typing.Optional[builtins.str]:
         '''Source identity specified by the principal assuming the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#source_identity AwsProvider#source_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#source_identity AwsProvider#source_identity}
         '''
         result = self._values.get("source_identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1170,7 +1170,7 @@ class AwsProviderAssumeRole:
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Assume role session tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#tags AwsProvider#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#tags AwsProvider#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1179,7 +1179,7 @@ class AwsProviderAssumeRole:
     def transitive_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Assume role session tag keys to pass to any subsequent sessions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transitive_tag_keys AwsProvider#transitive_tag_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transitive_tag_keys AwsProvider#transitive_tag_keys}
         '''
         result = self._values.get("transitive_tag_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1222,13 +1222,13 @@ class AwsProviderAssumeRoleWithWebIdentity:
         web_identity_token_file: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: The duration, between 15 minutes and 12 hours, of the role session. Valid time units are ns, us (or µs), ms, s, h, or m. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#duration AwsProvider#duration}
-        :param policy: IAM Policy JSON describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy AwsProvider#policy}
-        :param policy_arns: Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy_arns AwsProvider#policy_arns}
-        :param role_arn: Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#role_arn AwsProvider#role_arn}
-        :param session_name: An identifier for the assumed role session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#session_name AwsProvider#session_name}
-        :param web_identity_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#web_identity_token AwsProvider#web_identity_token}.
-        :param web_identity_token_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#web_identity_token_file AwsProvider#web_identity_token_file}.
+        :param duration: The duration, between 15 minutes and 12 hours, of the role session. Valid time units are ns, us (or µs), ms, s, h, or m. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#duration AwsProvider#duration}
+        :param policy: IAM Policy JSON describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy AwsProvider#policy}
+        :param policy_arns: Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy_arns AwsProvider#policy_arns}
+        :param role_arn: Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#role_arn AwsProvider#role_arn}
+        :param session_name: An identifier for the assumed role session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#session_name AwsProvider#session_name}
+        :param web_identity_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#web_identity_token AwsProvider#web_identity_token}.
+        :param web_identity_token_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#web_identity_token_file AwsProvider#web_identity_token_file}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__006dfde6bb37b5cb603bf04cf9efc9a9b9ccdaab3e3bf265876fbf07e7e867b3)
@@ -1261,7 +1261,7 @@ class AwsProviderAssumeRoleWithWebIdentity:
 
         Valid time units are ns, us (or µs), ms, s, h, or m.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#duration AwsProvider#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#duration AwsProvider#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1270,7 +1270,7 @@ class AwsProviderAssumeRoleWithWebIdentity:
     def policy(self) -> typing.Optional[builtins.str]:
         '''IAM Policy JSON describing further restricting permissions for the IAM Role being assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy AwsProvider#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy AwsProvider#policy}
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1279,7 +1279,7 @@ class AwsProviderAssumeRoleWithWebIdentity:
     def policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Amazon Resource Names (ARNs) of IAM Policies describing further restricting permissions for the IAM Role being assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#policy_arns AwsProvider#policy_arns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#policy_arns AwsProvider#policy_arns}
         '''
         result = self._values.get("policy_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1288,7 +1288,7 @@ class AwsProviderAssumeRoleWithWebIdentity:
     def role_arn(self) -> typing.Optional[builtins.str]:
         '''Amazon Resource Name (ARN) of an IAM Role to assume prior to making API calls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#role_arn AwsProvider#role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#role_arn AwsProvider#role_arn}
         '''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1297,20 +1297,20 @@ class AwsProviderAssumeRoleWithWebIdentity:
     def session_name(self) -> typing.Optional[builtins.str]:
         '''An identifier for the assumed role session.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#session_name AwsProvider#session_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#session_name AwsProvider#session_name}
         '''
         result = self._values.get("session_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def web_identity_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#web_identity_token AwsProvider#web_identity_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#web_identity_token AwsProvider#web_identity_token}.'''
         result = self._values.get("web_identity_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def web_identity_token_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#web_identity_token_file AwsProvider#web_identity_token_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#web_identity_token_file AwsProvider#web_identity_token_file}.'''
         result = self._values.get("web_identity_token_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1406,40 +1406,40 @@ class AwsProviderConfig:
         use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_key: The access key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#access_key AwsProvider#access_key}
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#alias AwsProvider#alias}
-        :param allowed_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.
-        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role AwsProvider#assume_role}
-        :param assume_role_with_web_identity: assume_role_with_web_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
-        :param custom_ca_bundle: File containing custom root and intermediate certificates. Can also be configured using the ``AWS_CA_BUNDLE`` environment variable. (Setting ``ca_bundle`` in the shared config file is not supported.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
-        :param default_tags: default_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#default_tags AwsProvider#default_tags}
-        :param ec2_metadata_service_endpoint: Address of the EC2 metadata service endpoint to use. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
-        :param ec2_metadata_service_endpoint_mode: Protocol to use with EC2 metadata service endpoint.Valid values are ``IPv4`` and ``IPv6``. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
-        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#endpoints AwsProvider#endpoints}
-        :param forbidden_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.
-        :param http_proxy: URL of a proxy to use for HTTP requests when accessing the AWS API. Can also be set using the ``HTTP_PROXY`` or ``http_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#http_proxy AwsProvider#http_proxy}
-        :param https_proxy: URL of a proxy to use for HTTPS requests when accessing the AWS API. Can also be set using the ``HTTPS_PROXY`` or ``https_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#https_proxy AwsProvider#https_proxy}
-        :param ignore_tags: ignore_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ignore_tags AwsProvider#ignore_tags}
-        :param insecure: Explicitly allow the provider to perform "insecure" SSL requests. If omitted, default value is ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#insecure AwsProvider#insecure}
-        :param max_retries: The maximum number of times an AWS API request is being executed. If the API request still fails, an error is thrown. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#max_retries AwsProvider#max_retries}
-        :param no_proxy: Comma-separated list of hosts that should not use HTTP or HTTPS proxies. Can also be set using the ``NO_PROXY`` or ``no_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#no_proxy AwsProvider#no_proxy}
-        :param profile: The profile for API operations. If not set, the default profile created with ``aws configure`` will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#profile AwsProvider#profile}
-        :param region: The region where AWS operations will take place. Examples are us-east-1, us-west-2, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#region AwsProvider#region}
-        :param retry_mode: Specifies how retries are attempted. Valid values are ``standard`` and ``adaptive``. Can also be configured using the ``AWS_RETRY_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#retry_mode AwsProvider#retry_mode}
-        :param s3_us_east1_regional_endpoint: Specifies whether S3 API calls in the ``us-east-1`` region use the legacy global endpoint or a regional endpoint. Valid values are ``legacy`` or ``regional``. Can also be configured using the ``AWS_S3_US_EAST_1_REGIONAL_ENDPOINT`` environment variable or the ``s3_us_east_1_regional_endpoint`` shared config file parameter Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
-        :param s3_use_path_style: Set this to true to enable the request to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible (https://BUCKET.s3.amazonaws.com/KEY). Specific to the Amazon S3 service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
-        :param secret_key: The secret key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#secret_key AwsProvider#secret_key}
-        :param shared_config_files: List of paths to shared config files. If not set, defaults to [~/.aws/config]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_config_files AwsProvider#shared_config_files}
-        :param shared_credentials_files: List of paths to shared credentials files. If not set, defaults to [~/.aws/credentials]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
-        :param skip_credentials_validation: Skip the credentials validation via STS API. Used for AWS API implementations that do not have STS available/implemented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
-        :param skip_metadata_api_check: Skip the AWS Metadata API check. Used for AWS API implementations that do not have a metadata api endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
-        :param skip_region_validation: Skip static validation of region name. Used by users of alternative AWS-like APIs or users w/ access to regions that are not public (yet). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_region_validation AwsProvider#skip_region_validation}
-        :param skip_requesting_account_id: Skip requesting the account ID. Used for AWS API implementations that do not have IAM/STS API and/or metadata API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
-        :param sts_region: The region where AWS STS operations will take place. Examples are us-east-1 and us-west-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sts_region AwsProvider#sts_region}
-        :param token: session token. A session token is only required if you are using temporary security credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token AwsProvider#token}
-        :param token_bucket_rate_limiter_capacity: The capacity of the AWS SDK's token bucket rate limiter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
-        :param use_dualstack_endpoint: Resolve an endpoint with DualStack capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
-        :param use_fips_endpoint: Resolve an endpoint with FIPS capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
+        :param access_key: The access key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#access_key AwsProvider#access_key}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#alias AwsProvider#alias}
+        :param allowed_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.
+        :param assume_role: assume_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role AwsProvider#assume_role}
+        :param assume_role_with_web_identity: assume_role_with_web_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
+        :param custom_ca_bundle: File containing custom root and intermediate certificates. Can also be configured using the ``AWS_CA_BUNDLE`` environment variable. (Setting ``ca_bundle`` in the shared config file is not supported.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
+        :param default_tags: default_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#default_tags AwsProvider#default_tags}
+        :param ec2_metadata_service_endpoint: Address of the EC2 metadata service endpoint to use. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
+        :param ec2_metadata_service_endpoint_mode: Protocol to use with EC2 metadata service endpoint.Valid values are ``IPv4`` and ``IPv6``. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
+        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#endpoints AwsProvider#endpoints}
+        :param forbidden_account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.
+        :param http_proxy: URL of a proxy to use for HTTP requests when accessing the AWS API. Can also be set using the ``HTTP_PROXY`` or ``http_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#http_proxy AwsProvider#http_proxy}
+        :param https_proxy: URL of a proxy to use for HTTPS requests when accessing the AWS API. Can also be set using the ``HTTPS_PROXY`` or ``https_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#https_proxy AwsProvider#https_proxy}
+        :param ignore_tags: ignore_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ignore_tags AwsProvider#ignore_tags}
+        :param insecure: Explicitly allow the provider to perform "insecure" SSL requests. If omitted, default value is ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#insecure AwsProvider#insecure}
+        :param max_retries: The maximum number of times an AWS API request is being executed. If the API request still fails, an error is thrown. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#max_retries AwsProvider#max_retries}
+        :param no_proxy: Comma-separated list of hosts that should not use HTTP or HTTPS proxies. Can also be set using the ``NO_PROXY`` or ``no_proxy`` environment variables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#no_proxy AwsProvider#no_proxy}
+        :param profile: The profile for API operations. If not set, the default profile created with ``aws configure`` will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#profile AwsProvider#profile}
+        :param region: The region where AWS operations will take place. Examples are us-east-1, us-west-2, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#region AwsProvider#region}
+        :param retry_mode: Specifies how retries are attempted. Valid values are ``standard`` and ``adaptive``. Can also be configured using the ``AWS_RETRY_MODE`` environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#retry_mode AwsProvider#retry_mode}
+        :param s3_us_east1_regional_endpoint: Specifies whether S3 API calls in the ``us-east-1`` region use the legacy global endpoint or a regional endpoint. Valid values are ``legacy`` or ``regional``. Can also be configured using the ``AWS_S3_US_EAST_1_REGIONAL_ENDPOINT`` environment variable or the ``s3_us_east_1_regional_endpoint`` shared config file parameter Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
+        :param s3_use_path_style: Set this to true to enable the request to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible (https://BUCKET.s3.amazonaws.com/KEY). Specific to the Amazon S3 service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
+        :param secret_key: The secret key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#secret_key AwsProvider#secret_key}
+        :param shared_config_files: List of paths to shared config files. If not set, defaults to [~/.aws/config]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_config_files AwsProvider#shared_config_files}
+        :param shared_credentials_files: List of paths to shared credentials files. If not set, defaults to [~/.aws/credentials]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
+        :param skip_credentials_validation: Skip the credentials validation via STS API. Used for AWS API implementations that do not have STS available/implemented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
+        :param skip_metadata_api_check: Skip the AWS Metadata API check. Used for AWS API implementations that do not have a metadata api endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
+        :param skip_region_validation: Skip static validation of region name. Used by users of alternative AWS-like APIs or users w/ access to regions that are not public (yet). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_region_validation AwsProvider#skip_region_validation}
+        :param skip_requesting_account_id: Skip requesting the account ID. Used for AWS API implementations that do not have IAM/STS API and/or metadata API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
+        :param sts_region: The region where AWS STS operations will take place. Examples are us-east-1 and us-west-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sts_region AwsProvider#sts_region}
+        :param token: session token. A session token is only required if you are using temporary security credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token AwsProvider#token}
+        :param token_bucket_rate_limiter_capacity: The capacity of the AWS SDK's token bucket rate limiter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
+        :param use_dualstack_endpoint: Resolve an endpoint with DualStack capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
+        :param use_fips_endpoint: Resolve an endpoint with FIPS capability. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c594a8866496614f028e2c928d60f10d6094c47bbfd585fb76f5f791591813c3)
@@ -1551,7 +1551,7 @@ class AwsProviderConfig:
     def access_key(self) -> typing.Optional[builtins.str]:
         '''The access key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#access_key AwsProvider#access_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#access_key AwsProvider#access_key}
         '''
         result = self._values.get("access_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1560,14 +1560,14 @@ class AwsProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#alias AwsProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#alias AwsProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def allowed_account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#allowed_account_ids AwsProvider#allowed_account_ids}.'''
         result = self._values.get("allowed_account_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1577,7 +1577,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AwsProviderAssumeRole]]]:
         '''assume_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role AwsProvider#assume_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role AwsProvider#assume_role}
         '''
         result = self._values.get("assume_role")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AwsProviderAssumeRole]]], result)
@@ -1588,7 +1588,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AwsProviderAssumeRoleWithWebIdentity]]]:
         '''assume_role_with_web_identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#assume_role_with_web_identity AwsProvider#assume_role_with_web_identity}
         '''
         result = self._values.get("assume_role_with_web_identity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AwsProviderAssumeRoleWithWebIdentity]]], result)
@@ -1599,7 +1599,7 @@ class AwsProviderConfig:
 
         Can also be configured using the ``AWS_CA_BUNDLE`` environment variable. (Setting ``ca_bundle`` in the shared config file is not supported.)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#custom_ca_bundle AwsProvider#custom_ca_bundle}
         '''
         result = self._values.get("custom_ca_bundle")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1610,7 +1610,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderDefaultTags"]]]:
         '''default_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#default_tags AwsProvider#default_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#default_tags AwsProvider#default_tags}
         '''
         result = self._values.get("default_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderDefaultTags"]]], result)
@@ -1619,7 +1619,7 @@ class AwsProviderConfig:
     def ec2_metadata_service_endpoint(self) -> typing.Optional[builtins.str]:
         '''Address of the EC2 metadata service endpoint to use. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT`` environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint AwsProvider#ec2_metadata_service_endpoint}
         '''
         result = self._values.get("ec2_metadata_service_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1628,7 +1628,7 @@ class AwsProviderConfig:
     def ec2_metadata_service_endpoint_mode(self) -> typing.Optional[builtins.str]:
         '''Protocol to use with EC2 metadata service endpoint.Valid values are ``IPv4`` and ``IPv6``. Can also be configured using the ``AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE`` environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2_metadata_service_endpoint_mode AwsProvider#ec2_metadata_service_endpoint_mode}
         '''
         result = self._values.get("ec2_metadata_service_endpoint_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1639,14 +1639,14 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderEndpoints"]]]:
         '''endpoints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#endpoints AwsProvider#endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#endpoints AwsProvider#endpoints}
         '''
         result = self._values.get("endpoints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderEndpoints"]]], result)
 
     @builtins.property
     def forbidden_account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#forbidden_account_ids AwsProvider#forbidden_account_ids}.'''
         result = self._values.get("forbidden_account_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1656,7 +1656,7 @@ class AwsProviderConfig:
 
         Can also be set using the ``HTTP_PROXY`` or ``http_proxy`` environment variables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#http_proxy AwsProvider#http_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#http_proxy AwsProvider#http_proxy}
         '''
         result = self._values.get("http_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1667,7 +1667,7 @@ class AwsProviderConfig:
 
         Can also be set using the ``HTTPS_PROXY`` or ``https_proxy`` environment variables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#https_proxy AwsProvider#https_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#https_proxy AwsProvider#https_proxy}
         '''
         result = self._values.get("https_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1678,7 +1678,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderIgnoreTags"]]]:
         '''ignore_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ignore_tags AwsProvider#ignore_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ignore_tags AwsProvider#ignore_tags}
         '''
         result = self._values.get("ignore_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AwsProviderIgnoreTags"]]], result)
@@ -1689,7 +1689,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Explicitly allow the provider to perform "insecure" SSL requests. If omitted, default value is ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#insecure AwsProvider#insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#insecure AwsProvider#insecure}
         '''
         result = self._values.get("insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1701,7 +1701,7 @@ class AwsProviderConfig:
         If the API request still fails, an error is
         thrown.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#max_retries AwsProvider#max_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#max_retries AwsProvider#max_retries}
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1712,7 +1712,7 @@ class AwsProviderConfig:
 
         Can also be set using the ``NO_PROXY`` or ``no_proxy`` environment variables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#no_proxy AwsProvider#no_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#no_proxy AwsProvider#no_proxy}
         '''
         result = self._values.get("no_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1721,7 +1721,7 @@ class AwsProviderConfig:
     def profile(self) -> typing.Optional[builtins.str]:
         '''The profile for API operations. If not set, the default profile created with ``aws configure`` will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#profile AwsProvider#profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#profile AwsProvider#profile}
         '''
         result = self._values.get("profile")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1730,7 +1730,7 @@ class AwsProviderConfig:
     def region(self) -> typing.Optional[builtins.str]:
         '''The region where AWS operations will take place. Examples are us-east-1, us-west-2, etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#region AwsProvider#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#region AwsProvider#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1741,7 +1741,7 @@ class AwsProviderConfig:
 
         Valid values are ``standard`` and ``adaptive``. Can also be configured using the ``AWS_RETRY_MODE`` environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#retry_mode AwsProvider#retry_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#retry_mode AwsProvider#retry_mode}
         '''
         result = self._values.get("retry_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1752,7 +1752,7 @@ class AwsProviderConfig:
 
         Valid values are ``legacy`` or ``regional``. Can also be configured using the ``AWS_S3_US_EAST_1_REGIONAL_ENDPOINT`` environment variable or the ``s3_us_east_1_regional_endpoint`` shared config file parameter
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_us_east_1_regional_endpoint AwsProvider#s3_us_east_1_regional_endpoint}
         '''
         result = self._values.get("s3_us_east1_regional_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1763,7 +1763,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set this to true to enable the request to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible (https://BUCKET.s3.amazonaws.com/KEY). Specific to the Amazon S3 service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3_use_path_style AwsProvider#s3_use_path_style}
         '''
         result = self._values.get("s3_use_path_style")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1772,7 +1772,7 @@ class AwsProviderConfig:
     def secret_key(self) -> typing.Optional[builtins.str]:
         '''The secret key for API operations. You can retrieve this from the 'Security & Credentials' section of the AWS console.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#secret_key AwsProvider#secret_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#secret_key AwsProvider#secret_key}
         '''
         result = self._values.get("secret_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1781,7 +1781,7 @@ class AwsProviderConfig:
     def shared_config_files(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of paths to shared config files. If not set, defaults to [~/.aws/config].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_config_files AwsProvider#shared_config_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_config_files AwsProvider#shared_config_files}
         '''
         result = self._values.get("shared_config_files")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1790,7 +1790,7 @@ class AwsProviderConfig:
     def shared_credentials_files(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of paths to shared credentials files. If not set, defaults to [~/.aws/credentials].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shared_credentials_files AwsProvider#shared_credentials_files}
         '''
         result = self._values.get("shared_credentials_files")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1801,7 +1801,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Skip the credentials validation via STS API. Used for AWS API implementations that do not have STS available/implemented.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_credentials_validation AwsProvider#skip_credentials_validation}
         '''
         result = self._values.get("skip_credentials_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1810,7 +1810,7 @@ class AwsProviderConfig:
     def skip_metadata_api_check(self) -> typing.Optional[builtins.str]:
         '''Skip the AWS Metadata API check. Used for AWS API implementations that do not have a metadata api endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_metadata_api_check AwsProvider#skip_metadata_api_check}
         '''
         result = self._values.get("skip_metadata_api_check")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1823,7 +1823,7 @@ class AwsProviderConfig:
 
         Used by users of alternative AWS-like APIs or users w/ access to regions that are not public (yet).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_region_validation AwsProvider#skip_region_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_region_validation AwsProvider#skip_region_validation}
         '''
         result = self._values.get("skip_region_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1834,7 +1834,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Skip requesting the account ID. Used for AWS API implementations that do not have IAM/STS API and/or metadata API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#skip_requesting_account_id AwsProvider#skip_requesting_account_id}
         '''
         result = self._values.get("skip_requesting_account_id")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1843,7 +1843,7 @@ class AwsProviderConfig:
     def sts_region(self) -> typing.Optional[builtins.str]:
         '''The region where AWS STS operations will take place. Examples are us-east-1 and us-west-2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sts_region AwsProvider#sts_region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sts_region AwsProvider#sts_region}
         '''
         result = self._values.get("sts_region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1852,7 +1852,7 @@ class AwsProviderConfig:
     def token(self) -> typing.Optional[builtins.str]:
         '''session token. A session token is only required if you are using temporary security credentials.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token AwsProvider#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token AwsProvider#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1861,7 +1861,7 @@ class AwsProviderConfig:
     def token_bucket_rate_limiter_capacity(self) -> typing.Optional[jsii.Number]:
         '''The capacity of the AWS SDK's token bucket rate limiter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#token_bucket_rate_limiter_capacity AwsProvider#token_bucket_rate_limiter_capacity}
         '''
         result = self._values.get("token_bucket_rate_limiter_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1872,7 +1872,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Resolve an endpoint with DualStack capability.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_dualstack_endpoint AwsProvider#use_dualstack_endpoint}
         '''
         result = self._values.get("use_dualstack_endpoint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1883,7 +1883,7 @@ class AwsProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Resolve an endpoint with FIPS capability.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#use_fips_endpoint AwsProvider#use_fips_endpoint}
         '''
         result = self._values.get("use_fips_endpoint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1912,7 +1912,7 @@ class AwsProviderDefaultTags:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param tags: Resource tags to default across all resources. Can also be configured with environment variables like ``TF_AWS_DEFAULT_TAGS_<tag_name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#tags AwsProvider#tags}
+        :param tags: Resource tags to default across all resources. Can also be configured with environment variables like ``TF_AWS_DEFAULT_TAGS_<tag_name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#tags AwsProvider#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eebaf0067d800334bb2e8f03568b545daa7ceaffca147b8eed6da77e27758b8d)
@@ -1925,7 +1925,7 @@ class AwsProviderDefaultTags:
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Resource tags to default across all resources. Can also be configured with environment variables like ``TF_AWS_DEFAULT_TAGS_<tag_name>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#tags AwsProvider#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#tags AwsProvider#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2558,308 +2558,308 @@ class AwsProviderEndpoints:
         xray: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accessanalyzer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#accessanalyzer AwsProvider#accessanalyzer}
-        :param account: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#account AwsProvider#account}
-        :param acm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#acm AwsProvider#acm}
-        :param acmpca: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#acmpca AwsProvider#acmpca}
-        :param amg: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amg AwsProvider#amg}
-        :param amp: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amp AwsProvider#amp}
-        :param amplify: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amplify AwsProvider#amplify}
-        :param apigateway: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apigateway AwsProvider#apigateway}
-        :param apigatewayv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apigatewayv2 AwsProvider#apigatewayv2}
-        :param appautoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appautoscaling AwsProvider#appautoscaling}
-        :param appconfig: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appconfig AwsProvider#appconfig}
-        :param appfabric: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appfabric AwsProvider#appfabric}
-        :param appflow: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appflow AwsProvider#appflow}
-        :param appintegrations: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appintegrations AwsProvider#appintegrations}
-        :param appintegrationsservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appintegrationsservice AwsProvider#appintegrationsservice}
-        :param applicationautoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationautoscaling AwsProvider#applicationautoscaling}
-        :param applicationinsights: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationinsights AwsProvider#applicationinsights}
-        :param applicationsignals: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationsignals AwsProvider#applicationsignals}
-        :param appmesh: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appmesh AwsProvider#appmesh}
-        :param appregistry: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appregistry AwsProvider#appregistry}
-        :param apprunner: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apprunner AwsProvider#apprunner}
-        :param appstream: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appstream AwsProvider#appstream}
-        :param appsync: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appsync AwsProvider#appsync}
-        :param arcregionswitch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#arcregionswitch AwsProvider#arcregionswitch}
-        :param athena: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#athena AwsProvider#athena}
-        :param auditmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#auditmanager AwsProvider#auditmanager}
-        :param autoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#autoscaling AwsProvider#autoscaling}
-        :param autoscalingplans: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#autoscalingplans AwsProvider#autoscalingplans}
-        :param backup: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#backup AwsProvider#backup}
-        :param batch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#batch AwsProvider#batch}
-        :param bcmdataexports: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bcmdataexports AwsProvider#bcmdataexports}
-        :param beanstalk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#beanstalk AwsProvider#beanstalk}
-        :param bedrock: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrock AwsProvider#bedrock}
-        :param bedrockagent: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrockagent AwsProvider#bedrockagent}
-        :param bedrockagentcore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrockagentcore AwsProvider#bedrockagentcore}
-        :param billing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#billing AwsProvider#billing}
-        :param budgets: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#budgets AwsProvider#budgets}
-        :param ce: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ce AwsProvider#ce}
-        :param chatbot: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chatbot AwsProvider#chatbot}
-        :param chime: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chime AwsProvider#chime}
-        :param chimesdkmediapipelines: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chimesdkmediapipelines AwsProvider#chimesdkmediapipelines}
-        :param chimesdkvoice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chimesdkvoice AwsProvider#chimesdkvoice}
-        :param cleanrooms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cleanrooms AwsProvider#cleanrooms}
-        :param cloud9: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloud9 AwsProvider#cloud9}
-        :param cloudcontrol: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudcontrol AwsProvider#cloudcontrol}
-        :param cloudcontrolapi: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudcontrolapi AwsProvider#cloudcontrolapi}
-        :param cloudformation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudformation AwsProvider#cloudformation}
-        :param cloudfront: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudfront AwsProvider#cloudfront}
-        :param cloudfrontkeyvaluestore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudfrontkeyvaluestore AwsProvider#cloudfrontkeyvaluestore}
-        :param cloudhsm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudhsm AwsProvider#cloudhsm}
-        :param cloudhsmv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudhsmv2 AwsProvider#cloudhsmv2}
-        :param cloudsearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudsearch AwsProvider#cloudsearch}
-        :param cloudtrail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudtrail AwsProvider#cloudtrail}
-        :param cloudwatch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatch AwsProvider#cloudwatch}
-        :param cloudwatchevents: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchevents AwsProvider#cloudwatchevents}
-        :param cloudwatchevidently: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchevidently AwsProvider#cloudwatchevidently}
-        :param cloudwatchlog: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchlog AwsProvider#cloudwatchlog}
-        :param cloudwatchlogs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchlogs AwsProvider#cloudwatchlogs}
-        :param cloudwatchobservabilityaccessmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchobservabilityaccessmanager AwsProvider#cloudwatchobservabilityaccessmanager}
-        :param cloudwatchrum: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchrum AwsProvider#cloudwatchrum}
-        :param codeartifact: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeartifact AwsProvider#codeartifact}
-        :param codebuild: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codebuild AwsProvider#codebuild}
-        :param codecatalyst: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codecatalyst AwsProvider#codecatalyst}
-        :param codecommit: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codecommit AwsProvider#codecommit}
-        :param codeconnections: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeconnections AwsProvider#codeconnections}
-        :param codedeploy: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codedeploy AwsProvider#codedeploy}
-        :param codeguruprofiler: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeguruprofiler AwsProvider#codeguruprofiler}
-        :param codegurureviewer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codegurureviewer AwsProvider#codegurureviewer}
-        :param codepipeline: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codepipeline AwsProvider#codepipeline}
-        :param codestarconnections: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codestarconnections AwsProvider#codestarconnections}
-        :param codestarnotifications: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codestarnotifications AwsProvider#codestarnotifications}
-        :param cognitoidentity: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidentity AwsProvider#cognitoidentity}
-        :param cognitoidentityprovider: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidentityprovider AwsProvider#cognitoidentityprovider}
-        :param cognitoidp: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidp AwsProvider#cognitoidp}
-        :param comprehend: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#comprehend AwsProvider#comprehend}
-        :param computeoptimizer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#computeoptimizer AwsProvider#computeoptimizer}
-        :param config: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#config AwsProvider#config}
-        :param configservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#configservice AwsProvider#configservice}
-        :param connect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#connect AwsProvider#connect}
-        :param connectcases: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#connectcases AwsProvider#connectcases}
-        :param controltower: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#controltower AwsProvider#controltower}
-        :param costandusagereportservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costandusagereportservice AwsProvider#costandusagereportservice}
-        :param costexplorer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costexplorer AwsProvider#costexplorer}
-        :param costoptimizationhub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costoptimizationhub AwsProvider#costoptimizationhub}
-        :param cur: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cur AwsProvider#cur}
-        :param customerprofiles: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#customerprofiles AwsProvider#customerprofiles}
-        :param databasemigration: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databasemigration AwsProvider#databasemigration}
-        :param databasemigrationservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databasemigrationservice AwsProvider#databasemigrationservice}
-        :param databrew: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databrew AwsProvider#databrew}
-        :param dataexchange: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dataexchange AwsProvider#dataexchange}
-        :param datapipeline: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datapipeline AwsProvider#datapipeline}
-        :param datasync: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datasync AwsProvider#datasync}
-        :param datazone: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datazone AwsProvider#datazone}
-        :param dax: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dax AwsProvider#dax}
-        :param deploy: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#deploy AwsProvider#deploy}
-        :param detective: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#detective AwsProvider#detective}
-        :param devicefarm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#devicefarm AwsProvider#devicefarm}
-        :param devopsguru: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#devopsguru AwsProvider#devopsguru}
-        :param directconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#directconnect AwsProvider#directconnect}
-        :param directoryservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#directoryservice AwsProvider#directoryservice}
-        :param dlm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dlm AwsProvider#dlm}
-        :param dms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dms AwsProvider#dms}
-        :param docdb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#docdb AwsProvider#docdb}
-        :param docdbelastic: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#docdbelastic AwsProvider#docdbelastic}
-        :param drs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#drs AwsProvider#drs}
-        :param ds: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ds AwsProvider#ds}
-        :param dsql: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dsql AwsProvider#dsql}
-        :param dynamodb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dynamodb AwsProvider#dynamodb}
-        :param ec2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2 AwsProvider#ec2}
-        :param ecr: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecr AwsProvider#ecr}
-        :param ecrpublic: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecrpublic AwsProvider#ecrpublic}
-        :param ecs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecs AwsProvider#ecs}
-        :param efs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#efs AwsProvider#efs}
-        :param eks: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#eks AwsProvider#eks}
-        :param elasticache: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticache AwsProvider#elasticache}
-        :param elasticbeanstalk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticbeanstalk AwsProvider#elasticbeanstalk}
-        :param elasticloadbalancing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticloadbalancing AwsProvider#elasticloadbalancing}
-        :param elasticloadbalancingv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticloadbalancingv2 AwsProvider#elasticloadbalancingv2}
-        :param elasticsearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticsearch AwsProvider#elasticsearch}
-        :param elasticsearchservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticsearchservice AwsProvider#elasticsearchservice}
-        :param elastictranscoder: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elastictranscoder AwsProvider#elastictranscoder}
-        :param elb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elb AwsProvider#elb}
-        :param elbv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elbv2 AwsProvider#elbv2}
-        :param emr: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emr AwsProvider#emr}
-        :param emrcontainers: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emrcontainers AwsProvider#emrcontainers}
-        :param emrserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emrserverless AwsProvider#emrserverless}
-        :param es: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#es AwsProvider#es}
-        :param eventbridge: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#eventbridge AwsProvider#eventbridge}
-        :param events: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#events AwsProvider#events}
-        :param evidently: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#evidently AwsProvider#evidently}
-        :param evs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#evs AwsProvider#evs}
-        :param finspace: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#finspace AwsProvider#finspace}
-        :param firehose: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#firehose AwsProvider#firehose}
-        :param fis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fis AwsProvider#fis}
-        :param fms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fms AwsProvider#fms}
-        :param fsx: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fsx AwsProvider#fsx}
-        :param gamelift: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#gamelift AwsProvider#gamelift}
-        :param glacier: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#glacier AwsProvider#glacier}
-        :param globalaccelerator: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#globalaccelerator AwsProvider#globalaccelerator}
-        :param glue: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#glue AwsProvider#glue}
-        :param gluedatabrew: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#gluedatabrew AwsProvider#gluedatabrew}
-        :param grafana: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#grafana AwsProvider#grafana}
-        :param greengrass: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#greengrass AwsProvider#greengrass}
-        :param groundstation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#groundstation AwsProvider#groundstation}
-        :param guardduty: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#guardduty AwsProvider#guardduty}
-        :param healthlake: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#healthlake AwsProvider#healthlake}
-        :param iam: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#iam AwsProvider#iam}
-        :param identitystore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#identitystore AwsProvider#identitystore}
-        :param imagebuilder: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#imagebuilder AwsProvider#imagebuilder}
-        :param inspector: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspector AwsProvider#inspector}
-        :param inspector2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspector2 AwsProvider#inspector2}
-        :param inspectorv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspectorv2 AwsProvider#inspectorv2}
-        :param internetmonitor: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#internetmonitor AwsProvider#internetmonitor}
-        :param invoicing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#invoicing AwsProvider#invoicing}
-        :param iot: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#iot AwsProvider#iot}
-        :param ivs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ivs AwsProvider#ivs}
-        :param ivschat: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ivschat AwsProvider#ivschat}
-        :param kafka: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kafka AwsProvider#kafka}
-        :param kafkaconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kafkaconnect AwsProvider#kafkaconnect}
-        :param kendra: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kendra AwsProvider#kendra}
-        :param keyspaces: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#keyspaces AwsProvider#keyspaces}
-        :param kinesis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesis AwsProvider#kinesis}
-        :param kinesisanalytics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisanalytics AwsProvider#kinesisanalytics}
-        :param kinesisanalyticsv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisanalyticsv2 AwsProvider#kinesisanalyticsv2}
-        :param kinesisvideo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisvideo AwsProvider#kinesisvideo}
-        :param kms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kms AwsProvider#kms}
-        :param lakeformation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lakeformation AwsProvider#lakeformation}
-        :param lambda_: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lambda AwsProvider#lambda}
-        :param launchwizard: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#launchwizard AwsProvider#launchwizard}
-        :param lex: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lex AwsProvider#lex}
-        :param lexmodelbuilding: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelbuilding AwsProvider#lexmodelbuilding}
-        :param lexmodelbuildingservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelbuildingservice AwsProvider#lexmodelbuildingservice}
-        :param lexmodels: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodels AwsProvider#lexmodels}
-        :param lexmodelsv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelsv2 AwsProvider#lexmodelsv2}
-        :param lexv2_models: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexv2models AwsProvider#lexv2models}
-        :param licensemanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#licensemanager AwsProvider#licensemanager}
-        :param lightsail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lightsail AwsProvider#lightsail}
-        :param location: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#location AwsProvider#location}
-        :param locationservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#locationservice AwsProvider#locationservice}
-        :param logs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#logs AwsProvider#logs}
-        :param lookoutmetrics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lookoutmetrics AwsProvider#lookoutmetrics}
-        :param m2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#m2 AwsProvider#m2}
-        :param macie2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#macie2 AwsProvider#macie2}
-        :param managedgrafana: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#managedgrafana AwsProvider#managedgrafana}
-        :param mediaconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediaconnect AwsProvider#mediaconnect}
-        :param mediaconvert: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediaconvert AwsProvider#mediaconvert}
-        :param medialive: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#medialive AwsProvider#medialive}
-        :param mediapackage: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackage AwsProvider#mediapackage}
-        :param mediapackagev2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackagev2 AwsProvider#mediapackagev2}
-        :param mediapackagevod: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackagevod AwsProvider#mediapackagevod}
-        :param mediastore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediastore AwsProvider#mediastore}
-        :param memorydb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#memorydb AwsProvider#memorydb}
-        :param mgn: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mgn AwsProvider#mgn}
-        :param mq: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mq AwsProvider#mq}
-        :param msk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#msk AwsProvider#msk}
-        :param mwaa: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mwaa AwsProvider#mwaa}
-        :param neptune: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#neptune AwsProvider#neptune}
-        :param neptunegraph: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#neptunegraph AwsProvider#neptunegraph}
-        :param networkfirewall: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkfirewall AwsProvider#networkfirewall}
-        :param networkmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkmanager AwsProvider#networkmanager}
-        :param networkmonitor: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkmonitor AwsProvider#networkmonitor}
-        :param notifications: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#notifications AwsProvider#notifications}
-        :param notificationscontacts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#notificationscontacts AwsProvider#notificationscontacts}
-        :param oam: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#oam AwsProvider#oam}
-        :param odb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#odb AwsProvider#odb}
-        :param opensearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearch AwsProvider#opensearch}
-        :param opensearchingestion: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchingestion AwsProvider#opensearchingestion}
-        :param opensearchserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchserverless AwsProvider#opensearchserverless}
-        :param opensearchservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchservice AwsProvider#opensearchservice}
-        :param organizations: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#organizations AwsProvider#organizations}
-        :param osis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#osis AwsProvider#osis}
-        :param outposts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#outposts AwsProvider#outposts}
-        :param paymentcryptography: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#paymentcryptography AwsProvider#paymentcryptography}
-        :param pcaconnectorad: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pcaconnectorad AwsProvider#pcaconnectorad}
-        :param pcs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pcs AwsProvider#pcs}
-        :param pinpoint: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pinpoint AwsProvider#pinpoint}
-        :param pinpointsmsvoicev2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pinpointsmsvoicev2 AwsProvider#pinpointsmsvoicev2}
-        :param pipes: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pipes AwsProvider#pipes}
-        :param polly: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#polly AwsProvider#polly}
-        :param pricing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pricing AwsProvider#pricing}
-        :param prometheus: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#prometheus AwsProvider#prometheus}
-        :param prometheusservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#prometheusservice AwsProvider#prometheusservice}
-        :param qbusiness: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#qbusiness AwsProvider#qbusiness}
-        :param qldb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#qldb AwsProvider#qldb}
-        :param quicksight: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#quicksight AwsProvider#quicksight}
-        :param ram: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ram AwsProvider#ram}
-        :param rbin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rbin AwsProvider#rbin}
-        :param rds: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rds AwsProvider#rds}
-        :param recyclebin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#recyclebin AwsProvider#recyclebin}
-        :param redshift: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshift AwsProvider#redshift}
-        :param redshiftdata: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftdata AwsProvider#redshiftdata}
-        :param redshiftdataapiservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftdataapiservice AwsProvider#redshiftdataapiservice}
-        :param redshiftserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftserverless AwsProvider#redshiftserverless}
-        :param rekognition: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rekognition AwsProvider#rekognition}
-        :param resiliencehub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resiliencehub AwsProvider#resiliencehub}
-        :param resourceexplorer2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourceexplorer2 AwsProvider#resourceexplorer2}
-        :param resourcegroups: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroups AwsProvider#resourcegroups}
-        :param resourcegroupstagging: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroupstagging AwsProvider#resourcegroupstagging}
-        :param resourcegroupstaggingapi: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroupstaggingapi AwsProvider#resourcegroupstaggingapi}
-        :param rolesanywhere: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rolesanywhere AwsProvider#rolesanywhere}
-        :param route53: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53 AwsProvider#route53}
-        :param route53_domains: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53domains AwsProvider#route53domains}
-        :param route53_profiles: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53profiles AwsProvider#route53profiles}
-        :param route53_recoverycontrolconfig: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53recoverycontrolconfig AwsProvider#route53recoverycontrolconfig}
-        :param route53_recoveryreadiness: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53recoveryreadiness AwsProvider#route53recoveryreadiness}
-        :param route53_resolver: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53resolver AwsProvider#route53resolver}
-        :param rum: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rum AwsProvider#rum}
-        :param s3: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3 AwsProvider#s3}
-        :param s3_api: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3api AwsProvider#s3api}
-        :param s3_control: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3control AwsProvider#s3control}
-        :param s3_outposts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3outposts AwsProvider#s3outposts}
-        :param s3_tables: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3tables AwsProvider#s3tables}
-        :param s3_vectors: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3vectors AwsProvider#s3vectors}
-        :param sagemaker: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sagemaker AwsProvider#sagemaker}
-        :param scheduler: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#scheduler AwsProvider#scheduler}
-        :param schemas: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#schemas AwsProvider#schemas}
-        :param secretsmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#secretsmanager AwsProvider#secretsmanager}
-        :param securityhub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#securityhub AwsProvider#securityhub}
-        :param securitylake: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#securitylake AwsProvider#securitylake}
-        :param serverlessapplicationrepository: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessapplicationrepository AwsProvider#serverlessapplicationrepository}
-        :param serverlessapprepo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessapprepo AwsProvider#serverlessapprepo}
-        :param serverlessrepo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessrepo AwsProvider#serverlessrepo}
-        :param servicecatalog: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicecatalog AwsProvider#servicecatalog}
-        :param servicecatalogappregistry: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicecatalogappregistry AwsProvider#servicecatalogappregistry}
-        :param servicediscovery: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicediscovery AwsProvider#servicediscovery}
-        :param servicequotas: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicequotas AwsProvider#servicequotas}
-        :param ses: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ses AwsProvider#ses}
-        :param sesv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sesv2 AwsProvider#sesv2}
-        :param sfn: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sfn AwsProvider#sfn}
-        :param shield: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shield AwsProvider#shield}
-        :param signer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#signer AwsProvider#signer}
-        :param sns: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sns AwsProvider#sns}
-        :param sqs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sqs AwsProvider#sqs}
-        :param ssm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssm AwsProvider#ssm}
-        :param ssmcontacts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmcontacts AwsProvider#ssmcontacts}
-        :param ssmincidents: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmincidents AwsProvider#ssmincidents}
-        :param ssmquicksetup: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmquicksetup AwsProvider#ssmquicksetup}
-        :param ssmsap: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmsap AwsProvider#ssmsap}
-        :param sso: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sso AwsProvider#sso}
-        :param ssoadmin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssoadmin AwsProvider#ssoadmin}
-        :param stepfunctions: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#stepfunctions AwsProvider#stepfunctions}
-        :param storagegateway: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#storagegateway AwsProvider#storagegateway}
-        :param sts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sts AwsProvider#sts}
-        :param swf: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#swf AwsProvider#swf}
-        :param synthetics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#synthetics AwsProvider#synthetics}
-        :param taxsettings: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#taxsettings AwsProvider#taxsettings}
-        :param timestreaminfluxdb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreaminfluxdb AwsProvider#timestreaminfluxdb}
-        :param timestreamquery: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreamquery AwsProvider#timestreamquery}
-        :param timestreamwrite: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreamwrite AwsProvider#timestreamwrite}
-        :param transcribe: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transcribe AwsProvider#transcribe}
-        :param transcribeservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transcribeservice AwsProvider#transcribeservice}
-        :param transfer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transfer AwsProvider#transfer}
-        :param verifiedpermissions: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#verifiedpermissions AwsProvider#verifiedpermissions}
-        :param vpclattice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#vpclattice AwsProvider#vpclattice}
-        :param waf: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#waf AwsProvider#waf}
-        :param wafregional: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wafregional AwsProvider#wafregional}
-        :param wafv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wafv2 AwsProvider#wafv2}
-        :param wellarchitected: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wellarchitected AwsProvider#wellarchitected}
-        :param workmail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workmail AwsProvider#workmail}
-        :param workspaces: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workspaces AwsProvider#workspaces}
-        :param workspacesweb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workspacesweb AwsProvider#workspacesweb}
-        :param xray: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#xray AwsProvider#xray}
+        :param accessanalyzer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#accessanalyzer AwsProvider#accessanalyzer}
+        :param account: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#account AwsProvider#account}
+        :param acm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#acm AwsProvider#acm}
+        :param acmpca: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#acmpca AwsProvider#acmpca}
+        :param amg: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amg AwsProvider#amg}
+        :param amp: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amp AwsProvider#amp}
+        :param amplify: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amplify AwsProvider#amplify}
+        :param apigateway: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apigateway AwsProvider#apigateway}
+        :param apigatewayv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apigatewayv2 AwsProvider#apigatewayv2}
+        :param appautoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appautoscaling AwsProvider#appautoscaling}
+        :param appconfig: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appconfig AwsProvider#appconfig}
+        :param appfabric: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appfabric AwsProvider#appfabric}
+        :param appflow: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appflow AwsProvider#appflow}
+        :param appintegrations: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appintegrations AwsProvider#appintegrations}
+        :param appintegrationsservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appintegrationsservice AwsProvider#appintegrationsservice}
+        :param applicationautoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationautoscaling AwsProvider#applicationautoscaling}
+        :param applicationinsights: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationinsights AwsProvider#applicationinsights}
+        :param applicationsignals: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationsignals AwsProvider#applicationsignals}
+        :param appmesh: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appmesh AwsProvider#appmesh}
+        :param appregistry: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appregistry AwsProvider#appregistry}
+        :param apprunner: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apprunner AwsProvider#apprunner}
+        :param appstream: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appstream AwsProvider#appstream}
+        :param appsync: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appsync AwsProvider#appsync}
+        :param arcregionswitch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#arcregionswitch AwsProvider#arcregionswitch}
+        :param athena: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#athena AwsProvider#athena}
+        :param auditmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#auditmanager AwsProvider#auditmanager}
+        :param autoscaling: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#autoscaling AwsProvider#autoscaling}
+        :param autoscalingplans: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#autoscalingplans AwsProvider#autoscalingplans}
+        :param backup: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#backup AwsProvider#backup}
+        :param batch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#batch AwsProvider#batch}
+        :param bcmdataexports: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bcmdataexports AwsProvider#bcmdataexports}
+        :param beanstalk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#beanstalk AwsProvider#beanstalk}
+        :param bedrock: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrock AwsProvider#bedrock}
+        :param bedrockagent: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrockagent AwsProvider#bedrockagent}
+        :param bedrockagentcore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrockagentcore AwsProvider#bedrockagentcore}
+        :param billing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#billing AwsProvider#billing}
+        :param budgets: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#budgets AwsProvider#budgets}
+        :param ce: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ce AwsProvider#ce}
+        :param chatbot: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chatbot AwsProvider#chatbot}
+        :param chime: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chime AwsProvider#chime}
+        :param chimesdkmediapipelines: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chimesdkmediapipelines AwsProvider#chimesdkmediapipelines}
+        :param chimesdkvoice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chimesdkvoice AwsProvider#chimesdkvoice}
+        :param cleanrooms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cleanrooms AwsProvider#cleanrooms}
+        :param cloud9: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloud9 AwsProvider#cloud9}
+        :param cloudcontrol: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudcontrol AwsProvider#cloudcontrol}
+        :param cloudcontrolapi: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudcontrolapi AwsProvider#cloudcontrolapi}
+        :param cloudformation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudformation AwsProvider#cloudformation}
+        :param cloudfront: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudfront AwsProvider#cloudfront}
+        :param cloudfrontkeyvaluestore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudfrontkeyvaluestore AwsProvider#cloudfrontkeyvaluestore}
+        :param cloudhsm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudhsm AwsProvider#cloudhsm}
+        :param cloudhsmv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudhsmv2 AwsProvider#cloudhsmv2}
+        :param cloudsearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudsearch AwsProvider#cloudsearch}
+        :param cloudtrail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudtrail AwsProvider#cloudtrail}
+        :param cloudwatch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatch AwsProvider#cloudwatch}
+        :param cloudwatchevents: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchevents AwsProvider#cloudwatchevents}
+        :param cloudwatchevidently: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchevidently AwsProvider#cloudwatchevidently}
+        :param cloudwatchlog: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchlog AwsProvider#cloudwatchlog}
+        :param cloudwatchlogs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchlogs AwsProvider#cloudwatchlogs}
+        :param cloudwatchobservabilityaccessmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchobservabilityaccessmanager AwsProvider#cloudwatchobservabilityaccessmanager}
+        :param cloudwatchrum: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchrum AwsProvider#cloudwatchrum}
+        :param codeartifact: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeartifact AwsProvider#codeartifact}
+        :param codebuild: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codebuild AwsProvider#codebuild}
+        :param codecatalyst: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codecatalyst AwsProvider#codecatalyst}
+        :param codecommit: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codecommit AwsProvider#codecommit}
+        :param codeconnections: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeconnections AwsProvider#codeconnections}
+        :param codedeploy: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codedeploy AwsProvider#codedeploy}
+        :param codeguruprofiler: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeguruprofiler AwsProvider#codeguruprofiler}
+        :param codegurureviewer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codegurureviewer AwsProvider#codegurureviewer}
+        :param codepipeline: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codepipeline AwsProvider#codepipeline}
+        :param codestarconnections: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codestarconnections AwsProvider#codestarconnections}
+        :param codestarnotifications: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codestarnotifications AwsProvider#codestarnotifications}
+        :param cognitoidentity: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidentity AwsProvider#cognitoidentity}
+        :param cognitoidentityprovider: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidentityprovider AwsProvider#cognitoidentityprovider}
+        :param cognitoidp: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidp AwsProvider#cognitoidp}
+        :param comprehend: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#comprehend AwsProvider#comprehend}
+        :param computeoptimizer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#computeoptimizer AwsProvider#computeoptimizer}
+        :param config: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#config AwsProvider#config}
+        :param configservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#configservice AwsProvider#configservice}
+        :param connect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#connect AwsProvider#connect}
+        :param connectcases: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#connectcases AwsProvider#connectcases}
+        :param controltower: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#controltower AwsProvider#controltower}
+        :param costandusagereportservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costandusagereportservice AwsProvider#costandusagereportservice}
+        :param costexplorer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costexplorer AwsProvider#costexplorer}
+        :param costoptimizationhub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costoptimizationhub AwsProvider#costoptimizationhub}
+        :param cur: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cur AwsProvider#cur}
+        :param customerprofiles: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#customerprofiles AwsProvider#customerprofiles}
+        :param databasemigration: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databasemigration AwsProvider#databasemigration}
+        :param databasemigrationservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databasemigrationservice AwsProvider#databasemigrationservice}
+        :param databrew: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databrew AwsProvider#databrew}
+        :param dataexchange: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dataexchange AwsProvider#dataexchange}
+        :param datapipeline: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datapipeline AwsProvider#datapipeline}
+        :param datasync: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datasync AwsProvider#datasync}
+        :param datazone: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datazone AwsProvider#datazone}
+        :param dax: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dax AwsProvider#dax}
+        :param deploy: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#deploy AwsProvider#deploy}
+        :param detective: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#detective AwsProvider#detective}
+        :param devicefarm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#devicefarm AwsProvider#devicefarm}
+        :param devopsguru: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#devopsguru AwsProvider#devopsguru}
+        :param directconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#directconnect AwsProvider#directconnect}
+        :param directoryservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#directoryservice AwsProvider#directoryservice}
+        :param dlm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dlm AwsProvider#dlm}
+        :param dms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dms AwsProvider#dms}
+        :param docdb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#docdb AwsProvider#docdb}
+        :param docdbelastic: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#docdbelastic AwsProvider#docdbelastic}
+        :param drs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#drs AwsProvider#drs}
+        :param ds: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ds AwsProvider#ds}
+        :param dsql: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dsql AwsProvider#dsql}
+        :param dynamodb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dynamodb AwsProvider#dynamodb}
+        :param ec2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2 AwsProvider#ec2}
+        :param ecr: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecr AwsProvider#ecr}
+        :param ecrpublic: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecrpublic AwsProvider#ecrpublic}
+        :param ecs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecs AwsProvider#ecs}
+        :param efs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#efs AwsProvider#efs}
+        :param eks: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#eks AwsProvider#eks}
+        :param elasticache: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticache AwsProvider#elasticache}
+        :param elasticbeanstalk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticbeanstalk AwsProvider#elasticbeanstalk}
+        :param elasticloadbalancing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticloadbalancing AwsProvider#elasticloadbalancing}
+        :param elasticloadbalancingv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticloadbalancingv2 AwsProvider#elasticloadbalancingv2}
+        :param elasticsearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticsearch AwsProvider#elasticsearch}
+        :param elasticsearchservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticsearchservice AwsProvider#elasticsearchservice}
+        :param elastictranscoder: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elastictranscoder AwsProvider#elastictranscoder}
+        :param elb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elb AwsProvider#elb}
+        :param elbv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elbv2 AwsProvider#elbv2}
+        :param emr: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emr AwsProvider#emr}
+        :param emrcontainers: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emrcontainers AwsProvider#emrcontainers}
+        :param emrserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emrserverless AwsProvider#emrserverless}
+        :param es: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#es AwsProvider#es}
+        :param eventbridge: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#eventbridge AwsProvider#eventbridge}
+        :param events: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#events AwsProvider#events}
+        :param evidently: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#evidently AwsProvider#evidently}
+        :param evs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#evs AwsProvider#evs}
+        :param finspace: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#finspace AwsProvider#finspace}
+        :param firehose: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#firehose AwsProvider#firehose}
+        :param fis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fis AwsProvider#fis}
+        :param fms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fms AwsProvider#fms}
+        :param fsx: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fsx AwsProvider#fsx}
+        :param gamelift: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#gamelift AwsProvider#gamelift}
+        :param glacier: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#glacier AwsProvider#glacier}
+        :param globalaccelerator: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#globalaccelerator AwsProvider#globalaccelerator}
+        :param glue: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#glue AwsProvider#glue}
+        :param gluedatabrew: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#gluedatabrew AwsProvider#gluedatabrew}
+        :param grafana: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#grafana AwsProvider#grafana}
+        :param greengrass: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#greengrass AwsProvider#greengrass}
+        :param groundstation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#groundstation AwsProvider#groundstation}
+        :param guardduty: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#guardduty AwsProvider#guardduty}
+        :param healthlake: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#healthlake AwsProvider#healthlake}
+        :param iam: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#iam AwsProvider#iam}
+        :param identitystore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#identitystore AwsProvider#identitystore}
+        :param imagebuilder: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#imagebuilder AwsProvider#imagebuilder}
+        :param inspector: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspector AwsProvider#inspector}
+        :param inspector2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspector2 AwsProvider#inspector2}
+        :param inspectorv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspectorv2 AwsProvider#inspectorv2}
+        :param internetmonitor: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#internetmonitor AwsProvider#internetmonitor}
+        :param invoicing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#invoicing AwsProvider#invoicing}
+        :param iot: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#iot AwsProvider#iot}
+        :param ivs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ivs AwsProvider#ivs}
+        :param ivschat: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ivschat AwsProvider#ivschat}
+        :param kafka: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kafka AwsProvider#kafka}
+        :param kafkaconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kafkaconnect AwsProvider#kafkaconnect}
+        :param kendra: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kendra AwsProvider#kendra}
+        :param keyspaces: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#keyspaces AwsProvider#keyspaces}
+        :param kinesis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesis AwsProvider#kinesis}
+        :param kinesisanalytics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisanalytics AwsProvider#kinesisanalytics}
+        :param kinesisanalyticsv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisanalyticsv2 AwsProvider#kinesisanalyticsv2}
+        :param kinesisvideo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisvideo AwsProvider#kinesisvideo}
+        :param kms: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kms AwsProvider#kms}
+        :param lakeformation: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lakeformation AwsProvider#lakeformation}
+        :param lambda_: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lambda AwsProvider#lambda}
+        :param launchwizard: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#launchwizard AwsProvider#launchwizard}
+        :param lex: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lex AwsProvider#lex}
+        :param lexmodelbuilding: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelbuilding AwsProvider#lexmodelbuilding}
+        :param lexmodelbuildingservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelbuildingservice AwsProvider#lexmodelbuildingservice}
+        :param lexmodels: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodels AwsProvider#lexmodels}
+        :param lexmodelsv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelsv2 AwsProvider#lexmodelsv2}
+        :param lexv2_models: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexv2models AwsProvider#lexv2models}
+        :param licensemanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#licensemanager AwsProvider#licensemanager}
+        :param lightsail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lightsail AwsProvider#lightsail}
+        :param location: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#location AwsProvider#location}
+        :param locationservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#locationservice AwsProvider#locationservice}
+        :param logs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#logs AwsProvider#logs}
+        :param lookoutmetrics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lookoutmetrics AwsProvider#lookoutmetrics}
+        :param m2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#m2 AwsProvider#m2}
+        :param macie2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#macie2 AwsProvider#macie2}
+        :param managedgrafana: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#managedgrafana AwsProvider#managedgrafana}
+        :param mediaconnect: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediaconnect AwsProvider#mediaconnect}
+        :param mediaconvert: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediaconvert AwsProvider#mediaconvert}
+        :param medialive: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#medialive AwsProvider#medialive}
+        :param mediapackage: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackage AwsProvider#mediapackage}
+        :param mediapackagev2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackagev2 AwsProvider#mediapackagev2}
+        :param mediapackagevod: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackagevod AwsProvider#mediapackagevod}
+        :param mediastore: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediastore AwsProvider#mediastore}
+        :param memorydb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#memorydb AwsProvider#memorydb}
+        :param mgn: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mgn AwsProvider#mgn}
+        :param mq: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mq AwsProvider#mq}
+        :param msk: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#msk AwsProvider#msk}
+        :param mwaa: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mwaa AwsProvider#mwaa}
+        :param neptune: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#neptune AwsProvider#neptune}
+        :param neptunegraph: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#neptunegraph AwsProvider#neptunegraph}
+        :param networkfirewall: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkfirewall AwsProvider#networkfirewall}
+        :param networkmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkmanager AwsProvider#networkmanager}
+        :param networkmonitor: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkmonitor AwsProvider#networkmonitor}
+        :param notifications: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#notifications AwsProvider#notifications}
+        :param notificationscontacts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#notificationscontacts AwsProvider#notificationscontacts}
+        :param oam: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#oam AwsProvider#oam}
+        :param odb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#odb AwsProvider#odb}
+        :param opensearch: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearch AwsProvider#opensearch}
+        :param opensearchingestion: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchingestion AwsProvider#opensearchingestion}
+        :param opensearchserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchserverless AwsProvider#opensearchserverless}
+        :param opensearchservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchservice AwsProvider#opensearchservice}
+        :param organizations: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#organizations AwsProvider#organizations}
+        :param osis: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#osis AwsProvider#osis}
+        :param outposts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#outposts AwsProvider#outposts}
+        :param paymentcryptography: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#paymentcryptography AwsProvider#paymentcryptography}
+        :param pcaconnectorad: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pcaconnectorad AwsProvider#pcaconnectorad}
+        :param pcs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pcs AwsProvider#pcs}
+        :param pinpoint: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pinpoint AwsProvider#pinpoint}
+        :param pinpointsmsvoicev2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pinpointsmsvoicev2 AwsProvider#pinpointsmsvoicev2}
+        :param pipes: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pipes AwsProvider#pipes}
+        :param polly: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#polly AwsProvider#polly}
+        :param pricing: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pricing AwsProvider#pricing}
+        :param prometheus: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#prometheus AwsProvider#prometheus}
+        :param prometheusservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#prometheusservice AwsProvider#prometheusservice}
+        :param qbusiness: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#qbusiness AwsProvider#qbusiness}
+        :param qldb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#qldb AwsProvider#qldb}
+        :param quicksight: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#quicksight AwsProvider#quicksight}
+        :param ram: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ram AwsProvider#ram}
+        :param rbin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rbin AwsProvider#rbin}
+        :param rds: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rds AwsProvider#rds}
+        :param recyclebin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#recyclebin AwsProvider#recyclebin}
+        :param redshift: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshift AwsProvider#redshift}
+        :param redshiftdata: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftdata AwsProvider#redshiftdata}
+        :param redshiftdataapiservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftdataapiservice AwsProvider#redshiftdataapiservice}
+        :param redshiftserverless: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftserverless AwsProvider#redshiftserverless}
+        :param rekognition: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rekognition AwsProvider#rekognition}
+        :param resiliencehub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resiliencehub AwsProvider#resiliencehub}
+        :param resourceexplorer2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourceexplorer2 AwsProvider#resourceexplorer2}
+        :param resourcegroups: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroups AwsProvider#resourcegroups}
+        :param resourcegroupstagging: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroupstagging AwsProvider#resourcegroupstagging}
+        :param resourcegroupstaggingapi: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroupstaggingapi AwsProvider#resourcegroupstaggingapi}
+        :param rolesanywhere: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rolesanywhere AwsProvider#rolesanywhere}
+        :param route53: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53 AwsProvider#route53}
+        :param route53_domains: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53domains AwsProvider#route53domains}
+        :param route53_profiles: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53profiles AwsProvider#route53profiles}
+        :param route53_recoverycontrolconfig: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53recoverycontrolconfig AwsProvider#route53recoverycontrolconfig}
+        :param route53_recoveryreadiness: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53recoveryreadiness AwsProvider#route53recoveryreadiness}
+        :param route53_resolver: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53resolver AwsProvider#route53resolver}
+        :param rum: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rum AwsProvider#rum}
+        :param s3: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3 AwsProvider#s3}
+        :param s3_api: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3api AwsProvider#s3api}
+        :param s3_control: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3control AwsProvider#s3control}
+        :param s3_outposts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3outposts AwsProvider#s3outposts}
+        :param s3_tables: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3tables AwsProvider#s3tables}
+        :param s3_vectors: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3vectors AwsProvider#s3vectors}
+        :param sagemaker: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sagemaker AwsProvider#sagemaker}
+        :param scheduler: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#scheduler AwsProvider#scheduler}
+        :param schemas: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#schemas AwsProvider#schemas}
+        :param secretsmanager: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#secretsmanager AwsProvider#secretsmanager}
+        :param securityhub: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#securityhub AwsProvider#securityhub}
+        :param securitylake: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#securitylake AwsProvider#securitylake}
+        :param serverlessapplicationrepository: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessapplicationrepository AwsProvider#serverlessapplicationrepository}
+        :param serverlessapprepo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessapprepo AwsProvider#serverlessapprepo}
+        :param serverlessrepo: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessrepo AwsProvider#serverlessrepo}
+        :param servicecatalog: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicecatalog AwsProvider#servicecatalog}
+        :param servicecatalogappregistry: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicecatalogappregistry AwsProvider#servicecatalogappregistry}
+        :param servicediscovery: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicediscovery AwsProvider#servicediscovery}
+        :param servicequotas: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicequotas AwsProvider#servicequotas}
+        :param ses: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ses AwsProvider#ses}
+        :param sesv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sesv2 AwsProvider#sesv2}
+        :param sfn: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sfn AwsProvider#sfn}
+        :param shield: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shield AwsProvider#shield}
+        :param signer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#signer AwsProvider#signer}
+        :param sns: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sns AwsProvider#sns}
+        :param sqs: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sqs AwsProvider#sqs}
+        :param ssm: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssm AwsProvider#ssm}
+        :param ssmcontacts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmcontacts AwsProvider#ssmcontacts}
+        :param ssmincidents: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmincidents AwsProvider#ssmincidents}
+        :param ssmquicksetup: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmquicksetup AwsProvider#ssmquicksetup}
+        :param ssmsap: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmsap AwsProvider#ssmsap}
+        :param sso: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sso AwsProvider#sso}
+        :param ssoadmin: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssoadmin AwsProvider#ssoadmin}
+        :param stepfunctions: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#stepfunctions AwsProvider#stepfunctions}
+        :param storagegateway: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#storagegateway AwsProvider#storagegateway}
+        :param sts: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sts AwsProvider#sts}
+        :param swf: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#swf AwsProvider#swf}
+        :param synthetics: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#synthetics AwsProvider#synthetics}
+        :param taxsettings: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#taxsettings AwsProvider#taxsettings}
+        :param timestreaminfluxdb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreaminfluxdb AwsProvider#timestreaminfluxdb}
+        :param timestreamquery: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreamquery AwsProvider#timestreamquery}
+        :param timestreamwrite: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreamwrite AwsProvider#timestreamwrite}
+        :param transcribe: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transcribe AwsProvider#transcribe}
+        :param transcribeservice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transcribeservice AwsProvider#transcribeservice}
+        :param transfer: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transfer AwsProvider#transfer}
+        :param verifiedpermissions: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#verifiedpermissions AwsProvider#verifiedpermissions}
+        :param vpclattice: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#vpclattice AwsProvider#vpclattice}
+        :param waf: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#waf AwsProvider#waf}
+        :param wafregional: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wafregional AwsProvider#wafregional}
+        :param wafv2: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wafv2 AwsProvider#wafv2}
+        :param wellarchitected: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wellarchitected AwsProvider#wellarchitected}
+        :param workmail: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workmail AwsProvider#workmail}
+        :param workspaces: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workspaces AwsProvider#workspaces}
+        :param workspacesweb: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workspacesweb AwsProvider#workspacesweb}
+        :param xray: Use this to override the default service endpoint URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#xray AwsProvider#xray}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__912b8f0439a9c34ac3f441b30210524e0bb966c3363990a416d3e2f274939834)
@@ -3775,7 +3775,7 @@ class AwsProviderEndpoints:
     def accessanalyzer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#accessanalyzer AwsProvider#accessanalyzer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#accessanalyzer AwsProvider#accessanalyzer}
         '''
         result = self._values.get("accessanalyzer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3784,7 +3784,7 @@ class AwsProviderEndpoints:
     def account(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#account AwsProvider#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#account AwsProvider#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3793,7 +3793,7 @@ class AwsProviderEndpoints:
     def acm(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#acm AwsProvider#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#acm AwsProvider#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3802,7 +3802,7 @@ class AwsProviderEndpoints:
     def acmpca(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#acmpca AwsProvider#acmpca}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#acmpca AwsProvider#acmpca}
         '''
         result = self._values.get("acmpca")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3811,7 +3811,7 @@ class AwsProviderEndpoints:
     def amg(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amg AwsProvider#amg}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amg AwsProvider#amg}
         '''
         result = self._values.get("amg")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3820,7 +3820,7 @@ class AwsProviderEndpoints:
     def amp(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amp AwsProvider#amp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amp AwsProvider#amp}
         '''
         result = self._values.get("amp")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3829,7 +3829,7 @@ class AwsProviderEndpoints:
     def amplify(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#amplify AwsProvider#amplify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#amplify AwsProvider#amplify}
         '''
         result = self._values.get("amplify")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3838,7 +3838,7 @@ class AwsProviderEndpoints:
     def apigateway(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apigateway AwsProvider#apigateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apigateway AwsProvider#apigateway}
         '''
         result = self._values.get("apigateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3847,7 +3847,7 @@ class AwsProviderEndpoints:
     def apigatewayv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apigatewayv2 AwsProvider#apigatewayv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apigatewayv2 AwsProvider#apigatewayv2}
         '''
         result = self._values.get("apigatewayv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3856,7 +3856,7 @@ class AwsProviderEndpoints:
     def appautoscaling(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appautoscaling AwsProvider#appautoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appautoscaling AwsProvider#appautoscaling}
         '''
         result = self._values.get("appautoscaling")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3865,7 +3865,7 @@ class AwsProviderEndpoints:
     def appconfig(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appconfig AwsProvider#appconfig}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appconfig AwsProvider#appconfig}
         '''
         result = self._values.get("appconfig")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3874,7 +3874,7 @@ class AwsProviderEndpoints:
     def appfabric(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appfabric AwsProvider#appfabric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appfabric AwsProvider#appfabric}
         '''
         result = self._values.get("appfabric")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3883,7 +3883,7 @@ class AwsProviderEndpoints:
     def appflow(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appflow AwsProvider#appflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appflow AwsProvider#appflow}
         '''
         result = self._values.get("appflow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3892,7 +3892,7 @@ class AwsProviderEndpoints:
     def appintegrations(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appintegrations AwsProvider#appintegrations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appintegrations AwsProvider#appintegrations}
         '''
         result = self._values.get("appintegrations")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3901,7 +3901,7 @@ class AwsProviderEndpoints:
     def appintegrationsservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appintegrationsservice AwsProvider#appintegrationsservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appintegrationsservice AwsProvider#appintegrationsservice}
         '''
         result = self._values.get("appintegrationsservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3910,7 +3910,7 @@ class AwsProviderEndpoints:
     def applicationautoscaling(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationautoscaling AwsProvider#applicationautoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationautoscaling AwsProvider#applicationautoscaling}
         '''
         result = self._values.get("applicationautoscaling")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3919,7 +3919,7 @@ class AwsProviderEndpoints:
     def applicationinsights(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationinsights AwsProvider#applicationinsights}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationinsights AwsProvider#applicationinsights}
         '''
         result = self._values.get("applicationinsights")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3928,7 +3928,7 @@ class AwsProviderEndpoints:
     def applicationsignals(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#applicationsignals AwsProvider#applicationsignals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#applicationsignals AwsProvider#applicationsignals}
         '''
         result = self._values.get("applicationsignals")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3937,7 +3937,7 @@ class AwsProviderEndpoints:
     def appmesh(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appmesh AwsProvider#appmesh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appmesh AwsProvider#appmesh}
         '''
         result = self._values.get("appmesh")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3946,7 +3946,7 @@ class AwsProviderEndpoints:
     def appregistry(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appregistry AwsProvider#appregistry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appregistry AwsProvider#appregistry}
         '''
         result = self._values.get("appregistry")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3955,7 +3955,7 @@ class AwsProviderEndpoints:
     def apprunner(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#apprunner AwsProvider#apprunner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#apprunner AwsProvider#apprunner}
         '''
         result = self._values.get("apprunner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3964,7 +3964,7 @@ class AwsProviderEndpoints:
     def appstream(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appstream AwsProvider#appstream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appstream AwsProvider#appstream}
         '''
         result = self._values.get("appstream")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3973,7 +3973,7 @@ class AwsProviderEndpoints:
     def appsync(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#appsync AwsProvider#appsync}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#appsync AwsProvider#appsync}
         '''
         result = self._values.get("appsync")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3982,7 +3982,7 @@ class AwsProviderEndpoints:
     def arcregionswitch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#arcregionswitch AwsProvider#arcregionswitch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#arcregionswitch AwsProvider#arcregionswitch}
         '''
         result = self._values.get("arcregionswitch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3991,7 +3991,7 @@ class AwsProviderEndpoints:
     def athena(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#athena AwsProvider#athena}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#athena AwsProvider#athena}
         '''
         result = self._values.get("athena")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4000,7 +4000,7 @@ class AwsProviderEndpoints:
     def auditmanager(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#auditmanager AwsProvider#auditmanager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#auditmanager AwsProvider#auditmanager}
         '''
         result = self._values.get("auditmanager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4009,7 +4009,7 @@ class AwsProviderEndpoints:
     def autoscaling(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#autoscaling AwsProvider#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#autoscaling AwsProvider#autoscaling}
         '''
         result = self._values.get("autoscaling")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4018,7 +4018,7 @@ class AwsProviderEndpoints:
     def autoscalingplans(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#autoscalingplans AwsProvider#autoscalingplans}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#autoscalingplans AwsProvider#autoscalingplans}
         '''
         result = self._values.get("autoscalingplans")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4027,7 +4027,7 @@ class AwsProviderEndpoints:
     def backup(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#backup AwsProvider#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#backup AwsProvider#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4036,7 +4036,7 @@ class AwsProviderEndpoints:
     def batch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#batch AwsProvider#batch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#batch AwsProvider#batch}
         '''
         result = self._values.get("batch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4045,7 +4045,7 @@ class AwsProviderEndpoints:
     def bcmdataexports(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bcmdataexports AwsProvider#bcmdataexports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bcmdataexports AwsProvider#bcmdataexports}
         '''
         result = self._values.get("bcmdataexports")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4054,7 +4054,7 @@ class AwsProviderEndpoints:
     def beanstalk(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#beanstalk AwsProvider#beanstalk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#beanstalk AwsProvider#beanstalk}
         '''
         result = self._values.get("beanstalk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4063,7 +4063,7 @@ class AwsProviderEndpoints:
     def bedrock(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrock AwsProvider#bedrock}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrock AwsProvider#bedrock}
         '''
         result = self._values.get("bedrock")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4072,7 +4072,7 @@ class AwsProviderEndpoints:
     def bedrockagent(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrockagent AwsProvider#bedrockagent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrockagent AwsProvider#bedrockagent}
         '''
         result = self._values.get("bedrockagent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4081,7 +4081,7 @@ class AwsProviderEndpoints:
     def bedrockagentcore(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#bedrockagentcore AwsProvider#bedrockagentcore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#bedrockagentcore AwsProvider#bedrockagentcore}
         '''
         result = self._values.get("bedrockagentcore")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4090,7 +4090,7 @@ class AwsProviderEndpoints:
     def billing(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#billing AwsProvider#billing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#billing AwsProvider#billing}
         '''
         result = self._values.get("billing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4099,7 +4099,7 @@ class AwsProviderEndpoints:
     def budgets(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#budgets AwsProvider#budgets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#budgets AwsProvider#budgets}
         '''
         result = self._values.get("budgets")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4108,7 +4108,7 @@ class AwsProviderEndpoints:
     def ce(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ce AwsProvider#ce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ce AwsProvider#ce}
         '''
         result = self._values.get("ce")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4117,7 +4117,7 @@ class AwsProviderEndpoints:
     def chatbot(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chatbot AwsProvider#chatbot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chatbot AwsProvider#chatbot}
         '''
         result = self._values.get("chatbot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4126,7 +4126,7 @@ class AwsProviderEndpoints:
     def chime(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chime AwsProvider#chime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chime AwsProvider#chime}
         '''
         result = self._values.get("chime")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4135,7 +4135,7 @@ class AwsProviderEndpoints:
     def chimesdkmediapipelines(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chimesdkmediapipelines AwsProvider#chimesdkmediapipelines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chimesdkmediapipelines AwsProvider#chimesdkmediapipelines}
         '''
         result = self._values.get("chimesdkmediapipelines")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4144,7 +4144,7 @@ class AwsProviderEndpoints:
     def chimesdkvoice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#chimesdkvoice AwsProvider#chimesdkvoice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#chimesdkvoice AwsProvider#chimesdkvoice}
         '''
         result = self._values.get("chimesdkvoice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4153,7 +4153,7 @@ class AwsProviderEndpoints:
     def cleanrooms(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cleanrooms AwsProvider#cleanrooms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cleanrooms AwsProvider#cleanrooms}
         '''
         result = self._values.get("cleanrooms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4162,7 +4162,7 @@ class AwsProviderEndpoints:
     def cloud9(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloud9 AwsProvider#cloud9}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloud9 AwsProvider#cloud9}
         '''
         result = self._values.get("cloud9")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4171,7 +4171,7 @@ class AwsProviderEndpoints:
     def cloudcontrol(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudcontrol AwsProvider#cloudcontrol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudcontrol AwsProvider#cloudcontrol}
         '''
         result = self._values.get("cloudcontrol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4180,7 +4180,7 @@ class AwsProviderEndpoints:
     def cloudcontrolapi(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudcontrolapi AwsProvider#cloudcontrolapi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudcontrolapi AwsProvider#cloudcontrolapi}
         '''
         result = self._values.get("cloudcontrolapi")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4189,7 +4189,7 @@ class AwsProviderEndpoints:
     def cloudformation(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudformation AwsProvider#cloudformation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudformation AwsProvider#cloudformation}
         '''
         result = self._values.get("cloudformation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4198,7 +4198,7 @@ class AwsProviderEndpoints:
     def cloudfront(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudfront AwsProvider#cloudfront}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudfront AwsProvider#cloudfront}
         '''
         result = self._values.get("cloudfront")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4207,7 +4207,7 @@ class AwsProviderEndpoints:
     def cloudfrontkeyvaluestore(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudfrontkeyvaluestore AwsProvider#cloudfrontkeyvaluestore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudfrontkeyvaluestore AwsProvider#cloudfrontkeyvaluestore}
         '''
         result = self._values.get("cloudfrontkeyvaluestore")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4216,7 +4216,7 @@ class AwsProviderEndpoints:
     def cloudhsm(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudhsm AwsProvider#cloudhsm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudhsm AwsProvider#cloudhsm}
         '''
         result = self._values.get("cloudhsm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4225,7 +4225,7 @@ class AwsProviderEndpoints:
     def cloudhsmv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudhsmv2 AwsProvider#cloudhsmv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudhsmv2 AwsProvider#cloudhsmv2}
         '''
         result = self._values.get("cloudhsmv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4234,7 +4234,7 @@ class AwsProviderEndpoints:
     def cloudsearch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudsearch AwsProvider#cloudsearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudsearch AwsProvider#cloudsearch}
         '''
         result = self._values.get("cloudsearch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4243,7 +4243,7 @@ class AwsProviderEndpoints:
     def cloudtrail(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudtrail AwsProvider#cloudtrail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudtrail AwsProvider#cloudtrail}
         '''
         result = self._values.get("cloudtrail")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4252,7 +4252,7 @@ class AwsProviderEndpoints:
     def cloudwatch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatch AwsProvider#cloudwatch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatch AwsProvider#cloudwatch}
         '''
         result = self._values.get("cloudwatch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4261,7 +4261,7 @@ class AwsProviderEndpoints:
     def cloudwatchevents(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchevents AwsProvider#cloudwatchevents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchevents AwsProvider#cloudwatchevents}
         '''
         result = self._values.get("cloudwatchevents")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4270,7 +4270,7 @@ class AwsProviderEndpoints:
     def cloudwatchevidently(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchevidently AwsProvider#cloudwatchevidently}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchevidently AwsProvider#cloudwatchevidently}
         '''
         result = self._values.get("cloudwatchevidently")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4279,7 +4279,7 @@ class AwsProviderEndpoints:
     def cloudwatchlog(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchlog AwsProvider#cloudwatchlog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchlog AwsProvider#cloudwatchlog}
         '''
         result = self._values.get("cloudwatchlog")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4288,7 +4288,7 @@ class AwsProviderEndpoints:
     def cloudwatchlogs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchlogs AwsProvider#cloudwatchlogs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchlogs AwsProvider#cloudwatchlogs}
         '''
         result = self._values.get("cloudwatchlogs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4297,7 +4297,7 @@ class AwsProviderEndpoints:
     def cloudwatchobservabilityaccessmanager(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchobservabilityaccessmanager AwsProvider#cloudwatchobservabilityaccessmanager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchobservabilityaccessmanager AwsProvider#cloudwatchobservabilityaccessmanager}
         '''
         result = self._values.get("cloudwatchobservabilityaccessmanager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4306,7 +4306,7 @@ class AwsProviderEndpoints:
     def cloudwatchrum(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cloudwatchrum AwsProvider#cloudwatchrum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cloudwatchrum AwsProvider#cloudwatchrum}
         '''
         result = self._values.get("cloudwatchrum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4315,7 +4315,7 @@ class AwsProviderEndpoints:
     def codeartifact(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeartifact AwsProvider#codeartifact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeartifact AwsProvider#codeartifact}
         '''
         result = self._values.get("codeartifact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4324,7 +4324,7 @@ class AwsProviderEndpoints:
     def codebuild(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codebuild AwsProvider#codebuild}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codebuild AwsProvider#codebuild}
         '''
         result = self._values.get("codebuild")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4333,7 +4333,7 @@ class AwsProviderEndpoints:
     def codecatalyst(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codecatalyst AwsProvider#codecatalyst}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codecatalyst AwsProvider#codecatalyst}
         '''
         result = self._values.get("codecatalyst")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4342,7 +4342,7 @@ class AwsProviderEndpoints:
     def codecommit(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codecommit AwsProvider#codecommit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codecommit AwsProvider#codecommit}
         '''
         result = self._values.get("codecommit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4351,7 +4351,7 @@ class AwsProviderEndpoints:
     def codeconnections(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeconnections AwsProvider#codeconnections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeconnections AwsProvider#codeconnections}
         '''
         result = self._values.get("codeconnections")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4360,7 +4360,7 @@ class AwsProviderEndpoints:
     def codedeploy(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codedeploy AwsProvider#codedeploy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codedeploy AwsProvider#codedeploy}
         '''
         result = self._values.get("codedeploy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4369,7 +4369,7 @@ class AwsProviderEndpoints:
     def codeguruprofiler(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codeguruprofiler AwsProvider#codeguruprofiler}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codeguruprofiler AwsProvider#codeguruprofiler}
         '''
         result = self._values.get("codeguruprofiler")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4378,7 +4378,7 @@ class AwsProviderEndpoints:
     def codegurureviewer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codegurureviewer AwsProvider#codegurureviewer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codegurureviewer AwsProvider#codegurureviewer}
         '''
         result = self._values.get("codegurureviewer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4387,7 +4387,7 @@ class AwsProviderEndpoints:
     def codepipeline(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codepipeline AwsProvider#codepipeline}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codepipeline AwsProvider#codepipeline}
         '''
         result = self._values.get("codepipeline")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4396,7 +4396,7 @@ class AwsProviderEndpoints:
     def codestarconnections(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codestarconnections AwsProvider#codestarconnections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codestarconnections AwsProvider#codestarconnections}
         '''
         result = self._values.get("codestarconnections")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4405,7 +4405,7 @@ class AwsProviderEndpoints:
     def codestarnotifications(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#codestarnotifications AwsProvider#codestarnotifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#codestarnotifications AwsProvider#codestarnotifications}
         '''
         result = self._values.get("codestarnotifications")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4414,7 +4414,7 @@ class AwsProviderEndpoints:
     def cognitoidentity(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidentity AwsProvider#cognitoidentity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidentity AwsProvider#cognitoidentity}
         '''
         result = self._values.get("cognitoidentity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4423,7 +4423,7 @@ class AwsProviderEndpoints:
     def cognitoidentityprovider(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidentityprovider AwsProvider#cognitoidentityprovider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidentityprovider AwsProvider#cognitoidentityprovider}
         '''
         result = self._values.get("cognitoidentityprovider")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4432,7 +4432,7 @@ class AwsProviderEndpoints:
     def cognitoidp(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cognitoidp AwsProvider#cognitoidp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cognitoidp AwsProvider#cognitoidp}
         '''
         result = self._values.get("cognitoidp")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4441,7 +4441,7 @@ class AwsProviderEndpoints:
     def comprehend(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#comprehend AwsProvider#comprehend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#comprehend AwsProvider#comprehend}
         '''
         result = self._values.get("comprehend")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4450,7 +4450,7 @@ class AwsProviderEndpoints:
     def computeoptimizer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#computeoptimizer AwsProvider#computeoptimizer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#computeoptimizer AwsProvider#computeoptimizer}
         '''
         result = self._values.get("computeoptimizer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4459,7 +4459,7 @@ class AwsProviderEndpoints:
     def config(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#config AwsProvider#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#config AwsProvider#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4468,7 +4468,7 @@ class AwsProviderEndpoints:
     def configservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#configservice AwsProvider#configservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#configservice AwsProvider#configservice}
         '''
         result = self._values.get("configservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4477,7 +4477,7 @@ class AwsProviderEndpoints:
     def connect(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#connect AwsProvider#connect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#connect AwsProvider#connect}
         '''
         result = self._values.get("connect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4486,7 +4486,7 @@ class AwsProviderEndpoints:
     def connectcases(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#connectcases AwsProvider#connectcases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#connectcases AwsProvider#connectcases}
         '''
         result = self._values.get("connectcases")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4495,7 +4495,7 @@ class AwsProviderEndpoints:
     def controltower(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#controltower AwsProvider#controltower}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#controltower AwsProvider#controltower}
         '''
         result = self._values.get("controltower")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4504,7 +4504,7 @@ class AwsProviderEndpoints:
     def costandusagereportservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costandusagereportservice AwsProvider#costandusagereportservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costandusagereportservice AwsProvider#costandusagereportservice}
         '''
         result = self._values.get("costandusagereportservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4513,7 +4513,7 @@ class AwsProviderEndpoints:
     def costexplorer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costexplorer AwsProvider#costexplorer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costexplorer AwsProvider#costexplorer}
         '''
         result = self._values.get("costexplorer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4522,7 +4522,7 @@ class AwsProviderEndpoints:
     def costoptimizationhub(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#costoptimizationhub AwsProvider#costoptimizationhub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#costoptimizationhub AwsProvider#costoptimizationhub}
         '''
         result = self._values.get("costoptimizationhub")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4531,7 +4531,7 @@ class AwsProviderEndpoints:
     def cur(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#cur AwsProvider#cur}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#cur AwsProvider#cur}
         '''
         result = self._values.get("cur")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4540,7 +4540,7 @@ class AwsProviderEndpoints:
     def customerprofiles(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#customerprofiles AwsProvider#customerprofiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#customerprofiles AwsProvider#customerprofiles}
         '''
         result = self._values.get("customerprofiles")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4549,7 +4549,7 @@ class AwsProviderEndpoints:
     def databasemigration(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databasemigration AwsProvider#databasemigration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databasemigration AwsProvider#databasemigration}
         '''
         result = self._values.get("databasemigration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4558,7 +4558,7 @@ class AwsProviderEndpoints:
     def databasemigrationservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databasemigrationservice AwsProvider#databasemigrationservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databasemigrationservice AwsProvider#databasemigrationservice}
         '''
         result = self._values.get("databasemigrationservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4567,7 +4567,7 @@ class AwsProviderEndpoints:
     def databrew(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#databrew AwsProvider#databrew}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#databrew AwsProvider#databrew}
         '''
         result = self._values.get("databrew")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4576,7 +4576,7 @@ class AwsProviderEndpoints:
     def dataexchange(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dataexchange AwsProvider#dataexchange}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dataexchange AwsProvider#dataexchange}
         '''
         result = self._values.get("dataexchange")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4585,7 +4585,7 @@ class AwsProviderEndpoints:
     def datapipeline(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datapipeline AwsProvider#datapipeline}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datapipeline AwsProvider#datapipeline}
         '''
         result = self._values.get("datapipeline")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4594,7 +4594,7 @@ class AwsProviderEndpoints:
     def datasync(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datasync AwsProvider#datasync}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datasync AwsProvider#datasync}
         '''
         result = self._values.get("datasync")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4603,7 +4603,7 @@ class AwsProviderEndpoints:
     def datazone(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#datazone AwsProvider#datazone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#datazone AwsProvider#datazone}
         '''
         result = self._values.get("datazone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4612,7 +4612,7 @@ class AwsProviderEndpoints:
     def dax(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dax AwsProvider#dax}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dax AwsProvider#dax}
         '''
         result = self._values.get("dax")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4621,7 +4621,7 @@ class AwsProviderEndpoints:
     def deploy(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#deploy AwsProvider#deploy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#deploy AwsProvider#deploy}
         '''
         result = self._values.get("deploy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4630,7 +4630,7 @@ class AwsProviderEndpoints:
     def detective(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#detective AwsProvider#detective}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#detective AwsProvider#detective}
         '''
         result = self._values.get("detective")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4639,7 +4639,7 @@ class AwsProviderEndpoints:
     def devicefarm(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#devicefarm AwsProvider#devicefarm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#devicefarm AwsProvider#devicefarm}
         '''
         result = self._values.get("devicefarm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4648,7 +4648,7 @@ class AwsProviderEndpoints:
     def devopsguru(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#devopsguru AwsProvider#devopsguru}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#devopsguru AwsProvider#devopsguru}
         '''
         result = self._values.get("devopsguru")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4657,7 +4657,7 @@ class AwsProviderEndpoints:
     def directconnect(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#directconnect AwsProvider#directconnect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#directconnect AwsProvider#directconnect}
         '''
         result = self._values.get("directconnect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4666,7 +4666,7 @@ class AwsProviderEndpoints:
     def directoryservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#directoryservice AwsProvider#directoryservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#directoryservice AwsProvider#directoryservice}
         '''
         result = self._values.get("directoryservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4675,7 +4675,7 @@ class AwsProviderEndpoints:
     def dlm(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dlm AwsProvider#dlm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dlm AwsProvider#dlm}
         '''
         result = self._values.get("dlm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4684,7 +4684,7 @@ class AwsProviderEndpoints:
     def dms(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dms AwsProvider#dms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dms AwsProvider#dms}
         '''
         result = self._values.get("dms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4693,7 +4693,7 @@ class AwsProviderEndpoints:
     def docdb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#docdb AwsProvider#docdb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#docdb AwsProvider#docdb}
         '''
         result = self._values.get("docdb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4702,7 +4702,7 @@ class AwsProviderEndpoints:
     def docdbelastic(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#docdbelastic AwsProvider#docdbelastic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#docdbelastic AwsProvider#docdbelastic}
         '''
         result = self._values.get("docdbelastic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4711,7 +4711,7 @@ class AwsProviderEndpoints:
     def drs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#drs AwsProvider#drs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#drs AwsProvider#drs}
         '''
         result = self._values.get("drs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4720,7 +4720,7 @@ class AwsProviderEndpoints:
     def ds(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ds AwsProvider#ds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ds AwsProvider#ds}
         '''
         result = self._values.get("ds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4729,7 +4729,7 @@ class AwsProviderEndpoints:
     def dsql(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dsql AwsProvider#dsql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dsql AwsProvider#dsql}
         '''
         result = self._values.get("dsql")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4738,7 +4738,7 @@ class AwsProviderEndpoints:
     def dynamodb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#dynamodb AwsProvider#dynamodb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#dynamodb AwsProvider#dynamodb}
         '''
         result = self._values.get("dynamodb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4747,7 +4747,7 @@ class AwsProviderEndpoints:
     def ec2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ec2 AwsProvider#ec2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ec2 AwsProvider#ec2}
         '''
         result = self._values.get("ec2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4756,7 +4756,7 @@ class AwsProviderEndpoints:
     def ecr(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecr AwsProvider#ecr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecr AwsProvider#ecr}
         '''
         result = self._values.get("ecr")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4765,7 +4765,7 @@ class AwsProviderEndpoints:
     def ecrpublic(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecrpublic AwsProvider#ecrpublic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecrpublic AwsProvider#ecrpublic}
         '''
         result = self._values.get("ecrpublic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4774,7 +4774,7 @@ class AwsProviderEndpoints:
     def ecs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ecs AwsProvider#ecs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ecs AwsProvider#ecs}
         '''
         result = self._values.get("ecs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4783,7 +4783,7 @@ class AwsProviderEndpoints:
     def efs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#efs AwsProvider#efs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#efs AwsProvider#efs}
         '''
         result = self._values.get("efs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4792,7 +4792,7 @@ class AwsProviderEndpoints:
     def eks(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#eks AwsProvider#eks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#eks AwsProvider#eks}
         '''
         result = self._values.get("eks")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4801,7 +4801,7 @@ class AwsProviderEndpoints:
     def elasticache(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticache AwsProvider#elasticache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticache AwsProvider#elasticache}
         '''
         result = self._values.get("elasticache")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4810,7 +4810,7 @@ class AwsProviderEndpoints:
     def elasticbeanstalk(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticbeanstalk AwsProvider#elasticbeanstalk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticbeanstalk AwsProvider#elasticbeanstalk}
         '''
         result = self._values.get("elasticbeanstalk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4819,7 +4819,7 @@ class AwsProviderEndpoints:
     def elasticloadbalancing(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticloadbalancing AwsProvider#elasticloadbalancing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticloadbalancing AwsProvider#elasticloadbalancing}
         '''
         result = self._values.get("elasticloadbalancing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4828,7 +4828,7 @@ class AwsProviderEndpoints:
     def elasticloadbalancingv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticloadbalancingv2 AwsProvider#elasticloadbalancingv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticloadbalancingv2 AwsProvider#elasticloadbalancingv2}
         '''
         result = self._values.get("elasticloadbalancingv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4837,7 +4837,7 @@ class AwsProviderEndpoints:
     def elasticsearch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticsearch AwsProvider#elasticsearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticsearch AwsProvider#elasticsearch}
         '''
         result = self._values.get("elasticsearch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4846,7 +4846,7 @@ class AwsProviderEndpoints:
     def elasticsearchservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elasticsearchservice AwsProvider#elasticsearchservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elasticsearchservice AwsProvider#elasticsearchservice}
         '''
         result = self._values.get("elasticsearchservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4855,7 +4855,7 @@ class AwsProviderEndpoints:
     def elastictranscoder(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elastictranscoder AwsProvider#elastictranscoder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elastictranscoder AwsProvider#elastictranscoder}
         '''
         result = self._values.get("elastictranscoder")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4864,7 +4864,7 @@ class AwsProviderEndpoints:
     def elb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elb AwsProvider#elb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elb AwsProvider#elb}
         '''
         result = self._values.get("elb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4873,7 +4873,7 @@ class AwsProviderEndpoints:
     def elbv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#elbv2 AwsProvider#elbv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#elbv2 AwsProvider#elbv2}
         '''
         result = self._values.get("elbv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4882,7 +4882,7 @@ class AwsProviderEndpoints:
     def emr(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emr AwsProvider#emr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emr AwsProvider#emr}
         '''
         result = self._values.get("emr")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4891,7 +4891,7 @@ class AwsProviderEndpoints:
     def emrcontainers(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emrcontainers AwsProvider#emrcontainers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emrcontainers AwsProvider#emrcontainers}
         '''
         result = self._values.get("emrcontainers")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4900,7 +4900,7 @@ class AwsProviderEndpoints:
     def emrserverless(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#emrserverless AwsProvider#emrserverless}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#emrserverless AwsProvider#emrserverless}
         '''
         result = self._values.get("emrserverless")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4909,7 +4909,7 @@ class AwsProviderEndpoints:
     def es(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#es AwsProvider#es}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#es AwsProvider#es}
         '''
         result = self._values.get("es")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4918,7 +4918,7 @@ class AwsProviderEndpoints:
     def eventbridge(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#eventbridge AwsProvider#eventbridge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#eventbridge AwsProvider#eventbridge}
         '''
         result = self._values.get("eventbridge")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4927,7 +4927,7 @@ class AwsProviderEndpoints:
     def events(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#events AwsProvider#events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#events AwsProvider#events}
         '''
         result = self._values.get("events")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4936,7 +4936,7 @@ class AwsProviderEndpoints:
     def evidently(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#evidently AwsProvider#evidently}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#evidently AwsProvider#evidently}
         '''
         result = self._values.get("evidently")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4945,7 +4945,7 @@ class AwsProviderEndpoints:
     def evs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#evs AwsProvider#evs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#evs AwsProvider#evs}
         '''
         result = self._values.get("evs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4954,7 +4954,7 @@ class AwsProviderEndpoints:
     def finspace(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#finspace AwsProvider#finspace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#finspace AwsProvider#finspace}
         '''
         result = self._values.get("finspace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4963,7 +4963,7 @@ class AwsProviderEndpoints:
     def firehose(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#firehose AwsProvider#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#firehose AwsProvider#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4972,7 +4972,7 @@ class AwsProviderEndpoints:
     def fis(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fis AwsProvider#fis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fis AwsProvider#fis}
         '''
         result = self._values.get("fis")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4981,7 +4981,7 @@ class AwsProviderEndpoints:
     def fms(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fms AwsProvider#fms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fms AwsProvider#fms}
         '''
         result = self._values.get("fms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4990,7 +4990,7 @@ class AwsProviderEndpoints:
     def fsx(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#fsx AwsProvider#fsx}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#fsx AwsProvider#fsx}
         '''
         result = self._values.get("fsx")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4999,7 +4999,7 @@ class AwsProviderEndpoints:
     def gamelift(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#gamelift AwsProvider#gamelift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#gamelift AwsProvider#gamelift}
         '''
         result = self._values.get("gamelift")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5008,7 +5008,7 @@ class AwsProviderEndpoints:
     def glacier(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#glacier AwsProvider#glacier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#glacier AwsProvider#glacier}
         '''
         result = self._values.get("glacier")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5017,7 +5017,7 @@ class AwsProviderEndpoints:
     def globalaccelerator(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#globalaccelerator AwsProvider#globalaccelerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#globalaccelerator AwsProvider#globalaccelerator}
         '''
         result = self._values.get("globalaccelerator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5026,7 +5026,7 @@ class AwsProviderEndpoints:
     def glue(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#glue AwsProvider#glue}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#glue AwsProvider#glue}
         '''
         result = self._values.get("glue")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5035,7 +5035,7 @@ class AwsProviderEndpoints:
     def gluedatabrew(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#gluedatabrew AwsProvider#gluedatabrew}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#gluedatabrew AwsProvider#gluedatabrew}
         '''
         result = self._values.get("gluedatabrew")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5044,7 +5044,7 @@ class AwsProviderEndpoints:
     def grafana(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#grafana AwsProvider#grafana}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#grafana AwsProvider#grafana}
         '''
         result = self._values.get("grafana")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5053,7 +5053,7 @@ class AwsProviderEndpoints:
     def greengrass(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#greengrass AwsProvider#greengrass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#greengrass AwsProvider#greengrass}
         '''
         result = self._values.get("greengrass")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5062,7 +5062,7 @@ class AwsProviderEndpoints:
     def groundstation(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#groundstation AwsProvider#groundstation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#groundstation AwsProvider#groundstation}
         '''
         result = self._values.get("groundstation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5071,7 +5071,7 @@ class AwsProviderEndpoints:
     def guardduty(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#guardduty AwsProvider#guardduty}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#guardduty AwsProvider#guardduty}
         '''
         result = self._values.get("guardduty")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5080,7 +5080,7 @@ class AwsProviderEndpoints:
     def healthlake(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#healthlake AwsProvider#healthlake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#healthlake AwsProvider#healthlake}
         '''
         result = self._values.get("healthlake")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5089,7 +5089,7 @@ class AwsProviderEndpoints:
     def iam(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#iam AwsProvider#iam}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#iam AwsProvider#iam}
         '''
         result = self._values.get("iam")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5098,7 +5098,7 @@ class AwsProviderEndpoints:
     def identitystore(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#identitystore AwsProvider#identitystore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#identitystore AwsProvider#identitystore}
         '''
         result = self._values.get("identitystore")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5107,7 +5107,7 @@ class AwsProviderEndpoints:
     def imagebuilder(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#imagebuilder AwsProvider#imagebuilder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#imagebuilder AwsProvider#imagebuilder}
         '''
         result = self._values.get("imagebuilder")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5116,7 +5116,7 @@ class AwsProviderEndpoints:
     def inspector(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspector AwsProvider#inspector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspector AwsProvider#inspector}
         '''
         result = self._values.get("inspector")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5125,7 +5125,7 @@ class AwsProviderEndpoints:
     def inspector2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspector2 AwsProvider#inspector2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspector2 AwsProvider#inspector2}
         '''
         result = self._values.get("inspector2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5134,7 +5134,7 @@ class AwsProviderEndpoints:
     def inspectorv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#inspectorv2 AwsProvider#inspectorv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#inspectorv2 AwsProvider#inspectorv2}
         '''
         result = self._values.get("inspectorv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5143,7 +5143,7 @@ class AwsProviderEndpoints:
     def internetmonitor(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#internetmonitor AwsProvider#internetmonitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#internetmonitor AwsProvider#internetmonitor}
         '''
         result = self._values.get("internetmonitor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5152,7 +5152,7 @@ class AwsProviderEndpoints:
     def invoicing(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#invoicing AwsProvider#invoicing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#invoicing AwsProvider#invoicing}
         '''
         result = self._values.get("invoicing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5161,7 +5161,7 @@ class AwsProviderEndpoints:
     def iot(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#iot AwsProvider#iot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#iot AwsProvider#iot}
         '''
         result = self._values.get("iot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5170,7 +5170,7 @@ class AwsProviderEndpoints:
     def ivs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ivs AwsProvider#ivs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ivs AwsProvider#ivs}
         '''
         result = self._values.get("ivs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5179,7 +5179,7 @@ class AwsProviderEndpoints:
     def ivschat(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ivschat AwsProvider#ivschat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ivschat AwsProvider#ivschat}
         '''
         result = self._values.get("ivschat")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5188,7 +5188,7 @@ class AwsProviderEndpoints:
     def kafka(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kafka AwsProvider#kafka}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kafka AwsProvider#kafka}
         '''
         result = self._values.get("kafka")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5197,7 +5197,7 @@ class AwsProviderEndpoints:
     def kafkaconnect(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kafkaconnect AwsProvider#kafkaconnect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kafkaconnect AwsProvider#kafkaconnect}
         '''
         result = self._values.get("kafkaconnect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5206,7 +5206,7 @@ class AwsProviderEndpoints:
     def kendra(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kendra AwsProvider#kendra}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kendra AwsProvider#kendra}
         '''
         result = self._values.get("kendra")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5215,7 +5215,7 @@ class AwsProviderEndpoints:
     def keyspaces(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#keyspaces AwsProvider#keyspaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#keyspaces AwsProvider#keyspaces}
         '''
         result = self._values.get("keyspaces")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5224,7 +5224,7 @@ class AwsProviderEndpoints:
     def kinesis(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesis AwsProvider#kinesis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesis AwsProvider#kinesis}
         '''
         result = self._values.get("kinesis")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5233,7 +5233,7 @@ class AwsProviderEndpoints:
     def kinesisanalytics(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisanalytics AwsProvider#kinesisanalytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisanalytics AwsProvider#kinesisanalytics}
         '''
         result = self._values.get("kinesisanalytics")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5242,7 +5242,7 @@ class AwsProviderEndpoints:
     def kinesisanalyticsv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisanalyticsv2 AwsProvider#kinesisanalyticsv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisanalyticsv2 AwsProvider#kinesisanalyticsv2}
         '''
         result = self._values.get("kinesisanalyticsv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5251,7 +5251,7 @@ class AwsProviderEndpoints:
     def kinesisvideo(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kinesisvideo AwsProvider#kinesisvideo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kinesisvideo AwsProvider#kinesisvideo}
         '''
         result = self._values.get("kinesisvideo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5260,7 +5260,7 @@ class AwsProviderEndpoints:
     def kms(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#kms AwsProvider#kms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#kms AwsProvider#kms}
         '''
         result = self._values.get("kms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5269,7 +5269,7 @@ class AwsProviderEndpoints:
     def lakeformation(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lakeformation AwsProvider#lakeformation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lakeformation AwsProvider#lakeformation}
         '''
         result = self._values.get("lakeformation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5278,7 +5278,7 @@ class AwsProviderEndpoints:
     def lambda_(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lambda AwsProvider#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lambda AwsProvider#lambda}
         '''
         result = self._values.get("lambda_")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5287,7 +5287,7 @@ class AwsProviderEndpoints:
     def launchwizard(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#launchwizard AwsProvider#launchwizard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#launchwizard AwsProvider#launchwizard}
         '''
         result = self._values.get("launchwizard")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5296,7 +5296,7 @@ class AwsProviderEndpoints:
     def lex(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lex AwsProvider#lex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lex AwsProvider#lex}
         '''
         result = self._values.get("lex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5305,7 +5305,7 @@ class AwsProviderEndpoints:
     def lexmodelbuilding(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelbuilding AwsProvider#lexmodelbuilding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelbuilding AwsProvider#lexmodelbuilding}
         '''
         result = self._values.get("lexmodelbuilding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5314,7 +5314,7 @@ class AwsProviderEndpoints:
     def lexmodelbuildingservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelbuildingservice AwsProvider#lexmodelbuildingservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelbuildingservice AwsProvider#lexmodelbuildingservice}
         '''
         result = self._values.get("lexmodelbuildingservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5323,7 +5323,7 @@ class AwsProviderEndpoints:
     def lexmodels(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodels AwsProvider#lexmodels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodels AwsProvider#lexmodels}
         '''
         result = self._values.get("lexmodels")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5332,7 +5332,7 @@ class AwsProviderEndpoints:
     def lexmodelsv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexmodelsv2 AwsProvider#lexmodelsv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexmodelsv2 AwsProvider#lexmodelsv2}
         '''
         result = self._values.get("lexmodelsv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5341,7 +5341,7 @@ class AwsProviderEndpoints:
     def lexv2_models(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lexv2models AwsProvider#lexv2models}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lexv2models AwsProvider#lexv2models}
         '''
         result = self._values.get("lexv2_models")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5350,7 +5350,7 @@ class AwsProviderEndpoints:
     def licensemanager(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#licensemanager AwsProvider#licensemanager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#licensemanager AwsProvider#licensemanager}
         '''
         result = self._values.get("licensemanager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5359,7 +5359,7 @@ class AwsProviderEndpoints:
     def lightsail(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lightsail AwsProvider#lightsail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lightsail AwsProvider#lightsail}
         '''
         result = self._values.get("lightsail")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5368,7 +5368,7 @@ class AwsProviderEndpoints:
     def location(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#location AwsProvider#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#location AwsProvider#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5377,7 +5377,7 @@ class AwsProviderEndpoints:
     def locationservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#locationservice AwsProvider#locationservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#locationservice AwsProvider#locationservice}
         '''
         result = self._values.get("locationservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5386,7 +5386,7 @@ class AwsProviderEndpoints:
     def logs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#logs AwsProvider#logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#logs AwsProvider#logs}
         '''
         result = self._values.get("logs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5395,7 +5395,7 @@ class AwsProviderEndpoints:
     def lookoutmetrics(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#lookoutmetrics AwsProvider#lookoutmetrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#lookoutmetrics AwsProvider#lookoutmetrics}
         '''
         result = self._values.get("lookoutmetrics")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5404,7 +5404,7 @@ class AwsProviderEndpoints:
     def m2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#m2 AwsProvider#m2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#m2 AwsProvider#m2}
         '''
         result = self._values.get("m2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5413,7 +5413,7 @@ class AwsProviderEndpoints:
     def macie2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#macie2 AwsProvider#macie2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#macie2 AwsProvider#macie2}
         '''
         result = self._values.get("macie2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5422,7 +5422,7 @@ class AwsProviderEndpoints:
     def managedgrafana(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#managedgrafana AwsProvider#managedgrafana}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#managedgrafana AwsProvider#managedgrafana}
         '''
         result = self._values.get("managedgrafana")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5431,7 +5431,7 @@ class AwsProviderEndpoints:
     def mediaconnect(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediaconnect AwsProvider#mediaconnect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediaconnect AwsProvider#mediaconnect}
         '''
         result = self._values.get("mediaconnect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5440,7 +5440,7 @@ class AwsProviderEndpoints:
     def mediaconvert(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediaconvert AwsProvider#mediaconvert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediaconvert AwsProvider#mediaconvert}
         '''
         result = self._values.get("mediaconvert")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5449,7 +5449,7 @@ class AwsProviderEndpoints:
     def medialive(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#medialive AwsProvider#medialive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#medialive AwsProvider#medialive}
         '''
         result = self._values.get("medialive")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5458,7 +5458,7 @@ class AwsProviderEndpoints:
     def mediapackage(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackage AwsProvider#mediapackage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackage AwsProvider#mediapackage}
         '''
         result = self._values.get("mediapackage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5467,7 +5467,7 @@ class AwsProviderEndpoints:
     def mediapackagev2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackagev2 AwsProvider#mediapackagev2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackagev2 AwsProvider#mediapackagev2}
         '''
         result = self._values.get("mediapackagev2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5476,7 +5476,7 @@ class AwsProviderEndpoints:
     def mediapackagevod(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediapackagevod AwsProvider#mediapackagevod}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediapackagevod AwsProvider#mediapackagevod}
         '''
         result = self._values.get("mediapackagevod")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5485,7 +5485,7 @@ class AwsProviderEndpoints:
     def mediastore(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mediastore AwsProvider#mediastore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mediastore AwsProvider#mediastore}
         '''
         result = self._values.get("mediastore")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5494,7 +5494,7 @@ class AwsProviderEndpoints:
     def memorydb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#memorydb AwsProvider#memorydb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#memorydb AwsProvider#memorydb}
         '''
         result = self._values.get("memorydb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5503,7 +5503,7 @@ class AwsProviderEndpoints:
     def mgn(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mgn AwsProvider#mgn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mgn AwsProvider#mgn}
         '''
         result = self._values.get("mgn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5512,7 +5512,7 @@ class AwsProviderEndpoints:
     def mq(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mq AwsProvider#mq}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mq AwsProvider#mq}
         '''
         result = self._values.get("mq")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5521,7 +5521,7 @@ class AwsProviderEndpoints:
     def msk(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#msk AwsProvider#msk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#msk AwsProvider#msk}
         '''
         result = self._values.get("msk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5530,7 +5530,7 @@ class AwsProviderEndpoints:
     def mwaa(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#mwaa AwsProvider#mwaa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#mwaa AwsProvider#mwaa}
         '''
         result = self._values.get("mwaa")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5539,7 +5539,7 @@ class AwsProviderEndpoints:
     def neptune(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#neptune AwsProvider#neptune}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#neptune AwsProvider#neptune}
         '''
         result = self._values.get("neptune")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5548,7 +5548,7 @@ class AwsProviderEndpoints:
     def neptunegraph(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#neptunegraph AwsProvider#neptunegraph}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#neptunegraph AwsProvider#neptunegraph}
         '''
         result = self._values.get("neptunegraph")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5557,7 +5557,7 @@ class AwsProviderEndpoints:
     def networkfirewall(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkfirewall AwsProvider#networkfirewall}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkfirewall AwsProvider#networkfirewall}
         '''
         result = self._values.get("networkfirewall")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5566,7 +5566,7 @@ class AwsProviderEndpoints:
     def networkmanager(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkmanager AwsProvider#networkmanager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkmanager AwsProvider#networkmanager}
         '''
         result = self._values.get("networkmanager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5575,7 +5575,7 @@ class AwsProviderEndpoints:
     def networkmonitor(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#networkmonitor AwsProvider#networkmonitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#networkmonitor AwsProvider#networkmonitor}
         '''
         result = self._values.get("networkmonitor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5584,7 +5584,7 @@ class AwsProviderEndpoints:
     def notifications(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#notifications AwsProvider#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#notifications AwsProvider#notifications}
         '''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5593,7 +5593,7 @@ class AwsProviderEndpoints:
     def notificationscontacts(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#notificationscontacts AwsProvider#notificationscontacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#notificationscontacts AwsProvider#notificationscontacts}
         '''
         result = self._values.get("notificationscontacts")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5602,7 +5602,7 @@ class AwsProviderEndpoints:
     def oam(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#oam AwsProvider#oam}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#oam AwsProvider#oam}
         '''
         result = self._values.get("oam")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5611,7 +5611,7 @@ class AwsProviderEndpoints:
     def odb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#odb AwsProvider#odb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#odb AwsProvider#odb}
         '''
         result = self._values.get("odb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5620,7 +5620,7 @@ class AwsProviderEndpoints:
     def opensearch(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearch AwsProvider#opensearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearch AwsProvider#opensearch}
         '''
         result = self._values.get("opensearch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5629,7 +5629,7 @@ class AwsProviderEndpoints:
     def opensearchingestion(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchingestion AwsProvider#opensearchingestion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchingestion AwsProvider#opensearchingestion}
         '''
         result = self._values.get("opensearchingestion")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5638,7 +5638,7 @@ class AwsProviderEndpoints:
     def opensearchserverless(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchserverless AwsProvider#opensearchserverless}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchserverless AwsProvider#opensearchserverless}
         '''
         result = self._values.get("opensearchserverless")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5647,7 +5647,7 @@ class AwsProviderEndpoints:
     def opensearchservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#opensearchservice AwsProvider#opensearchservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#opensearchservice AwsProvider#opensearchservice}
         '''
         result = self._values.get("opensearchservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5656,7 +5656,7 @@ class AwsProviderEndpoints:
     def organizations(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#organizations AwsProvider#organizations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#organizations AwsProvider#organizations}
         '''
         result = self._values.get("organizations")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5665,7 +5665,7 @@ class AwsProviderEndpoints:
     def osis(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#osis AwsProvider#osis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#osis AwsProvider#osis}
         '''
         result = self._values.get("osis")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5674,7 +5674,7 @@ class AwsProviderEndpoints:
     def outposts(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#outposts AwsProvider#outposts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#outposts AwsProvider#outposts}
         '''
         result = self._values.get("outposts")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5683,7 +5683,7 @@ class AwsProviderEndpoints:
     def paymentcryptography(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#paymentcryptography AwsProvider#paymentcryptography}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#paymentcryptography AwsProvider#paymentcryptography}
         '''
         result = self._values.get("paymentcryptography")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5692,7 +5692,7 @@ class AwsProviderEndpoints:
     def pcaconnectorad(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pcaconnectorad AwsProvider#pcaconnectorad}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pcaconnectorad AwsProvider#pcaconnectorad}
         '''
         result = self._values.get("pcaconnectorad")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5701,7 +5701,7 @@ class AwsProviderEndpoints:
     def pcs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pcs AwsProvider#pcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pcs AwsProvider#pcs}
         '''
         result = self._values.get("pcs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5710,7 +5710,7 @@ class AwsProviderEndpoints:
     def pinpoint(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pinpoint AwsProvider#pinpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pinpoint AwsProvider#pinpoint}
         '''
         result = self._values.get("pinpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5719,7 +5719,7 @@ class AwsProviderEndpoints:
     def pinpointsmsvoicev2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pinpointsmsvoicev2 AwsProvider#pinpointsmsvoicev2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pinpointsmsvoicev2 AwsProvider#pinpointsmsvoicev2}
         '''
         result = self._values.get("pinpointsmsvoicev2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5728,7 +5728,7 @@ class AwsProviderEndpoints:
     def pipes(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pipes AwsProvider#pipes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pipes AwsProvider#pipes}
         '''
         result = self._values.get("pipes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5737,7 +5737,7 @@ class AwsProviderEndpoints:
     def polly(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#polly AwsProvider#polly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#polly AwsProvider#polly}
         '''
         result = self._values.get("polly")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5746,7 +5746,7 @@ class AwsProviderEndpoints:
     def pricing(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#pricing AwsProvider#pricing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#pricing AwsProvider#pricing}
         '''
         result = self._values.get("pricing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5755,7 +5755,7 @@ class AwsProviderEndpoints:
     def prometheus(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#prometheus AwsProvider#prometheus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#prometheus AwsProvider#prometheus}
         '''
         result = self._values.get("prometheus")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5764,7 +5764,7 @@ class AwsProviderEndpoints:
     def prometheusservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#prometheusservice AwsProvider#prometheusservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#prometheusservice AwsProvider#prometheusservice}
         '''
         result = self._values.get("prometheusservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5773,7 +5773,7 @@ class AwsProviderEndpoints:
     def qbusiness(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#qbusiness AwsProvider#qbusiness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#qbusiness AwsProvider#qbusiness}
         '''
         result = self._values.get("qbusiness")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5782,7 +5782,7 @@ class AwsProviderEndpoints:
     def qldb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#qldb AwsProvider#qldb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#qldb AwsProvider#qldb}
         '''
         result = self._values.get("qldb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5791,7 +5791,7 @@ class AwsProviderEndpoints:
     def quicksight(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#quicksight AwsProvider#quicksight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#quicksight AwsProvider#quicksight}
         '''
         result = self._values.get("quicksight")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5800,7 +5800,7 @@ class AwsProviderEndpoints:
     def ram(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ram AwsProvider#ram}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ram AwsProvider#ram}
         '''
         result = self._values.get("ram")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5809,7 +5809,7 @@ class AwsProviderEndpoints:
     def rbin(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rbin AwsProvider#rbin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rbin AwsProvider#rbin}
         '''
         result = self._values.get("rbin")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5818,7 +5818,7 @@ class AwsProviderEndpoints:
     def rds(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rds AwsProvider#rds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rds AwsProvider#rds}
         '''
         result = self._values.get("rds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5827,7 +5827,7 @@ class AwsProviderEndpoints:
     def recyclebin(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#recyclebin AwsProvider#recyclebin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#recyclebin AwsProvider#recyclebin}
         '''
         result = self._values.get("recyclebin")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5836,7 +5836,7 @@ class AwsProviderEndpoints:
     def redshift(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshift AwsProvider#redshift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshift AwsProvider#redshift}
         '''
         result = self._values.get("redshift")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5845,7 +5845,7 @@ class AwsProviderEndpoints:
     def redshiftdata(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftdata AwsProvider#redshiftdata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftdata AwsProvider#redshiftdata}
         '''
         result = self._values.get("redshiftdata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5854,7 +5854,7 @@ class AwsProviderEndpoints:
     def redshiftdataapiservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftdataapiservice AwsProvider#redshiftdataapiservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftdataapiservice AwsProvider#redshiftdataapiservice}
         '''
         result = self._values.get("redshiftdataapiservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5863,7 +5863,7 @@ class AwsProviderEndpoints:
     def redshiftserverless(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#redshiftserverless AwsProvider#redshiftserverless}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#redshiftserverless AwsProvider#redshiftserverless}
         '''
         result = self._values.get("redshiftserverless")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5872,7 +5872,7 @@ class AwsProviderEndpoints:
     def rekognition(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rekognition AwsProvider#rekognition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rekognition AwsProvider#rekognition}
         '''
         result = self._values.get("rekognition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5881,7 +5881,7 @@ class AwsProviderEndpoints:
     def resiliencehub(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resiliencehub AwsProvider#resiliencehub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resiliencehub AwsProvider#resiliencehub}
         '''
         result = self._values.get("resiliencehub")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5890,7 +5890,7 @@ class AwsProviderEndpoints:
     def resourceexplorer2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourceexplorer2 AwsProvider#resourceexplorer2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourceexplorer2 AwsProvider#resourceexplorer2}
         '''
         result = self._values.get("resourceexplorer2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5899,7 +5899,7 @@ class AwsProviderEndpoints:
     def resourcegroups(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroups AwsProvider#resourcegroups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroups AwsProvider#resourcegroups}
         '''
         result = self._values.get("resourcegroups")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5908,7 +5908,7 @@ class AwsProviderEndpoints:
     def resourcegroupstagging(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroupstagging AwsProvider#resourcegroupstagging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroupstagging AwsProvider#resourcegroupstagging}
         '''
         result = self._values.get("resourcegroupstagging")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5917,7 +5917,7 @@ class AwsProviderEndpoints:
     def resourcegroupstaggingapi(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#resourcegroupstaggingapi AwsProvider#resourcegroupstaggingapi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#resourcegroupstaggingapi AwsProvider#resourcegroupstaggingapi}
         '''
         result = self._values.get("resourcegroupstaggingapi")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5926,7 +5926,7 @@ class AwsProviderEndpoints:
     def rolesanywhere(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rolesanywhere AwsProvider#rolesanywhere}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rolesanywhere AwsProvider#rolesanywhere}
         '''
         result = self._values.get("rolesanywhere")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5935,7 +5935,7 @@ class AwsProviderEndpoints:
     def route53(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53 AwsProvider#route53}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53 AwsProvider#route53}
         '''
         result = self._values.get("route53")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5944,7 +5944,7 @@ class AwsProviderEndpoints:
     def route53_domains(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53domains AwsProvider#route53domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53domains AwsProvider#route53domains}
         '''
         result = self._values.get("route53_domains")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5953,7 +5953,7 @@ class AwsProviderEndpoints:
     def route53_profiles(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53profiles AwsProvider#route53profiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53profiles AwsProvider#route53profiles}
         '''
         result = self._values.get("route53_profiles")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5962,7 +5962,7 @@ class AwsProviderEndpoints:
     def route53_recoverycontrolconfig(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53recoverycontrolconfig AwsProvider#route53recoverycontrolconfig}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53recoverycontrolconfig AwsProvider#route53recoverycontrolconfig}
         '''
         result = self._values.get("route53_recoverycontrolconfig")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5971,7 +5971,7 @@ class AwsProviderEndpoints:
     def route53_recoveryreadiness(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53recoveryreadiness AwsProvider#route53recoveryreadiness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53recoveryreadiness AwsProvider#route53recoveryreadiness}
         '''
         result = self._values.get("route53_recoveryreadiness")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5980,7 +5980,7 @@ class AwsProviderEndpoints:
     def route53_resolver(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#route53resolver AwsProvider#route53resolver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#route53resolver AwsProvider#route53resolver}
         '''
         result = self._values.get("route53_resolver")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5989,7 +5989,7 @@ class AwsProviderEndpoints:
     def rum(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#rum AwsProvider#rum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#rum AwsProvider#rum}
         '''
         result = self._values.get("rum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5998,7 +5998,7 @@ class AwsProviderEndpoints:
     def s3(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3 AwsProvider#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3 AwsProvider#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6007,7 +6007,7 @@ class AwsProviderEndpoints:
     def s3_api(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3api AwsProvider#s3api}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3api AwsProvider#s3api}
         '''
         result = self._values.get("s3_api")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6016,7 +6016,7 @@ class AwsProviderEndpoints:
     def s3_control(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3control AwsProvider#s3control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3control AwsProvider#s3control}
         '''
         result = self._values.get("s3_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6025,7 +6025,7 @@ class AwsProviderEndpoints:
     def s3_outposts(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3outposts AwsProvider#s3outposts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3outposts AwsProvider#s3outposts}
         '''
         result = self._values.get("s3_outposts")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6034,7 +6034,7 @@ class AwsProviderEndpoints:
     def s3_tables(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3tables AwsProvider#s3tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3tables AwsProvider#s3tables}
         '''
         result = self._values.get("s3_tables")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6043,7 +6043,7 @@ class AwsProviderEndpoints:
     def s3_vectors(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#s3vectors AwsProvider#s3vectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#s3vectors AwsProvider#s3vectors}
         '''
         result = self._values.get("s3_vectors")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6052,7 +6052,7 @@ class AwsProviderEndpoints:
     def sagemaker(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sagemaker AwsProvider#sagemaker}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sagemaker AwsProvider#sagemaker}
         '''
         result = self._values.get("sagemaker")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6061,7 +6061,7 @@ class AwsProviderEndpoints:
     def scheduler(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#scheduler AwsProvider#scheduler}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#scheduler AwsProvider#scheduler}
         '''
         result = self._values.get("scheduler")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6070,7 +6070,7 @@ class AwsProviderEndpoints:
     def schemas(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#schemas AwsProvider#schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#schemas AwsProvider#schemas}
         '''
         result = self._values.get("schemas")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6079,7 +6079,7 @@ class AwsProviderEndpoints:
     def secretsmanager(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#secretsmanager AwsProvider#secretsmanager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#secretsmanager AwsProvider#secretsmanager}
         '''
         result = self._values.get("secretsmanager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6088,7 +6088,7 @@ class AwsProviderEndpoints:
     def securityhub(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#securityhub AwsProvider#securityhub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#securityhub AwsProvider#securityhub}
         '''
         result = self._values.get("securityhub")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6097,7 +6097,7 @@ class AwsProviderEndpoints:
     def securitylake(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#securitylake AwsProvider#securitylake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#securitylake AwsProvider#securitylake}
         '''
         result = self._values.get("securitylake")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6106,7 +6106,7 @@ class AwsProviderEndpoints:
     def serverlessapplicationrepository(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessapplicationrepository AwsProvider#serverlessapplicationrepository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessapplicationrepository AwsProvider#serverlessapplicationrepository}
         '''
         result = self._values.get("serverlessapplicationrepository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6115,7 +6115,7 @@ class AwsProviderEndpoints:
     def serverlessapprepo(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessapprepo AwsProvider#serverlessapprepo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessapprepo AwsProvider#serverlessapprepo}
         '''
         result = self._values.get("serverlessapprepo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6124,7 +6124,7 @@ class AwsProviderEndpoints:
     def serverlessrepo(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#serverlessrepo AwsProvider#serverlessrepo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#serverlessrepo AwsProvider#serverlessrepo}
         '''
         result = self._values.get("serverlessrepo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6133,7 +6133,7 @@ class AwsProviderEndpoints:
     def servicecatalog(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicecatalog AwsProvider#servicecatalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicecatalog AwsProvider#servicecatalog}
         '''
         result = self._values.get("servicecatalog")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6142,7 +6142,7 @@ class AwsProviderEndpoints:
     def servicecatalogappregistry(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicecatalogappregistry AwsProvider#servicecatalogappregistry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicecatalogappregistry AwsProvider#servicecatalogappregistry}
         '''
         result = self._values.get("servicecatalogappregistry")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6151,7 +6151,7 @@ class AwsProviderEndpoints:
     def servicediscovery(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicediscovery AwsProvider#servicediscovery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicediscovery AwsProvider#servicediscovery}
         '''
         result = self._values.get("servicediscovery")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6160,7 +6160,7 @@ class AwsProviderEndpoints:
     def servicequotas(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#servicequotas AwsProvider#servicequotas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#servicequotas AwsProvider#servicequotas}
         '''
         result = self._values.get("servicequotas")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6169,7 +6169,7 @@ class AwsProviderEndpoints:
     def ses(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ses AwsProvider#ses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ses AwsProvider#ses}
         '''
         result = self._values.get("ses")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6178,7 +6178,7 @@ class AwsProviderEndpoints:
     def sesv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sesv2 AwsProvider#sesv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sesv2 AwsProvider#sesv2}
         '''
         result = self._values.get("sesv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6187,7 +6187,7 @@ class AwsProviderEndpoints:
     def sfn(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sfn AwsProvider#sfn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sfn AwsProvider#sfn}
         '''
         result = self._values.get("sfn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6196,7 +6196,7 @@ class AwsProviderEndpoints:
     def shield(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#shield AwsProvider#shield}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#shield AwsProvider#shield}
         '''
         result = self._values.get("shield")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6205,7 +6205,7 @@ class AwsProviderEndpoints:
     def signer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#signer AwsProvider#signer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#signer AwsProvider#signer}
         '''
         result = self._values.get("signer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6214,7 +6214,7 @@ class AwsProviderEndpoints:
     def sns(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sns AwsProvider#sns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sns AwsProvider#sns}
         '''
         result = self._values.get("sns")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6223,7 +6223,7 @@ class AwsProviderEndpoints:
     def sqs(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sqs AwsProvider#sqs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sqs AwsProvider#sqs}
         '''
         result = self._values.get("sqs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6232,7 +6232,7 @@ class AwsProviderEndpoints:
     def ssm(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssm AwsProvider#ssm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssm AwsProvider#ssm}
         '''
         result = self._values.get("ssm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6241,7 +6241,7 @@ class AwsProviderEndpoints:
     def ssmcontacts(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmcontacts AwsProvider#ssmcontacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmcontacts AwsProvider#ssmcontacts}
         '''
         result = self._values.get("ssmcontacts")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6250,7 +6250,7 @@ class AwsProviderEndpoints:
     def ssmincidents(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmincidents AwsProvider#ssmincidents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmincidents AwsProvider#ssmincidents}
         '''
         result = self._values.get("ssmincidents")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6259,7 +6259,7 @@ class AwsProviderEndpoints:
     def ssmquicksetup(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmquicksetup AwsProvider#ssmquicksetup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmquicksetup AwsProvider#ssmquicksetup}
         '''
         result = self._values.get("ssmquicksetup")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6268,7 +6268,7 @@ class AwsProviderEndpoints:
     def ssmsap(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssmsap AwsProvider#ssmsap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssmsap AwsProvider#ssmsap}
         '''
         result = self._values.get("ssmsap")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6277,7 +6277,7 @@ class AwsProviderEndpoints:
     def sso(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sso AwsProvider#sso}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sso AwsProvider#sso}
         '''
         result = self._values.get("sso")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6286,7 +6286,7 @@ class AwsProviderEndpoints:
     def ssoadmin(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#ssoadmin AwsProvider#ssoadmin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#ssoadmin AwsProvider#ssoadmin}
         '''
         result = self._values.get("ssoadmin")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6295,7 +6295,7 @@ class AwsProviderEndpoints:
     def stepfunctions(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#stepfunctions AwsProvider#stepfunctions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#stepfunctions AwsProvider#stepfunctions}
         '''
         result = self._values.get("stepfunctions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6304,7 +6304,7 @@ class AwsProviderEndpoints:
     def storagegateway(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#storagegateway AwsProvider#storagegateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#storagegateway AwsProvider#storagegateway}
         '''
         result = self._values.get("storagegateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6313,7 +6313,7 @@ class AwsProviderEndpoints:
     def sts(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#sts AwsProvider#sts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#sts AwsProvider#sts}
         '''
         result = self._values.get("sts")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6322,7 +6322,7 @@ class AwsProviderEndpoints:
     def swf(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#swf AwsProvider#swf}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#swf AwsProvider#swf}
         '''
         result = self._values.get("swf")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6331,7 +6331,7 @@ class AwsProviderEndpoints:
     def synthetics(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#synthetics AwsProvider#synthetics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#synthetics AwsProvider#synthetics}
         '''
         result = self._values.get("synthetics")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6340,7 +6340,7 @@ class AwsProviderEndpoints:
     def taxsettings(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#taxsettings AwsProvider#taxsettings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#taxsettings AwsProvider#taxsettings}
         '''
         result = self._values.get("taxsettings")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6349,7 +6349,7 @@ class AwsProviderEndpoints:
     def timestreaminfluxdb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreaminfluxdb AwsProvider#timestreaminfluxdb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreaminfluxdb AwsProvider#timestreaminfluxdb}
         '''
         result = self._values.get("timestreaminfluxdb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6358,7 +6358,7 @@ class AwsProviderEndpoints:
     def timestreamquery(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreamquery AwsProvider#timestreamquery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreamquery AwsProvider#timestreamquery}
         '''
         result = self._values.get("timestreamquery")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6367,7 +6367,7 @@ class AwsProviderEndpoints:
     def timestreamwrite(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#timestreamwrite AwsProvider#timestreamwrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#timestreamwrite AwsProvider#timestreamwrite}
         '''
         result = self._values.get("timestreamwrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6376,7 +6376,7 @@ class AwsProviderEndpoints:
     def transcribe(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transcribe AwsProvider#transcribe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transcribe AwsProvider#transcribe}
         '''
         result = self._values.get("transcribe")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6385,7 +6385,7 @@ class AwsProviderEndpoints:
     def transcribeservice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transcribeservice AwsProvider#transcribeservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transcribeservice AwsProvider#transcribeservice}
         '''
         result = self._values.get("transcribeservice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6394,7 +6394,7 @@ class AwsProviderEndpoints:
     def transfer(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#transfer AwsProvider#transfer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#transfer AwsProvider#transfer}
         '''
         result = self._values.get("transfer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6403,7 +6403,7 @@ class AwsProviderEndpoints:
     def verifiedpermissions(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#verifiedpermissions AwsProvider#verifiedpermissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#verifiedpermissions AwsProvider#verifiedpermissions}
         '''
         result = self._values.get("verifiedpermissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6412,7 +6412,7 @@ class AwsProviderEndpoints:
     def vpclattice(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#vpclattice AwsProvider#vpclattice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#vpclattice AwsProvider#vpclattice}
         '''
         result = self._values.get("vpclattice")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6421,7 +6421,7 @@ class AwsProviderEndpoints:
     def waf(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#waf AwsProvider#waf}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#waf AwsProvider#waf}
         '''
         result = self._values.get("waf")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6430,7 +6430,7 @@ class AwsProviderEndpoints:
     def wafregional(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wafregional AwsProvider#wafregional}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wafregional AwsProvider#wafregional}
         '''
         result = self._values.get("wafregional")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6439,7 +6439,7 @@ class AwsProviderEndpoints:
     def wafv2(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wafv2 AwsProvider#wafv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wafv2 AwsProvider#wafv2}
         '''
         result = self._values.get("wafv2")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6448,7 +6448,7 @@ class AwsProviderEndpoints:
     def wellarchitected(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#wellarchitected AwsProvider#wellarchitected}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#wellarchitected AwsProvider#wellarchitected}
         '''
         result = self._values.get("wellarchitected")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6457,7 +6457,7 @@ class AwsProviderEndpoints:
     def workmail(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workmail AwsProvider#workmail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workmail AwsProvider#workmail}
         '''
         result = self._values.get("workmail")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6466,7 +6466,7 @@ class AwsProviderEndpoints:
     def workspaces(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workspaces AwsProvider#workspaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workspaces AwsProvider#workspaces}
         '''
         result = self._values.get("workspaces")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6475,7 +6475,7 @@ class AwsProviderEndpoints:
     def workspacesweb(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#workspacesweb AwsProvider#workspacesweb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#workspacesweb AwsProvider#workspacesweb}
         '''
         result = self._values.get("workspacesweb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6484,7 +6484,7 @@ class AwsProviderEndpoints:
     def xray(self) -> typing.Optional[builtins.str]:
         '''Use this to override the default service endpoint URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#xray AwsProvider#xray}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#xray AwsProvider#xray}
         '''
         result = self._values.get("xray")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6514,8 +6514,8 @@ class AwsProviderIgnoreTags:
         keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key_prefixes: Resource tag key prefixes to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEY_PREFIXES environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#key_prefixes AwsProvider#key_prefixes}
-        :param keys: Resource tag keys to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEYS environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#keys AwsProvider#keys}
+        :param key_prefixes: Resource tag key prefixes to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEY_PREFIXES environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#key_prefixes AwsProvider#key_prefixes}
+        :param keys: Resource tag keys to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEYS environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#keys AwsProvider#keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ab041190cff9dea0fa7e0b3c1dc38ef6ecad92f82f69388d0b2e9a3b135aa52)
@@ -6531,7 +6531,7 @@ class AwsProviderIgnoreTags:
     def key_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Resource tag key prefixes to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEY_PREFIXES environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#key_prefixes AwsProvider#key_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#key_prefixes AwsProvider#key_prefixes}
         '''
         result = self._values.get("key_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6540,7 +6540,7 @@ class AwsProviderIgnoreTags:
     def keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Resource tag keys to ignore across all resources. Can also be configured with the TF_AWS_IGNORE_TAGS_KEYS environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs#keys AwsProvider#keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs#keys AwsProvider#keys}
         '''
         result = self._values.get("keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

@@ -4,7 +4,6 @@ import collections
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from functools import cached_property
 from typing import FrozenSet, Iterable, Optional, Sequence, Tuple
 
@@ -21,16 +20,18 @@ from dbt_semantic_interfaces.references import (
 from dbt_semantic_interfaces.type_enums.date_part import DatePart
 from typing_extensions import override
 
-from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
+from metricflow_semantics.experimental.mf_graph.comparable import Comparable, ComparisonKey
+from metricflow_semantics.experimental.orderd_enum import OrderedEnum
 from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
 from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
+from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
 from metricflow_semantics.workarounds.reference import sorted_semantic_model_references
 
 logger = logging.getLogger(__name__)
 
 
-class LinkableElementType(Enum):
+class LinkableElementType(OrderedEnum):
     """Enumeration of the possible types of linkable element we are encountering or expecting.
 
     LinkableElements effectively map on to LinkableSpecs and queryable semantic manifest elements such
@@ -58,7 +59,7 @@ class LinkableElementType(Enum):
 
 
 @dataclass(frozen=True)
-class ElementPathKey:
+class ElementPathKey(Comparable):
     """A key that can uniquely identify an element and the joins used to realize the element."""
 
     element_name: str
@@ -70,23 +71,30 @@ class ElementPathKey:
 
     def __post_init__(self) -> None:
         """Asserts all requirements associated with the element_type are met."""
-        element_type = self.element_type
-        if element_type is LinkableElementType.TIME_DIMENSION:
-            assert (
-                self.time_granularity
-            ), "Time granularity must be specified for all ElementPathKeys associated with time dimensions!"
-        elif (
-            element_type is LinkableElementType.DIMENSION
-            or element_type is LinkableElementType.ENTITY
-            or element_type is LinkableElementType.METRIC
-        ):
-            pass
-        else:
-            assert_values_exhausted(element_type)
-
         assert len(set(self.entity_links)) == len(
             self.entity_links
         ), f"Duplicate found in `entity_links`: {self.entity_links}."
+
+    @override
+    @property
+    def comparison_key(self) -> ComparisonKey:
+        return (
+            self.element_name,
+            self.element_type,
+            self.entity_links,
+            self.time_granularity if self.time_granularity is not None else None,
+            self.date_part.to_int() if self.date_part is not None else None,
+            self.metric_subquery_entity_links,
+        )
+
+    @cached_property
+    def dunder_name(self) -> str:  # noqa: D102
+        return StructuredLinkableSpecName(
+            entity_link_names=tuple(entity_link.element_name for entity_link in self.entity_links),
+            element_name=self.element_name,
+            time_granularity_name=self.time_granularity.name if self.time_granularity is not None else None,
+            date_part=self.date_part,
+        ).qualified_name
 
 
 @dataclass(frozen=True)
@@ -131,12 +139,6 @@ class LinkableElement(SemanticModelDerivation, SerializableDataclass, ABC):
         """
         raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def as_union(self) -> LinkableElementUnion:
-        """Return `self` in a union-type container for better serialization support."""
-        raise NotImplementedError
-
 
 @dataclass(frozen=True)
 class LinkableDimension(LinkableElement, SerializableDataclass):
@@ -159,8 +161,8 @@ class LinkableDimension(LinkableElement, SerializableDataclass):
         dimension_type: DimensionType,
         entity_links: Tuple[EntityReference, ...],
         join_path: SemanticModelJoinPath,
-        time_granularity: Optional[ExpandedTimeGranularity],
-        date_part: Optional[DatePart],
+        time_granularity: Optional[ExpandedTimeGranularity] = None,
+        date_part: Optional[DatePart] = None,
     ) -> LinkableDimension:
         return LinkableDimension(
             properties=tuple(sorted(set(properties))),
@@ -220,11 +222,6 @@ class LinkableDimension(LinkableElement, SerializableDataclass):
             else SemanticModelDerivation.VIRTUAL_SEMANTIC_MODEL_REFERENCE
         )
 
-    @property
-    @override
-    def as_union(self) -> LinkableElementUnion:
-        return LinkableElementUnion(linkable_dimension=self)
-
 
 @dataclass(frozen=True)
 class LinkableEntity(LinkableElement, SerializableDataclass):
@@ -278,11 +275,6 @@ class LinkableEntity(LinkableElement, SerializableDataclass):
     @override
     def semantic_model_origin(self) -> SemanticModelReference:
         return self.defined_in_semantic_model
-
-    @property
-    @override
-    def as_union(self) -> LinkableElementUnion:
-        return LinkableElementUnion(linkable_entity=self)
 
 
 @dataclass(frozen=True)
@@ -371,38 +363,6 @@ class LinkableMetric(LinkableElement, SerializableDataclass):
         Includes the `join_on_entity`, which will always be the last entity link.
         """
         return self.join_path.metric_subquery_entity_links
-
-    @property
-    @override
-    def as_union(self) -> LinkableElementUnion:
-        return LinkableElementUnion(linkable_metric=self)
-
-
-@dataclass(frozen=True)
-class LinkableElementUnion(SerializableDataclass):
-    """A union type to use in classes that require a concrete implementation for serialization."""
-
-    linkable_dimension: Optional[LinkableDimension] = None
-    linkable_entity: Optional[LinkableEntity] = None
-    linkable_metric: Optional[LinkableMetric] = None
-
-    def __post_init__(self) -> None:  # noqa: D105
-        assert_exactly_one_arg_set(
-            linkable_dimension=self.linkable_dimension,
-            linkable_entity=self.linkable_entity,
-            linkable_metric=self.linkable_metric,
-        )
-
-    @property
-    def linkable_element(self) -> LinkableElement:  # noqa: D102
-        if self.linkable_dimension is not None:
-            return self.linkable_dimension
-        elif self.linkable_entity is not None:
-            return self.linkable_entity
-        elif self.linkable_metric is not None:
-            return self.linkable_metric
-
-        assert False, "All fields are None - this should have been caught in object initialization."
 
 
 @dataclass(frozen=True)

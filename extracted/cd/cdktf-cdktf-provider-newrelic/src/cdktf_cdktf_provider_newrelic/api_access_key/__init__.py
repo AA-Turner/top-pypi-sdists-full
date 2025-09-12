@@ -1,7 +1,7 @@
 r'''
 # `newrelic_api_access_key`
 
-Refer to the Terraform Registry for docs: [`newrelic_api_access_key`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key).
+Refer to the Terraform Registry for docs: [`newrelic_api_access_key`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,15 +44,15 @@ class ApiAccessKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.apiAccessKey.ApiAccessKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key newrelic_api_access_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key newrelic_api_access_key}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        account_id: jsii.Number,
         key_type: builtins.str,
+        account_id: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         ingest_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
@@ -66,17 +66,17 @@ class ApiAccessKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key newrelic_api_access_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key newrelic_api_access_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.
-        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#id ApiAccessKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingest_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#name ApiAccessKey#name}.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.
+        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#id ApiAccessKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingest_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#name ApiAccessKey#name}.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,8 +90,8 @@ class ApiAccessKey(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = ApiAccessKeyConfig(
-            account_id=account_id,
             key_type=key_type,
+            account_id=account_id,
             id=id,
             ingest_type=ingest_type,
             name=name,
@@ -121,7 +121,7 @@ class ApiAccessKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiAccessKey to import.
-        :param import_from_id: The id of the existing ApiAccessKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiAccessKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiAccessKey to import is found.
         '''
         if __debug__:
@@ -131,6 +131,10 @@ class ApiAccessKey(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetAccountId")
+    def reset_account_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAccountId", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -301,8 +305,8 @@ class ApiAccessKey(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "account_id": "accountId",
         "key_type": "keyType",
+        "account_id": "accountId",
         "id": "id",
         "ingest_type": "ingestType",
         "name": "name",
@@ -321,8 +325,8 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        account_id: jsii.Number,
         key_type: builtins.str,
+        account_id: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         ingest_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
@@ -337,13 +341,13 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.
-        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#id ApiAccessKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingest_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#name ApiAccessKey#name}.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.
+        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#id ApiAccessKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingest_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#name ApiAccessKey#name}.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -356,15 +360,14 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ingest_type", value=ingest_type, expected_type=type_hints["ingest_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument notes", value=notes, expected_type=type_hints["notes"])
             check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
             "key_type": key_type,
         }
         if connection is not None:
@@ -381,6 +384,8 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if id is not None:
             self._values["id"] = id
         if ingest_type is not None:
@@ -457,22 +462,21 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def account_id(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
     def key_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#key_type ApiAccessKey#key_type}.'''
         result = self._values.get("key_type")
         assert result is not None, "Required property 'key_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def account_id(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#account_id ApiAccessKey#account_id}.'''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#id ApiAccessKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#id ApiAccessKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -482,25 +486,25 @@ class ApiAccessKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ingest_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#ingest_type ApiAccessKey#ingest_type}.'''
         result = self._values.get("ingest_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#name ApiAccessKey#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#name ApiAccessKey#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#notes ApiAccessKey#notes}.'''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_id(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/api_access_key#user_id ApiAccessKey#user_id}.'''
         result = self._values.get("user_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -527,8 +531,8 @@ def _typecheckingstub__e7833a6b3b98966b547cbf120b1e32eac1f57e7bdf25eabbf5e5c4479
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    account_id: jsii.Number,
     key_type: builtins.str,
+    account_id: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     ingest_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
@@ -605,8 +609,8 @@ def _typecheckingstub__311ab55d2f9a01a5cb3d23db15ee553a80008e25a80b0fc1fda213069
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    account_id: jsii.Number,
     key_type: builtins.str,
+    account_id: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     ingest_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,

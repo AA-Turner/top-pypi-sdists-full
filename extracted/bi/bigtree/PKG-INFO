@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigtree
-Version: 0.30.1
+Version: 0.31.0
 Summary: Tree Implementation and Methods for Python, integrated with list, dictionary, pandas and polars DataFrame.
 Project-URL: Documentation, https://bigtree.readthedocs.io
 Project-URL: Issues, https://github.com/kayjan/bigtree/issues
@@ -12,15 +12,13 @@ License-File: LICENSE
 Keywords: bigtree,tree
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Provides-Extra: all
 Requires-Dist: lark; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'

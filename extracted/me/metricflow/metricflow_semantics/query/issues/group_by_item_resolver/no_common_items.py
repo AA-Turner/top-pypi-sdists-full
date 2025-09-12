@@ -5,8 +5,8 @@ from typing import Dict, Sequence, Tuple
 
 from typing_extensions import override
 
-from metricflow_semantics.mf_logging.formatting import indent
-from metricflow_semantics.mf_logging.pretty_print import mf_pformat
+from metricflow_semantics.helpers.string_helpers import mf_indent
+from metricflow_semantics.mf_logging.pretty_print import PrettyFormatDictOption, mf_pformat
 from metricflow_semantics.naming.object_builder_scheme import ObjectBuilderNamingScheme
 from metricflow_semantics.query.group_by_item.candidate_push_down.group_by_item_candidate import GroupByItemCandidateSet
 from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.base_node import GroupByItemResolutionNode
@@ -68,13 +68,16 @@ class NoCommonItemsInParents(MetricFlowQueryResolutionIssue):
             parent_to_available_items["Matching items for: " + resolution_node.ui_description] = [
                 (spec_str if spec_str is not None else "None") for spec_str in spec_as_strs
             ]
-        return (
-            f"{last_path_item.ui_description} is built from:\n\n"
-            f"{indent(last_path_item_parent_descriptions)}.\n"
-            f"However, the given input does not match to a common item that is available to those parents:\n\n"
-            f"{indent(mf_pformat(parent_to_available_items, max_line_length=80))}\n\n"
-            f"For time dimension inputs, please specify a time grain as ambiguous resolution only allows "
-            f"resolution when the parents have the same defined time gain."
+
+        return "\n\n".join(
+            (
+                f"{last_path_item.ui_description} is built from:",
+                f"{mf_indent(last_path_item_parent_descriptions)}.",
+                "However, the given input does not match to a common item that is available to those parents:",
+                f"{mf_indent(mf_pformat(parent_to_available_items, format_option=PrettyFormatDictOption(max_line_length=80)))}",
+                "For time-dimension inputs, please specify a time grain as resolution of ambiguous grains"
+                "\nis successful only when the parents have the same defined time grain.",
+            )
         )
 
     @override

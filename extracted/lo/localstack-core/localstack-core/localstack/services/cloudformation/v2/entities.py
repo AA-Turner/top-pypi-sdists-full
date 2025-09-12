@@ -1,6 +1,5 @@
-import copy
-from datetime import datetime, timezone
-from typing import NotRequired, Optional, TypedDict
+from datetime import UTC, datetime
+from typing import NotRequired, TypedDict
 
 from localstack.aws.api.cloudformation import (
     Capability,
@@ -11,10 +10,7 @@ from localstack.aws.api.cloudformation import (
     CreateStackSetInput,
     ExecutionStatus,
     Output,
-    Parameter,
     ResourceStatus,
-    StackDriftInformation,
-    StackDriftStatus,
     StackEvent,
     StackInstanceComprehensiveStatus,
     StackInstanceDetailedStatus,
@@ -23,9 +19,10 @@ from localstack.aws.api.cloudformation import (
     StackSetOperation,
     StackStatus,
     StackStatusReason,
+    Tag,
 )
 from localstack.aws.api.cloudformation import (
-    Stack as ApiStack,
+    Parameter as ApiParameter,
 )
 from localstack.services.cloudformation.engine.entities import (
     StackIdentifier,
@@ -34,22 +31,15 @@ from localstack.services.cloudformation.engine.v2.change_set_model import (
     ChangeType,
     UpdateModel,
 )
+from localstack.services.cloudformation.v2.types import EngineParameter, ResolvedResource
 from localstack.utils.aws import arns
 from localstack.utils.strings import long_uid, short_uid
 
 
-class ResolvedResource(TypedDict):
-    LogicalResourceId: str
-    Type: str
-    Properties: dict
-    ResourceStatus: ResourceStatus
-    PhysicalResourceId: str | None
-    LastUpdatedTimestamp: datetime | None
-
-
 class Stack:
     stack_name: str
-    parameters: list[Parameter]
+    description: str | None
+    parameters: list[ApiParameter]
     change_set_id: str | None
     status: StackStatus
     status_reason: StackStatusReason | None
@@ -60,35 +50,36 @@ class Stack:
     capabilities: list[Capability]
     enable_termination_protection: bool
     processed_template: dict | None
+    template_body: str | None
+    tags: list[Tag]
 
     # state after deploy
-    resolved_parameters: dict[str, str]
+    resolved_parameters: dict[str, EngineParameter]
     resolved_resources: dict[str, ResolvedResource]
-    resolved_outputs: dict[str, str]
+    resolved_outputs: list[Output]
     resource_states: dict[str, StackResource]
+    resolved_exports: dict[str, str]
 
     def __init__(
         self,
         account_id: str,
         region_name: str,
         request_payload: CreateChangeSetInput | CreateStackInput,
-        template: dict | None = None,
-        template_body: str | None = None,
         initial_status: StackStatus = StackStatus.CREATE_IN_PROGRESS,
+        tags: list[Tag] | None = None,
     ):
         self.account_id = account_id
         self.region_name = region_name
-        self.template = template
-        self.template_original = copy.deepcopy(self.template)
-        self.template_body = template_body
         self.status = initial_status
         self.status_reason = None
         self.change_set_ids = []
-        self.creation_time = datetime.now(tz=timezone.utc)
+        self.creation_time = datetime.now(tz=UTC)
         self.deletion_time = None
         self.change_set_id = None
         self.enable_termination_protection = False
         self.processed_template = None
+        self.template_body = None
+        self.tags = tags or []
 
         self.stack_name = request_payload["StackName"]
         self.parameters = request_payload.get("Parameters", [])
@@ -108,16 +99,24 @@ class Stack:
         # state after deploy
         self.resolved_parameters = {}
         self.resolved_resources = {}
-        self.resolved_outputs = {}
+        self.resolved_outputs = []
         self.resource_states = {}
         self.events = []
+        self.resolved_exports = {}
+        self.description = None
 
     def set_stack_status(self, status: StackStatus, reason: StackStatusReason | None = None):
         self.status = status
         if reason:
             self.status_reason = reason
 
-        self._store_event(self.stack_name, self.stack_id, status.value, status_reason=reason)
+        self._store_event(
+            resource_id=self.stack_name,
+            resource_type="AWS::CloudFormation::Stack",
+            physical_resource_id=self.stack_id,
+            status=status,
+            status_reason=reason,
+        )
 
     def set_resource_status(
         self,
@@ -134,7 +133,7 @@ class Stack:
             LogicalResourceId=logical_resource_id,
             PhysicalResourceId=physical_resource_id,
             ResourceType=resource_type,
-            Timestamp=datetime.now(tz=timezone.utc),
+            Timestamp=datetime.now(tz=UTC),
             ResourceStatus=status,
             ResourceStatusReason=resource_status_reason,
         )
@@ -146,77 +145,38 @@ class Stack:
             self.resource_states.pop(logical_resource_id)
         else:
             self.resource_states[logical_resource_id] = resource_description
-        self._store_event(logical_resource_id, physical_resource_id, status, resource_status_reason)
+
+        self._store_event(
+            resource_id=logical_resource_id,
+            resource_type=resource_type,
+            physical_resource_id=physical_resource_id,
+            status=status,
+            status_reason=resource_status_reason,
+        )
 
     def _store_event(
         self,
         resource_id: str = None,
-        physical_res_id: str = None,
-        status: str = "",
+        resource_type: str | None = "",
+        physical_resource_id: str = None,
+        status: StackStatus | ResourceStatus = "",
         status_reason: str = "",
     ):
-        resource_id = resource_id
-        physical_res_id = physical_res_id
-        resource_type = (
-            self.template.get("Resources", {})
-            .get(resource_id, {})
-            .get("Type", "AWS::CloudFormation::Stack")
+        event = StackEvent(
+            EventId=long_uid(),
+            Timestamp=datetime.now(tz=UTC),
+            StackId=self.stack_id,
+            StackName=self.stack_name,
+            LogicalResourceId=resource_id,
+            PhysicalResourceId=physical_resource_id,
+            ResourceStatus=status,
+            ResourceType=resource_type,
         )
-
-        event: StackEvent = {
-            "EventId": long_uid(),
-            "Timestamp": datetime.now(tz=timezone.utc),
-            "StackId": self.stack_id,
-            "StackName": self.stack_name,
-            "LogicalResourceId": resource_id,
-            "PhysicalResourceId": physical_res_id,
-            "ResourceStatus": status,
-            "ResourceType": resource_type,
-        }
 
         if status_reason:
             event["ResourceStatusReason"] = status_reason
 
         self.events.insert(0, event)
-
-    def describe_details(self) -> ApiStack:
-        result = {
-            "CreationTime": self.creation_time,
-            "DeletionTime": self.deletion_time,
-            "StackId": self.stack_id,
-            "StackName": self.stack_name,
-            "StackStatus": self.status,
-            "StackStatusReason": self.status_reason,
-            # fake values
-            "DisableRollback": False,
-            "DriftInformation": StackDriftInformation(
-                StackDriftStatus=StackDriftStatus.NOT_CHECKED
-            ),
-            "EnableTerminationProtection": self.enable_termination_protection,
-            "LastUpdatedTime": self.creation_time,
-            "RollbackConfiguration": {},
-            "Tags": [],
-            "NotificationARNs": [],
-            "Capabilities": self.capabilities,
-            "Parameters": self.parameters,
-        }
-        # TODO: confirm the logic for this
-        if change_set_id := self.change_set_id:
-            result["ChangeSetId"] = change_set_id
-
-        if self.resolved_outputs:
-            describe_outputs = []
-            for key, value in self.resolved_outputs.items():
-                describe_outputs.append(
-                    Output(
-                        # TODO(parity): Description, ExportName
-                        # TODO(parity): what happens on describe stack when the stack has not been deployed yet?
-                        OutputKey=key,
-                        OutputValue=value,
-                    )
-                )
-            result["Outputs"] = describe_outputs
-        return result
 
     def is_active(self) -> bool:
         return self.status != StackStatus.DELETE_COMPLETE
@@ -231,34 +191,44 @@ class ChangeSet:
     change_set_name: str
     change_set_id: str
     change_set_type: ChangeSetType
-    update_model: Optional[UpdateModel]
+    update_model: UpdateModel | None
     status: ChangeSetStatus
     status_reason: str | None
     execution_status: ExecutionStatus
     creation_time: datetime
+    processed_template: dict | None
+    resolved_parameters: dict[str, EngineParameter]
+    description: str | None
+    tags: list[Tag]
 
     def __init__(
         self,
         stack: Stack,
         request_payload: ChangeSetRequestPayload,
+        template_body: str,
         template: dict | None = None,
     ):
         self.stack = stack
+        self.template_body = template_body
         self.template = template
         self.status = ChangeSetStatus.CREATE_IN_PROGRESS
         self.status_reason = None
         self.execution_status = ExecutionStatus.AVAILABLE
         self.update_model = None
-        self.creation_time = datetime.now(tz=timezone.utc)
+        self.creation_time = datetime.now(tz=UTC)
+        self.resolved_parameters = {}
+        self.tags = request_payload.get("Tags") or []
 
         self.change_set_name = request_payload["ChangeSetName"]
         self.change_set_type = request_payload.get("ChangeSetType", ChangeSetType.UPDATE)
+        self.description = request_payload.get("Description")
         self.change_set_id = arns.cloudformation_change_set_arn(
             self.change_set_name,
             change_set_id=short_uid(),
             account_id=self.stack.account_id,
             region_name=self.stack.region_name,
         )
+        self.processed_template = None
 
     def set_update_model(self, update_model: UpdateModel) -> None:
         self.update_model = update_model

@@ -612,8 +612,10 @@ class NetworkPortTests(test.BaseAdminViewTests):
 
         self.assertRedirectsNoFollow(res, url)
 
-        self.mock_port_list.assert_called_once_with(test.IsHttpRequest(),
-                                                    network_id=network_id)
+        self.mock_port_list.assert_called_once_with(
+            test.IsHttpRequest(),
+            network_id=network_id,
+            project_id=port.tenant_id)
         self._check_is_extension_supported(
             {'network-ip-availability': 1,
              'mac-learning': 1})
@@ -648,8 +650,10 @@ class NetworkPortTests(test.BaseAdminViewTests):
 
         self.mock_port_delete.assert_called_once_with(test.IsHttpRequest(),
                                                       port.id)
-        self.mock_port_list.assert_called_once_with(test.IsHttpRequest(),
-                                                    network_id=network_id)
+        self.mock_port_list.assert_called_once_with(
+            test.IsHttpRequest(),
+            network_id=network_id,
+            project_id=port.tenant_id)
         self._check_is_extension_supported(
             {'network-ip-availability': 1,
              'mac-learning': 1})
@@ -657,6 +661,7 @@ class NetworkPortTests(test.BaseAdminViewTests):
     @override_settings(POLICY_CHECK_FUNCTION='openstack_auth.policy.check')
     @test.create_mocks({api.neutron: ('port_get',
                                       'network_get',
+                                      'security_group_list',
                                       'is_extension_supported')})
     def test_add_allowed_address_pair_button_shown(self):
         port = self.ports.first()
@@ -680,6 +685,7 @@ class NetworkPortTests(test.BaseAdminViewTests):
     @override_settings(POLICY_CHECK_FUNCTION='openstack_auth.policy.check')
     @test.create_mocks({api.neutron: ('port_get',
                                       'network_get',
+                                      'security_group_list',
                                       'port_update',
                                       'is_extension_supported')})
     def test_delete_address_pair_button_shown(self):

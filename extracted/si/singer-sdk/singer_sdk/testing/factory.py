@@ -10,7 +10,6 @@ import pytest
 from .config import SuiteConfig
 from .runners import TapTestRunner, TargetTestRunner
 from .suites import (
-    SingerTestSuite,
     tap_stream_attribute_tests,
     tap_stream_tests,
     tap_tests,
@@ -24,6 +23,8 @@ if t.TYPE_CHECKING:
         StreamTestTemplate,
         TapTestTemplate,
     )
+
+    from .suites import SingerTestSuite
 
 
 class StreamTestParams(t.NamedTuple):
@@ -39,7 +40,7 @@ class StreamAttributeTestParams(t.NamedTuple):
     attribute_name: str
 
 
-@dataclass
+@dataclass(slots=True)
 class TestParam:
     """Test parameters."""
 
@@ -365,7 +366,7 @@ class TargetTestClassFactory:
     def _annotate_test_class(  # noqa: PLR6301
         self,
         empty_test_class: type[BaseTestClass],
-        test_suites: list,
+        test_suites: list[SingerTestSuite],
     ) -> type[BaseTestClass]:
         """Annotate test class with test methods.
 

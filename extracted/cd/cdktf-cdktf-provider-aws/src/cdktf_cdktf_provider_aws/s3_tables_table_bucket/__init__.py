@@ -1,7 +1,7 @@
 r'''
 # `aws_s3tables_table_bucket`
 
-Refer to the Terraform Registry for docs: [`aws_s3tables_table_bucket`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket).
+Refer to the Terraform Registry for docs: [`aws_s3tables_table_bucket`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3TablesTableBucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3TablesTableBucket.S3TablesTableBucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket aws_s3tables_table_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket aws_s3tables_table_bucket}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class S3TablesTableBucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket aws_s3tables_table_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket aws_s3tables_table_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.
-        :param encryption_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.
-        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.
+        :param encryption_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.
+        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class S3TablesTableBucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3TablesTableBucket to import.
-        :param import_from_id: The id of the existing S3TablesTableBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3TablesTableBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3TablesTableBucket to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class S3TablesTableBucket(
         sse_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.
-        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.
+        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.
         '''
         value = S3TablesTableBucketEncryptionConfiguration(
             kms_key_arn=kms_key_arn, sse_algorithm=sse_algorithm
@@ -150,7 +150,7 @@ class S3TablesTableBucket(
         iceberg_unreferenced_file_removal: typing.Optional[typing.Union["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iceberg_unreferenced_file_removal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.
+        :param iceberg_unreferenced_file_removal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.
         '''
         value = S3TablesTableBucketMaintenanceConfiguration(
             iceberg_unreferenced_file_removal=iceberg_unreferenced_file_removal
@@ -330,11 +330,11 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.
-        :param encryption_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.
-        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.
+        :param encryption_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.
+        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -448,7 +448,7 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#name S3TablesTableBucket#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -457,7 +457,7 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_configuration(
         self,
     ) -> typing.Optional["S3TablesTableBucketEncryptionConfiguration"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#encryption_configuration S3TablesTableBucket#encryption_configuration}.'''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["S3TablesTableBucketEncryptionConfiguration"], result)
 
@@ -465,7 +465,7 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#force_destroy S3TablesTableBucket#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -473,7 +473,7 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_configuration(
         self,
     ) -> typing.Optional["S3TablesTableBucketMaintenanceConfiguration"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#maintenance_configuration S3TablesTableBucket#maintenance_configuration}.'''
         result = self._values.get("maintenance_configuration")
         return typing.cast(typing.Optional["S3TablesTableBucketMaintenanceConfiguration"], result)
 
@@ -481,7 +481,7 @@ class S3TablesTableBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#region S3TablesTableBucket#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -511,8 +511,8 @@ class S3TablesTableBucketEncryptionConfiguration:
         sse_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.
-        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.
+        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be81a565cc2061dbe1063ade39d5164746b8abd8fb99b65fc0441abef6a468b0)
@@ -526,13 +526,13 @@ class S3TablesTableBucketEncryptionConfiguration:
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#kms_key_arn S3TablesTableBucket#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sse_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#sse_algorithm S3TablesTableBucket#sse_algorithm}.'''
         result = self._values.get("sse_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -642,7 +642,7 @@ class S3TablesTableBucketMaintenanceConfiguration:
         iceberg_unreferenced_file_removal: typing.Optional[typing.Union["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iceberg_unreferenced_file_removal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.
+        :param iceberg_unreferenced_file_removal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.
         '''
         if isinstance(iceberg_unreferenced_file_removal, dict):
             iceberg_unreferenced_file_removal = S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval(**iceberg_unreferenced_file_removal)
@@ -657,7 +657,7 @@ class S3TablesTableBucketMaintenanceConfiguration:
     def iceberg_unreferenced_file_removal(
         self,
     ) -> typing.Optional["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#iceberg_unreferenced_file_removal S3TablesTableBucket#iceberg_unreferenced_file_removal}.'''
         result = self._values.get("iceberg_unreferenced_file_removal")
         return typing.cast(typing.Optional["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval"], result)
 
@@ -686,8 +686,8 @@ class S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.
         '''
         if isinstance(settings, dict):
             settings = S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalSettings(**settings)
@@ -705,13 +705,13 @@ class S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval:
     def settings(
         self,
     ) -> typing.Optional["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalSettings"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.'''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalSettings"], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -755,8 +755,8 @@ class S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalO
         unreferenced_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param non_current_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.
-        :param unreferenced_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.
+        :param non_current_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.
+        :param unreferenced_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.
         '''
         value = S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalSettings(
             non_current_days=non_current_days, unreferenced_days=unreferenced_days
@@ -837,8 +837,8 @@ class S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalS
         unreferenced_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param non_current_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.
-        :param unreferenced_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.
+        :param non_current_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.
+        :param unreferenced_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a7d4e07e40732a29c0c3a5e9cc01ac48f719a47198fd58b77240b9974993a1f)
@@ -852,13 +852,13 @@ class S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemovalS
 
     @builtins.property
     def non_current_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#non_current_days S3TablesTableBucket#non_current_days}.'''
         result = self._values.get("non_current_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unreferenced_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#unreferenced_days S3TablesTableBucket#unreferenced_days}.'''
         result = self._values.get("unreferenced_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -982,8 +982,8 @@ class S3TablesTableBucketMaintenanceConfigurationOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#settings S3TablesTableBucket#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3tables_table_bucket#status S3TablesTableBucket#status}.
         '''
         value = S3TablesTableBucketMaintenanceConfigurationIcebergUnreferencedFileRemoval(
             settings=settings, status=status

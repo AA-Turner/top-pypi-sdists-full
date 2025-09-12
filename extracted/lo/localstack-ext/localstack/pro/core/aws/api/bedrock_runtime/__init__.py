@@ -9,6 +9,7 @@ AsyncInvokeArn = str
 AsyncInvokeIdempotencyToken = str
 AsyncInvokeIdentifier = str
 AsyncInvokeMessage = str
+AutomatedReasoningRuleIdentifier = str
 Boolean = bool
 ConversationalModelId = str
 ConverseRequestAdditionalModelResponseFieldPathsListMemberString = str
@@ -23,6 +24,13 @@ DocumentChunkLocationStartInteger = int
 DocumentPageLocationDocumentIndexInteger = int
 DocumentPageLocationEndInteger = int
 DocumentPageLocationStartInteger = int
+FoundationModelVersionIdentifier = str
+GuardrailAutomatedReasoningPoliciesProcessed = int
+GuardrailAutomatedReasoningPolicyUnitsProcessed = int
+GuardrailAutomatedReasoningPolicyVersionArn = str
+GuardrailAutomatedReasoningStatementLogicContent = str
+GuardrailAutomatedReasoningStatementNaturalLanguageContent = str
+GuardrailAutomatedReasoningTranslationConfidence = float
 GuardrailContentPolicyImageUnitsProcessed = int
 GuardrailContentPolicyUnitsProcessed = int
 GuardrailContextualGroundingFilterScoreDouble = float
@@ -40,6 +48,7 @@ ImagesTotal = int
 InferenceConfigurationMaxTokensInteger = int
 InferenceConfigurationTemperatureFloat = float
 InferenceConfigurationTopPFloat = float
+Integer = int
 InvocationArn = str
 InvokeModelIdentifier = str
 InvokedModelId = str
@@ -98,6 +107,11 @@ class DocumentFormat(StrEnum):
 class GuardrailAction(StrEnum):
     NONE = "NONE"
     GUARDRAIL_INTERVENED = "GUARDRAIL_INTERVENED"
+
+
+class GuardrailAutomatedReasoningLogicWarningType(StrEnum):
+    ALWAYS_FALSE = "ALWAYS_FALSE"
+    ALWAYS_TRUE = "ALWAYS_TRUE"
 
 
 class GuardrailContentFilterConfidence(StrEnum):
@@ -513,6 +527,8 @@ class GuardrailUsage(TypedDict, total=False):
     sensitiveInformationPolicyFreeUnits: GuardrailSensitiveInformationPolicyFreeUnitsProcessed
     contextualGroundingPolicyUnits: GuardrailContextualGroundingPolicyUnitsProcessed
     contentPolicyImageUnits: Optional[GuardrailContentPolicyImageUnitsProcessed]
+    automatedReasoningPolicyUnits: Optional[GuardrailAutomatedReasoningPolicyUnitsProcessed]
+    automatedReasoningPolicies: Optional[GuardrailAutomatedReasoningPoliciesProcessed]
 
 
 GuardrailProcessingLatency = int
@@ -526,17 +542,190 @@ class GuardrailInvocationMetrics(TypedDict, total=False):
     guardrailCoverage: Optional[GuardrailCoverage]
 
 
-GuardrailContextualGroundingFilter = TypedDict(
-    "GuardrailContextualGroundingFilter",
-    {
-        "type": GuardrailContextualGroundingFilterType,
-        "threshold": GuardrailContextualGroundingFilterThresholdDouble,
-        "score": GuardrailContextualGroundingFilterScoreDouble,
-        "action": GuardrailContextualGroundingPolicyAction,
-        "detected": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailAutomatedReasoningNoTranslationsFinding(TypedDict, total=False):
+    """Indicates that no relevant logical information could be extracted from
+    the input for validation.
+    """
+
+    pass
+
+
+class GuardrailAutomatedReasoningTooComplexFinding(TypedDict, total=False):
+    """Indicates that the input exceeds the processing capacity due to the
+    volume or complexity of the logical information.
+    """
+
+    pass
+
+
+class GuardrailAutomatedReasoningStatement(TypedDict, total=False):
+    """A logical statement that includes both formal logic representation and
+    natural language explanation.
+    """
+
+    logic: Optional[GuardrailAutomatedReasoningStatementLogicContent]
+    naturalLanguage: Optional[GuardrailAutomatedReasoningStatementNaturalLanguageContent]
+
+
+GuardrailAutomatedReasoningStatementList = List[GuardrailAutomatedReasoningStatement]
+
+
+class GuardrailAutomatedReasoningScenario(TypedDict, total=False):
+    """Represents a logical scenario where claims can be evaluated as true or
+    false, containing specific logical assignments.
+    """
+
+    statements: Optional[GuardrailAutomatedReasoningStatementList]
+
+
+GuardrailAutomatedReasoningDifferenceScenarioList = List[GuardrailAutomatedReasoningScenario]
+
+
+class GuardrailAutomatedReasoningInputTextReference(TypedDict, total=False):
+    """References a portion of the original input text that corresponds to
+    logical elements.
+    """
+
+    text: Optional[GuardrailAutomatedReasoningStatementNaturalLanguageContent]
+
+
+GuardrailAutomatedReasoningInputTextReferenceList = List[
+    GuardrailAutomatedReasoningInputTextReference
+]
+
+
+class GuardrailAutomatedReasoningTranslation(TypedDict, total=False):
+    """Contains the logical translation of natural language input into formal
+    logical statements, including premises, claims, and confidence scores.
+    """
+
+    premises: Optional[GuardrailAutomatedReasoningStatementList]
+    claims: Optional[GuardrailAutomatedReasoningStatementList]
+    untranslatedPremises: Optional[GuardrailAutomatedReasoningInputTextReferenceList]
+    untranslatedClaims: Optional[GuardrailAutomatedReasoningInputTextReferenceList]
+    confidence: Optional[GuardrailAutomatedReasoningTranslationConfidence]
+
+
+GuardrailAutomatedReasoningTranslationList = List[GuardrailAutomatedReasoningTranslation]
+
+
+class GuardrailAutomatedReasoningTranslationOption(TypedDict, total=False):
+    """Represents one possible logical interpretation of ambiguous input
+    content.
+    """
+
+    translations: Optional[GuardrailAutomatedReasoningTranslationList]
+
+
+GuardrailAutomatedReasoningTranslationOptionList = List[
+    GuardrailAutomatedReasoningTranslationOption
+]
+
+
+class GuardrailAutomatedReasoningTranslationAmbiguousFinding(TypedDict, total=False):
+    """Indicates that the input has multiple valid logical interpretations,
+    requiring additional context or clarification.
+    """
+
+    options: Optional[GuardrailAutomatedReasoningTranslationOptionList]
+    differenceScenarios: Optional[GuardrailAutomatedReasoningDifferenceScenarioList]
+
+
+class GuardrailAutomatedReasoningLogicWarning(TypedDict, total=False):
+    type: Optional[GuardrailAutomatedReasoningLogicWarningType]
+    premises: Optional[GuardrailAutomatedReasoningStatementList]
+    claims: Optional[GuardrailAutomatedReasoningStatementList]
+
+
+class GuardrailAutomatedReasoningRule(TypedDict, total=False):
+    """References a specific automated reasoning policy rule that was applied
+    during evaluation.
+    """
+
+    identifier: Optional[AutomatedReasoningRuleIdentifier]
+    policyVersionArn: Optional[GuardrailAutomatedReasoningPolicyVersionArn]
+
+
+GuardrailAutomatedReasoningRuleList = List[GuardrailAutomatedReasoningRule]
+
+
+class GuardrailAutomatedReasoningImpossibleFinding(TypedDict, total=False):
+    """Indicates that no valid claims can be made due to logical contradictions
+    in the premises or rules.
+    """
+
+    translation: Optional[GuardrailAutomatedReasoningTranslation]
+    contradictingRules: Optional[GuardrailAutomatedReasoningRuleList]
+    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+
+
+class GuardrailAutomatedReasoningSatisfiableFinding(TypedDict, total=False):
+    """Indicates that the claims could be either true or false depending on
+    additional assumptions not provided in the input.
+    """
+
+    translation: Optional[GuardrailAutomatedReasoningTranslation]
+    claimsTrueScenario: Optional[GuardrailAutomatedReasoningScenario]
+    claimsFalseScenario: Optional[GuardrailAutomatedReasoningScenario]
+    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+
+
+class GuardrailAutomatedReasoningInvalidFinding(TypedDict, total=False):
+    """Indicates that the claims are logically false and contradictory to the
+    established rules or premises.
+    """
+
+    translation: Optional[GuardrailAutomatedReasoningTranslation]
+    contradictingRules: Optional[GuardrailAutomatedReasoningRuleList]
+    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+
+
+class GuardrailAutomatedReasoningValidFinding(TypedDict, total=False):
+    """Indicates that the claims are definitively true and logically implied by
+    the premises, with no possible alternative interpretations.
+    """
+
+    translation: Optional[GuardrailAutomatedReasoningTranslation]
+    claimsTrueScenario: Optional[GuardrailAutomatedReasoningScenario]
+    supportingRules: Optional[GuardrailAutomatedReasoningRuleList]
+    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+
+
+class GuardrailAutomatedReasoningFinding(TypedDict, total=False):
+    """Represents a logical validation result from automated reasoning policy
+    evaluation. The finding indicates whether claims in the input are
+    logically valid, invalid, satisfiable, impossible, or have other logical
+    issues.
+    """
+
+    valid: Optional[GuardrailAutomatedReasoningValidFinding]
+    invalid: Optional[GuardrailAutomatedReasoningInvalidFinding]
+    satisfiable: Optional[GuardrailAutomatedReasoningSatisfiableFinding]
+    impossible: Optional[GuardrailAutomatedReasoningImpossibleFinding]
+    translationAmbiguous: Optional[GuardrailAutomatedReasoningTranslationAmbiguousFinding]
+    tooComplex: Optional[GuardrailAutomatedReasoningTooComplexFinding]
+    noTranslations: Optional[GuardrailAutomatedReasoningNoTranslationsFinding]
+
+
+GuardrailAutomatedReasoningFindingList = List[GuardrailAutomatedReasoningFinding]
+
+
+class GuardrailAutomatedReasoningPolicyAssessment(TypedDict, total=False):
+    """Contains the results of automated reasoning policy evaluation, including
+    logical findings about the validity of claims made in the input content.
+    """
+
+    findings: Optional[GuardrailAutomatedReasoningFindingList]
+
+
+class GuardrailContextualGroundingFilter(TypedDict, total=False):
+    type: GuardrailContextualGroundingFilterType
+    threshold: GuardrailContextualGroundingFilterThresholdDouble
+    score: GuardrailContextualGroundingFilterScoreDouble
+    action: GuardrailContextualGroundingPolicyAction
+    detected: Optional[Boolean]
+
+
 GuardrailContextualGroundingFilters = List[GuardrailContextualGroundingFilter]
 
 
@@ -559,16 +748,15 @@ class GuardrailRegexFilter(TypedDict, total=False):
 
 
 GuardrailRegexFilterList = List[GuardrailRegexFilter]
-GuardrailPiiEntityFilter = TypedDict(
-    "GuardrailPiiEntityFilter",
-    {
-        "match": String,
-        "type": GuardrailPiiEntityType,
-        "action": GuardrailSensitiveInformationPolicyAction,
-        "detected": Optional[Boolean],
-    },
-    total=False,
-)
+
+
+class GuardrailPiiEntityFilter(TypedDict, total=False):
+    match: String
+    type: GuardrailPiiEntityType
+    action: GuardrailSensitiveInformationPolicyAction
+    detected: Optional[Boolean]
+
+
 GuardrailPiiEntityFilterList = List[GuardrailPiiEntityFilter]
 
 
@@ -579,16 +767,13 @@ class GuardrailSensitiveInformationPolicyAssessment(TypedDict, total=False):
     regexes: GuardrailRegexFilterList
 
 
-GuardrailManagedWord = TypedDict(
-    "GuardrailManagedWord",
-    {
-        "match": String,
-        "type": GuardrailManagedWordType,
-        "action": GuardrailWordPolicyAction,
-        "detected": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailManagedWord(TypedDict, total=False):
+    match: String
+    type: GuardrailManagedWordType
+    action: GuardrailWordPolicyAction
+    detected: Optional[Boolean]
+
+
 GuardrailManagedWordList = List[GuardrailManagedWord]
 
 
@@ -610,17 +795,14 @@ class GuardrailWordPolicyAssessment(TypedDict, total=False):
     managedWordLists: GuardrailManagedWordList
 
 
-GuardrailContentFilter = TypedDict(
-    "GuardrailContentFilter",
-    {
-        "type": GuardrailContentFilterType,
-        "confidence": GuardrailContentFilterConfidence,
-        "filterStrength": Optional[GuardrailContentFilterStrength],
-        "action": GuardrailContentPolicyAction,
-        "detected": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailContentFilter(TypedDict, total=False):
+    type: GuardrailContentFilterType
+    confidence: GuardrailContentFilterConfidence
+    filterStrength: Optional[GuardrailContentFilterStrength]
+    action: GuardrailContentPolicyAction
+    detected: Optional[Boolean]
+
+
 GuardrailContentFilterList = List[GuardrailContentFilter]
 
 
@@ -630,16 +812,13 @@ class GuardrailContentPolicyAssessment(TypedDict, total=False):
     filters: GuardrailContentFilterList
 
 
-GuardrailTopic = TypedDict(
-    "GuardrailTopic",
-    {
-        "name": String,
-        "type": GuardrailTopicType,
-        "action": GuardrailTopicPolicyAction,
-        "detected": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailTopic(TypedDict, total=False):
+    name: String
+    type: GuardrailTopicType
+    action: GuardrailTopicPolicyAction
+    detected: Optional[Boolean]
+
+
 GuardrailTopicList = List[GuardrailTopic]
 
 
@@ -659,6 +838,7 @@ class GuardrailAssessment(TypedDict, total=False):
     wordPolicy: Optional[GuardrailWordPolicyAssessment]
     sensitiveInformationPolicy: Optional[GuardrailSensitiveInformationPolicyAssessment]
     contextualGroundingPolicy: Optional[GuardrailContextualGroundingPolicyAssessment]
+    automatedReasoningPolicy: Optional[GuardrailAutomatedReasoningPolicyAssessment]
     invocationMetrics: Optional[GuardrailInvocationMetrics]
 
 
@@ -746,13 +926,10 @@ class BidirectionalOutputPayloadPart(TypedDict, total=False):
 
 Blob = bytes
 Body = bytes
-CachePointBlock = TypedDict(
-    "CachePointBlock",
-    {
-        "type": CachePointType,
-    },
-    total=False,
-)
+
+
+class CachePointBlock(TypedDict, total=False):
+    type: CachePointType
 
 
 class DocumentChunkLocation(TypedDict, total=False):
@@ -1450,6 +1627,44 @@ class ConverseStreamResponse(TypedDict, total=False):
     stream: Iterator[ConverseStreamOutput]
 
 
+class ConverseTokensRequest(TypedDict, total=False):
+    """The inputs from a ``Converse`` API request for token counting.
+
+    This structure mirrors the input format for the ``Converse`` operation,
+    allowing you to count tokens for conversation-based inference requests.
+    """
+
+    messages: Optional[Messages]
+    system: Optional[SystemContentBlocks]
+
+
+class InvokeModelTokensRequest(TypedDict, total=False):
+    """The body of an ``InvokeModel`` API request for token counting. This
+    structure mirrors the input format for the ``InvokeModel`` operation,
+    allowing you to count tokens for raw text inference requests.
+    """
+
+    body: Body
+
+
+class CountTokensInput(TypedDict, total=False):
+    """The input value for token counting. The value should be either an
+    ``InvokeModel`` or ``Converse`` request body.
+    """
+
+    invokeModel: Optional[InvokeModelTokensRequest]
+    converse: Optional[ConverseTokensRequest]
+
+
+class CountTokensRequest(ServiceRequest):
+    modelId: FoundationModelVersionIdentifier
+    input: CountTokensInput
+
+
+class CountTokensResponse(TypedDict, total=False):
+    inputTokens: Integer
+
+
 class GetAsyncInvokeRequest(ServiceRequest):
     invocationArn: InvocationArn
 
@@ -1837,6 +2052,57 @@ class BedrockRuntimeApi:
         :raises ValidationException:
         :raises ModelNotReadyException:
         :raises ModelErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("CountTokens")
+    def count_tokens(
+        self,
+        context: RequestContext,
+        model_id: FoundationModelVersionIdentifier,
+        input: CountTokensInput,
+        **kwargs,
+    ) -> CountTokensResponse:
+        """Returns the token count for a given inference request. This operation
+        helps you estimate token usage before sending requests to foundation
+        models by returning the token count that would be used if the same input
+        were sent to the model in an inference request.
+
+        Token counting is model-specific because different models use different
+        tokenization strategies. The token count returned by this operation will
+        match the token count that would be charged if the same input were sent
+        to the model in an ``InvokeModel`` or ``Converse`` request.
+
+        You can use this operation to:
+
+        -  Estimate costs before sending inference requests.
+
+        -  Optimize prompts to fit within token limits.
+
+        -  Plan for token usage in your applications.
+
+        This operation accepts the same input formats as ``InvokeModel`` and
+        ``Converse``, allowing you to count tokens for both raw text inputs and
+        structured conversation formats.
+
+        The following operations are related to ``CountTokens``:
+
+        -  `InvokeModel <https://docs.aws.amazon.com/bedrock/latest/API/API_runtime_InvokeModel.html>`__
+           - Sends inference requests to foundation models
+
+        -  `Converse <https://docs.aws.amazon.com/bedrock/latest/API/API_runtime_Converse.html>`__
+           - Sends conversation-based inference requests to foundation models
+
+        :param model_id: The unique identifier or ARN of the foundation model to use for token
+        counting.
+        :param input: The input for which to count tokens.
+        :returns: CountTokensResponse
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises ServiceUnavailableException:
+        :raises ValidationException:
         """
         raise NotImplementedError
 

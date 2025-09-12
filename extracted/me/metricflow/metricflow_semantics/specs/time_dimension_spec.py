@@ -10,6 +10,7 @@ from dbt_semantic_interfaces.type_enums import DatePart, TimeGranularity
 from typing_extensions import override
 
 from metricflow_semantics.aggregation_properties import AggregationState
+from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
 from metricflow_semantics.collection_helpers.lru_cache import typed_lru_cache
 from metricflow_semantics.model.semantics.linkable_element import ElementPathKey, LinkableElementType
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
@@ -86,13 +87,35 @@ DEFAULT_TIME_GRANULARITY = TimeGranularity.DAY
 
 @dataclass(frozen=True)
 class TimeDimensionSpec(DimensionSpec):  # noqa: D101
-    time_granularity: ExpandedTimeGranularity = ExpandedTimeGranularity.from_time_granularity(DEFAULT_TIME_GRANULARITY)
+    time_granularity: Optional[ExpandedTimeGranularity] = None
     date_part: Optional[DatePart] = None
 
     # Used for semi-additive joins. Some more thought is needed, but this may be useful in InstanceSpec.
     aggregation_state: Optional[AggregationState] = None
 
-    window_function: Optional[SqlWindowFunction] = None
+    window_functions: Tuple[SqlWindowFunction, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Ensure that exactly one time granularity or date part is set."""
+        assert_exactly_one_arg_set(time_granularity=self.time_granularity, date_part=self.date_part)
+
+    @property
+    def has_custom_grain(self) -> bool:  # noqa: D102
+        return self.time_granularity is not None and self.time_granularity.is_custom_granularity
+
+    @property
+    def time_granularity_name(self) -> Optional[str]:  # noqa: D102
+        return self.time_granularity.name if self.time_granularity else None
+
+    @property
+    def base_granularity(self) -> Optional[TimeGranularity]:  # noqa: D102
+        return self.time_granularity.base_granularity if self.time_granularity else None
+
+    @property
+    def base_granularity_sort_key(self) -> int:
+        """Key used when sorting time dimension specs by base granularity."""
+        INT_HIGHER_THAN_SUPPORTED_GRANULARITIES = 100
+        return self.base_granularity.to_int() if self.base_granularity else INT_HIGHER_THAN_SUPPORTED_GRANULARITIES
 
     @property
     def without_first_entity_link(self) -> TimeDimensionSpec:  # noqa: D102
@@ -103,7 +126,7 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             time_granularity=self.time_granularity,
             date_part=self.date_part,
             aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
     @property
@@ -114,7 +137,7 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             date_part=self.date_part,
             entity_links=(),
             aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
     @property
@@ -130,7 +153,7 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
         return StructuredLinkableSpecName(
             entity_link_names=tuple(x.element_name for x in self.entity_links),
             element_name=self.element_name,
-            time_granularity_name=self.time_granularity.name,
+            time_granularity_name=self.time_granularity_name,
             date_part=self.date_part,
         ).qualified_name
 
@@ -145,11 +168,6 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             date_part=self.date_part,
         )
 
-    @staticmethod
-    def from_reference(reference: TimeDimensionReference) -> TimeDimensionSpec:
-        """Initialize from a time dimension reference instance."""
-        return TimeDimensionSpec(entity_links=(), element_name=reference.element_name)
-
     def accept(self, visitor: InstanceSpecVisitor[VisitorOutputT]) -> VisitorOutputT:  # noqa: D102
         return visitor.visit_time_dimension_spec(self)
 
@@ -158,31 +176,20 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             element_name=self.element_name,
             entity_links=self.entity_links,
             time_granularity=time_granularity,
-            date_part=self.date_part,
             aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
     def with_base_grain(self) -> TimeDimensionSpec:  # noqa: D102
         return TimeDimensionSpec(
             element_name=self.element_name,
             entity_links=self.entity_links,
-            time_granularity=ExpandedTimeGranularity.from_time_granularity(self.time_granularity.base_granularity),
+            time_granularity=(
+                ExpandedTimeGranularity.from_time_granularity(self.base_granularity) if self.base_granularity else None
+            ),
             date_part=self.date_part,
             aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
-        )
-
-    def with_grain_and_date_part(  # noqa: D102
-        self, time_granularity: ExpandedTimeGranularity, date_part: Optional[DatePart]
-    ) -> TimeDimensionSpec:
-        return TimeDimensionSpec(
-            element_name=self.element_name,
-            entity_links=self.entity_links,
-            time_granularity=time_granularity,
-            date_part=date_part,
-            aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
     def with_aggregation_state(self, aggregation_state: AggregationState) -> TimeDimensionSpec:  # noqa: D102
@@ -192,17 +199,17 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             time_granularity=self.time_granularity,
             date_part=self.date_part,
             aggregation_state=aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
-    def with_window_function(self, window_function: SqlWindowFunction) -> TimeDimensionSpec:  # noqa: D102
+    def with_window_functions(self, window_functions: Tuple[SqlWindowFunction, ...]) -> TimeDimensionSpec:  # noqa: D102
         return TimeDimensionSpec(
             element_name=self.element_name,
             entity_links=self.entity_links,
             time_granularity=self.time_granularity,
             date_part=self.date_part,
             aggregation_state=self.aggregation_state,
-            window_function=window_function,
+            window_functions=window_functions,
         )
 
     def comparison_key(self, exclude_fields: Sequence[TimeDimensionSpecField] = ()) -> TimeDimensionSpecComparisonKey:
@@ -239,16 +246,12 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
                     element_name=time_dimension_reference.element_name,
                     entity_links=entity_links,
                     time_granularity=time_granularity,
-                    date_part=None,
                 )
             )
-        for grain, date_part in cls._get_compatible_grain_and_date_part():
+        for date_part in DatePart:
             time_dimension_specs.append(
                 TimeDimensionSpec(
-                    element_name=time_dimension_reference.element_name,
-                    entity_links=entity_links,
-                    time_granularity=grain,
-                    date_part=date_part,
+                    element_name=time_dimension_reference.element_name, entity_links=entity_links, date_part=date_part
                 )
             )
         return time_dimension_specs
@@ -264,7 +267,7 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             time_granularity=self.time_granularity,
             date_part=self.date_part,
             aggregation_state=self.aggregation_state,
-            window_function=self.window_function,
+            window_functions=self.window_functions,
         )
 
     @staticmethod
@@ -279,3 +282,15 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
             if base_grain_spec not in base_grain_specs:
                 base_grain_specs += (base_grain_spec,)
         return base_grain_specs
+
+    @override
+    def with_alias(self, alias: Optional[str]) -> TimeDimensionSpec:  # noqa: D102
+        return TimeDimensionSpec(
+            element_name=self.element_name,
+            entity_links=self.entity_links,
+            time_granularity=self.time_granularity,
+            date_part=self.date_part,
+            aggregation_state=self.aggregation_state,
+            window_functions=self.window_functions,
+            alias=alias,
+        )

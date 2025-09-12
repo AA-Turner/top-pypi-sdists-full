@@ -245,6 +245,29 @@ class ProjectVisibilityType(StrEnum):
     PRIVATE = "PRIVATE"
 
 
+class PullRequestBuildApproverRole(StrEnum):
+    GITHUB_READ = "GITHUB_READ"
+    GITHUB_TRIAGE = "GITHUB_TRIAGE"
+    GITHUB_WRITE = "GITHUB_WRITE"
+    GITHUB_MAINTAIN = "GITHUB_MAINTAIN"
+    GITHUB_ADMIN = "GITHUB_ADMIN"
+    GITLAB_GUEST = "GITLAB_GUEST"
+    GITLAB_PLANNER = "GITLAB_PLANNER"
+    GITLAB_REPORTER = "GITLAB_REPORTER"
+    GITLAB_DEVELOPER = "GITLAB_DEVELOPER"
+    GITLAB_MAINTAINER = "GITLAB_MAINTAINER"
+    GITLAB_OWNER = "GITLAB_OWNER"
+    BITBUCKET_READ = "BITBUCKET_READ"
+    BITBUCKET_WRITE = "BITBUCKET_WRITE"
+    BITBUCKET_ADMIN = "BITBUCKET_ADMIN"
+
+
+class PullRequestBuildCommentApproval(StrEnum):
+    DISABLED = "DISABLED"
+    ALL_PULL_REQUESTS = "ALL_PULL_REQUESTS"
+    FORK_PULL_REQUESTS = "FORK_PULL_REQUESTS"
+
+
 class ReportCodeCoverageSortByType(StrEnum):
     LINE_COVERAGE_PERCENTAGE = "LINE_COVERAGE_PERCENTAGE"
     FILE_PATH = "FILE_PATH"
@@ -472,15 +495,14 @@ class BatchGetBuildBatchesInput(ServiceRequest):
 
 
 BuildReportArns = List[String]
-ResolvedArtifact = TypedDict(
-    "ResolvedArtifact",
-    {
-        "type": Optional[ArtifactsType],
-        "location": Optional[String],
-        "identifier": Optional[String],
-    },
-    total=False,
-)
+
+
+class ResolvedArtifact(TypedDict, total=False):
+    type: Optional[ArtifactsType]
+    location: Optional[String]
+    identifier: Optional[String]
+
+
 ResolvedSecondaryArtifacts = List[ResolvedArtifact]
 Timestamp = datetime
 
@@ -535,17 +557,14 @@ class ProjectBuildBatchConfig(TypedDict, total=False):
     batchReportMode: Optional[BatchReportModeType]
 
 
-ProjectFileSystemLocation = TypedDict(
-    "ProjectFileSystemLocation",
-    {
-        "type": Optional[FileSystemType],
-        "location": Optional[String],
-        "mountPoint": Optional[String],
-        "identifier": Optional[String],
-        "mountOptions": Optional[String],
-    },
-    total=False,
-)
+class ProjectFileSystemLocation(TypedDict, total=False):
+    type: Optional[FileSystemType]
+    location: Optional[String]
+    mountPoint: Optional[String]
+    identifier: Optional[String]
+    mountOptions: Optional[String]
+
+
 ProjectFileSystemLocations = List[ProjectFileSystemLocation]
 WrapperLong = int
 SecurityGroupIds = List[NonEmptyString]
@@ -618,15 +637,12 @@ class RegistryCredential(TypedDict, total=False):
     credentialProvider: CredentialProviderType
 
 
-EnvironmentVariable = TypedDict(
-    "EnvironmentVariable",
-    {
-        "name": NonEmptyString,
-        "value": String,
-        "type": Optional[EnvironmentVariableType],
-    },
-    total=False,
-)
+class EnvironmentVariable(TypedDict, total=False):
+    name: NonEmptyString
+    value: String
+    type: Optional[EnvironmentVariableType]
+
+
 EnvironmentVariables = List[EnvironmentVariable]
 
 
@@ -652,34 +668,28 @@ class ComputeConfiguration(TypedDict, total=False):
     instanceType: Optional[NonEmptyString]
 
 
-ProjectEnvironment = TypedDict(
-    "ProjectEnvironment",
-    {
-        "type": EnvironmentType,
-        "image": NonEmptyString,
-        "computeType": ComputeType,
-        "computeConfiguration": Optional[ComputeConfiguration],
-        "fleet": Optional[ProjectFleet],
-        "environmentVariables": Optional[EnvironmentVariables],
-        "privilegedMode": Optional[WrapperBoolean],
-        "certificate": Optional[String],
-        "registryCredential": Optional[RegistryCredential],
-        "imagePullCredentialsType": Optional[ImagePullCredentialsType],
-        "dockerServer": Optional[DockerServer],
-    },
-    total=False,
-)
+class ProjectEnvironment(TypedDict, total=False):
+    type: EnvironmentType
+    image: NonEmptyString
+    computeType: ComputeType
+    computeConfiguration: Optional[ComputeConfiguration]
+    fleet: Optional[ProjectFleet]
+    environmentVariables: Optional[EnvironmentVariables]
+    privilegedMode: Optional[WrapperBoolean]
+    certificate: Optional[String]
+    registryCredential: Optional[RegistryCredential]
+    imagePullCredentialsType: Optional[ImagePullCredentialsType]
+    dockerServer: Optional[DockerServer]
+
+
 ProjectCacheModes = List[CacheMode]
-ProjectCache = TypedDict(
-    "ProjectCache",
-    {
-        "type": CacheType,
-        "location": Optional[String],
-        "modes": Optional[ProjectCacheModes],
-        "cacheNamespace": Optional[String],
-    },
-    total=False,
-)
+
+
+class ProjectCache(TypedDict, total=False):
+    type: CacheType
+    location: Optional[String]
+    modes: Optional[ProjectCacheModes]
+    cacheNamespace: Optional[String]
 
 
 class BuildArtifacts(TypedDict, total=False):
@@ -716,14 +726,9 @@ class BuildStatusConfig(TypedDict, total=False):
     targetUrl: Optional[String]
 
 
-SourceAuth = TypedDict(
-    "SourceAuth",
-    {
-        "type": SourceAuthType,
-        "resource": Optional[String],
-    },
-    total=False,
-)
+class SourceAuth(TypedDict, total=False):
+    type: SourceAuthType
+    resource: Optional[String]
 
 
 class GitSubmodulesConfig(TypedDict, total=False):
@@ -734,22 +739,19 @@ class GitSubmodulesConfig(TypedDict, total=False):
     fetchSubmodules: WrapperBoolean
 
 
-ProjectSource = TypedDict(
-    "ProjectSource",
-    {
-        "type": SourceType,
-        "location": Optional[String],
-        "gitCloneDepth": Optional[GitCloneDepth],
-        "gitSubmodulesConfig": Optional[GitSubmodulesConfig],
-        "buildspec": Optional[String],
-        "auth": Optional[SourceAuth],
-        "reportBuildStatus": Optional[WrapperBoolean],
-        "buildStatusConfig": Optional[BuildStatusConfig],
-        "insecureSsl": Optional[WrapperBoolean],
-        "sourceIdentifier": Optional[String],
-    },
-    total=False,
-)
+class ProjectSource(TypedDict, total=False):
+    type: SourceType
+    location: Optional[String]
+    gitCloneDepth: Optional[GitCloneDepth]
+    gitSubmodulesConfig: Optional[GitSubmodulesConfig]
+    buildspec: Optional[String]
+    auth: Optional[SourceAuth]
+    reportBuildStatus: Optional[WrapperBoolean]
+    buildStatusConfig: Optional[BuildStatusConfig]
+    insecureSsl: Optional[WrapperBoolean]
+    sourceIdentifier: Optional[String]
+
+
 ProjectSources = List[ProjectSource]
 
 
@@ -949,25 +951,22 @@ class BatchGetCommandExecutionsInput(ServiceRequest):
     commandExecutionIds: CommandExecutionIds
 
 
-CommandExecution = TypedDict(
-    "CommandExecution",
-    {
-        "id": Optional[NonEmptyString],
-        "sandboxId": Optional[NonEmptyString],
-        "submitTime": Optional[Timestamp],
-        "startTime": Optional[Timestamp],
-        "endTime": Optional[Timestamp],
-        "status": Optional[NonEmptyString],
-        "command": Optional[SensitiveNonEmptyString],
-        "type": Optional[CommandType],
-        "exitCode": Optional[NonEmptyString],
-        "standardOutputContent": Optional[SensitiveNonEmptyString],
-        "standardErrContent": Optional[SensitiveNonEmptyString],
-        "logs": Optional[LogsLocation],
-        "sandboxArn": Optional[NonEmptyString],
-    },
-    total=False,
-)
+class CommandExecution(TypedDict, total=False):
+    id: Optional[NonEmptyString]
+    sandboxId: Optional[NonEmptyString]
+    submitTime: Optional[Timestamp]
+    startTime: Optional[Timestamp]
+    endTime: Optional[Timestamp]
+    status: Optional[NonEmptyString]
+    command: Optional[SensitiveNonEmptyString]
+    type: Optional[CommandType]
+    exitCode: Optional[NonEmptyString]
+    standardOutputContent: Optional[SensitiveNonEmptyString]
+    standardErrContent: Optional[SensitiveNonEmptyString]
+    logs: Optional[LogsLocation]
+    sandboxArn: Optional[NonEmptyString]
+
+
 CommandExecutions = List[CommandExecution]
 
 
@@ -996,15 +995,14 @@ class Tag(TypedDict, total=False):
 
 TagList = List[Tag]
 FleetProxyRuleEntities = List[String]
-FleetProxyRule = TypedDict(
-    "FleetProxyRule",
-    {
-        "type": FleetProxyRuleType,
-        "effect": FleetProxyRuleEffectType,
-        "entities": FleetProxyRuleEntities,
-    },
-    total=False,
-)
+
+
+class FleetProxyRule(TypedDict, total=False):
+    type: FleetProxyRuleType
+    effect: FleetProxyRuleEffectType
+    entities: FleetProxyRuleEntities
+
+
 FleetProxyRules = List[FleetProxyRule]
 
 
@@ -1088,6 +1086,20 @@ class ProjectBadge(TypedDict, total=False):
     badgeRequestUrl: Optional[String]
 
 
+PullRequestBuildApproverRoles = List[PullRequestBuildApproverRole]
+
+
+class PullRequestBuildPolicy(TypedDict, total=False):
+    """A PullRequestBuildPolicy object that defines comment-based approval
+    requirements for triggering builds on pull requests. This policy helps
+    control when automated builds are executed based on contributor
+    permissions and approval workflows.
+    """
+
+    requiresCommentApproval: PullRequestBuildCommentApproval
+    approverRoles: Optional[PullRequestBuildApproverRoles]
+
+
 class ScopeConfiguration(TypedDict, total=False):
     """Contains configuration information about the scope for a webhook."""
 
@@ -1096,15 +1108,12 @@ class ScopeConfiguration(TypedDict, total=False):
     scope: WebhookScopeType
 
 
-WebhookFilter = TypedDict(
-    "WebhookFilter",
-    {
-        "type": WebhookFilterType,
-        "pattern": String,
-        "excludeMatchedPattern": Optional[WrapperBoolean],
-    },
-    total=False,
-)
+class WebhookFilter(TypedDict, total=False):
+    type: WebhookFilterType
+    pattern: String
+    excludeMatchedPattern: Optional[WrapperBoolean]
+
+
 FilterGroup = List[WebhookFilter]
 FilterGroups = List[FilterGroup]
 
@@ -1125,24 +1134,22 @@ class Webhook(TypedDict, total=False):
     scopeConfiguration: Optional[ScopeConfiguration]
     status: Optional[WebhookStatus]
     statusMessage: Optional[String]
+    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
 
 
-ProjectArtifacts = TypedDict(
-    "ProjectArtifacts",
-    {
-        "type": ArtifactsType,
-        "location": Optional[String],
-        "path": Optional[String],
-        "namespaceType": Optional[ArtifactNamespace],
-        "name": Optional[String],
-        "packaging": Optional[ArtifactPackaging],
-        "overrideArtifactName": Optional[WrapperBoolean],
-        "encryptionDisabled": Optional[WrapperBoolean],
-        "artifactIdentifier": Optional[String],
-        "bucketOwnerAccess": Optional[BucketOwnerAccess],
-    },
-    total=False,
-)
+class ProjectArtifacts(TypedDict, total=False):
+    type: ArtifactsType
+    location: Optional[String]
+    path: Optional[String]
+    namespaceType: Optional[ArtifactNamespace]
+    name: Optional[String]
+    packaging: Optional[ArtifactPackaging]
+    overrideArtifactName: Optional[WrapperBoolean]
+    encryptionDisabled: Optional[WrapperBoolean]
+    artifactIdentifier: Optional[String]
+    bucketOwnerAccess: Optional[BucketOwnerAccess]
+
+
 ProjectArtifactsList = List[ProjectArtifacts]
 
 
@@ -1215,20 +1222,17 @@ class ReportExportConfig(TypedDict, total=False):
     s3Destination: Optional[S3ReportExportConfig]
 
 
-ReportGroup = TypedDict(
-    "ReportGroup",
-    {
-        "arn": Optional[NonEmptyString],
-        "name": Optional[ReportGroupName],
-        "type": Optional[ReportType],
-        "exportConfig": Optional[ReportExportConfig],
-        "created": Optional[Timestamp],
-        "lastModified": Optional[Timestamp],
-        "tags": Optional[TagList],
-        "status": Optional[ReportGroupStatusType],
-    },
-    total=False,
-)
+class ReportGroup(TypedDict, total=False):
+    arn: Optional[NonEmptyString]
+    name: Optional[ReportGroupName]
+    type: Optional[ReportType]
+    exportConfig: Optional[ReportExportConfig]
+    created: Optional[Timestamp]
+    lastModified: Optional[Timestamp]
+    tags: Optional[TagList]
+    status: Optional[ReportGroupStatusType]
+
+
 ReportGroups = List[ReportGroup]
 
 
@@ -1273,24 +1277,21 @@ class TestReportSummary(TypedDict, total=False):
     durationInNanoSeconds: WrapperLong
 
 
-Report = TypedDict(
-    "Report",
-    {
-        "arn": Optional[NonEmptyString],
-        "type": Optional[ReportType],
-        "name": Optional[String],
-        "reportGroupArn": Optional[NonEmptyString],
-        "executionId": Optional[String],
-        "status": Optional[ReportStatusType],
-        "created": Optional[Timestamp],
-        "expired": Optional[Timestamp],
-        "exportConfig": Optional[ReportExportConfig],
-        "truncated": Optional[WrapperBoolean],
-        "testSummary": Optional[TestReportSummary],
-        "codeCoverageSummary": Optional[CodeCoverageReportSummary],
-    },
-    total=False,
-)
+class Report(TypedDict, total=False):
+    arn: Optional[NonEmptyString]
+    type: Optional[ReportType]
+    name: Optional[String]
+    reportGroupArn: Optional[NonEmptyString]
+    executionId: Optional[String]
+    status: Optional[ReportStatusType]
+    created: Optional[Timestamp]
+    expired: Optional[Timestamp]
+    exportConfig: Optional[ReportExportConfig]
+    truncated: Optional[WrapperBoolean]
+    testSummary: Optional[TestReportSummary]
+    codeCoverageSummary: Optional[CodeCoverageReportSummary]
+
+
 Reports = List[Report]
 
 
@@ -1454,16 +1455,11 @@ class CreateProjectOutput(TypedDict, total=False):
     project: Optional[Project]
 
 
-CreateReportGroupInput = TypedDict(
-    "CreateReportGroupInput",
-    {
-        "name": ReportGroupName,
-        "type": ReportType,
-        "exportConfig": ReportExportConfig,
-        "tags": Optional[TagList],
-    },
-    total=False,
-)
+class CreateReportGroupInput(TypedDict, total=False):
+    name: ReportGroupName
+    type: ReportType
+    exportConfig: ReportExportConfig
+    tags: Optional[TagList]
 
 
 class CreateReportGroupOutput(TypedDict, total=False):
@@ -1477,6 +1473,7 @@ class CreateWebhookInput(ServiceRequest):
     buildType: Optional[WebhookBuildType]
     manualCreation: Optional[WrapperBoolean]
     scopeConfiguration: Optional[ScopeConfiguration]
+    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
 
 
 class CreateWebhookOutput(TypedDict, total=False):
@@ -2023,15 +2020,10 @@ class StartBuildOutput(TypedDict, total=False):
     build: Optional[Build]
 
 
-StartCommandExecutionInput = TypedDict(
-    "StartCommandExecutionInput",
-    {
-        "sandboxId": NonEmptyString,
-        "command": SensitiveNonEmptyString,
-        "type": Optional[CommandType],
-    },
-    total=False,
-)
+class StartCommandExecutionInput(TypedDict, total=False):
+    sandboxId: NonEmptyString
+    command: SensitiveNonEmptyString
+    type: Optional[CommandType]
 
 
 class StartCommandExecutionOutput(TypedDict, total=False):
@@ -2155,6 +2147,7 @@ class UpdateWebhookInput(ServiceRequest):
     rotateSecret: Optional[Boolean]
     filterGroups: Optional[FilterGroups]
     buildType: Optional[WebhookBuildType]
+    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
 
 
 class UpdateWebhookOutput(TypedDict, total=False):
@@ -2415,6 +2408,7 @@ class CodebuildApi:
         build_type: WebhookBuildType | None = None,
         manual_creation: WrapperBoolean | None = None,
         scope_configuration: ScopeConfiguration | None = None,
+        pull_request_build_policy: PullRequestBuildPolicy | None = None,
         **kwargs,
     ) -> CreateWebhookOutput:
         """For an existing CodeBuild build project that has its source code stored
@@ -2442,6 +2436,8 @@ class CodebuildApi:
         and instead returns ``payloadUrl`` and ``secret`` values for the
         webhook.
         :param scope_configuration: The scope configuration for global or organization webhooks.
+        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval
+        requirements for triggering builds on pull requests.
         :returns: CreateWebhookOutput
         :raises InvalidInputException:
         :raises OAuthProviderException:
@@ -3587,6 +3583,7 @@ class CodebuildApi:
         rotate_secret: Boolean | None = None,
         filter_groups: FilterGroups | None = None,
         build_type: WebhookBuildType | None = None,
+        pull_request_build_policy: PullRequestBuildPolicy | None = None,
         **kwargs,
     ) -> UpdateWebhookOutput:
         """Updates the webhook associated with an CodeBuild build project.
@@ -3601,6 +3598,8 @@ class CodebuildApi:
         :param filter_groups: An array of arrays of ``WebhookFilter`` objects used to determine if a
         webhook event can trigger a build.
         :param build_type: Specifies the type of build this webhook will trigger.
+        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval
+        requirements for triggering builds on pull requests.
         :returns: UpdateWebhookOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:

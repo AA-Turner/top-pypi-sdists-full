@@ -44,6 +44,7 @@ __all__ = [
     "UnsupportedOperation",
     "MissingExtension",
     "InvalidCredentialsError",
+    "AuthenticationError",
     "ReadingDataTimeoutError",
     "LoadingDocumentError",
     "ExceededLimitOfAPICalls",
@@ -390,6 +391,21 @@ class InvalidCredentialsError(WMLClientError):
             self,
             f"Attempt of authenticating connection to service failed, please validate your credentials. Error: {reason}",
             logg_messages=logg_messages,
+        )
+
+
+class AuthenticationError(ApiRequestFailure):
+    def __init__(
+        self,
+        token_auth_type: str,
+        response: Response,
+        reason: str | None = None,
+    ):
+        ApiRequestFailure.__init__(
+            self,
+            error_msg=f"Failed to retrieve {token_auth_type} token.",
+            response=response,
+            reason=reason,
         )
 
 

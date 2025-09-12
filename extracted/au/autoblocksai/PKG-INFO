@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autoblocksai
-Version: 0.0.135
+Version: 0.0.137
 Summary: Python client for Autoblocks
 Home-page: https://github.com/autoblocksai/python-sdk
 License: MIT

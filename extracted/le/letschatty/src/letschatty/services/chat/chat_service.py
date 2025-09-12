@@ -13,7 +13,7 @@ from letschatty.models.company.assets.contact_point import ContactPoint
 from letschatty.models.chat.highlight import Highlight, HighlightRequestData
 from letschatty.models.chat.quality_scoring import QualityScore
 from letschatty.models.copilot.links import LinkItem
-from letschatty.models.chat.flow_link_state import FlowStateAssignedToChat, SmartFollowUpState
+from letschatty.models.chat.flow_link_state import FlowStateAssignedToChat
 from datetime import datetime
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from letschatty.models.execution.execution import ExecutionContext
@@ -214,7 +214,7 @@ class ChatService:
         Add a tag to the chat.
         """
         if flow.is_smart_follow_up:
-            current_smart_follow_up_state = next((state for state in chat.flow_states if state.is_smart_follow_up), None)
+            current_smart_follow_up_state = ChatService.get_smart_follow_up_state(chat=chat)
             if current_smart_follow_up_state is not None:
                 raise AssetAlreadyAssigned(f"Smart follow up with id {link.flow_id} already assigned to chat {chat.id}")
         state = FlowStateAssignedToChat.from_link(link=link, execution_context=execution_context, description=description, last_incoming_message_id=last_incoming_message_id, next_call=next_call, is_smart_follow_up=flow.is_smart_follow_up)
@@ -255,11 +255,12 @@ class ChatService:
         return workflow_link
 
     @staticmethod
-    def get_smart_follow_up_state(chat : Chat) -> Optional[SmartFollowUpState]:
+    def get_smart_follow_up_state(chat : Chat) -> Optional[FlowStateAssignedToChat]:
         """
         Get the smart follow up state for the chat.
         """
-        return next((state for state in chat.flow_states if isinstance(state, SmartFollowUpState)), None)
+        logger.debug(f"Chat flow states: {chat.flow_states}")
+        return next((state for state in chat.flow_states if state.is_smart_follow_up), None)
 
     @staticmethod
     def create_sale(chat : Chat, execution_context: ExecutionContext, sale : Sale, product : Product) -> SaleAssignedToChat:

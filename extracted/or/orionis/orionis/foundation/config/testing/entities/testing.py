@@ -19,8 +19,6 @@ class Testing(BaseEntity):
         Maximum number of worker threads/processes for parallel execution (default: calculated by Workers).
     fail_fast : bool, optional
         If True, stop execution after the first test failure (default: False).
-    print_result : bool, optional
-        If True, print test results to the console (default: True).
     throw_exception : bool, optional
         If True, raise an exception on test failure (default: False).
     base_path : str, optional
@@ -72,14 +70,6 @@ class Testing(BaseEntity):
         metadata = {
             "description": "Whether to stop execution after the first test failure. Default is False.",
             "default": False
-        }
-    )
-
-    print_result: bool = field(
-        default = True,
-        metadata = {
-            "description": "Whether to print the test results to the console. Default is True.",
-            "default": True
         }
     )
 
@@ -204,12 +194,6 @@ class Testing(BaseEntity):
         if not isinstance(self.fail_fast, bool):
             raise OrionisIntegrityException(
                 f"Invalid type for 'fail_fast': {type(self.fail_fast).__name__}. It must be a boolean (True or False)."
-            )
-
-        # Validate print_result attribute
-        if not isinstance(self.print_result, bool):
-            raise OrionisIntegrityException(
-                f"Invalid type for 'print_result': {type(self.print_result).__name__}. It must be a boolean (True or False)."
             )
 
         # Validate throw_exception attribute

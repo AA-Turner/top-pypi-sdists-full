@@ -1578,6 +1578,7 @@ class StreamResolverTestRequest(BaseModel):
     num_messages: Optional[int] = None
     test_messages: Optional[List[StreamResolverTestMessagePayload]] = None
     kafka_auto_offset_reset: Optional[Literal["earliest", "latest"]] = "earliest"
+    static_stream_resolver_b64: Optional[str] = None
 
 
 class StreamResolverTestResponse(BaseModel):

@@ -1,5 +1,7 @@
+import inspect
 import io
 import json
+import logging
 import os
 import re
 import time
@@ -34,14 +36,12 @@ from orionis.test.validators import (
     ValidPattern,
     ValidPersistentDriver,
     ValidPersistent,
-    ValidPrintResult,
     ValidThrowException,
     ValidVerbosity,
     ValidWebReport,
     ValidWorkers,
 )
 from orionis.test.view.render import TestingResultRender
-import inspect
 
 class UnitTest(IUnitTest):
     """
@@ -95,6 +95,9 @@ class UnitTest(IUnitTest):
         - The test loader and suite are initialized for test discovery and execution.
         - Output buffers, paths, configuration, modules, and tests are loaded in sequence to prepare the test manager.
         """
+
+        # Suppress overly verbose asyncio logging during test execution
+        logging.getLogger("asyncio").setLevel(logging.ERROR)
 
         # Store the application instance for dependency injection and configuration access
         self.__app: IApplication = app
@@ -233,7 +236,7 @@ class UnitTest(IUnitTest):
 
         # Initialize the printer for console output
         self.__printer = TestPrinter(
-            print_result = ValidPrintResult(config.print_result)
+            verbosity=self.__verbosity
         )
 
         # Set the file name pattern for test discovery
@@ -1011,7 +1014,7 @@ class UnitTest(IUnitTest):
             # Return the TestSuite containing the resolved test case
             return suite
 
-        except Exception as e:
+        except Exception:
 
             # On any error, return the original test case without injection
             return test_case

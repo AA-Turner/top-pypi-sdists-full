@@ -7,7 +7,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Dict,List,Optional,Union
+from typing import Optional,Union
 from localstack.pro.core import config
 from localstack.pro.core.bootstrap import smtplib_patched
 from localstack.utils.time import now_utc
@@ -44,5 +44,5 @@ def construct_message(subject,text_message,from_name,from_email,images=_A,html_m
 		A=MIMEMultipart('related');E=MIMEMultipart('alternative');A.attach(E)
 		if C:E.attach(MIMEText(C))
 		if D:E.attach(MIMEText(D,'html'))
-		for(G,H)in B.items():F=MIMEImage(H);F.add_header('Content-ID','<%s>'%G);A.attach(F)
+		for(G,H)in B.items():F=MIMEImage(H);F.add_header('Content-ID',f"<{G}>");A.attach(F)
 	A['Subject']=subject;A['From']=formataddr((str(Header(from_name,'utf-8')),from_email));return A

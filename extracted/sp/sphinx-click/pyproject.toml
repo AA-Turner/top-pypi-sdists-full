@@ -1,16 +1,80 @@
-[tool.black]
+[build-system]
+requires = ["setuptools>=80", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sphinx-click"
+description = "Sphinx extension that automatically documents click applications"
+authors = [
+    {name = "Stephen Finucane", email = "stephen@that.guru"}
+]
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = {text = "MIT License"}
+requires-python = ">=3.10"
+keywords = ["sphinx", "click"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "sphinx>=4.0",
+    "click>=8.0",
+    "docutils",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+docs = [
+    "reno",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/click-contrib/sphinx-click/issues"
+"Documentation" = "https://sphinx-click.readthedocs.io/en/latest"
+"Source Code" = "https://github.com/click-contrib/sphinx-click"
+
+[tool.setuptools]
+packages = [
+    "sphinx_click"
+]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
 line-length = 88
-target-version = ['py37']
-skip-string-normalization = true
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+show_column_numbers = true
+show_error_context = true
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_optional = true
 exclude = '''
-(
-  /(
-      \.eggs
-    | \.git
-    | \.tox
-    | \.venv
-    | build
-    | dist
-  )
+(?x)(
+    docs
+    | tests
 )
 '''

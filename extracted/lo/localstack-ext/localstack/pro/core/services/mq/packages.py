@@ -1,6 +1,5 @@
 _A='5.16.6'
 import os
-from typing import List
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller
 from localstack.packages.java import JavaInstallerMixin

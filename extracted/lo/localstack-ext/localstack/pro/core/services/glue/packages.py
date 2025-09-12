@@ -6,7 +6,6 @@ _C='0.9'
 _B='2.0'
 _A='5.0'
 import glob,logging,os,re,shutil,textwrap
-from typing import List
 from localstack import config
 from localstack.constants import MAVEN_REPO_URL
 from localstack.packages import InstallTarget
@@ -54,7 +53,7 @@ class GlueInstaller(ArchiveDownloadAndExtractInstaller):
 	def get_spark_version(A):return GLUE_SPARK_MAPPING.get(A.version,DEFAULT_SPARK_VERSION)
 	def get_spark_home(A):B=A.get_spark_version();return spark_package.get_installed_dir(version=B)
 	def get_hadoop_home(A):from localstack.pro.core.packages.hadoop import HadoopInstaller,hadoop_package as B;C=A.get_spark_version();D=SparkInstaller.get_hadoop_version_for_spark(spark_version=C);E=B.get_installer(version=D);return E.get_hadoop_home()
-	def get_java_home(B):A=B.get_spark_version();return spark_package.get_installer(version=A).add_java_home_for_spark_version(spark_version=A).get('JAVA_HOME')
+	def get_java_home(B):A=B.get_spark_version();C=spark_package.get_installer(version=A);return C.get_java_home_for_spark_version(spark_version=A)
 class GluePackage(Package):
 	def __init__(A):super().__init__('Glue',default_version=DEFAULT_GLUE_VERSION)
 	def get_versions(A):return GLUE_VERSIONS

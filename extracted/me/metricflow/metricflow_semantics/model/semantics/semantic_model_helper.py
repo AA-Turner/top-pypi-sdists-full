@@ -4,7 +4,6 @@ from typing import Dict, Mapping, Sequence
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
 from dbt_semantic_interfaces.protocols import Dimension
-from dbt_semantic_interfaces.protocols.entity import Entity
 from dbt_semantic_interfaces.protocols.measure import Measure
 from dbt_semantic_interfaces.protocols.semantic_model import SemanticModel
 from dbt_semantic_interfaces.references import (
@@ -15,22 +14,11 @@ from dbt_semantic_interfaces.references import (
 )
 from dbt_semantic_interfaces.type_enums import DimensionType, EntityType, TimeGranularity
 
+from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+
 
 class SemanticModelHelper:
     """Static helper methods for retrieving items from a semantic model."""
-
-    @staticmethod
-    def get_entity_from_semantic_model(
-        semantic_model: SemanticModel, entity_reference: LinkableElementReference
-    ) -> Entity:
-        """Get entity from semantic model."""
-        for entity in semantic_model.entities:
-            if entity.reference == entity_reference:
-                return entity
-
-        raise ValueError(
-            f"No entity with name ({entity_reference}) in semantic_model with name ({semantic_model.name})"
-        )
 
     @staticmethod
     def resolved_primary_entity(semantic_model: SemanticModel) -> EntityReference:
@@ -82,7 +70,7 @@ class SemanticModelHelper:
                 return measure
 
         raise ValueError(
-            f"No dimension with name ({measure_reference.element_name}) in semantic_model with name ({semantic_model.name})"
+            f"No measure with name ({measure_reference.element_name}) in semantic_model with name ({semantic_model.name})"
         )
 
     @staticmethod
@@ -94,7 +82,12 @@ class SemanticModelHelper:
             if dim.reference == dimension_reference:
                 return dim
         raise ValueError(
-            f"No dimension with name ({dimension_reference}) in semantic_model with name ({semantic_model.name})"
+            LazyFormat(
+                "Unable to find matching dimension for the given reference.",
+                dimension_reference=dimension_reference,
+                semantic_model_name=semantic_model.name,
+                dimensions=lambda: [dimension.name for dimension in semantic_model.dimensions],
+            )
         )
 
     @staticmethod

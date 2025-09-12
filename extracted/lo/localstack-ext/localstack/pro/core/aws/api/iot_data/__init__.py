@@ -3,11 +3,14 @@ from typing import IO, Iterable, List, Optional, TypedDict, Union
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
+CleanSession = bool
+ClientId = str
 ContentType = str
 CorrelationData = str
 MaxResults = int
 NextToken = str
 PageSize = int
+PreventWillMessage = bool
 Qos = int
 ResponseTopic = str
 Retain = bool
@@ -29,6 +32,14 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
+
+
+class ForbiddenException(ServiceException):
+    """The caller isn't authorized to make the request."""
+
+    code: str = "ForbiddenException"
+    sender_fault: bool = False
+    status_code: int = 403
 
 
 class InternalFailureException(ServiceException):
@@ -101,6 +112,12 @@ class UnsupportedDocumentEncodingException(ServiceException):
     code: str = "UnsupportedDocumentEncodingException"
     sender_fault: bool = False
     status_code: int = 415
+
+
+class DeleteConnectionRequest(ServiceRequest):
+    clientId: ClientId
+    cleanSession: Optional[CleanSession]
+    preventWillMessage: Optional[PreventWillMessage]
 
 
 class DeleteThingShadowRequest(ServiceRequest):
@@ -229,6 +246,32 @@ class IotDataApi:
     service = "iot-data"
     version = "2015-05-28"
 
+    @handler("DeleteConnection")
+    def delete_connection(
+        self,
+        context: RequestContext,
+        client_id: ClientId,
+        clean_session: CleanSession | None = None,
+        prevent_will_message: PreventWillMessage | None = None,
+        **kwargs,
+    ) -> None:
+        """Disconnects a connected MQTT client from Amazon Web Services IoT Core.
+        When you disconnect a client, Amazon Web Services IoT Core closes the
+        client's network connection and optionally cleans the session state.
+
+        :param client_id: The unique identifier of the MQTT client to disconnect.
+        :param clean_session: Specifies whether to remove the client's session state when
+        disconnecting.
+        :param prevent_will_message: Controls if Amazon Web Services IoT Core publishes the client's Last
+        Will and Testament (LWT) message upon disconnection.
+        :raises ForbiddenException:
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises ThrottlingException:
+        :raises InternalFailureException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteThingShadow")
     def delete_thing_shadow(
         self,
@@ -273,7 +316,7 @@ class IotDataApi:
         `ListRetainedMessages <https://docs.aws.amazon.com/iot/latest/apireference/API_iotdata_ListRetainedMessages.html>`__.
 
         Requires permission to access the
-        `GetRetainedMessage <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiotfleethubfordevicemanagement.html#awsiotfleethubfordevicemanagement-actions-as-permissions>`__
+        `GetRetainedMessage <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html>`__
         action.
 
         For more information about messaging costs, see `Amazon Web Services IoT
@@ -373,7 +416,7 @@ class IotDataApi:
         with the topic name of the retained message.
 
         Requires permission to access the
-        `ListRetainedMessages <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiotfleethubfordevicemanagement.html#awsiotfleethubfordevicemanagement-actions-as-permissions>`__
+        `ListRetainedMessages <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html>`__
         action.
 
         For more information about messaging costs, see `Amazon Web Services IoT

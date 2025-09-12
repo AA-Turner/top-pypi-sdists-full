@@ -1,7 +1,7 @@
 r'''
 # `newrelic_synthetics_secure_credential`
 
-Refer to the Terraform Registry for docs: [`newrelic_synthetics_secure_credential`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential).
+Refer to the Terraform Registry for docs: [`newrelic_synthetics_secure_credential`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsSecureCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.syntheticsSecureCredential.SyntheticsSecureCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential newrelic_synthetics_secure_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential newrelic_synthetics_secure_credential}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class SyntheticsSecureCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential newrelic_synthetics_secure_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential newrelic_synthetics_secure_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key: The secure credential's key name. Regardless of the case used in the configuration, the provider will provide an upcased key to the underlying API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
-        :param value: The secure credential's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
-        :param account_id: The New Relic account ID where you want to create the secure credential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
-        :param description: The secure credential's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param last_updated: The time the secure credential was last updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
+        :param key: The secure credential's key name. Regardless of the case used in the configuration, the provider will provide an upcased key to the underlying API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
+        :param value: The secure credential's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
+        :param account_id: The New Relic account ID where you want to create the secure credential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
+        :param description: The secure credential's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param last_updated: The time the secure credential was last updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class SyntheticsSecureCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsSecureCredential to import.
-        :param import_from_id: The id of the existing SyntheticsSecureCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsSecureCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsSecureCredential to import is found.
         '''
         if __debug__:
@@ -135,7 +135,7 @@ class SyntheticsSecureCredential(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.
         '''
         value = SyntheticsSecureCredentialTimeouts(read=read)
 
@@ -336,13 +336,13 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key: The secure credential's key name. Regardless of the case used in the configuration, the provider will provide an upcased key to the underlying API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
-        :param value: The secure credential's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
-        :param account_id: The New Relic account ID where you want to create the secure credential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
-        :param description: The secure credential's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param last_updated: The time the secure credential was last updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
+        :param key: The secure credential's key name. Regardless of the case used in the configuration, the provider will provide an upcased key to the underlying API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
+        :param value: The secure credential's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
+        :param account_id: The New Relic account ID where you want to create the secure credential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
+        :param description: The secure credential's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param last_updated: The time the secure credential was last updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -463,7 +463,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Regardless of the case used in the configuration, the provider will provide an upcased key to the underlying API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#key SyntheticsSecureCredential#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -473,7 +473,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''The secure credential's value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#value SyntheticsSecureCredential#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -483,7 +483,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to create the secure credential.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#account_id SyntheticsSecureCredential#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -492,14 +492,14 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The secure credential's description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#description SyntheticsSecureCredential#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#id SyntheticsSecureCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -511,7 +511,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def last_updated(self) -> typing.Optional[builtins.str]:
         '''The time the secure credential was last updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#last_updated SyntheticsSecureCredential#last_updated}
         '''
         result = self._values.get("last_updated")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -520,7 +520,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SyntheticsSecureCredentialTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#timeouts SyntheticsSecureCredential#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SyntheticsSecureCredentialTimeouts"], result)
@@ -545,7 +545,7 @@ class SyntheticsSecureCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SyntheticsSecureCredentialTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30ee9f5c5aa39dabc7e25f5916507edc122a8cfedf3da4382d4ccfd05c141753)
@@ -556,7 +556,7 @@ class SyntheticsSecureCredentialTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_secure_credential#read SyntheticsSecureCredential#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

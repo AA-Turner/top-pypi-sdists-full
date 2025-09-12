@@ -136,6 +136,11 @@ class TrustedTokenIssuerType(StrEnum):
     OIDC_JWT = "OIDC_JWT"
 
 
+class UserBackgroundSessionApplicationStatus(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
 class AccessDeniedException(ServiceException):
     """You do not have sufficient access to perform this action."""
 
@@ -321,7 +326,7 @@ class Application(TypedDict, total=False):
 
     ApplicationArn: Optional[ApplicationArn]
     ApplicationProviderArn: Optional[ApplicationProviderArn]
-    Name: Optional[NameType]
+    Name: Optional[ApplicationNameType]
     ApplicationAccount: Optional[AccountId]
     InstanceArn: Optional[InstanceArn]
     Status: Optional[ApplicationStatus]
@@ -772,7 +777,7 @@ class DescribeApplicationRequest(ServiceRequest):
 class DescribeApplicationResponse(TypedDict, total=False):
     ApplicationArn: Optional[ApplicationArn]
     ApplicationProviderArn: Optional[ApplicationProviderArn]
-    Name: Optional[NameType]
+    Name: Optional[ApplicationNameType]
     ApplicationAccount: Optional[AccountId]
     InstanceArn: Optional[InstanceArn]
     Status: Optional[ApplicationStatus]
@@ -945,6 +950,14 @@ class Grant(TypedDict, total=False):
 
 class GetApplicationGrantResponse(TypedDict, total=False):
     Grant: Grant
+
+
+class GetApplicationSessionConfigurationRequest(ServiceRequest):
+    ApplicationArn: ApplicationArn
+
+
+class GetApplicationSessionConfigurationResponse(TypedDict, total=False):
+    UserBackgroundSessionApplicationStatus: Optional[UserBackgroundSessionApplicationStatus]
 
 
 class GetInlinePolicyForPermissionSetRequest(ServiceRequest):
@@ -1354,6 +1367,15 @@ class PutApplicationGrantRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
     GrantType: GrantType
     Grant: Grant
+
+
+class PutApplicationSessionConfigurationRequest(ServiceRequest):
+    ApplicationArn: ApplicationArn
+    UserBackgroundSessionApplicationStatus: Optional[UserBackgroundSessionApplicationStatus]
+
+
+class PutApplicationSessionConfigurationResponse(TypedDict, total=False):
+    pass
 
 
 class PutInlinePolicyToPermissionSetRequest(ServiceRequest):
@@ -2440,6 +2462,30 @@ class SsoAdminApi:
         """
         raise NotImplementedError
 
+    @handler("GetApplicationSessionConfiguration")
+    def get_application_session_configuration(
+        self, context: RequestContext, application_arn: ApplicationArn, **kwargs
+    ) -> GetApplicationSessionConfigurationResponse:
+        """Retrieves the session configuration for an application in IAM Identity
+        Center.
+
+        The session configuration determines how users can access an
+        application. This includes whether user background sessions are enabled.
+        User background sessions allow users to start a job on a supported
+        Amazon Web Services managed application without having to remain signed
+        in to an active session while the job runs.
+
+        :param application_arn: The Amazon Resource Name (ARN) of the application for which to retrieve
+        the session configuration.
+        :returns: GetApplicationSessionConfigurationResponse
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
     @handler("GetInlinePolicyForPermissionSet")
     def get_inline_policy_for_permission_set(
         self,
@@ -2653,8 +2699,8 @@ class SsoAdminApi:
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationAccessScopesResponse
         :raises ThrottlingException:
-        :raises InternalServerException:
         :raises ResourceNotFoundException:
+        :raises InternalServerException:
         :raises AccessDeniedException:
         :raises ValidationException:
         """
@@ -2740,8 +2786,8 @@ class SsoAdminApi:
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationAuthenticationMethodsResponse
         :raises ThrottlingException:
-        :raises InternalServerException:
         :raises ResourceNotFoundException:
+        :raises InternalServerException:
         :raises AccessDeniedException:
         :raises ValidationException:
         """
@@ -2761,8 +2807,8 @@ class SsoAdminApi:
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationGrantsResponse
         :raises ThrottlingException:
-        :raises InternalServerException:
         :raises ResourceNotFoundException:
+        :raises InternalServerException:
         :raises AccessDeniedException:
         :raises ValidationException:
         """
@@ -3209,6 +3255,37 @@ class SsoAdminApi:
         :param application_arn: Specifies the ARN of the application to update.
         :param grant_type: Specifies the type of grant to update.
         :param grant: Specifies a structure that describes the grant to update.
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("PutApplicationSessionConfiguration")
+    def put_application_session_configuration(
+        self,
+        context: RequestContext,
+        application_arn: ApplicationArn,
+        user_background_session_application_status: UserBackgroundSessionApplicationStatus
+        | None = None,
+        **kwargs,
+    ) -> PutApplicationSessionConfigurationResponse:
+        """Updates the session configuration for an application in IAM Identity
+        Center.
+
+        The session configuration determines how users can access an
+        application. This includes whether user background sessions are enabled.
+        User background sessions allow users to start a job on a supported
+        Amazon Web Services managed application without having to remain signed
+        in to an active session while the job runs.
+
+        :param application_arn: The Amazon Resource Name (ARN) of the application for which to update
+        the session configuration.
+        :param user_background_session_application_status: The status of user background sessions for the application.
+        :returns: PutApplicationSessionConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
         :raises ResourceNotFoundException:

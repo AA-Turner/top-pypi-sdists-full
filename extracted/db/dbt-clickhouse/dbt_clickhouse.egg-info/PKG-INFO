@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-clickhouse
-Version: 1.9.2
+Version: 1.9.3
 Summary: The Clickhouse plugin for dbt (data build tool)
 Home-page: https://github.com/ClickHouse/dbt-clickhouse
 Author: ClickHouse Inc.

@@ -8,6 +8,37 @@ AcceptEula = bool
 AccountId = str
 AdditionalModelRequestFieldsKey = str
 Arn = str
+AutomatedReasoningCheckTranslationConfidence = float
+AutomatedReasoningConfidenceFilterThreshold = float
+AutomatedReasoningLogicStatementContent = str
+AutomatedReasoningNaturalLanguageStatementContent = str
+AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage = str
+AutomatedReasoningPolicyAnnotationIngestContent = str
+AutomatedReasoningPolicyAnnotationRuleNaturalLanguage = str
+AutomatedReasoningPolicyArn = str
+AutomatedReasoningPolicyBuildDocumentDescription = str
+AutomatedReasoningPolicyBuildDocumentName = str
+AutomatedReasoningPolicyBuildWorkflowId = str
+AutomatedReasoningPolicyDefinitionRuleAlternateExpression = str
+AutomatedReasoningPolicyDefinitionRuleExpression = str
+AutomatedReasoningPolicyDefinitionRuleId = str
+AutomatedReasoningPolicyDefinitionTypeDescription = str
+AutomatedReasoningPolicyDefinitionTypeName = str
+AutomatedReasoningPolicyDefinitionTypeValueDescription = str
+AutomatedReasoningPolicyDefinitionTypeValueName = str
+AutomatedReasoningPolicyDefinitionVariableDescription = str
+AutomatedReasoningPolicyDefinitionVariableName = str
+AutomatedReasoningPolicyDescription = str
+AutomatedReasoningPolicyFormatVersion = str
+AutomatedReasoningPolicyHash = str
+AutomatedReasoningPolicyId = str
+AutomatedReasoningPolicyName = str
+AutomatedReasoningPolicyScenarioAlternateExpression = str
+AutomatedReasoningPolicyScenarioExpression = str
+AutomatedReasoningPolicyTestCaseId = str
+AutomatedReasoningPolicyTestGuardContent = str
+AutomatedReasoningPolicyTestQueryContent = str
+AutomatedReasoningPolicyVersion = str
 BaseModelIdentifier = str
 BedrockModelArn = str
 BedrockModelId = str
@@ -177,6 +208,73 @@ class AttributeType(StrEnum):
 class AuthorizationStatus(StrEnum):
     AUTHORIZED = "AUTHORIZED"
     NOT_AUTHORIZED = "NOT_AUTHORIZED"
+
+
+class AutomatedReasoningCheckLogicWarningType(StrEnum):
+    ALWAYS_TRUE = "ALWAYS_TRUE"
+    ALWAYS_FALSE = "ALWAYS_FALSE"
+
+
+class AutomatedReasoningCheckResult(StrEnum):
+    VALID = "VALID"
+    INVALID = "INVALID"
+    SATISFIABLE = "SATISFIABLE"
+    IMPOSSIBLE = "IMPOSSIBLE"
+    TRANSLATION_AMBIGUOUS = "TRANSLATION_AMBIGUOUS"
+    TOO_COMPLEX = "TOO_COMPLEX"
+    NO_TRANSLATION = "NO_TRANSLATION"
+
+
+class AutomatedReasoningPolicyAnnotationStatus(StrEnum):
+    APPLIED = "APPLIED"
+    FAILED = "FAILED"
+
+
+class AutomatedReasoningPolicyBuildDocumentContentType(StrEnum):
+    pdf = "pdf"
+    txt = "txt"
+
+
+class AutomatedReasoningPolicyBuildMessageType(StrEnum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+class AutomatedReasoningPolicyBuildResultAssetType(StrEnum):
+    BUILD_LOG = "BUILD_LOG"
+    QUALITY_REPORT = "QUALITY_REPORT"
+    POLICY_DEFINITION = "POLICY_DEFINITION"
+
+
+class AutomatedReasoningPolicyBuildWorkflowStatus(StrEnum):
+    SCHEDULED = "SCHEDULED"
+    CANCEL_REQUESTED = "CANCEL_REQUESTED"
+    PREPROCESSING = "PREPROCESSING"
+    BUILDING = "BUILDING"
+    TESTING = "TESTING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class AutomatedReasoningPolicyBuildWorkflowType(StrEnum):
+    INGEST_CONTENT = "INGEST_CONTENT"
+    REFINE_POLICY = "REFINE_POLICY"
+    IMPORT_POLICY = "IMPORT_POLICY"
+
+
+class AutomatedReasoningPolicyTestRunResult(StrEnum):
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+
+
+class AutomatedReasoningPolicyTestRunStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    SCHEDULED = "SCHEDULED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class CommitmentDuration(StrEnum):
@@ -533,6 +631,18 @@ class InternalServerException(ServiceException):
     status_code: int = 500
 
 
+class ResourceInUseException(ServiceException):
+    """Thrown when attempting to delete or modify a resource that is currently
+    being used by other resources or operations. For example, trying to
+    delete an Automated Reasoning policy that is referenced by an active
+    guardrail.
+    """
+
+    code: str = "ResourceInUseException"
+    sender_fault: bool = True
+    status_code: int = 400
+
+
 class ResourceNotFoundException(ServiceException):
     """The specified resource Amazon Resource Name (ARN) was not found. Check
     the Amazon Resource Name (ARN) and try your request again.
@@ -756,6 +866,749 @@ class AutomatedEvaluationConfig(TypedDict, total=False):
     customMetricConfig: Optional[AutomatedEvaluationCustomMetricConfig]
 
 
+class AutomatedReasoningLogicStatement(TypedDict, total=False):
+    """Represents a logical statement that can be expressed both in formal
+    logic notation and natural language, providing dual representations for
+    better understanding and validation.
+    """
+
+    logic: AutomatedReasoningLogicStatementContent
+    naturalLanguage: Optional[AutomatedReasoningNaturalLanguageStatementContent]
+
+
+AutomatedReasoningLogicStatementList = List[AutomatedReasoningLogicStatement]
+
+
+class AutomatedReasoningCheckScenario(TypedDict, total=False):
+    """Represents a logical scenario where claims can be evaluated as true or
+    false, containing specific logical assignments.
+    """
+
+    statements: Optional[AutomatedReasoningLogicStatementList]
+
+
+AutomatedReasoningCheckDifferenceScenarioList = List[AutomatedReasoningCheckScenario]
+
+
+class AutomatedReasoningCheckNoTranslationsFinding(TypedDict, total=False):
+    """Indicates that no relevant logical information could be extracted from
+    the input for validation.
+    """
+
+    pass
+
+
+class AutomatedReasoningCheckTooComplexFinding(TypedDict, total=False):
+    """Indicates that the input exceeds the processing capacity due to the
+    volume or complexity of the logical information.
+    """
+
+    pass
+
+
+class AutomatedReasoningCheckInputTextReference(TypedDict, total=False):
+    """References a portion of the original input text that corresponds to
+    logical elements.
+    """
+
+    text: Optional[AutomatedReasoningNaturalLanguageStatementContent]
+
+
+AutomatedReasoningCheckInputTextReferenceList = List[AutomatedReasoningCheckInputTextReference]
+
+
+class AutomatedReasoningCheckTranslation(TypedDict, total=False):
+    """Contains the logical translation of natural language input into formal
+    logical statements, including premises, claims, and confidence scores.
+    """
+
+    premises: Optional[AutomatedReasoningLogicStatementList]
+    claims: AutomatedReasoningLogicStatementList
+    untranslatedPremises: Optional[AutomatedReasoningCheckInputTextReferenceList]
+    untranslatedClaims: Optional[AutomatedReasoningCheckInputTextReferenceList]
+    confidence: AutomatedReasoningCheckTranslationConfidence
+
+
+AutomatedReasoningCheckTranslationList = List[AutomatedReasoningCheckTranslation]
+
+
+class AutomatedReasoningCheckTranslationOption(TypedDict, total=False):
+    """Represents one possible logical interpretation of ambiguous input
+    content.
+    """
+
+    translations: Optional[AutomatedReasoningCheckTranslationList]
+
+
+AutomatedReasoningCheckTranslationOptionList = List[AutomatedReasoningCheckTranslationOption]
+
+
+class AutomatedReasoningCheckTranslationAmbiguousFinding(TypedDict, total=False):
+    """Indicates that the input has multiple valid logical interpretations,
+    requiring additional context or clarification.
+    """
+
+    options: Optional[AutomatedReasoningCheckTranslationOptionList]
+    differenceScenarios: Optional[AutomatedReasoningCheckDifferenceScenarioList]
+
+
+class AutomatedReasoningCheckLogicWarning(TypedDict, total=False):
+    type: Optional[AutomatedReasoningCheckLogicWarningType]
+    premises: Optional[AutomatedReasoningLogicStatementList]
+    claims: Optional[AutomatedReasoningLogicStatementList]
+
+
+class AutomatedReasoningCheckRule(TypedDict, total=False):
+    """References a specific automated reasoning policy rule that was applied
+    during evaluation.
+    """
+
+    id: Optional[AutomatedReasoningPolicyDefinitionRuleId]
+    policyVersionArn: Optional[AutomatedReasoningPolicyArn]
+
+
+AutomatedReasoningCheckRuleList = List[AutomatedReasoningCheckRule]
+
+
+class AutomatedReasoningCheckImpossibleFinding(TypedDict, total=False):
+    """Indicates that no valid claims can be made due to logical contradictions
+    in the premises or rules.
+    """
+
+    translation: Optional[AutomatedReasoningCheckTranslation]
+    contradictingRules: Optional[AutomatedReasoningCheckRuleList]
+    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+
+
+class AutomatedReasoningCheckSatisfiableFinding(TypedDict, total=False):
+    """Indicates that the claims could be either true or false depending on
+    additional assumptions not provided in the input.
+    """
+
+    translation: Optional[AutomatedReasoningCheckTranslation]
+    claimsTrueScenario: Optional[AutomatedReasoningCheckScenario]
+    claimsFalseScenario: Optional[AutomatedReasoningCheckScenario]
+    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+
+
+class AutomatedReasoningCheckInvalidFinding(TypedDict, total=False):
+    """Indicates that the claims are logically false and contradictory to the
+    established rules or premises.
+    """
+
+    translation: Optional[AutomatedReasoningCheckTranslation]
+    contradictingRules: Optional[AutomatedReasoningCheckRuleList]
+    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+
+
+class AutomatedReasoningCheckValidFinding(TypedDict, total=False):
+    """Indicates that the claims are definitively true and logically implied by
+    the premises, with no possible alternative interpretations.
+    """
+
+    translation: Optional[AutomatedReasoningCheckTranslation]
+    claimsTrueScenario: Optional[AutomatedReasoningCheckScenario]
+    supportingRules: Optional[AutomatedReasoningCheckRuleList]
+    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+
+
+class AutomatedReasoningCheckFinding(TypedDict, total=False):
+    """Represents the result of an Automated Reasoning validation check,
+    indicating whether the content is logically valid, invalid, or falls
+    into other categories based on the policy rules.
+    """
+
+    valid: Optional[AutomatedReasoningCheckValidFinding]
+    invalid: Optional[AutomatedReasoningCheckInvalidFinding]
+    satisfiable: Optional[AutomatedReasoningCheckSatisfiableFinding]
+    impossible: Optional[AutomatedReasoningCheckImpossibleFinding]
+    translationAmbiguous: Optional[AutomatedReasoningCheckTranslationAmbiguousFinding]
+    tooComplex: Optional[AutomatedReasoningCheckTooComplexFinding]
+    noTranslations: Optional[AutomatedReasoningCheckNoTranslationsFinding]
+
+
+AutomatedReasoningCheckFindingList = List[AutomatedReasoningCheckFinding]
+
+
+class AutomatedReasoningPolicyAddRuleAnnotation(TypedDict, total=False):
+    """An annotation for adding a new rule to an Automated Reasoning policy
+    using a formal logical expression.
+    """
+
+    expression: AutomatedReasoningPolicyDefinitionRuleExpression
+
+
+class AutomatedReasoningPolicyAddRuleFromNaturalLanguageAnnotation(TypedDict, total=False):
+    """An annotation for adding a new rule to the policy by converting a
+    natural language description into a formal logical expression.
+    """
+
+    naturalLanguage: AutomatedReasoningPolicyAnnotationRuleNaturalLanguage
+
+
+class AutomatedReasoningPolicyDefinitionRule(TypedDict, total=False):
+    """Represents a formal logic rule in an Automated Reasoning policy. For
+    example, rules can be expressed as if-then statements that define
+    logical constraints.
+    """
+
+    id: AutomatedReasoningPolicyDefinitionRuleId
+    expression: AutomatedReasoningPolicyDefinitionRuleExpression
+    alternateExpression: Optional[AutomatedReasoningPolicyDefinitionRuleAlternateExpression]
+
+
+class AutomatedReasoningPolicyAddRuleMutation(TypedDict, total=False):
+    """A mutation operation that adds a new rule to the policy definition
+    during the build process.
+    """
+
+    rule: AutomatedReasoningPolicyDefinitionRule
+
+
+class AutomatedReasoningPolicyDefinitionTypeValue(TypedDict, total=False):
+    """Represents a single value within a custom type definition, including its
+    identifier and description.
+    """
+
+    value: AutomatedReasoningPolicyDefinitionTypeValueName
+    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+
+
+AutomatedReasoningPolicyDefinitionTypeValueList = List[AutomatedReasoningPolicyDefinitionTypeValue]
+
+
+class AutomatedReasoningPolicyAddTypeAnnotation(TypedDict, total=False):
+    """An annotation for adding a new custom type to an Automated Reasoning
+    policy, defining a set of possible values for variables.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionTypeName
+    description: AutomatedReasoningPolicyDefinitionTypeDescription
+    values: AutomatedReasoningPolicyDefinitionTypeValueList
+
+
+class AutomatedReasoningPolicyDefinitionType(TypedDict, total=False):
+    """Represents a custom user-defined viarble type in an Automated Reasoning
+    policy. Types are enum-based and provide additional context beyond
+    predefined variable types.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionTypeName
+    description: Optional[AutomatedReasoningPolicyDefinitionTypeDescription]
+    values: AutomatedReasoningPolicyDefinitionTypeValueList
+
+
+class AutomatedReasoningPolicyAddTypeMutation(TypedDict, total=False):
+    type: AutomatedReasoningPolicyDefinitionType
+
+
+class AutomatedReasoningPolicyAddTypeValue(TypedDict, total=False):
+    """Represents a single value that can be added to an existing custom type
+    in the policy.
+    """
+
+    value: AutomatedReasoningPolicyDefinitionTypeValueName
+    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+
+
+class AutomatedReasoningPolicyAddVariableAnnotation(TypedDict, total=False):
+    name: AutomatedReasoningPolicyDefinitionVariableName
+    type: AutomatedReasoningPolicyDefinitionTypeName
+    description: AutomatedReasoningPolicyDefinitionVariableDescription
+
+
+class AutomatedReasoningPolicyDefinitionVariable(TypedDict, total=False):
+    name: AutomatedReasoningPolicyDefinitionVariableName
+    type: AutomatedReasoningPolicyDefinitionTypeName
+    description: AutomatedReasoningPolicyDefinitionVariableDescription
+
+
+class AutomatedReasoningPolicyAddVariableMutation(TypedDict, total=False):
+    """A mutation operation that adds a new variable to the policy definition
+    during the build process.
+    """
+
+    variable: AutomatedReasoningPolicyDefinitionVariable
+
+
+class AutomatedReasoningPolicyIngestContentAnnotation(TypedDict, total=False):
+    """An annotation for processing and incorporating new content into an
+    Automated Reasoning policy.
+    """
+
+    content: AutomatedReasoningPolicyAnnotationIngestContent
+
+
+AutomatedReasoningPolicyDefinitionRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
+
+
+class AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation(TypedDict, total=False):
+    """An annotation for updating the policy based on feedback about how it
+    performed on specific test scenarios.
+    """
+
+    ruleIds: Optional[AutomatedReasoningPolicyDefinitionRuleIdList]
+    scenarioExpression: AutomatedReasoningPolicyScenarioExpression
+    feedback: Optional[AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage]
+
+
+class AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation(TypedDict, total=False):
+    """An annotation for updating the policy based on feedback about how
+    specific rules performed during testing or real-world usage.
+    """
+
+    ruleIds: Optional[AutomatedReasoningPolicyDefinitionRuleIdList]
+    feedback: AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage
+
+
+class AutomatedReasoningPolicyDeleteRuleAnnotation(TypedDict, total=False):
+    """An annotation for removing a rule from an Automated Reasoning policy."""
+
+    ruleId: AutomatedReasoningPolicyDefinitionRuleId
+
+
+class AutomatedReasoningPolicyUpdateRuleAnnotation(TypedDict, total=False):
+    """An annotation for modifying an existing rule in an Automated Reasoning
+    policy.
+    """
+
+    ruleId: AutomatedReasoningPolicyDefinitionRuleId
+    expression: AutomatedReasoningPolicyDefinitionRuleExpression
+
+
+class AutomatedReasoningPolicyDeleteVariableAnnotation(TypedDict, total=False):
+    """An annotation for removing a variable from an Automated Reasoning
+    policy.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionVariableName
+
+
+class AutomatedReasoningPolicyUpdateVariableAnnotation(TypedDict, total=False):
+    """An annotation for modifying an existing variable in an Automated
+    Reasoning policy.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionVariableName
+    newName: Optional[AutomatedReasoningPolicyDefinitionVariableName]
+    description: Optional[AutomatedReasoningPolicyDefinitionVariableDescription]
+
+
+class AutomatedReasoningPolicyDeleteTypeAnnotation(TypedDict, total=False):
+    """An annotation for removing a custom type from an Automated Reasoning
+    policy.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionTypeName
+
+
+class AutomatedReasoningPolicyDeleteTypeValue(TypedDict, total=False):
+    """Represents a value to be removed from an existing custom type in the
+    policy.
+    """
+
+    value: AutomatedReasoningPolicyDefinitionTypeValueName
+
+
+class AutomatedReasoningPolicyUpdateTypeValue(TypedDict, total=False):
+    """Represents a modification to a value within an existing custom type."""
+
+    value: AutomatedReasoningPolicyDefinitionTypeValueName
+    newValue: Optional[AutomatedReasoningPolicyDefinitionTypeValueName]
+    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+
+
+class AutomatedReasoningPolicyTypeValueAnnotation(TypedDict, total=False):
+    """An annotation for managing values within custom types, including adding,
+    updating, or removing specific type values.
+    """
+
+    addTypeValue: Optional[AutomatedReasoningPolicyAddTypeValue]
+    updateTypeValue: Optional[AutomatedReasoningPolicyUpdateTypeValue]
+    deleteTypeValue: Optional[AutomatedReasoningPolicyDeleteTypeValue]
+
+
+AutomatedReasoningPolicyTypeValueAnnotationList = List[AutomatedReasoningPolicyTypeValueAnnotation]
+
+
+class AutomatedReasoningPolicyUpdateTypeAnnotation(TypedDict, total=False):
+    """An annotation for modifying an existing custom type in an Automated
+    Reasoning policy.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionTypeName
+    newName: Optional[AutomatedReasoningPolicyDefinitionTypeName]
+    description: Optional[AutomatedReasoningPolicyDefinitionTypeDescription]
+    values: AutomatedReasoningPolicyTypeValueAnnotationList
+
+
+class AutomatedReasoningPolicyAnnotation(TypedDict, total=False):
+    """Contains the various operations that can be performed on an Automated
+    Reasoning policy, including adding, updating, and deleting rules,
+    variables, and types.
+    """
+
+    addType: Optional[AutomatedReasoningPolicyAddTypeAnnotation]
+    updateType: Optional[AutomatedReasoningPolicyUpdateTypeAnnotation]
+    deleteType: Optional[AutomatedReasoningPolicyDeleteTypeAnnotation]
+    addVariable: Optional[AutomatedReasoningPolicyAddVariableAnnotation]
+    updateVariable: Optional[AutomatedReasoningPolicyUpdateVariableAnnotation]
+    deleteVariable: Optional[AutomatedReasoningPolicyDeleteVariableAnnotation]
+    addRule: Optional[AutomatedReasoningPolicyAddRuleAnnotation]
+    updateRule: Optional[AutomatedReasoningPolicyUpdateRuleAnnotation]
+    deleteRule: Optional[AutomatedReasoningPolicyDeleteRuleAnnotation]
+    addRuleFromNaturalLanguage: Optional[
+        AutomatedReasoningPolicyAddRuleFromNaturalLanguageAnnotation
+    ]
+    updateFromRulesFeedback: Optional[AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation]
+    updateFromScenarioFeedback: Optional[
+        AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation
+    ]
+    ingestContent: Optional[AutomatedReasoningPolicyIngestContentAnnotation]
+
+
+AutomatedReasoningPolicyAnnotationList = List[AutomatedReasoningPolicyAnnotation]
+
+
+class AutomatedReasoningPolicyBuildStepMessage(TypedDict, total=False):
+    """Represents a message generated during a build step, providing
+    information about what happened or any issues encountered.
+    """
+
+    message: String
+    messageType: AutomatedReasoningPolicyBuildMessageType
+
+
+AutomatedReasoningPolicyBuildStepMessageList = List[AutomatedReasoningPolicyBuildStepMessage]
+
+
+class AutomatedReasoningPolicyDefinitionElement(TypedDict, total=False):
+    """Represents a single element in an Automated Reasoning policy definition,
+    such as a rule, variable, or type definition.
+    """
+
+    policyDefinitionVariable: Optional[AutomatedReasoningPolicyDefinitionVariable]
+    policyDefinitionType: Optional[AutomatedReasoningPolicyDefinitionType]
+    policyDefinitionRule: Optional[AutomatedReasoningPolicyDefinitionRule]
+
+
+class AutomatedReasoningPolicyDeleteRuleMutation(TypedDict, total=False):
+    """A mutation operation that removes a rule from the policy definition
+    during the build process.
+    """
+
+    id: AutomatedReasoningPolicyDefinitionRuleId
+
+
+class AutomatedReasoningPolicyUpdateRuleMutation(TypedDict, total=False):
+    """A mutation operation that modifies an existing rule in the policy
+    definition during the build process.
+    """
+
+    rule: AutomatedReasoningPolicyDefinitionRule
+
+
+class AutomatedReasoningPolicyDeleteVariableMutation(TypedDict, total=False):
+    """A mutation operation that removes a variable from the policy definition
+    during the build process.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionVariableName
+
+
+class AutomatedReasoningPolicyUpdateVariableMutation(TypedDict, total=False):
+    """A mutation operation that modifies an existing variable in the policy
+    definition during the build process.
+    """
+
+    variable: AutomatedReasoningPolicyDefinitionVariable
+
+
+class AutomatedReasoningPolicyDeleteTypeMutation(TypedDict, total=False):
+    """A mutation operation that removes a custom type from the policy
+    definition during the build process.
+    """
+
+    name: AutomatedReasoningPolicyDefinitionTypeName
+
+
+class AutomatedReasoningPolicyUpdateTypeMutation(TypedDict, total=False):
+    type: AutomatedReasoningPolicyDefinitionType
+
+
+class AutomatedReasoningPolicyMutation(TypedDict, total=False):
+    """A container for various mutation operations that can be applied to an
+    Automated Reasoning policy, including adding, updating, and deleting
+    policy elements.
+    """
+
+    addType: Optional[AutomatedReasoningPolicyAddTypeMutation]
+    updateType: Optional[AutomatedReasoningPolicyUpdateTypeMutation]
+    deleteType: Optional[AutomatedReasoningPolicyDeleteTypeMutation]
+    addVariable: Optional[AutomatedReasoningPolicyAddVariableMutation]
+    updateVariable: Optional[AutomatedReasoningPolicyUpdateVariableMutation]
+    deleteVariable: Optional[AutomatedReasoningPolicyDeleteVariableMutation]
+    addRule: Optional[AutomatedReasoningPolicyAddRuleMutation]
+    updateRule: Optional[AutomatedReasoningPolicyUpdateRuleMutation]
+    deleteRule: Optional[AutomatedReasoningPolicyDeleteRuleMutation]
+
+
+class AutomatedReasoningPolicyPlanning(TypedDict, total=False):
+    """Represents the planning phase of policy build workflow, where the system
+    analyzes source content and determines what operations to perform.
+    """
+
+    pass
+
+
+class AutomatedReasoningPolicyBuildStepContext(TypedDict, total=False):
+    """Provides context about what type of operation was being performed during
+    a build step.
+    """
+
+    planning: Optional[AutomatedReasoningPolicyPlanning]
+    mutation: Optional[AutomatedReasoningPolicyMutation]
+
+
+class AutomatedReasoningPolicyBuildStep(TypedDict, total=False):
+    """Represents a single step in the policy build process, containing context
+    about what was being processed and any messages or results.
+    """
+
+    context: AutomatedReasoningPolicyBuildStepContext
+    priorElement: Optional[AutomatedReasoningPolicyDefinitionElement]
+    messages: AutomatedReasoningPolicyBuildStepMessageList
+
+
+AutomatedReasoningPolicyBuildStepList = List[AutomatedReasoningPolicyBuildStep]
+
+
+class AutomatedReasoningPolicyBuildLogEntry(TypedDict, total=False):
+    """Represents a single entry in the policy build log, containing
+    information about a specific step or event in the build process.
+    """
+
+    annotation: AutomatedReasoningPolicyAnnotation
+    status: AutomatedReasoningPolicyAnnotationStatus
+    buildSteps: AutomatedReasoningPolicyBuildStepList
+
+
+AutomatedReasoningPolicyBuildLogEntryList = List[AutomatedReasoningPolicyBuildLogEntry]
+
+
+class AutomatedReasoningPolicyBuildLog(TypedDict, total=False):
+    """Contains detailed logging information about the policy build process,
+    including steps taken, decisions made, and any issues encountered.
+    """
+
+    entries: AutomatedReasoningPolicyBuildLogEntryList
+
+
+AutomatedReasoningPolicyDisjointedRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
+AutomatedReasoningPolicyDefinitionVariableNameList = List[
+    AutomatedReasoningPolicyDefinitionVariableName
+]
+
+
+class AutomatedReasoningPolicyDisjointRuleSet(TypedDict, total=False):
+    """Represents a set of rules that operate on completely separate variables,
+    indicating they address different concerns or domains within the policy.
+    """
+
+    variables: AutomatedReasoningPolicyDefinitionVariableNameList
+    rules: AutomatedReasoningPolicyDisjointedRuleIdList
+
+
+AutomatedReasoningPolicyDisjointRuleSetList = List[AutomatedReasoningPolicyDisjointRuleSet]
+AutomatedReasoningPolicyConflictedRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
+
+
+class AutomatedReasoningPolicyDefinitionTypeValuePair(TypedDict, total=False):
+    """Associates a type name with a specific value name, used for referencing
+    type values in rules and other policy elements.
+    """
+
+    typeName: AutomatedReasoningPolicyDefinitionTypeName
+    valueName: AutomatedReasoningPolicyDefinitionTypeValueName
+
+
+AutomatedReasoningPolicyDefinitionTypeValuePairList = List[
+    AutomatedReasoningPolicyDefinitionTypeValuePair
+]
+AutomatedReasoningPolicyDefinitionTypeNameList = List[AutomatedReasoningPolicyDefinitionTypeName]
+
+
+class AutomatedReasoningPolicyDefinitionQualityReport(TypedDict, total=False):
+    """Provides a comprehensive analysis of the quality and completeness of an
+    Automated Reasoning policy definition, highlighting potential issues and
+    optimization opportunities.
+    """
+
+    typeCount: Integer
+    variableCount: Integer
+    ruleCount: Integer
+    unusedTypes: AutomatedReasoningPolicyDefinitionTypeNameList
+    unusedTypeValues: AutomatedReasoningPolicyDefinitionTypeValuePairList
+    unusedVariables: AutomatedReasoningPolicyDefinitionVariableNameList
+    conflictingRules: AutomatedReasoningPolicyConflictedRuleIdList
+    disjointRuleSets: AutomatedReasoningPolicyDisjointRuleSetList
+
+
+AutomatedReasoningPolicyDefinitionVariableList = List[AutomatedReasoningPolicyDefinitionVariable]
+AutomatedReasoningPolicyDefinitionRuleList = List[AutomatedReasoningPolicyDefinitionRule]
+AutomatedReasoningPolicyDefinitionTypeList = List[AutomatedReasoningPolicyDefinitionType]
+
+
+class AutomatedReasoningPolicyDefinition(TypedDict, total=False):
+    """Contains the formal logic rules, variables, and custom variable types
+    that define an Automated Reasoning policy. The policy definition
+    specifies the constraints used to validate foundation model responses
+    for accuracy and logical consistency.
+    """
+
+    version: Optional[AutomatedReasoningPolicyFormatVersion]
+    types: Optional[AutomatedReasoningPolicyDefinitionTypeList]
+    rules: Optional[AutomatedReasoningPolicyDefinitionRuleList]
+    variables: Optional[AutomatedReasoningPolicyDefinitionVariableList]
+
+
+class AutomatedReasoningPolicyBuildResultAssets(TypedDict, total=False):
+    """Contains the various assets generated during a policy build workflow,
+    including logs, quality reports, and the final policy definition.
+    """
+
+    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
+    qualityReport: Optional[AutomatedReasoningPolicyDefinitionQualityReport]
+    buildLog: Optional[AutomatedReasoningPolicyBuildLog]
+
+
+AutomatedReasoningPolicyBuildWorkflowDocumentDocumentBlob = bytes
+
+
+class AutomatedReasoningPolicyBuildWorkflowDocument(TypedDict, total=False):
+    """Represents a source document used in the policy build workflow,
+    containing the content and metadata needed for policy generation.
+    """
+
+    document: AutomatedReasoningPolicyBuildWorkflowDocumentDocumentBlob
+    documentContentType: AutomatedReasoningPolicyBuildDocumentContentType
+    documentName: AutomatedReasoningPolicyBuildDocumentName
+    documentDescription: Optional[AutomatedReasoningPolicyBuildDocumentDescription]
+
+
+AutomatedReasoningPolicyBuildWorkflowDocumentList = List[
+    AutomatedReasoningPolicyBuildWorkflowDocument
+]
+
+
+class AutomatedReasoningPolicyBuildWorkflowRepairContent(TypedDict, total=False):
+    """Contains content and instructions for repairing or improving an existing
+    Automated Reasoning policy.
+    """
+
+    annotations: AutomatedReasoningPolicyAnnotationList
+
+
+class AutomatedReasoningPolicyWorkflowTypeContent(TypedDict, total=False):
+    """Defines the content and configuration for different types of policy
+    build workflows.
+    """
+
+    documents: Optional[AutomatedReasoningPolicyBuildWorkflowDocumentList]
+    policyRepairAssets: Optional[AutomatedReasoningPolicyBuildWorkflowRepairContent]
+
+
+class AutomatedReasoningPolicyBuildWorkflowSource(TypedDict, total=False):
+    """Defines the source content for a policy build workflow, which can
+    include documents, repair instructions, or other input materials.
+    """
+
+    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
+    workflowContent: Optional[AutomatedReasoningPolicyWorkflowTypeContent]
+
+
+Timestamp = datetime
+
+
+class AutomatedReasoningPolicyBuildWorkflowSummary(TypedDict, total=False):
+    """Provides a summary of a policy build workflow, including its current
+    status, timing information, and key identifiers.
+    """
+
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    status: AutomatedReasoningPolicyBuildWorkflowStatus
+    buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowType
+    createdAt: Timestamp
+    updatedAt: Timestamp
+
+
+AutomatedReasoningPolicyBuildWorkflowSummaries = List[AutomatedReasoningPolicyBuildWorkflowSummary]
+
+
+class AutomatedReasoningPolicyScenario(TypedDict, total=False):
+    """Represents a test scenario used to validate an Automated Reasoning
+    policy, including the test conditions and expected outcomes.
+    """
+
+    expression: AutomatedReasoningPolicyScenarioExpression
+    alternateExpression: AutomatedReasoningPolicyScenarioAlternateExpression
+    ruleIds: AutomatedReasoningPolicyDefinitionRuleIdList
+    expectedResult: AutomatedReasoningCheckResult
+
+
+class AutomatedReasoningPolicySummary(TypedDict, total=False):
+    """Contains summary information about an Automated Reasoning policy,
+    including metadata and timestamps.
+    """
+
+    policyArn: AutomatedReasoningPolicyArn
+    name: AutomatedReasoningPolicyName
+    description: Optional[AutomatedReasoningPolicyDescription]
+    version: AutomatedReasoningPolicyVersion
+    policyId: AutomatedReasoningPolicyId
+    createdAt: Timestamp
+    updatedAt: Timestamp
+
+
+AutomatedReasoningPolicySummaries = List[AutomatedReasoningPolicySummary]
+
+
+class AutomatedReasoningPolicyTestCase(TypedDict, total=False):
+    """Represents a test for validating an Automated Reasoning policy. tests
+    contain sample inputs and expected outcomes to verify policy behavior.
+    """
+
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+    guardContent: AutomatedReasoningPolicyTestGuardContent
+    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
+    expectedAggregatedFindingsResult: Optional[AutomatedReasoningCheckResult]
+    createdAt: Timestamp
+    updatedAt: Timestamp
+    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
+
+
+AutomatedReasoningPolicyTestCaseIdList = List[AutomatedReasoningPolicyTestCaseId]
+AutomatedReasoningPolicyTestCaseList = List[AutomatedReasoningPolicyTestCase]
+
+
+class AutomatedReasoningPolicyTestResult(TypedDict, total=False):
+    """Contains the results of testing an Automated Reasoning policy against
+    various scenarios and validation checks.
+    """
+
+    testCase: AutomatedReasoningPolicyTestCase
+    policyArn: AutomatedReasoningPolicyArn
+    testRunStatus: AutomatedReasoningPolicyTestRunStatus
+    testFindings: Optional[AutomatedReasoningCheckFindingList]
+    testRunResult: Optional[AutomatedReasoningPolicyTestRunResult]
+    aggregatedTestFindingsResult: Optional[AutomatedReasoningCheckResult]
+    updatedAt: Timestamp
+
+
+AutomatedReasoningPolicyTestList = List[AutomatedReasoningPolicyTestResult]
+
+
 class BatchDeleteEvaluationJobError(TypedDict, total=False):
     """A JSON array that provides the status of the evaluation jobs being
     deleted.
@@ -802,6 +1655,15 @@ class ByteContentDoc(TypedDict, total=False):
     data: ByteContentBlob
 
 
+class CancelAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+
+
+class CancelAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False):
+    pass
+
+
 class S3Config(TypedDict, total=False):
     """S3 configuration for storing log data."""
 
@@ -825,6 +1687,54 @@ class Tag(TypedDict, total=False):
 
 
 TagList = List[Tag]
+
+
+class CreateAutomatedReasoningPolicyRequest(ServiceRequest):
+    name: AutomatedReasoningPolicyName
+    description: Optional[AutomatedReasoningPolicyDescription]
+    clientRequestToken: Optional[IdempotencyToken]
+    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
+    tags: Optional[TagList]
+
+
+class CreateAutomatedReasoningPolicyResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    version: AutomatedReasoningPolicyVersion
+    name: AutomatedReasoningPolicyName
+    description: Optional[AutomatedReasoningPolicyDescription]
+    definitionHash: Optional[AutomatedReasoningPolicyHash]
+    createdAt: Timestamp
+    updatedAt: Timestamp
+
+
+class CreateAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    guardContent: AutomatedReasoningPolicyTestGuardContent
+    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
+    expectedAggregatedFindingsResult: AutomatedReasoningCheckResult
+    clientRequestToken: Optional[IdempotencyToken]
+    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
+
+
+class CreateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+
+
+class CreateAutomatedReasoningPolicyVersionRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    clientRequestToken: Optional[IdempotencyToken]
+    lastUpdatedDefinitionHash: AutomatedReasoningPolicyHash
+    tags: Optional[TagList]
+
+
+class CreateAutomatedReasoningPolicyVersionResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    version: AutomatedReasoningPolicyVersion
+    name: AutomatedReasoningPolicyName
+    description: Optional[AutomatedReasoningPolicyDescription]
+    definitionHash: AutomatedReasoningPolicyHash
+    createdAt: Timestamp
 
 
 class CreateCustomModelDeploymentRequest(ServiceRequest):
@@ -974,13 +1884,8 @@ class ExternalSourcesRetrieveAndGenerateConfiguration(TypedDict, total=False):
     generationConfiguration: Optional[ExternalSourcesGenerationConfiguration]
 
 
-QueryTransformationConfiguration = TypedDict(
-    "QueryTransformationConfiguration",
-    {
-        "type": QueryTransformationType,
-    },
-    total=False,
-)
+class QueryTransformationConfiguration(TypedDict, total=False):
+    type: QueryTransformationType
 
 
 class OrchestrationConfiguration(TypedDict, total=False):
@@ -1058,23 +1963,17 @@ class VectorSearchBedrockRerankingConfiguration(TypedDict, total=False):
     metadataConfiguration: Optional[MetadataConfigurationForReranking]
 
 
-VectorSearchRerankingConfiguration = TypedDict(
-    "VectorSearchRerankingConfiguration",
-    {
-        "type": VectorSearchRerankingConfigurationType,
-        "bedrockRerankingConfiguration": Optional[VectorSearchBedrockRerankingConfiguration],
-    },
-    total=False,
-)
-MetadataAttributeSchema = TypedDict(
-    "MetadataAttributeSchema",
-    {
-        "key": MetadataAttributeSchemaKeyString,
-        "type": AttributeType,
-        "description": MetadataAttributeSchemaDescriptionString,
-    },
-    total=False,
-)
+class VectorSearchRerankingConfiguration(TypedDict, total=False):
+    type: VectorSearchRerankingConfigurationType
+    bedrockRerankingConfiguration: Optional[VectorSearchBedrockRerankingConfiguration]
+
+
+class MetadataAttributeSchema(TypedDict, total=False):
+    key: MetadataAttributeSchemaKeyString
+    type: AttributeType
+    description: MetadataAttributeSchemaDescriptionString
+
+
 MetadataAttributeSchemaList = List[MetadataAttributeSchema]
 
 
@@ -1157,15 +2056,10 @@ class KnowledgeBaseRetrieveAndGenerateConfiguration(TypedDict, total=False):
     orchestrationConfiguration: Optional[OrchestrationConfiguration]
 
 
-RetrieveAndGenerateConfiguration = TypedDict(
-    "RetrieveAndGenerateConfiguration",
-    {
-        "type": RetrieveAndGenerateType,
-        "knowledgeBaseConfiguration": Optional[KnowledgeBaseRetrieveAndGenerateConfiguration],
-        "externalSourcesConfiguration": Optional[ExternalSourcesRetrieveAndGenerateConfiguration],
-    },
-    total=False,
-)
+class RetrieveAndGenerateConfiguration(TypedDict, total=False):
+    type: RetrieveAndGenerateType
+    knowledgeBaseConfiguration: Optional[KnowledgeBaseRetrieveAndGenerateConfiguration]
+    externalSourcesConfiguration: Optional[ExternalSourcesRetrieveAndGenerateConfiguration]
 
 
 class RetrieveConfig(TypedDict, total=False):
@@ -1353,16 +2247,25 @@ class GuardrailCrossRegionConfig(TypedDict, total=False):
     guardrailProfileIdentifier: GuardrailCrossRegionGuardrailProfileIdentifier
 
 
-GuardrailContextualGroundingFilterConfig = TypedDict(
-    "GuardrailContextualGroundingFilterConfig",
-    {
-        "type": GuardrailContextualGroundingFilterType,
-        "threshold": GuardrailContextualGroundingFilterConfigThresholdDouble,
-        "action": Optional[GuardrailContextualGroundingAction],
-        "enabled": Optional[Boolean],
-    },
-    total=False,
-)
+GuardrailAutomatedReasoningPolicyConfigPoliciesList = List[AutomatedReasoningPolicyArn]
+
+
+class GuardrailAutomatedReasoningPolicyConfig(TypedDict, total=False):
+    """Configuration settings for integrating Automated Reasoning policies with
+    Amazon Bedrock Guardrails.
+    """
+
+    policies: GuardrailAutomatedReasoningPolicyConfigPoliciesList
+    confidenceThreshold: Optional[AutomatedReasoningConfidenceFilterThreshold]
+
+
+class GuardrailContextualGroundingFilterConfig(TypedDict, total=False):
+    type: GuardrailContextualGroundingFilterType
+    threshold: GuardrailContextualGroundingFilterConfigThresholdDouble
+    action: Optional[GuardrailContextualGroundingAction]
+    enabled: Optional[Boolean]
+
+
 GuardrailContextualGroundingFiltersConfig = List[GuardrailContextualGroundingFilterConfig]
 
 
@@ -1388,18 +2291,17 @@ class GuardrailRegexConfig(TypedDict, total=False):
 
 
 GuardrailRegexesConfig = List[GuardrailRegexConfig]
-GuardrailPiiEntityConfig = TypedDict(
-    "GuardrailPiiEntityConfig",
-    {
-        "type": GuardrailPiiEntityType,
-        "action": GuardrailSensitiveInformationAction,
-        "inputAction": Optional[GuardrailSensitiveInformationAction],
-        "outputAction": Optional[GuardrailSensitiveInformationAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+
+
+class GuardrailPiiEntityConfig(TypedDict, total=False):
+    type: GuardrailPiiEntityType
+    action: GuardrailSensitiveInformationAction
+    inputAction: Optional[GuardrailSensitiveInformationAction]
+    outputAction: Optional[GuardrailSensitiveInformationAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailPiiEntitiesConfig = List[GuardrailPiiEntityConfig]
 
 
@@ -1412,17 +2314,14 @@ class GuardrailSensitiveInformationPolicyConfig(TypedDict, total=False):
     regexesConfig: Optional[GuardrailRegexesConfig]
 
 
-GuardrailManagedWordsConfig = TypedDict(
-    "GuardrailManagedWordsConfig",
-    {
-        "type": GuardrailManagedWordsType,
-        "inputAction": Optional[GuardrailWordAction],
-        "outputAction": Optional[GuardrailWordAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailManagedWordsConfig(TypedDict, total=False):
+    type: GuardrailManagedWordsType
+    inputAction: Optional[GuardrailWordAction]
+    outputAction: Optional[GuardrailWordAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailManagedWordListsConfig = List[GuardrailManagedWordsConfig]
 
 
@@ -1456,21 +2355,20 @@ class GuardrailContentFiltersTierConfig(TypedDict, total=False):
 
 
 GuardrailModalities = List[GuardrailModality]
-GuardrailContentFilterConfig = TypedDict(
-    "GuardrailContentFilterConfig",
-    {
-        "type": GuardrailContentFilterType,
-        "inputStrength": GuardrailFilterStrength,
-        "outputStrength": GuardrailFilterStrength,
-        "inputModalities": Optional[GuardrailModalities],
-        "outputModalities": Optional[GuardrailModalities],
-        "inputAction": Optional[GuardrailContentFilterAction],
-        "outputAction": Optional[GuardrailContentFilterAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+
+
+class GuardrailContentFilterConfig(TypedDict, total=False):
+    type: GuardrailContentFilterType
+    inputStrength: GuardrailFilterStrength
+    outputStrength: GuardrailFilterStrength
+    inputModalities: Optional[GuardrailModalities]
+    outputModalities: Optional[GuardrailModalities]
+    inputAction: Optional[GuardrailContentFilterAction]
+    outputAction: Optional[GuardrailContentFilterAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailContentFiltersConfig = List[GuardrailContentFilterConfig]
 
 
@@ -1491,20 +2389,19 @@ class GuardrailTopicsTierConfig(TypedDict, total=False):
 
 
 GuardrailTopicExamples = List[GuardrailTopicExample]
-GuardrailTopicConfig = TypedDict(
-    "GuardrailTopicConfig",
-    {
-        "name": GuardrailTopicName,
-        "definition": GuardrailTopicDefinition,
-        "examples": Optional[GuardrailTopicExamples],
-        "type": GuardrailTopicType,
-        "inputAction": Optional[GuardrailTopicAction],
-        "outputAction": Optional[GuardrailTopicAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+
+
+class GuardrailTopicConfig(TypedDict, total=False):
+    name: GuardrailTopicName
+    definition: GuardrailTopicDefinition
+    examples: Optional[GuardrailTopicExamples]
+    type: GuardrailTopicType
+    inputAction: Optional[GuardrailTopicAction]
+    outputAction: Optional[GuardrailTopicAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailTopicsConfig = List[GuardrailTopicConfig]
 
 
@@ -1525,15 +2422,13 @@ class CreateGuardrailRequest(ServiceRequest):
     wordPolicyConfig: Optional[GuardrailWordPolicyConfig]
     sensitiveInformationPolicyConfig: Optional[GuardrailSensitiveInformationPolicyConfig]
     contextualGroundingPolicyConfig: Optional[GuardrailContextualGroundingPolicyConfig]
+    automatedReasoningPolicyConfig: Optional[GuardrailAutomatedReasoningPolicyConfig]
     crossRegionConfig: Optional[GuardrailCrossRegionConfig]
     blockedInputMessaging: GuardrailBlockedMessaging
     blockedOutputsMessaging: GuardrailBlockedMessaging
     kmsKeyId: Optional[KmsKeyId]
     tags: Optional[TagList]
     clientRequestToken: Optional[IdempotencyToken]
-
-
-Timestamp = datetime
 
 
 class CreateGuardrailResponse(TypedDict, total=False):
@@ -1925,6 +2820,34 @@ class DataProcessingDetails(TypedDict, total=False):
     lastModifiedTime: Optional[Timestamp]
 
 
+class DeleteAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    lastUpdatedAt: Timestamp
+
+
+class DeleteAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False):
+    pass
+
+
+class DeleteAutomatedReasoningPolicyRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+
+
+class DeleteAutomatedReasoningPolicyResponse(TypedDict, total=False):
+    pass
+
+
+class DeleteAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+    lastUpdatedAt: Timestamp
+
+
+class DeleteAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
+    pass
+
+
 class DeleteCustomModelDeploymentRequest(ServiceRequest):
     customModelDeploymentIdentifier: CustomModelDeploymentIdentifier
 
@@ -2089,6 +3012,14 @@ class EvaluationSummary(TypedDict, total=False):
 EvaluationSummaries = List[EvaluationSummary]
 
 
+class ExportAutomatedReasoningPolicyVersionRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+
+
+class ExportAutomatedReasoningPolicyVersionResponse(TypedDict, total=False):
+    policyDefinition: AutomatedReasoningPolicyDefinition
+
+
 class FoundationModelLifecycle(TypedDict, total=False):
     """Details about whether a model version is available or deprecated."""
 
@@ -2131,6 +3062,94 @@ class FoundationModelSummary(TypedDict, total=False):
 
 
 FoundationModelSummaryList = List[FoundationModelSummary]
+
+
+class GetAutomatedReasoningPolicyAnnotationsRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+
+
+class GetAutomatedReasoningPolicyAnnotationsResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    name: AutomatedReasoningPolicyName
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    annotations: AutomatedReasoningPolicyAnnotationList
+    annotationSetHash: AutomatedReasoningPolicyHash
+    updatedAt: Timestamp
+
+
+class GetAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+
+
+class GetAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    status: AutomatedReasoningPolicyBuildWorkflowStatus
+    buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowType
+    documentName: Optional[AutomatedReasoningPolicyBuildDocumentName]
+    documentContentType: Optional[AutomatedReasoningPolicyBuildDocumentContentType]
+    documentDescription: Optional[AutomatedReasoningPolicyBuildDocumentDescription]
+    createdAt: Timestamp
+    updatedAt: Timestamp
+
+
+class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    assetType: AutomatedReasoningPolicyBuildResultAssetType
+
+
+class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    buildWorkflowAssets: Optional[AutomatedReasoningPolicyBuildResultAssets]
+
+
+class GetAutomatedReasoningPolicyNextScenarioRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+
+
+class GetAutomatedReasoningPolicyNextScenarioResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    scenario: Optional[AutomatedReasoningPolicyScenario]
+
+
+class GetAutomatedReasoningPolicyRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+
+
+class GetAutomatedReasoningPolicyResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    name: AutomatedReasoningPolicyName
+    version: AutomatedReasoningPolicyVersion
+    policyId: AutomatedReasoningPolicyId
+    description: Optional[AutomatedReasoningPolicyDescription]
+    definitionHash: AutomatedReasoningPolicyHash
+    createdAt: Optional[Timestamp]
+    updatedAt: Timestamp
+
+
+class GetAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+
+
+class GetAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    testCase: AutomatedReasoningPolicyTestCase
+
+
+class GetAutomatedReasoningPolicyTestResultRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+
+
+class GetAutomatedReasoningPolicyTestResultResponse(TypedDict, total=False):
+    testResult: AutomatedReasoningPolicyTestResult
 
 
 class GetCustomModelDeploymentRequest(ServiceRequest):
@@ -2249,16 +3268,26 @@ class GuardrailCrossRegionDetails(TypedDict, total=False):
     guardrailProfileArn: Optional[GuardrailCrossRegionGuardrailProfileArn]
 
 
-GuardrailContextualGroundingFilter = TypedDict(
-    "GuardrailContextualGroundingFilter",
-    {
-        "type": GuardrailContextualGroundingFilterType,
-        "threshold": GuardrailContextualGroundingFilterThresholdDouble,
-        "action": Optional[GuardrailContextualGroundingAction],
-        "enabled": Optional[Boolean],
-    },
-    total=False,
-)
+GuardrailAutomatedReasoningPolicyPoliciesList = List[AutomatedReasoningPolicyArn]
+
+
+class GuardrailAutomatedReasoningPolicy(TypedDict, total=False):
+    """Represents the configuration of Automated Reasoning policies within a
+    Amazon Bedrock Guardrail, including the policies to apply and confidence
+    thresholds.
+    """
+
+    policies: GuardrailAutomatedReasoningPolicyPoliciesList
+    confidenceThreshold: Optional[AutomatedReasoningConfidenceFilterThreshold]
+
+
+class GuardrailContextualGroundingFilter(TypedDict, total=False):
+    type: GuardrailContextualGroundingFilterType
+    threshold: GuardrailContextualGroundingFilterThresholdDouble
+    action: Optional[GuardrailContextualGroundingAction]
+    enabled: Optional[Boolean]
+
+
 GuardrailContextualGroundingFilters = List[GuardrailContextualGroundingFilter]
 
 
@@ -2282,18 +3311,17 @@ class GuardrailRegex(TypedDict, total=False):
 
 
 GuardrailRegexes = List[GuardrailRegex]
-GuardrailPiiEntity = TypedDict(
-    "GuardrailPiiEntity",
-    {
-        "type": GuardrailPiiEntityType,
-        "action": GuardrailSensitiveInformationAction,
-        "inputAction": Optional[GuardrailSensitiveInformationAction],
-        "outputAction": Optional[GuardrailSensitiveInformationAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+
+
+class GuardrailPiiEntity(TypedDict, total=False):
+    type: GuardrailPiiEntityType
+    action: GuardrailSensitiveInformationAction
+    inputAction: Optional[GuardrailSensitiveInformationAction]
+    outputAction: Optional[GuardrailSensitiveInformationAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailPiiEntities = List[GuardrailPiiEntity]
 
 
@@ -2306,17 +3334,14 @@ class GuardrailSensitiveInformationPolicy(TypedDict, total=False):
     regexes: Optional[GuardrailRegexes]
 
 
-GuardrailManagedWords = TypedDict(
-    "GuardrailManagedWords",
-    {
-        "type": GuardrailManagedWordsType,
-        "inputAction": Optional[GuardrailWordAction],
-        "outputAction": Optional[GuardrailWordAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailManagedWords(TypedDict, total=False):
+    type: GuardrailManagedWordsType
+    inputAction: Optional[GuardrailWordAction]
+    outputAction: Optional[GuardrailWordAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailManagedWordLists = List[GuardrailManagedWords]
 
 
@@ -2346,21 +3371,18 @@ class GuardrailContentFiltersTier(TypedDict, total=False):
     tierName: GuardrailContentFiltersTierName
 
 
-GuardrailContentFilter = TypedDict(
-    "GuardrailContentFilter",
-    {
-        "type": GuardrailContentFilterType,
-        "inputStrength": GuardrailFilterStrength,
-        "outputStrength": GuardrailFilterStrength,
-        "inputModalities": Optional[GuardrailModalities],
-        "outputModalities": Optional[GuardrailModalities],
-        "inputAction": Optional[GuardrailContentFilterAction],
-        "outputAction": Optional[GuardrailContentFilterAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailContentFilter(TypedDict, total=False):
+    type: GuardrailContentFilterType
+    inputStrength: GuardrailFilterStrength
+    outputStrength: GuardrailFilterStrength
+    inputModalities: Optional[GuardrailModalities]
+    outputModalities: Optional[GuardrailModalities]
+    inputAction: Optional[GuardrailContentFilterAction]
+    outputAction: Optional[GuardrailContentFilterAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailContentFilters = List[GuardrailContentFilter]
 
 
@@ -2383,20 +3405,17 @@ class GuardrailTopicsTier(TypedDict, total=False):
     tierName: GuardrailTopicsTierName
 
 
-GuardrailTopic = TypedDict(
-    "GuardrailTopic",
-    {
-        "name": GuardrailTopicName,
-        "definition": GuardrailTopicDefinition,
-        "examples": Optional[GuardrailTopicExamples],
-        "type": Optional[GuardrailTopicType],
-        "inputAction": Optional[GuardrailTopicAction],
-        "outputAction": Optional[GuardrailTopicAction],
-        "inputEnabled": Optional[Boolean],
-        "outputEnabled": Optional[Boolean],
-    },
-    total=False,
-)
+class GuardrailTopic(TypedDict, total=False):
+    name: GuardrailTopicName
+    definition: GuardrailTopicDefinition
+    examples: Optional[GuardrailTopicExamples]
+    type: Optional[GuardrailTopicType]
+    inputAction: Optional[GuardrailTopicAction]
+    outputAction: Optional[GuardrailTopicAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
+
+
 GuardrailTopics = List[GuardrailTopic]
 
 
@@ -2426,6 +3445,7 @@ class GetGuardrailResponse(TypedDict, total=False):
     wordPolicy: Optional[GuardrailWordPolicy]
     sensitiveInformationPolicy: Optional[GuardrailSensitiveInformationPolicy]
     contextualGroundingPolicy: Optional[GuardrailContextualGroundingPolicy]
+    automatedReasoningPolicy: Optional[GuardrailAutomatedReasoningPolicy]
     crossRegionDetails: Optional[GuardrailCrossRegionDetails]
     createdAt: Timestamp
     updatedAt: Timestamp
@@ -2464,21 +3484,18 @@ class InferenceProfileModel(TypedDict, total=False):
 
 
 InferenceProfileModels = List[InferenceProfileModel]
-GetInferenceProfileResponse = TypedDict(
-    "GetInferenceProfileResponse",
-    {
-        "inferenceProfileName": InferenceProfileName,
-        "description": Optional[InferenceProfileDescription],
-        "createdAt": Optional[Timestamp],
-        "updatedAt": Optional[Timestamp],
-        "inferenceProfileArn": InferenceProfileArn,
-        "models": InferenceProfileModels,
-        "inferenceProfileId": InferenceProfileId,
-        "status": InferenceProfileStatus,
-        "type": InferenceProfileType,
-    },
-    total=False,
-)
+
+
+class GetInferenceProfileResponse(TypedDict, total=False):
+    inferenceProfileName: InferenceProfileName
+    description: Optional[InferenceProfileDescription]
+    createdAt: Optional[Timestamp]
+    updatedAt: Optional[Timestamp]
+    inferenceProfileArn: InferenceProfileArn
+    models: InferenceProfileModels
+    inferenceProfileId: InferenceProfileId
+    status: InferenceProfileStatus
+    type: InferenceProfileType
 
 
 class GetMarketplaceModelEndpointRequest(ServiceRequest):
@@ -2644,22 +3661,17 @@ class GetPromptRouterRequest(ServiceRequest):
     promptRouterArn: PromptRouterArn
 
 
-GetPromptRouterResponse = TypedDict(
-    "GetPromptRouterResponse",
-    {
-        "promptRouterName": PromptRouterName,
-        "routingCriteria": RoutingCriteria,
-        "description": Optional[PromptRouterDescription],
-        "createdAt": Optional[Timestamp],
-        "updatedAt": Optional[Timestamp],
-        "promptRouterArn": PromptRouterArn,
-        "models": PromptRouterTargetModels,
-        "fallbackModel": PromptRouterTargetModel,
-        "status": PromptRouterStatus,
-        "type": PromptRouterType,
-    },
-    total=False,
-)
+class GetPromptRouterResponse(TypedDict, total=False):
+    promptRouterName: PromptRouterName
+    routingCriteria: RoutingCriteria
+    description: Optional[PromptRouterDescription]
+    createdAt: Optional[Timestamp]
+    updatedAt: Optional[Timestamp]
+    promptRouterArn: PromptRouterArn
+    models: PromptRouterTargetModels
+    fallbackModel: PromptRouterTargetModel
+    status: PromptRouterStatus
+    type: PromptRouterType
 
 
 class GetProvisionedModelThroughputRequest(ServiceRequest):
@@ -2724,21 +3736,20 @@ class ImportedModelSummary(TypedDict, total=False):
 
 
 ImportedModelSummaryList = List[ImportedModelSummary]
-InferenceProfileSummary = TypedDict(
-    "InferenceProfileSummary",
-    {
-        "inferenceProfileName": InferenceProfileName,
-        "description": Optional[InferenceProfileDescription],
-        "createdAt": Optional[Timestamp],
-        "updatedAt": Optional[Timestamp],
-        "inferenceProfileArn": InferenceProfileArn,
-        "models": InferenceProfileModels,
-        "inferenceProfileId": InferenceProfileId,
-        "status": InferenceProfileStatus,
-        "type": InferenceProfileType,
-    },
-    total=False,
-)
+
+
+class InferenceProfileSummary(TypedDict, total=False):
+    inferenceProfileName: InferenceProfileName
+    description: Optional[InferenceProfileDescription]
+    createdAt: Optional[Timestamp]
+    updatedAt: Optional[Timestamp]
+    inferenceProfileArn: InferenceProfileArn
+    models: InferenceProfileModels
+    inferenceProfileId: InferenceProfileId
+    status: InferenceProfileStatus
+    type: InferenceProfileType
+
+
 InferenceProfileSummaries = List[InferenceProfileSummary]
 
 
@@ -2746,6 +3757,51 @@ class LegalTerm(TypedDict, total=False):
     """The legal term of the agreement."""
 
     url: Optional[String]
+
+
+class ListAutomatedReasoningPoliciesRequest(ServiceRequest):
+    policyArn: Optional[AutomatedReasoningPolicyArn]
+    nextToken: Optional[PaginationToken]
+    maxResults: Optional[MaxResults]
+
+
+class ListAutomatedReasoningPoliciesResponse(TypedDict, total=False):
+    automatedReasoningPolicySummaries: AutomatedReasoningPolicySummaries
+    nextToken: Optional[PaginationToken]
+
+
+class ListAutomatedReasoningPolicyBuildWorkflowsRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    nextToken: Optional[PaginationToken]
+    maxResults: Optional[MaxResults]
+
+
+class ListAutomatedReasoningPolicyBuildWorkflowsResponse(TypedDict, total=False):
+    automatedReasoningPolicyBuildWorkflowSummaries: AutomatedReasoningPolicyBuildWorkflowSummaries
+    nextToken: Optional[PaginationToken]
+
+
+class ListAutomatedReasoningPolicyTestCasesRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    nextToken: Optional[PaginationToken]
+    maxResults: Optional[MaxResults]
+
+
+class ListAutomatedReasoningPolicyTestCasesResponse(TypedDict, total=False):
+    testCases: AutomatedReasoningPolicyTestCaseList
+    nextToken: Optional[PaginationToken]
+
+
+class ListAutomatedReasoningPolicyTestResultsRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    nextToken: Optional[PaginationToken]
+    maxResults: Optional[MaxResults]
+
+
+class ListAutomatedReasoningPolicyTestResultsResponse(TypedDict, total=False):
+    testResults: AutomatedReasoningPolicyTestList
+    nextToken: Optional[PaginationToken]
 
 
 class ListCustomModelDeploymentsRequest(ServiceRequest):
@@ -3076,31 +4132,25 @@ class ListModelInvocationJobsResponse(TypedDict, total=False):
     invocationJobSummaries: Optional[ModelInvocationJobSummaries]
 
 
-ListPromptRoutersRequest = TypedDict(
-    "ListPromptRoutersRequest",
-    {
-        "maxResults": Optional[MaxResults],
-        "nextToken": Optional[PaginationToken],
-        "type": Optional[PromptRouterType],
-    },
-    total=False,
-)
-PromptRouterSummary = TypedDict(
-    "PromptRouterSummary",
-    {
-        "promptRouterName": PromptRouterName,
-        "routingCriteria": RoutingCriteria,
-        "description": Optional[PromptRouterDescription],
-        "createdAt": Optional[Timestamp],
-        "updatedAt": Optional[Timestamp],
-        "promptRouterArn": PromptRouterArn,
-        "models": PromptRouterTargetModels,
-        "fallbackModel": PromptRouterTargetModel,
-        "status": PromptRouterStatus,
-        "type": PromptRouterType,
-    },
-    total=False,
-)
+class ListPromptRoutersRequest(TypedDict, total=False):
+    maxResults: Optional[MaxResults]
+    nextToken: Optional[PaginationToken]
+    type: Optional[PromptRouterType]
+
+
+class PromptRouterSummary(TypedDict, total=False):
+    promptRouterName: PromptRouterName
+    routingCriteria: RoutingCriteria
+    description: Optional[PromptRouterDescription]
+    createdAt: Optional[Timestamp]
+    updatedAt: Optional[Timestamp]
+    promptRouterArn: PromptRouterArn
+    models: PromptRouterTargetModels
+    fallbackModel: PromptRouterTargetModel
+    status: PromptRouterStatus
+    type: PromptRouterType
+
+
 PromptRouterSummaries = List[PromptRouterSummary]
 
 
@@ -3185,6 +4235,29 @@ class RegisterMarketplaceModelEndpointResponse(TypedDict, total=False):
     marketplaceModelEndpoint: MarketplaceModelEndpoint
 
 
+class StartAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowType
+    clientRequestToken: Optional[IdempotencyToken]
+    sourceContent: AutomatedReasoningPolicyBuildWorkflowSource
+
+
+class StartAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+
+
+class StartAutomatedReasoningPolicyTestWorkflowRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    testCaseIds: Optional[AutomatedReasoningPolicyTestCaseIdList]
+    clientRequestToken: Optional[IdempotencyToken]
+
+
+class StartAutomatedReasoningPolicyTestWorkflowResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+
+
 class StopEvaluationJobRequest(ServiceRequest):
     jobIdentifier: EvaluationJobIdentifier
 
@@ -3230,6 +4303,51 @@ class UntagResourceResponse(TypedDict, total=False):
     pass
 
 
+class UpdateAutomatedReasoningPolicyAnnotationsRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    annotations: AutomatedReasoningPolicyAnnotationList
+    lastUpdatedAnnotationSetHash: AutomatedReasoningPolicyHash
+
+
+class UpdateAutomatedReasoningPolicyAnnotationsResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
+    annotationSetHash: AutomatedReasoningPolicyHash
+    updatedAt: Timestamp
+
+
+class UpdateAutomatedReasoningPolicyRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    policyDefinition: AutomatedReasoningPolicyDefinition
+    name: Optional[AutomatedReasoningPolicyName]
+    description: Optional[AutomatedReasoningPolicyDescription]
+
+
+class UpdateAutomatedReasoningPolicyResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    name: AutomatedReasoningPolicyName
+    definitionHash: AutomatedReasoningPolicyHash
+    updatedAt: Timestamp
+
+
+class UpdateAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
+    policyArn: AutomatedReasoningPolicyArn
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+    guardContent: AutomatedReasoningPolicyTestGuardContent
+    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
+    lastUpdatedAt: Timestamp
+    expectedAggregatedFindingsResult: AutomatedReasoningCheckResult
+    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
+    kmsKeyArn: Optional[KmsKeyArn]
+    clientRequestToken: Optional[IdempotencyToken]
+
+
+class UpdateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
+    policyArn: AutomatedReasoningPolicyArn
+    testCaseId: AutomatedReasoningPolicyTestCaseId
+
+
 class UpdateGuardrailRequest(ServiceRequest):
     guardrailIdentifier: GuardrailIdentifier
     name: GuardrailName
@@ -3239,6 +4357,7 @@ class UpdateGuardrailRequest(ServiceRequest):
     wordPolicyConfig: Optional[GuardrailWordPolicyConfig]
     sensitiveInformationPolicyConfig: Optional[GuardrailSensitiveInformationPolicyConfig]
     contextualGroundingPolicyConfig: Optional[GuardrailContextualGroundingPolicyConfig]
+    automatedReasoningPolicyConfig: Optional[GuardrailAutomatedReasoningPolicyConfig]
     crossRegionConfig: Optional[GuardrailCrossRegionConfig]
     blockedInputMessaging: GuardrailBlockedMessaging
     blockedOutputsMessaging: GuardrailBlockedMessaging
@@ -3293,6 +4412,140 @@ class BedrockApi:
         :raises ValidationException:
         :raises ConflictException:
         :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("CancelAutomatedReasoningPolicyBuildWorkflow")
+    def cancel_automated_reasoning_policy_build_workflow(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        **kwargs,
+    ) -> CancelAutomatedReasoningPolicyBuildWorkflowResponse:
+        """Cancels a running Automated Reasoning policy build workflow. This stops
+        the policy generation process and prevents further processing of the
+        source documents.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        build workflow you want to cancel.
+        :param build_workflow_id: The unique identifier of the build workflow to cancel.
+        :returns: CancelAutomatedReasoningPolicyBuildWorkflowResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateAutomatedReasoningPolicy")
+    def create_automated_reasoning_policy(
+        self,
+        context: RequestContext,
+        name: AutomatedReasoningPolicyName,
+        description: AutomatedReasoningPolicyDescription | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        policy_definition: AutomatedReasoningPolicyDefinition | None = None,
+        tags: TagList | None = None,
+        **kwargs,
+    ) -> CreateAutomatedReasoningPolicyResponse:
+        """Creates an Automated Reasoning policy for Amazon Bedrock Guardrails.
+        Automated Reasoning policies use mathematical techniques to detect
+        hallucinations, suggest corrections, and highlight unstated assumptions
+        in the responses of your GenAI application.
+
+        To create a policy, you upload a source document that describes the
+        rules that you're encoding. Automated Reasoning extracts important
+        concepts from the source document that will become variables in the
+        policy and infers policy rules.
+
+        :param name: A unique name for the Automated Reasoning policy.
+        :param description: A description of the Automated Reasoning policy.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than once.
+        :param policy_definition: The policy definition that contains the formal logic rules, variables,
+        and custom variable types used to validate foundation model responses in
+        your application.
+        :param tags: A list of tags to associate with the Automated Reasoning policy.
+        :returns: CreateAutomatedReasoningPolicyResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises TooManyTagsException:
+        :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateAutomatedReasoningPolicyTestCase")
+    def create_automated_reasoning_policy_test_case(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        guard_content: AutomatedReasoningPolicyTestGuardContent,
+        expected_aggregated_findings_result: AutomatedReasoningCheckResult,
+        query_content: AutomatedReasoningPolicyTestQueryContent | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        confidence_threshold: AutomatedReasoningCheckTranslationConfidence | None = None,
+        **kwargs,
+    ) -> CreateAutomatedReasoningPolicyTestCaseResponse:
+        """Creates a test for an Automated Reasoning policy. Tests validate that
+        your policy works as expected by providing sample inputs and expected
+        outcomes. Use tests to verify policy behavior before deploying to
+        production.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
+        which to create the test.
+        :param guard_content: The output content that's validated by the Automated Reasoning policy.
+        :param expected_aggregated_findings_result: The expected result of the Automated Reasoning check.
+        :param query_content: The input query or prompt that generated the content.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than one time.
+        :param confidence_threshold: The minimum confidence level for logic validation.
+        :returns: CreateAutomatedReasoningPolicyTestCaseResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateAutomatedReasoningPolicyVersion")
+    def create_automated_reasoning_policy_version(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        last_updated_definition_hash: AutomatedReasoningPolicyHash,
+        client_request_token: IdempotencyToken | None = None,
+        tags: TagList | None = None,
+        **kwargs,
+    ) -> CreateAutomatedReasoningPolicyVersionResponse:
+        """Creates a new version of an existing Automated Reasoning policy. This
+        allows you to iterate on your policy rules while maintaining previous
+        versions for rollback or comparison purposes.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
+        which to create a version.
+        :param last_updated_definition_hash: The hash of the current policy definition used as a concurrency token to
+        ensure the policy hasn't been modified since you last retrieved it.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than one time.
+        :param tags: A list of tags to associate with the policy version.
+        :returns: CreateAutomatedReasoningPolicyVersionResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises TooManyTagsException:
+        :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -3483,6 +4736,7 @@ class BedrockApi:
         sensitive_information_policy_config: GuardrailSensitiveInformationPolicyConfig
         | None = None,
         contextual_grounding_policy_config: GuardrailContextualGroundingPolicyConfig | None = None,
+        automated_reasoning_policy_config: GuardrailAutomatedReasoningPolicyConfig | None = None,
         cross_region_config: GuardrailCrossRegionConfig | None = None,
         kms_key_id: KmsKeyId | None = None,
         tags: TagList | None = None,
@@ -3529,6 +4783,8 @@ class BedrockApi:
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
         :param contextual_grounding_policy_config: The contextual grounding policy configuration used to create a
         guardrail.
+        :param automated_reasoning_policy_config: Optional configuration for integrating Automated Reasoning policies with
+        the new guardrail.
         :param cross_region_config: The system-defined guardrail profile that you're using with your
         guardrail.
         :param kms_key_id: The ARN of the KMS key that you use to encrypt the guardrail.
@@ -3927,6 +5183,79 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteAutomatedReasoningPolicy")
+    def delete_automated_reasoning_policy(
+        self, context: RequestContext, policy_arn: AutomatedReasoningPolicyArn, **kwargs
+    ) -> DeleteAutomatedReasoningPolicyResponse:
+        """Deletes an Automated Reasoning policy or policy version. This operation
+        is idempotent. If you delete a policy more than once, each call
+        succeeds. Deleting a policy removes it permanently and cannot be undone.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
+        delete.
+        :returns: DeleteAutomatedReasoningPolicyResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteAutomatedReasoningPolicyBuildWorkflow")
+    def delete_automated_reasoning_policy_build_workflow(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        last_updated_at: Timestamp,
+        **kwargs,
+    ) -> DeleteAutomatedReasoningPolicyBuildWorkflowResponse:
+        """Deletes an Automated Reasoning policy build workflow and its associated
+        artifacts. This permanently removes the workflow history and any
+        generated assets.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        build workflow you want to delete.
+        :param build_workflow_id: The unique identifier of the build workflow to delete.
+        :param last_updated_at: The timestamp when the build workflow was last updated.
+        :returns: DeleteAutomatedReasoningPolicyBuildWorkflowResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteAutomatedReasoningPolicyTestCase")
+    def delete_automated_reasoning_policy_test_case(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        test_case_id: AutomatedReasoningPolicyTestCaseId,
+        last_updated_at: Timestamp,
+        **kwargs,
+    ) -> DeleteAutomatedReasoningPolicyTestCaseResponse:
+        """Deletes an Automated Reasoning policy test. This operation is
+        idempotent; if you delete a test more than once, each call succeeds.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
+        contains the test.
+        :param test_case_id: The unique identifier of the test to delete.
+        :param last_updated_at: The timestamp when the test was last updated.
+        :returns: DeleteAutomatedReasoningPolicyTestCaseResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ResourceInUseException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteCustomModel")
     def delete_custom_model(
         self, context: RequestContext, model_identifier: ModelIdentifier, **kwargs
@@ -4152,6 +5481,190 @@ class BedrockApi:
         :returns: DeregisterMarketplaceModelEndpointResponse
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ExportAutomatedReasoningPolicyVersion")
+    def export_automated_reasoning_policy_version(
+        self, context: RequestContext, policy_arn: AutomatedReasoningPolicyArn, **kwargs
+    ) -> ExportAutomatedReasoningPolicyVersionResponse:
+        """Exports the policy definition for an Automated Reasoning policy version.
+        Returns the complete policy definition including rules, variables, and
+        custom variable types in a structured format.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
+        export.
+        :returns: ExportAutomatedReasoningPolicyVersionResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicy")
+    def get_automated_reasoning_policy(
+        self, context: RequestContext, policy_arn: AutomatedReasoningPolicyArn, **kwargs
+    ) -> GetAutomatedReasoningPolicyResponse:
+        """Retrieves details about an Automated Reasoning policy or policy version.
+        Returns information including the policy definition, metadata, and
+        timestamps.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
+        retrieve.
+        :returns: GetAutomatedReasoningPolicyResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyAnnotations")
+    def get_automated_reasoning_policy_annotations(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyAnnotationsResponse:
+        """Retrieves the current annotations for an Automated Reasoning policy
+        build workflow. Annotations contain corrections to the rules, variables
+        and types to be applied to the policy.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        annotations you want to retrieve.
+        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want
+        to retrieve.
+        :returns: GetAutomatedReasoningPolicyAnnotationsResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyBuildWorkflow")
+    def get_automated_reasoning_policy_build_workflow(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyBuildWorkflowResponse:
+        """Retrieves detailed information about an Automated Reasoning policy build
+        workflow, including its status, configuration, and metadata.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        build workflow you want to retrieve.
+        :param build_workflow_id: The unique identifier of the build workflow to retrieve.
+        :returns: GetAutomatedReasoningPolicyBuildWorkflowResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyBuildWorkflowResultAssets")
+    def get_automated_reasoning_policy_build_workflow_result_assets(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        asset_type: AutomatedReasoningPolicyBuildResultAssetType,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse:
+        """Retrieves the resulting assets from a completed Automated Reasoning
+        policy build workflow, including build logs, quality reports, and
+        generated policy artifacts.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        build workflow assets you want to retrieve.
+        :param build_workflow_id: The unique identifier of the build workflow whose result assets you want
+        to retrieve.
+        :param asset_type: The type of asset to retrieve (e.
+        :returns: GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyNextScenario")
+    def get_automated_reasoning_policy_next_scenario(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyNextScenarioResponse:
+        """Retrieves the next test scenario for validating an Automated Reasoning
+        policy. This is used during the interactive policy refinement process to
+        test policy behavior.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
+        which you want to get the next test scenario.
+        :param build_workflow_id: The unique identifier of the build workflow associated with the test
+        scenarios.
+        :returns: GetAutomatedReasoningPolicyNextScenarioResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyTestCase")
+    def get_automated_reasoning_policy_test_case(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        test_case_id: AutomatedReasoningPolicyTestCaseId,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyTestCaseResponse:
+        """Retrieves details about a specific Automated Reasoning policy test.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
+        contains the test.
+        :param test_case_id: The unique identifier of the test to retrieve.
+        :returns: GetAutomatedReasoningPolicyTestCaseResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAutomatedReasoningPolicyTestResult")
+    def get_automated_reasoning_policy_test_result(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        test_case_id: AutomatedReasoningPolicyTestCaseId,
+        **kwargs,
+    ) -> GetAutomatedReasoningPolicyTestResultResponse:
+        """Retrieves the test result for a specific Automated Reasoning policy
+        test. Returns detailed validation findings and execution status.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy.
+        :param build_workflow_id: The build workflow identifier.
+        :param test_case_id: The unique identifier of the test for which to retrieve results.
+        :returns: GetAutomatedReasoningPolicyTestResultResponse
+        :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises InternalServerException:
@@ -4475,6 +5988,116 @@ class BedrockApi:
         :raises ResourceNotFoundException:
         :raises ValidationException:
         :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListAutomatedReasoningPolicies")
+    def list_automated_reasoning_policies(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn | None = None,
+        next_token: PaginationToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListAutomatedReasoningPoliciesResponse:
+        """Lists all Automated Reasoning policies in your account, with optional
+        filtering by policy ARN. This helps you manage and discover existing
+        policies.
+
+        :param policy_arn: Optional filter to list only the policy versions with the specified
+        Amazon Resource Name (ARN).
+        :param next_token: The pagination token from a previous request to retrieve the next page
+        of results.
+        :param max_results: The maximum number of policies to return in a single call.
+        :returns: ListAutomatedReasoningPoliciesResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListAutomatedReasoningPolicyBuildWorkflows")
+    def list_automated_reasoning_policy_build_workflows(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        next_token: PaginationToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListAutomatedReasoningPolicyBuildWorkflowsResponse:
+        """Lists all build workflows for an Automated Reasoning policy, showing the
+        history of policy creation and modification attempts.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        build workflows you want to list.
+        :param next_token: A pagination token from a previous request to continue listing build
+        workflows from where the previous request left off.
+        :param max_results: The maximum number of build workflows to return in a single response.
+        :returns: ListAutomatedReasoningPolicyBuildWorkflowsResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListAutomatedReasoningPolicyTestCases")
+    def list_automated_reasoning_policy_test_cases(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        next_token: PaginationToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListAutomatedReasoningPolicyTestCasesResponse:
+        """Lists tests for an Automated Reasoning policy. We recommend using
+        pagination to ensure that the operation returns quickly and
+        successfully.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
+        which to list tests.
+        :param next_token: The pagination token from a previous request to retrieve the next page
+        of results.
+        :param max_results: The maximum number of tests to return in a single call.
+        :returns: ListAutomatedReasoningPolicyTestCasesResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListAutomatedReasoningPolicyTestResults")
+    def list_automated_reasoning_policy_test_results(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        next_token: PaginationToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListAutomatedReasoningPolicyTestResultsResponse:
+        """Lists test results for an Automated Reasoning policy, showing how the
+        policy performed against various test scenarios and validation checks.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        test results you want to list.
+        :param build_workflow_id: The unique identifier of the build workflow whose test results you want
+        to list.
+        :param next_token: A pagination token from a previous request to continue listing test
+        results from where the previous request left off.
+        :param max_results: The maximum number of test results to return in a single response.
+        :returns: ListAutomatedReasoningPolicyTestResultsResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -5095,6 +6718,69 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("StartAutomatedReasoningPolicyBuildWorkflow")
+    def start_automated_reasoning_policy_build_workflow(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_type: AutomatedReasoningPolicyBuildWorkflowType,
+        source_content: AutomatedReasoningPolicyBuildWorkflowSource,
+        client_request_token: IdempotencyToken | None = None,
+        **kwargs,
+    ) -> StartAutomatedReasoningPolicyBuildWorkflowResponse:
+        """Starts a new build workflow for an Automated Reasoning policy. This
+        initiates the process of analyzing source documents and generating
+        policy rules, variables, and types.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
+        which to start the build workflow.
+        :param build_workflow_type: The type of build workflow to start (e.
+        :param source_content: The source content for the build workflow, such as documents to analyze
+        or repair instructions for existing policies.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than once.
+        :returns: StartAutomatedReasoningPolicyBuildWorkflowResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ServiceQuotaExceededException:
+        :raises ResourceInUseException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("StartAutomatedReasoningPolicyTestWorkflow")
+    def start_automated_reasoning_policy_test_workflow(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        test_case_ids: AutomatedReasoningPolicyTestCaseIdList | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        **kwargs,
+    ) -> StartAutomatedReasoningPolicyTestWorkflowResponse:
+        """Initiates a test workflow to validate Automated Reasoning policy tests.
+        The workflow executes the specified tests against the policy and
+        generates validation results.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
+        test.
+        :param build_workflow_id: The build workflow identifier.
+        :param test_case_ids: The list of test identifiers to run.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than one time.
+        :returns: StartAutomatedReasoningPolicyTestWorkflowResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ResourceInUseException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("StopEvaluationJob")
     def stop_evaluation_job(
         self, context: RequestContext, job_identifier: EvaluationJobIdentifier, **kwargs
@@ -5198,6 +6884,108 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateAutomatedReasoningPolicy")
+    def update_automated_reasoning_policy(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        policy_definition: AutomatedReasoningPolicyDefinition,
+        name: AutomatedReasoningPolicyName | None = None,
+        description: AutomatedReasoningPolicyDescription | None = None,
+        **kwargs,
+    ) -> UpdateAutomatedReasoningPolicyResponse:
+        """Updates an existing Automated Reasoning policy with new rules,
+        variables, or configuration. This creates a new version of the policy
+        while preserving the previous version.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
+        update.
+        :param policy_definition: The updated policy definition containing the formal logic rules,
+        variables, and types.
+        :param name: The updated name for the Automated Reasoning policy.
+        :param description: The updated description for the Automated Reasoning policy.
+        :returns: UpdateAutomatedReasoningPolicyResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises TooManyTagsException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateAutomatedReasoningPolicyAnnotations")
+    def update_automated_reasoning_policy_annotations(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
+        annotations: AutomatedReasoningPolicyAnnotationList,
+        last_updated_annotation_set_hash: AutomatedReasoningPolicyHash,
+        **kwargs,
+    ) -> UpdateAutomatedReasoningPolicyAnnotationsResponse:
+        """Updates the annotations for an Automated Reasoning policy build
+        workflow. This allows you to modify extracted rules, variables, and
+        types before finalizing the policy.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
+        annotations you want to update.
+        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want
+        to update.
+        :param annotations: The updated annotations containing modified rules, variables, and types
+        for the policy.
+        :param last_updated_annotation_set_hash: The hash value of the annotation set that you're updating.
+        :returns: UpdateAutomatedReasoningPolicyAnnotationsResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateAutomatedReasoningPolicyTestCase")
+    def update_automated_reasoning_policy_test_case(
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        test_case_id: AutomatedReasoningPolicyTestCaseId,
+        guard_content: AutomatedReasoningPolicyTestGuardContent,
+        last_updated_at: Timestamp,
+        expected_aggregated_findings_result: AutomatedReasoningCheckResult,
+        query_content: AutomatedReasoningPolicyTestQueryContent | None = None,
+        confidence_threshold: AutomatedReasoningCheckTranslationConfidence | None = None,
+        kms_key_arn: KmsKeyArn | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        **kwargs,
+    ) -> UpdateAutomatedReasoningPolicyTestCaseResponse:
+        """Updates an existing Automated Reasoning policy test. You can modify the
+        content, query, expected result, and confidence threshold.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
+        contains the test.
+        :param test_case_id: The unique identifier of the test to update.
+        :param guard_content: The updated content to be validated by the Automated Reasoning policy.
+        :param last_updated_at: The timestamp when the test was last updated.
+        :param expected_aggregated_findings_result: The updated expected result of the Automated Reasoning check.
+        :param query_content: The updated input query or prompt that generated the content.
+        :param confidence_threshold: The updated minimum confidence level for logic validation.
+        :param kms_key_arn: The KMS key ARN for encrypting the test at rest.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than one time.
+        :returns: UpdateAutomatedReasoningPolicyTestCaseResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ResourceInUseException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("UpdateGuardrail")
     def update_guardrail(
         self,
@@ -5213,6 +7001,7 @@ class BedrockApi:
         sensitive_information_policy_config: GuardrailSensitiveInformationPolicyConfig
         | None = None,
         contextual_grounding_policy_config: GuardrailContextualGroundingPolicyConfig | None = None,
+        automated_reasoning_policy_config: GuardrailAutomatedReasoningPolicyConfig | None = None,
         cross_region_config: GuardrailCrossRegionConfig | None = None,
         kms_key_id: KmsKeyId | None = None,
         **kwargs,
@@ -5268,6 +7057,8 @@ class BedrockApi:
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
         :param contextual_grounding_policy_config: The contextual grounding policy configuration used to update a
         guardrail.
+        :param automated_reasoning_policy_config: Updated configuration for Automated Reasoning policies associated with
+        the guardrail.
         :param cross_region_config: The system-defined guardrail profile that you're using with your
         guardrail.
         :param kms_key_id: The ARN of the KMS key with which to encrypt the guardrail.

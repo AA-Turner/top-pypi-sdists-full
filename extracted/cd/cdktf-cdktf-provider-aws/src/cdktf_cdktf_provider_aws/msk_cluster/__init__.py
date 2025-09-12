@@ -1,7 +1,7 @@
 r'''
 # `aws_msk_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_msk_cluster`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster).
+Refer to the Terraform Registry for docs: [`aws_msk_cluster`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MskCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mskCluster.MskCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster aws_msk_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster aws_msk_cluster}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class MskCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster aws_msk_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster aws_msk_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param broker_node_group_info: broker_node_group_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.
-        :param kafka_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.
-        :param number_of_broker_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
-        :param configuration_info: configuration_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
-        :param encryption_info: encryption_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
-        :param enhanced_monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#id MskCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_info: logging_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
-        :param open_monitoring: open_monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#region MskCluster#region}
-        :param storage_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags MskCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
+        :param broker_node_group_info: broker_node_group_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.
+        :param kafka_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.
+        :param number_of_broker_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        :param configuration_info: configuration_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
+        :param encryption_info: encryption_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
+        :param enhanced_monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#id MskCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_info: logging_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
+        :param open_monitoring: open_monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#region MskCluster#region}
+        :param storage_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags MskCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class MskCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MskCluster to import.
-        :param import_from_id: The id of the existing MskCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MskCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MskCluster to import is found.
         '''
         if __debug__:
@@ -171,12 +171,12 @@ class MskCluster(
         storage_info: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoStorageInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.
-        :param az_distribution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.
-        :param connectivity_info: connectivity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
-        :param storage_info: storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
+        :param client_subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.
+        :param az_distribution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.
+        :param connectivity_info: connectivity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
+        :param storage_info: storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
         '''
         value = MskClusterBrokerNodeGroupInfo(
             client_subnets=client_subnets,
@@ -198,9 +198,9 @@ class MskCluster(
         unauthenticated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}
-        :param unauthenticated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}
+        :param unauthenticated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.
         '''
         value = MskClusterClientAuthentication(
             sasl=sasl, tls=tls, unauthenticated=unauthenticated
@@ -216,8 +216,8 @@ class MskCluster(
         revision: jsii.Number,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#arn MskCluster#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#revision MskCluster#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#arn MskCluster#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#revision MskCluster#revision}.
         '''
         value = MskClusterConfigurationInfo(arn=arn, revision=revision)
 
@@ -231,8 +231,8 @@ class MskCluster(
         encryption_in_transit: typing.Optional[typing.Union["MskClusterEncryptionInfoEncryptionInTransit", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param encryption_at_rest_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.
-        :param encryption_in_transit: encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
+        :param encryption_at_rest_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.
+        :param encryption_in_transit: encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
         '''
         value = MskClusterEncryptionInfo(
             encryption_at_rest_kms_key_arn=encryption_at_rest_kms_key_arn,
@@ -248,7 +248,7 @@ class MskCluster(
         broker_logs: typing.Union["MskClusterLoggingInfoBrokerLogs", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param broker_logs: broker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
+        :param broker_logs: broker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
         '''
         value = MskClusterLoggingInfo(broker_logs=broker_logs)
 
@@ -261,7 +261,7 @@ class MskCluster(
         prometheus: typing.Union["MskClusterOpenMonitoringPrometheus", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param prometheus: prometheus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
+        :param prometheus: prometheus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
         '''
         value = MskClusterOpenMonitoring(prometheus=prometheus)
 
@@ -276,9 +276,9 @@ class MskCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#create MskCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delete MskCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#update MskCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#create MskCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delete MskCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#update MskCluster#update}.
         '''
         value = MskClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -678,12 +678,12 @@ class MskClusterBrokerNodeGroupInfo:
         storage_info: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoStorageInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.
-        :param az_distribution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.
-        :param connectivity_info: connectivity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
-        :param storage_info: storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
+        :param client_subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.
+        :param az_distribution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.
+        :param connectivity_info: connectivity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
+        :param storage_info: storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
         '''
         if isinstance(connectivity_info, dict):
             connectivity_info = MskClusterBrokerNodeGroupInfoConnectivityInfo(**connectivity_info)
@@ -711,28 +711,28 @@ class MskClusterBrokerNodeGroupInfo:
 
     @builtins.property
     def client_subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_subnets MskCluster#client_subnets}.'''
         result = self._values.get("client_subnets")
         assert result is not None, "Required property 'client_subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#instance_type MskCluster#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_groups(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#security_groups MskCluster#security_groups}.'''
         result = self._values.get("security_groups")
         assert result is not None, "Required property 'security_groups' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def az_distribution(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#az_distribution MskCluster#az_distribution}.'''
         result = self._values.get("az_distribution")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -742,7 +742,7 @@ class MskClusterBrokerNodeGroupInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfo"]:
         '''connectivity_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#connectivity_info MskCluster#connectivity_info}
         '''
         result = self._values.get("connectivity_info")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfo"], result)
@@ -753,7 +753,7 @@ class MskClusterBrokerNodeGroupInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfo"]:
         '''storage_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_info MskCluster#storage_info}
         '''
         result = self._values.get("storage_info")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfo"], result)
@@ -786,8 +786,8 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfo:
         vpc_connectivity: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
-        :param vpc_connectivity: vpc_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
+        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
+        :param vpc_connectivity: vpc_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
         '''
         if isinstance(public_access, dict):
             public_access = MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess(**public_access)
@@ -809,7 +809,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess"]:
         '''public_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
         '''
         result = self._values.get("public_access")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess"], result)
@@ -820,7 +820,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity"]:
         '''vpc_connectivity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
         '''
         result = self._values.get("vpc_connectivity")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity"], result)
@@ -860,7 +860,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoOutputReference(
     @jsii.member(jsii_name="putPublicAccess")
     def put_public_access(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#type MskCluster#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#type MskCluster#type}.
         '''
         value = MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess(type=type)
 
@@ -873,7 +873,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoOutputReference(
         client_authentication: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
         '''
         value = MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity(
             client_authentication=client_authentication
@@ -943,7 +943,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoOutputReference(
 class MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#type MskCluster#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#type MskCluster#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a269211067497898d83a6703245709acbd57115258ed2f4ecee5257bbc9bfe86)
@@ -954,7 +954,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoPublicAccess:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#type MskCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#type MskCluster#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1041,7 +1041,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity:
         client_authentication: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
         '''
         if isinstance(client_authentication, dict):
             client_authentication = MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication(**client_authentication)
@@ -1058,7 +1058,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication"]:
         '''client_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
         '''
         result = self._values.get("client_authentication")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication"], result)
@@ -1088,8 +1088,8 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
         tls: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
-        :param tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}.
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        :param tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}.
         '''
         if isinstance(sasl, dict):
             sasl = MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenticationSasl(**sasl)
@@ -1109,7 +1109,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenticationSasl"]:
         '''sasl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
         '''
         result = self._values.get("sasl")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenticationSasl"], result)
@@ -1118,7 +1118,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
     def tls(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}.'''
         result = self._values.get("tls")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1162,8 +1162,8 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
         scram: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.
-        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.
+        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.
         '''
         value = MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenticationSasl(
             iam=iam, scram=scram
@@ -1246,8 +1246,8 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
         scram: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.
-        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.
+        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce90c6c581dc90f16e047bcdcf7c1167b6f6d76bf4514127b013cb97b81c51a9)
@@ -1263,7 +1263,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
     def iam(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.'''
         result = self._values.get("iam")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1271,7 +1271,7 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthenti
     def scram(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.'''
         result = self._values.get("scram")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1405,8 +1405,8 @@ class MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityOutputReferenc
         tls: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
-        :param tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}.
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        :param tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}.
         '''
         value = MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivityClientAuthentication(
             sasl=sasl, tls=tls
@@ -1478,8 +1478,8 @@ class MskClusterBrokerNodeGroupInfoOutputReference(
         vpc_connectivity: typing.Optional[typing.Union[MskClusterBrokerNodeGroupInfoConnectivityInfoVpcConnectivity, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
-        :param vpc_connectivity: vpc_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
+        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#public_access MskCluster#public_access}
+        :param vpc_connectivity: vpc_connectivity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#vpc_connectivity MskCluster#vpc_connectivity}
         '''
         value = MskClusterBrokerNodeGroupInfoConnectivityInfo(
             public_access=public_access, vpc_connectivity=vpc_connectivity
@@ -1494,7 +1494,7 @@ class MskClusterBrokerNodeGroupInfoOutputReference(
         ebs_storage_info: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ebs_storage_info: ebs_storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
+        :param ebs_storage_info: ebs_storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
         '''
         value = MskClusterBrokerNodeGroupInfoStorageInfo(
             ebs_storage_info=ebs_storage_info
@@ -1636,7 +1636,7 @@ class MskClusterBrokerNodeGroupInfoStorageInfo:
         ebs_storage_info: typing.Optional[typing.Union["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ebs_storage_info: ebs_storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
+        :param ebs_storage_info: ebs_storage_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
         '''
         if isinstance(ebs_storage_info, dict):
             ebs_storage_info = MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo(**ebs_storage_info)
@@ -1653,7 +1653,7 @@ class MskClusterBrokerNodeGroupInfoStorageInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo"]:
         '''ebs_storage_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#ebs_storage_info MskCluster#ebs_storage_info}
         '''
         result = self._values.get("ebs_storage_info")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo"], result)
@@ -1686,8 +1686,8 @@ class MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo:
         volume_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param provisioned_throughput: provisioned_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.
+        :param provisioned_throughput: provisioned_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.
         '''
         if isinstance(provisioned_throughput, dict):
             provisioned_throughput = MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughput(**provisioned_throughput)
@@ -1707,14 +1707,14 @@ class MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo:
     ) -> typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughput"]:
         '''provisioned_throughput block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
         '''
         result = self._values.get("provisioned_throughput")
         return typing.cast(typing.Optional["MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughput"], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1758,8 +1758,8 @@ class MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoOutputReference(
         volume_throughput: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param volume_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param volume_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.
         '''
         value = MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughput(
             enabled=enabled, volume_throughput=volume_throughput
@@ -1837,8 +1837,8 @@ class MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughpu
         volume_throughput: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param volume_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param volume_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__951d1784a638bcdf5c58d9fbf9184fd4e8aaba5245055648d56b7116e6fd223f)
@@ -1854,13 +1854,13 @@ class MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfoProvisionedThroughpu
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def volume_throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_throughput MskCluster#volume_throughput}.'''
         result = self._values.get("volume_throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1989,8 +1989,8 @@ class MskClusterBrokerNodeGroupInfoStorageInfoOutputReference(
         volume_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param provisioned_throughput: provisioned_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.
+        :param provisioned_throughput: provisioned_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#provisioned_throughput MskCluster#provisioned_throughput}
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#volume_size MskCluster#volume_size}.
         '''
         value = MskClusterBrokerNodeGroupInfoStorageInfoEbsStorageInfo(
             provisioned_throughput=provisioned_throughput, volume_size=volume_size
@@ -2048,9 +2048,9 @@ class MskClusterClientAuthentication:
         unauthenticated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}
-        :param unauthenticated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}
+        :param unauthenticated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.
         '''
         if isinstance(sasl, dict):
             sasl = MskClusterClientAuthenticationSasl(**sasl)
@@ -2073,7 +2073,7 @@ class MskClusterClientAuthentication:
     def sasl(self) -> typing.Optional["MskClusterClientAuthenticationSasl"]:
         '''sasl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#sasl MskCluster#sasl}
         '''
         result = self._values.get("sasl")
         return typing.cast(typing.Optional["MskClusterClientAuthenticationSasl"], result)
@@ -2082,7 +2082,7 @@ class MskClusterClientAuthentication:
     def tls(self) -> typing.Optional["MskClusterClientAuthenticationTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tls MskCluster#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tls MskCluster#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["MskClusterClientAuthenticationTls"], result)
@@ -2091,7 +2091,7 @@ class MskClusterClientAuthentication:
     def unauthenticated(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#unauthenticated MskCluster#unauthenticated}.'''
         result = self._values.get("unauthenticated")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2135,8 +2135,8 @@ class MskClusterClientAuthenticationOutputReference(
         scram: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.
-        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.
+        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.
         '''
         value = MskClusterClientAuthenticationSasl(iam=iam, scram=scram)
 
@@ -2149,7 +2149,7 @@ class MskClusterClientAuthenticationOutputReference(
         certificate_authority_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.
         '''
         value = MskClusterClientAuthenticationTls(
             certificate_authority_arns=certificate_authority_arns
@@ -2242,8 +2242,8 @@ class MskClusterClientAuthenticationSasl:
         scram: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.
-        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.
+        :param scram: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d1acd80a61c5835f810b2e33d84db329b8f993eea3b2650e4d0ef865aa8a91e)
@@ -2259,7 +2259,7 @@ class MskClusterClientAuthenticationSasl:
     def iam(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#iam MskCluster#iam}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#iam MskCluster#iam}.'''
         result = self._values.get("iam")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2267,7 +2267,7 @@ class MskClusterClientAuthenticationSasl:
     def scram(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#scram MskCluster#scram}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#scram MskCluster#scram}.'''
         result = self._values.get("scram")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2383,7 +2383,7 @@ class MskClusterClientAuthenticationTls:
         certificate_authority_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__391ca71a17ba17d3972958d93a263768e325ea5e2c0c47ebb8ce743581e7c874)
@@ -2394,7 +2394,7 @@ class MskClusterClientAuthenticationTls:
 
     @builtins.property
     def certificate_authority_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#certificate_authority_arns MskCluster#certificate_authority_arns}.'''
         result = self._values.get("certificate_authority_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2534,22 +2534,22 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param broker_node_group_info: broker_node_group_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.
-        :param kafka_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.
-        :param number_of_broker_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
-        :param configuration_info: configuration_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
-        :param encryption_info: encryption_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
-        :param enhanced_monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#id MskCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_info: logging_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
-        :param open_monitoring: open_monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#region MskCluster#region}
-        :param storage_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags MskCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
+        :param broker_node_group_info: broker_node_group_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.
+        :param kafka_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.
+        :param number_of_broker_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        :param configuration_info: configuration_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
+        :param encryption_info: encryption_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
+        :param enhanced_monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#id MskCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_info: logging_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
+        :param open_monitoring: open_monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#region MskCluster#region}
+        :param storage_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags MskCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2705,7 +2705,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def broker_node_group_info(self) -> MskClusterBrokerNodeGroupInfo:
         '''broker_node_group_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_node_group_info MskCluster#broker_node_group_info}
         '''
         result = self._values.get("broker_node_group_info")
         assert result is not None, "Required property 'broker_node_group_info' is missing"
@@ -2713,21 +2713,21 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cluster_name MskCluster#cluster_name}.'''
         result = self._values.get("cluster_name")
         assert result is not None, "Required property 'cluster_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kafka_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#kafka_version MskCluster#kafka_version}.'''
         result = self._values.get("kafka_version")
         assert result is not None, "Required property 'kafka_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def number_of_broker_nodes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#number_of_broker_nodes MskCluster#number_of_broker_nodes}.'''
         result = self._values.get("number_of_broker_nodes")
         assert result is not None, "Required property 'number_of_broker_nodes' is missing"
         return typing.cast(jsii.Number, result)
@@ -2736,7 +2736,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_authentication(self) -> typing.Optional[MskClusterClientAuthentication]:
         '''client_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_authentication MskCluster#client_authentication}
         '''
         result = self._values.get("client_authentication")
         return typing.cast(typing.Optional[MskClusterClientAuthentication], result)
@@ -2745,7 +2745,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration_info(self) -> typing.Optional["MskClusterConfigurationInfo"]:
         '''configuration_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#configuration_info MskCluster#configuration_info}
         '''
         result = self._values.get("configuration_info")
         return typing.cast(typing.Optional["MskClusterConfigurationInfo"], result)
@@ -2754,20 +2754,20 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_info(self) -> typing.Optional["MskClusterEncryptionInfo"]:
         '''encryption_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_info MskCluster#encryption_info}
         '''
         result = self._values.get("encryption_info")
         return typing.cast(typing.Optional["MskClusterEncryptionInfo"], result)
 
     @builtins.property
     def enhanced_monitoring(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enhanced_monitoring MskCluster#enhanced_monitoring}.'''
         result = self._values.get("enhanced_monitoring")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#id MskCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#id MskCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2779,7 +2779,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_info(self) -> typing.Optional["MskClusterLoggingInfo"]:
         '''logging_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#logging_info MskCluster#logging_info}
         '''
         result = self._values.get("logging_info")
         return typing.cast(typing.Optional["MskClusterLoggingInfo"], result)
@@ -2788,7 +2788,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def open_monitoring(self) -> typing.Optional["MskClusterOpenMonitoring"]:
         '''open_monitoring block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#open_monitoring MskCluster#open_monitoring}
         '''
         result = self._values.get("open_monitoring")
         return typing.cast(typing.Optional["MskClusterOpenMonitoring"], result)
@@ -2797,26 +2797,26 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#region MskCluster#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#region MskCluster#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#storage_mode MskCluster#storage_mode}.'''
         result = self._values.get("storage_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags MskCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags MskCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#tags_all MskCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2824,7 +2824,7 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MskClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#timeouts MskCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MskClusterTimeouts"], result)
@@ -2849,8 +2849,8 @@ class MskClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class MskClusterConfigurationInfo:
     def __init__(self, *, arn: builtins.str, revision: jsii.Number) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#arn MskCluster#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#revision MskCluster#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#arn MskCluster#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#revision MskCluster#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbc89f5f30b7a0ce14682c90edb1e07b9e56757c5f56b8f656e6682373d13d1c)
@@ -2863,14 +2863,14 @@ class MskClusterConfigurationInfo:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#arn MskCluster#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#arn MskCluster#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revision(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#revision MskCluster#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#revision MskCluster#revision}.'''
         result = self._values.get("revision")
         assert result is not None, "Required property 'revision' is missing"
         return typing.cast(jsii.Number, result)
@@ -2973,8 +2973,8 @@ class MskClusterEncryptionInfo:
         encryption_in_transit: typing.Optional[typing.Union["MskClusterEncryptionInfoEncryptionInTransit", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param encryption_at_rest_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.
-        :param encryption_in_transit: encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
+        :param encryption_at_rest_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.
+        :param encryption_in_transit: encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
         '''
         if isinstance(encryption_in_transit, dict):
             encryption_in_transit = MskClusterEncryptionInfoEncryptionInTransit(**encryption_in_transit)
@@ -2990,7 +2990,7 @@ class MskClusterEncryptionInfo:
 
     @builtins.property
     def encryption_at_rest_kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_at_rest_kms_key_arn MskCluster#encryption_at_rest_kms_key_arn}.'''
         result = self._values.get("encryption_at_rest_kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3000,7 +3000,7 @@ class MskClusterEncryptionInfo:
     ) -> typing.Optional["MskClusterEncryptionInfoEncryptionInTransit"]:
         '''encryption_in_transit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#encryption_in_transit MskCluster#encryption_in_transit}
         '''
         result = self._values.get("encryption_in_transit")
         return typing.cast(typing.Optional["MskClusterEncryptionInfoEncryptionInTransit"], result)
@@ -3030,8 +3030,8 @@ class MskClusterEncryptionInfoEncryptionInTransit:
         in_cluster: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.
-        :param in_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.
+        :param client_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.
+        :param in_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cc3c6ee4fa8cc6cf21e31175562b594d6432904d83d48d4b2cdec8bb1effecf)
@@ -3045,7 +3045,7 @@ class MskClusterEncryptionInfoEncryptionInTransit:
 
     @builtins.property
     def client_broker(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.'''
         result = self._values.get("client_broker")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3053,7 +3053,7 @@ class MskClusterEncryptionInfoEncryptionInTransit:
     def in_cluster(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.'''
         result = self._values.get("in_cluster")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3182,8 +3182,8 @@ class MskClusterEncryptionInfoOutputReference(
         in_cluster: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.
-        :param in_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.
+        :param client_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#client_broker MskCluster#client_broker}.
+        :param in_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#in_cluster MskCluster#in_cluster}.
         '''
         value = MskClusterEncryptionInfoEncryptionInTransit(
             client_broker=client_broker, in_cluster=in_cluster
@@ -3255,7 +3255,7 @@ class MskClusterLoggingInfo:
         broker_logs: typing.Union["MskClusterLoggingInfoBrokerLogs", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param broker_logs: broker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
+        :param broker_logs: broker_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
         '''
         if isinstance(broker_logs, dict):
             broker_logs = MskClusterLoggingInfoBrokerLogs(**broker_logs)
@@ -3270,7 +3270,7 @@ class MskClusterLoggingInfo:
     def broker_logs(self) -> "MskClusterLoggingInfoBrokerLogs":
         '''broker_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#broker_logs MskCluster#broker_logs}
         '''
         result = self._values.get("broker_logs")
         assert result is not None, "Required property 'broker_logs' is missing"
@@ -3306,9 +3306,9 @@ class MskClusterLoggingInfoBrokerLogs:
         s3: typing.Optional[typing.Union["MskClusterLoggingInfoBrokerLogsS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#s3 MskCluster#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#s3 MskCluster#s3}
         '''
         if isinstance(cloudwatch_logs, dict):
             cloudwatch_logs = MskClusterLoggingInfoBrokerLogsCloudwatchLogs(**cloudwatch_logs)
@@ -3335,7 +3335,7 @@ class MskClusterLoggingInfoBrokerLogs:
     ) -> typing.Optional["MskClusterLoggingInfoBrokerLogsCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["MskClusterLoggingInfoBrokerLogsCloudwatchLogs"], result)
@@ -3344,7 +3344,7 @@ class MskClusterLoggingInfoBrokerLogs:
     def firehose(self) -> typing.Optional["MskClusterLoggingInfoBrokerLogsFirehose"]:
         '''firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional["MskClusterLoggingInfoBrokerLogsFirehose"], result)
@@ -3353,7 +3353,7 @@ class MskClusterLoggingInfoBrokerLogs:
     def s3(self) -> typing.Optional["MskClusterLoggingInfoBrokerLogsS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#s3 MskCluster#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#s3 MskCluster#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["MskClusterLoggingInfoBrokerLogsS3"], result)
@@ -3383,8 +3383,8 @@ class MskClusterLoggingInfoBrokerLogsCloudwatchLogs:
         log_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e95e2f44361fe6c2817821cd05349302bcce768f94af7a8d9eabdf82e182b10)
@@ -3398,14 +3398,14 @@ class MskClusterLoggingInfoBrokerLogsCloudwatchLogs:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def log_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.'''
         result = self._values.get("log_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3515,8 +3515,8 @@ class MskClusterLoggingInfoBrokerLogsFirehose:
         delivery_stream: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62b1c88d9525cd59ca22007a251a3e81fac05d8ad0f5f53528254b75b21d2490)
@@ -3530,14 +3530,14 @@ class MskClusterLoggingInfoBrokerLogsFirehose:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def delivery_stream(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.'''
         result = self._values.get("delivery_stream")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3662,8 +3662,8 @@ class MskClusterLoggingInfoBrokerLogsOutputReference(
         log_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#log_group MskCluster#log_group}.
         '''
         value = MskClusterLoggingInfoBrokerLogsCloudwatchLogs(
             enabled=enabled, log_group=log_group
@@ -3679,8 +3679,8 @@ class MskClusterLoggingInfoBrokerLogsOutputReference(
         delivery_stream: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delivery_stream MskCluster#delivery_stream}.
         '''
         value = MskClusterLoggingInfoBrokerLogsFirehose(
             enabled=enabled, delivery_stream=delivery_stream
@@ -3697,9 +3697,9 @@ class MskClusterLoggingInfoBrokerLogsOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.
         '''
         value = MskClusterLoggingInfoBrokerLogsS3(
             enabled=enabled, bucket=bucket, prefix=prefix
@@ -3785,9 +3785,9 @@ class MskClusterLoggingInfoBrokerLogsS3:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2873df440ad646479fbaa562cc847f49df37adfc0f646a62586fd610f3674086)
@@ -3804,20 +3804,20 @@ class MskClusterLoggingInfoBrokerLogsS3:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled MskCluster#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#bucket MskCluster#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prefix MskCluster#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3962,9 +3962,9 @@ class MskClusterLoggingInfoOutputReference(
         s3: typing.Optional[typing.Union[MskClusterLoggingInfoBrokerLogsS3, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#s3 MskCluster#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#cloudwatch_logs MskCluster#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#firehose MskCluster#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#s3 MskCluster#s3}
         '''
         value = MskClusterLoggingInfoBrokerLogs(
             cloudwatch_logs=cloudwatch_logs, firehose=firehose, s3=s3
@@ -4007,7 +4007,7 @@ class MskClusterOpenMonitoring:
         prometheus: typing.Union["MskClusterOpenMonitoringPrometheus", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param prometheus: prometheus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
+        :param prometheus: prometheus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
         '''
         if isinstance(prometheus, dict):
             prometheus = MskClusterOpenMonitoringPrometheus(**prometheus)
@@ -4022,7 +4022,7 @@ class MskClusterOpenMonitoring:
     def prometheus(self) -> "MskClusterOpenMonitoringPrometheus":
         '''prometheus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#prometheus MskCluster#prometheus}
         '''
         result = self._values.get("prometheus")
         assert result is not None, "Required property 'prometheus' is missing"
@@ -4068,8 +4068,8 @@ class MskClusterOpenMonitoringOutputReference(
         node_exporter: typing.Optional[typing.Union["MskClusterOpenMonitoringPrometheusNodeExporter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param jmx_exporter: jmx_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
-        :param node_exporter: node_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
+        :param jmx_exporter: jmx_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
+        :param node_exporter: node_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
         '''
         value = MskClusterOpenMonitoringPrometheus(
             jmx_exporter=jmx_exporter, node_exporter=node_exporter
@@ -4113,8 +4113,8 @@ class MskClusterOpenMonitoringPrometheus:
         node_exporter: typing.Optional[typing.Union["MskClusterOpenMonitoringPrometheusNodeExporter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param jmx_exporter: jmx_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
-        :param node_exporter: node_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
+        :param jmx_exporter: jmx_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
+        :param node_exporter: node_exporter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
         '''
         if isinstance(jmx_exporter, dict):
             jmx_exporter = MskClusterOpenMonitoringPrometheusJmxExporter(**jmx_exporter)
@@ -4136,7 +4136,7 @@ class MskClusterOpenMonitoringPrometheus:
     ) -> typing.Optional["MskClusterOpenMonitoringPrometheusJmxExporter"]:
         '''jmx_exporter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#jmx_exporter MskCluster#jmx_exporter}
         '''
         result = self._values.get("jmx_exporter")
         return typing.cast(typing.Optional["MskClusterOpenMonitoringPrometheusJmxExporter"], result)
@@ -4147,7 +4147,7 @@ class MskClusterOpenMonitoringPrometheus:
     ) -> typing.Optional["MskClusterOpenMonitoringPrometheusNodeExporter"]:
         '''node_exporter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#node_exporter MskCluster#node_exporter}
         '''
         result = self._values.get("node_exporter")
         return typing.cast(typing.Optional["MskClusterOpenMonitoringPrometheusNodeExporter"], result)
@@ -4176,7 +4176,7 @@ class MskClusterOpenMonitoringPrometheusJmxExporter:
         enabled_in_broker: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
+        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23719637092567986fb08f323310758962cd851c776ee42b6d1d470205af6ef5)
@@ -4189,7 +4189,7 @@ class MskClusterOpenMonitoringPrometheusJmxExporter:
     def enabled_in_broker(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.'''
         result = self._values.get("enabled_in_broker")
         assert result is not None, "Required property 'enabled_in_broker' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4280,7 +4280,7 @@ class MskClusterOpenMonitoringPrometheusNodeExporter:
         enabled_in_broker: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
+        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__552ae8c453c022bf9361947534a967ab5a354a8ff93f29fda6601e6946735b2f)
@@ -4293,7 +4293,7 @@ class MskClusterOpenMonitoringPrometheusNodeExporter:
     def enabled_in_broker(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.'''
         result = self._values.get("enabled_in_broker")
         assert result is not None, "Required property 'enabled_in_broker' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4399,7 +4399,7 @@ class MskClusterOpenMonitoringPrometheusOutputReference(
         enabled_in_broker: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
+        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
         '''
         value = MskClusterOpenMonitoringPrometheusJmxExporter(
             enabled_in_broker=enabled_in_broker
@@ -4414,7 +4414,7 @@ class MskClusterOpenMonitoringPrometheusOutputReference(
         enabled_in_broker: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
+        :param enabled_in_broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#enabled_in_broker MskCluster#enabled_in_broker}.
         '''
         value = MskClusterOpenMonitoringPrometheusNodeExporter(
             enabled_in_broker=enabled_in_broker
@@ -4488,9 +4488,9 @@ class MskClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#create MskCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delete MskCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#update MskCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#create MskCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delete MskCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#update MskCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57ca88402d0c0672410faacd89f76ce8bf197c35f221f0235e9c30d563b81ddb)
@@ -4507,19 +4507,19 @@ class MskClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#create MskCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#create MskCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#delete MskCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#delete MskCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/msk_cluster#update MskCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/msk_cluster#update MskCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

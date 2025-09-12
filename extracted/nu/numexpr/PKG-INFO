@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numexpr
-Version: 2.12.0
+Version: 2.12.1
 Summary: Fast numerical expression evaluator for NumPy
 Author-email: "David M. Cooke, Francesc Alted, and others" <blosc@blosc.org>
 Maintainer-email: Blosc Development Team <blosc@blosc.org>
@@ -137,7 +137,7 @@ See `requirements.txt` for the required version of NumPy.
 
 NumExpr is built in the standard Python way::
 
-  python setup.py build install
+  pip install [-e] .
 
 You can test `numexpr` with::
 

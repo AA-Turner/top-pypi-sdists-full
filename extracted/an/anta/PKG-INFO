@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anta
-Version: 1.4.0
+Version: 1.5.0
 Summary: Arista Network Test Automation (ANTA) Framework
 Author-email: Arista Networks ANTA maintainers <anta-dev@arista.com>
 Maintainer-email: Arista Networks ANTA maintainers <anta-dev@arista.com>, Khelil Sator <ksator@arista.com>, Matthieu Tâche <mtache@arista.com>, Thomas Grimonet <tgrimonet@arista.com>, Guillaume Mulocher <gmulocher@arista.com>, Carl Baillargeon <carl.baillargeon@arista.com>
@@ -50,7 +50,7 @@ Requires-Dist: mypy~=1.10; extra == "dev"
 Requires-Dist: pre-commit>=3.3.3; extra == "dev"
 Requires-Dist: pylint-pydantic>=0.2.4; extra == "dev"
 Requires-Dist: pylint>=2.17.5; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.21.1; extra == "dev"
+Requires-Dist: pytest-asyncio>=1.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: pytest-dependency; extra == "dev"
 Requires-Dist: pytest-codspeed>=2.2.0; extra == "dev"
@@ -59,7 +59,7 @@ Requires-Dist: pytest-httpx>=0.30.0; extra == "dev"
 Requires-Dist: pytest-metadata>=3.0.0; extra == "dev"
 Requires-Dist: pytest>=7.4.0; extra == "dev"
 Requires-Dist: respx>=0.22.0; extra == "dev"
-Requires-Dist: ruff<0.12.0,>=0.5.4; extra == "dev"
+Requires-Dist: ruff<0.14.0,>=0.5.4; extra == "dev"
 Requires-Dist: tox<5.0.0,>=4.10.0; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-pyOpenSSL; extra == "dev"

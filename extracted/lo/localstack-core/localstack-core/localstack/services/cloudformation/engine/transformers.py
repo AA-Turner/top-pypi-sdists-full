@@ -3,9 +3,10 @@ import json
 import logging
 import os
 import re
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
@@ -13,6 +14,7 @@ from samtranslator.translator.transform import transform as transform_sam
 
 from localstack.aws.api import CommonServiceException
 from localstack.aws.connect import connect_to
+from localstack.services.cloudformation.engine.parameters import StackParameter
 from localstack.services.cloudformation.engine.policy_loader import create_policy_loader
 from localstack.services.cloudformation.engine.template_deployer import resolve_refs_recursively
 from localstack.services.cloudformation.engine.validations import ValidationError
@@ -27,7 +29,7 @@ SERVERLESS_TRANSFORM = "AWS::Serverless-2016-10-31"
 EXTENSIONS_TRANSFORM = "AWS::LanguageExtensions"
 SECRETSMANAGER_TRANSFORM = "AWS::SecretsManager-2020-07-23"
 
-TransformResult = Union[dict, str]
+TransformResult = dict | str
 
 
 @dataclass
@@ -38,7 +40,7 @@ class ResolveRefsRecursivelyContext:
     resources: dict
     mappings: dict
     conditions: dict
-    parameters: dict
+    parameters: dict[str, StackParameter]
 
     def resolve(self, value: Any) -> Any:
         return resolve_refs_recursively(
@@ -83,7 +85,7 @@ class AwsIncludeTransformer(Transformer):
 
 
 # maps transformer names to implementing classes
-transformers: Dict[str, Type] = {"AWS::Include": AwsIncludeTransformer}
+transformers: dict[str, type] = {"AWS::Include": AwsIncludeTransformer}
 
 
 def apply_intrinsic_transformations(
@@ -256,10 +258,11 @@ def execute_macro(
     formatted_stack_parameters = {}
     for key, value in stack_parameters.items():
         # TODO: we want to support other types of parameters
-        if value.get("ParameterType") == "CommaDelimitedList":
-            formatted_stack_parameters[key] = value.get("ParameterValue").split(",")
+        parameter_value = value.get("ParameterValue")
+        if value.get("ParameterType") == "CommaDelimitedList" and isinstance(parameter_value, str):
+            formatted_stack_parameters[key] = parameter_value.split(",")
         else:
-            formatted_stack_parameters[key] = value.get("ParameterValue")
+            formatted_stack_parameters[key] = parameter_value
 
     transformation_id = f"{account_id}::{macro['Name']}"
     event = {
@@ -449,7 +452,7 @@ def expand_fn_foreach(
 
 def apply_serverless_transformation(
     account_id: str, region_name: str, parsed_template: dict, template_parameters: dict
-) -> Optional[str]:
+) -> str | None:
     """only returns string when parsing SAM template, otherwise None"""
     # TODO: we might also want to override the access key ID to account ID
     region_before = os.environ.get("AWS_DEFAULT_REGION")

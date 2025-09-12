@@ -7,6 +7,7 @@ from __future__ import annotations
 
 ACRONYM_CATEGORIES: set[str] = {
     "aaa",
+    "anta",
     "avt",
     "bfd",
     "bgp",
@@ -37,6 +38,17 @@ MD_REPORT_TOC = """**Table of Contents:**
   - [Test Results](#test-results)"""
 """Table of Contents for the Markdown report."""
 
+MD_REPORT_TOC_WITH_RUN_OVERVIEW = """**Table of Contents:**
+
+- [ANTA Report](#anta-report)
+  - [Run Overview](#run-overview)
+  - [Test Results Summary](#test-results-summary)
+    - [Summary Totals](#summary-totals)
+    - [Summary Totals Device Under Test](#summary-totals-device-under-test)
+    - [Summary Totals Per Category](#summary-totals-per-category)
+  - [Test Results](#test-results)"""
+"""Table of Contents for the Markdown report, including Run Overview."""
+
 KNOWN_EOS_ERRORS = [
     r"BGP inactive",
     r"VRF '.*' is not active",
@@ -44,11 +56,12 @@ KNOWN_EOS_ERRORS = [
     r"IS-IS (.*) is disabled because: .*",
     r"No source interface .*",
     r".*controller\snot\sready.*",
+    r"could not run command",
 ]
 """List of known EOS errors.
 
 !!! failure "Generic EOS Error Handling"
-    When catching these errors, **ANTA will fail the affected test** and reported the error message.
+    When catching these errors, **ANTA will fail the affected test** and report the error message.
 """
 
 EOS_BLACKLIST_CMDS = [
@@ -65,6 +78,12 @@ EOS_BLACKLIST_CMDS = [
 UNSUPPORTED_PLATFORM_ERRORS = [
     "not supported on this hardware platform",
     "Invalid input (at token 2: 'trident')",
+    "Incomplete command (at token 4: 'drops')",
+    "Invalid input (at token 2: 'fap')",
+    "Invalid input (at token 2: 'sand')",
+    "Invalid input (at token 1: 'supervisor-peer:/mnt/flash')",
+    "Incomplete command (at token 1: 'module')",
+    "Incomplete command (at token 1: 'ptp')",
 ]
 """Error messages indicating platform or hardware unsupported commands. Includes both general hardware
 platform errors and specific ASIC family limitations.

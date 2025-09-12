@@ -37,7 +37,8 @@ def test_switch_to_material_theme(live_server, driver, user, config):
         driver.find_element_by_css_selector(".navbar-default")))
     options = user_dropdown_menu.find_element_by_css_selector(
         "ul.dropdown-menu[id='editor_list']")
-    options.find_element_by_xpath(f".//*[normalize-space()='Material']").click()
+    options.find_element_by_xpath(
+        ".//*[normalize-space()='Material']").click()
     WebDriverWait(driver, config.selenium.page_timeout).until(
         EC.visibility_of_element_located((By.CSS_SELECTOR, '.material-header')))
     user_dropdown_menu = driver.find_element_by_css_selector(
@@ -93,14 +94,14 @@ def test_message_after_password_change(live_server, driver, user,
                 'Password changed. Please log in again to continue.')
 
 
-def test_languages(live_server, driver, user):
+def test_languages(live_server, driver, user, config):
     driver.get(live_server.url + '/settings')
     user_settings = driver.find_element_by_id('user_settings_modal')
     language_options = user_settings.find_element_by_id('id_language')
     language_options.click()
     language_options.find_element_by_xpath("//option[@value='de']").click()
     user_settings.find_element_by_xpath('//*[@class="btn btn-primary"]').click()
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert ("Success: Settings saved." in messages or
             "Erfolg:Einstellungen gespeichert." in messages)
     assert "Error" not in messages

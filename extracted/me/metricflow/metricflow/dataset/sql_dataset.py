@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
 from dbt_semantic_interfaces.references import SemanticModelReference
+from dbt_semantic_interfaces.type_enums import DatePart
 from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
 from metricflow_semantics.instances import EntityInstance, InstanceSet, MdoInstance, TimeDimensionInstance
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
@@ -17,8 +18,8 @@ from typing_extensions import override
 from metricflow.dataset.dataset_classes import DataSet
 from metricflow.sql.sql_plan import (
     SqlPlanNode,
-    SqlSelectStatementNode,
 )
+from metricflow.sql.sql_select_node import SqlSelectStatementNode
 
 
 class SqlDataSet(DataSet):
@@ -50,6 +51,16 @@ class SqlDataSet(DataSet):
             )
         return node_to_return
 
+    def with_copied_sql_node(self) -> SqlDataSet:
+        """Return a new instance of the dataset a copy of the SQL node."""
+        sql_select_node = self._sql_select_node
+        if sql_select_node:
+            sql_select_node = sql_select_node.copy()
+        sql_node = self._sql_node
+        if sql_node:
+            sql_node = sql_node.copy()
+        return SqlDataSet(instance_set=self.instance_set, sql_select_node=sql_select_node, sql_node=sql_node)
+
     @property
     def checked_sql_select_node(self) -> SqlSelectStatementNode:
         """If applicable, return a SELECT node that can be used to read data from the given SQL table or SQL query.
@@ -58,11 +69,9 @@ class SqlDataSet(DataSet):
         """
         if self._sql_select_node is None:
             raise RuntimeError(
-                str(
-                    LazyFormat(
-                        f"{self.__class__.__name__} was created with a SQL node that is not a {SqlSelectStatementNode.__name__}",
-                        sql_node=self.sql_node.structure_text(),
-                    )
+                LazyFormat(
+                    f"{self.__class__.__name__} was created with a SQL node that is not a {SqlSelectStatementNode.__name__}",
+                    sql_node=self.sql_node.structure_text(),
                 )
             )
         return self._sql_select_node
@@ -161,7 +170,7 @@ class SqlDataSet(DataSet):
             if instance.spec == spec:
                 return instance
         raise RuntimeError(
-            str(LazyFormat("Did not find instance matching spec in dataset.", spec=spec, instances=instances))
+            LazyFormat("Did not find instance matching spec in dataset.", spec=spec, instances=instances)
         )
 
     def instance_for_column_name(self, column_name: str) -> MdoInstance:
@@ -171,29 +180,32 @@ class SqlDataSet(DataSet):
             if instance.associated_column.column_name == column_name:
                 return instance
         raise RuntimeError(
-            str(
-                LazyFormat(
-                    "Did not find instance matching column name in dataset.",
-                    column_name=column_name,
-                    instances=instances,
-                )
+            LazyFormat(
+                "Did not find instance matching column name in dataset.",
+                column_name=column_name,
+                instances=instances,
             )
         )
 
     def instance_from_time_dimension_grain_and_date_part(
-        self, time_dimension_spec: TimeDimensionSpec
+        self, time_granularity_name: Optional[str] = None, date_part: Optional[DatePart] = None
     ) -> TimeDimensionInstance:
-        """Find instance in dataset that matches the grain and date part of the given time dimension spec."""
+        """Find instance in dataset that matches the given grain and date part."""
         for time_dimension_instance in self.instance_set.time_dimension_instances:
             if (
-                time_dimension_instance.spec.time_granularity == time_dimension_spec.time_granularity
-                and time_dimension_instance.spec.date_part == time_dimension_spec.date_part
+                time_dimension_instance.spec.time_granularity_name == time_granularity_name
+                and time_dimension_instance.spec.date_part == date_part
+                and not time_dimension_instance.spec.window_functions
             ):
                 return time_dimension_instance
 
         raise RuntimeError(
-            f"Did not find a time dimension instance with matching grain and date part for spec: {time_dimension_spec}\n"
-            f"Instances available: {self.instance_set.time_dimension_instances}"
+            LazyFormat(
+                "Did not find a time dimension instance with grain and date part in dataset.",
+                time_granularity_name=time_granularity_name,
+                date_part=date_part,
+                instances_available=self.instance_set.time_dimension_instances,
+            )
         )
 
     def column_association_for_time_dimension(self, time_dimension_spec: TimeDimensionSpec) -> ColumnAssociation:

@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_alert_policy`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_alert_policy`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy).
+Refer to the Terraform Registry for docs: [`data_newrelic_alert_policy`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicAlertPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicAlertPolicy.DataNewrelicAlertPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy newrelic_alert_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy newrelic_alert_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataNewrelicAlertPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy newrelic_alert_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy newrelic_alert_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the alert policy in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
-        :param account_id: The New Relic account ID to operate on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incident_preference: The rollup strategy for the policy, which can be ``PER_POLICY``, ``PER_CONDITION``, or ``PER_CONDITION_AND_TARGET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
+        :param name: The name of the alert policy in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
+        :param account_id: The New Relic account ID to operate on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incident_preference: The rollup strategy for the policy, which can be ``PER_POLICY``, ``PER_CONDITION``, or ``PER_CONDITION_AND_TARGET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataNewrelicAlertPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicAlertPolicy to import.
-        :param import_from_id: The id of the existing DataNewrelicAlertPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicAlertPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicAlertPolicy to import is found.
         '''
         if __debug__:
@@ -268,10 +268,10 @@ class DataNewrelicAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the alert policy in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
-        :param account_id: The New Relic account ID to operate on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incident_preference: The rollup strategy for the policy, which can be ``PER_POLICY``, ``PER_CONDITION``, or ``PER_CONDITION_AND_TARGET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
+        :param name: The name of the alert policy in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
+        :param account_id: The New Relic account ID to operate on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incident_preference: The rollup strategy for the policy, which can be ``PER_POLICY``, ``PER_CONDITION``, or ``PER_CONDITION_AND_TARGET``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -380,7 +380,7 @@ class DataNewrelicAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the alert policy in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#name DataNewrelicAlertPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -390,14 +390,14 @@ class DataNewrelicAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID to operate on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#account_id DataNewrelicAlertPolicy#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#id DataNewrelicAlertPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -409,7 +409,7 @@ class DataNewrelicAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def incident_preference(self) -> typing.Optional[builtins.str]:
         '''The rollup strategy for the policy, which can be ``PER_POLICY``, ``PER_CONDITION``, or ``PER_CONDITION_AND_TARGET``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/alert_policy#incident_preference DataNewrelicAlertPolicy#incident_preference}
         '''
         result = self._values.get("incident_preference")
         return typing.cast(typing.Optional[builtins.str], result)

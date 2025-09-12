@@ -18,6 +18,8 @@ from argparse import (
 from argparse import ArgumentParser as ArgParser
 from typing import IO, TYPE_CHECKING, Any, TextIO
 
+from packaging.version import Version
+
 import flexget
 from flexget.entry import Entry
 from flexget.event import fire_event
@@ -83,8 +85,8 @@ class VersionAction(_VersionAction):
         console(f'{get_current_flexget_version()}')
         # Check for latest version from server
         if latest:
-            if current == latest:
-                console('You are on the latest release.')
+            if Version(current) >= Version(latest):
+                console("You're up to date.")
             else:
                 console(f'Latest release: {latest}')
         else:

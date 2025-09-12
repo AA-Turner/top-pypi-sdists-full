@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from collections.abc import Callable
 from localstack.pro.core.aws.api.codepipeline import ActionTypeId
 from localstack.pro.core.services.codepipeline.actions.approval import ManualApprovalAction
 from localstack.pro.core.services.codepipeline.actions.base import ActionCallable
@@ -17,37 +17,37 @@ LOG=logging.getLogger(__name__)
 CODEPIPELINE_PLUGIN_NAMESPACE='localstack.services.codepipeline.plugins'
 class CodePipelineActionPlugin(Plugin):namespace=CODEPIPELINE_PLUGIN_NAMESPACE
 class Name(CodePipelineActionPlugin):
-	name:str='approval.aws.manual.1'
+	name='approval.aws.manual.1'
 	def load(A,*B,**C):return ManualApprovalAction
 class CodePipelineECRSourceActionPlugin(CodePipelineActionPlugin):
-	name:str='source.aws.ecr.1'
+	name='source.aws.ecr.1'
 	def load(A,*B,**C):return ECRSourceAction
 class CodePipelineS3SourceActionPlugin(CodePipelineActionPlugin):
-	name:str='source.aws.s3.1'
+	name='source.aws.s3.1'
 	def load(A,*B,**C):return S3SourceAction
 class CodePipelineS3DeployActionPlugin(CodePipelineActionPlugin):
-	name:str='deploy.aws.s3.1'
+	name='deploy.aws.s3.1'
 	def load(A,*B,**C):return S3DeployAction
 class CodePipelineCodeStarSourceConnectionActionPlugin(CodePipelineActionPlugin):
-	name:str='source.aws.codestarsourceconnection.1'
+	name='source.aws.codestarsourceconnection.1'
 	def load(A,*B,**C):return CodeStarSourceConnectionAction
 class CodePipelineCodeBuildActionPlugin(CodePipelineActionPlugin):
-	name:str='build.aws.codebuild.1'
+	name='build.aws.codebuild.1'
 	def load(A,*B,**C):return CodeBuildAction
 class CodePipelineCodeBuildTestActionPlugin(CodePipelineActionPlugin):
-	name:str='test.aws.codebuild.1'
+	name='test.aws.codebuild.1'
 	def load(A,*B,**C):return CodeBuildAction
 class CodePipelineEcsDeployActionPlugin(CodePipelineActionPlugin):
-	name:str='deploy.aws.ecs.1'
+	name='deploy.aws.ecs.1'
 	def load(A,*B,**C):return ECSDeployAction
 class CodePipelineCodeDeployBlueGreenPlugin(CodePipelineActionPlugin):
-	name:str='deploy.aws.codedeploytoecs.1'
+	name='deploy.aws.codedeploytoecs.1'
 	def load(A,*B,**C):return CodeDeployBlueGreenAction
 class CodePipelineLambdaInvokeActionPlugin(CodePipelineActionPlugin):
-	name:str='invoke.aws.lambda.1'
+	name='invoke.aws.lambda.1'
 	def load(A,*B,**C):return LambdaInvokeAction
 class CodePipelineCFNDeployPlugin(CodePipelineActionPlugin):
-	name:str='deploy.aws.cloudformation.1'
+	name='deploy.aws.cloudformation.1'
 	def load(A,*B,**C):return CloudformationAction
 class CodePipelineActionsPluginManager(PluginManager[CodePipelineActionPlugin]):
 	def __init__(A):super().__init__(CODEPIPELINE_PLUGIN_NAMESPACE)

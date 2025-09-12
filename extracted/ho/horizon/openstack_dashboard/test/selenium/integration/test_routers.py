@@ -12,8 +12,8 @@
 
 from oslo_utils import uuidutils
 import pytest
-import test_networks
 
+from openstack_dashboard.test.selenium.integration import test_networks
 from openstack_dashboard.test.selenium import widgets
 
 # Imported fixtures
@@ -109,9 +109,9 @@ def test_create_router_demo(login, driver, router_name, openstack_demo,
                                  config.network.external_network)
     router_form.find_element_by_css_selector(
         ".btn-primary[value='Create Router']").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert(f'Success: Router {router_name} was successfully created.'
-           in messages)
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert (f'Success: Router {router_name} was successfully created.'
+            in messages)
     assert openstack_demo.network.find_router(router_name) is not None
 
 
@@ -131,7 +131,7 @@ def test_delete_router_demo(login, driver, router_name, openstack_demo,
     actions_column = rows[0].find_element_by_css_selector("td.actions_column")
     widgets.select_from_dropdown(actions_column, "Delete Router")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Router: {router_name}" in messages
     assert openstack_demo.network.find_router(router_name) is None
 
@@ -164,7 +164,7 @@ def test_router_add_interface_demo(login, driver, router_name, openstack_demo,
     add_interface_form.find_element_by_id(
         "id_ip_address").send_keys(fixed_ip_test)
     add_interface_form.find_element_by_css_selector(".btn-primary").click()
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Interface added {fixed_ip_test}" in messages
 
     is_interface_added_sdk = False
@@ -200,9 +200,9 @@ def test_router_delete_interface_demo(login, driver, router_name,
     assert len(rows) == 1
     rows[0].find_element_by_css_selector("td.actions_column").click()
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Interface: {extracted_port_name}" in messages
-    assert(openstack_demo.network.find_port(
+    assert (openstack_demo.network.find_port(
         new_interface['port_id']) is None)
 
 
@@ -223,21 +223,21 @@ def test_router_set_gateway_demo(login, driver, new_router_demo,
         f"/routers/{new_router_demo.id}"
         f"?fields=id&fields=name&fields="
         f"external_gateway_info").json()['router']
-    assert(router_sdk["external_gateway_info"] is None)
+    assert (router_sdk["external_gateway_info"] is None)
     rows[0].find_element_by_css_selector(".data-table-action").click()
     gateway_form = driver.find_element_by_css_selector(".modal-dialog form")
     widgets.select_from_specific_dropdown_in_form(
         gateway_form, 'id_network_id', config.network.external_network)
     gateway_form.find_element_by_css_selector(".btn-primary").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert f"Success: Gateway interface is added" in messages
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert "Success: Gateway interface is added" in messages
     router_sdk = openstack_demo.network.get(
         f"/routers/{new_router_demo.id}"
         f"?fields=id&fields=name&fields="
         f"external_gateway_info").json()['router']
-    assert(router_sdk["external_gateway_info"]["network_id"] ==
-           openstack_demo.network.find_network(
-               config.network.external_network).id)
+    assert (router_sdk["external_gateway_info"]["network_id"] ==
+            openstack_demo.network.find_network(
+        config.network.external_network).id)
 
 
 def test_router_clear_gateway_demo(login, driver, new_router_with_gateway,
@@ -257,19 +257,19 @@ def test_router_clear_gateway_demo(login, driver, new_router_with_gateway,
         f"/routers/{new_router_with_gateway.id}"
         f"?fields=id&fields=name&fields="
         f"external_gateway_info").json()['router']
-    assert(router_sdk["external_gateway_info"]["network_id"] ==
-           openstack_demo.network.find_network(
-               config.network.external_network).id)
+    assert (router_sdk["external_gateway_info"]["network_id"] ==
+            openstack_demo.network.find_network(
+        config.network.external_network).id)
     rows[0].find_element_by_css_selector(".data-table-action").click()
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert(f"Success: Cleared Gateway: {new_router_with_gateway.name}" in
-           messages)
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert (f"Success: Cleared Gateway: {new_router_with_gateway.name}" in
+            messages)
     router_sdk = openstack_demo.network.get(
         f"/routers/{new_router_with_gateway.id}"
         f"?fields=id&fields=name&fields="
         f"external_gateway_info").json()['router']
-    assert(router_sdk["external_gateway_info"] is None)
+    assert (router_sdk["external_gateway_info"] is None)
 
 
 def test_create_router_admin(login, driver, router_name, openstack_admin,
@@ -290,9 +290,9 @@ def test_create_router_admin(login, driver, router_name, openstack_admin,
         router_form, "id_external_network", config.network.external_network)
     router_form.find_element_by_css_selector(
         ".btn-primary[value='Create Router']").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert(f'Success: Router {router_name} was successfully created.'
-           in messages)
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert (f'Success: Router {router_name} was successfully created.'
+            in messages)
     assert openstack_admin.network.find_router(router_name) is not None
 
 
@@ -312,6 +312,6 @@ def test_delete_router_admin(login, driver, router_name, openstack_admin,
     actions_column = rows[0].find_element_by_css_selector("td.actions_column")
     widgets.select_from_dropdown(actions_column, "Delete Router")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Router: {router_name}" in messages
     assert openstack_admin.network.find_router(router_name) is None

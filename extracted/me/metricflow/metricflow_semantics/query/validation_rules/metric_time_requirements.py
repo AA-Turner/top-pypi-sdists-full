@@ -30,7 +30,7 @@ from metricflow_semantics.query.resolver_inputs.query_resolver_inputs import Res
 from metricflow_semantics.query.validation_rules.base_validation_rule import PostResolutionQueryValidationRule
 
 if typing.TYPE_CHECKING:
-    from metricflow_semantics.query.query_resolver import ResolveGroupByItemsResult
+    from metricflow_semantics.query.query_resolver import ResolveGroupByItemsResult, ResolveMetricsResult
 
 
 class MetricTimeQueryValidationRule(PostResolutionQueryValidationRule):
@@ -47,23 +47,18 @@ class MetricTimeQueryValidationRule(PostResolutionQueryValidationRule):
         manifest_lookup: SemanticManifestLookup,
         resolver_input_for_query: ResolverInputForQuery,
         resolve_group_by_item_result: ResolveGroupByItemsResult,
+        resolve_metric_result: ResolveMetricsResult,
     ) -> None:
         super().__init__(
             manifest_lookup=manifest_lookup,
             resolver_input_for_query=resolver_input_for_query,
             resolve_group_by_item_result=resolve_group_by_item_result,
+            resolve_metric_result=resolve_metric_result,
         )
 
-        self._query_includes_metric_time = (
-            self._resolve_group_by_item_result.linkable_element_set.filter(
-                LinkableElementFilter(with_any_of=frozenset({LinkableElementProperty.METRIC_TIME}))
-            ).spec_count
-            > 0
-        )
-
-        self._scd_linkable_element_set = self._resolve_group_by_item_result.linkable_element_set.filter(
-            LinkableElementFilter(with_any_of=frozenset({LinkableElementProperty.SCD_HOP}))
-        )
+        self._query_includes_metric_time = not self._resolve_group_by_item_result.linkable_element_set.filter(
+            LinkableElementFilter(with_any_of=frozenset({LinkableElementProperty.METRIC_TIME}))
+        ).is_empty
 
     def _query_includes_agg_time_dimension_of_metric(self, metric_reference: MetricReference) -> bool:
         valid_agg_time_dimensions = self._manifest_lookup.metric_lookup.get_valid_agg_time_dimensions_for_metric(

@@ -29,7 +29,7 @@ from metricflow_semantics.specs.entity_spec import EntitySpec
 from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
 from metricflow_semantics.specs.measure_spec import MeasureSpec
 from metricflow_semantics.specs.non_additive_dimension_spec import NonAdditiveDimensionSpec
-from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
+from metricflow_semantics.specs.time_dimension_spec import DEFAULT_TIME_GRANULARITY, TimeDimensionSpec
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
 
 logger = logging.getLogger(__name__)
@@ -44,11 +44,11 @@ class SemanticModelLookup:
         Args:
             model: the semantic manifest used for loading semantic model definitions
         """
-        self._custom_granularities = custom_granularities
+        self.custom_granularities = custom_granularities
         self._measure_index: Dict[MeasureReference, SemanticModel] = {}
         self._measure_non_additive_dimension_specs: Dict[MeasureReference, NonAdditiveDimensionSpec] = {}
         self._dimension_index: Dict[DimensionReference, List[SemanticModel]] = {}
-        self._entity_index: Dict[EntityReference, List[SemanticModel]] = {}
+        self.entity_index: Dict[EntityReference, List[SemanticModel]] = {}
 
         self._dimension_ref_to_spec: Dict[DimensionReference, DimensionSpec] = {}
         self._entity_ref_to_spec: Dict[EntityReference, EntitySpec] = {}
@@ -68,7 +68,7 @@ class SemanticModelLookup:
     @cached_property
     def custom_granularity_names(self) -> Tuple[str, ...]:
         """Returns all the custom_granularity names."""
-        return tuple(self._custom_granularities.keys())
+        return tuple(self.custom_granularities.keys())
 
     def get_dimension_references(self) -> Sequence[DimensionReference]:
         """Retrieve all dimension references from the collection of semantic models."""
@@ -89,7 +89,7 @@ class SemanticModelLookup:
 
     def get_entity_references(self) -> Sequence[EntityReference]:
         """Retrieve all entity references from the collection of semantic models."""
-        return list(self._entity_index.keys())
+        return list(self.entity_index.keys())
 
     def get_entity_in_semantic_model(self, ref: SemanticModelElementReference) -> Optional[Entity]:
         """Retrieve the entity matching the element -> semantic model mapping, if any."""
@@ -124,6 +124,8 @@ class SemanticModelLookup:
         for measure in semantic_model.measures:
             self._measure_index[measure.reference] = semantic_model
             agg_time_dimension_reference = semantic_model.checked_agg_time_dimension_for_measure(measure.reference)
+            # Ensure agg_time_dimension is lowercased - this transformation was not enforced on earlier manifests
+            agg_time_dimension_reference = TimeDimensionReference(agg_time_dimension_reference.element_name.lower())
 
             matching_dimensions = tuple(
                 dimension
@@ -173,16 +175,20 @@ class SemanticModelLookup:
                     )
                 )
 
-            # TODO: Construct these specs correctly. All of the time dimension specs have the default granularity
-            self._dimension_ref_to_spec[dim.time_dimension_reference or dim.reference] = (
-                TimeDimensionSpec(element_name=dim.name, entity_links=())
-                if dim.type is DimensionType.TIME
-                else DimensionSpec(element_name=dim.name, entity_links=())
-            )
+            if dim.type is DimensionType.TIME:
+                defined_granularity = dim.type_params.time_granularity if dim.type_params else DEFAULT_TIME_GRANULARITY
+                assert dim.time_dimension_reference, f"Time dimension {dim} does not have a time dimension reference"
+                self._dimension_ref_to_spec[dim.time_dimension_reference] = TimeDimensionSpec(
+                    element_name=dim.name,
+                    entity_links=(),
+                    time_granularity=ExpandedTimeGranularity.from_time_granularity(defined_granularity),
+                )
+            else:
+                self._dimension_ref_to_spec[dim.reference] = DimensionSpec(element_name=dim.name, entity_links=())
 
         for entity in semantic_model.entities:
-            semantic_models_for_entity = self._entity_index.get(entity.reference, []) + [semantic_model]
-            self._entity_index[entity.reference] = semantic_models_for_entity
+            semantic_models_for_entity = self.entity_index.get(entity.reference, []) + [semantic_model]
+            self.entity_index[entity.reference] = semantic_models_for_entity
 
             self._entity_ref_to_spec[entity.reference] = EntitySpec(element_name=entity.name, entity_links=())
 
@@ -199,7 +205,7 @@ class SemanticModelLookup:
 
     def get_semantic_models_for_entity(self, entity_reference: EntityReference) -> Set[SemanticModel]:
         """Return all semantic models associated with an entity reference."""
-        return set(self._entity_index.get(entity_reference, []))
+        return set(self.entity_index.get(entity_reference, []))
 
     def get_semantic_models_for_dimension(self, dimension_reference: DimensionReference) -> Set[SemanticModel]:
         """Return all semantic models associated with a dimension reference."""

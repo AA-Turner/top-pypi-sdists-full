@@ -1,6 +1,5 @@
 _A='hadoop'
 import glob,os
-from typing import List
 from xml.etree.ElementTree import Element,SubElement,tostring
 from localstack import config
 from localstack.constants import DEFAULT_AWS_ACCOUNT_ID,MAVEN_REPO_URL

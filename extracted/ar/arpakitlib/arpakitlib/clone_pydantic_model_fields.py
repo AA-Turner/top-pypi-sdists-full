@@ -1,7 +1,10 @@
+# arpakit
 from typing import Any, Type, Iterable
 
 from pydantic import BaseModel, create_model
 from pydantic_core import PydanticUndefined
+
+_ARPAKIT_LIB_MODULE_VERSION = "3.0"
 
 
 def clone_pydantic_model_fields(

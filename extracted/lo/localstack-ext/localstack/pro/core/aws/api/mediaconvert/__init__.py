@@ -1738,6 +1738,7 @@ class HlsEncryptionType(StrEnum):
 
 class HlsIFrameOnlyManifest(StrEnum):
     INCLUDE = "INCLUDE"
+    INCLUDE_AS_TS = "INCLUDE_AS_TS"
     EXCLUDE = "EXCLUDE"
 
 
@@ -2261,6 +2262,11 @@ class MovReference(StrEnum):
     EXTERNAL = "EXTERNAL"
 
 
+class Mp2AudioDescriptionMix(StrEnum):
+    BROADCASTER_MIXED_AD = "BROADCASTER_MIXED_AD"
+    NONE = "NONE"
+
+
 class Mp3RateControlMode(StrEnum):
     CBR = "CBR"
     VBR = "VBR"
@@ -2710,6 +2716,12 @@ class SccDestinationFramerate(StrEnum):
     FRAMERATE_29_97_NON_DROPFRAME = "FRAMERATE_29_97_NON_DROPFRAME"
 
 
+class ShareStatus(StrEnum):
+    NOT_SHARED = "NOT_SHARED"
+    INITIATED = "INITIATED"
+    SHARED = "SHARED"
+
+
 class SimulateReservedQueue(StrEnum):
     DISABLED = "DISABLED"
     ENABLED = "ENABLED"
@@ -2930,6 +2942,11 @@ class VideoOverlayPlayBackMode(StrEnum):
 class VideoOverlayUnit(StrEnum):
     PIXELS = "PIXELS"
     PERCENTAGE = "PERCENTAGE"
+
+
+class VideoSelectorType(StrEnum):
+    AUTO = "AUTO"
+    STREAM = "STREAM"
 
 
 class VideoTimecodeInsertion(StrEnum):
@@ -3349,6 +3366,7 @@ class Mp3Settings(TypedDict, total=False):
 class Mp2Settings(TypedDict, total=False):
     """Required when you set Codec to the value MP2."""
 
+    AudioDescriptionMix: Optional[Mp2AudioDescriptionMix]
     Bitrate: Optional[_integerMin32000Max384000]
     Channels: Optional[_integerMin1Max2]
     SampleRate: Optional[_integerMin32000Max48000]
@@ -5549,6 +5567,8 @@ class VideoSelector(TypedDict, total=False):
     ProgramNumber: Optional[_integerMinNegative2147483648Max2147483647]
     Rotate: Optional[InputRotate]
     SampleRange: Optional[InputSampleRange]
+    SelectorType: Optional[VideoSelectorType]
+    Streams: Optional[_listOf__integerMin1Max2147483647]
 
 
 class VideoOverlayPosition(TypedDict, total=False):
@@ -5945,6 +5965,7 @@ class Job(TypedDict, total=False):
     JobEngineVersionUsed: Optional[_string]
     JobPercentComplete: Optional[_integer]
     JobTemplate: Optional[_string]
+    LastShareDetails: Optional[_string]
     Messages: Optional[JobMessages]
     OutputGroupDetails: Optional[_listOfOutputGroupDetail]
     Priority: Optional[_integerMinNegative50Max50]
@@ -5953,6 +5974,7 @@ class Job(TypedDict, total=False):
     RetryCount: Optional[_integer]
     Role: _string
     Settings: JobSettings
+    ShareStatus: Optional[ShareStatus]
     SimulateReservedQueue: Optional[SimulateReservedQueue]
     Status: Optional[JobStatus]
     StatusUpdateInterval: Optional[StatusUpdateInterval]
@@ -6166,6 +6188,15 @@ class Queue(TypedDict, total=False):
 
 class CreateQueueResponse(TypedDict, total=False):
     Queue: Optional[Queue]
+
+
+class CreateResourceShareRequest(ServiceRequest):
+    JobId: _string
+    SupportCaseId: _string
+
+
+class CreateResourceShareResponse(TypedDict, total=False):
+    pass
 
 
 class DeleteJobTemplateRequest(ServiceRequest):
@@ -6710,6 +6741,25 @@ class MediaconvertApi:
         :param status: Initial state of the queue.
         :param tags: The tags that you want to add to the resource.
         :returns: CreateQueueResponse
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateResourceShare")
+    def create_resource_share(
+        self, context: RequestContext, support_case_id: _string, job_id: _string, **kwargs
+    ) -> CreateResourceShareResponse:
+        """Create a new resource share request for MediaConvert resources with AWS
+        Support.
+
+        :param support_case_id: AWS Support case identifier.
+        :param job_id: Specify MediaConvert Job ID or ARN to share.
+        :returns: CreateResourceShareResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
         :raises ForbiddenException:

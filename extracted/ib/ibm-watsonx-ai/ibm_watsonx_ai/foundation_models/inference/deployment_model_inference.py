@@ -114,6 +114,7 @@ class DeploymentModelInference(BaseModelInference):
         return self._send_deployment_chat_payload(
             deployment_chat_url=infer_chat_url,
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -140,6 +141,7 @@ class DeploymentModelInference(BaseModelInference):
         return self._generate_deployment_chat_stream_with_url(
             deployment_chat_stream_url=infer_chat_url,
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -164,6 +166,7 @@ class DeploymentModelInference(BaseModelInference):
         return await self._asend_deployment_chat_payload(
             deployment_chat_url=infer_chat_url,
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -190,6 +193,7 @@ class DeploymentModelInference(BaseModelInference):
         return self._agenerate_deployment_chat_stream_with_url(
             deployment_chat_stream_url=infer_chat_url,
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -644,6 +648,54 @@ class DeploymentModelInference(BaseModelInference):
                         message_id="fm_required_parameters_not_provided"
                     )
                 )
+
+        return payload
+
+    def _prepare_chat_payload(  # type: ignore[override]
+        self,
+        messages: list[dict],
+        params: dict | TextChatParameters | None = None,
+        context: str | None = None,
+        tools: list[dict] | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: str | None = None,
+    ) -> dict:
+        payload: dict = {"messages": messages}
+
+        if params is not None:
+            parameters = params
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
+        elif self.params is not None:
+            self.params = cast(dict | TextChatParameters, self.params)
+            parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
+
+            if isinstance(parameters, dict):
+                parameters = self._validate_and_overwrite_params(
+                    parameters, TextChatParameters()
+                )
+        else:
+            parameters = None
+
+        if parameters:
+            if self._client.ICP_PLATFORM_SPACES:
+                raise WMLClientError(
+                    "Text chat parameters for Deployment Model Inference are not supported for IBM Cloud Pak® for Data."
+                )
+            payload.update(parameters)
+
+        if context:
+            payload["context"] = context
+        if tools:
+            payload["tools"] = tools
+        if tool_choice:
+            payload["tool_choice"] = tool_choice
+        if tool_choice_option:
+            payload["tool_choice_option"] = tool_choice_option
 
         return payload
 

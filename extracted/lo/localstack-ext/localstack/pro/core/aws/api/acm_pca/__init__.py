@@ -1051,8 +1051,8 @@ class AcmPcaApi:
         neither.
         :param idempotency_token: Custom string that can be used to distinguish between calls to the
         **CreateCertificateAuthority** action.
-        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard used for
-        handling CA keys.
+        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard for
+        handling and protecting CA keys.
         :param tags: Key-value pairs that will be attached to the new private CA.
         :param usage_mode: Specifies whether the CA issues general-purpose certificates that
         typically require a revocation mechanism, or short-lived certificates
@@ -1099,10 +1099,10 @@ class AcmPcaApi:
         :param audit_report_response_format: The format in which to create the report.
         :returns: CreateCertificateAuthorityAuditReportResponse
         :raises ResourceNotFoundException:
-        :raises InvalidArnException:
         :raises InvalidArgsException:
-        :raises RequestFailedException:
+        :raises InvalidArnException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises RequestInProgressException:
         """
         raise NotImplementedError
@@ -1156,8 +1156,8 @@ class AcmPcaApi:
         :raises PermissionAlreadyExistsException:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         """
         raise NotImplementedError
 
@@ -1202,6 +1202,16 @@ class AcmPcaApi:
         CA in the ``DELETED`` state. To restore an eligible CA, call the
         `RestoreCertificateAuthority <https://docs.aws.amazon.com/privateca/latest/APIReference/API_RestoreCertificateAuthority.html>`__
         action.
+
+        A private CA can be deleted if it is in the ``PENDING_CERTIFICATE``,
+        ``CREATING``, ``EXPIRED``, ``DISABLED``, or ``FAILED`` state. To delete
+        a CA in the ``ACTIVE`` state, you must first disable it, or else the
+        delete request results in an exception. If you are deleting a private CA
+        in the ``PENDING_CERTIFICATE`` or ``DISABLED`` state, you can set the
+        length of its restoration period to 7-30 days. The default is 30. During
+        this time, the status is set to ``DELETED`` and the CA can be restored.
+        A private CA deleted in the ``CREATING`` or ``FAILED`` state has no
+        assigned restoration period and cannot be restored.
 
         :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
         `CreateCertificateAuthority <https://docs.
@@ -1261,8 +1271,8 @@ class AcmPcaApi:
         :param source_account: The Amazon Web Services account that calls this action.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         """
         raise NotImplementedError
 
@@ -1313,8 +1323,8 @@ class AcmPcaApi:
         :raises LockoutPreventedException:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises ConcurrentModificationException:
         """
         raise NotImplementedError
@@ -1382,8 +1392,8 @@ class AcmPcaApi:
         `CreateCertificateAuthorityAuditReport <https://docs.
         :returns: DescribeCertificateAuthorityAuditReportResponse
         :raises ResourceNotFoundException:
-        :raises InvalidArnException:
         :raises InvalidArgsException:
+        :raises InvalidArnException:
         """
         raise NotImplementedError
 
@@ -1400,8 +1410,8 @@ class AcmPcaApi:
         `IssueCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>`__
         action. You must specify both the ARN of your private CA and the ARN of
         the issued certificate when calling the **GetCertificate** action. You
-        can retrieve the certificate if it is in the **ISSUED** state. You can
-        call the
+        can retrieve the certificate if it is in the **ISSUED**, **EXPIRED**, or
+        **REVOKED** state. You can call the
         `CreateCertificateAuthorityAuditReport <https://docs.aws.amazon.com/privateca/latest/APIReference/API_CreateCertificateAuthorityAuditReport.html>`__
         action to create a report that contains information about all of the
         certificates issued and revoked by your private CA.
@@ -1412,8 +1422,8 @@ class AcmPcaApi:
         :returns: GetCertificateResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises RequestInProgressException:
         """
         raise NotImplementedError
@@ -1454,8 +1464,8 @@ class AcmPcaApi:
         :returns: GetCertificateAuthorityCsrResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises RequestInProgressException:
         """
         raise NotImplementedError
@@ -1500,8 +1510,8 @@ class AcmPcaApi:
         :returns: GetPolicyResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         """
         raise NotImplementedError
 
@@ -1623,8 +1633,8 @@ class AcmPcaApi:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
         :raises InvalidRequestException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises ConcurrentModificationException:
         :raises RequestInProgressException:
         """
@@ -1673,8 +1683,8 @@ class AcmPcaApi:
         :returns: IssueCertificateResponse
         :raises LimitExceededException:
         :raises ResourceNotFoundException:
-        :raises InvalidArnException:
         :raises InvalidArgsException:
+        :raises InvalidArnException:
         :raises InvalidStateException:
         :raises MalformedCSRException:
         """
@@ -1751,8 +1761,8 @@ class AcmPcaApi:
         :returns: ListPermissionsResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises InvalidNextTokenException:
         """
         raise NotImplementedError
@@ -1784,8 +1794,8 @@ class AcmPcaApi:
         :returns: ListTagsResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         """
         raise NotImplementedError
 
@@ -1836,8 +1846,8 @@ class AcmPcaApi:
         :raises LockoutPreventedException:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises ConcurrentModificationException:
         :raises InvalidPolicyException:
         """
@@ -1921,8 +1931,8 @@ class AcmPcaApi:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
         :raises InvalidRequestException:
-        :raises RequestFailedException:
         :raises InvalidStateException:
+        :raises RequestFailedException:
         :raises ConcurrentModificationException:
         :raises RequestInProgressException:
         """
@@ -2015,8 +2025,8 @@ class AcmPcaApi:
         neither.
         :param status: Status of your private CA.
         :raises ResourceNotFoundException:
-        :raises InvalidArnException:
         :raises InvalidArgsException:
+        :raises InvalidArnException:
         :raises InvalidStateException:
         :raises ConcurrentModificationException:
         :raises InvalidPolicyException:

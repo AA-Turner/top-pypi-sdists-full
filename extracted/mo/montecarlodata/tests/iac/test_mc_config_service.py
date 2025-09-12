@@ -1196,6 +1196,7 @@ montecarlo:
                         "response": {
                             "configTemplateAsDict": json.dumps({"foo": "bar"}),
                             "errors": [],
+                            "warnings": [],
                         },
                     },
                 }
@@ -1239,6 +1240,7 @@ montecarlo:
                         "response": {
                             "configTemplateAsDict": json.dumps({"foo": "bar"}),
                             "errors": [],
+                            "warnings": [],
                         },
                     },
                 }
@@ -1507,6 +1509,7 @@ montecarlo:
                         "response": {
                             "configTemplateAsDict": json.dumps({"foo": "bar"}),
                             "errors": [],
+                            "warnings": [],
                         },
                     },
                 }

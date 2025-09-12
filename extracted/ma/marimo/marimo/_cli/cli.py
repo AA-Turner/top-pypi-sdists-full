@@ -445,6 +445,37 @@ https://github.com/marimo-team/marimo/issues/5219.""",
     hidden=True,
     help="When opening a .py file, enable fallback conversion from pypercent, script, or text.",
 )
+@click.option(
+    "--mcp",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    type=bool,
+    hidden=True,
+    help="Enable MCP server endpoint at /mcp/server for LLM integration.",
+)
+@click.option(
+    "--server-startup-command",
+    default=None,
+    type=str,
+    hidden=True,
+    help="Command to run on server startup.",
+)
+@click.option(
+    "--asset-url",
+    default=None,
+    type=str,
+    hidden=True,
+    help="Custom asset URL for loading static resources. Can include {version} placeholder.",
+)
+@click.option(
+    "--timeout",
+    required=False,
+    default=None,
+    show_default=False,
+    type=float,
+    help="Enable a global timeout to shut down the server after specified number of minutes of no connection",
+)
 @click.argument(
     "name",
     required=False,
@@ -468,6 +499,10 @@ def edit(
     skew_protection: bool,
     remote_url: Optional[str],
     convert: bool,
+    mcp: bool,
+    server_startup_command: Optional[str],
+    asset_url: Optional[str],
+    timeout: Optional[float],
     name: Optional[str],
     args: tuple[str, ...],
 ) -> None:
@@ -595,6 +630,10 @@ def edit(
         redirect_console_to_browser=True,
         ttl_seconds=None,
         remote_url=remote_url,
+        mcp=mcp,
+        server_startup_command=server_startup_command,
+        asset_url=asset_url,
+        timeout=timeout,
     )
 
 
@@ -693,6 +732,14 @@ new_help_msg = "\n".join(
     type=bool,
     help="Enable skew protection middleware to prevent version mismatch issues.",
 )
+@click.option(
+    "--timeout",
+    required=False,
+    default=None,
+    show_default=False,
+    type=float,
+    help="Enable a global timeout to shut down the server after specified number of minutes of no connection",
+)
 @click.argument("prompt", required=False)
 def new(
     port: Optional[int],
@@ -704,6 +751,7 @@ def new(
     base_url: str,
     sandbox: Optional[bool],
     skew_protection: bool,
+    timeout: Optional[float],
     prompt: Optional[str],
 ) -> None:
     if sandbox:
@@ -782,6 +830,7 @@ def new(
         base_url=base_url,
         redirect_console_to_browser=True,
         ttl_seconds=None,
+        timeout=timeout,
     )
 
 
@@ -903,6 +952,20 @@ Example:
     type=bool,
     help=sandbox_message,
 )
+@click.option(
+    "--server-startup-command",
+    default=None,
+    type=str,
+    hidden=True,
+    help="Command to run on server startup.",
+)
+@click.option(
+    "--asset-url",
+    default=None,
+    type=str,
+    hidden=True,
+    help="Custom asset URL for loading static resources. Can include {version} placeholder.",
+)
 @click.argument(
     "name",
     required=True,
@@ -924,6 +987,8 @@ def run(
     allow_origins: tuple[str, ...],
     redirect_console_to_browser: bool,
     sandbox: Optional[bool],
+    server_startup_command: Optional[str],
+    asset_url: Optional[str],
     name: str,
     args: tuple[str, ...],
 ) -> None:
@@ -980,6 +1045,8 @@ def run(
         argv=list(args),
         auth_token=_resolve_token(token, token_password),
         redirect_console_to_browser=redirect_console_to_browser,
+        server_startup_command=server_startup_command,
+        asset_url=asset_url,
     )
 
 

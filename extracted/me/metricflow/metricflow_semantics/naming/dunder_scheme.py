@@ -1,29 +1,29 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 
 from dbt_semantic_interfaces.naming.keywords import DUNDER
-from dbt_semantic_interfaces.references import EntityReference
-from dbt_semantic_interfaces.type_enums import TimeGranularity
 from dbt_semantic_interfaces.type_enums.date_part import DatePart
 from typing_extensions import override
 
+from metricflow_semantics.errors.error_classes import InvalidQuerySyntax
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
-from metricflow_semantics.naming.naming_scheme import QueryItemNamingScheme
+from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
+from metricflow_semantics.naming.naming_scheme import QueryItemLocation, QueryItemNamingScheme
 from metricflow_semantics.specs.instance_spec import InstanceSpec
 from metricflow_semantics.specs.patterns.entity_link_pattern import (
     EntityLinkPattern,
-    ParameterSetField,
     SpecPatternParameterSet,
 )
+from metricflow_semantics.specs.patterns.typed_patterns import TimeDimensionPattern
 from metricflow_semantics.specs.spec_set import InstanceSpecSet, InstanceSpecSetTransform, group_spec_by_type
 
 
 class DunderNamingScheme(QueryItemNamingScheme):
     """A naming scheme using the dundered name syntax.
 
-    TODO: Consolidate with StructuredLinkableSpecName / DunderedNameFormatter.
+    TODO: Consolidate with StructuredLinkableSpecName.
     """
 
     _INPUT_REGEX = re.compile(r"\A[a-z]([a-z0-9_])*[a-z0-9]\Z")
@@ -51,75 +51,44 @@ class DunderNamingScheme(QueryItemNamingScheme):
         return names[0]
 
     @override
-    def spec_pattern(self, input_str: str, semantic_manifest_lookup: SemanticManifestLookup) -> EntityLinkPattern:
-        if not self.input_str_follows_scheme(input_str):
-            raise ValueError(f"{repr(input_str)} does not follow this scheme.")
+    def spec_pattern(
+        self,
+        input_str: str,
+        semantic_manifest_lookup: SemanticManifestLookup,
+        query_item_location: QueryItemLocation = QueryItemLocation.NON_ORDER_BY,
+    ) -> EntityLinkPattern:
+        if not self.input_str_follows_scheme(
+            input_str, semantic_manifest_lookup=semantic_manifest_lookup, query_item_location=query_item_location
+        ):
+            raise InvalidQuerySyntax(f"{repr(input_str)} does not follow this scheme.")
 
         input_str = input_str.lower()
-
-        input_str_parts = input_str.split(DUNDER)
-        fields_to_compare: Tuple[ParameterSetField, ...] = (
-            ParameterSetField.ELEMENT_NAME,
-            ParameterSetField.ENTITY_LINKS,
-            ParameterSetField.DATE_PART,
+        structured_name = StructuredLinkableSpecName.from_name(
+            qualified_name=input_str,
+            custom_granularity_names=tuple(semantic_manifest_lookup.custom_granularities.keys()),
         )
 
-        # No dunder, e.g. "ds"
-        if len(input_str_parts) == 1:
-            return EntityLinkPattern(
-                parameter_set=SpecPatternParameterSet.from_parameters(
-                    element_name=input_str_parts[0],
-                    entity_links=(),
-                    time_granularity_name=None,
-                    date_part=None,
-                    fields_to_compare=tuple(fields_to_compare),
-                )
-            )
-
-        # At this point, len(input_str_parts) >= 2
-        valid_granularity_names = {granularity.value for granularity in TimeGranularity}.union(
-            set(semantic_manifest_lookup.custom_granularities.keys())
+        date_part = None  # Passing DatePart via dunder syntax is not supported.
+        fields_to_compare = TimeDimensionPattern.get_fields_to_compare(
+            time_granularity_name=structured_name.time_granularity_name, date_part=date_part
         )
-        suffix = input_str_parts[-1]
-        time_granularity_name = suffix if suffix in valid_granularity_names else None
-        # Has a time grain specified.
-        if time_granularity_name is not None:
-            fields_to_compare = fields_to_compare + (ParameterSetField.TIME_GRANULARITY,)
-            #  e.g. "ds__month"
-            if len(input_str_parts) == 2:
-                return EntityLinkPattern(
-                    parameter_set=SpecPatternParameterSet.from_parameters(
-                        element_name=input_str_parts[0],
-                        entity_links=(),
-                        time_granularity_name=time_granularity_name,
-                        date_part=None,
-                        fields_to_compare=fields_to_compare,
-                    )
-                )
-            # e.g. "messages__ds__month"
-            return EntityLinkPattern(
-                parameter_set=SpecPatternParameterSet.from_parameters(
-                    element_name=input_str_parts[-2],
-                    entity_links=tuple(EntityReference(entity_name) for entity_name in input_str_parts[:-2]),
-                    time_granularity_name=time_granularity_name,
-                    date_part=None,
-                    fields_to_compare=fields_to_compare,
-                )
-            )
-
-        # e.g. "messages__ds"
         return EntityLinkPattern(
             parameter_set=SpecPatternParameterSet.from_parameters(
-                element_name=suffix,
-                entity_links=tuple(EntityReference(entity_name) for entity_name in input_str_parts[:-1]),
-                time_granularity_name=None,
-                date_part=None,
+                element_name=structured_name.element_name,
+                entity_links=structured_name.entity_links,
+                time_granularity_name=structured_name.time_granularity_name,
+                date_part=date_part,
                 fields_to_compare=fields_to_compare,
             )
         )
 
     @override
-    def input_str_follows_scheme(self, input_str: str) -> bool:
+    def input_str_follows_scheme(
+        self,
+        input_str: str,
+        semantic_manifest_lookup: SemanticManifestLookup,
+        query_item_location: QueryItemLocation = QueryItemLocation.NON_ORDER_BY,
+    ) -> bool:
         # This naming scheme is case-insensitive.
         input_str = input_str.lower()
         if DunderNamingScheme._INPUT_REGEX.match(input_str) is None:
@@ -155,6 +124,10 @@ class _DunderNameTransform(InstanceSpecSetTransform[Sequence[str]]):
             if time_dimension_spec.date_part is not None:
                 items.append(DunderNamingScheme.date_part_suffix(date_part=time_dimension_spec.date_part))
             else:
+                assert time_dimension_spec.time_granularity, (
+                    f"No time granularity or date part set for time dimension spec {time_dimension_spec}. "
+                    "This indicates internal misconfiguration."
+                )
                 items.append(time_dimension_spec.time_granularity.name)
             names_to_return.append(DUNDER.join(items))
 

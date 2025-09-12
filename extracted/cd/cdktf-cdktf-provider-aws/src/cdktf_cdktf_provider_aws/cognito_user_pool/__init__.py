@@ -1,7 +1,7 @@
 r'''
 # `aws_cognito_user_pool`
 
-Refer to the Terraform Registry for docs: [`aws_cognito_user_pool`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool).
+Refer to the Terraform Registry for docs: [`aws_cognito_user_pool`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CognitoUserPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cognitoUserPool.CognitoUserPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool aws_cognito_user_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool aws_cognito_user_pool}.'''
 
     def __init__(
         self,
@@ -90,41 +90,41 @@ class CognitoUserPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool aws_cognito_user_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool aws_cognito_user_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
-        :param account_recovery_setting: account_recovery_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
-        :param admin_create_user_config: admin_create_user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
-        :param alias_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.
-        :param auto_verified_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.
-        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.
-        :param device_configuration: device_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
-        :param email_configuration: email_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
-        :param email_mfa_configuration: email_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
-        :param email_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.
-        :param email_verification_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
-        :param mfa_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.
-        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
-        :param sign_in_policy: sign_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
-        :param sms_authentication_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.
-        :param sms_configuration: sms_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
-        :param sms_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.
-        :param software_token_mfa_configuration: software_token_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.
-        :param user_attribute_update_settings: user_attribute_update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
-        :param username_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.
-        :param username_configuration: username_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
-        :param user_pool_add_ons: user_pool_add_ons block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
-        :param user_pool_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.
-        :param verification_message_template: verification_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
-        :param web_authn_configuration: web_authn_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
+        :param account_recovery_setting: account_recovery_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
+        :param admin_create_user_config: admin_create_user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
+        :param alias_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.
+        :param auto_verified_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.
+        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.
+        :param device_configuration: device_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
+        :param email_configuration: email_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
+        :param email_mfa_configuration: email_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
+        :param email_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.
+        :param email_verification_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
+        :param mfa_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.
+        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
+        :param sign_in_policy: sign_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
+        :param sms_authentication_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.
+        :param sms_configuration: sms_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
+        :param sms_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.
+        :param software_token_mfa_configuration: software_token_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.
+        :param user_attribute_update_settings: user_attribute_update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
+        :param username_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.
+        :param username_configuration: username_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
+        :param user_pool_add_ons: user_pool_add_ons block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
+        :param user_pool_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.
+        :param verification_message_template: verification_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
+        :param web_authn_configuration: web_authn_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -193,7 +193,7 @@ class CognitoUserPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CognitoUserPool to import.
-        :param import_from_id: The id of the existing CognitoUserPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CognitoUserPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CognitoUserPool to import is found.
         '''
         if __debug__:
@@ -211,7 +211,7 @@ class CognitoUserPool(
         recovery_mechanism: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CognitoUserPoolAccountRecoverySettingRecoveryMechanism", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param recovery_mechanism: recovery_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
+        :param recovery_mechanism: recovery_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
         '''
         value = CognitoUserPoolAccountRecoverySetting(
             recovery_mechanism=recovery_mechanism
@@ -227,8 +227,8 @@ class CognitoUserPool(
         invite_message_template: typing.Optional[typing.Union["CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_admin_create_user_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.
-        :param invite_message_template: invite_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
+        :param allow_admin_create_user_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.
+        :param invite_message_template: invite_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
         '''
         value = CognitoUserPoolAdminCreateUserConfig(
             allow_admin_create_user_only=allow_admin_create_user_only,
@@ -245,8 +245,8 @@ class CognitoUserPool(
         device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param challenge_required_on_new_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.
-        :param device_only_remembered_on_user_prompt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.
+        :param challenge_required_on_new_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.
+        :param device_only_remembered_on_user_prompt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.
         '''
         value = CognitoUserPoolDeviceConfiguration(
             challenge_required_on_new_device=challenge_required_on_new_device,
@@ -266,11 +266,11 @@ class CognitoUserPool(
         source_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param configuration_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.
-        :param email_sending_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.
-        :param from_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.
-        :param reply_to_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.
+        :param configuration_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.
+        :param email_sending_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.
+        :param from_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.
+        :param reply_to_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.
         '''
         value = CognitoUserPoolEmailConfiguration(
             configuration_set=configuration_set,
@@ -290,8 +290,8 @@ class CognitoUserPool(
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.
         '''
         value = CognitoUserPoolEmailMfaConfiguration(message=message, subject=subject)
 
@@ -317,20 +317,20 @@ class CognitoUserPool(
         verify_auth_challenge_response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.
-        :param custom_email_sender: custom_email_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
-        :param custom_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.
-        :param custom_sms_sender: custom_sms_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
-        :param define_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.
-        :param post_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.
-        :param post_confirmation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.
-        :param pre_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.
-        :param pre_sign_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.
-        :param pre_token_generation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.
-        :param pre_token_generation_config: pre_token_generation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
-        :param user_migration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.
-        :param verify_auth_challenge_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.
+        :param create_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.
+        :param custom_email_sender: custom_email_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
+        :param custom_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.
+        :param custom_sms_sender: custom_sms_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
+        :param define_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.
+        :param post_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.
+        :param post_confirmation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.
+        :param pre_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.
+        :param pre_sign_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.
+        :param pre_token_generation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.
+        :param pre_token_generation_config: pre_token_generation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
+        :param user_migration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.
+        :param verify_auth_challenge_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.
         '''
         value = CognitoUserPoolLambdaConfig(
             create_auth_challenge=create_auth_challenge,
@@ -364,13 +364,13 @@ class CognitoUserPool(
         temporary_password_validity_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param minimum_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.
-        :param password_history_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.
-        :param require_lowercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.
-        :param require_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.
-        :param require_symbols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.
-        :param require_uppercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.
-        :param temporary_password_validity_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.
+        :param minimum_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.
+        :param password_history_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.
+        :param require_lowercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.
+        :param require_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.
+        :param require_symbols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.
+        :param require_uppercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.
+        :param temporary_password_validity_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.
         '''
         value = CognitoUserPoolPasswordPolicy(
             minimum_length=minimum_length,
@@ -404,7 +404,7 @@ class CognitoUserPool(
         allowed_first_auth_factors: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_first_auth_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.
+        :param allowed_first_auth_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.
         '''
         value = CognitoUserPoolSignInPolicy(
             allowed_first_auth_factors=allowed_first_auth_factors
@@ -421,9 +421,9 @@ class CognitoUserPool(
         sns_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.
-        :param sns_caller_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.
-        :param sns_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.
+        :param sns_caller_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.
+        :param sns_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.
         '''
         value = CognitoUserPoolSmsConfiguration(
             external_id=external_id,
@@ -440,7 +440,7 @@ class CognitoUserPool(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.
         '''
         value = CognitoUserPoolSoftwareTokenMfaConfiguration(enabled=enabled)
 
@@ -453,7 +453,7 @@ class CognitoUserPool(
         attributes_require_verification_before_update: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param attributes_require_verification_before_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.
+        :param attributes_require_verification_before_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.
         '''
         value = CognitoUserPoolUserAttributeUpdateSettings(
             attributes_require_verification_before_update=attributes_require_verification_before_update,
@@ -468,7 +468,7 @@ class CognitoUserPool(
         case_sensitive: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param case_sensitive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.
+        :param case_sensitive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.
         '''
         value = CognitoUserPoolUsernameConfiguration(case_sensitive=case_sensitive)
 
@@ -482,8 +482,8 @@ class CognitoUserPool(
         advanced_security_additional_flows: typing.Optional[typing.Union["CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_security_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.
-        :param advanced_security_additional_flows: advanced_security_additional_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
+        :param advanced_security_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.
+        :param advanced_security_additional_flows: advanced_security_additional_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
         '''
         value = CognitoUserPoolUserPoolAddOns(
             advanced_security_mode=advanced_security_mode,
@@ -504,12 +504,12 @@ class CognitoUserPool(
         sms_message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_email_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.
-        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
-        :param email_message_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.
-        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
-        :param email_subject_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.
-        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
+        :param default_email_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.
+        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
+        :param email_message_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.
+        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
+        :param email_subject_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.
+        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
         '''
         value = CognitoUserPoolVerificationMessageTemplate(
             default_email_option=default_email_option,
@@ -530,8 +530,8 @@ class CognitoUserPool(
         user_verification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param relying_party_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.
-        :param user_verification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.
+        :param relying_party_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.
+        :param user_verification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.
         '''
         value = CognitoUserPoolWebAuthnConfiguration(
             relying_party_id=relying_party_id, user_verification=user_verification
@@ -1183,7 +1183,7 @@ class CognitoUserPoolAccountRecoverySetting:
         recovery_mechanism: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CognitoUserPoolAccountRecoverySettingRecoveryMechanism", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param recovery_mechanism: recovery_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
+        :param recovery_mechanism: recovery_mechanism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01d316b6cc0ef169f2fbb7c8a1ee57daa6fe8a64b3e77000917e9166f1c2664c)
@@ -1198,7 +1198,7 @@ class CognitoUserPoolAccountRecoverySetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CognitoUserPoolAccountRecoverySettingRecoveryMechanism"]]]:
         '''recovery_mechanism block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#recovery_mechanism CognitoUserPool#recovery_mechanism}
         '''
         result = self._values.get("recovery_mechanism")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CognitoUserPoolAccountRecoverySettingRecoveryMechanism"]]], result)
@@ -1290,8 +1290,8 @@ class CognitoUserPoolAccountRecoverySettingOutputReference(
 class CognitoUserPoolAccountRecoverySettingRecoveryMechanism:
     def __init__(self, *, name: builtins.str, priority: jsii.Number) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#priority CognitoUserPool#priority}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#priority CognitoUserPool#priority}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06b536da76a1bdf3fe49c8e531d5cd2c1e1116015d7b5f07173f8663e613ee49)
@@ -1304,14 +1304,14 @@ class CognitoUserPoolAccountRecoverySettingRecoveryMechanism:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#priority CognitoUserPool#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#priority CognitoUserPool#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
@@ -1515,8 +1515,8 @@ class CognitoUserPoolAdminCreateUserConfig:
         invite_message_template: typing.Optional[typing.Union["CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_admin_create_user_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.
-        :param invite_message_template: invite_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
+        :param allow_admin_create_user_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.
+        :param invite_message_template: invite_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
         '''
         if isinstance(invite_message_template, dict):
             invite_message_template = CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate(**invite_message_template)
@@ -1534,7 +1534,7 @@ class CognitoUserPoolAdminCreateUserConfig:
     def allow_admin_create_user_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allow_admin_create_user_only CognitoUserPool#allow_admin_create_user_only}.'''
         result = self._values.get("allow_admin_create_user_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1544,7 +1544,7 @@ class CognitoUserPoolAdminCreateUserConfig:
     ) -> typing.Optional["CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate"]:
         '''invite_message_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#invite_message_template CognitoUserPool#invite_message_template}
         '''
         result = self._values.get("invite_message_template")
         return typing.cast(typing.Optional["CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate"], result)
@@ -1579,9 +1579,9 @@ class CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate:
         sms_message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
-        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
-        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
+        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
+        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
+        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__faccb36c29a7922678da7fc15b24d561753eedb0d21bb7b69a4d0fcd30f72cff)
@@ -1598,19 +1598,19 @@ class CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate:
 
     @builtins.property
     def email_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.'''
         result = self._values.get("email_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.'''
         result = self._values.get("email_subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sms_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.'''
         result = self._values.get("sms_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1756,9 +1756,9 @@ class CognitoUserPoolAdminCreateUserConfigOutputReference(
         sms_message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
-        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
-        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
+        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
+        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
+        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
         '''
         value = CognitoUserPoolAdminCreateUserConfigInviteMessageTemplate(
             email_message=email_message,
@@ -1925,37 +1925,37 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
-        :param account_recovery_setting: account_recovery_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
-        :param admin_create_user_config: admin_create_user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
-        :param alias_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.
-        :param auto_verified_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.
-        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.
-        :param device_configuration: device_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
-        :param email_configuration: email_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
-        :param email_mfa_configuration: email_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
-        :param email_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.
-        :param email_verification_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
-        :param mfa_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.
-        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
-        :param sign_in_policy: sign_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
-        :param sms_authentication_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.
-        :param sms_configuration: sms_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
-        :param sms_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.
-        :param software_token_mfa_configuration: software_token_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.
-        :param user_attribute_update_settings: user_attribute_update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
-        :param username_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.
-        :param username_configuration: username_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
-        :param user_pool_add_ons: user_pool_add_ons block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
-        :param user_pool_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.
-        :param verification_message_template: verification_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
-        :param web_authn_configuration: web_authn_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
+        :param account_recovery_setting: account_recovery_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
+        :param admin_create_user_config: admin_create_user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
+        :param alias_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.
+        :param auto_verified_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.
+        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.
+        :param device_configuration: device_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
+        :param email_configuration: email_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
+        :param email_mfa_configuration: email_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
+        :param email_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.
+        :param email_verification_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
+        :param mfa_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.
+        :param password_policy: password_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
+        :param sign_in_policy: sign_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
+        :param sms_authentication_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.
+        :param sms_configuration: sms_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
+        :param sms_verification_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.
+        :param software_token_mfa_configuration: software_token_mfa_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.
+        :param user_attribute_update_settings: user_attribute_update_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
+        :param username_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.
+        :param username_configuration: username_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
+        :param user_pool_add_ons: user_pool_add_ons block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
+        :param user_pool_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.
+        :param verification_message_template: verification_message_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
+        :param web_authn_configuration: web_authn_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2173,7 +2173,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2184,7 +2184,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CognitoUserPoolAccountRecoverySetting]:
         '''account_recovery_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#account_recovery_setting CognitoUserPool#account_recovery_setting}
         '''
         result = self._values.get("account_recovery_setting")
         return typing.cast(typing.Optional[CognitoUserPoolAccountRecoverySetting], result)
@@ -2195,26 +2195,26 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CognitoUserPoolAdminCreateUserConfig]:
         '''admin_create_user_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#admin_create_user_config CognitoUserPool#admin_create_user_config}
         '''
         result = self._values.get("admin_create_user_config")
         return typing.cast(typing.Optional[CognitoUserPoolAdminCreateUserConfig], result)
 
     @builtins.property
     def alias_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#alias_attributes CognitoUserPool#alias_attributes}.'''
         result = self._values.get("alias_attributes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def auto_verified_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#auto_verified_attributes CognitoUserPool#auto_verified_attributes}.'''
         result = self._values.get("auto_verified_attributes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def deletion_protection(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#deletion_protection CognitoUserPool#deletion_protection}.'''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2224,7 +2224,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolDeviceConfiguration"]:
         '''device_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_configuration CognitoUserPool#device_configuration}
         '''
         result = self._values.get("device_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolDeviceConfiguration"], result)
@@ -2235,7 +2235,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolEmailConfiguration"]:
         '''email_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_configuration CognitoUserPool#email_configuration}
         '''
         result = self._values.get("email_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolEmailConfiguration"], result)
@@ -2246,26 +2246,26 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolEmailMfaConfiguration"]:
         '''email_mfa_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_mfa_configuration CognitoUserPool#email_mfa_configuration}
         '''
         result = self._values.get("email_mfa_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolEmailMfaConfiguration"], result)
 
     @builtins.property
     def email_verification_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_message CognitoUserPool#email_verification_message}.'''
         result = self._values.get("email_verification_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_verification_subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_verification_subject CognitoUserPool#email_verification_subject}.'''
         result = self._values.get("email_verification_subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#id CognitoUserPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2277,14 +2277,14 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lambda_config(self) -> typing.Optional["CognitoUserPoolLambdaConfig"]:
         '''lambda_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_config CognitoUserPool#lambda_config}
         '''
         result = self._values.get("lambda_config")
         return typing.cast(typing.Optional["CognitoUserPoolLambdaConfig"], result)
 
     @builtins.property
     def mfa_configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#mfa_configuration CognitoUserPool#mfa_configuration}.'''
         result = self._values.get("mfa_configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2292,7 +2292,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def password_policy(self) -> typing.Optional["CognitoUserPoolPasswordPolicy"]:
         '''password_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_policy CognitoUserPool#password_policy}
         '''
         result = self._values.get("password_policy")
         return typing.cast(typing.Optional["CognitoUserPoolPasswordPolicy"], result)
@@ -2301,7 +2301,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#region CognitoUserPool#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2312,7 +2312,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CognitoUserPoolSchema"]]]:
         '''schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#schema CognitoUserPool#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CognitoUserPoolSchema"]]], result)
@@ -2321,14 +2321,14 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sign_in_policy(self) -> typing.Optional["CognitoUserPoolSignInPolicy"]:
         '''sign_in_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sign_in_policy CognitoUserPool#sign_in_policy}
         '''
         result = self._values.get("sign_in_policy")
         return typing.cast(typing.Optional["CognitoUserPoolSignInPolicy"], result)
 
     @builtins.property
     def sms_authentication_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_authentication_message CognitoUserPool#sms_authentication_message}.'''
         result = self._values.get("sms_authentication_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2336,14 +2336,14 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sms_configuration(self) -> typing.Optional["CognitoUserPoolSmsConfiguration"]:
         '''sms_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_configuration CognitoUserPool#sms_configuration}
         '''
         result = self._values.get("sms_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolSmsConfiguration"], result)
 
     @builtins.property
     def sms_verification_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_verification_message CognitoUserPool#sms_verification_message}.'''
         result = self._values.get("sms_verification_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2353,20 +2353,20 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolSoftwareTokenMfaConfiguration"]:
         '''software_token_mfa_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#software_token_mfa_configuration CognitoUserPool#software_token_mfa_configuration}
         '''
         result = self._values.get("software_token_mfa_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolSoftwareTokenMfaConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags CognitoUserPool#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#tags_all CognitoUserPool#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2376,14 +2376,14 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolUserAttributeUpdateSettings"]:
         '''user_attribute_update_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_attribute_update_settings CognitoUserPool#user_attribute_update_settings}
         '''
         result = self._values.get("user_attribute_update_settings")
         return typing.cast(typing.Optional["CognitoUserPoolUserAttributeUpdateSettings"], result)
 
     @builtins.property
     def username_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_attributes CognitoUserPool#username_attributes}.'''
         result = self._values.get("username_attributes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2393,7 +2393,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolUsernameConfiguration"]:
         '''username_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#username_configuration CognitoUserPool#username_configuration}
         '''
         result = self._values.get("username_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolUsernameConfiguration"], result)
@@ -2402,14 +2402,14 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_pool_add_ons(self) -> typing.Optional["CognitoUserPoolUserPoolAddOns"]:
         '''user_pool_add_ons block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_add_ons CognitoUserPool#user_pool_add_ons}
         '''
         result = self._values.get("user_pool_add_ons")
         return typing.cast(typing.Optional["CognitoUserPoolUserPoolAddOns"], result)
 
     @builtins.property
     def user_pool_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_pool_tier CognitoUserPool#user_pool_tier}.'''
         result = self._values.get("user_pool_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2419,7 +2419,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolVerificationMessageTemplate"]:
         '''verification_message_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verification_message_template CognitoUserPool#verification_message_template}
         '''
         result = self._values.get("verification_message_template")
         return typing.cast(typing.Optional["CognitoUserPoolVerificationMessageTemplate"], result)
@@ -2430,7 +2430,7 @@ class CognitoUserPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CognitoUserPoolWebAuthnConfiguration"]:
         '''web_authn_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#web_authn_configuration CognitoUserPool#web_authn_configuration}
         '''
         result = self._values.get("web_authn_configuration")
         return typing.cast(typing.Optional["CognitoUserPoolWebAuthnConfiguration"], result)
@@ -2463,8 +2463,8 @@ class CognitoUserPoolDeviceConfiguration:
         device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param challenge_required_on_new_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.
-        :param device_only_remembered_on_user_prompt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.
+        :param challenge_required_on_new_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.
+        :param device_only_remembered_on_user_prompt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6deb8e1117374362615ebc0a7b7f84fa98a0421f452923c0ed2dce4e1f8fedcd)
@@ -2480,7 +2480,7 @@ class CognitoUserPoolDeviceConfiguration:
     def challenge_required_on_new_device(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#challenge_required_on_new_device CognitoUserPool#challenge_required_on_new_device}.'''
         result = self._values.get("challenge_required_on_new_device")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2488,7 +2488,7 @@ class CognitoUserPoolDeviceConfiguration:
     def device_only_remembered_on_user_prompt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#device_only_remembered_on_user_prompt CognitoUserPool#device_only_remembered_on_user_prompt}.'''
         result = self._values.get("device_only_remembered_on_user_prompt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2618,11 +2618,11 @@ class CognitoUserPoolEmailConfiguration:
         source_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param configuration_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.
-        :param email_sending_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.
-        :param from_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.
-        :param reply_to_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.
+        :param configuration_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.
+        :param email_sending_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.
+        :param from_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.
+        :param reply_to_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af9a089de62fc519ccb0f39c0d75830a689c4b0f7f03b195ffa38fbb4b3c11a3)
@@ -2645,31 +2645,31 @@ class CognitoUserPoolEmailConfiguration:
 
     @builtins.property
     def configuration_set(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#configuration_set CognitoUserPool#configuration_set}.'''
         result = self._values.get("configuration_set")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_sending_account(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_sending_account CognitoUserPool#email_sending_account}.'''
         result = self._values.get("email_sending_account")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def from_email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#from_email_address CognitoUserPool#from_email_address}.'''
         result = self._values.get("from_email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def reply_to_email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#reply_to_email_address CognitoUserPool#reply_to_email_address}.'''
         result = self._values.get("reply_to_email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#source_arn CognitoUserPool#source_arn}.'''
         result = self._values.get("source_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2839,8 +2839,8 @@ class CognitoUserPoolEmailMfaConfiguration:
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a57d909da54e842ec409459d231409dc1686890d6c6173265e9511abda63f717)
@@ -2854,13 +2854,13 @@ class CognitoUserPoolEmailMfaConfiguration:
 
     @builtins.property
     def message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#message CognitoUserPool#message}.'''
         result = self._values.get("message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#subject CognitoUserPool#subject}.'''
         result = self._values.get("subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2994,20 +2994,20 @@ class CognitoUserPoolLambdaConfig:
         verify_auth_challenge_response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.
-        :param custom_email_sender: custom_email_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
-        :param custom_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.
-        :param custom_sms_sender: custom_sms_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
-        :param define_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.
-        :param post_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.
-        :param post_confirmation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.
-        :param pre_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.
-        :param pre_sign_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.
-        :param pre_token_generation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.
-        :param pre_token_generation_config: pre_token_generation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
-        :param user_migration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.
-        :param verify_auth_challenge_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.
+        :param create_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.
+        :param custom_email_sender: custom_email_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
+        :param custom_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.
+        :param custom_sms_sender: custom_sms_sender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
+        :param define_auth_challenge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.
+        :param post_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.
+        :param post_confirmation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.
+        :param pre_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.
+        :param pre_sign_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.
+        :param pre_token_generation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.
+        :param pre_token_generation_config: pre_token_generation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
+        :param user_migration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.
+        :param verify_auth_challenge_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.
         '''
         if isinstance(custom_email_sender, dict):
             custom_email_sender = CognitoUserPoolLambdaConfigCustomEmailSender(**custom_email_sender)
@@ -3063,7 +3063,7 @@ class CognitoUserPoolLambdaConfig:
 
     @builtins.property
     def create_auth_challenge(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#create_auth_challenge CognitoUserPool#create_auth_challenge}.'''
         result = self._values.get("create_auth_challenge")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3073,14 +3073,14 @@ class CognitoUserPoolLambdaConfig:
     ) -> typing.Optional["CognitoUserPoolLambdaConfigCustomEmailSender"]:
         '''custom_email_sender block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_email_sender CognitoUserPool#custom_email_sender}
         '''
         result = self._values.get("custom_email_sender")
         return typing.cast(typing.Optional["CognitoUserPoolLambdaConfigCustomEmailSender"], result)
 
     @builtins.property
     def custom_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_message CognitoUserPool#custom_message}.'''
         result = self._values.get("custom_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3090,50 +3090,50 @@ class CognitoUserPoolLambdaConfig:
     ) -> typing.Optional["CognitoUserPoolLambdaConfigCustomSmsSender"]:
         '''custom_sms_sender block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_sms_sender CognitoUserPool#custom_sms_sender}
         '''
         result = self._values.get("custom_sms_sender")
         return typing.cast(typing.Optional["CognitoUserPoolLambdaConfigCustomSmsSender"], result)
 
     @builtins.property
     def define_auth_challenge(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#define_auth_challenge CognitoUserPool#define_auth_challenge}.'''
         result = self._values.get("define_auth_challenge")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#kms_key_id CognitoUserPool#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_authentication(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_authentication CognitoUserPool#post_authentication}.'''
         result = self._values.get("post_authentication")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_confirmation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#post_confirmation CognitoUserPool#post_confirmation}.'''
         result = self._values.get("post_confirmation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pre_authentication(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_authentication CognitoUserPool#pre_authentication}.'''
         result = self._values.get("pre_authentication")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pre_sign_up(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_sign_up CognitoUserPool#pre_sign_up}.'''
         result = self._values.get("pre_sign_up")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pre_token_generation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation CognitoUserPool#pre_token_generation}.'''
         result = self._values.get("pre_token_generation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3143,20 +3143,20 @@ class CognitoUserPoolLambdaConfig:
     ) -> typing.Optional["CognitoUserPoolLambdaConfigPreTokenGenerationConfig"]:
         '''pre_token_generation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#pre_token_generation_config CognitoUserPool#pre_token_generation_config}
         '''
         result = self._values.get("pre_token_generation_config")
         return typing.cast(typing.Optional["CognitoUserPoolLambdaConfigPreTokenGenerationConfig"], result)
 
     @builtins.property
     def user_migration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_migration CognitoUserPool#user_migration}.'''
         result = self._values.get("user_migration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def verify_auth_challenge_response(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#verify_auth_challenge_response CognitoUserPool#verify_auth_challenge_response}.'''
         result = self._values.get("verify_auth_challenge_response")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3185,8 +3185,8 @@ class CognitoUserPoolLambdaConfigCustomEmailSender:
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32954a28110eb8412cf1f25dbe1d02f3975d0f1df4396ae6543def087f085e22)
@@ -3199,14 +3199,14 @@ class CognitoUserPoolLambdaConfigCustomEmailSender:
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lambda_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
         result = self._values.get("lambda_version")
         assert result is not None, "Required property 'lambda_version' is missing"
         return typing.cast(builtins.str, result)
@@ -3308,8 +3308,8 @@ class CognitoUserPoolLambdaConfigCustomSmsSender:
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83fb63b7b3b720a5ec597135c314d10891c44b71446e8e4793145d03cf5d6eb8)
@@ -3322,14 +3322,14 @@ class CognitoUserPoolLambdaConfigCustomSmsSender:
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lambda_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
         result = self._values.get("lambda_version")
         assert result is not None, "Required property 'lambda_version' is missing"
         return typing.cast(builtins.str, result)
@@ -3446,8 +3446,8 @@ class CognitoUserPoolLambdaConfigOutputReference(
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         value = CognitoUserPoolLambdaConfigCustomEmailSender(
             lambda_arn=lambda_arn, lambda_version=lambda_version
@@ -3463,8 +3463,8 @@ class CognitoUserPoolLambdaConfigOutputReference(
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         value = CognitoUserPoolLambdaConfigCustomSmsSender(
             lambda_arn=lambda_arn, lambda_version=lambda_version
@@ -3480,8 +3480,8 @@ class CognitoUserPoolLambdaConfigOutputReference(
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         value = CognitoUserPoolLambdaConfigPreTokenGenerationConfig(
             lambda_arn=lambda_arn, lambda_version=lambda_version
@@ -3803,8 +3803,8 @@ class CognitoUserPoolLambdaConfigPreTokenGenerationConfig:
         lambda_version: builtins.str,
     ) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
-        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.
+        :param lambda_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b30bd6e85f60789417764d86c167a555093880112f253f73dada4e3fee0e566e)
@@ -3817,14 +3817,14 @@ class CognitoUserPoolLambdaConfigPreTokenGenerationConfig:
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_arn CognitoUserPool#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lambda_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#lambda_version CognitoUserPool#lambda_version}.'''
         result = self._values.get("lambda_version")
         assert result is not None, "Required property 'lambda_version' is missing"
         return typing.cast(builtins.str, result)
@@ -3939,13 +3939,13 @@ class CognitoUserPoolPasswordPolicy:
         temporary_password_validity_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param minimum_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.
-        :param password_history_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.
-        :param require_lowercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.
-        :param require_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.
-        :param require_symbols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.
-        :param require_uppercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.
-        :param temporary_password_validity_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.
+        :param minimum_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.
+        :param password_history_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.
+        :param require_lowercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.
+        :param require_numbers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.
+        :param require_symbols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.
+        :param require_uppercase: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.
+        :param temporary_password_validity_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__631a46f60f7494ed7d5ef6ba5879ce6ecc7723e2d9b0d704c26e243c14b05073)
@@ -3974,13 +3974,13 @@ class CognitoUserPoolPasswordPolicy:
 
     @builtins.property
     def minimum_length(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#minimum_length CognitoUserPool#minimum_length}.'''
         result = self._values.get("minimum_length")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def password_history_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#password_history_size CognitoUserPool#password_history_size}.'''
         result = self._values.get("password_history_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3988,7 +3988,7 @@ class CognitoUserPoolPasswordPolicy:
     def require_lowercase(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_lowercase CognitoUserPool#require_lowercase}.'''
         result = self._values.get("require_lowercase")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3996,7 +3996,7 @@ class CognitoUserPoolPasswordPolicy:
     def require_numbers(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_numbers CognitoUserPool#require_numbers}.'''
         result = self._values.get("require_numbers")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4004,7 +4004,7 @@ class CognitoUserPoolPasswordPolicy:
     def require_symbols(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_symbols CognitoUserPool#require_symbols}.'''
         result = self._values.get("require_symbols")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4012,13 +4012,13 @@ class CognitoUserPoolPasswordPolicy:
     def require_uppercase(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#require_uppercase CognitoUserPool#require_uppercase}.'''
         result = self._values.get("require_uppercase")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def temporary_password_validity_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#temporary_password_validity_days CognitoUserPool#temporary_password_validity_days}.'''
         result = self._values.get("temporary_password_validity_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4271,13 +4271,13 @@ class CognitoUserPoolSchema:
         string_attribute_constraints: typing.Optional[typing.Union["CognitoUserPoolSchemaStringAttributeConstraints", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param attribute_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#attribute_data_type CognitoUserPool#attribute_data_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
-        :param developer_only_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#developer_only_attribute CognitoUserPool#developer_only_attribute}.
-        :param mutable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#mutable CognitoUserPool#mutable}.
-        :param number_attribute_constraints: number_attribute_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#number_attribute_constraints CognitoUserPool#number_attribute_constraints}
-        :param required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#required CognitoUserPool#required}.
-        :param string_attribute_constraints: string_attribute_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#string_attribute_constraints CognitoUserPool#string_attribute_constraints}
+        :param attribute_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#attribute_data_type CognitoUserPool#attribute_data_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.
+        :param developer_only_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#developer_only_attribute CognitoUserPool#developer_only_attribute}.
+        :param mutable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#mutable CognitoUserPool#mutable}.
+        :param number_attribute_constraints: number_attribute_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#number_attribute_constraints CognitoUserPool#number_attribute_constraints}
+        :param required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#required CognitoUserPool#required}.
+        :param string_attribute_constraints: string_attribute_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#string_attribute_constraints CognitoUserPool#string_attribute_constraints}
         '''
         if isinstance(number_attribute_constraints, dict):
             number_attribute_constraints = CognitoUserPoolSchemaNumberAttributeConstraints(**number_attribute_constraints)
@@ -4309,14 +4309,14 @@ class CognitoUserPoolSchema:
 
     @builtins.property
     def attribute_data_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#attribute_data_type CognitoUserPool#attribute_data_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#attribute_data_type CognitoUserPool#attribute_data_type}.'''
         result = self._values.get("attribute_data_type")
         assert result is not None, "Required property 'attribute_data_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#name CognitoUserPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4325,7 +4325,7 @@ class CognitoUserPoolSchema:
     def developer_only_attribute(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#developer_only_attribute CognitoUserPool#developer_only_attribute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#developer_only_attribute CognitoUserPool#developer_only_attribute}.'''
         result = self._values.get("developer_only_attribute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4333,7 +4333,7 @@ class CognitoUserPoolSchema:
     def mutable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#mutable CognitoUserPool#mutable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#mutable CognitoUserPool#mutable}.'''
         result = self._values.get("mutable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4343,7 +4343,7 @@ class CognitoUserPoolSchema:
     ) -> typing.Optional["CognitoUserPoolSchemaNumberAttributeConstraints"]:
         '''number_attribute_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#number_attribute_constraints CognitoUserPool#number_attribute_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#number_attribute_constraints CognitoUserPool#number_attribute_constraints}
         '''
         result = self._values.get("number_attribute_constraints")
         return typing.cast(typing.Optional["CognitoUserPoolSchemaNumberAttributeConstraints"], result)
@@ -4352,7 +4352,7 @@ class CognitoUserPoolSchema:
     def required(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#required CognitoUserPool#required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#required CognitoUserPool#required}.'''
         result = self._values.get("required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4362,7 +4362,7 @@ class CognitoUserPoolSchema:
     ) -> typing.Optional["CognitoUserPoolSchemaStringAttributeConstraints"]:
         '''string_attribute_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#string_attribute_constraints CognitoUserPool#string_attribute_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#string_attribute_constraints CognitoUserPool#string_attribute_constraints}
         '''
         result = self._values.get("string_attribute_constraints")
         return typing.cast(typing.Optional["CognitoUserPoolSchemaStringAttributeConstraints"], result)
@@ -4482,8 +4482,8 @@ class CognitoUserPoolSchemaNumberAttributeConstraints:
         min_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.
-        :param min_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.
+        :param max_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.
+        :param min_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cb7eee32db8cce6e32749e30825a808d9b036dc3f55e24c01b250deb7131310)
@@ -4497,13 +4497,13 @@ class CognitoUserPoolSchemaNumberAttributeConstraints:
 
     @builtins.property
     def max_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.'''
         result = self._values.get("max_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.'''
         result = self._values.get("min_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4633,8 +4633,8 @@ class CognitoUserPoolSchemaOutputReference(
         min_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.
-        :param min_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.
+        :param max_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_value CognitoUserPool#max_value}.
+        :param min_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_value CognitoUserPool#min_value}.
         '''
         value = CognitoUserPoolSchemaNumberAttributeConstraints(
             max_value=max_value, min_value=min_value
@@ -4650,8 +4650,8 @@ class CognitoUserPoolSchemaOutputReference(
         min_length: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.
-        :param min_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.
+        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.
+        :param min_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.
         '''
         value = CognitoUserPoolSchemaStringAttributeConstraints(
             max_length=max_length, min_length=min_length
@@ -4840,8 +4840,8 @@ class CognitoUserPoolSchemaStringAttributeConstraints:
         min_length: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.
-        :param min_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.
+        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.
+        :param min_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0164f8aca70fbc1cdf462a19b4c8e2003c0c5c081d20931247a25514de66be7)
@@ -4855,13 +4855,13 @@ class CognitoUserPoolSchemaStringAttributeConstraints:
 
     @builtins.property
     def max_length(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#max_length CognitoUserPool#max_length}.'''
         result = self._values.get("max_length")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_length(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#min_length CognitoUserPool#min_length}.'''
         result = self._values.get("min_length")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4969,7 +4969,7 @@ class CognitoUserPoolSignInPolicy:
         allowed_first_auth_factors: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_first_auth_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.
+        :param allowed_first_auth_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40399343ba18eb846c16e68fb429760c59f71a7a01aa95040f180c0c621ddc0a)
@@ -4980,7 +4980,7 @@ class CognitoUserPoolSignInPolicy:
 
     @builtins.property
     def allowed_first_auth_factors(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#allowed_first_auth_factors CognitoUserPool#allowed_first_auth_factors}.'''
         result = self._values.get("allowed_first_auth_factors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5073,9 +5073,9 @@ class CognitoUserPoolSmsConfiguration:
         sns_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.
-        :param sns_caller_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.
-        :param sns_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.
+        :param sns_caller_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.
+        :param sns_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__098b42fa7a0f77d8ce0802e08befdfefe8fdde139ec7ec4cfee931d8570dd080)
@@ -5091,21 +5091,21 @@ class CognitoUserPoolSmsConfiguration:
 
     @builtins.property
     def external_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#external_id CognitoUserPool#external_id}.'''
         result = self._values.get("external_id")
         assert result is not None, "Required property 'external_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sns_caller_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_caller_arn CognitoUserPool#sns_caller_arn}.'''
         result = self._values.get("sns_caller_arn")
         assert result is not None, "Required property 'sns_caller_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sns_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sns_region CognitoUserPool#sns_region}.'''
         result = self._values.get("sns_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5224,7 +5224,7 @@ class CognitoUserPoolSoftwareTokenMfaConfiguration:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa997d41c5680ae0a4860a332ba7be63a079caeea0a56b28692b4ec2be9fcdfa)
@@ -5235,7 +5235,7 @@ class CognitoUserPoolSoftwareTokenMfaConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#enabled CognitoUserPool#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -5326,7 +5326,7 @@ class CognitoUserPoolUserAttributeUpdateSettings:
         attributes_require_verification_before_update: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param attributes_require_verification_before_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.
+        :param attributes_require_verification_before_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2eac78eb7a3ffe7c99bc37d96361b490f95178d3cf97311500388ddc278ac0b6)
@@ -5339,7 +5339,7 @@ class CognitoUserPoolUserAttributeUpdateSettings:
     def attributes_require_verification_before_update(
         self,
     ) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#attributes_require_verification_before_update CognitoUserPool#attributes_require_verification_before_update}.'''
         result = self._values.get("attributes_require_verification_before_update")
         assert result is not None, "Required property 'attributes_require_verification_before_update' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -5434,8 +5434,8 @@ class CognitoUserPoolUserPoolAddOns:
         advanced_security_additional_flows: typing.Optional[typing.Union["CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_security_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.
-        :param advanced_security_additional_flows: advanced_security_additional_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
+        :param advanced_security_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.
+        :param advanced_security_additional_flows: advanced_security_additional_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
         '''
         if isinstance(advanced_security_additional_flows, dict):
             advanced_security_additional_flows = CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows(**advanced_security_additional_flows)
@@ -5451,7 +5451,7 @@ class CognitoUserPoolUserPoolAddOns:
 
     @builtins.property
     def advanced_security_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_mode CognitoUserPool#advanced_security_mode}.'''
         result = self._values.get("advanced_security_mode")
         assert result is not None, "Required property 'advanced_security_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -5462,7 +5462,7 @@ class CognitoUserPoolUserPoolAddOns:
     ) -> typing.Optional["CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows"]:
         '''advanced_security_additional_flows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#advanced_security_additional_flows CognitoUserPool#advanced_security_additional_flows}
         '''
         result = self._values.get("advanced_security_additional_flows")
         return typing.cast(typing.Optional["CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows"], result)
@@ -5491,7 +5491,7 @@ class CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows:
         custom_auth_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_auth_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.
+        :param custom_auth_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b09ed9ee763732398a9b7a22ec2984722142eb8394ab12c0e0700fb14bead1e5)
@@ -5502,7 +5502,7 @@ class CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows:
 
     @builtins.property
     def custom_auth_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.'''
         result = self._values.get("custom_auth_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5604,7 +5604,7 @@ class CognitoUserPoolUserPoolAddOnsOutputReference(
         custom_auth_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_auth_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.
+        :param custom_auth_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#custom_auth_mode CognitoUserPool#custom_auth_mode}.
         '''
         value = CognitoUserPoolUserPoolAddOnsAdvancedSecurityAdditionalFlows(
             custom_auth_mode=custom_auth_mode
@@ -5675,7 +5675,7 @@ class CognitoUserPoolUsernameConfiguration:
         case_sensitive: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param case_sensitive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.
+        :param case_sensitive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b777c2bec6187ebc8aec5ead04cb1bbed70d9024c16ac25f267b07a9fc0353bf)
@@ -5688,7 +5688,7 @@ class CognitoUserPoolUsernameConfiguration:
     def case_sensitive(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#case_sensitive CognitoUserPool#case_sensitive}.'''
         result = self._values.get("case_sensitive")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5792,12 +5792,12 @@ class CognitoUserPoolVerificationMessageTemplate:
         sms_message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_email_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.
-        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
-        :param email_message_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.
-        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
-        :param email_subject_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.
-        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
+        :param default_email_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.
+        :param email_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.
+        :param email_message_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.
+        :param email_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.
+        :param email_subject_by_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.
+        :param sms_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19efb34d8c350cff53b4edbb81193aa640ec20273ccbc2d97a25d3f22a5c7c0a)
@@ -5823,37 +5823,37 @@ class CognitoUserPoolVerificationMessageTemplate:
 
     @builtins.property
     def default_email_option(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#default_email_option CognitoUserPool#default_email_option}.'''
         result = self._values.get("default_email_option")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message CognitoUserPool#email_message}.'''
         result = self._values.get("email_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_message_by_link(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_message_by_link CognitoUserPool#email_message_by_link}.'''
         result = self._values.get("email_message_by_link")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject CognitoUserPool#email_subject}.'''
         result = self._values.get("email_subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_subject_by_link(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#email_subject_by_link CognitoUserPool#email_subject_by_link}.'''
         result = self._values.get("email_subject_by_link")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sms_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#sms_message CognitoUserPool#sms_message}.'''
         result = self._values.get("sms_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6049,8 +6049,8 @@ class CognitoUserPoolWebAuthnConfiguration:
         user_verification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param relying_party_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.
-        :param user_verification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.
+        :param relying_party_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.
+        :param user_verification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a366121dacf0b7bfd89c4a4f7e094395ed4032d01810381dd3884c6856fc3ef6)
@@ -6064,13 +6064,13 @@ class CognitoUserPoolWebAuthnConfiguration:
 
     @builtins.property
     def relying_party_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#relying_party_id CognitoUserPool#relying_party_id}.'''
         result = self._values.get("relying_party_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_verification(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/cognito_user_pool#user_verification CognitoUserPool#user_verification}.'''
         result = self._values.get("user_verification")
         return typing.cast(typing.Optional[builtins.str], result)
 

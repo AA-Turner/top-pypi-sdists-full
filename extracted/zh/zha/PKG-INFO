@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zha
-Version: 0.0.70
+Version: 0.0.71
 Summary: Library implementing ZHA for Home Assistant
 Author-email: "David F. Mulcahey" <david.mulcahey@icloud.com>
 License: Apache-2.0
@@ -8,10 +8,10 @@ Project-URL: repository, https://github.com/zigpy/zha
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: zigpy==0.82.3
-Requires-Dist: bellows==0.45.4
+Requires-Dist: zigpy==0.83.0
+Requires-Dist: bellows==0.46.0
 Requires-Dist: zigpy-znp==0.14.1
-Requires-Dist: zigpy-deconz==0.25.1
+Requires-Dist: zigpy-deconz==0.25.2
 Requires-Dist: zigpy-xbee==0.21.0
 Requires-Dist: zigpy-zigate==0.13.3
 Requires-Dist: zha-quirks==0.0.145

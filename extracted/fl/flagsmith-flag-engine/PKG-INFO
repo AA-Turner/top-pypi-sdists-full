@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flagsmith-flag-engine
-Version: 7.0.0
+Version: 7.0.1
 Summary: Flag engine for the Flagsmith API.
 Home-page: https://github.com/Flagsmith/flagsmith-engine
 Author: Flagsmith

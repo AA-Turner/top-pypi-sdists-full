@@ -16,19 +16,12 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class ProcedureVariableType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class SearchProceduresSortField(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    PROCEDURE_VARIABLE_TYPE_UNSPECIFIED: _ClassVar[ProcedureVariableType]
-    PROCEDURE_VARIABLE_TYPE_ASSET_RID: _ClassVar[ProcedureVariableType]
-    PROCEDURE_VARIABLE_TYPE_STRING: _ClassVar[ProcedureVariableType]
-    PROCEDURE_VARIABLE_TYPE_DOUBLE: _ClassVar[ProcedureVariableType]
-    PROCEDURE_VARIABLE_TYPE_BOOLEAN: _ClassVar[ProcedureVariableType]
-
-class ProcedureVariableSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    PROCEDURE_VARIABLE_SOURCE_UNSPECIFIED: _ClassVar[ProcedureVariableSource]
-    PROCEDURE_VARIABLE_SOURCE_GLOBAL: _ClassVar[ProcedureVariableSource]
-    PROCEDURE_VARIABLE_SOURCE_STEP: _ClassVar[ProcedureVariableSource]
+    SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: _ClassVar[SearchProceduresSortField]
+    SEARCH_PROCEDURES_SORT_FIELD_NAME: _ClassVar[SearchProceduresSortField]
+    SEARCH_PROCEDURES_SORT_FIELD_CREATED_AT: _ClassVar[SearchProceduresSortField]
+    SEARCH_PROCEDURES_SORT_FIELD_UPDATED_AT: _ClassVar[SearchProceduresSortField]
 
 class ProceduresServiceError(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -39,21 +32,10 @@ class ProceduresServiceError(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PROCEDURES_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_PROCEDURE: _ClassVar[ProceduresServiceError]
     PROCEDURES_SERVICE_ERROR_INVALID_GRAPH: _ClassVar[ProceduresServiceError]
     PROCEDURES_SERVICE_ERROR_INVALID_SEARCH_TOKEN: _ClassVar[ProceduresServiceError]
-
-class SearchProceduresSortField(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: _ClassVar[SearchProceduresSortField]
-    SEARCH_PROCEDURES_SORT_FIELD_NAME: _ClassVar[SearchProceduresSortField]
-    SEARCH_PROCEDURES_SORT_FIELD_CREATED_AT: _ClassVar[SearchProceduresSortField]
-    SEARCH_PROCEDURES_SORT_FIELD_UPDATED_AT: _ClassVar[SearchProceduresSortField]
-PROCEDURE_VARIABLE_TYPE_UNSPECIFIED: ProcedureVariableType
-PROCEDURE_VARIABLE_TYPE_ASSET_RID: ProcedureVariableType
-PROCEDURE_VARIABLE_TYPE_STRING: ProcedureVariableType
-PROCEDURE_VARIABLE_TYPE_DOUBLE: ProcedureVariableType
-PROCEDURE_VARIABLE_TYPE_BOOLEAN: ProcedureVariableType
-PROCEDURE_VARIABLE_SOURCE_UNSPECIFIED: ProcedureVariableSource
-PROCEDURE_VARIABLE_SOURCE_GLOBAL: ProcedureVariableSource
-PROCEDURE_VARIABLE_SOURCE_STEP: ProcedureVariableSource
+SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: SearchProceduresSortField
+SEARCH_PROCEDURES_SORT_FIELD_NAME: SearchProceduresSortField
+SEARCH_PROCEDURES_SORT_FIELD_CREATED_AT: SearchProceduresSortField
+SEARCH_PROCEDURES_SORT_FIELD_UPDATED_AT: SearchProceduresSortField
 PROCEDURES_SERVICE_ERROR_UNSPECIFIED: ProceduresServiceError
 PROCEDURES_SERVICE_ERROR_NOT_FOUND: ProceduresServiceError
 PROCEDURES_SERVICE_ERROR_COMMIT_NOT_FOUND: ProceduresServiceError
@@ -61,171 +43,16 @@ PROCEDURES_SERVICE_ERROR_CANNOT_MERGE_MAIN: ProceduresServiceError
 PROCEDURES_SERVICE_ERROR_CANNOT_COMMIT_TO_ARCHIVED_PROCEDURE: ProceduresServiceError
 PROCEDURES_SERVICE_ERROR_INVALID_GRAPH: ProceduresServiceError
 PROCEDURES_SERVICE_ERROR_INVALID_SEARCH_TOKEN: ProceduresServiceError
-SEARCH_PROCEDURES_SORT_FIELD_UNSPECIFIED: SearchProceduresSortField
-SEARCH_PROCEDURES_SORT_FIELD_NAME: SearchProceduresSortField
-SEARCH_PROCEDURES_SORT_FIELD_CREATED_AT: SearchProceduresSortField
-SEARCH_PROCEDURES_SORT_FIELD_UPDATED_AT: SearchProceduresSortField
 
-class ProcedureSectionNode(_message.Message):
-    __slots__ = ("id", "title", "description")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    title: str
-    description: str
-    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
-
-class ProcedureEventConfig(_message.Message):
-    __slots__ = ("name", "description", "labels", "properties", "asset_variable_names")
-    class PropertiesEntry(_message.Message):
+class ProcedureState(_message.Message):
+    __slots__ = ("global_fields", "nodes", "section_edges", "step_edges")
+    class GlobalFieldsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    LABELS_FIELD_NUMBER: _ClassVar[int]
-    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-    ASSET_VARIABLE_NAMES_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    description: str
-    labels: _containers.RepeatedScalarFieldContainer[str]
-    properties: _containers.ScalarMap[str, str]
-    asset_variable_names: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_variable_names: _Optional[_Iterable[str]] = ...) -> None: ...
-
-class ProcedureStepNode(_message.Message):
-    __slots__ = ("id", "title", "description", "is_required", "step", "event_config")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
-    STEP_FIELD_NUMBER: _ClassVar[int]
-    EVENT_CONFIG_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    title: str
-    description: str
-    is_required: bool
-    step: TypedProcedureStepNode
-    event_config: ProcedureEventConfig
-    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., is_required: bool = ..., step: _Optional[_Union[TypedProcedureStepNode, _Mapping]] = ..., event_config: _Optional[_Union[ProcedureEventConfig, _Mapping]] = ...) -> None: ...
-
-class AssetFieldType(_message.Message):
-    __slots__ = ("rid", "variable_name")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    VARIABLE_NAME_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    variable_name: str
-    def __init__(self, rid: _Optional[str] = ..., variable_name: _Optional[str] = ...) -> None: ...
-
-class AssetField(_message.Message):
-    __slots__ = ("label", "rid", "variable_name", "variable_to_set", "is_required")
-    LABEL_FIELD_NUMBER: _ClassVar[int]
-    RID_FIELD_NUMBER: _ClassVar[int]
-    VARIABLE_NAME_FIELD_NUMBER: _ClassVar[int]
-    VARIABLE_TO_SET_FIELD_NUMBER: _ClassVar[int]
-    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
-    label: str
-    rid: str
-    variable_name: str
-    variable_to_set: str
-    is_required: bool
-    def __init__(self, label: _Optional[str] = ..., rid: _Optional[str] = ..., variable_name: _Optional[str] = ..., variable_to_set: _Optional[str] = ..., is_required: bool = ...) -> None: ...
-
-class CheckboxField(_message.Message):
-    __slots__ = ("label", "is_required")
-    LABEL_FIELD_NUMBER: _ClassVar[int]
-    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
-    label: str
-    is_required: bool
-    def __init__(self, label: _Optional[str] = ..., is_required: bool = ...) -> None: ...
-
-class CheckField(_message.Message):
-    __slots__ = ("label", "checklist_rid", "check_rid", "commit_id")
-    LABEL_FIELD_NUMBER: _ClassVar[int]
-    CHECKLIST_RID_FIELD_NUMBER: _ClassVar[int]
-    CHECK_RID_FIELD_NUMBER: _ClassVar[int]
-    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
-    label: str
-    checklist_rid: str
-    check_rid: str
-    commit_id: str
-    def __init__(self, label: _Optional[str] = ..., checklist_rid: _Optional[str] = ..., check_rid: _Optional[str] = ..., commit_id: _Optional[str] = ...) -> None: ...
-
-class StepField(_message.Message):
-    __slots__ = ("asset", "checkbox", "check")
-    ASSET_FIELD_NUMBER: _ClassVar[int]
-    CHECKBOX_FIELD_NUMBER: _ClassVar[int]
-    CHECK_FIELD_NUMBER: _ClassVar[int]
-    asset: AssetField
-    checkbox: CheckboxField
-    check: CheckField
-    def __init__(self, asset: _Optional[_Union[AssetField, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxField, _Mapping]] = ..., check: _Optional[_Union[CheckField, _Mapping]] = ...) -> None: ...
-
-class FormStepNode(_message.Message):
-    __slots__ = ("fields",)
-    FIELDS_FIELD_NUMBER: _ClassVar[int]
-    fields: _containers.RepeatedCompositeFieldContainer[StepField]
-    def __init__(self, fields: _Optional[_Iterable[_Union[StepField, _Mapping]]] = ...) -> None: ...
-
-class TypedProcedureStepNode(_message.Message):
-    __slots__ = ("form",)
-    FORM_FIELD_NUMBER: _ClassVar[int]
-    form: FormStepNode
-    def __init__(self, form: _Optional[_Union[FormStepNode, _Mapping]] = ...) -> None: ...
-
-class ProcedureNode(_message.Message):
-    __slots__ = ("section", "step")
-    SECTION_FIELD_NUMBER: _ClassVar[int]
-    STEP_FIELD_NUMBER: _ClassVar[int]
-    section: ProcedureSectionNode
-    step: ProcedureStepNode
-    def __init__(self, section: _Optional[_Union[ProcedureSectionNode, _Mapping]] = ..., step: _Optional[_Union[ProcedureStepNode, _Mapping]] = ...) -> None: ...
-
-class ProcedureMetadata(_message.Message):
-    __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published", "created_at", "created_by", "updated_at", "workspace")
-    class PropertiesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    RID_FIELD_NUMBER: _ClassVar[int]
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    LABELS_FIELD_NUMBER: _ClassVar[int]
-    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-    IS_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
-    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
-    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
-    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
-    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    title: str
-    description: str
-    labels: _containers.RepeatedScalarFieldContainer[str]
-    properties: _containers.ScalarMap[str, str]
-    is_archived: bool
-    is_published: bool
-    created_at: _timestamp_pb2.Timestamp
-    created_by: str
-    updated_at: _timestamp_pb2.Timestamp
-    workspace: str
-    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., is_archived: bool = ..., is_published: bool = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ...) -> None: ...
-
-class NodeList(_message.Message):
-    __slots__ = ("value",)
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    value: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
-
-class ProcedureGraph(_message.Message):
-    __slots__ = ("nodes", "root_nodes", "section_edges", "step_edges")
+        value: FormField
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[FormField, _Mapping]] = ...) -> None: ...
     class NodesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -247,56 +74,15 @@ class ProcedureGraph(_message.Message):
         key: str
         value: NodeList
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NodeList, _Mapping]] = ...) -> None: ...
+    GLOBAL_FIELDS_FIELD_NUMBER: _ClassVar[int]
     NODES_FIELD_NUMBER: _ClassVar[int]
-    ROOT_NODES_FIELD_NUMBER: _ClassVar[int]
     SECTION_EDGES_FIELD_NUMBER: _ClassVar[int]
     STEP_EDGES_FIELD_NUMBER: _ClassVar[int]
+    global_fields: _containers.MessageMap[str, FormField]
     nodes: _containers.MessageMap[str, ProcedureNode]
-    root_nodes: _containers.RepeatedScalarFieldContainer[str]
     section_edges: _containers.MessageMap[str, NodeList]
     step_edges: _containers.MessageMap[str, NodeList]
-    def __init__(self, nodes: _Optional[_Mapping[str, ProcedureNode]] = ..., root_nodes: _Optional[_Iterable[str]] = ..., section_edges: _Optional[_Mapping[str, NodeList]] = ..., step_edges: _Optional[_Mapping[str, NodeList]] = ...) -> None: ...
-
-class ProcedureVariable(_message.Message):
-    __slots__ = ("type", "source", "name")
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    SOURCE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    type: ProcedureVariableType
-    source: ProcedureVariableSource
-    name: str
-    def __init__(self, type: _Optional[_Union[ProcedureVariableType, str]] = ..., source: _Optional[_Union[ProcedureVariableSource, str]] = ..., name: _Optional[str] = ...) -> None: ...
-
-class Procedure(_message.Message):
-    __slots__ = ("rid", "commit", "metadata", "graph", "variables")
-    class VariablesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: ProcedureVariable
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureVariable, _Mapping]] = ...) -> None: ...
-    RID_FIELD_NUMBER: _ClassVar[int]
-    COMMIT_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    GRAPH_FIELD_NUMBER: _ClassVar[int]
-    VARIABLES_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    commit: str
-    metadata: ProcedureMetadata
-    graph: ProcedureGraph
-    variables: _containers.MessageMap[str, ProcedureVariable]
-    def __init__(self, rid: _Optional[str] = ..., commit: _Optional[str] = ..., metadata: _Optional[_Union[ProcedureMetadata, _Mapping]] = ..., graph: _Optional[_Union[ProcedureGraph, _Mapping]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ...) -> None: ...
-
-class GetProcedureRequest(_message.Message):
-    __slots__ = ("rid", "branch_or_commit", "include_display_graph")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
-    INCLUDE_DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    branch_or_commit: _versioning_pb2.BranchOrCommit
-    include_display_graph: bool
-    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
+    def __init__(self, global_fields: _Optional[_Mapping[str, FormField]] = ..., nodes: _Optional[_Mapping[str, ProcedureNode]] = ..., section_edges: _Optional[_Mapping[str, NodeList]] = ..., step_edges: _Optional[_Mapping[str, NodeList]] = ...) -> None: ...
 
 class ProcedureDisplayGraph(_message.Message):
     __slots__ = ("top_level_nodes", "section_to_sorted_children")
@@ -312,6 +98,440 @@ class ProcedureDisplayGraph(_message.Message):
     top_level_nodes: _containers.RepeatedScalarFieldContainer[str]
     section_to_sorted_children: _containers.MessageMap[str, NodeList]
     def __init__(self, top_level_nodes: _Optional[_Iterable[str]] = ..., section_to_sorted_children: _Optional[_Mapping[str, NodeList]] = ...) -> None: ...
+
+class NestedProcedure(_message.Message):
+    __slots__ = ("title", "description", "steps", "global_fields")
+    class GlobalFieldsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: FormField
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[FormField, _Mapping]] = ...) -> None: ...
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    GLOBAL_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    title: str
+    description: str
+    steps: _containers.RepeatedCompositeFieldContainer[NestedProcedureNode]
+    global_fields: _containers.MessageMap[str, FormField]
+    def __init__(self, title: _Optional[str] = ..., description: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[NestedProcedureNode, _Mapping]]] = ..., global_fields: _Optional[_Mapping[str, FormField]] = ...) -> None: ...
+
+class NodeList(_message.Message):
+    __slots__ = ("node_ids",)
+    NODE_IDS_FIELD_NUMBER: _ClassVar[int]
+    node_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, node_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ProcedureNode(_message.Message):
+    __slots__ = ("section", "step")
+    SECTION_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    section: ProcedureSectionNode
+    step: ProcedureStepNode
+    def __init__(self, section: _Optional[_Union[ProcedureSectionNode, _Mapping]] = ..., step: _Optional[_Union[ProcedureStepNode, _Mapping]] = ...) -> None: ...
+
+class ProcedureSectionNode(_message.Message):
+    __slots__ = ("id", "title", "description")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    title: str
+    description: str
+    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class ProcedureStepNode(_message.Message):
+    __slots__ = ("id", "title", "content", "output_id", "description", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_ID_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    AUTO_START_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_AUTO_PROCEED_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_CONDITION_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_ACTION_CONFIGS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    title: str
+    content: ProcedureStepContent
+    output_id: str
+    description: str
+    is_required: bool
+    auto_start: AutoStartConfig
+    initial_auto_proceed_config: AutoProceedConfig
+    success_condition: SuccessCondition
+    completion_action_configs: _containers.RepeatedCompositeFieldContainer[CompletionActionConfig]
+    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., content: _Optional[_Union[ProcedureStepContent, _Mapping]] = ..., output_id: _Optional[str] = ..., description: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ...) -> None: ...
+
+class NestedProcedureNode(_message.Message):
+    __slots__ = ("id", "title", "description", "steps", "step")
+    class NestedStepNode(_message.Message):
+        __slots__ = ("output_id", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs", "form")
+        OUTPUT_ID_FIELD_NUMBER: _ClassVar[int]
+        IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+        AUTO_START_FIELD_NUMBER: _ClassVar[int]
+        INITIAL_AUTO_PROCEED_CONFIG_FIELD_NUMBER: _ClassVar[int]
+        SUCCESS_CONDITION_FIELD_NUMBER: _ClassVar[int]
+        COMPLETION_ACTION_CONFIGS_FIELD_NUMBER: _ClassVar[int]
+        FORM_FIELD_NUMBER: _ClassVar[int]
+        output_id: str
+        is_required: bool
+        auto_start: AutoStartConfig
+        initial_auto_proceed_config: AutoProceedConfig
+        success_condition: SuccessCondition
+        completion_action_configs: _containers.RepeatedCompositeFieldContainer[CompletionActionConfig]
+        form: FormStep
+        def __init__(self, output_id: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ...) -> None: ...
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    title: str
+    description: str
+    steps: _containers.RepeatedCompositeFieldContainer[NestedProcedureNode]
+    step: NestedProcedureNode.NestedStepNode
+    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[NestedProcedureNode, _Mapping]]] = ..., step: _Optional[_Union[NestedProcedureNode.NestedStepNode, _Mapping]] = ...) -> None: ...
+
+class AutoStartConfig(_message.Message):
+    __slots__ = ("all_parents", "disabled")
+    class AllParents(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    class Disabled(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ALL_PARENTS_FIELD_NUMBER: _ClassVar[int]
+    DISABLED_FIELD_NUMBER: _ClassVar[int]
+    all_parents: AutoStartConfig.AllParents
+    disabled: AutoStartConfig.Disabled
+    def __init__(self, all_parents: _Optional[_Union[AutoStartConfig.AllParents, _Mapping]] = ..., disabled: _Optional[_Union[AutoStartConfig.Disabled, _Mapping]] = ...) -> None: ...
+
+class AutoProceedConfig(_message.Message):
+    __slots__ = ("disabled", "enabled")
+    class Disabled(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    class Enabled(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    DISABLED_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    disabled: AutoProceedConfig.Disabled
+    enabled: AutoProceedConfig.Enabled
+    def __init__(self, disabled: _Optional[_Union[AutoProceedConfig.Disabled, _Mapping]] = ..., enabled: _Optional[_Union[AutoProceedConfig.Enabled, _Mapping]] = ...) -> None: ...
+
+class SuccessCondition(_message.Message):
+    __slots__ = ()
+    AND_FIELD_NUMBER: _ClassVar[int]
+    def __init__(self, **kwargs) -> None: ...
+
+class AndSuccessCondition(_message.Message):
+    __slots__ = ("conditions",)
+    CONDITIONS_FIELD_NUMBER: _ClassVar[int]
+    conditions: _containers.RepeatedCompositeFieldContainer[SuccessCondition]
+    def __init__(self, conditions: _Optional[_Iterable[_Union[SuccessCondition, _Mapping]]] = ...) -> None: ...
+
+class CompletionActionConfig(_message.Message):
+    __slots__ = ("create_event",)
+    CREATE_EVENT_FIELD_NUMBER: _ClassVar[int]
+    create_event: CreateEventConfig
+    def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ...) -> None: ...
+
+class CreateEventConfig(_message.Message):
+    __slots__ = ("name", "description", "labels", "properties", "asset_field_ids")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    ASSET_FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    labels: _containers.RepeatedScalarFieldContainer[str]
+    properties: _containers.ScalarMap[str, str]
+    asset_field_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ProcedureStepContent(_message.Message):
+    __slots__ = ("form",)
+    FORM_FIELD_NUMBER: _ClassVar[int]
+    form: FormStep
+    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ...) -> None: ...
+
+class FormStep(_message.Message):
+    __slots__ = ("fields",)
+    FIELDS_FIELD_NUMBER: _ClassVar[int]
+    fields: _containers.RepeatedCompositeFieldContainer[FormField]
+    def __init__(self, fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ...) -> None: ...
+
+class FormField(_message.Message):
+    __slots__ = ("id", "asset", "checkbox")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ASSET_FIELD_NUMBER: _ClassVar[int]
+    CHECKBOX_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    asset: AssetField
+    checkbox: CheckboxField
+    def __init__(self, id: _Optional[str] = ..., asset: _Optional[_Union[AssetField, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxField, _Mapping]] = ...) -> None: ...
+
+class AssetReference(_message.Message):
+    __slots__ = ("rid", "field_id")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    field_id: str
+    def __init__(self, rid: _Optional[str] = ..., field_id: _Optional[str] = ...) -> None: ...
+
+class PresetAssetFieldOptions(_message.Message):
+    __slots__ = ("options", "default_option")
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_OPTION_FIELD_NUMBER: _ClassVar[int]
+    options: _containers.RepeatedCompositeFieldContainer[AssetReference]
+    default_option: AssetReference
+    def __init__(self, options: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ..., default_option: _Optional[_Union[AssetReference, _Mapping]] = ...) -> None: ...
+
+class AssetField(_message.Message):
+    __slots__ = ("label", "is_required", "preset_options")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    PRESET_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    is_required: bool
+    preset_options: PresetAssetFieldOptions
+    def __init__(self, label: _Optional[str] = ..., is_required: bool = ..., preset_options: _Optional[_Union[PresetAssetFieldOptions, _Mapping]] = ...) -> None: ...
+
+class CheckboxField(_message.Message):
+    __slots__ = ("label", "is_required")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    is_required: bool
+    def __init__(self, label: _Optional[str] = ..., is_required: bool = ...) -> None: ...
+
+class ProcedureMetadata(_message.Message):
+    __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published", "created_at", "created_by", "updated_at", "updated_by", "workspace")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    RID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    IS_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    title: str
+    description: str
+    labels: _containers.RepeatedScalarFieldContainer[str]
+    properties: _containers.ScalarMap[str, str]
+    is_archived: bool
+    is_published: bool
+    created_at: _timestamp_pb2.Timestamp
+    created_by: str
+    updated_at: _timestamp_pb2.Timestamp
+    updated_by: str
+    workspace: str
+    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., is_archived: bool = ..., is_published: bool = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updated_by: _Optional[str] = ..., workspace: _Optional[str] = ...) -> None: ...
+
+class Procedure(_message.Message):
+    __slots__ = ("rid", "commit", "metadata", "state")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    commit: str
+    metadata: ProcedureMetadata
+    state: ProcedureState
+    def __init__(self, rid: _Optional[str] = ..., commit: _Optional[str] = ..., metadata: _Optional[_Union[ProcedureMetadata, _Mapping]] = ..., state: _Optional[_Union[ProcedureState, _Mapping]] = ...) -> None: ...
+
+class CreateProcedureRequest(_message.Message):
+    __slots__ = ("title", "description", "labels", "properties", "state", "is_published", "workspace", "commit_message", "initial_branch_name")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    title: str
+    description: str
+    labels: _containers.RepeatedScalarFieldContainer[str]
+    properties: _containers.ScalarMap[str, str]
+    state: ProcedureState
+    is_published: bool
+    workspace: str
+    commit_message: str
+    initial_branch_name: str
+    def __init__(self, title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., state: _Optional[_Union[ProcedureState, _Mapping]] = ..., is_published: bool = ..., workspace: _Optional[str] = ..., commit_message: _Optional[str] = ..., initial_branch_name: _Optional[str] = ...) -> None: ...
+
+class CreateProcedureResponse(_message.Message):
+    __slots__ = ("procedure", "branch_name")
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    branch_name: str
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ..., branch_name: _Optional[str] = ...) -> None: ...
+
+class GetProcedureRequest(_message.Message):
+    __slots__ = ("rid", "branch_or_commit", "include_display_graph")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch_or_commit: _versioning_pb2.BranchOrCommit
+    include_display_graph: bool
+    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
+
+class GetProcedureResponse(_message.Message):
+    __slots__ = ("procedure", "display_graph")
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    display_graph: ProcedureDisplayGraph
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ..., display_graph: _Optional[_Union[ProcedureDisplayGraph, _Mapping]] = ...) -> None: ...
+
+class UpdateProcedureMetadataRequest(_message.Message):
+    __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    IS_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    title: str
+    description: str
+    labels: _types_pb2.LabelUpdateWrapper
+    properties: _types_pb2.PropertyUpdateWrapper
+    is_archived: bool
+    is_published: bool
+    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Union[_types_pb2.LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[_types_pb2.PropertyUpdateWrapper, _Mapping]] = ..., is_archived: bool = ..., is_published: bool = ...) -> None: ...
+
+class UpdateProcedureMetadataResponse(_message.Message):
+    __slots__ = ("procedure_metadata",)
+    PROCEDURE_METADATA_FIELD_NUMBER: _ClassVar[int]
+    procedure_metadata: ProcedureMetadata
+    def __init__(self, procedure_metadata: _Optional[_Union[ProcedureMetadata, _Mapping]] = ...) -> None: ...
+
+class ParseNestedProcedureRequest(_message.Message):
+    __slots__ = ("nested_procedure", "include_display_graph")
+    NESTED_PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    nested_procedure: NestedProcedure
+    include_display_graph: bool
+    def __init__(self, nested_procedure: _Optional[_Union[NestedProcedure, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
+
+class ParseNestedProcedureResponse(_message.Message):
+    __slots__ = ("procedure", "display_graph")
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    display_graph: ProcedureDisplayGraph
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ..., display_graph: _Optional[_Union[ProcedureDisplayGraph, _Mapping]] = ...) -> None: ...
+
+class GetProcedureAsNestedRequest(_message.Message):
+    __slots__ = ("rid", "branch_or_commit")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch_or_commit: _versioning_pb2.BranchOrCommit
+    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ...) -> None: ...
+
+class GetProcedureAsNestedResponse(_message.Message):
+    __slots__ = ("nested_procedure",)
+    NESTED_PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    nested_procedure: NestedProcedure
+    def __init__(self, nested_procedure: _Optional[_Union[NestedProcedure, _Mapping]] = ...) -> None: ...
+
+class MergeToMainRequest(_message.Message):
+    __slots__ = ("rid", "branch", "latest_commit_on_main", "message")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    LATEST_COMMIT_ON_MAIN_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch: str
+    latest_commit_on_main: str
+    message: str
+    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., latest_commit_on_main: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+
+class MergeToMainResponse(_message.Message):
+    __slots__ = ("procedure",)
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
+
+class SaveWorkingStateRequest(_message.Message):
+    __slots__ = ("rid", "branch", "message", "latest_commit_on_branch", "state")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    LATEST_COMMIT_ON_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch: str
+    message: str
+    latest_commit_on_branch: str
+    state: ProcedureState
+    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., message: _Optional[str] = ..., latest_commit_on_branch: _Optional[str] = ..., state: _Optional[_Union[ProcedureState, _Mapping]] = ...) -> None: ...
+
+class SaveWorkingStateResponse(_message.Message):
+    __slots__ = ("procedure",)
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
+
+class CommitRequest(_message.Message):
+    __slots__ = ("rid", "branch", "latest_commit_on_branch", "message", "state")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    LATEST_COMMIT_ON_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    branch: str
+    latest_commit_on_branch: str
+    message: str
+    state: ProcedureState
+    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., latest_commit_on_branch: _Optional[str] = ..., message: _Optional[str] = ..., state: _Optional[_Union[ProcedureState, _Mapping]] = ...) -> None: ...
+
+class CommitResponse(_message.Message):
+    __slots__ = ("procedure",)
+    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
+    procedure: Procedure
+    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
 
 class ProcedureSearchQuery(_message.Message):
     __slots__ = ("search_text", "label", "property", "workspace", "created_by", "is_archived")
@@ -341,224 +561,7 @@ class ProcedureSearchQuery(_message.Message):
     is_archived: bool
     def __init__(self, search_text: _Optional[str] = ..., label: _Optional[str] = ..., property: _Optional[_Union[_types_pb2.Property, _Mapping]] = ..., workspace: _Optional[str] = ..., created_by: _Optional[str] = ..., is_archived: bool = ..., **kwargs) -> None: ...
 
-class GetProcedureResponse(_message.Message):
-    __slots__ = ("procedure", "display_graph")
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    display_graph: ProcedureDisplayGraph
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ..., display_graph: _Optional[_Union[ProcedureDisplayGraph, _Mapping]] = ...) -> None: ...
-
-class CreateProcedureRequest(_message.Message):
-    __slots__ = ("title", "description", "labels", "properties", "graph", "variables", "is_published", "workspace", "commit_message")
-    class PropertiesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    class VariablesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: ProcedureVariable
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureVariable, _Mapping]] = ...) -> None: ...
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    LABELS_FIELD_NUMBER: _ClassVar[int]
-    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-    GRAPH_FIELD_NUMBER: _ClassVar[int]
-    VARIABLES_FIELD_NUMBER: _ClassVar[int]
-    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    title: str
-    description: str
-    labels: _containers.RepeatedScalarFieldContainer[str]
-    properties: _containers.ScalarMap[str, str]
-    graph: ProcedureGraph
-    variables: _containers.MessageMap[str, ProcedureVariable]
-    is_published: bool
-    workspace: str
-    commit_message: str
-    def __init__(self, title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., graph: _Optional[_Union[ProcedureGraph, _Mapping]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ..., is_published: bool = ..., workspace: _Optional[str] = ..., commit_message: _Optional[str] = ...) -> None: ...
-
-class CreateProcedureResponse(_message.Message):
-    __slots__ = ("procedure",)
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
-
-class UpdateProcedureMetadataRequest(_message.Message):
-    __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    LABELS_FIELD_NUMBER: _ClassVar[int]
-    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-    IS_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
-    IS_PUBLISHED_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    title: str
-    description: str
-    labels: _types_pb2.LabelUpdateWrapper
-    properties: _types_pb2.PropertyUpdateWrapper
-    is_archived: bool
-    is_published: bool
-    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Union[_types_pb2.LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[_types_pb2.PropertyUpdateWrapper, _Mapping]] = ..., is_archived: bool = ..., is_published: bool = ...) -> None: ...
-
-class UpdateProcedureMetadataResponse(_message.Message):
-    __slots__ = ("procedure_metadata",)
-    PROCEDURE_METADATA_FIELD_NUMBER: _ClassVar[int]
-    procedure_metadata: ProcedureMetadata
-    def __init__(self, procedure_metadata: _Optional[_Union[ProcedureMetadata, _Mapping]] = ...) -> None: ...
-
-class MergeToMainRequest(_message.Message):
-    __slots__ = ("rid", "branch", "latest_commit_on_main", "message")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_FIELD_NUMBER: _ClassVar[int]
-    LATEST_COMMIT_ON_MAIN_FIELD_NUMBER: _ClassVar[int]
-    MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    branch: str
-    latest_commit_on_main: str
-    message: str
-    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., latest_commit_on_main: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
-
-class MergeToMainResponse(_message.Message):
-    __slots__ = ("procedure",)
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
-
-class SaveWorkingStateRequest(_message.Message):
-    __slots__ = ("rid", "branch", "message", "latest_commit_on_branch", "graph", "variables")
-    class VariablesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: ProcedureVariable
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureVariable, _Mapping]] = ...) -> None: ...
-    RID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_FIELD_NUMBER: _ClassVar[int]
-    MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    LATEST_COMMIT_ON_BRANCH_FIELD_NUMBER: _ClassVar[int]
-    GRAPH_FIELD_NUMBER: _ClassVar[int]
-    VARIABLES_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    branch: str
-    message: str
-    latest_commit_on_branch: str
-    graph: ProcedureGraph
-    variables: _containers.MessageMap[str, ProcedureVariable]
-    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., message: _Optional[str] = ..., latest_commit_on_branch: _Optional[str] = ..., graph: _Optional[_Union[ProcedureGraph, _Mapping]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ...) -> None: ...
-
-class SaveWorkingStateResponse(_message.Message):
-    __slots__ = ("procedure",)
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
-
-class CommitRequest(_message.Message):
-    __slots__ = ("rid", "branch", "latest_commit_on_branch", "message", "graph", "variables")
-    class VariablesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: ProcedureVariable
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureVariable, _Mapping]] = ...) -> None: ...
-    RID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_FIELD_NUMBER: _ClassVar[int]
-    LATEST_COMMIT_ON_BRANCH_FIELD_NUMBER: _ClassVar[int]
-    MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    GRAPH_FIELD_NUMBER: _ClassVar[int]
-    VARIABLES_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    branch: str
-    latest_commit_on_branch: str
-    message: str
-    graph: ProcedureGraph
-    variables: _containers.MessageMap[str, ProcedureVariable]
-    def __init__(self, rid: _Optional[str] = ..., branch: _Optional[str] = ..., latest_commit_on_branch: _Optional[str] = ..., message: _Optional[str] = ..., graph: _Optional[_Union[ProcedureGraph, _Mapping]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ...) -> None: ...
-
-class CommitResponse(_message.Message):
-    __slots__ = ("procedure",)
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
-
-class ParseNestedProcedureRequest(_message.Message):
-    __slots__ = ("nested_procedure", "include_display_graph")
-    NESTED_PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    INCLUDE_DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
-    nested_procedure: NestedProcedure
-    include_display_graph: bool
-    def __init__(self, nested_procedure: _Optional[_Union[NestedProcedure, _Mapping]] = ..., include_display_graph: bool = ...) -> None: ...
-
-class ParseNestedProcedureResponse(_message.Message):
-    __slots__ = ("procedure", "display_graph")
-    PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    DISPLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
-    procedure: Procedure
-    display_graph: ProcedureDisplayGraph
-    def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ..., display_graph: _Optional[_Union[ProcedureDisplayGraph, _Mapping]] = ...) -> None: ...
-
-class NestedProcedure(_message.Message):
-    __slots__ = ("title", "description", "steps", "variables")
-    class VariablesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: ProcedureVariable
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ProcedureVariable, _Mapping]] = ...) -> None: ...
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    STEPS_FIELD_NUMBER: _ClassVar[int]
-    VARIABLES_FIELD_NUMBER: _ClassVar[int]
-    title: str
-    description: str
-    steps: _containers.RepeatedCompositeFieldContainer[NestedProcedureNode]
-    variables: _containers.MessageMap[str, ProcedureVariable]
-    def __init__(self, title: _Optional[str] = ..., description: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[NestedProcedureNode, _Mapping]]] = ..., variables: _Optional[_Mapping[str, ProcedureVariable]] = ...) -> None: ...
-
-class NestedProcedureNode(_message.Message):
-    __slots__ = ("id", "title", "description", "steps", "fields", "event_config", "is_required")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    TITLE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    STEPS_FIELD_NUMBER: _ClassVar[int]
-    FIELDS_FIELD_NUMBER: _ClassVar[int]
-    EVENT_CONFIG_FIELD_NUMBER: _ClassVar[int]
-    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    title: str
-    description: str
-    steps: _containers.RepeatedCompositeFieldContainer[NestedProcedureNode]
-    fields: _containers.RepeatedCompositeFieldContainer[StepField]
-    event_config: ProcedureEventConfig
-    is_required: bool
-    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[NestedProcedureNode, _Mapping]]] = ..., fields: _Optional[_Iterable[_Union[StepField, _Mapping]]] = ..., event_config: _Optional[_Union[ProcedureEventConfig, _Mapping]] = ..., is_required: bool = ...) -> None: ...
-
-class GetProcedureAsNestedRequest(_message.Message):
-    __slots__ = ("rid", "branch_or_commit")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_OR_COMMIT_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    branch_or_commit: _versioning_pb2.BranchOrCommit
-    def __init__(self, rid: _Optional[str] = ..., branch_or_commit: _Optional[_Union[_versioning_pb2.BranchOrCommit, _Mapping]] = ...) -> None: ...
-
-class GetProcedureAsNestedResponse(_message.Message):
-    __slots__ = ("nested_procedure",)
-    NESTED_PROCEDURE_FIELD_NUMBER: _ClassVar[int]
-    nested_procedure: NestedProcedure
-    def __init__(self, nested_procedure: _Optional[_Union[NestedProcedure, _Mapping]] = ...) -> None: ...
-
-class SearchProceduresOptions(_message.Message):
+class SearchProceduresSortOptions(_message.Message):
     __slots__ = ("is_descending", "sort_field")
     IS_DESCENDING_FIELD_NUMBER: _ClassVar[int]
     SORT_FIELD_FIELD_NUMBER: _ClassVar[int]
@@ -567,16 +570,16 @@ class SearchProceduresOptions(_message.Message):
     def __init__(self, is_descending: bool = ..., sort_field: _Optional[_Union[SearchProceduresSortField, str]] = ...) -> None: ...
 
 class SearchProceduresRequest(_message.Message):
-    __slots__ = ("query", "search_options", "page_size", "next_page_token")
+    __slots__ = ("query", "sort_options", "page_size", "next_page_token")
     QUERY_FIELD_NUMBER: _ClassVar[int]
-    SEARCH_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    SORT_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     query: ProcedureSearchQuery
-    search_options: SearchProceduresOptions
+    sort_options: SearchProceduresSortOptions
     page_size: int
     next_page_token: str
-    def __init__(self, query: _Optional[_Union[ProcedureSearchQuery, _Mapping]] = ..., search_options: _Optional[_Union[SearchProceduresOptions, _Mapping]] = ..., page_size: _Optional[int] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    def __init__(self, query: _Optional[_Union[ProcedureSearchQuery, _Mapping]] = ..., sort_options: _Optional[_Union[SearchProceduresSortOptions, _Mapping]] = ..., page_size: _Optional[int] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class SearchProceduresResponse(_message.Message):
     __slots__ = ("procedure_metadata", "next_page_token")
@@ -592,13 +595,13 @@ class ArchiveProceduresRequest(_message.Message):
     procedure_rids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, procedure_rids: _Optional[_Iterable[str]] = ...) -> None: ...
 
-class UnarchiveProceduresRequest(_message.Message):
+class ArchiveProceduresResponse(_message.Message):
     __slots__ = ("procedure_rids",)
     PROCEDURE_RIDS_FIELD_NUMBER: _ClassVar[int]
     procedure_rids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, procedure_rids: _Optional[_Iterable[str]] = ...) -> None: ...
 
-class ArchiveProceduresResponse(_message.Message):
+class UnarchiveProceduresRequest(_message.Message):
     __slots__ = ("procedure_rids",)
     PROCEDURE_RIDS_FIELD_NUMBER: _ClassVar[int]
     procedure_rids: _containers.RepeatedScalarFieldContainer[str]

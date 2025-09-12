@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_obfuscation_expression`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_obfuscation_expression`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression).
+Refer to the Terraform Registry for docs: [`data_newrelic_obfuscation_expression`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicObfuscationExpression(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicObfuscationExpression.DataNewrelicObfuscationExpression",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression newrelic_obfuscation_expression}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression newrelic_obfuscation_expression}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataNewrelicObfuscationExpression(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression newrelic_obfuscation_expression} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression newrelic_obfuscation_expression} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
-        :param account_id: The account id associated with the obfuscation expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name of expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
+        :param account_id: The account id associated with the obfuscation expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataNewrelicObfuscationExpression(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicObfuscationExpression to import.
-        :param import_from_id: The id of the existing DataNewrelicObfuscationExpression that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicObfuscationExpression that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicObfuscationExpression to import is found.
         '''
         if __debug__:
@@ -232,9 +232,9 @@ class DataNewrelicObfuscationExpressionConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
-        :param account_id: The account id associated with the obfuscation expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name of expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
+        :param account_id: The account id associated with the obfuscation expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class DataNewrelicObfuscationExpressionConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def name(self) -> builtins.str:
         '''Name of expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#name DataNewrelicObfuscationExpression#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -350,14 +350,14 @@ class DataNewrelicObfuscationExpressionConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id associated with the obfuscation expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#account_id DataNewrelicObfuscationExpression#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/obfuscation_expression#id DataNewrelicObfuscationExpression#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

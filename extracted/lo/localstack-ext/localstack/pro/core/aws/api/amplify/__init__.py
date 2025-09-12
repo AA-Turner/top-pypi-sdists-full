@@ -268,13 +268,12 @@ class WafConfiguration(TypedDict, total=False):
 
 
 webhookCreateTime = datetime
-CacheConfig = TypedDict(
-    "CacheConfig",
-    {
-        "type": CacheConfigType,
-    },
-    total=False,
-)
+
+
+class CacheConfig(TypedDict, total=False):
+    type: CacheConfigType
+
+
 EnvironmentVariables = Dict[EnvKey, EnvValue]
 
 
@@ -439,23 +438,19 @@ class Branch(TypedDict, total=False):
 
 
 Branches = List[Branch]
-Certificate = TypedDict(
-    "Certificate",
-    {
-        "type": CertificateType,
-        "customCertificateArn": Optional[CertificateArn],
-        "certificateVerificationDNSRecord": Optional[CertificateVerificationDNSRecord],
-    },
-    total=False,
-)
-CertificateSettings = TypedDict(
-    "CertificateSettings",
-    {
-        "type": CertificateType,
-        "customCertificateArn": Optional[CertificateArn],
-    },
-    total=False,
-)
+
+
+class Certificate(TypedDict, total=False):
+    type: CertificateType
+    customCertificateArn: Optional[CertificateArn]
+    certificateVerificationDNSRecord: Optional[CertificateVerificationDNSRecord]
+
+
+class CertificateSettings(TypedDict, total=False):
+    type: CertificateType
+    customCertificateArn: Optional[CertificateArn]
+
+
 CommitTime = datetime
 
 

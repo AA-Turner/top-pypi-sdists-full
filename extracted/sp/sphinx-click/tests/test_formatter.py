@@ -4,8 +4,6 @@ import unittest
 import click
 from sphinx_click import ext
 
-CLICK_VERSION = tuple(int(x) for x in click.__version__.split('.')[0:2])
-
 
 class CommandTestCase(unittest.TestCase):
     """Validate basic ``click.Command`` instances."""
@@ -457,7 +455,7 @@ class CommandTestCase(unittest.TestCase):
         )
 
     @unittest.skipIf(
-        CLICK_VERSION < (8, 1), 'Click < 8.1.0 stores the modified help string'
+        ext.CLICK_VERSION < (8, 1), 'Click < 8.1.0 stores the modified help string'
     )
     def test_no_truncation(self):
         r"""Validate behavior when a \f character is present.
@@ -866,6 +864,7 @@ class CustomMultiCommandTestCase(unittest.TestCase):
 
     maxDiff = None
 
+    @unittest.skipIf(ext.CLICK_VERSION > (9, 0), 'MultiCommand is removed in Click 9.0')
     def test_basics(self):
         """Validate a custom ``click.MultiCommand`` with no parameters.
 
@@ -921,6 +920,7 @@ class CustomMultiCommandTestCase(unittest.TestCase):
             '\n'.join(output),
         )
 
+    @unittest.skipIf(ext.CLICK_VERSION > (9, 0), 'MultiCommand is removed in Click 9.0')
     def test_hidden(self):
         """Ensure 'hidden' subcommands are not shown."""
 

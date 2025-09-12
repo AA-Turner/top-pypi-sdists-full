@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui_workflow_templates"
-version = "0.1.78"
+version = "0.1.81"
 description = "ComfyUI workflow templates package"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,4 +16,4 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-] 
+]

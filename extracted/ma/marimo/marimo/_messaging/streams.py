@@ -29,7 +29,6 @@ from marimo._server.types import QueueType
 from marimo._types.ids import CellId_t
 
 if TYPE_CHECKING:
-    import queue
     from collections.abc import Iterable, Iterator
 
 LOGGER = _loggers.marimo_logger()
@@ -79,7 +78,7 @@ class PipeProtocol(Protocol):
 
 
 class QueuePipe:
-    def __init__(self, queue: queue.Queue[KernelMessage]):
+    def __init__(self, queue: QueueType[KernelMessage]):
         self._queue = queue
 
     def send(self, obj: Any) -> None:
@@ -119,7 +118,7 @@ class ThreadSafeStream(Stream):
         # stdin messages are pulled from this queue
         self.input_queue = input_queue
 
-    def write(self, op: str, data: dict[Any, Any]) -> None:
+    def write(self, op: str, data: bytes) -> None:
         with self.stream_lock:
             try:
                 self.pipe.send((op, data))

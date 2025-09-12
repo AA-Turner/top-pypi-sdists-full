@@ -519,6 +519,7 @@ PaginatorName = Literal[
     "list_workgroups",
 ]
 RegionName = Literal[
+    "af-south-1",
     "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",
@@ -532,6 +533,7 @@ RegionName = Literal[
     "eu-central-1",
     "eu-central-2",
     "eu-north-1",
+    "eu-south-1",
     "eu-south-2",
     "eu-west-1",
     "eu-west-2",

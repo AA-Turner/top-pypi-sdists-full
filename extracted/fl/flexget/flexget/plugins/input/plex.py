@@ -58,16 +58,16 @@ class InputPlex:
 
     Default parameters::
 
-      server           : localhost
-      port             : 32400
-      selection        : all
-      lowercase_title  : no
-      strip_non_alpha  : yes
-      strip_year       : yes
-      strip_parens     : no
+      server: localhost
+      port: 32400
+      selection: all
+      lowercase_title: no
+      strip_non_alpha: yes
+      strip_year: yes
+      strip_parens: no
       original_filename: no
-      unwatched_only   : no
-      fetch            : file
+      unwatched_only: no
+      fetch: file
 
     Example::
 

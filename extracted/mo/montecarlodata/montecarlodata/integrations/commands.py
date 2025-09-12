@@ -818,6 +818,13 @@ def add_hive_logs(ctx, role, **kwargs):  # DEPRECATED
 @add_common_options(role_options())
 @add_common_options(warehouse_create_option())
 @add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
+@click.option(
+    "--ssl-ca",
+    help="Path to file that contains CA cert bundle to use for SSL connection.",
+    required=False,
+    type=click.Path(dir_okay=False, exists=True),
+    cls=AdvancedOptions,
+)
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
 def add_glue(ctx, role, region, name, **kwargs):
     """
@@ -2371,8 +2378,28 @@ def create_role(ctx, file, aws_profile, dc_id, agent_id):
               \n
               E.g. --changes '{"user":"Apollo"}'
               """,
-    required=True,
+    required=False,
+    cls=AdvancedOptions,
+    at_least_one_set=["ssl_ca", "changes", "remove_ssl_ca"],
     callback=validate_json_callback,
+)
+@click.option(
+    "--ssl-ca",
+    help="For integrations that support client certs, update the cert used.",
+    required=False,
+    cls=AdvancedOptions,
+    at_least_one_set=["ssl_ca", "changes", "remove_ssl_ca"],
+    mutually_exclusive_options=["remove_ssl_ca"],
+    type=click.Path(dir_okay=False, exists=True),
+)
+@click.option(
+    "--remove-ssl-ca",
+    help="Remove the SSL CA cert from credentials.",
+    is_flag=True,
+    default=False,
+    cls=AdvancedOptions,
+    at_least_one_set=["ssl_ca", "changes", "remove_ssl_ca"],
+    mutually_exclusive_options=["ssl_ca"],
 )
 @click.option(
     "--skip-validation",
@@ -2389,7 +2416,9 @@ def create_role(ctx, file, aws_profile, dc_id, agent_id):
     is_flag=True,
 )
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
-def update_credentials(ctx, connection_id, changes, skip_validation, replace_all):
+def update_credentials(
+    ctx, connection_id, changes, ssl_ca, remove_ssl_ca, skip_validation, replace_all
+):
     """
     Update credentials for a connection
     """
@@ -2399,6 +2428,8 @@ def update_credentials(ctx, connection_id, changes, skip_validation, replace_all
     ).update_credentials(
         connection_id=connection_id,
         changes=changes,
+        ssl_ca=ssl_ca,
+        remove_ssl_ca=remove_ssl_ca,
         should_validate=not skip_validation,
         should_replace=replace_all,
     )

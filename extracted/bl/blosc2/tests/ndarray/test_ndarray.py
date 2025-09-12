@@ -57,6 +57,8 @@ def test_ndarray_cframe(contiguous, urlpath, cparams, dparams, nchunks, copy):
         ((200, 10), 2),
         ((200, 10, 10), 2),
         ((200, 10, 10), 40),
+        ((200, 10, 10), -1),
+        ((200, 10, 10), -3),
         ((200, 10, 10, 10), 9),
     ],
 )
@@ -292,31 +294,42 @@ def test_oindex():
     np.testing.assert_allclose(arr[:], nparr)
 
 
-def test_findex():
-    # Test 1d fast path
+@pytest.mark.parametrize("c", [None, 10])
+def test_fancy_index(c):
+    # Test 1d
     ndim = 1
-    d = 1 + int(blosc2.MAX_FAST_PATH_SIZE / 8)  # just over fast path size
+    chunks = (c,) * ndim if c is not None else None
+    dtype = np.dtype("float")
+    d = (
+        1 + int(blosc2.MAX_FAST_PATH_SIZE / dtype.itemsize) if c is None else 100
+    )  # just over numpy fast path size
     shape = (d,) * ndim
-    arr = blosc2.linspace(0, 100, num=np.prod(shape), shape=shape, dtype=np.float64)
+    arr = blosc2.linspace(0, 100, num=np.prod(shape), shape=shape, dtype=dtype, chunks=chunks)
     rng = np.random.default_rng()
     idx = rng.integers(low=0, high=d, size=(d // 4,))
     nparr = arr[:]
     b = arr[idx]
     n = nparr[idx]
     np.testing.assert_allclose(b, n)
+    b = arr[[[idx[::-1]], [idx]]]
+    n = nparr[[[idx[::-1]], [idx]]]
+    np.testing.assert_allclose(b, n)
 
     ndim = 3
-    d = 1 + int((blosc2.MAX_FAST_PATH_SIZE / 8) ** (1 / ndim))  # just over fast path size
+    d = (
+        1 + int((blosc2.MAX_FAST_PATH_SIZE / 8) ** (1 / ndim)) if c is None else d
+    )  # just over numpy fast path size
     shape = (d,) * ndim
-    arr = blosc2.linspace(0, 100, num=np.prod(shape), shape=shape, dtype=np.float64)
+    chunks = (c,) * ndim if c is not None else None
+    arr = blosc2.linspace(0, 100, num=np.prod(shape), shape=shape, dtype=dtype, chunks=chunks)
     rng = np.random.default_rng()
-    idx = rng.integers(low=0, high=d, size=(100,))
+    idx = rng.integers(low=-d, high=d, size=(100,))  # mix of +ve and -ve indices
 
     row = idx
     col = rng.permutation(idx)
     mask = rng.integers(low=0, high=2, size=(d,)) == 1
 
-    ## Test fancy indexing for different use cases
+    # Test fancy indexing for different use cases
     m, M = np.min(idx), np.max(idx)
     nparr = arr[:]
     # i)
@@ -347,6 +360,15 @@ def test_findex():
     b = arr[row[:, None], mask]
     n = nparr[row[:, None], mask]
     np.testing.assert_allclose(b, n)
+
+    # indices and negative slice steps
+    b = arr[row, d // 2 :: -1]
+    n = nparr[row, d // 2 :: -1]
+    np.testing.assert_allclose(b, n)
+    b = arr[M // 2 :: -4, row, d // 2 :: -3]
+    n = nparr[M // 2 :: -4, row, d // 2 :: -3]
+    np.testing.assert_allclose(b, n)
+
     # Transposition test (3rd example is transposed)
     b1 = arr[:, [0, 1], 0]
     b2 = arr[[0, 1], 0, :]
@@ -354,7 +376,7 @@ def test_findex():
     n2 = nparr[[0, 1], 0, :]
     np.testing.assert_allclose(b1, n1)
     np.testing.assert_allclose(b2, n2)
-    # TODO: Support array indices separate by slices
+    # TODO: Support array indices separated by slices
     # b3 = arr[0, :, [0, 1]]
     # n3 = nparr[0, :, [0, 1]]
     # np.testing.assert_allclose(b3, n3)

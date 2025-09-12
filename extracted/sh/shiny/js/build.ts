@@ -95,36 +95,11 @@ const opts: Array<BuildOptions> = [
   },
   {
     entryPoints: {
-      "text-area/textarea-autoresize": "text-area/textarea-autoresize.ts",
-    },
-  },
-  {
-    entryPoints: {
       "page-output/page-output": "page-output/page-output.ts",
     },
   },
   {
     entryPoints: { "spin/spin": "spin/spin.scss" },
-    plugins: [sassPlugin({ type: "css", sourceMap: false })],
-  },
-  {
-    entryPoints: {
-      "markdown-stream/markdown-stream": "markdown-stream/markdown-stream.ts",
-    },
-  },
-  {
-    entryPoints: {
-      "markdown-stream/markdown-stream": "markdown-stream/markdown-stream.scss",
-    },
-    plugins: [sassPlugin({ type: "css", sourceMap: false })],
-  },
-  {
-    entryPoints: {
-      "chat/chat": "chat/chat.ts",
-    },
-  },
-  {
-    entryPoints: { "chat/chat": "chat/chat.scss" },
     plugins: [sassPlugin({ type: "css", sourceMap: false })],
   },
 ];

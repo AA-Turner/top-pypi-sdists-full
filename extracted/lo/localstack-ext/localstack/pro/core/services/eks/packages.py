@@ -1,4 +1,3 @@
-from typing import List
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import GitHubReleaseInstaller,SystemNotSupportedException
 from localstack.utils.platform import get_arch,is_linux,is_mac_os

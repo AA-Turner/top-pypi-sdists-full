@@ -48,8 +48,11 @@ IdpIdentifierType = str
 ImageUrlType = str
 IntegerType = int
 InvalidParameterExceptionReasonCodeType = str
+LanguageIdType = str
+LinkUrlType = str
 ListProvidersLimitType = int
 ListResourceServersLimitType = int
+ListTermsRequestMaxResultsInteger = int
 ManagedLoginBrandingIdType = str
 MessageType = str
 PaginationKey = str
@@ -90,6 +93,8 @@ StringType = str
 TagKeysType = str
 TagValueType = str
 TemporaryPasswordValidityDaysType = int
+TermsIdType = str
+TermsNameType = str
 TokenModelType = str
 UserFilterType = str
 UserImportJobIdType = str
@@ -364,6 +369,14 @@ class RiskLevelType(StrEnum):
 class StatusType(StrEnum):
     Enabled = "Enabled"
     Disabled = "Disabled"
+
+
+class TermsEnforcementType(StrEnum):
+    NONE = "NONE"
+
+
+class TermsSourceType(StrEnum):
+    LINK = "LINK"
 
 
 class TimeUnitsType(StrEnum):
@@ -730,6 +743,17 @@ class SoftwareTokenMFANotFoundException(ServiceException):
     """
 
     code: str = "SoftwareTokenMFANotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class TermsExistsException(ServiceException):
+    """Terms document names must be unique to the app client. This exception is
+    thrown when you attempt to create terms documents with a duplicate
+    ``TermsName``.
+    """
+
+    code: str = "TermsExistsException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -1558,6 +1582,18 @@ class ChallengeResponseType(TypedDict, total=False):
 
        -  ``"ChallengeName": "SELECT_CHALLENGE", "ChallengeResponses": { "ANSWER": "EMAIL_OTP", "USERNAME": "[username]"}``
 
+    WEB_AUTHN
+       ``"ChallengeName": "WEB_AUTHN", "ChallengeResponses": { "USERNAME": "[username]", "CREDENTIAL": "[AuthenticationResponseJSON]"}``
+
+       See
+       `AuthenticationResponseJSON <https://www.w3.org/TR/WebAuthn-3/#dictdef-authenticationresponsejson>`__.
+
+    PASSWORD
+       ``"ChallengeName": "PASSWORD", "ChallengeResponses": { "USERNAME": "[username]", "PASSWORD": "[password]"}``
+
+    PASSWORD_SRP
+       ``"ChallengeName": "PASSWORD_SRP", "ChallengeResponses": { "USERNAME": "[username]", "SRP_A": "[SRP_A]"}``
+
     SMS_OTP
        ``"ChallengeName": "SMS_OTP", "ChallengeResponses": {"SMS_OTP_CODE": "[code]", "USERNAME": "[username]"}``
 
@@ -1575,12 +1611,8 @@ class ChallengeResponseType(TypedDict, total=False):
 
        ``"ChallengeName": "PASSWORD_VERIFIER", "ChallengeResponses": {"PASSWORD_CLAIM_SIGNATURE": "[claim_signature]", "PASSWORD_CLAIM_SECRET_BLOCK": "[secret_block]", "TIMESTAMP": [timestamp], "USERNAME": "[username]"}``
 
-       Add ``"DEVICE_KEY"`` when you sign in with a remembered device.
-
     CUSTOM_CHALLENGE
        ``"ChallengeName": "CUSTOM_CHALLENGE", "ChallengeResponses": {"USERNAME": "[username]", "ANSWER": "[challenge_answer]"}``
-
-       Add ``"DEVICE_KEY"`` when you sign in with a remembered device.
 
     NEW_PASSWORD_REQUIRED
        ``"ChallengeName": "NEW_PASSWORD_REQUIRED", "ChallengeResponses": {"NEW_PASSWORD": "[new_password]", "USERNAME": "[username]"}``
@@ -1612,7 +1644,7 @@ class ChallengeResponseType(TypedDict, total=False):
        ``"ChallengeName": "MFA_SETUP", "ChallengeResponses": {"USERNAME": "[username]"}, "SESSION": "[Session ID from VerifySoftwareToken]"``
 
     SELECT_MFA_TYPE
-       ``"ChallengeName": "SELECT_MFA_TYPE", "ChallengeResponses": {"USERNAME": "[username]", "ANSWER": "[SMS_MFA or SOFTWARE_TOKEN_MFA]"}``
+       ``"ChallengeName": "SELECT_MFA_TYPE", "ChallengeResponses": {"USERNAME": "[username]", "ANSWER": "[SMS_MFA|EMAIL_MFA|SOFTWARE_TOKEN_MFA]"}``
 
     For more information about ``SECRET_HASH``, see `Computing secret hash
     values <https://docs.aws.amazon.com/cognito/latest/developerguide/signing-up-users-in-your-app.html#cognito-user-pools-computing-secret-hash>`__.
@@ -2174,6 +2206,39 @@ class CreateResourceServerResponse(TypedDict, total=False):
     ResourceServer: ResourceServerType
 
 
+LinksType = Dict[LanguageIdType, LinkUrlType]
+
+
+class CreateTermsRequest(ServiceRequest):
+    UserPoolId: UserPoolIdType
+    ClientId: ClientIdType
+    TermsName: TermsNameType
+    TermsSource: TermsSourceType
+    Enforcement: TermsEnforcementType
+    Links: Optional[LinksType]
+
+
+class TermsType(TypedDict, total=False):
+    """The details of a set of terms documents. For more information, see
+    `Terms
+    documents <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-terms-documents>`__.
+    """
+
+    TermsId: TermsIdType
+    UserPoolId: UserPoolIdType
+    ClientId: ClientIdType
+    TermsName: TermsNameType
+    TermsSource: TermsSourceType
+    Enforcement: TermsEnforcementType
+    Links: LinksType
+    CreationDate: DateType
+    LastModifiedDate: DateType
+
+
+class CreateTermsResponse(TypedDict, total=False):
+    Terms: Optional[TermsType]
+
+
 class CreateUserImportJobRequest(ServiceRequest):
     """Represents the request to create the user import job."""
 
@@ -2601,6 +2666,11 @@ class DeleteResourceServerRequest(ServiceRequest):
     Identifier: ResourceServerIdentifierType
 
 
+class DeleteTermsRequest(ServiceRequest):
+    TermsId: TermsIdType
+    UserPoolId: UserPoolIdType
+
+
 class DeleteUserAttributesRequest(ServiceRequest):
     """Represents the request to delete user attributes."""
 
@@ -2721,6 +2791,15 @@ class RiskConfigurationType(TypedDict, total=False):
 
 class DescribeRiskConfigurationResponse(TypedDict, total=False):
     RiskConfiguration: RiskConfigurationType
+
+
+class DescribeTermsRequest(ServiceRequest):
+    TermsId: TermsIdType
+    UserPoolId: UserPoolIdType
+
+
+class DescribeTermsResponse(TypedDict, total=False):
+    Terms: Optional[TermsType]
 
 
 class DescribeUserImportJobRequest(ServiceRequest):
@@ -3175,6 +3254,33 @@ class ListTagsForResourceResponse(TypedDict, total=False):
     Tags: Optional[UserPoolTagsType]
 
 
+class ListTermsRequest(ServiceRequest):
+    UserPoolId: UserPoolIdType
+    MaxResults: Optional[ListTermsRequestMaxResultsInteger]
+    NextToken: Optional[StringType]
+
+
+class TermsDescriptionType(TypedDict, total=False):
+    """The details of a set of terms documents. For more information, see
+    `Terms
+    documents <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-terms-documents>`__.
+    """
+
+    TermsId: TermsIdType
+    TermsName: TermsNameType
+    Enforcement: TermsEnforcementType
+    CreationDate: DateType
+    LastModifiedDate: DateType
+
+
+TermsDescriptionListType = List[TermsDescriptionType]
+
+
+class ListTermsResponse(TypedDict, total=False):
+    Terms: TermsDescriptionListType
+    NextToken: Optional[StringType]
+
+
 class ListUserImportJobsRequest(ServiceRequest):
     """Represents the request to list the user import jobs."""
 
@@ -3590,6 +3696,19 @@ class UpdateResourceServerRequest(ServiceRequest):
 
 class UpdateResourceServerResponse(TypedDict, total=False):
     ResourceServer: ResourceServerType
+
+
+class UpdateTermsRequest(ServiceRequest):
+    TermsId: TermsIdType
+    UserPoolId: UserPoolIdType
+    TermsName: Optional[TermsNameType]
+    TermsSource: Optional[TermsSourceType]
+    Enforcement: Optional[TermsEnforcementType]
+    Links: Optional[LinksType]
+
+
+class UpdateTermsResponse(TypedDict, total=False):
+    Terms: Optional[TermsType]
 
 
 class UpdateUserAttributesRequest(ServiceRequest):
@@ -4622,8 +4741,12 @@ class CognitoIdpApi:
         client_metadata: ClientMetadataType | None = None,
         **kwargs,
     ) -> AdminResetUserPasswordResponse:
-        """Resets the specified user's password in a user pool. This operation
-        doesn't change the user's password, but sends a password-reset code.
+        """Begins the password reset process. Sets the requested user’s account
+        into a ``RESET_REQUIRED`` status, and sends them a password-reset code.
+        Your user pool also sends the user a notification with a reset code and
+        the information that their password has been reset. At sign-in, your
+        application or the managed login session receives a challenge to
+        complete the reset by confirming the code and setting a new password.
 
         To use this API operation, your user pool must have self-service account
         recovery configured.
@@ -5588,7 +5711,7 @@ class CognitoIdpApi:
     ) -> CreateManagedLoginBrandingResponse:
         """Creates a new set of branding settings for a user pool style and
         associates it with an app client. This operation is the programmatic
-        option for the creation of a new style in the branding designer.
+        option for the creation of a new style in the branding editor.
 
         Provides values for UI customization in a ``Settings`` JSON object and
         image files in an ``Assets`` array. To send the JSON object ``Document``
@@ -5674,6 +5797,72 @@ class CognitoIdpApi:
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
         :raises TooManyRequestsException:
+        :raises LimitExceededException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateTerms")
+    def create_terms(
+        self,
+        context: RequestContext,
+        user_pool_id: UserPoolIdType,
+        client_id: ClientIdType,
+        terms_name: TermsNameType,
+        terms_source: TermsSourceType,
+        enforcement: TermsEnforcementType,
+        links: LinksType | None = None,
+        **kwargs,
+    ) -> CreateTermsResponse:
+        """Creates terms documents for the requested app client. When Terms and
+        conditions and Privacy policy documents are configured, the app client
+        displays links to them in the sign-up page of managed login for the app
+        client.
+
+        You can provide URLs for terms documents in the languages that are
+        supported by `managed login
+        localization <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-localization>`__.
+        Amazon Cognito directs users to the terms documents for their current
+        language, with fallback to ``default`` if no document exists for the
+        language.
+
+        Each request accepts one type of terms document and a map of
+        language-to-link for that document type. You must provide both types of
+        terms documents in at least one language before Amazon Cognito displays
+        your terms documents. Supply each type in separate requests.
+
+        For more information, see `Terms
+        documents <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-terms-documents>`__.
+
+        Amazon Cognito evaluates Identity and Access Management (IAM) policies
+        in requests for this API operation. For this operation, you must use IAM
+        credentials to authorize requests, and you must grant yourself the
+        corresponding IAM permission in a policy.
+
+        **Learn more**
+
+        -  `Signing Amazon Web Services API
+           Requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html>`__
+
+        -  `Using the Amazon Cognito user pools API and user pool
+           endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
+
+        :param user_pool_id: The ID of the user pool where you want to create terms documents.
+        :param client_id: The ID of the app client where you want to create terms documents.
+        :param terms_name: A friendly name for the document that you want to create in the current
+        request.
+        :param terms_source: This parameter is reserved for future use and currently accepts only one
+        value.
+        :param enforcement: This parameter is reserved for future use and currently accepts only one
+        value.
+        :param links: A map of URLs to languages.
+        :returns: CreateTermsResponse
+        :raises ResourceNotFoundException:
+        :raises ConcurrentModificationException:
+        :raises TermsExistsException:
+        :raises InvalidParameterException:
+        :raises TooManyRequestsException:
+        :raises NotAuthorizedException:
         :raises LimitExceededException:
         :raises InternalErrorException:
         """
@@ -6147,6 +6336,37 @@ class CognitoIdpApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteTerms")
+    def delete_terms(
+        self, context: RequestContext, terms_id: TermsIdType, user_pool_id: UserPoolIdType, **kwargs
+    ) -> None:
+        """Deletes the terms documents with the requested ID from your app client.
+
+        Amazon Cognito evaluates Identity and Access Management (IAM) policies
+        in requests for this API operation. For this operation, you must use IAM
+        credentials to authorize requests, and you must grant yourself the
+        corresponding IAM permission in a policy.
+
+        **Learn more**
+
+        -  `Signing Amazon Web Services API
+           Requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html>`__
+
+        -  `Using the Amazon Cognito user pools API and user pool
+           endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
+
+        :param terms_id: The ID of the terms documents that you want to delete.
+        :param user_pool_id: The ID of the user pool that contains the terms documents that you want
+        to delete.
+        :raises ResourceNotFoundException:
+        :raises ConcurrentModificationException:
+        :raises InvalidParameterException:
+        :raises TooManyRequestsException:
+        :raises NotAuthorizedException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteUser")
     def delete_user(self, context: RequestContext, access_token: TokenModelType, **kwargs) -> None:
         """Deletes the profile of the currently signed-in user. A deleted user
@@ -6451,6 +6671,39 @@ class CognitoIdpApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeTerms")
+    def describe_terms(
+        self, context: RequestContext, terms_id: TermsIdType, user_pool_id: UserPoolIdType, **kwargs
+    ) -> DescribeTermsResponse:
+        """Returns details for the requested terms documents ID. For more
+        information, see `Terms
+        documents <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-terms-documents>`__.
+
+        Amazon Cognito evaluates Identity and Access Management (IAM) policies
+        in requests for this API operation. For this operation, you must use IAM
+        credentials to authorize requests, and you must grant yourself the
+        corresponding IAM permission in a policy.
+
+        **Learn more**
+
+        -  `Signing Amazon Web Services API
+           Requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html>`__
+
+        -  `Using the Amazon Cognito user pools API and user pool
+           endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
+
+        :param terms_id: The ID of the terms documents that you want to describe.
+        :param user_pool_id: The ID of the user pool that contains the terms documents that you want
+        to describe.
+        :returns: DescribeTermsResponse
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterException:
+        :raises TooManyRequestsException:
+        :raises NotAuthorizedException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
     @handler("DescribeUserImportJob")
     def describe_user_import_job(
         self,
@@ -6627,10 +6880,13 @@ class CognitoIdpApi:
         client_metadata: ClientMetadataType | None = None,
         **kwargs,
     ) -> ForgotPasswordResponse:
-        """Sends a password-reset confirmation code for the currently signed-in
-        user.
+        """Sends a password-reset confirmation code to the email address or phone
+        number of the requested username. The message delivery method is
+        determined by the user's available attributes and the
+        ``AccountRecoverySetting`` configuration of the user pool.
 
-        For the ``Username`` parameter, you can use the username or user alias.
+        For the ``Username`` parameter, you can use the username or an email,
+        phone, or preferred username alias.
 
         If neither a verified phone number nor a verified email exists, Amazon
         Cognito responds with an ``InvalidParameterException`` error . If your
@@ -7474,6 +7730,43 @@ class CognitoIdpApi:
         :raises NotAuthorizedException:
         :raises TooManyRequestsException:
         :raises InvalidParameterException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("ListTerms")
+    def list_terms(
+        self,
+        context: RequestContext,
+        user_pool_id: UserPoolIdType,
+        max_results: ListTermsRequestMaxResultsInteger | None = None,
+        next_token: StringType | None = None,
+        **kwargs,
+    ) -> ListTermsResponse:
+        """Returns details about all terms documents for the requested user pool.
+
+        Amazon Cognito evaluates Identity and Access Management (IAM) policies
+        in requests for this API operation. For this operation, you must use IAM
+        credentials to authorize requests, and you must grant yourself the
+        corresponding IAM permission in a policy.
+
+        **Learn more**
+
+        -  `Signing Amazon Web Services API
+           Requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html>`__
+
+        -  `Using the Amazon Cognito user pools API and user pool
+           endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
+
+        :param user_pool_id: The ID of the user pool where you want to list terms documents.
+        :param max_results: The maximum number of terms documents that you want Amazon Cognito to
+        return in the response.
+        :param next_token: This API operation returns a limited number of results.
+        :returns: ListTermsResponse
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterException:
+        :raises TooManyRequestsException:
+        :raises NotAuthorizedException:
         :raises InternalErrorException:
         """
         raise NotImplementedError
@@ -8444,7 +8737,7 @@ class CognitoIdpApi:
         suspicious authentication events. Users invoke this operation when they
         select the link that corresponds to ``{one-click-link-valid}`` or
         ``{one-click-link-invalid}`` in your notification template. Because
-        ``FeedbackToken`` is a required parameter, you can' make requests to
+        ``FeedbackToken`` is a required parameter, you can't make requests to
         ``UpdateAuthEventFeedback`` without the contents of the notification
         email message.
 
@@ -8627,7 +8920,7 @@ class CognitoIdpApi:
     ) -> UpdateManagedLoginBrandingResponse:
         """Configures the branding settings for a user pool style. This operation
         is the programmatic option for the configuration of a style in the
-        branding designer.
+        branding editor.
 
         Provides values for UI customization in a ``Settings`` JSON object and
         image files in an ``Assets`` array.
@@ -8712,6 +9005,70 @@ class CognitoIdpApi:
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
         :raises TooManyRequestsException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateTerms")
+    def update_terms(
+        self,
+        context: RequestContext,
+        terms_id: TermsIdType,
+        user_pool_id: UserPoolIdType,
+        terms_name: TermsNameType | None = None,
+        terms_source: TermsSourceType | None = None,
+        enforcement: TermsEnforcementType | None = None,
+        links: LinksType | None = None,
+        **kwargs,
+    ) -> UpdateTermsResponse:
+        """Modifies existing terms documents for the requested app client. When
+        Terms and conditions and Privacy policy documents are configured, the
+        app client displays links to them in the sign-up page of managed login
+        for the app client.
+
+        You can provide URLs for terms documents in the languages that are
+        supported by `managed login
+        localization <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-localization>`__.
+        Amazon Cognito directs users to the terms documents for their current
+        language, with fallback to ``default`` if no document exists for the
+        language.
+
+        Each request accepts one type of terms document and a map of
+        language-to-link for that document type. You must provide both types of
+        terms documents in at least one language before Amazon Cognito displays
+        your terms documents. Supply each type in separate requests.
+
+        For more information, see `Terms
+        documents <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-terms-documents>`__.
+
+        Amazon Cognito evaluates Identity and Access Management (IAM) policies
+        in requests for this API operation. For this operation, you must use IAM
+        credentials to authorize requests, and you must grant yourself the
+        corresponding IAM permission in a policy.
+
+        **Learn more**
+
+        -  `Signing Amazon Web Services API
+           Requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html>`__
+
+        -  `Using the Amazon Cognito user pools API and user pool
+           endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
+
+        :param terms_id: The ID of the terms document that you want to update.
+        :param user_pool_id: The ID of the user pool that contains the terms that you want to update.
+        :param terms_name: The new name that you want to apply to the requested terms documents.
+        :param terms_source: This parameter is reserved for future use and currently accepts only one
+        value.
+        :param enforcement: This parameter is reserved for future use and currently accepts only one
+        value.
+        :param links: A map of URLs to languages.
+        :returns: UpdateTermsResponse
+        :raises ResourceNotFoundException:
+        :raises ConcurrentModificationException:
+        :raises TermsExistsException:
+        :raises InvalidParameterException:
+        :raises TooManyRequestsException:
+        :raises NotAuthorizedException:
         :raises InternalErrorException:
         """
         raise NotImplementedError

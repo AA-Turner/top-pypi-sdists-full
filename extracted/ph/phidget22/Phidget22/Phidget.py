@@ -264,6 +264,29 @@ class Phidget:
 
 		return _ChannelName.value.decode('utf-8')
 
+	def getChannelPersistence(self):
+		_ChannelPersistence = ctypes.c_int()
+
+		__func = PhidgetSupport.getDll().Phidget_getChannelPersistence
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, ctypes.byref(_ChannelPersistence))
+
+		if result > 0:
+			raise PhidgetException(result)
+
+		return bool(_ChannelPersistence.value)
+
+	def setChannelPersistence(self, ChannelPersistence):
+		_ChannelPersistence = ctypes.c_int(ChannelPersistence)
+
+		__func = PhidgetSupport.getDll().Phidget_setChannelPersistence
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, _ChannelPersistence)
+
+		if result > 0:
+			raise PhidgetException(result)
+
+
 	def getChannelSubclass(self):
 		_ChannelSubclass = ctypes.c_int()
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api.cloudformation import Capability, ChangeSetType, Parameter
 from localstack.services.cloudformation.engine.parameters import (
@@ -52,14 +52,14 @@ class StackInstance:
 class CreateChangeSetInput(TypedDict):
     StackName: str
     Capabilities: list[Capability]
-    ChangeSetName: Optional[str]
-    ChangSetType: Optional[ChangeSetType]
+    ChangeSetName: str | None
+    ChangSetType: ChangeSetType | None
     Parameters: list[Parameter]
 
 
 class StackTemplate(TypedDict):
     StackName: str
-    ChangeSetName: Optional[str]
+    ChangeSetName: str | None
     Outputs: dict
     Resources: dict
 
@@ -83,9 +83,9 @@ class Stack:
         self,
         account_id: str,
         region_name: str,
-        metadata: Optional[CreateChangeSetInput] = None,
-        template: Optional[StackTemplate] = None,
-        template_body: Optional[str] = None,
+        metadata: CreateChangeSetInput | None = None,
+        template: StackTemplate | None = None,
+        template_body: str | None = None,
     ):
         self.account_id = account_id
         self.region_name = region_name
@@ -93,7 +93,7 @@ class Stack:
         if template is None:
             template = {}
 
-        self.resolved_outputs = list()  # TODO
+        self.resolved_outputs = []  # TODO
         self.resolved_parameters: dict[str, StackParameter] = {}
         self.resolved_conditions: dict[str, bool] = {}
 
@@ -185,7 +185,7 @@ class Stack:
             result.setdefault(attr, [])
         return result
 
-    def set_stack_status(self, status: str, status_reason: Optional[str] = None):
+    def set_stack_status(self, status: str, status_reason: str | None = None):
         self.metadata["StackStatus"] = status
         if "FAILED" in status:
             self.metadata["StackStatusReason"] = status_reason or "Deployment failed"
@@ -360,8 +360,7 @@ class Stack:
         resource = resource_map.get(resource_id)
         if not resource:
             raise Exception(
-                'Unable to find details for resource "%s" in stack "%s"'
-                % (resource_id, self.stack_name)
+                f'Unable to find details for resource "{resource_id}" in stack "{self.stack_name}"'
             )
         return resource
 
@@ -393,7 +392,7 @@ class StackChangeSet(Stack):
             template = {}
         if params is None:
             params = {}
-        super(StackChangeSet, self).__init__(account_id, region_name, params, template)
+        super().__init__(account_id, region_name, params, template)
 
         name = self.metadata["ChangeSetName"]
         if not self.metadata.get("ChangeSetId"):
@@ -428,10 +427,10 @@ class StackChangeSet(Stack):
     # V2 only
     def populate_update_graph(
         self,
-        before_template: Optional[dict],
-        after_template: Optional[dict],
-        before_parameters: Optional[dict],
-        after_parameters: Optional[dict],
+        before_template: dict | None,
+        after_template: dict | None,
+        before_parameters: dict | None,
+        after_parameters: dict | None,
     ) -> None:
         change_set_model = ChangeSetModel(
             before_template=before_template,

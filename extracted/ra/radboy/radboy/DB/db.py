@@ -49,7 +49,10 @@ from barcode.writer import ImageWriter
 import hashlib
 import base64
 from decimal import Decimal as TDecimal,getcontext
-from radboy.DB.types import *
+from radboy.DB.rad_types import *
+from dataclasses import dataclass
+import dataclasses as DC
+import contextlib as CTXLB
 getcontext().prec=4
 
 #libraries for additional calculations
@@ -919,14 +922,6 @@ class EntryExtras:
         return +self.Price
     def __neg__(self):
         return -self.Price
-
-def std_colorize(m,n,c,start=f'',end=''):
-    #start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
-        if ((n % 2) != 0) and n > 0:
-            msg=f'{start}{Fore.cyan}i{n}/{Fore.light_yellow}L{n+1}{Fore.light_red} of {c}T {Fore.dark_goldenrod}{m}{Style.reset}{end}'
-        else:
-            msg=f'{start}{Fore.light_cyan}i{n}/{Fore.green_yellow}L{n+1}{Fore.orange_red_1} of {c}T {Fore.light_salmon_1}{m}{Style.reset}{end}'
-        return msg
 
 class Template:
     def colorize(self,m,n,c):

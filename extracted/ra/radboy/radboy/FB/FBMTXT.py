@@ -144,7 +144,10 @@ def FormBuilderHelpText():
 
 
 def FormBuilderMkText(text,data,passThru=[],PassThru=True,alternative_false=None,alternative_true=None):
-    
+    if text is None:
+        return None
+    if text.lower() in ['na','not_a_number','nan']:
+        return 'NaN'
     try:
         #if text in passThru:
         #    return text

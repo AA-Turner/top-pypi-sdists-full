@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytest-mock-resources
-Version: 2.12.2
+Version: 2.12.3
 Summary: A pytest plugin for easily instantiating reproducible mock resources.
 Home-page: https://github.com/schireson/pytest-mock-resources
 License: MIT

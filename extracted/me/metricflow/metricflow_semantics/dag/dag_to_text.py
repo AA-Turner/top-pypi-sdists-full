@@ -8,12 +8,12 @@ import typing
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
 
 if typing.TYPE_CHECKING:
     from metricflow_semantics.dag.mf_dag import DagNode, DagNodeT, DisplayedProperty, MetricFlowDag
 
-from metricflow_semantics.mf_logging.pretty_print import mf_pformat
+from metricflow_semantics.mf_logging.pretty_print import PrettyFormatDictOption, mf_pformat
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,10 @@ class MetricFlowDagTextFormatter:
 
     def _displayed_property_on_one_line(self, displayed_property: DisplayedProperty) -> str:
         key = displayed_property.key
-        value = mf_pformat(displayed_property.value, max_line_length=self._max_width_tracker.current_max_width)
+        value = mf_pformat(
+            displayed_property.value,
+            format_option=PrettyFormatDictOption(max_line_length=self._max_width_tracker.current_max_width),
+        )
         return f"<!-- {key} = {value} -->"
 
     def _format_to_text(self, node: DagNode, inner_contents: Optional[str]) -> str:
@@ -100,8 +103,10 @@ class MetricFlowDagTextFormatter:
                 displayed_property.value,
                 # The string representation of displayed_property.value will be wrapped with "<!-- ", " -->" so subtract
                 # the width of those.
-                max_line_length=max(1, max_width - len("<!-- ") - len(" -->")),
-                indent_prefix=self._value_indent_prefix,
+                format_option=PrettyFormatDictOption(
+                    max_line_length=max(1, max_width - len("<!-- ") - len(" -->")),
+                    indent_prefix=self._value_indent_prefix,
+                ),
             )
 
             # Figure out the max width of the value so that we can add appropriate spacing so that the "<!--" / "-->"
@@ -139,9 +144,9 @@ class MetricFlowDagTextFormatter:
 
         lines = [f"<{node_class}>"]
         for line in node_fields:
-            lines.append(indent(line, indent_prefix=self._node_parent_indent_prefix))
+            lines.append(mf_indent(line, indent_prefix=self._node_parent_indent_prefix))
         if inner_contents:
-            lines.append(indent(inner_contents, indent_prefix=self._node_parent_indent_prefix))
+            lines.append(mf_indent(inner_contents, indent_prefix=self._node_parent_indent_prefix))
         lines.append(f"</{node_class}>")
         return "\n".join(lines)
 
@@ -179,7 +184,7 @@ class MetricFlowDagTextFormatter:
 
             lines = [f"<{node_class}>"]
             for line in component_from_sink_nodes_as_text:
-                lines.append(indent(line, indent_prefix=self._node_parent_indent_prefix))
+                lines.append(mf_indent(line, indent_prefix=self._node_parent_indent_prefix))
             lines.append(f"</{node_class}>")
 
             return "\n".join(lines)

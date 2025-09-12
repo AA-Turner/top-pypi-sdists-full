@@ -3,7 +3,6 @@ import copy
 import datetime
 import logging
 import os
-from typing import Dict, Tuple
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
@@ -86,6 +85,7 @@ from localstack.aws.api.kms import (
     MacAlgorithmSpec,
     MarkerType,
     MultiRegionKey,
+    MultiRegionKeyType,
     NotFoundException,
     NullableBooleanType,
     OriginType,
@@ -359,7 +359,7 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         return store.aliases.get(alias_name)
 
     @staticmethod
-    def _parse_key_id(key_id_or_arn: str, context: RequestContext) -> Tuple[str, str, str]:
+    def _parse_key_id(key_id_or_arn: str, context: RequestContext) -> tuple[str, str, str]:
         """
         Return locator attributes (account ID, region_name, key ID) of a given KMS key.
 
@@ -491,24 +491,32 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
         self, context: RequestContext, request: ReplicateKeyRequest
     ) -> ReplicateKeyResponse:
         account_id = context.account_id
-        key = self._get_kms_key(account_id, context.region, request.get("KeyId"))
-        key_id = key.metadata.get("KeyId")
-        if not key.metadata.get("MultiRegion"):
+        primary_key = self._get_kms_key(account_id, context.region, request.get("KeyId"))
+        key_id = primary_key.metadata.get("KeyId")
+        key_arn = primary_key.metadata.get("Arn")
+        if not primary_key.metadata.get("MultiRegion"):
             raise UnsupportedOperationException(
                 f"Unable to replicate a non-MultiRegion key {key_id}"
             )
         replica_region = request.get("ReplicaRegion")
         replicate_to_store = kms_stores[account_id][replica_region]
+
+        if (
+            primary_key.metadata.get("MultiRegionConfiguration", {}).get("MultiRegionKeyType")
+            != MultiRegionKeyType.PRIMARY
+        ):
+            raise UnsupportedOperationException(f"{key_arn} is not a multi-region primary key.")
+
         if key_id in replicate_to_store.keys:
             raise AlreadyExistsException(
                 f"Unable to replicate key {key_id} to region {replica_region}, as the key "
                 f"already exist there"
             )
-        replica_key = copy.deepcopy(key)
+        replica_key = copy.deepcopy(primary_key)
         replica_key.replicate_metadata(request, account_id, replica_region)
         replicate_to_store.keys[key_id] = replica_key
 
-        self.update_primary_key_with_replica_keys(key, replica_key, replica_region)
+        self.update_primary_key_with_replica_keys(primary_key, replica_key, replica_region)
 
         return ReplicateKeyResponse(ReplicaKeyMetadata=replica_key.metadata)
 
@@ -1540,7 +1548,7 @@ class KmsProvider(KmsApi, ServiceLifecycleHook):
                 "Member must have length less than or equal to 4096"
             )
 
-    def _validate_grant_request(self, data: Dict):
+    def _validate_grant_request(self, data: dict):
         if "KeyId" not in data or "GranteePrincipal" not in data or "Operations" not in data:
             raise ValidationError("Grant ID, key ID and grantee principal must be specified")
 

@@ -527,19 +527,14 @@ class ApiAssociation(TypedDict, total=False):
     deploymentDetail: Optional[String]
 
 
-ApiCache = TypedDict(
-    "ApiCache",
-    {
-        "ttl": Optional[Long],
-        "apiCachingBehavior": Optional[ApiCachingBehavior],
-        "transitEncryptionEnabled": Optional[Boolean],
-        "atRestEncryptionEnabled": Optional[Boolean],
-        "type": Optional[ApiCacheType],
-        "status": Optional[ApiCacheStatus],
-        "healthMetricsConfig": Optional[CacheHealthMetricsConfig],
-    },
-    total=False,
-)
+class ApiCache(TypedDict, total=False):
+    ttl: Optional[Long]
+    apiCachingBehavior: Optional[ApiCachingBehavior]
+    transitEncryptionEnabled: Optional[Boolean]
+    atRestEncryptionEnabled: Optional[Boolean]
+    type: Optional[ApiCacheType]
+    status: Optional[ApiCacheStatus]
+    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
 
 
 class ApiKey(TypedDict, total=False):
@@ -754,19 +749,16 @@ class ChannelNamespace(TypedDict, total=False):
 
 
 ChannelNamespaces = List[ChannelNamespace]
-CreateApiCacheRequest = TypedDict(
-    "CreateApiCacheRequest",
-    {
-        "apiId": String,
-        "ttl": Long,
-        "transitEncryptionEnabled": Optional[Boolean],
-        "atRestEncryptionEnabled": Optional[Boolean],
-        "apiCachingBehavior": ApiCachingBehavior,
-        "type": ApiCacheType,
-        "healthMetricsConfig": Optional[CacheHealthMetricsConfig],
-    },
-    total=False,
-)
+
+
+class CreateApiCacheRequest(TypedDict, total=False):
+    apiId: String
+    ttl: Long
+    transitEncryptionEnabled: Optional[Boolean]
+    atRestEncryptionEnabled: Optional[Boolean]
+    apiCachingBehavior: ApiCachingBehavior
+    type: ApiCacheType
+    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
 
 
 class CreateApiCacheResponse(TypedDict, total=False):
@@ -885,44 +877,36 @@ class DynamodbDataSourceConfig(TypedDict, total=False):
     versioned: Optional[Boolean]
 
 
-CreateDataSourceRequest = TypedDict(
-    "CreateDataSourceRequest",
-    {
-        "apiId": String,
-        "name": ResourceName,
-        "description": Optional[String],
-        "type": DataSourceType,
-        "serviceRoleArn": Optional[String],
-        "dynamodbConfig": Optional[DynamodbDataSourceConfig],
-        "lambdaConfig": Optional[LambdaDataSourceConfig],
-        "elasticsearchConfig": Optional[ElasticsearchDataSourceConfig],
-        "openSearchServiceConfig": Optional[OpenSearchServiceDataSourceConfig],
-        "httpConfig": Optional[HttpDataSourceConfig],
-        "relationalDatabaseConfig": Optional[RelationalDatabaseDataSourceConfig],
-        "eventBridgeConfig": Optional[EventBridgeDataSourceConfig],
-        "metricsConfig": Optional[DataSourceLevelMetricsConfig],
-    },
-    total=False,
-)
-DataSource = TypedDict(
-    "DataSource",
-    {
-        "dataSourceArn": Optional[String],
-        "name": Optional[ResourceName],
-        "description": Optional[String],
-        "type": Optional[DataSourceType],
-        "serviceRoleArn": Optional[String],
-        "dynamodbConfig": Optional[DynamodbDataSourceConfig],
-        "lambdaConfig": Optional[LambdaDataSourceConfig],
-        "elasticsearchConfig": Optional[ElasticsearchDataSourceConfig],
-        "openSearchServiceConfig": Optional[OpenSearchServiceDataSourceConfig],
-        "httpConfig": Optional[HttpDataSourceConfig],
-        "relationalDatabaseConfig": Optional[RelationalDatabaseDataSourceConfig],
-        "eventBridgeConfig": Optional[EventBridgeDataSourceConfig],
-        "metricsConfig": Optional[DataSourceLevelMetricsConfig],
-    },
-    total=False,
-)
+class CreateDataSourceRequest(TypedDict, total=False):
+    apiId: String
+    name: ResourceName
+    description: Optional[String]
+    type: DataSourceType
+    serviceRoleArn: Optional[String]
+    dynamodbConfig: Optional[DynamodbDataSourceConfig]
+    lambdaConfig: Optional[LambdaDataSourceConfig]
+    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
+    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
+    httpConfig: Optional[HttpDataSourceConfig]
+    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
+    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
+    metricsConfig: Optional[DataSourceLevelMetricsConfig]
+
+
+class DataSource(TypedDict, total=False):
+    dataSourceArn: Optional[String]
+    name: Optional[ResourceName]
+    description: Optional[String]
+    type: Optional[DataSourceType]
+    serviceRoleArn: Optional[String]
+    dynamodbConfig: Optional[DynamodbDataSourceConfig]
+    lambdaConfig: Optional[LambdaDataSourceConfig]
+    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
+    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
+    httpConfig: Optional[HttpDataSourceConfig]
+    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
+    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
+    metricsConfig: Optional[DataSourceLevelMetricsConfig]
 
 
 class CreateDataSourceResponse(TypedDict, total=False):
@@ -1220,13 +1204,10 @@ class Type(TypedDict, total=False):
     format: Optional[TypeDefinitionFormat]
 
 
-CreateTypeResponse = TypedDict(
-    "CreateTypeResponse",
-    {
-        "type": Optional[Type],
-    },
-    total=False,
-)
+class CreateTypeResponse(TypedDict, total=False):
+    type: Optional[Type]
+
+
 DataSourceIntrospectionModelIndexFields = List[String]
 
 
@@ -1239,25 +1220,21 @@ class DataSourceIntrospectionModelIndex(TypedDict, total=False):
 
 DataSourceIntrospectionModelIndexes = List[DataSourceIntrospectionModelIndex]
 DataSourceIntrospectionModelFieldTypeValues = List[String]
-DataSourceIntrospectionModelFieldType = TypedDict(
-    "DataSourceIntrospectionModelFieldType",
-    {
-        "kind": Optional["String"],
-        "name": Optional["String"],
-        "type": Optional["DataSourceIntrospectionModelFieldType"],
-        "values": Optional["DataSourceIntrospectionModelFieldTypeValues"],
-    },
-    total=False,
-)
-DataSourceIntrospectionModelField = TypedDict(
-    "DataSourceIntrospectionModelField",
-    {
-        "name": Optional[String],
-        "type": Optional[DataSourceIntrospectionModelFieldType],
-        "length": Optional[Long],
-    },
-    total=False,
-)
+
+
+class DataSourceIntrospectionModelFieldType(TypedDict, total=False):
+    kind: Optional["String"]
+    name: Optional["String"]
+    type: Optional["DataSourceIntrospectionModelFieldType"]
+    values: Optional["DataSourceIntrospectionModelFieldTypeValues"]
+
+
+class DataSourceIntrospectionModelField(TypedDict, total=False):
+    name: Optional[String]
+    type: Optional[DataSourceIntrospectionModelFieldType]
+    length: Optional[Long]
+
+
 DataSourceIntrospectionModelFields = List[DataSourceIntrospectionModelField]
 
 
@@ -1605,13 +1582,10 @@ class GetTypeRequest(ServiceRequest):
     format: TypeDefinitionFormat
 
 
-GetTypeResponse = TypedDict(
-    "GetTypeResponse",
-    {
-        "type": Optional[Type],
-    },
-    total=False,
-)
+class GetTypeResponse(TypedDict, total=False):
+    type: Optional[Type]
+
+
 GraphqlApis = List[GraphqlApi]
 
 
@@ -1848,17 +1822,12 @@ class UntagResourceResponse(TypedDict, total=False):
     pass
 
 
-UpdateApiCacheRequest = TypedDict(
-    "UpdateApiCacheRequest",
-    {
-        "apiId": String,
-        "ttl": Long,
-        "apiCachingBehavior": ApiCachingBehavior,
-        "type": ApiCacheType,
-        "healthMetricsConfig": Optional[CacheHealthMetricsConfig],
-    },
-    total=False,
-)
+class UpdateApiCacheRequest(TypedDict, total=False):
+    apiId: String
+    ttl: Long
+    apiCachingBehavior: ApiCachingBehavior
+    type: ApiCacheType
+    healthMetricsConfig: Optional[CacheHealthMetricsConfig]
 
 
 class UpdateApiCacheResponse(TypedDict, total=False):
@@ -1902,25 +1871,20 @@ class UpdateChannelNamespaceResponse(TypedDict, total=False):
     channelNamespace: Optional[ChannelNamespace]
 
 
-UpdateDataSourceRequest = TypedDict(
-    "UpdateDataSourceRequest",
-    {
-        "apiId": String,
-        "name": ResourceName,
-        "description": Optional[String],
-        "type": DataSourceType,
-        "serviceRoleArn": Optional[String],
-        "dynamodbConfig": Optional[DynamodbDataSourceConfig],
-        "lambdaConfig": Optional[LambdaDataSourceConfig],
-        "elasticsearchConfig": Optional[ElasticsearchDataSourceConfig],
-        "openSearchServiceConfig": Optional[OpenSearchServiceDataSourceConfig],
-        "httpConfig": Optional[HttpDataSourceConfig],
-        "relationalDatabaseConfig": Optional[RelationalDatabaseDataSourceConfig],
-        "eventBridgeConfig": Optional[EventBridgeDataSourceConfig],
-        "metricsConfig": Optional[DataSourceLevelMetricsConfig],
-    },
-    total=False,
-)
+class UpdateDataSourceRequest(TypedDict, total=False):
+    apiId: String
+    name: ResourceName
+    description: Optional[String]
+    type: DataSourceType
+    serviceRoleArn: Optional[String]
+    dynamodbConfig: Optional[DynamodbDataSourceConfig]
+    lambdaConfig: Optional[LambdaDataSourceConfig]
+    elasticsearchConfig: Optional[ElasticsearchDataSourceConfig]
+    openSearchServiceConfig: Optional[OpenSearchServiceDataSourceConfig]
+    httpConfig: Optional[HttpDataSourceConfig]
+    relationalDatabaseConfig: Optional[RelationalDatabaseDataSourceConfig]
+    eventBridgeConfig: Optional[EventBridgeDataSourceConfig]
+    metricsConfig: Optional[DataSourceLevelMetricsConfig]
 
 
 class UpdateDataSourceResponse(TypedDict, total=False):
@@ -2016,13 +1980,8 @@ class UpdateTypeRequest(ServiceRequest):
     format: TypeDefinitionFormat
 
 
-UpdateTypeResponse = TypedDict(
-    "UpdateTypeResponse",
-    {
-        "type": Optional[Type],
-    },
-    total=False,
-)
+class UpdateTypeResponse(TypedDict, total=False):
+    type: Optional[Type]
 
 
 class AppsyncApi:

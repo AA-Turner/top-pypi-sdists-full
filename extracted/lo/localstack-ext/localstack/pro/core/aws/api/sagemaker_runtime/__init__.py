@@ -81,7 +81,7 @@ class ModelStreamError(ServiceException):
 
     ModelInvocationTimeExceeded
        The model failed to finish sending the response within the timeout
-       period allowed by Amazon SageMaker.
+       period allowed by Amazon SageMaker AI.
 
     StreamBroken
        The Transmission Control Protocol (TCP) connection between the client
@@ -218,17 +218,17 @@ class SagemakerRuntimeApi:
         session_id: SessionIdOrNewSessionConstantHeader | None = None,
         **kwargs,
     ) -> InvokeEndpointOutput:
-        """After you deploy a model into production using Amazon SageMaker hosting
-        services, your client applications use this API to get inferences from
-        the model hosted at the specified endpoint.
+        """After you deploy a model into production using Amazon SageMaker AI
+        hosting services, your client applications use this API to get
+        inferences from the model hosted at the specified endpoint.
 
-        For an overview of Amazon SageMaker, see `How It
+        For an overview of Amazon SageMaker AI, see `How It
         Works <https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works.html>`__.
 
-        Amazon SageMaker strips all POST headers except those supported by the
-        API. Amazon SageMaker might add additional headers. You should not rely
-        on the behavior of headers outside those enumerated in the request
-        syntax.
+        Amazon SageMaker AI strips all POST headers except those supported by
+        the API. Amazon SageMaker AI might add additional headers. You should
+        not rely on the behavior of headers outside those enumerated in the
+        request syntax.
 
         Calls to ``InvokeEndpoint`` are authenticated by using Amazon Web
         Services Signature Version 4. For information, see `Authenticating
@@ -243,8 +243,9 @@ class SagemakerRuntimeApi:
         to be 70 seconds.
 
         Endpoints are scoped to an individual account, and are not public. The
-        URL does not contain the account ID, but Amazon SageMaker determines the
-        account ID from the authentication token that is supplied by the caller.
+        URL does not contain the account ID, but Amazon SageMaker AI determines
+        the account ID from the authentication token that is supplied by the
+        caller.
 
         :param endpoint_name: The name of the endpoint that you specified when you created the
         endpoint using the
@@ -255,7 +256,7 @@ class SagemakerRuntimeApi:
         :param accept: The desired MIME type of the inference response from the model
         container.
         :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker endpoint.
+        submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param target_model: The model to request for inference when invoking a multi-model endpoint.
         :param target_variant: Specify the production variant to send the inference request to when
         invoking an endpoint that is running two or more variants.
@@ -293,9 +294,10 @@ class SagemakerRuntimeApi:
         invocation_timeout_seconds: InvocationTimeoutSecondsHeader | None = None,
         **kwargs,
     ) -> InvokeEndpointAsyncOutput:
-        """After you deploy a model into production using Amazon SageMaker hosting
-        services, your client applications use this API to get inferences from
-        the model hosted at the specified endpoint in an asynchronous manner.
+        """After you deploy a model into production using Amazon SageMaker AI
+        hosting services, your client applications use this API to get
+        inferences from the model hosted at the specified endpoint in an
+        asynchronous manner.
 
         Inference requests sent to this API are enqueued for asynchronous
         processing. The processing of the inference request may or may not
@@ -303,10 +305,10 @@ class SagemakerRuntimeApi:
         this API will not contain the result of the inference request but
         contain information about where you can locate it.
 
-        Amazon SageMaker strips all POST headers except those supported by the
-        API. Amazon SageMaker might add additional headers. You should not rely
-        on the behavior of headers outside those enumerated in the request
-        syntax.
+        Amazon SageMaker AI strips all POST headers except those supported by
+        the API. Amazon SageMaker AI might add additional headers. You should
+        not rely on the behavior of headers outside those enumerated in the
+        request syntax.
 
         Calls to ``InvokeEndpointAsync`` are authenticated by using Amazon Web
         Services Signature Version 4. For information, see `Authenticating
@@ -322,7 +324,7 @@ class SagemakerRuntimeApi:
         :param accept: The desired MIME type of the inference response from the model
         container.
         :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker endpoint.
+        submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param inference_id: The identifier for the inference request.
         :param request_ttl_seconds: Maximum age in seconds a request can be in the queue before it is marked
         as expired.
@@ -355,11 +357,11 @@ class SagemakerRuntimeApi:
         response as a stream. The inference stream provides the response payload
         incrementally as a series of parts. Before you can get an inference
         stream, you must have access to a model that's deployed using Amazon
-        SageMaker hosting services, and the container for that model must
+        SageMaker AI hosting services, and the container for that model must
         support inference streaming.
 
         For more information that can help you use this API, see the following
-        sections in the *Amazon SageMaker Developer Guide*:
+        sections in the *Amazon SageMaker AI Developer Guide*:
 
         -  For information about how to add streaming support to a model, see
            `How Containers Serve
@@ -371,15 +373,15 @@ class SagemakerRuntimeApi:
 
         Before you can use this operation, your IAM permissions must allow the
         ``sagemaker:InvokeEndpoint`` action. For more information about Amazon
-        SageMaker actions for IAM policies, see `Actions, resources, and
-        condition keys for Amazon
-        SageMaker <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonsagemaker.html>`__
+        SageMaker AI actions for IAM policies, see `Actions, resources, and
+        condition keys for Amazon SageMaker
+        AI <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonsagemaker.html>`__
         in the *IAM Service Authorization Reference*.
 
-        Amazon SageMaker strips all POST headers except those supported by the
-        API. Amazon SageMaker might add additional headers. You should not rely
-        on the behavior of headers outside those enumerated in the request
-        syntax.
+        Amazon SageMaker AI strips all POST headers except those supported by
+        the API. Amazon SageMaker AI might add additional headers. You should
+        not rely on the behavior of headers outside those enumerated in the
+        request syntax.
 
         Calls to ``InvokeEndpointWithResponseStream`` are authenticated by using
         Amazon Web Services Signature Version 4. For information, see
@@ -396,7 +398,7 @@ class SagemakerRuntimeApi:
         :param accept: The desired MIME type of the inference response from the model
         container.
         :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker endpoint.
+        submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param target_variant: Specify the production variant to send the inference request to when
         invoking an endpoint that is running two or more variants.
         :param target_container_hostname: If the endpoint hosts multiple containers and is configured to use

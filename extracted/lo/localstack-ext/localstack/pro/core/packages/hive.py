@@ -2,7 +2,6 @@ _B='2.3.9'
 _A='3.1.3'
 import glob,logging,os,shutil
 from html import escape
-from typing import List
 from xml.etree.ElementTree import Element,SubElement,tostring
 from localstack import config
 from localstack.constants import DEFAULT_AWS_ACCOUNT_ID,MAVEN_REPO_URL
@@ -51,9 +50,9 @@ class HiveInstaller(MirrorArchiveInstaller):
 		C=B.get_hive_home();A=os.path.join(C,'bin/ext/debug.sh')
 		if os.path.exists(A):os.remove(A)
 	def write_hive_config(C,additional_configs):
-		G='false';A='true';B=config.external_service_url();H=','.join(SERDES_USING_METASTORE);I=C.get_hive_warehouse_dir();D={'hive.server2.thrift.bind.host':'0.0.0.0','hive.server2.transport.mode':'binary','hive.server2.thrift.port':str(pro_config.PORT_HIVE_SERVER),'hive.metastore.uris':f"thrift://localhost:{str(pro_config.PORT_HIVE_METASTORE)}",'hive.metastore.warehouse.dir':I,'hive.server2.enable.doAs':G,'hive.server2.authentication':'NOSASL','mapred.input.dir.recursive':A,'hive.mapred.supports.subdirectories':A,'hive.supports.subdirectories':A,'hive.input.dir.recursive':A,'hive.serdes.using.metastore.for.schema':H,'hive.metastore.event.db.notification.api.auth':G,'fs.s3.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.endpoint':B,'fs.s3.path.style.access':A,'fs.s3a.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.access.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.secret.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.endpoint':B,'fs.s3a.path.style.access':A,'fs.s3n.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.endpoint':B,'fs.s3n.path.style.access':A};D.update(additional_configs);E=Element('configuration')
-		for(J,K)in D.items():F=SubElement(E,'property');SubElement(F,'name').text=escape(J);SubElement(F,'value').text=escape(K)
-		L=C.get_hive_site_xml_path();save_file(L,tostring(E))
+		H='org.apache.hadoop.fs.s3a.S3AFileSystem';G='false';A='true';B=config.external_service_url();I=','.join(SERDES_USING_METASTORE);J=C.get_hive_warehouse_dir();D={'hive.server2.thrift.bind.host':'0.0.0.0','hive.server2.transport.mode':'binary','hive.server2.thrift.port':str(pro_config.PORT_HIVE_SERVER),'hive.metastore.uris':f"thrift://localhost:{str(pro_config.PORT_HIVE_METASTORE)}",'hive.metastore.warehouse.dir':J,'hive.server2.enable.doAs':G,'hive.server2.authentication':'NOSASL','mapred.input.dir.recursive':A,'hive.mapred.supports.subdirectories':A,'hive.supports.subdirectories':A,'hive.input.dir.recursive':A,'hive.serdes.using.metastore.for.schema':I,'hive.metastore.event.db.notification.api.auth':G,'fs.s3.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.endpoint':B,'fs.s3.path.style.access':A,'fs.s3a.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.access.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.secret.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.endpoint':B,'fs.s3a.path.style.access':A,'fs.s3n.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.endpoint':B,'fs.s3n.path.style.access':A,'fs.s3.impl':H,'fs.s3a.impl':H};D.update(additional_configs);E=Element('configuration')
+		for(K,L)in D.items():F=SubElement(E,'property');SubElement(F,'name').text=escape(K);SubElement(F,'value').text=escape(L)
+		M=C.get_hive_site_xml_path();save_file(M,tostring(E))
 	def _apply_cve_fixes(D,target):A=target;B=CVEFix(paths=['hive/2.3.9/lib/avatica-1.8.0.jar'],strategy=FixStrategyDelete());C=CVEFix(paths=['hive/2.3.9/lib/htrace-core-3.1.0-incubating.jar','hive/3.1.3/lib/avatica-1.11.0.jar','hive/3.1.3/lib/htrace-core-3.2.0-incubating.jar'],strategy=[FixStrategyDownloadFile(file_url=f"{MAVEN_REPO_URL}/org/apache/calcite/avatica/avatica/1.23.0/avatica-1.23.0.jar",target_path=os.path.join(A.value,'hive/3.1.3/lib')),FixStrategyDelete(),FixStrategyDownloadFile(file_url=HTRACE_NOOP_JAR_URL,target_path=os.path.join(A.value,'hadoop/3.3.1/share/hadoop/common'))]);fix_cves_in_jar_files(A,fixes=[B,C])
 	def get_hive_home(A):return A.get_installed_dir()
 	def get_hive_lib_dir(B):

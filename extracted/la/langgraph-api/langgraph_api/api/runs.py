@@ -104,7 +104,9 @@ async def stream_run(
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
@@ -114,20 +116,32 @@ async def stream_run(
                 run_id=run_id,
                 request_start_time=request.scope.get("request_start_time_ms"),
             )
+    except Exception:
+        # Clean up the pubsub on errors
+        await sub.__aexit__(None, None, None)
+        raise
 
-        return EventSourceResponse(
-            Runs.Stream.join(
+    async def body():
+        try:
+            async for event, message, stream_id in Runs.Stream.join(
                 run["run_id"],
                 thread_id=thread_id,
                 cancel_on_disconnect=on_disconnect == "cancel",
                 stream_channel=sub,
                 last_event_id=None,
-            ),
-            headers={
-                "Location": f"/threads/{thread_id}/runs/{run['run_id']}/stream",
-                "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
-            },
-        )
+            ):
+                yield event, message, stream_id
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
+
+    return EventSourceResponse(
+        body(),
+        headers={
+            "Location": f"/threads/{thread_id}/runs/{run['run_id']}/stream",
+            "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
+        },
+    )
 
 
 async def stream_run_stateless(
@@ -139,7 +153,9 @@ async def stream_run_stateless(
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
     thread_id = uuid4()
-    async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
@@ -150,21 +166,33 @@ async def stream_run_stateless(
                 request_start_time=request.scope.get("request_start_time_ms"),
                 temporary=True,
             )
+    except Exception:
+        # Clean up the pubsub on errors
+        await sub.__aexit__(None, None, None)
+        raise
 
-        return EventSourceResponse(
-            Runs.Stream.join(
+    async def body():
+        try:
+            async for event, message, stream_id in Runs.Stream.join(
                 run["run_id"],
                 thread_id=run["thread_id"],
                 ignore_404=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
                 stream_channel=sub,
                 last_event_id=None,
-            ),
-            headers={
-                "Location": f"/runs/{run['run_id']}/stream",
-                "Content-Location": f"/runs/{run['run_id']}",
-            },
-        )
+            ):
+                yield event, message, stream_id
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
+
+    return EventSourceResponse(
+        body(),
+        headers={
+            "Location": f"/runs/{run['run_id']}/stream",
+            "Content-Location": f"/runs/{run['run_id']}",
+        },
+    )
 
 
 @retry_db
@@ -174,7 +202,8 @@ async def wait_run(request: ApiRequest):
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
@@ -184,43 +213,44 @@ async def wait_run(request: ApiRequest):
                 run_id=run_id,
                 request_start_time=request.scope.get("request_start_time_ms"),
             )
+    except Exception:
+        # Clean up the pubsub on errors
+        await sub.__aexit__(None, None, None)
+        raise
 
-        last_chunk = ValueEvent()
+    last_chunk = ValueEvent()
 
-        async def consume():
-            vchunk: bytes | None = None
-            async for mode, chunk, _ in Runs.Stream.join(
-                run["run_id"],
-                thread_id=run["thread_id"],
-                stream_channel=sub,
-                cancel_on_disconnect=on_disconnect == "cancel",
-            ):
-                if (
-                    mode == b"values"
-                    or mode == b"updates"
-                    and b"__interrupt__" in chunk
-                ):
-                    vchunk = chunk
-                elif mode == b"error":
-                    vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-            if vchunk is not None:
-                last_chunk.set(vchunk)
-            else:
-                async with connect() as conn:
-                    thread_iter = await Threads.get(conn, thread_id)
-                    try:
-                        thread = await anext(thread_iter)
-                        last_chunk.set(thread["values"])
-                    except StopAsyncIteration:
-                        await logger.awarning(
-                            f"No checkpoint found for thread {thread_id}",
-                            thread_id=thread_id,
-                        )
-                        last_chunk.set(b"{}")
+    async def consume():
+        vchunk: bytes | None = None
+        async for mode, chunk, _ in Runs.Stream.join(
+            run["run_id"],
+            thread_id=run["thread_id"],
+            stream_channel=sub,
+            cancel_on_disconnect=on_disconnect == "cancel",
+        ):
+            if mode == b"values" or mode == b"updates" and b"__interrupt__" in chunk:
+                vchunk = chunk
+            elif mode == b"error":
+                vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+        if vchunk is not None:
+            last_chunk.set(vchunk)
+        else:
+            async with connect() as conn:
+                thread_iter = await Threads.get(conn, thread_id)
+                try:
+                    thread = await anext(thread_iter)
+                    last_chunk.set(thread["values"])
+                except StopAsyncIteration:
+                    await logger.awarning(
+                        f"No checkpoint found for thread {thread_id}",
+                        thread_id=thread_id,
+                    )
+                    last_chunk.set(b"{}")
 
-        # keep the connection open by sending whitespace every 5 seconds
-        # leading whitespace will be ignored by json parsers
-        async def body() -> AsyncIterator[bytes]:
+    # keep the connection open by sending whitespace every 5 seconds
+    # leading whitespace will be ignored by json parsers
+    async def body() -> AsyncIterator[bytes]:
+        try:
             stream = asyncio.create_task(consume())
             while True:
                 try:
@@ -235,15 +265,18 @@ async def wait_run(request: ApiRequest):
                     stream.cancel()
                     await stream
                     raise
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
 
-        return StreamingResponse(
-            body(),
-            media_type="application/json",
-            headers={
-                "Location": f"/threads/{thread_id}/runs/{run['run_id']}/join",
-                "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
-            },
-        )
+    return StreamingResponse(
+        body(),
+        media_type="application/json",
+        headers={
+            "Location": f"/threads/{thread_id}/runs/{run['run_id']}/join",
+            "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
+        },
+    )
 
 
 @retry_db
@@ -254,7 +287,9 @@ async def wait_run_stateless(request: ApiRequest):
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
     thread_id = uuid4()
-    async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
@@ -265,40 +300,41 @@ async def wait_run_stateless(request: ApiRequest):
                 request_start_time=request.scope.get("request_start_time_ms"),
                 temporary=True,
             )
+    except Exception:
+        # Clean up the pubsub on errors
+        await sub.__aexit__(None, None, None)
+        raise
 
-        last_chunk = ValueEvent()
+    last_chunk = ValueEvent()
 
-        async def consume():
-            vchunk: bytes | None = None
-            async for mode, chunk, _ in Runs.Stream.join(
-                run["run_id"],
+    async def consume():
+        vchunk: bytes | None = None
+        async for mode, chunk, _ in Runs.Stream.join(
+            run["run_id"],
+            thread_id=run["thread_id"],
+            stream_channel=sub,
+            ignore_404=True,
+            cancel_on_disconnect=on_disconnect == "cancel",
+        ):
+            if mode == b"values" or mode == b"updates" and b"__interrupt__" in chunk:
+                vchunk = chunk
+            elif mode == b"error":
+                vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+        if vchunk is not None:
+            last_chunk.set(vchunk)
+        else:
+            # we can't fetch the thread (it was deleted), so just return empty values
+            await logger.awarning(
+                "No checkpoint emitted for stateless run",
+                run_id=run["run_id"],
                 thread_id=run["thread_id"],
-                stream_channel=sub,
-                ignore_404=True,
-                cancel_on_disconnect=on_disconnect == "cancel",
-            ):
-                if (
-                    mode == b"values"
-                    or mode == b"updates"
-                    and b"__interrupt__" in chunk
-                ):
-                    vchunk = chunk
-                elif mode == b"error":
-                    vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-            if vchunk is not None:
-                last_chunk.set(vchunk)
-            else:
-                # we can't fetch the thread (it was deleted), so just return empty values
-                await logger.awarning(
-                    "No checkpoint emitted for stateless run",
-                    run_id=run["run_id"],
-                    thread_id=run["thread_id"],
-                )
-                last_chunk.set(b"{}")
+            )
+            last_chunk.set(b"{}")
 
-        # keep the connection open by sending whitespace every 5 seconds
-        # leading whitespace will be ignored by json parsers
-        async def body() -> AsyncIterator[bytes]:
+    # keep the connection open by sending whitespace every 5 seconds
+    # leading whitespace will be ignored by json parsers
+    async def body() -> AsyncIterator[bytes]:
+        try:
             stream = asyncio.create_task(consume())
             while True:
                 try:
@@ -313,15 +349,18 @@ async def wait_run_stateless(request: ApiRequest):
                     stream.cancel("Run stream cancelled")
                     await stream
                     raise
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
 
-        return StreamingResponse(
-            body(),
-            media_type="application/json",
-            headers={
-                "Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}/join",
-                "Content-Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}",
-            },
-        )
+    return StreamingResponse(
+        body(),
+        media_type="application/json",
+        headers={
+            "Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}/join",
+            "Content-Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}",
+        },
+    )
 
 
 @retry_db
@@ -402,14 +441,21 @@ async def join_run_stream(request: ApiRequest):
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
     stream_mode = request.query_params.get("stream_mode") or []
     last_event_id = request.headers.get("last-event-id") or None
+
+    async def body():
+        async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+            async for event, message, stream_id in Runs.Stream.join(
+                run_id,
+                thread_id=thread_id,
+                cancel_on_disconnect=cancel_on_disconnect,
+                stream_channel=sub,
+                stream_mode=stream_mode,
+                last_event_id=last_event_id,
+            ):
+                yield event, message, stream_id
+
     return EventSourceResponse(
-        Runs.Stream.join(
-            run_id,
-            thread_id=thread_id,
-            cancel_on_disconnect=cancel_on_disconnect,
-            stream_mode=stream_mode,
-            last_event_id=last_event_id,
-        ),
+        body(),
     )
 
 

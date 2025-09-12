@@ -13,8 +13,10 @@ BooleanAttribute = bool
 CedarJson = str
 Claim = str
 ClientId = str
+DatetimeAttribute = str
 Decimal = str
 DiscoveryUrl = str
+Duration = str
 EntityId = str
 EntityIdPrefix = str
 EntityType = str
@@ -314,6 +316,8 @@ class AttributeValue(TypedDict, total=False):
     record: Optional["RecordAttribute"]
     ipaddr: Optional["IpAddr"]
     decimal: Optional["Decimal"]
+    datetime: Optional["DatetimeAttribute"]
+    duration: Optional["Duration"]
 
 
 RecordAttribute = Dict[String, AttributeValue]
@@ -1374,8 +1378,6 @@ class ListPoliciesInput(ServiceRequest):
 class TemplateLinkedPolicyDefinitionItem(TypedDict, total=False):
     """Contains information about a policy created by instantiating a policy
     template.
-
-    This
     """
 
     policyTemplateId: PolicyTemplateId

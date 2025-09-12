@@ -159,7 +159,7 @@ def find_stack_instance(stack_set: StackSet, account: str, region: str):
 
 def stack_not_found_error(stack_name: str):
     # FIXME
-    raise ValidationError("Stack with id %s does not exist" % stack_name)
+    raise ValidationError(f"Stack with id {stack_name} does not exist")
 
 
 def not_found_error(message: str):
@@ -305,8 +305,8 @@ class CloudformationProvider(CloudformationApi):
             deployer.deploy_stack()
         except Exception as e:
             stack.set_stack_status("CREATE_FAILED")
-            msg = 'Unable to create stack "%s": %s' % (stack.stack_name, e)
-            LOG.exception("%s")
+            msg = f'Unable to create stack "{stack.stack_name}": {e}'
+            LOG.error("%s", exc_info=LOG.isEnabledFor(logging.DEBUG))
             raise ValidationError(msg) from e
 
         return CreateStackOutput(StackId=stack.stack_id)
@@ -423,7 +423,7 @@ class CloudformationProvider(CloudformationApi):
         except Exception as e:
             stack.set_stack_status("UPDATE_FAILED")
             msg = f'Unable to update stack "{stack_name}": {e}'
-            LOG.exception("%s", msg)
+            LOG.error("%s", msg, exc_info=LOG.isEnabledFor(logging.DEBUG))
             raise ValidationError(msg) from e
 
         return UpdateStackOutput(StackId=stack.stack_id)
@@ -605,6 +605,8 @@ class CloudformationProvider(CloudformationApi):
         req_params = request
         change_set_type = req_params.get("ChangeSetType", "UPDATE")
         stack_name = req_params.get("StackName")
+        if not stack_name:
+            raise ValidationError("Member must have length greater than or equal to 1")
         change_set_name = req_params.get("ChangeSetName")
         template_body = req_params.get("TemplateBody")
         # s3 or secretsmanager url
@@ -927,7 +929,7 @@ class CloudformationProvider(CloudformationApi):
         self, context: RequestContext, next_token: NextToken = None, **kwargs
     ) -> ListExportsOutput:
         state = get_cloudformation_store(context.account_id, context.region)
-        return ListExportsOutput(Exports=state.exports)
+        return ListExportsOutput(Exports=state.exports.values())
 
     @handler("ListImports")
     def list_imports(
@@ -1052,7 +1054,7 @@ class CloudformationProvider(CloudformationApi):
                 Description=valid_template.get("Description"), Parameters=parameters
             )
         except Exception as e:
-            LOG.exception("Error validating template")
+            LOG.error("Error validating template", exc_info=LOG.isEnabledFor(logging.DEBUG))
             raise ValidationError("Template Validation Error") from e
 
     # =======================================

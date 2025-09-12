@@ -34,6 +34,7 @@ from .literals import (
     DBProxyEndpointStatusType,
     DBProxyEndpointTargetRoleType,
     DBProxyStatusType,
+    DefaultAuthSchemeType,
     EndpointNetworkTypeType,
     EngineFamilyType,
     ExportSourceTypeType,
@@ -2539,9 +2540,10 @@ class ModifyDBProxyEndpointResponseTypeDef(TypedDict):
 class CreateDBProxyRequestTypeDef(TypedDict):
     DBProxyName: str
     EngineFamily: EngineFamilyType
-    Auth: Sequence[UserAuthConfigTypeDef]
     RoleArn: str
     VpcSubnetIds: Sequence[str]
+    DefaultAuthScheme: NotRequired[DefaultAuthSchemeType]
+    Auth: NotRequired[Sequence[UserAuthConfigTypeDef]]
     VpcSecurityGroupIds: NotRequired[Sequence[str]]
     RequireTLS: NotRequired[bool]
     IdleClientTimeout: NotRequired[int]
@@ -2553,6 +2555,7 @@ class CreateDBProxyRequestTypeDef(TypedDict):
 class ModifyDBProxyRequestTypeDef(TypedDict):
     DBProxyName: str
     NewDBProxyName: NotRequired[str]
+    DefaultAuthScheme: NotRequired[DefaultAuthSchemeType]
     Auth: NotRequired[Sequence[UserAuthConfigTypeDef]]
     RequireTLS: NotRequired[bool]
     IdleClientTimeout: NotRequired[int]
@@ -2753,6 +2756,7 @@ class DBProxyTypeDef(TypedDict):
     VpcId: NotRequired[str]
     VpcSecurityGroupIds: NotRequired[List[str]]
     VpcSubnetIds: NotRequired[List[str]]
+    DefaultAuthScheme: NotRequired[str]
     Auth: NotRequired[List[UserAuthConfigInfoTypeDef]]
     RoleArn: NotRequired[str]
     Endpoint: NotRequired[str]

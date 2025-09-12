@@ -1,7 +1,7 @@
 r'''
 # `snowflake_failover_group`
 
-Refer to the Terraform Registry for docs: [`snowflake_failover_group`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group).
+Refer to the Terraform Registry for docs: [`snowflake_failover_group`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FailoverGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.failoverGroup.FailoverGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group snowflake_failover_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group snowflake_failover_group}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class FailoverGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group snowflake_failover_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group snowflake_failover_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Specifies the identifier for the failover group. The identifier must start with an alphabetic character and cannot contain spaces or special characters unless the identifier string is enclosed in double quotes (e.g. "My object"). Identifiers enclosed in double quotes are also case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
-        :param allowed_accounts: Specifies the target account or list of target accounts to which replication and failover of specified objects from the source account is enabled. Secondary failover groups in the target accounts in this list can be promoted to serve as the primary failover group in case of failover. Expected in the form ``<org_name>.<target_account_name>``. This value is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
-        :param allowed_databases: Specifies the database or list of databases for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include DATABASES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
-        :param allowed_integration_types: Type(s) of integrations for which you are enabling replication and failover from the source account to the target account. This property requires that the OBJECT_TYPES list include INTEGRATIONS to set this parameter. The following integration types are supported: "SECURITY INTEGRATIONS", "API INTEGRATIONS", "STORAGE INTEGRATIONS", "EXTERNAL ACCESS INTEGRATIONS", "NOTIFICATION INTEGRATIONS" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
-        :param allowed_shares: Specifies the share or list of shares for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include SHARES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
-        :param from_replica: from_replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#id FailoverGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_edition_check: (Default: ``false``) Allows replicating objects to accounts on lower editions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
-        :param object_types: Type(s) of objects for which you are enabling replication and failover from the source account to the target account. The following object types are supported: "ACCOUNT PARAMETERS", "DATABASES", "INTEGRATIONS", "NETWORK POLICIES", "RESOURCE MONITORS", "ROLES", "SHARES", "USERS", "WAREHOUSES" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
-        :param replication_schedule: replication_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
+        :param name: Specifies the identifier for the failover group. The identifier must start with an alphabetic character and cannot contain spaces or special characters unless the identifier string is enclosed in double quotes (e.g. "My object"). Identifiers enclosed in double quotes are also case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
+        :param allowed_accounts: Specifies the target account or list of target accounts to which replication and failover of specified objects from the source account is enabled. Secondary failover groups in the target accounts in this list can be promoted to serve as the primary failover group in case of failover. Expected in the form ``<org_name>.<target_account_name>``. This value is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
+        :param allowed_databases: Specifies the database or list of databases for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include DATABASES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
+        :param allowed_integration_types: Type(s) of integrations for which you are enabling replication and failover from the source account to the target account. This property requires that the OBJECT_TYPES list include INTEGRATIONS to set this parameter. The following integration types are supported: "SECURITY INTEGRATIONS", "API INTEGRATIONS", "STORAGE INTEGRATIONS", "EXTERNAL ACCESS INTEGRATIONS", "NOTIFICATION INTEGRATIONS" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
+        :param allowed_shares: Specifies the share or list of shares for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include SHARES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
+        :param from_replica: from_replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#id FailoverGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_edition_check: (Default: ``false``) Allows replicating objects to accounts on lower editions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
+        :param object_types: Type(s) of objects for which you are enabling replication and failover from the source account to the target account. The following object types are supported: "ACCOUNT PARAMETERS", "DATABASES", "INTEGRATIONS", "NETWORK POLICIES", "RESOURCE MONITORS", "ROLES", "SHARES", "USERS", "WAREHOUSES" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
+        :param replication_schedule: replication_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class FailoverGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FailoverGroup to import.
-        :param import_from_id: The id of the existing FailoverGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FailoverGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FailoverGroup to import is found.
         '''
         if __debug__:
@@ -153,9 +153,9 @@ class FailoverGroup(
         source_account_name: builtins.str,
     ) -> None:
         '''
-        :param name: Identifier for the primary failover group in the source account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
-        :param organization_name: Name of your Snowflake organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
-        :param source_account_name: Source account from which you are enabling replication and failover of the specified objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
+        :param name: Identifier for the primary failover group in the source account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
+        :param organization_name: Name of your Snowflake organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
+        :param source_account_name: Source account from which you are enabling replication and failover of the specified objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
         '''
         value = FailoverGroupFromReplica(
             name=name,
@@ -173,8 +173,8 @@ class FailoverGroup(
         interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#cron FailoverGroup#cron}
-        :param interval: Specifies the interval in minutes for the replication schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#interval FailoverGroup#interval}
+        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#cron FailoverGroup#cron}
+        :param interval: Specifies the interval in minutes for the replication schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#interval FailoverGroup#interval}
         '''
         value = FailoverGroupReplicationSchedule(cron=cron, interval=interval)
 
@@ -190,10 +190,10 @@ class FailoverGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#create FailoverGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#delete FailoverGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#read FailoverGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#update FailoverGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#create FailoverGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#delete FailoverGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#read FailoverGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#update FailoverGroup#update}.
         '''
         value = FailoverGroupTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -494,17 +494,17 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Specifies the identifier for the failover group. The identifier must start with an alphabetic character and cannot contain spaces or special characters unless the identifier string is enclosed in double quotes (e.g. "My object"). Identifiers enclosed in double quotes are also case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
-        :param allowed_accounts: Specifies the target account or list of target accounts to which replication and failover of specified objects from the source account is enabled. Secondary failover groups in the target accounts in this list can be promoted to serve as the primary failover group in case of failover. Expected in the form ``<org_name>.<target_account_name>``. This value is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
-        :param allowed_databases: Specifies the database or list of databases for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include DATABASES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
-        :param allowed_integration_types: Type(s) of integrations for which you are enabling replication and failover from the source account to the target account. This property requires that the OBJECT_TYPES list include INTEGRATIONS to set this parameter. The following integration types are supported: "SECURITY INTEGRATIONS", "API INTEGRATIONS", "STORAGE INTEGRATIONS", "EXTERNAL ACCESS INTEGRATIONS", "NOTIFICATION INTEGRATIONS" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
-        :param allowed_shares: Specifies the share or list of shares for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include SHARES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
-        :param from_replica: from_replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#id FailoverGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_edition_check: (Default: ``false``) Allows replicating objects to accounts on lower editions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
-        :param object_types: Type(s) of objects for which you are enabling replication and failover from the source account to the target account. The following object types are supported: "ACCOUNT PARAMETERS", "DATABASES", "INTEGRATIONS", "NETWORK POLICIES", "RESOURCE MONITORS", "ROLES", "SHARES", "USERS", "WAREHOUSES" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
-        :param replication_schedule: replication_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
+        :param name: Specifies the identifier for the failover group. The identifier must start with an alphabetic character and cannot contain spaces or special characters unless the identifier string is enclosed in double quotes (e.g. "My object"). Identifiers enclosed in double quotes are also case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
+        :param allowed_accounts: Specifies the target account or list of target accounts to which replication and failover of specified objects from the source account is enabled. Secondary failover groups in the target accounts in this list can be promoted to serve as the primary failover group in case of failover. Expected in the form ``<org_name>.<target_account_name>``. This value is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
+        :param allowed_databases: Specifies the database or list of databases for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include DATABASES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
+        :param allowed_integration_types: Type(s) of integrations for which you are enabling replication and failover from the source account to the target account. This property requires that the OBJECT_TYPES list include INTEGRATIONS to set this parameter. The following integration types are supported: "SECURITY INTEGRATIONS", "API INTEGRATIONS", "STORAGE INTEGRATIONS", "EXTERNAL ACCESS INTEGRATIONS", "NOTIFICATION INTEGRATIONS" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
+        :param allowed_shares: Specifies the share or list of shares for which you are enabling replication and failover from the source account to the target account. The OBJECT_TYPES list must include SHARES to set this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
+        :param from_replica: from_replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#id FailoverGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_edition_check: (Default: ``false``) Allows replicating objects to accounts on lower editions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
+        :param object_types: Type(s) of objects for which you are enabling replication and failover from the source account to the target account. The following object types are supported: "ACCOUNT PARAMETERS", "DATABASES", "INTEGRATIONS", "NETWORK POLICIES", "RESOURCE MONITORS", "ROLES", "SHARES", "USERS", "WAREHOUSES" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
+        :param replication_schedule: replication_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -642,7 +642,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The identifier must start with an alphabetic character and cannot contain spaces or special characters unless the identifier string is enclosed in double quotes (e.g. "My object"). Identifiers enclosed in double quotes are also case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -654,7 +654,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Secondary failover groups in the target accounts in this list can be promoted to serve as the primary failover group in case of failover. Expected in the form ``<org_name>.<target_account_name>``. This value is case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_accounts FailoverGroup#allowed_accounts}
         '''
         result = self._values.get("allowed_accounts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -665,7 +665,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The OBJECT_TYPES list must include DATABASES to set this parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_databases FailoverGroup#allowed_databases}
         '''
         result = self._values.get("allowed_databases")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -676,7 +676,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This property requires that the OBJECT_TYPES list include INTEGRATIONS to set this parameter. The following integration types are supported: "SECURITY INTEGRATIONS", "API INTEGRATIONS", "STORAGE INTEGRATIONS", "EXTERNAL ACCESS INTEGRATIONS", "NOTIFICATION INTEGRATIONS"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_integration_types FailoverGroup#allowed_integration_types}
         '''
         result = self._values.get("allowed_integration_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -687,7 +687,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The OBJECT_TYPES list must include SHARES to set this parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#allowed_shares FailoverGroup#allowed_shares}
         '''
         result = self._values.get("allowed_shares")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -696,14 +696,14 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def from_replica(self) -> typing.Optional["FailoverGroupFromReplica"]:
         '''from_replica block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#from_replica FailoverGroup#from_replica}
         '''
         result = self._values.get("from_replica")
         return typing.cast(typing.Optional["FailoverGroupFromReplica"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#id FailoverGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#id FailoverGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -717,7 +717,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Allows replicating objects to accounts on lower editions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#ignore_edition_check FailoverGroup#ignore_edition_check}
         '''
         result = self._values.get("ignore_edition_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -728,7 +728,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The following object types are supported: "ACCOUNT PARAMETERS", "DATABASES", "INTEGRATIONS", "NETWORK POLICIES", "RESOURCE MONITORS", "ROLES", "SHARES", "USERS", "WAREHOUSES"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#object_types FailoverGroup#object_types}
         '''
         result = self._values.get("object_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -739,7 +739,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FailoverGroupReplicationSchedule"]:
         '''replication_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#replication_schedule FailoverGroup#replication_schedule}
         '''
         result = self._values.get("replication_schedule")
         return typing.cast(typing.Optional["FailoverGroupReplicationSchedule"], result)
@@ -748,7 +748,7 @@ class FailoverGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FailoverGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#timeouts FailoverGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FailoverGroupTimeouts"], result)
@@ -783,9 +783,9 @@ class FailoverGroupFromReplica:
         source_account_name: builtins.str,
     ) -> None:
         '''
-        :param name: Identifier for the primary failover group in the source account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
-        :param organization_name: Name of your Snowflake organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
-        :param source_account_name: Source account from which you are enabling replication and failover of the specified objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
+        :param name: Identifier for the primary failover group in the source account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
+        :param organization_name: Name of your Snowflake organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
+        :param source_account_name: Source account from which you are enabling replication and failover of the specified objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b782ddcb129598845a210766383f2bf0cc56a06feb0744c7c2a9521bed8f4ca7)
@@ -802,7 +802,7 @@ class FailoverGroupFromReplica:
     def name(self) -> builtins.str:
         '''Identifier for the primary failover group in the source account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#name FailoverGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#name FailoverGroup#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -812,7 +812,7 @@ class FailoverGroupFromReplica:
     def organization_name(self) -> builtins.str:
         '''Name of your Snowflake organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#organization_name FailoverGroup#organization_name}
         '''
         result = self._values.get("organization_name")
         assert result is not None, "Required property 'organization_name' is missing"
@@ -822,7 +822,7 @@ class FailoverGroupFromReplica:
     def source_account_name(self) -> builtins.str:
         '''Source account from which you are enabling replication and failover of the specified objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#source_account_name FailoverGroup#source_account_name}
         '''
         result = self._values.get("source_account_name")
         assert result is not None, "Required property 'source_account_name' is missing"
@@ -937,8 +937,8 @@ class FailoverGroupReplicationSchedule:
         interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#cron FailoverGroup#cron}
-        :param interval: Specifies the interval in minutes for the replication schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#interval FailoverGroup#interval}
+        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#cron FailoverGroup#cron}
+        :param interval: Specifies the interval in minutes for the replication schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#interval FailoverGroup#interval}
         '''
         if isinstance(cron, dict):
             cron = FailoverGroupReplicationScheduleCron(**cron)
@@ -956,7 +956,7 @@ class FailoverGroupReplicationSchedule:
     def cron(self) -> typing.Optional["FailoverGroupReplicationScheduleCron"]:
         '''cron block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#cron FailoverGroup#cron}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#cron FailoverGroup#cron}
         '''
         result = self._values.get("cron")
         return typing.cast(typing.Optional["FailoverGroupReplicationScheduleCron"], result)
@@ -967,7 +967,7 @@ class FailoverGroupReplicationSchedule:
 
         The interval must be greater than 0 and less than 1440 (24 hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#interval FailoverGroup#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#interval FailoverGroup#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -992,8 +992,8 @@ class FailoverGroupReplicationSchedule:
 class FailoverGroupReplicationScheduleCron:
     def __init__(self, *, expression: builtins.str, time_zone: builtins.str) -> None:
         '''
-        :param expression: Specifies the cron expression for the replication schedule. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#expression FailoverGroup#expression}
-        :param time_zone: Specifies the time zone for secondary group refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
+        :param expression: Specifies the cron expression for the replication schedule. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#expression FailoverGroup#expression}
+        :param time_zone: Specifies the time zone for secondary group refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c7154ee1bb25cd9792172aef6fd6c93083f4324f1c00a1258ab77a5ee7e0d1c)
@@ -1010,7 +1010,7 @@ class FailoverGroupReplicationScheduleCron:
 
         The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#expression FailoverGroup#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#expression FailoverGroup#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1020,7 +1020,7 @@ class FailoverGroupReplicationScheduleCron:
     def time_zone(self) -> builtins.str:
         '''Specifies the time zone for secondary group refresh.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -1131,8 +1131,8 @@ class FailoverGroupReplicationScheduleOutputReference(
     @jsii.member(jsii_name="putCron")
     def put_cron(self, *, expression: builtins.str, time_zone: builtins.str) -> None:
         '''
-        :param expression: Specifies the cron expression for the replication schedule. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#expression FailoverGroup#expression}
-        :param time_zone: Specifies the time zone for secondary group refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
+        :param expression: Specifies the cron expression for the replication schedule. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#expression FailoverGroup#expression}
+        :param time_zone: Specifies the time zone for secondary group refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#time_zone FailoverGroup#time_zone}
         '''
         value = FailoverGroupReplicationScheduleCron(
             expression=expression, time_zone=time_zone
@@ -1211,10 +1211,10 @@ class FailoverGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#create FailoverGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#delete FailoverGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#read FailoverGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#update FailoverGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#create FailoverGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#delete FailoverGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#read FailoverGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#update FailoverGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff98f2679f0587d4a5ea79980f90a3ead02eeb98174eff8065f59b8ee8317cec)
@@ -1234,25 +1234,25 @@ class FailoverGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#create FailoverGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#create FailoverGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#delete FailoverGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#delete FailoverGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#read FailoverGroup#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#read FailoverGroup#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/failover_group#update FailoverGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/failover_group#update FailoverGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

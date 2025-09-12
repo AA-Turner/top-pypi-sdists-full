@@ -122,8 +122,8 @@ def wait_for_steady_state_of_unprotected_image(openstack, image_name):
             time.sleep(2)
 
 
-def wait_for_angular_readiness(driver):
-    driver.set_script_timeout(10)
+def wait_for_angular_readiness(driver, config):
+    driver.set_script_timeout(config.selenium.page_timeout)
     driver.execute_async_script("""
     var callback = arguments[arguments.length - 1];
     var element = document.querySelector('div.btn-group[name="protected"]');
@@ -163,9 +163,9 @@ def test_image_create_from_local_file_demo(login, driver, image_names,
     wizard.find_element_by_css_selector(
         "[label='QCOW2 - QEMU Emulator']").click()
     wizard.find_element_by_css_selector("button.btn-primary.finish").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert(f"Success: Image {image_name} was successfully"
-           f" created." in messages)
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert (f"Success: Image {image_name} was successfully"
+            f" created." in messages)
     assert openstack_demo.compute.find_image(image_name) is not None
 
 
@@ -185,7 +185,7 @@ def test_image_delete_demo(login, driver, image_names, openstack_demo,
         ".//ancestor::tr/td[contains(@class,'actions_column')]")
     widgets.select_from_dropdown(actions_column, "Delete Image")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Image: {image_name}." in messages
     assert openstack_demo.compute.find_image(image_name) is None
 
@@ -262,9 +262,9 @@ def test_image_create_from_local_file_admin(login, driver, image_names,
     wizard.find_element_by_css_selector(
         "[label='QCOW2 - QEMU Emulator']").click()
     wizard.find_element_by_css_selector("button.btn-primary.finish").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert(f"Success: Image {image_name} was successfully"
-           f" created." in messages)
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert (f"Success: Image {image_name} was successfully"
+            f" created." in messages)
     assert openstack_admin.compute.find_image(image_name) is not None
 
 
@@ -284,7 +284,7 @@ def test_image_delete_admin(login, driver, image_names, openstack_admin,
         ".//ancestor::tr/td[contains(@class,'actions_column')]")
     widgets.select_from_dropdown(actions_column, "Delete Image")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Image: {image_name}." in messages
     assert openstack_admin.compute.find_image(image_name) is None
 
@@ -387,13 +387,13 @@ def test_remove_protected_image_admin(login, driver, image_names,
         if option.text == "Delete Image":
             pytest.fail("Delete option should not exist")
     actions_column.find_element_by_xpath(
-        f".//*[normalize-space()='Edit Image']").click()
-    wait_for_angular_readiness(driver)
+        ".//*[normalize-space()='Edit Image']").click()
+    wait_for_angular_readiness(driver, config)
     image_form = driver.find_element_by_css_selector(".ng-wizard")
     image_form.find_element_by_xpath(".//label[text()='No']").click()
     image_form.find_element_by_xpath(
         ".//button[@class='btn btn-primary finish']").click()
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Image {image_name} was successfully updated." in messages
     wait_for_steady_state_of_unprotected_image(openstack_admin, image_name)
     WebDriverWait(driver, config.selenium.page_timeout).until(
@@ -405,7 +405,7 @@ def test_remove_protected_image_admin(login, driver, image_names,
         ".//ancestor::tr/td[contains(@class,'actions_column')]")
     widgets.select_from_dropdown(actions_column, "Delete Image")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Deleted Image: {image_name}." in messages
     assert openstack_admin.compute.find_image(image_name) is None
 
@@ -427,7 +427,7 @@ def test_edit_image_description_admin(login, driver, image_names,
     actions_column = rows[0].find_element_by_xpath(
         ".//ancestor::tr/td[contains(@class,'actions_column')]")
     widgets.select_from_dropdown(actions_column, "Edit Image")
-    wait_for_angular_readiness(driver)
+    wait_for_angular_readiness(driver, config)
     image_form = driver.find_element_by_css_selector(".ng-wizard")
     desc_field = image_form.find_element_by_css_selector(
         "#imageForm-description")
@@ -436,7 +436,7 @@ def test_edit_image_description_admin(login, driver, image_names,
     desc_field.send_keys(new_description)
     image_form.find_element_by_xpath(
         ".//button[@class='btn btn-primary finish']").click()
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Success: Image {image_name} " \
         f"was successfully updated." in messages
     image_id = new_image_admin.id
@@ -474,8 +474,8 @@ def test_update_image_metadata_admin(login, driver,
             f"//span[@title='{name}']/parent::div/input").send_keys(value)  # noqa: E231,E501
     image_form.find_element_by_xpath(
         "//button[@ng-click='modal.save()']").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert f"Success: Metadata was successfully updated." in messages
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert "Success: Metadata was successfully updated." in messages
     image_id = new_image_admin.id
     for name, value in new_metadata.items():
         assert (openstack_admin.compute.get(f"/images/{image_id}").json(
@@ -521,8 +521,8 @@ def test_launch_instance_from_image_admin(complete_default_test_network, login,
     test_instances.delete_volume_on_instance_delete(source_table, "Yes")
     wizard.find_element_by_css_selector(
         "button.btn-primary.finish").click()
-    messages = widgets.get_and_dismiss_messages(driver)
-    assert f"Info: Scheduled creation of 1 instance." in messages
+    messages = widgets.get_and_dismiss_messages(driver, config)
+    assert "Info: Scheduled creation of 1 instance." in messages
     assert openstack_admin.compute.find_server(instance_name) is not None
 
 
@@ -547,9 +547,9 @@ def test_create_volume_from_image_admin(login, driver, volume_name,
     name_field.clear()
     name_field.send_keys(volume_name)
     create_vol_btn = WebDriverWait(driver, config.selenium.page_timeout).until(
-        EC.element_to_be_clickable((By.XPATH, f"//button[@class='btn "
-                                    f"btn-primary finish']")))
+        EC.element_to_be_clickable(
+            (By.XPATH, "//button[@class='btn btn-primary finish']")))
     create_vol_btn.click()
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Info: Creating volume {volume_name}" in messages
     assert openstack_admin.block_storage.find_volume(volume_name) is not None

@@ -566,6 +566,24 @@ api_SeriesDataType.__qualname__ = "SeriesDataType"
 api_SeriesDataType.__module__ = "nominal_api.api"
 
 
+class api_SetOperator(ConjureEnumType):
+
+    AND = 'AND'
+    '''AND'''
+    OR = 'OR'
+    '''OR'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+api_SetOperator.__name__ = "SetOperator"
+api_SetOperator.__qualname__ = "SetOperator"
+api_SetOperator.__module__ = "nominal_api.api"
+
+
 class api_SuccessResult(ConjureBeanType):
 
     @builtins.classmethod
@@ -19478,7 +19496,8 @@ including metrics for check and violation review status.
         return _decoder.decode(_response.json(), scout_run_api_AllRunsPropertiesAndLabelsResponse, self._return_none_for_unknown_union_types)
 
     def search_runs(self, auth_header: str, request: "scout_run_api_SearchRunsRequest") -> "scout_run_api_SearchRunsResponse":
-        """Searches for runs that match the given filters.
+        """Searches for runs that match the given filters. Defaults to returning un-archived runs, absent an archive
+filter.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -19511,7 +19530,8 @@ including metrics for check and violation review status.
 
     def search_runs_with_data_review_metrics(self, auth_header: str, request: "scout_run_api_SearchRunsRequest") -> "scout_run_api_SearchRunsWithDataReviewMetricsResponse":
         """Searches for runs that match the given filters and 
-includes metrics for check and violation review status.
+includes metrics for check and violation review status. Defaults to returning un-archived runs, absent an 
+archive filter.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -19543,7 +19563,8 @@ includes metrics for check and violation review status.
         return _decoder.decode(_response.json(), scout_run_api_SearchRunsWithDataReviewMetricsResponse, self._return_none_for_unknown_union_types)
 
     def search_runs_with_data_review_summary(self, auth_header: str, request: "scout_run_api_SearchRunsRequest") -> "scout_run_api_SearchRunsWithDataReviewSummaryResponse":
-        """Searches for runs that match the given filters and includes a summary of the data review status.
+        """Searches for runs that match the given filters and includes a summary of the data review status. Defaults to 
+returning un-archived runs, absent an archive filter.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -77762,6 +77783,31 @@ scout_run_api_ArchiveRunsRequest.__qualname__ = "ArchiveRunsRequest"
 scout_run_api_ArchiveRunsRequest.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_AssetsFilter(ConjureBeanType):
+    """returns runs that match any of the provided assets.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'assets': ConjureFieldDefinition('assets', List[scout_rids_api_AssetRid])
+        }
+
+    __slots__: List[str] = ['_assets']
+
+    def __init__(self, assets: List[str]) -> None:
+        self._assets = assets
+
+    @builtins.property
+    def assets(self) -> List[str]:
+        return self._assets
+
+
+scout_run_api_AssetsFilter.__name__ = "AssetsFilter"
+scout_run_api_AssetsFilter.__qualname__ = "AssetsFilter"
+scout_run_api_AssetsFilter.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_ChannelMetadata(ConjureBeanType):
 
     @builtins.classmethod
@@ -78025,6 +78071,35 @@ All data sources, attachments, and assets must be in the same workspace.
 scout_run_api_CreateRunRequest.__name__ = "CreateRunRequest"
 scout_run_api_CreateRunRequest.__qualname__ = "CreateRunRequest"
 scout_run_api_CreateRunRequest.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_CustomTimeframeFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'start_time': ConjureFieldDefinition('startTime', OptionalTypeWrapper[scout_run_api_UtcTimestamp]),
+            'end_time': ConjureFieldDefinition('endTime', OptionalTypeWrapper[scout_run_api_UtcTimestamp])
+        }
+
+    __slots__: List[str] = ['_start_time', '_end_time']
+
+    def __init__(self, end_time: Optional["scout_run_api_UtcTimestamp"] = None, start_time: Optional["scout_run_api_UtcTimestamp"] = None) -> None:
+        self._start_time = start_time
+        self._end_time = end_time
+
+    @builtins.property
+    def start_time(self) -> Optional["scout_run_api_UtcTimestamp"]:
+        return self._start_time
+
+    @builtins.property
+    def end_time(self) -> Optional["scout_run_api_UtcTimestamp"]:
+        return self._end_time
+
+
+scout_run_api_CustomTimeframeFilter.__name__ = "CustomTimeframeFilter"
+scout_run_api_CustomTimeframeFilter.__qualname__ = "CustomTimeframeFilter"
+scout_run_api_CustomTimeframeFilter.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_DataReviewAlertMetrics(ConjureBeanType):
@@ -78488,26 +78563,33 @@ scout_run_api_GetRunsByAssetResponse.__qualname__ = "GetRunsByAssetResponse"
 scout_run_api_GetRunsByAssetResponse.__module__ = "nominal_api.scout_run_api"
 
 
-class scout_run_api_InequalityOperator(ConjureEnumType):
+class scout_run_api_LabelsFilter(ConjureBeanType):
 
-    GT = 'GT'
-    '''GT'''
-    GTE = 'GTE'
-    '''GTE'''
-    LT = 'LT'
-    '''LT'''
-    LTE = 'LTE'
-    '''LTE'''
-    UNKNOWN = 'UNKNOWN'
-    '''UNKNOWN'''
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', api_SetOperator),
+            'labels': ConjureFieldDefinition('labels', List[api_Label])
+        }
 
-    def __reduce_ex__(self, proto):
-        return self.__class__, (self.name,)
+    __slots__: List[str] = ['_operator', '_labels']
+
+    def __init__(self, labels: List[str], operator: "api_SetOperator") -> None:
+        self._operator = operator
+        self._labels = labels
+
+    @builtins.property
+    def operator(self) -> "api_SetOperator":
+        return self._operator
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        return self._labels
 
 
-scout_run_api_InequalityOperator.__name__ = "InequalityOperator"
-scout_run_api_InequalityOperator.__qualname__ = "InequalityOperator"
-scout_run_api_InequalityOperator.__module__ = "nominal_api.scout_run_api"
+scout_run_api_LabelsFilter.__name__ = "LabelsFilter"
+scout_run_api_LabelsFilter.__qualname__ = "LabelsFilter"
+scout_run_api_LabelsFilter.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_Link(ConjureBeanType):
@@ -78537,6 +78619,82 @@ class scout_run_api_Link(ConjureBeanType):
 scout_run_api_Link.__name__ = "Link"
 scout_run_api_Link.__qualname__ = "Link"
 scout_run_api_Link.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_PresetTimeframeDuration(ConjureEnumType):
+
+    ALL_TIME = 'ALL_TIME'
+    '''ALL_TIME'''
+    LAST_DAY = 'LAST_DAY'
+    '''LAST_DAY'''
+    LAST_WEEK = 'LAST_WEEK'
+    '''LAST_WEEK'''
+    LAST_MONTH = 'LAST_MONTH'
+    '''LAST_MONTH'''
+    LAST_YEAR = 'LAST_YEAR'
+    '''LAST_YEAR'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_run_api_PresetTimeframeDuration.__name__ = "PresetTimeframeDuration"
+scout_run_api_PresetTimeframeDuration.__qualname__ = "PresetTimeframeDuration"
+scout_run_api_PresetTimeframeDuration.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_PresetTimeframeFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'duration': ConjureFieldDefinition('duration', scout_run_api_PresetTimeframeDuration)
+        }
+
+    __slots__: List[str] = ['_duration']
+
+    def __init__(self, duration: "scout_run_api_PresetTimeframeDuration") -> None:
+        self._duration = duration
+
+    @builtins.property
+    def duration(self) -> "scout_run_api_PresetTimeframeDuration":
+        return self._duration
+
+
+scout_run_api_PresetTimeframeFilter.__name__ = "PresetTimeframeFilter"
+scout_run_api_PresetTimeframeFilter.__qualname__ = "PresetTimeframeFilter"
+scout_run_api_PresetTimeframeFilter.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_PropertiesFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', api_PropertyName),
+            'values': ConjureFieldDefinition('values', List[api_PropertyValue])
+        }
+
+    __slots__: List[str] = ['_name', '_values']
+
+    def __init__(self, name: str, values: List[str]) -> None:
+        self._name = name
+        self._values = values
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def values(self) -> List[str]:
+        return self._values
+
+
+scout_run_api_PropertiesFilter.__name__ = "PropertiesFilter"
+scout_run_api_PropertiesFilter.__qualname__ = "PropertiesFilter"
+scout_run_api_PropertiesFilter.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_RefNameAndType(ConjureBeanType):
@@ -78570,86 +78728,6 @@ using a `dataset` ref name for a `connection` data source
 scout_run_api_RefNameAndType.__name__ = "RefNameAndType"
 scout_run_api_RefNameAndType.__qualname__ = "RefNameAndType"
 scout_run_api_RefNameAndType.__module__ = "nominal_api.scout_run_api"
-
-
-class scout_run_api_RelativeOrAbsoluteTimestamp(ConjureUnionType):
-    _absolute: Optional["api_Timestamp"] = None
-    _relative: Optional["scout_run_api_Duration"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'absolute': ConjureFieldDefinition('absolute', api_Timestamp),
-            'relative': ConjureFieldDefinition('relative', scout_run_api_Duration)
-        }
-
-    def __init__(
-            self,
-            absolute: Optional["api_Timestamp"] = None,
-            relative: Optional["scout_run_api_Duration"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (absolute is not None) + (relative is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if absolute is not None:
-                self._absolute = absolute
-                self._type = 'absolute'
-            if relative is not None:
-                self._relative = relative
-                self._type = 'relative'
-
-        elif type_of_union == 'absolute':
-            if absolute is None:
-                raise ValueError('a union value must not be None')
-            self._absolute = absolute
-            self._type = 'absolute'
-        elif type_of_union == 'relative':
-            if relative is None:
-                raise ValueError('a union value must not be None')
-            self._relative = relative
-            self._type = 'relative'
-
-    @builtins.property
-    def absolute(self) -> Optional["api_Timestamp"]:
-        return self._absolute
-
-    @builtins.property
-    def relative(self) -> Optional["scout_run_api_Duration"]:
-        """Relative timestamps are relative from the current time use a negative lookback period from the current date.
-A relative timestamp of 7 days implies "7 days ago from current time".
-        """
-        return self._relative
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_run_api_RelativeOrAbsoluteTimestampVisitor):
-            raise ValueError('{} is not an instance of scout_run_api_RelativeOrAbsoluteTimestampVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'absolute' and self.absolute is not None:
-            return visitor._absolute(self.absolute)
-        if self._type == 'relative' and self.relative is not None:
-            return visitor._relative(self.relative)
-
-
-scout_run_api_RelativeOrAbsoluteTimestamp.__name__ = "RelativeOrAbsoluteTimestamp"
-scout_run_api_RelativeOrAbsoluteTimestamp.__qualname__ = "RelativeOrAbsoluteTimestamp"
-scout_run_api_RelativeOrAbsoluteTimestamp.__module__ = "nominal_api.scout_run_api"
-
-
-class scout_run_api_RelativeOrAbsoluteTimestampVisitor:
-
-    @abstractmethod
-    def _absolute(self, absolute: "api_Timestamp") -> Any:
-        pass
-
-    @abstractmethod
-    def _relative(self, relative: "scout_run_api_Duration") -> Any:
-        pass
-
-
-scout_run_api_RelativeOrAbsoluteTimestampVisitor.__name__ = "RelativeOrAbsoluteTimestampVisitor"
-scout_run_api_RelativeOrAbsoluteTimestampVisitor.__qualname__ = "RelativeOrAbsoluteTimestampVisitor"
-scout_run_api_RelativeOrAbsoluteTimestampVisitor.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_Run(ConjureBeanType):
@@ -78986,22 +79064,26 @@ scout_run_api_RunWithDataReviewSummary.__module__ = "nominal_api.scout_run_api"
 
 class scout_run_api_SearchQuery(ConjureUnionType):
     _start_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None
-    _start_time: Optional["scout_run_api_TimestampCondition"] = None
+    _start_time: Optional["scout_run_api_TimeframeFilter"] = None
     _end_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None
-    _end_time: Optional["scout_run_api_TimestampCondition"] = None
+    _end_time: Optional["scout_run_api_TimeframeFilter"] = None
     _time_range: Optional["scout_run_api_TimeRangeFilter"] = None
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _asset: Optional[str] = None
+    _assets: Optional["scout_run_api_AssetsFilter"] = None
     _is_single_asset: Optional[bool] = None
     _label: Optional[str] = None
+    _labels: Optional["scout_run_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _properties: Optional["scout_run_api_PropertiesFilter"] = None
     _data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None
     _data_source_ref_name: Optional[str] = None
     _data_source: Optional["scout_run_api_DataSource"] = None
     _run_number: Optional[int] = None
     _run_prefix: Optional[str] = None
     _check_alert_states_filter: Optional["scout_run_api_CheckAlertStatesFilter"] = None
+    _archived: Optional[bool] = None
     _and_: Optional[List["scout_run_api_SearchQuery"]] = None
     _or_: Optional[List["scout_run_api_SearchQuery"]] = None
     _not_: Optional["scout_run_api_SearchQuery"] = None
@@ -79011,22 +79093,26 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'start_time_inclusive': ConjureFieldDefinition('startTimeInclusive', scout_run_api_UtcTimestamp),
-            'start_time': ConjureFieldDefinition('startTime', scout_run_api_TimestampCondition),
+            'start_time': ConjureFieldDefinition('startTime', scout_run_api_TimeframeFilter),
             'end_time_inclusive': ConjureFieldDefinition('endTimeInclusive', scout_run_api_UtcTimestamp),
-            'end_time': ConjureFieldDefinition('endTime', scout_run_api_TimestampCondition),
+            'end_time': ConjureFieldDefinition('endTime', scout_run_api_TimeframeFilter),
             'time_range': ConjureFieldDefinition('timeRange', scout_run_api_TimeRangeFilter),
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'asset': ConjureFieldDefinition('asset', scout_rids_api_AssetRid),
+            'assets': ConjureFieldDefinition('assets', scout_run_api_AssetsFilter),
             'is_single_asset': ConjureFieldDefinition('isSingleAsset', bool),
             'label': ConjureFieldDefinition('label', api_Label),
+            'labels': ConjureFieldDefinition('labels', scout_run_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'properties': ConjureFieldDefinition('properties', scout_run_api_PropertiesFilter),
             'data_source_series_tag': ConjureFieldDefinition('dataSourceSeriesTag', scout_run_api_DataSourceSeriesTag),
             'data_source_ref_name': ConjureFieldDefinition('dataSourceRefName', scout_api_DataSourceRefName),
             'data_source': ConjureFieldDefinition('dataSource', scout_run_api_DataSource),
             'run_number': ConjureFieldDefinition('runNumber', int),
             'run_prefix': ConjureFieldDefinition('runPrefix', str),
             'check_alert_states_filter': ConjureFieldDefinition('checkAlertStatesFilter', scout_run_api_CheckAlertStatesFilter),
+            'archived': ConjureFieldDefinition('archived', bool),
             'and_': ConjureFieldDefinition('and', List[scout_run_api_SearchQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_run_api_SearchQuery]),
             'not_': ConjureFieldDefinition('not', scout_run_api_SearchQuery),
@@ -79036,22 +79122,26 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     def __init__(
             self,
             start_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None,
-            start_time: Optional["scout_run_api_TimestampCondition"] = None,
+            start_time: Optional["scout_run_api_TimeframeFilter"] = None,
             end_time_inclusive: Optional["scout_run_api_UtcTimestamp"] = None,
-            end_time: Optional["scout_run_api_TimestampCondition"] = None,
+            end_time: Optional["scout_run_api_TimeframeFilter"] = None,
             time_range: Optional["scout_run_api_TimeRangeFilter"] = None,
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             asset: Optional[str] = None,
+            assets: Optional["scout_run_api_AssetsFilter"] = None,
             is_single_asset: Optional[bool] = None,
             label: Optional[str] = None,
+            labels: Optional["scout_run_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            properties: Optional["scout_run_api_PropertiesFilter"] = None,
             data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None,
             data_source_ref_name: Optional[str] = None,
             data_source: Optional["scout_run_api_DataSource"] = None,
             run_number: Optional[int] = None,
             run_prefix: Optional[str] = None,
             check_alert_states_filter: Optional["scout_run_api_CheckAlertStatesFilter"] = None,
+            archived: Optional[bool] = None,
             and_: Optional[List["scout_run_api_SearchQuery"]] = None,
             or_: Optional[List["scout_run_api_SearchQuery"]] = None,
             not_: Optional["scout_run_api_SearchQuery"] = None,
@@ -79059,7 +79149,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (start_time_inclusive is not None) + (start_time is not None) + (end_time_inclusive is not None) + (end_time is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (is_single_asset is not None) + (label is not None) + (property is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (start_time_inclusive is not None) + (start_time is not None) + (end_time_inclusive is not None) + (end_time is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (assets is not None) + (is_single_asset is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if start_time_inclusive is not None:
@@ -79086,15 +79176,24 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             if asset is not None:
                 self._asset = asset
                 self._type = 'asset'
+            if assets is not None:
+                self._assets = assets
+                self._type = 'assets'
             if is_single_asset is not None:
                 self._is_single_asset = is_single_asset
                 self._type = 'isSingleAsset'
             if label is not None:
                 self._label = label
                 self._type = 'label'
+            if labels is not None:
+                self._labels = labels
+                self._type = 'labels'
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if properties is not None:
+                self._properties = properties
+                self._type = 'properties'
             if data_source_series_tag is not None:
                 self._data_source_series_tag = data_source_series_tag
                 self._type = 'dataSourceSeriesTag'
@@ -79113,6 +79212,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             if check_alert_states_filter is not None:
                 self._check_alert_states_filter = check_alert_states_filter
                 self._type = 'checkAlertStatesFilter'
+            if archived is not None:
+                self._archived = archived
+                self._type = 'archived'
             if and_ is not None:
                 self._and_ = and_
                 self._type = 'and'
@@ -79166,6 +79268,11 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._asset = asset
             self._type = 'asset'
+        elif type_of_union == 'assets':
+            if assets is None:
+                raise ValueError('a union value must not be None')
+            self._assets = assets
+            self._type = 'assets'
         elif type_of_union == 'isSingleAsset':
             if is_single_asset is None:
                 raise ValueError('a union value must not be None')
@@ -79176,11 +79283,21 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._label = label
             self._type = 'label'
+        elif type_of_union == 'labels':
+            if labels is None:
+                raise ValueError('a union value must not be None')
+            self._labels = labels
+            self._type = 'labels'
         elif type_of_union == 'property':
             if property is None:
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'properties':
+            if properties is None:
+                raise ValueError('a union value must not be None')
+            self._properties = properties
+            self._type = 'properties'
         elif type_of_union == 'dataSourceSeriesTag':
             if data_source_series_tag is None:
                 raise ValueError('a union value must not be None')
@@ -79211,6 +79328,11 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._check_alert_states_filter = check_alert_states_filter
             self._type = 'checkAlertStatesFilter'
+        elif type_of_union == 'archived':
+            if archived is None:
+                raise ValueError('a union value must not be None')
+            self._archived = archived
+            self._type = 'archived'
         elif type_of_union == 'and':
             if and_ is None:
                 raise ValueError('a union value must not be None')
@@ -79237,7 +79359,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._start_time_inclusive
 
     @builtins.property
-    def start_time(self) -> Optional["scout_run_api_TimestampCondition"]:
+    def start_time(self) -> Optional["scout_run_api_TimeframeFilter"]:
         return self._start_time
 
     @builtins.property
@@ -79245,7 +79367,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._end_time_inclusive
 
     @builtins.property
-    def end_time(self) -> Optional["scout_run_api_TimestampCondition"]:
+    def end_time(self) -> Optional["scout_run_api_TimeframeFilter"]:
         return self._end_time
 
     @builtins.property
@@ -79267,6 +79389,10 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._asset
 
     @builtins.property
+    def assets(self) -> Optional["scout_run_api_AssetsFilter"]:
+        return self._assets
+
+    @builtins.property
     def is_single_asset(self) -> Optional[bool]:
         """Search for either only single-asset runs (true), or only multi-asset runs (false).
         """
@@ -79277,8 +79403,16 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
+    def labels(self) -> Optional["scout_run_api_LabelsFilter"]:
+        return self._labels
+
+    @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
+
+    @builtins.property
+    def properties(self) -> Optional["scout_run_api_PropertiesFilter"]:
+        return self._properties
 
     @builtins.property
     def data_source_series_tag(self) -> Optional["scout_run_api_DataSourceSeriesTag"]:
@@ -79305,6 +79439,10 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         """Search for runs where its aggregated check alert satisfy a given operator and threshold.
         """
         return self._check_alert_states_filter
+
+    @builtins.property
+    def archived(self) -> Optional[bool]:
+        return self._archived
 
     @builtins.property
     def and_(self) -> Optional[List["scout_run_api_SearchQuery"]]:
@@ -79341,12 +79479,18 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             return visitor._search_text(self.search_text)
         if self._type == 'asset' and self.asset is not None:
             return visitor._asset(self.asset)
+        if self._type == 'assets' and self.assets is not None:
+            return visitor._assets(self.assets)
         if self._type == 'isSingleAsset' and self.is_single_asset is not None:
             return visitor._is_single_asset(self.is_single_asset)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
+        if self._type == 'labels' and self.labels is not None:
+            return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'properties' and self.properties is not None:
+            return visitor._properties(self.properties)
         if self._type == 'dataSourceSeriesTag' and self.data_source_series_tag is not None:
             return visitor._data_source_series_tag(self.data_source_series_tag)
         if self._type == 'dataSourceRefName' and self.data_source_ref_name is not None:
@@ -79359,6 +79503,8 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             return visitor._run_prefix(self.run_prefix)
         if self._type == 'checkAlertStatesFilter' and self.check_alert_states_filter is not None:
             return visitor._check_alert_states_filter(self.check_alert_states_filter)
+        if self._type == 'archived' and self.archived is not None:
+            return visitor._archived(self.archived)
         if self._type == 'and' and self.and_ is not None:
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
@@ -79381,7 +79527,7 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
-    def _start_time(self, start_time: "scout_run_api_TimestampCondition") -> Any:
+    def _start_time(self, start_time: "scout_run_api_TimeframeFilter") -> Any:
         pass
 
     @abstractmethod
@@ -79389,7 +79535,7 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
-    def _end_time(self, end_time: "scout_run_api_TimestampCondition") -> Any:
+    def _end_time(self, end_time: "scout_run_api_TimeframeFilter") -> Any:
         pass
 
     @abstractmethod
@@ -79409,6 +79555,10 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
+    def _assets(self, assets: "scout_run_api_AssetsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _is_single_asset(self, is_single_asset: bool) -> Any:
         pass
 
@@ -79417,7 +79567,15 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
+    def _labels(self, labels: "scout_run_api_LabelsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _properties(self, properties: "scout_run_api_PropertiesFilter") -> Any:
         pass
 
     @abstractmethod
@@ -79442,6 +79600,10 @@ class scout_run_api_SearchQueryVisitor:
 
     @abstractmethod
     def _check_alert_states_filter(self, check_alert_states_filter: "scout_run_api_CheckAlertStatesFilter") -> Any:
+        pass
+
+    @abstractmethod
+    def _archived(self, archived: bool) -> Any:
         pass
 
     @abstractmethod
@@ -79880,33 +80042,81 @@ scout_run_api_TimeRangeFilter.__qualname__ = "TimeRangeFilter"
 scout_run_api_TimeRangeFilter.__module__ = "nominal_api.scout_run_api"
 
 
-class scout_run_api_TimestampCondition(ConjureBeanType):
+class scout_run_api_TimeframeFilter(ConjureUnionType):
+    _custom: Optional["scout_run_api_CustomTimeframeFilter"] = None
+    _preset: Optional["scout_run_api_PresetTimeframeFilter"] = None
 
     @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'operator': ConjureFieldDefinition('operator', scout_run_api_InequalityOperator),
-            'threshold': ConjureFieldDefinition('threshold', scout_run_api_RelativeOrAbsoluteTimestamp)
+            'custom': ConjureFieldDefinition('custom', scout_run_api_CustomTimeframeFilter),
+            'preset': ConjureFieldDefinition('preset', scout_run_api_PresetTimeframeFilter)
         }
 
-    __slots__: List[str] = ['_operator', '_threshold']
+    def __init__(
+            self,
+            custom: Optional["scout_run_api_CustomTimeframeFilter"] = None,
+            preset: Optional["scout_run_api_PresetTimeframeFilter"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (custom is not None) + (preset is not None) != 1:
+                raise ValueError('a union must contain a single member')
 
-    def __init__(self, operator: "scout_run_api_InequalityOperator", threshold: "scout_run_api_RelativeOrAbsoluteTimestamp") -> None:
-        self._operator = operator
-        self._threshold = threshold
+            if custom is not None:
+                self._custom = custom
+                self._type = 'custom'
+            if preset is not None:
+                self._preset = preset
+                self._type = 'preset'
+
+        elif type_of_union == 'custom':
+            if custom is None:
+                raise ValueError('a union value must not be None')
+            self._custom = custom
+            self._type = 'custom'
+        elif type_of_union == 'preset':
+            if preset is None:
+                raise ValueError('a union value must not be None')
+            self._preset = preset
+            self._type = 'preset'
 
     @builtins.property
-    def operator(self) -> "scout_run_api_InequalityOperator":
-        return self._operator
+    def custom(self) -> Optional["scout_run_api_CustomTimeframeFilter"]:
+        return self._custom
 
     @builtins.property
-    def threshold(self) -> "scout_run_api_RelativeOrAbsoluteTimestamp":
-        return self._threshold
+    def preset(self) -> Optional["scout_run_api_PresetTimeframeFilter"]:
+        return self._preset
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_run_api_TimeframeFilterVisitor):
+            raise ValueError('{} is not an instance of scout_run_api_TimeframeFilterVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'custom' and self.custom is not None:
+            return visitor._custom(self.custom)
+        if self._type == 'preset' and self.preset is not None:
+            return visitor._preset(self.preset)
 
 
-scout_run_api_TimestampCondition.__name__ = "TimestampCondition"
-scout_run_api_TimestampCondition.__qualname__ = "TimestampCondition"
-scout_run_api_TimestampCondition.__module__ = "nominal_api.scout_run_api"
+scout_run_api_TimeframeFilter.__name__ = "TimeframeFilter"
+scout_run_api_TimeframeFilter.__qualname__ = "TimeframeFilter"
+scout_run_api_TimeframeFilter.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_TimeframeFilterVisitor:
+
+    @abstractmethod
+    def _custom(self, custom: "scout_run_api_CustomTimeframeFilter") -> Any:
+        pass
+
+    @abstractmethod
+    def _preset(self, preset: "scout_run_api_PresetTimeframeFilter") -> Any:
+        pass
+
+
+scout_run_api_TimeframeFilterVisitor.__name__ = "TimeframeFilterVisitor"
+scout_run_api_TimeframeFilterVisitor.__qualname__ = "TimeframeFilterVisitor"
+scout_run_api_TimeframeFilterVisitor.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_UnarchiveRunsRequest(ConjureBeanType):

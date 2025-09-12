@@ -15,7 +15,7 @@ _C=True
 _B=False
 _A=None
 import json,logging
-from typing import Dict,List,Optional,Tuple
+from typing import Optional
 from urllib.parse import urlparse
 import click
 from localstack.cli import console
@@ -33,7 +33,7 @@ from localstack.utils.collections import is_comma_delimited_list
 from localstack.utils.time import timestamp
 LOG=logging.getLogger(__name__)
 DATE_FORMAT='%Y-%m-%d %H:%M:%S'
-@click.group(name='pod',help='Manage the state of your instance via Cloud Pods.',context_settings=dict(max_content_width=120),cls=RequiresLicenseGroup if not get_auth_cache().get('token')else _A)
+@click.group(name='pod',help='Manage the state of your instance via Cloud Pods.',context_settings={'max_content_width':120},cls=RequiresLicenseGroup if not get_auth_cache().get('token')else _A)
 def pod():0
 @pod.group(name=_F,help='Manage cloud pod remotes')
 def remote():0

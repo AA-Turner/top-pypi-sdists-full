@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: idf-ci
-Version: 0.4.4
+Version: 0.4.5
 Summary: The python library for CI/CD of ESP-IDF projects
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Project-URL: Homepage, https://github.com/espressif/idf-ci
@@ -28,9 +28,9 @@ Requires-Dist: jinja2
 Requires-Dist: python-gitlab
 Requires-Dist: minio
 Requires-Dist: idf-build-apps~=2.12
-Requires-Dist: pytest-embedded-idf[serial]~=1.16
-Requires-Dist: pytest-embedded-jtag~=1.16
-Requires-Dist: pytest-embedded-qemu~=1.16
+Requires-Dist: pytest-embedded-idf[serial]<3,>=1.16
+Requires-Dist: pytest-embedded-jtag<3,>=1.16
+Requires-Dist: pytest-embedded-qemu<3,>=1.16
 Requires-Dist: pytest-ignore-test-results<1,>=0.3.0
 Requires-Dist: pytest-timeout
 Requires-Dist: pytest-rerunfailures

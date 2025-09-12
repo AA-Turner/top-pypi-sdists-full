@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_evs.type_defs import CheckTypeDef
+    from types_boto3_evs.type_defs import AssociateEipToVlanRequestTypeDef
 
-    data: CheckTypeDef = ...
+    data: AssociateEipToVlanRequestTypeDef = ...
     ```
 """
 
@@ -40,6 +40,8 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AssociateEipToVlanRequestTypeDef",
+    "AssociateEipToVlanResponseTypeDef",
     "CheckTypeDef",
     "ConnectivityInfoOutputTypeDef",
     "ConnectivityInfoTypeDef",
@@ -52,6 +54,9 @@ __all__ = (
     "DeleteEnvironmentHostResponseTypeDef",
     "DeleteEnvironmentRequestTypeDef",
     "DeleteEnvironmentResponseTypeDef",
+    "DisassociateEipFromVlanRequestTypeDef",
+    "DisassociateEipFromVlanResponseTypeDef",
+    "EipAssociationTypeDef",
     "EnvironmentSummaryTypeDef",
     "EnvironmentTypeDef",
     "GetEnvironmentRequestTypeDef",
@@ -85,6 +90,19 @@ __all__ = (
     "VlanTypeDef",
 )
 
+class AssociateEipToVlanRequestTypeDef(TypedDict):
+    environmentId: str
+    vlanName: str
+    allocationId: str
+    clientToken: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: Dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 CheckTypeDef = TypedDict(
     "CheckTypeDef",
     {
@@ -117,13 +135,6 @@ class EnvironmentSummaryTypeDef(TypedDict):
     modifiedAt: NotRequired[datetime]
     environmentArn: NotRequired[str]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 class LicenseInfoTypeDef(TypedDict):
     solutionKey: str
     vsanKey: str
@@ -147,6 +158,17 @@ class DeleteEnvironmentHostRequestTypeDef(TypedDict):
 class DeleteEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
     clientToken: NotRequired[str]
+
+class DisassociateEipFromVlanRequestTypeDef(TypedDict):
+    environmentId: str
+    vlanName: str
+    associationId: str
+    clientToken: NotRequired[str]
+
+class EipAssociationTypeDef(TypedDict):
+    associationId: NotRequired[str]
+    allocationId: NotRequired[str]
+    ipAddress: NotRequired[str]
 
 class SecretTypeDef(TypedDict):
     secretArn: NotRequired[str]
@@ -178,17 +200,6 @@ class ListEnvironmentVlansRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
-class VlanTypeDef(TypedDict):
-    vlanId: NotRequired[int]
-    cidr: NotRequired[str]
-    availabilityZone: NotRequired[str]
-    functionName: NotRequired[str]
-    subnetId: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    modifiedAt: NotRequired[datetime]
-    vlanState: NotRequired[VlanStateType]
-    stateDetails: NotRequired[str]
-
 class ListEnvironmentsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -208,6 +219,10 @@ class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
 
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 ConnectivityInfoUnionTypeDef = Union[ConnectivityInfoTypeDef, ConnectivityInfoOutputTypeDef]
 
 class CreateEnvironmentHostRequestTypeDef(TypedDict):
@@ -220,9 +235,19 @@ class ListEnvironmentsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
+class VlanTypeDef(TypedDict):
+    vlanId: NotRequired[int]
+    cidr: NotRequired[str]
+    availabilityZone: NotRequired[str]
+    functionName: NotRequired[str]
+    subnetId: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    modifiedAt: NotRequired[datetime]
+    vlanState: NotRequired[VlanStateType]
+    stateDetails: NotRequired[str]
+    eipAssociations: NotRequired[List[EipAssociationTypeDef]]
+    isPublic: NotRequired[bool]
+    networkAclId: NotRequired[str]
 
 class EnvironmentTypeDef(TypedDict):
     environmentId: NotRequired[str]
@@ -271,6 +296,8 @@ class InitialVlansTypeDef(TypedDict):
     hcx: InitialVlanInfoTypeDef
     expansionVlan1: InitialVlanInfoTypeDef
     expansionVlan2: InitialVlanInfoTypeDef
+    isHcxPublic: NotRequired[bool]
+    hcxNetworkAclId: NotRequired[str]
 
 class ListEnvironmentHostsRequestPaginateTypeDef(TypedDict):
     environmentId: str
@@ -284,14 +311,22 @@ class ListEnvironmentsRequestPaginateTypeDef(TypedDict):
     state: NotRequired[Sequence[EnvironmentStateType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+ServiceAccessSecurityGroupsUnionTypeDef = Union[
+    ServiceAccessSecurityGroupsTypeDef, ServiceAccessSecurityGroupsOutputTypeDef
+]
+
+class AssociateEipToVlanResponseTypeDef(TypedDict):
+    vlan: VlanTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DisassociateEipFromVlanResponseTypeDef(TypedDict):
+    vlan: VlanTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListEnvironmentVlansResponseTypeDef(TypedDict):
     environmentVlans: List[VlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-ServiceAccessSecurityGroupsUnionTypeDef = Union[
-    ServiceAccessSecurityGroupsTypeDef, ServiceAccessSecurityGroupsOutputTypeDef
-]
 
 class CreateEnvironmentResponseTypeDef(TypedDict):
     environment: EnvironmentTypeDef

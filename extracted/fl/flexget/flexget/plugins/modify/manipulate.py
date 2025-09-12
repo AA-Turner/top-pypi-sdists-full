@@ -24,11 +24,16 @@ class Manipulate:
               regexp: <regexp>
               format: <regexp>
             [remove]: <boolean>
+            [erase]: <list of regexps>
 
     Example::
       manipulate:
         - title:
             extract: \[\d\d\d\d\](.*)
+        - title:
+            erase:
+              - "^unwanted.noise."
+              - "^more.advertisement."
     """
 
     schema = {
@@ -43,6 +48,10 @@ class Manipulate:
                     'extract': {'type': 'string', 'format': 'regex'},
                     'separator': {'type': 'string'},
                     'remove': {'type': 'boolean'},
+                    'erase': {
+                        'type': 'array',
+                        'items': {'type': 'string', 'format': 'regex'},
+                    },
                     'find_all': {'type': 'boolean'},
                     'replace': {
                         'type': 'object',
@@ -116,10 +125,29 @@ class Manipulate:
                     field_value,
                 )
                 if config.get('remove'):
+                    # Remove entire field
                     if field in entry:
                         del entry[field]
                         modified = True
                     continue
+                if config.get('erase'):
+                    # Erase text matching regex patterns
+                    if not field_value:
+                        logger.warning(
+                            'Cannot erase patterns, field `{}` is not present', from_field
+                        )
+                        continue
+                    original_value = field_value
+                    for pattern in config['erase']:
+                        field_value = re.sub(
+                            pattern, '', field_value, flags=re.IGNORECASE | re.UNICODE
+                        )
+                    field_value = field_value.strip()
+                    if original_value != field_value:
+                        logger.debug('field `{}` after erase patterns: `{}`', field, field_value)
+                    # Fail entry if title field becomes empty after erase
+                    if field == 'title' and not field_value:
+                        entry.fail('Title became empty after erase operation')
                 if 'extract' in config:
                     if not field_value:
                         logger.warning('Cannot extract, field `{}` is not present', from_field)

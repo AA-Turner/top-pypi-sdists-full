@@ -1829,6 +1829,7 @@ WHERE
         self.validate_identity("TO_JSON(STRUCT(1 AS id, [10, 20] AS cords))")
         self.validate_identity("TO_JSON(9999999999, stringify_wide_numbers => FALSE)")
         self.validate_identity("RANGE_BUCKET(20, [0, 10, 20, 30, 40])")
+        self.validate_identity("SELECT TRANSLATE(MODEL, 'in', 't') FROM (SELECT 'input' AS MODEL)")
 
     def test_errors(self):
         with self.assertRaises(ParseError):
@@ -2141,6 +2142,24 @@ OPTIONS (
         )
         self.validate_identity(
             "SELECT * FROM VECTOR_SEARCH(TABLE mydataset.base_table, 'column_to_search', TABLE mydataset.query_table)"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.TRANSLATE(MODEL `mydataset.mytranslatemodel`, TABLE `mydataset.mybqtable`, STRUCT('translate_text' AS translate_mode, 'zh-CN' AS target_language_code))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.TRANSLATE(MODEL `mydataset.mymodel`, (SELECT comment AS text_content FROM mydataset.mytable), STRUCT('translate_text' AS translate_mode, 'en' AS target_language_code))"
+        ).find(exp.MLTranslate).assert_is(exp.MLTranslate)
+        self.validate_identity("TRANSLATE(x, y, z)").assert_is(exp.Translate)
+
+        ast = self.validate_identity(
+            "SELECT * FROM ML.FORECAST(MODEL `mydataset.mymodel`, STRUCT(2 AS horizon))"
+        )
+        assert ast.find(exp.MLForecast)
+        self.validate_identity(
+            "SELECT * FROM ML.FORECAST(MODEL `mydataset.mymodel`, TABLE `mydataset.mybqtable`, STRUCT(2 AS horizon, 4 AS confidence_level))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.FORECAST(MODEL `mydataset.mymodel`, (SELECT * FROM mydataset.query_table), STRUCT())"
         )
 
     def test_merge(self):
@@ -2929,46 +2948,58 @@ OPTIONS (
             "BIT_AND(x)",
             read={
                 "bigquery": "BIT_AND(x)",
-                "spark": "BIT_AND(x)",
                 "databricks": "BIT_AND(x)",
-                "mysql": "BIT_AND(x)",
                 "dremio": "BIT_AND(x)",
+                "duckdb": "BIT_AND(x)",
+                "mysql": "BIT_AND(x)",
+                "postgres": "BIT_AND(x)",
+                "spark": "BIT_AND(x)",
             },
             write={
-                "spark": "BIT_AND(x)",
                 "databricks": "BIT_AND(x)",
-                "mysql": "BIT_AND(x)",
                 "dremio": "BIT_AND(x)",
+                "duckdb": "BIT_AND(x)",
+                "mysql": "BIT_AND(x)",
+                "postgres": "BIT_AND(x)",
+                "spark": "BIT_AND(x)",
             },
         )
         self.validate_all(
             "BIT_OR(x)",
             read={
                 "bigquery": "BIT_OR(x)",
-                "spark": "BIT_OR(x)",
                 "databricks": "BIT_OR(x)",
-                "mysql": "BIT_OR(x)",
                 "dremio": "BIT_OR(x)",
+                "duckdb": "BIT_OR(x)",
+                "mysql": "BIT_OR(x)",
+                "postgres": "BIT_OR(x)",
+                "spark": "BIT_OR(x)",
             },
             write={
-                "spark": "BIT_OR(x)",
                 "databricks": "BIT_OR(x)",
-                "mysql": "BIT_OR(x)",
                 "dremio": "BIT_OR(x)",
+                "duckdb": "BIT_OR(x)",
+                "mysql": "BIT_OR(x)",
+                "postgres": "BIT_OR(x)",
+                "spark": "BIT_OR(x)",
             },
         )
         self.validate_all(
             "BIT_XOR(x)",
             read={
                 "bigquery": "BIT_XOR(x)",
-                "spark": "BIT_XOR(x)",
                 "databricks": "BIT_XOR(x)",
+                "duckdb": "BIT_XOR(x)",
                 "mysql": "BIT_XOR(x)",
+                "postgres": "BIT_XOR(x)",
+                "spark": "BIT_XOR(x)",
             },
             write={
-                "spark": "BIT_XOR(x)",
                 "databricks": "BIT_XOR(x)",
+                "duckdb": "BIT_XOR(x)",
                 "mysql": "BIT_XOR(x)",
+                "postgres": "BIT_XOR(x)",
+                "spark": "BIT_XOR(x)",
             },
         )
         self.validate_all(
@@ -2983,5 +3014,32 @@ OPTIONS (
                 "spark": "BIT_COUNT(x)",
                 "databricks": "BIT_COUNT(x)",
                 "mysql": "BIT_COUNT(x)",
+            },
+        )
+
+    def test_to_hex(self):
+        self.validate_all(
+            "SELECT TO_HEX(SHA1('abc'))",
+            write={
+                "bigquery": "SELECT TO_HEX(SHA1('abc'))",
+                "snowflake": "SELECT TO_CHAR(SHA1('abc'))",
+            },
+        )
+
+    def test_md5(self):
+        self.validate_all(
+            "SELECT MD5('abc')",
+            write={
+                "bigquery": "SELECT MD5('abc')",
+                "snowflake": "SELECT MD5_BINARY('abc')",
+            },
+        )
+
+    def test_to_json_string(self):
+        self.validate_all(
+            """SELECT TO_JSON_STRING(STRUCT('Alice' AS name)) AS json_data""",
+            write={
+                "bigquery": """SELECT TO_JSON_STRING(STRUCT('Alice' AS name)) AS json_data""",
+                "snowflake": """SELECT TO_JSON(OBJECT_CONSTRUCT('name', 'Alice')) AS json_data""",
             },
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyexasol
-Version: 1.1.0
+Version: 1.1.1
 Summary: Exasol python driver with extra features
 License: MIT
 Keywords: exasol,sql,database,performance,websocket,import,export
@@ -25,6 +25,7 @@ Provides-Extra: pandas
 Provides-Extra: polars
 Provides-Extra: rapidjson
 Provides-Extra: ujson
+Requires-Dist: cryptography (>=45.0.7)
 Requires-Dist: numpy (>1.26.0,<2) ; extra == "numpy" or extra == "all"
 Requires-Dist: orjson (>=3.6) ; extra == "orjson" or extra == "all"
 Requires-Dist: packaging

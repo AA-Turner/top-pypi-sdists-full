@@ -300,27 +300,44 @@ class Weather:
         return self.station["name"]  # type: ignore
 
     def is_in_timerange(self, timestamp: datetime):
+        # Convert timestamp to UTC for comparison with forecast data keys
+        timestamp_utc = (
+            timestamp.astimezone(timezone.utc)
+            if timestamp.tzinfo
+            else timestamp.replace(tzinfo=timezone.utc)
+        )
         return (
             list(self.forecast_data.keys())[0]  # type: ignore
-            <= self.strip_to_hour_str(timestamp)
+            <= self.strip_to_hour_str(timestamp_utc)
             <= list(self.forecast_data.keys())[-1]  # type: ignore
         )
 
     def is_in_timerange_day(self, timestamp: datetime):
+        # Get the caller's timezone
+        caller_tz = timestamp.tzinfo or timezone.utc
+
+        # Convert forecast data boundaries to caller's timezone for comparison
+        first_entry_utc = arrow.get(
+            list(self.forecast_data.keys())[0],  # type: ignore
+            "YYYY-MM-DDTHH:mm:ss.SSSZ",  # type: ignore
+        ).datetime
+        last_entry_utc = arrow.get(
+            list(self.forecast_data.keys())[-1],  # type: ignore
+            "YYYY-MM-DDTHH:mm:ss.SSSZ",  # type: ignore
+        ).datetime
+
+        first_entry_local = first_entry_utc.astimezone(caller_tz)
+        last_entry_local = last_entry_utc.astimezone(caller_tz)
+        timestamp_local = (
+            timestamp.astimezone(caller_tz)
+            if timestamp.tzinfo
+            else timestamp.replace(tzinfo=caller_tz)
+        )
+
         return (
-            self.strip_to_day(
-                arrow.get(
-                    list(self.forecast_data.keys())[0],  # type: ignore
-                    "YYYY-MM-DDTHH:mm:ss.SSSZ",  # type: ignore
-                ).datetime
-            )
-            <= self.strip_to_day(timestamp)
-            <= self.strip_to_day(
-                arrow.get(
-                    list(self.forecast_data.keys())[-1],  # type: ignore
-                    "YYYY-MM-DDTHH:mm:ss.SSSZ",  # type: ignore
-                ).datetime
-            )
+            self.strip_to_day(first_entry_local)
+            <= self.strip_to_day(timestamp_local)
+            <= self.strip_to_day(last_entry_local)
         )
 
     def is_valid_timeframe(self, timeframe: int) -> bool:
@@ -339,7 +356,12 @@ class Weather:
         if shouldUpdate:
             self.update()
         if self.is_in_timerange(timestamp):
-            return self.forecast_data[self.strip_to_hour_str(timestamp)][  # type: ignore
+            timestamp_utc = (
+                timestamp.astimezone(timezone.utc)
+                if timestamp.tzinfo
+                else timestamp.replace(tzinfo=timezone.utc)
+            )
+            return self.forecast_data[self.strip_to_hour_str(timestamp_utc)][  # type: ignore
                 weatherDataType.value[0]
             ]
         return None
@@ -349,9 +371,14 @@ class Weather:
             self.update()
 
         if self.is_in_timerange(timestamp):
+            timestamp_utc = (
+                timestamp.astimezone(timezone.utc)
+                if timestamp.tzinfo
+                else timestamp.replace(tzinfo=timezone.utc)
+            )
             return str(
                 self.weather_codes[
-                    self.forecast_data[self.strip_to_hour_str(timestamp)][  # type: ignore
+                    self.forecast_data[self.strip_to_hour_str(timestamp_utc)][  # type: ignore
                         WeatherDataType.CONDITION.value[0]
                     ]
                 ][0]
@@ -610,7 +637,13 @@ class Weather:
     def get_timeframe_values(self, timestamp: datetime, timeframe: int):
         "timestamp has to be checked prior to be in timerange"
         result = []
-        time_step = self.strip_to_hour(timestamp)
+        # Convert to UTC for internal operations since forecast data is stored in UTC
+        timestamp_utc = (
+            timestamp.astimezone(timezone.utc)
+            if timestamp.tzinfo
+            else timestamp.replace(tzinfo=timezone.utc)
+        )
+        time_step = self.strip_to_hour(timestamp_utc)
         for _ in range(timeframe):
             hour_str = self.strip_to_hour_str(time_step)
             time_step += timedelta(hours=1)
@@ -626,29 +659,41 @@ class Weather:
             next(iter(self.forecast_data)),  # type: ignore
             "YYYY-MM-DDTHH:mm:ss.SSSZ",  # type: ignore
         ).datetime  # type: ignore
-        if timestamp.day != first_entry_date.day:
-            time_step = self.strip_to_day(timestamp)
+
+        # Convert to caller's timezone for comparison
+        caller_tz = timestamp.tzinfo or timezone.utc
+        first_entry_local = first_entry_date.astimezone(caller_tz)
+        timestamp_local = (
+            timestamp.astimezone(caller_tz)
+            if timestamp.tzinfo
+            else timestamp.replace(tzinfo=caller_tz)
+        )
+
+        if timestamp_local.date() != first_entry_local.date():
+            # Start from midnight in caller's timezone and convert to UTC for lookup
+            time_step_local = timestamp_local.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
             for _ in range(24):
+                time_step_utc = time_step_local.astimezone(timezone.utc)
+                hour_str = self.strip_to_hour_str(time_step_utc)
+                if hour_str not in self.forecast_data:  # type: ignore
+                    break
+                result.append(self.forecast_data[hour_str])  # type: ignore
+                time_step_local += timedelta(hours=1)
+        else:
+            # Use the first entry date and calculate until end of day in caller's timezone
+            time_step = first_entry_date
+            endtime_local = first_entry_local.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ) + timedelta(days=1)
+            endtime_utc = endtime_local.astimezone(timezone.utc)
+
+            while time_step < endtime_utc:
                 hour_str = self.strip_to_hour_str(time_step)
                 if hour_str not in self.forecast_data:  # type: ignore
                     break
                 result.append(self.forecast_data[hour_str])  # type: ignore
-                time_step += timedelta(hours=1)
-        else:
-            time_step = first_entry_date
-            endtime = datetime(
-                time_step.year,
-                time_step.month,
-                time_step.day,
-                0,
-                0,
-                0,
-                0,
-                timezone.utc,
-            ) + timedelta(days=1)
-            timediff = endtime - time_step
-            for _ in range(round(timediff.total_seconds() / 3600)):
-                result.append(self.forecast_data[self.strip_to_hour_str(time_step)])  # type: ignore
                 time_step += timedelta(hours=1)
         return result
 

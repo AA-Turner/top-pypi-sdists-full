@@ -91,7 +91,7 @@ class Service(base.APIDictWrapper):
         self.region = region
 
     def __str__(self):
-        if(self.type == "identity"):
+        if self.type == "identity":
             return _("%(type)s (%(backend)s backend)") \
                 % {"type": self.type, "backend": keystone_backend_name()}
         return self.type
@@ -838,35 +838,6 @@ def get_default_role(request):
                 DEFAULT_ROLE = role
                 break
     return DEFAULT_ROLE
-
-
-def ec2_manager(request):
-    client = keystoneclient(request)
-    if hasattr(client, 'ec2'):
-        return client.ec2
-
-    from keystoneclient.v3 import ec2
-    return ec2.EC2Manager(client)
-
-
-@profiler.trace
-def list_ec2_credentials(request, user_id):
-    return ec2_manager(request).list(user_id)
-
-
-@profiler.trace
-def create_ec2_credentials(request, user_id, tenant_id):
-    return ec2_manager(request).create(user_id, tenant_id)
-
-
-@profiler.trace
-def get_user_ec2_credentials(request, user_id, access_token):
-    return ec2_manager(request).get(user_id, access_token)
-
-
-@profiler.trace
-def delete_user_ec2_credentials(request, user_id, access_token):
-    return ec2_manager(request).delete(user_id, access_token)
 
 
 def keystone_can_edit_domain():

@@ -110,15 +110,36 @@ class TensorDot(Function, Module):
 
 class EinSum(Function, Module):
     name = "EinSum"
-    def __init__(self, subscripts: str, optimize = False):
+    def __init__(self, subscripts: str, optimize = False, use_opt_einsum = False):
         Function.__init__(self)
         Module.__init__(self)
         self.subscripts = subscripts.replace(" ", "")
         self.optimize = optimize
+        self.use_opt_einsum = use_opt_einsum
+    
+    def _einsum(self, subscripts, *operands):
+        """Unified einsum with optional opt-einsum optimization."""
+        if not self.use_opt_einsum:
+            return xp.einsum(subscripts, *operands, optimize=self.optimize)
+        
+        try:
+            import opt_einsum as oe
+            total_elements = sum(op.size for op in operands)
+            is_conv_pattern = ('ncpqhw' in subscripts and ('fchw' in subscripts or 'chw' in subscripts))
+            
+            if xp.__name__ == 'numpy' and (total_elements > 10000 or is_conv_pattern):
+                return oe.contract(subscripts, *operands, optimize='optimal')
+            elif xp.__name__ == 'cupy' and is_conv_pattern:
+                return oe.contract(subscripts, *operands, optimize='greedy')
+            else:
+                return xp.einsum(subscripts, *operands, optimize=True)
+        except ImportError:
+            return xp.einsum(subscripts, *operands, optimize=True)
+    
     def forward(self, *operands: xp.ndarray) -> xp.ndarray:
         self.operand_shapes = [op.shape for op in operands]
         self.input_operands = operands
-        return xp.einsum(self.subscripts, *operands, optimize=self.optimize)   
+        return self._einsum(self.subscripts, *operands)   
     def backward(self, grad_output: xp.ndarray):
         grads = []
         if '->' in self.subscripts:
@@ -142,7 +163,7 @@ class EinSum(Function, Module):
                     grad_specs.append(input_specs[j])
             grad_equation = ','.join(grad_specs) + '->' + input_specs[i]
             try:
-                grad = xp.einsum(grad_equation, *grad_operands, optimize=self.optimize)
+                grad = self._einsum(grad_equation, *grad_operands)
                 grad = self._handle_broadcasting(grad, self.operand_shapes[i])
                 grads.append(grad)
             except Exception as e:
@@ -190,7 +211,7 @@ def dot(A, B):
     return MatMul()(A, B)
 def tensordot(A, B, axes):
     return TensorDot(axes)(A, B)
-def einsum(subscripts: str, *operands: xp.ndarray, optimize = False) -> xp.ndarray:
-    return EinSum(subscripts, optimize=optimize)(*operands)
+def einsum(subscripts: str, *operands: xp.ndarray, optimize = False, use_opt_einsum = False) -> xp.ndarray:
+    return EinSum(subscripts, optimize=optimize, use_opt_einsum=use_opt_einsum)(*operands)
 def transpose(A, axes=None):
     return Transpose(axes)(A)

@@ -6,11 +6,13 @@ from localstack.aws.api import RequestContext, ServiceException, ServiceRequest,
 
 AmazonResourceName = str
 AnnotationKey = str
+AnomalyCount = int
 AttributeKey = str
 AttributeValue = str
 Boolean = bool
 BorrowCount = int
 ClientID = str
+CooldownWindowMinutes = int
 Double = float
 EC2InstanceId = str
 EncryptionKeyId = str
@@ -30,6 +32,7 @@ Hostname = str
 InsightId = str
 InsightSummaryText = str
 Integer = int
+MaxRate = float
 NullableBoolean = bool
 NullableDouble = float
 NullableInteger = int
@@ -43,6 +46,7 @@ ResourceARN = str
 ResourcePolicyNextToken = str
 RetrievalToken = str
 RuleName = str
+SampledAnomalyCount = int
 SampledCount = int
 SegmentDocument = str
 SegmentId = str
@@ -54,6 +58,7 @@ String = str
 TagKey = str
 TagValue = str
 Token = str
+TotalCount = int
 TraceId = str
 TraceSegmentDocument = str
 URLPath = str
@@ -391,6 +396,15 @@ class CreateGroupResult(TypedDict, total=False):
     Group: Optional[Group]
 
 
+class SamplingRateBoost(TypedDict, total=False):
+    """Enable temporary sampling rate increases when you detect anomalies to
+    improve visibility.
+    """
+
+    MaxRate: MaxRate
+    CooldownWindowMinutes: CooldownWindowMinutes
+
+
 class SamplingRule(TypedDict, total=False):
     """A sampling rule that services use to decide whether to instrument a
     request. Rule fields can match properties of the service, or properties
@@ -411,6 +425,7 @@ class SamplingRule(TypedDict, total=False):
     URLPath: URLPath
     Version: Version
     Attributes: Optional[AttributeMap]
+    SamplingRateBoost: Optional[SamplingRateBoost]
 
 
 class CreateSamplingRuleRequest(ServiceRequest):
@@ -955,6 +970,24 @@ class GetSamplingStatisticSummariesResult(TypedDict, total=False):
     NextToken: Optional[String]
 
 
+class SamplingBoostStatisticsDocument(TypedDict, total=False):
+    """Request anomaly stats for a single rule from a service. Results are for
+    the last 10 seconds unless the service has been assigned a longer
+    reporting interval after a previous call to
+    `GetSamplingTargets <https://docs.aws.amazon.com/xray/latest/api/API_GetSamplingTargets.html>`__.
+    """
+
+    RuleName: RuleName
+    ServiceName: ServiceName
+    Timestamp: Timestamp
+    AnomalyCount: AnomalyCount
+    TotalCount: TotalCount
+    SampledAnomalyCount: SampledAnomalyCount
+
+
+SamplingBoostStatisticsDocumentList = List[SamplingBoostStatisticsDocument]
+
+
 class SamplingStatisticsDocument(TypedDict, total=False):
     """Request sampling results for a single rule from a service. Results are
     for the last 10 seconds unless the service has been assigned a longer
@@ -975,6 +1008,7 @@ SamplingStatisticsDocumentList = List[SamplingStatisticsDocument]
 
 class GetSamplingTargetsRequest(ServiceRequest):
     SamplingStatisticsDocuments: SamplingStatisticsDocumentList
+    SamplingBoostStatisticsDocuments: Optional[SamplingBoostStatisticsDocumentList]
 
 
 class UnprocessedStatistics(TypedDict, total=False):
@@ -991,6 +1025,17 @@ class UnprocessedStatistics(TypedDict, total=False):
 UnprocessedStatisticsList = List[UnprocessedStatistics]
 
 
+class SamplingBoost(TypedDict, total=False):
+    """Temporary boost sampling rate. X-Ray calculates sampling boost for each
+    service based on the recent sampling boost stats of all services that
+    called
+    `GetSamplingTargets <https://docs.aws.amazon.com/xray/latest/api/API_GetSamplingTargets.html>`__.
+    """
+
+    BoostRate: Double
+    BoostRateTTL: Timestamp
+
+
 class SamplingTargetDocument(TypedDict, total=False):
     """Temporary changes to a sampling rule configuration. To meet the global
     sampling target for a rule, X-Ray calculates a new reservoir for each
@@ -1003,6 +1048,7 @@ class SamplingTargetDocument(TypedDict, total=False):
     ReservoirQuota: Optional[NullableInteger]
     ReservoirQuotaTTL: Optional[Timestamp]
     Interval: Optional[NullableInteger]
+    SamplingBoost: Optional[SamplingBoost]
 
 
 SamplingTargetDocumentList = List[SamplingTargetDocument]
@@ -1012,6 +1058,7 @@ class GetSamplingTargetsResult(TypedDict, total=False):
     SamplingTargetDocuments: Optional[SamplingTargetDocumentList]
     LastRuleModification: Optional[Timestamp]
     UnprocessedStatistics: Optional[UnprocessedStatisticsList]
+    UnprocessedBoostStatistics: Optional[UnprocessedStatisticsList]
 
 
 class GetServiceGraphRequest(ServiceRequest):
@@ -1375,6 +1422,7 @@ class SamplingRuleUpdate(TypedDict, total=False):
     HTTPMethod: Optional[HTTPMethod]
     URLPath: Optional[URLPath]
     Attributes: Optional[AttributeMap]
+    SamplingRateBoost: Optional[SamplingRateBoost]
 
 
 TraceIdListForRetrieval = List[TraceId]
@@ -1824,12 +1872,15 @@ class XrayApi:
         self,
         context: RequestContext,
         sampling_statistics_documents: SamplingStatisticsDocumentList,
+        sampling_boost_statistics_documents: SamplingBoostStatisticsDocumentList | None = None,
         **kwargs,
     ) -> GetSamplingTargetsResult:
         """Requests a sampling quota for rules that the service is using to sample
         requests.
 
         :param sampling_statistics_documents: Information about rules that the service is using to sample requests.
+        :param sampling_boost_statistics_documents: Information about rules that the service is using to boost sampling
+        rate.
         :returns: GetSamplingTargetsResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1923,8 +1974,9 @@ class XrayApi:
         self, context: RequestContext, **kwargs
     ) -> GetTraceSegmentDestinationResult:
         """Retrieves the current destination of data sent to ``PutTraceSegments``
-        and *OpenTelemetry* API. The Transaction Search feature requires a
-        CloudWatchLogs destination. For more information, see `Transaction
+        and *OpenTelemetry protocol (OTLP)* endpoint. The Transaction Search
+        feature requires a CloudWatchLogs destination. For more information, see
+        `Transaction
         Search <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html>`__
         and
         `OpenTelemetry <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-OpenTelemetry-Sections.html>`__.
@@ -2013,8 +2065,8 @@ class XrayApi:
         what each trace returns, see
         `BatchGetTraces <https://docs.aws.amazon.com/xray/latest/api/API_BatchGetTraces.html>`__.
 
-        This API does not initiate a retrieval job. To start a trace retrieval,
-        use ``StartTraceRetrieval``, which generates the required
+        This API does not initiate a retrieval process. To start a trace
+        retrieval, use ``StartTraceRetrieval``, which generates the required
         ``RetrievalToken``.
 
         When the ``RetrievalStatus`` is not *COMPLETE*, the API will return an
@@ -2022,12 +2074,12 @@ class XrayApi:
         access the full list of traces.
 
         For cross-account observability, this API can retrieve traces from
-        linked accounts when CloudWatch log is the destination across relevant
-        accounts. For more details, see `CloudWatch cross-account
+        linked accounts when CloudWatch log is set as the destination across
+        relevant accounts. For more details, see `CloudWatch cross-account
         observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html>`__.
 
-        For retrieving data from X-Ray directly as opposed to the
-        Transaction-Search Log group, see
+        For retrieving data from X-Ray directly as opposed to the Transaction
+        Search generated log group, see
         `BatchGetTraces <https://docs.aws.amazon.com/xray/latest/api/API_BatchGetTraces.html>`__.
 
         :param retrieval_token: Retrieval token.
@@ -2213,7 +2265,7 @@ class XrayApi:
         **kwargs,
     ) -> StartTraceRetrievalResult:
         """Initiates a trace retrieval process using the specified time range and
-        for the give trace IDs on Transaction Search generated by the CloudWatch
+        for the given trace IDs in the Transaction Search generated CloudWatch
         log group. For more information, see `Transaction
         Search <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html>`__.
 

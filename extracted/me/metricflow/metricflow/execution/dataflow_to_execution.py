@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+from typing import Sequence
 
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.specs.instance_spec import InstanceSpec
 from typing_extensions import override
 
 from metricflow.dataflow.dataflow_plan import (
@@ -24,6 +26,8 @@ from metricflow.dataflow.nodes.join_to_custom_granularity import JoinToCustomGra
 from metricflow.dataflow.nodes.join_to_time_spine import JoinToTimeSpineNode
 from metricflow.dataflow.nodes.metric_time_transform import MetricTimeDimensionTransformNode
 from metricflow.dataflow.nodes.min_max import MinMaxNode
+from metricflow.dataflow.nodes.offset_base_grain_by_custom_grain import OffsetBaseGrainByCustomGrainNode
+from metricflow.dataflow.nodes.offset_custom_granularity import OffsetCustomGranularityNode
 from metricflow.dataflow.nodes.order_by_limit import OrderByLimitNode
 from metricflow.dataflow.nodes.read_sql_source import ReadSqlSourceNode
 from metricflow.dataflow.nodes.semi_additive_join import SemiAdditiveJoinNode
@@ -39,7 +43,7 @@ from metricflow.execution.execution_plan import (
     SqlStatement,
 )
 from metricflow.plan_conversion.convert_to_sql_plan import ConvertToSqlPlanResult
-from metricflow.plan_conversion.dataflow_to_sql import DataflowToSqlPlanConverter
+from metricflow.plan_conversion.to_sql_plan.dataflow_to_sql import DataflowToSqlPlanConverter
 from metricflow.protocols.sql_client import SqlClient
 from metricflow.sql.optimizer.optimization_levels import SqlOptimizationLevel
 from metricflow.sql.render.sql_plan_renderer import SqlPlanRenderer, SqlPlanRenderResult
@@ -57,7 +61,7 @@ class DataflowToExecutionPlanConverter(DataflowPlanNodeVisitor[ConvertToExecutio
         sql_client: SqlClient,
         sql_optimization_level: SqlOptimizationLevel,
     ) -> None:
-        """Constructor.
+        """Initializer.
 
         Args:
             sql_plan_converter: Converts a dataflow plan node to a SQL query plan
@@ -69,15 +73,17 @@ class DataflowToExecutionPlanConverter(DataflowPlanNodeVisitor[ConvertToExecutio
         self._sql_plan_renderer = sql_plan_renderer
         self._sql_client = sql_client
         self._optimization_level = sql_optimization_level
+        self._spec_output_order: Sequence[InstanceSpec] = ()
 
     def _convert_to_sql_plan(self, node: DataflowPlanNode) -> ConvertToSqlPlanResult:
-        logger.debug(LazyFormat(lambda: f"Generating SQL query plan from {node.node_id}"))
+        logger.debug(LazyFormat("Generating SQL plan", node_id=node.node_id))
         result = self._sql_plan_converter.convert_to_sql_plan(
             sql_engine_type=self._sql_client.sql_engine_type,
             optimization_level=self._optimization_level,
             dataflow_plan_node=node,
+            spec_output_order=self._spec_output_order,
         )
-        logger.debug(LazyFormat(lambda: f"Generated SQL query plan is:\n{result.sql_plan.structure_text()}"))
+        logger.debug(LazyFormat("Generated SQL plan", sql_plan=lambda: result.sql_plan.structure_text()))
         return result
 
     def _render_sql(self, convert_to_sql_plan_result: ConvertToSqlPlanResult) -> SqlPlanRenderResult:
@@ -123,10 +129,17 @@ class DataflowToExecutionPlanConverter(DataflowPlanNodeVisitor[ConvertToExecutio
             execution_plan=execution_plan,
         )
 
-    def convert_to_execution_plan(self, dataflow_plan: DataflowPlan) -> ConvertToExecutionPlanResult:
-        """Convert the dataflow plan to an execution plan."""
-        assert len(dataflow_plan.sink_nodes) == 1, "Only 1 sink node in the plan is currently supported."
-        return dataflow_plan.sink_nodes[0].accept(self)
+    def convert_to_execution_plan(
+        self,
+        dataflow_plan: DataflowPlan,
+        spec_output_order: Sequence[InstanceSpec] = (),
+    ) -> ConvertToExecutionPlanResult:
+        """Convert the dataflow plan to an execution plan.
+
+        See `MetricflowQueryParser` for details on `spec_output_order`.
+        """
+        self._spec_output_order = tuple(spec_output_order)
+        return dataflow_plan.sink_node.accept(self)
 
     @override
     def visit_source_node(self, node: ReadSqlSourceNode) -> ConvertToExecutionPlanResult:
@@ -204,4 +217,14 @@ class DataflowToExecutionPlanConverter(DataflowPlanNodeVisitor[ConvertToExecutio
 
     @override
     def visit_alias_specs_node(self, node: AliasSpecsNode) -> ConvertToExecutionPlanResult:
+        raise NotImplementedError
+
+    @override
+    def visit_offset_base_grain_by_custom_grain_node(
+        self, node: OffsetBaseGrainByCustomGrainNode
+    ) -> ConvertToExecutionPlanResult:
+        raise NotImplementedError
+
+    @override
+    def visit_offset_custom_granularity_node(self, node: OffsetCustomGranularityNode) -> ConvertToExecutionPlanResult:
         raise NotImplementedError

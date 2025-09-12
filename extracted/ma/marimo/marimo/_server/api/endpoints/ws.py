@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -13,6 +12,7 @@ from marimo._ast.cell import CellConfig
 from marimo._cli.upgrade import check_for_updates
 from marimo._config.settings import GLOBAL_SETTINGS
 from marimo._dependencies.dependencies import DependencyManager
+from marimo._messaging.msgspec_encoder import encode_json_bytes
 from marimo._messaging.ops import (
     Alert,
     Banner,
@@ -22,12 +22,11 @@ from marimo._messaging.ops import (
     KernelReady,
     MessageOperation,
     Reconnected,
-    serialize,
 )
 from marimo._messaging.types import KernelMessage, NoopStream
-from marimo._plugins.core.json_encoder import WebComponentEncoder
 from marimo._plugins.core.web_component import JSONType
 from marimo._runtime.params import QueryParams
+from marimo._server.api.auth import validate_auth
 from marimo._server.api.deps import AppState
 from marimo._server.codes import WebSocketCodes
 from marimo._server.file_router import MarimoFileKey
@@ -70,6 +69,14 @@ async def websocket_endpoint(
             description: Websocket endpoint
     """
     app_state = AppState(websocket)
+
+    # Validate authentication before proceeding
+    if app_state.enable_auth and not validate_auth(websocket):
+        await websocket.close(
+            WebSocketCodes.UNAUTHORIZED, "MARIMO_UNAUTHORIZED"
+        )
+        return
+
     raw_session_id = app_state.query_params(SESSION_QUERY_PARAM_KEY)
     if raw_session_id is None:
         await websocket.close(
@@ -117,6 +124,15 @@ async def ws_sync(
     """
     Websocket endpoint for LoroDoc synchronization
     """
+    app_state = AppState(websocket)
+
+    # Validate authentication before proceeding
+    if app_state.enable_auth and not validate_auth(websocket):
+        await websocket.close(
+            WebSocketCodes.UNAUTHORIZED, "MARIMO_UNAUTHORIZED"
+        )
+        return
+
     if not (LORO_ALLOWED and DependencyManager.loro.has()):
         if not LORO_ALLOWED:
             LOGGER.warning("RTC: Python version is not supported")
@@ -323,7 +339,7 @@ class WebsocketHandler(SessionConsumer):
         self.message_queue.put_nowait(
             (
                 KernelReady.name,
-                serialize(
+                encode_json_bytes(
                     KernelReady(
                         codes=codes,
                         names=names,
@@ -618,14 +634,8 @@ class WebsocketHandler(SessionConsumer):
                     continue
 
                 try:
-                    text = json.dumps(
-                        {
-                            "op": op,
-                            "data": data,
-                        },
-                        cls=WebComponentEncoder,
-                    )
-                except TypeError as e:
+                    text = f'{{"op": "{op}", "data": {data.decode("utf-8")}}}'
+                except Exception as e:
                     # This is a deserialization error
                     LOGGER.error(
                         "Failed to send message to frontend: %s", str(e)
@@ -687,7 +697,7 @@ class WebsocketHandler(SessionConsumer):
         return listener
 
     def write_operation(self, op: MessageOperation) -> None:
-        self.message_queue.put_nowait((op.name, serialize(op)))
+        self.message_queue.put_nowait((op.name, encode_json_bytes(op)))
 
     def on_stop(self) -> None:
         # Cancel the heartbeat task, reader

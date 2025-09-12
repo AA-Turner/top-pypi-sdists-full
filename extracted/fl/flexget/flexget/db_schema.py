@@ -143,12 +143,14 @@ def upgrade(plugin: str) -> Callable:
     Example::
 
       from flexget import schema
+
+
       @schema.upgrade('your_plugin')
       def upgrade(ver, session):
-           if ver == 2:
-               # upgrade
-               ver = 3
-           return ver
+          if ver == 2:
+              # upgrade
+              ver = 3
+          return ver
     """
 
     def upgrade_decorator(upgrade_func):

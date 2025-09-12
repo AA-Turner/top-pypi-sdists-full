@@ -1,7 +1,7 @@
 r'''
 # `snowflake_warehouse`
 
-Refer to the Terraform Registry for docs: [`snowflake_warehouse`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse).
+Refer to the Terraform Registry for docs: [`snowflake_warehouse`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Warehouse(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.warehouse.Warehouse",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse snowflake_warehouse}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse snowflake_warehouse}.'''
 
     def __init__(
         self,
@@ -56,12 +56,14 @@ class Warehouse(
         auto_suspend: typing.Optional[jsii.Number] = None,
         comment: typing.Optional[builtins.str] = None,
         enable_query_acceleration: typing.Optional[builtins.str] = None,
+        generation: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         initially_suspended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         max_cluster_count: typing.Optional[jsii.Number] = None,
         max_concurrency_level: typing.Optional[jsii.Number] = None,
         min_cluster_count: typing.Optional[jsii.Number] = None,
         query_acceleration_max_scale_factor: typing.Optional[jsii.Number] = None,
+        resource_constraint: typing.Optional[builtins.str] = None,
         resource_monitor: typing.Optional[builtins.str] = None,
         scaling_policy: typing.Optional[builtins.str] = None,
         statement_queued_timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -77,28 +79,30 @@ class Warehouse(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse snowflake_warehouse} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse snowflake_warehouse} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#name Warehouse#name}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a warehouse when a SQL statement (e.g. query) is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
-        :param auto_suspend: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity after which a warehouse is automatically suspended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
-        :param comment: Specifies a comment for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#comment Warehouse#comment}
-        :param enable_query_acceleration: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to enable the query acceleration service for queries that rely on this warehouse for compute resources. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#id Warehouse#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially_suspended: Specifies whether the warehouse is created initially in the ‘Suspended’ state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
-        :param max_cluster_count: Specifies the maximum number of server clusters for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
-        :param max_concurrency_level: Object parameter that specifies the concurrency level for SQL statements (i.e. queries and DML) executed by a warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
-        :param min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
-        :param query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
-        :param resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see `docs <./resource_monitor>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
-        :param scaling_policy: Specifies the policy for automatically starting and shutting down clusters in a multi-cluster warehouse running in Auto-scale mode. Valid values are (case-insensitive): ``STANDARD`` | ``ECONOMY``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
-        :param statement_queued_timeout_in_seconds: Object parameter that specifies the time, in seconds, a SQL statement (query, DDL, DML, etc.) can be queued on a warehouse before it is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
-        :param statement_timeout_in_seconds: Specifies the time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
-        :param warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): ``XSMALL`` | ``X-SMALL`` | ``SMALL`` | ``MEDIUM`` | ``LARGE`` | ``XLARGE`` | ``X-LARGE`` | ``XXLARGE`` | ``X2LARGE`` | ``2X-LARGE`` | ``XXXLARGE`` | ``X3LARGE`` | ``3X-LARGE`` | ``X4LARGE`` | ``4X-LARGE`` | ``X5LARGE`` | ``5X-LARGE`` | ``X6LARGE`` | ``6X-LARGE``. Consult `warehouse documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for the details. Note: removing the size from config will result in the resource recreation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
-        :param warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): ``STANDARD`` | ``SNOWPARK-OPTIMIZED``. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
+        :param name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#name Warehouse#name}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a warehouse when a SQL statement (e.g. query) is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
+        :param auto_suspend: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity after which a warehouse is automatically suspended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
+        :param comment: Specifies a comment for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#comment Warehouse#comment}
+        :param enable_query_acceleration: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to enable the query acceleration service for queries that rely on this warehouse for compute resources. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
+        :param generation: Specifies the generation for the warehouse. Only available for standard warehouses. Valid values are (case-insensitive): ``1`` | ``2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#generation Warehouse#generation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#id Warehouse#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially_suspended: Specifies whether the warehouse is created initially in the ‘Suspended’ state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
+        :param max_cluster_count: Specifies the maximum number of server clusters for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
+        :param max_concurrency_level: Object parameter that specifies the concurrency level for SQL statements (i.e. queries and DML) executed by a warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
+        :param min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
+        :param query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
+        :param resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the ``generation`` field. Please check `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): ``MEMORY_1X`` | ``MEMORY_1X_x86`` | ``MEMORY_16X`` | ``MEMORY_16X_x86`` | ``MEMORY_64X`` | ``MEMORY_64X_x86``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_constraint Warehouse#resource_constraint}
+        :param resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see `docs <./resource_monitor>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
+        :param scaling_policy: Specifies the policy for automatically starting and shutting down clusters in a multi-cluster warehouse running in Auto-scale mode. Valid values are (case-insensitive): ``STANDARD`` | ``ECONOMY``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
+        :param statement_queued_timeout_in_seconds: Object parameter that specifies the time, in seconds, a SQL statement (query, DDL, DML, etc.) can be queued on a warehouse before it is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
+        :param statement_timeout_in_seconds: Specifies the time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
+        :param warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): ``XSMALL`` | ``X-SMALL`` | ``SMALL`` | ``MEDIUM`` | ``LARGE`` | ``XLARGE`` | ``X-LARGE`` | ``XXLARGE`` | ``X2LARGE`` | ``2X-LARGE`` | ``XXXLARGE`` | ``X3LARGE`` | ``3X-LARGE`` | ``X4LARGE`` | ``4X-LARGE`` | ``X5LARGE`` | ``5X-LARGE`` | ``X6LARGE`` | ``6X-LARGE``. Consult `warehouse documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for the details. Note: removing the size from config will result in the resource recreation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
+        :param warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): ``STANDARD`` | ``SNOWPARK-OPTIMIZED``. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -117,12 +121,14 @@ class Warehouse(
             auto_suspend=auto_suspend,
             comment=comment,
             enable_query_acceleration=enable_query_acceleration,
+            generation=generation,
             id=id,
             initially_suspended=initially_suspended,
             max_cluster_count=max_cluster_count,
             max_concurrency_level=max_concurrency_level,
             min_cluster_count=min_cluster_count,
             query_acceleration_max_scale_factor=query_acceleration_max_scale_factor,
+            resource_constraint=resource_constraint,
             resource_monitor=resource_monitor,
             scaling_policy=scaling_policy,
             statement_queued_timeout_in_seconds=statement_queued_timeout_in_seconds,
@@ -154,7 +160,7 @@ class Warehouse(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Warehouse to import.
-        :param import_from_id: The id of the existing Warehouse that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Warehouse that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Warehouse to import is found.
         '''
         if __debug__:
@@ -175,10 +181,10 @@ class Warehouse(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#create Warehouse#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#delete Warehouse#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#read Warehouse#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#update Warehouse#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#create Warehouse#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#delete Warehouse#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#read Warehouse#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#update Warehouse#update}.
         '''
         value = WarehouseTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -201,6 +207,10 @@ class Warehouse(
     @jsii.member(jsii_name="resetEnableQueryAcceleration")
     def reset_enable_query_acceleration(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnableQueryAcceleration", []))
+
+    @jsii.member(jsii_name="resetGeneration")
+    def reset_generation(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetGeneration", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -225,6 +235,10 @@ class Warehouse(
     @jsii.member(jsii_name="resetQueryAccelerationMaxScaleFactor")
     def reset_query_acceleration_max_scale_factor(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetQueryAccelerationMaxScaleFactor", []))
+
+    @jsii.member(jsii_name="resetResourceConstraint")
+    def reset_resource_constraint(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetResourceConstraint", []))
 
     @jsii.member(jsii_name="resetResourceMonitor")
     def reset_resource_monitor(self) -> None:
@@ -308,6 +322,11 @@ class Warehouse(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enableQueryAccelerationInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="generationInput")
+    def generation_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "generationInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
@@ -343,6 +362,11 @@ class Warehouse(
     @jsii.member(jsii_name="queryAccelerationMaxScaleFactorInput")
     def query_acceleration_max_scale_factor_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "queryAccelerationMaxScaleFactorInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConstraintInput")
+    def resource_constraint_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceConstraintInput"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceMonitorInput")
@@ -428,6 +452,18 @@ class Warehouse(
             type_hints = typing.get_type_hints(_typecheckingstub__17a9dd2dcf21eba130519e20959255cf814826077dc1a2486f912d9091569c61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableQueryAcceleration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="generation")
+    def generation(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "generation"))
+
+    @generation.setter
+    def generation(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ccf0dbf082930a49b158713f690b6fc226e282dc9abf3a5ca6cfb70c17876de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "generation", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -519,6 +555,18 @@ class Warehouse(
         jsii.set(self, "queryAccelerationMaxScaleFactor", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceConstraint")
+    def resource_constraint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "resourceConstraint"))
+
+    @resource_constraint.setter
+    def resource_constraint(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__934981f9a88652e3a361de40a93bd6098490ef48efa48b7bea99e4cf16aa022c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceConstraint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="resourceMonitor")
     def resource_monitor(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "resourceMonitor"))
@@ -607,12 +655,14 @@ class Warehouse(
         "auto_suspend": "autoSuspend",
         "comment": "comment",
         "enable_query_acceleration": "enableQueryAcceleration",
+        "generation": "generation",
         "id": "id",
         "initially_suspended": "initiallySuspended",
         "max_cluster_count": "maxClusterCount",
         "max_concurrency_level": "maxConcurrencyLevel",
         "min_cluster_count": "minClusterCount",
         "query_acceleration_max_scale_factor": "queryAccelerationMaxScaleFactor",
+        "resource_constraint": "resourceConstraint",
         "resource_monitor": "resourceMonitor",
         "scaling_policy": "scalingPolicy",
         "statement_queued_timeout_in_seconds": "statementQueuedTimeoutInSeconds",
@@ -638,12 +688,14 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         auto_suspend: typing.Optional[jsii.Number] = None,
         comment: typing.Optional[builtins.str] = None,
         enable_query_acceleration: typing.Optional[builtins.str] = None,
+        generation: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         initially_suspended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         max_cluster_count: typing.Optional[jsii.Number] = None,
         max_concurrency_level: typing.Optional[jsii.Number] = None,
         min_cluster_count: typing.Optional[jsii.Number] = None,
         query_acceleration_max_scale_factor: typing.Optional[jsii.Number] = None,
+        resource_constraint: typing.Optional[builtins.str] = None,
         resource_monitor: typing.Optional[builtins.str] = None,
         scaling_policy: typing.Optional[builtins.str] = None,
         statement_queued_timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -660,24 +712,26 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#name Warehouse#name}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a warehouse when a SQL statement (e.g. query) is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
-        :param auto_suspend: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity after which a warehouse is automatically suspended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
-        :param comment: Specifies a comment for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#comment Warehouse#comment}
-        :param enable_query_acceleration: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to enable the query acceleration service for queries that rely on this warehouse for compute resources. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#id Warehouse#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially_suspended: Specifies whether the warehouse is created initially in the ‘Suspended’ state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
-        :param max_cluster_count: Specifies the maximum number of server clusters for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
-        :param max_concurrency_level: Object parameter that specifies the concurrency level for SQL statements (i.e. queries and DML) executed by a warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
-        :param min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
-        :param query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
-        :param resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see `docs <./resource_monitor>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
-        :param scaling_policy: Specifies the policy for automatically starting and shutting down clusters in a multi-cluster warehouse running in Auto-scale mode. Valid values are (case-insensitive): ``STANDARD`` | ``ECONOMY``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
-        :param statement_queued_timeout_in_seconds: Object parameter that specifies the time, in seconds, a SQL statement (query, DDL, DML, etc.) can be queued on a warehouse before it is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
-        :param statement_timeout_in_seconds: Specifies the time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
-        :param warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): ``XSMALL`` | ``X-SMALL`` | ``SMALL`` | ``MEDIUM`` | ``LARGE`` | ``XLARGE`` | ``X-LARGE`` | ``XXLARGE`` | ``X2LARGE`` | ``2X-LARGE`` | ``XXXLARGE`` | ``X3LARGE`` | ``3X-LARGE`` | ``X4LARGE`` | ``4X-LARGE`` | ``X5LARGE`` | ``5X-LARGE`` | ``X6LARGE`` | ``6X-LARGE``. Consult `warehouse documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for the details. Note: removing the size from config will result in the resource recreation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
-        :param warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): ``STANDARD`` | ``SNOWPARK-OPTIMIZED``. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
+        :param name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#name Warehouse#name}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a warehouse when a SQL statement (e.g. query) is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
+        :param auto_suspend: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity after which a warehouse is automatically suspended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
+        :param comment: Specifies a comment for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#comment Warehouse#comment}
+        :param enable_query_acceleration: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to enable the query acceleration service for queries that rely on this warehouse for compute resources. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
+        :param generation: Specifies the generation for the warehouse. Only available for standard warehouses. Valid values are (case-insensitive): ``1`` | ``2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#generation Warehouse#generation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#id Warehouse#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially_suspended: Specifies whether the warehouse is created initially in the ‘Suspended’ state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
+        :param max_cluster_count: Specifies the maximum number of server clusters for the warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
+        :param max_concurrency_level: Object parameter that specifies the concurrency level for SQL statements (i.e. queries and DML) executed by a warehouse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
+        :param min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
+        :param query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
+        :param resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the ``generation`` field. Please check `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): ``MEMORY_1X`` | ``MEMORY_1X_x86`` | ``MEMORY_16X`` | ``MEMORY_16X_x86`` | ``MEMORY_64X`` | ``MEMORY_64X_x86``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_constraint Warehouse#resource_constraint}
+        :param resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see `docs <./resource_monitor>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
+        :param scaling_policy: Specifies the policy for automatically starting and shutting down clusters in a multi-cluster warehouse running in Auto-scale mode. Valid values are (case-insensitive): ``STANDARD`` | ``ECONOMY``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
+        :param statement_queued_timeout_in_seconds: Object parameter that specifies the time, in seconds, a SQL statement (query, DDL, DML, etc.) can be queued on a warehouse before it is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
+        :param statement_timeout_in_seconds: Specifies the time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
+        :param warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): ``XSMALL`` | ``X-SMALL`` | ``SMALL`` | ``MEDIUM`` | ``LARGE`` | ``XLARGE`` | ``X-LARGE`` | ``XXLARGE`` | ``X2LARGE`` | ``2X-LARGE`` | ``XXXLARGE`` | ``X3LARGE`` | ``3X-LARGE`` | ``X4LARGE`` | ``4X-LARGE`` | ``X5LARGE`` | ``5X-LARGE`` | ``X6LARGE`` | ``6X-LARGE``. Consult `warehouse documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for the details. Note: removing the size from config will result in the resource recreation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
+        :param warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): ``STANDARD`` | ``SNOWPARK-OPTIMIZED``. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -697,12 +751,14 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument auto_suspend", value=auto_suspend, expected_type=type_hints["auto_suspend"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument enable_query_acceleration", value=enable_query_acceleration, expected_type=type_hints["enable_query_acceleration"])
+            check_type(argname="argument generation", value=generation, expected_type=type_hints["generation"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument initially_suspended", value=initially_suspended, expected_type=type_hints["initially_suspended"])
             check_type(argname="argument max_cluster_count", value=max_cluster_count, expected_type=type_hints["max_cluster_count"])
             check_type(argname="argument max_concurrency_level", value=max_concurrency_level, expected_type=type_hints["max_concurrency_level"])
             check_type(argname="argument min_cluster_count", value=min_cluster_count, expected_type=type_hints["min_cluster_count"])
             check_type(argname="argument query_acceleration_max_scale_factor", value=query_acceleration_max_scale_factor, expected_type=type_hints["query_acceleration_max_scale_factor"])
+            check_type(argname="argument resource_constraint", value=resource_constraint, expected_type=type_hints["resource_constraint"])
             check_type(argname="argument resource_monitor", value=resource_monitor, expected_type=type_hints["resource_monitor"])
             check_type(argname="argument scaling_policy", value=scaling_policy, expected_type=type_hints["scaling_policy"])
             check_type(argname="argument statement_queued_timeout_in_seconds", value=statement_queued_timeout_in_seconds, expected_type=type_hints["statement_queued_timeout_in_seconds"])
@@ -735,6 +791,8 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["comment"] = comment
         if enable_query_acceleration is not None:
             self._values["enable_query_acceleration"] = enable_query_acceleration
+        if generation is not None:
+            self._values["generation"] = generation
         if id is not None:
             self._values["id"] = id
         if initially_suspended is not None:
@@ -747,6 +805,8 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["min_cluster_count"] = min_cluster_count
         if query_acceleration_max_scale_factor is not None:
             self._values["query_acceleration_max_scale_factor"] = query_acceleration_max_scale_factor
+        if resource_constraint is not None:
+            self._values["resource_constraint"] = resource_constraint
         if resource_monitor is not None:
             self._values["resource_monitor"] = resource_monitor
         if scaling_policy is not None:
@@ -832,7 +892,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#name Warehouse#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#name Warehouse#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -842,7 +902,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_resume(self) -> typing.Optional[builtins.str]:
         '''(Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a warehouse when a SQL statement (e.g. query) is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_resume Warehouse#auto_resume}
         '''
         result = self._values.get("auto_resume")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -851,7 +911,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_suspend(self) -> typing.Optional[jsii.Number]:
         '''(Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity after which a warehouse is automatically suspended.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#auto_suspend Warehouse#auto_suspend}
         '''
         result = self._values.get("auto_suspend")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -860,7 +920,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the warehouse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#comment Warehouse#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#comment Warehouse#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -871,14 +931,23 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#enable_query_acceleration Warehouse#enable_query_acceleration}
         '''
         result = self._values.get("enable_query_acceleration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def generation(self) -> typing.Optional[builtins.str]:
+        '''Specifies the generation for the warehouse. Only available for standard warehouses. Valid values are (case-insensitive): ``1`` | ``2``.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#generation Warehouse#generation}
+        '''
+        result = self._values.get("generation")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#id Warehouse#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#id Warehouse#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -892,7 +961,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether the warehouse is created initially in the ‘Suspended’ state.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#initially_suspended Warehouse#initially_suspended}
         '''
         result = self._values.get("initially_suspended")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -901,7 +970,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_cluster_count(self) -> typing.Optional[jsii.Number]:
         '''Specifies the maximum number of server clusters for the warehouse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_cluster_count Warehouse#max_cluster_count}
         '''
         result = self._values.get("max_cluster_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -910,7 +979,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_concurrency_level(self) -> typing.Optional[jsii.Number]:
         '''Object parameter that specifies the concurrency level for SQL statements (i.e. queries and DML) executed by a warehouse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#max_concurrency_level Warehouse#max_concurrency_level}
         '''
         result = self._values.get("max_concurrency_level")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -919,7 +988,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_cluster_count(self) -> typing.Optional[jsii.Number]:
         '''Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#min_cluster_count Warehouse#min_cluster_count}
         '''
         result = self._values.get("min_cluster_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -930,10 +999,21 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The scale factor is used as a multiplier based on warehouse size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#query_acceleration_max_scale_factor Warehouse#query_acceleration_max_scale_factor}
         '''
         result = self._values.get("query_acceleration_max_scale_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def resource_constraint(self) -> typing.Optional[builtins.str]:
+        '''Specifies the resource constraint for the warehouse.
+
+        Only available for snowpark-optimized warehouses. For setting generation please use the ``generation`` field. Please check `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): ``MEMORY_1X`` | ``MEMORY_1X_x86`` | ``MEMORY_16X`` | ``MEMORY_16X_x86`` | ``MEMORY_64X`` | ``MEMORY_64X_x86``.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_constraint Warehouse#resource_constraint}
+        '''
+        result = self._values.get("resource_constraint")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_monitor(self) -> typing.Optional[builtins.str]:
@@ -941,7 +1021,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./resource_monitor>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#resource_monitor Warehouse#resource_monitor}
         '''
         result = self._values.get("resource_monitor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -952,7 +1032,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are (case-insensitive): ``STANDARD`` | ``ECONOMY``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#scaling_policy Warehouse#scaling_policy}
         '''
         result = self._values.get("scaling_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -961,7 +1041,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def statement_queued_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
         '''Object parameter that specifies the time, in seconds, a SQL statement (query, DDL, DML, etc.) can be queued on a warehouse before it is canceled by the system.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_queued_timeout_in_seconds Warehouse#statement_queued_timeout_in_seconds}
         '''
         result = self._values.get("statement_queued_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -970,7 +1050,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def statement_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
         '''Specifies the time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#statement_timeout_in_seconds Warehouse#statement_timeout_in_seconds}
         '''
         result = self._values.get("statement_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -979,7 +1059,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["WarehouseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#timeouts Warehouse#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["WarehouseTimeouts"], result)
@@ -990,7 +1070,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are (case-insensitive): ``XSMALL`` | ``X-SMALL`` | ``SMALL`` | ``MEDIUM`` | ``LARGE`` | ``XLARGE`` | ``X-LARGE`` | ``XXLARGE`` | ``X2LARGE`` | ``2X-LARGE`` | ``XXXLARGE`` | ``X3LARGE`` | ``3X-LARGE`` | ``X4LARGE`` | ``4X-LARGE`` | ``X5LARGE`` | ``5X-LARGE`` | ``X6LARGE`` | ``6X-LARGE``. Consult `warehouse documentation <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties>`_ for the details. Note: removing the size from config will result in the resource recreation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_size Warehouse#warehouse_size}
         '''
         result = self._values.get("warehouse_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1001,7 +1081,7 @@ class WarehouseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are (case-insensitive): ``STANDARD`` | ``SNOWPARK-OPTIMIZED``. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#warehouse_type Warehouse#warehouse_type}
         '''
         result = self._values.get("warehouse_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1817,6 +1897,11 @@ class WarehouseShowOutputOutputReference(
         return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "enableQueryAcceleration"))
 
     @builtins.property
+    @jsii.member(jsii_name="generation")
+    def generation(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "generation"))
+
+    @builtins.property
     @jsii.member(jsii_name="isCurrent")
     def is_current(self) -> _cdktf_9a9027ec.IResolvable:
         return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "isCurrent"))
@@ -1875,6 +1960,11 @@ class WarehouseShowOutputOutputReference(
     @jsii.member(jsii_name="quiescing")
     def quiescing(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "quiescing"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConstraint")
+    def resource_constraint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "resourceConstraint"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceMonitor")
@@ -1954,10 +2044,10 @@ class WarehouseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#create Warehouse#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#delete Warehouse#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#read Warehouse#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#update Warehouse#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#create Warehouse#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#delete Warehouse#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#read Warehouse#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#update Warehouse#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebbb730c5ac225b3331de3b59bb4f6cdb87a5a730f2db5d720df25d39b59ef8a)
@@ -1977,25 +2067,25 @@ class WarehouseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#create Warehouse#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#create Warehouse#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#delete Warehouse#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#delete Warehouse#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#read Warehouse#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#read Warehouse#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/warehouse#update Warehouse#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/warehouse#update Warehouse#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2166,12 +2256,14 @@ def _typecheckingstub__f7a545b9470ddbc13f6797573fe9db4caad9ea0ec20a416254e98f74a
     auto_suspend: typing.Optional[jsii.Number] = None,
     comment: typing.Optional[builtins.str] = None,
     enable_query_acceleration: typing.Optional[builtins.str] = None,
+    generation: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     initially_suspended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     max_cluster_count: typing.Optional[jsii.Number] = None,
     max_concurrency_level: typing.Optional[jsii.Number] = None,
     min_cluster_count: typing.Optional[jsii.Number] = None,
     query_acceleration_max_scale_factor: typing.Optional[jsii.Number] = None,
+    resource_constraint: typing.Optional[builtins.str] = None,
     resource_monitor: typing.Optional[builtins.str] = None,
     scaling_policy: typing.Optional[builtins.str] = None,
     statement_queued_timeout_in_seconds: typing.Optional[jsii.Number] = None,
@@ -2223,6 +2315,12 @@ def _typecheckingstub__17a9dd2dcf21eba130519e20959255cf814826077dc1a2486f912d909
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5ccf0dbf082930a49b158713f690b6fc226e282dc9abf3a5ca6cfb70c17876de(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__46603b6d33e982986e0b443f6a5696f6a33454cc6e0aa6678817badd8cd756ab(
     value: builtins.str,
 ) -> None:
@@ -2261,6 +2359,12 @@ def _typecheckingstub__b7077b71c10d32de0bc3d3c8d12117d655ce00aa136fc82b6a7c73b6d
 
 def _typecheckingstub__f96be4446754d4205d1e9d99a2c4abcb4828cb58dbd27f26e599e94fb3c26020(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__934981f9a88652e3a361de40a93bd6098490ef48efa48b7bea99e4cf16aa022c(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2315,12 +2419,14 @@ def _typecheckingstub__64f374449bfcb04875c974ead721be8454c4c46c8a3a696b4e9fd7fbc
     auto_suspend: typing.Optional[jsii.Number] = None,
     comment: typing.Optional[builtins.str] = None,
     enable_query_acceleration: typing.Optional[builtins.str] = None,
+    generation: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     initially_suspended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     max_cluster_count: typing.Optional[jsii.Number] = None,
     max_concurrency_level: typing.Optional[jsii.Number] = None,
     min_cluster_count: typing.Optional[jsii.Number] = None,
     query_acceleration_max_scale_factor: typing.Optional[jsii.Number] = None,
+    resource_constraint: typing.Optional[builtins.str] = None,
     resource_monitor: typing.Optional[builtins.str] = None,
     scaling_policy: typing.Optional[builtins.str] = None,
     statement_queued_timeout_in_seconds: typing.Optional[jsii.Number] = None,

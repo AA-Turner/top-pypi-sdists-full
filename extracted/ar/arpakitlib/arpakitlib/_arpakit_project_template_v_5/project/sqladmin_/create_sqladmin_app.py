@@ -11,7 +11,7 @@ from project.sqladmin_.event import get_sqladmin_startup_events, get_sqladmin_sh
 _logger = logging.getLogger(__name__)
 
 
-def create_sqladmin_app(*, prefix: str = "/sqladmin") -> FastAPI:
+def create_sqladmin_app(*, base_url: str = "/sqladmin") -> FastAPI:
     setup_logging()
 
     _logger.info("start")
@@ -41,7 +41,7 @@ def create_sqladmin_app(*, prefix: str = "/sqladmin") -> FastAPI:
 
     add_sqladmin_in_app(
         app=sqladmin_app,
-        base_url=prefix
+        base_url=base_url
     )
 
     _logger.info("finish")

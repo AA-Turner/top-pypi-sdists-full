@@ -1,7 +1,7 @@
 r'''
 # `newrelic_cloud_gcp_link_account`
 
-Refer to the Terraform Registry for docs: [`newrelic_cloud_gcp_link_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account).
+Refer to the Terraform Registry for docs: [`newrelic_cloud_gcp_link_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudGcpLinkAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.cloudGcpLinkAccount.CloudGcpLinkAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account newrelic_cloud_gcp_link_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account newrelic_cloud_gcp_link_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class CloudGcpLinkAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account newrelic_cloud_gcp_link_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account newrelic_cloud_gcp_link_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: name of the linked account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
-        :param project_id: project id of the Gcp account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
-        :param account_id: accountID of newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: name of the linked account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
+        :param project_id: project id of the Gcp account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
+        :param account_id: accountID of newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class CloudGcpLinkAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudGcpLinkAccount to import.
-        :param import_from_id: The id of the existing CloudGcpLinkAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudGcpLinkAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudGcpLinkAccount to import is found.
         '''
         if __debug__:
@@ -254,10 +254,10 @@ class CloudGcpLinkAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: name of the linked account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
-        :param project_id: project id of the Gcp account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
-        :param account_id: accountID of newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: name of the linked account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
+        :param project_id: project id of the Gcp account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
+        :param account_id: accountID of newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -365,7 +365,7 @@ class CloudGcpLinkAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''name of the linked account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#name CloudGcpLinkAccount#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -375,7 +375,7 @@ class CloudGcpLinkAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project_id(self) -> builtins.str:
         '''project id of the Gcp account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#project_id CloudGcpLinkAccount#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -385,14 +385,14 @@ class CloudGcpLinkAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''accountID of newrelic account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#account_id CloudGcpLinkAccount#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.68.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/cloud_gcp_link_account#id CloudGcpLinkAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

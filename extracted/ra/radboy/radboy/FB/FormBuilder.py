@@ -147,7 +147,9 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
 {Fore.grey_70}*{Fore.light_yellow}goto{Fore.light_cyan}k{Fore.light_yellow},goto {Fore.light_cyan}k{Fore.light_green} goto {Fore.light_cyan}key{Fore.light_green} for field in Form {Style.reset}
 {Fore.grey_70}*{Fore.light_yellow}showkeys{Fore.light_green} to see indexes refering to form keys{Style.reset}
 {Fore.grey_70}*{Fore.light_yellow}'schk','search keys','sch ky{Fore.light_green} to search select and goto key{Style.reset}
-{Fore.grey_70}* {Fore.grey_50}These cmds only work with fields that return str/VARCHAR/TEXT/str+/list of str's, i.e. [str,]{Style.reset}"""
+{Fore.grey_70}* {Fore.grey_50}These cmds only work with fields that return str/VARCHAR/TEXT/str+/list of str's, i.e. [str,]
+{Fore.grey_70}*{Fore.grey_50}['na','not_a_number','nan']{Fore.light_green}set a field to None{Style.reset}
+{Style.reset}"""
                 print(ht2)
                 FormBuilderHelpText()
                 cmd=None
@@ -312,6 +314,8 @@ def FormBuilder(data,extra_tooling=False,passThruText=None):
                         finalize=True
                         finish=True
                         break
+                    elif cmd.lower() in ['na','not_a_number','nan']:
+                        item[k]=None
                     elif cmd.lower() in ['m',]:
                         print(f"Not changing User set value '{k}':'{item.get(k)}'")
                         pass

@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::custom_node::PyCustomNode;
 use crate::engine::PyZenEvaluateOptions;
-use crate::loader::PyDecisionLoader;
 use crate::mt::worker_pool;
 use crate::value::PyValue;
 use crate::variable::PyVariable;
@@ -12,14 +10,14 @@ use pyo3_async_runtimes::tokio;
 use pyo3_async_runtimes::tokio::get_current_locals;
 use pyo3_async_runtimes::tokio::re_exports::runtime::Runtime;
 use serde_json::Value;
-use zen_engine::{Decision, EvaluationOptions};
+use zen_engine::Decision;
 
 #[pyclass]
 #[pyo3(name = "ZenDecision")]
-pub struct PyZenDecision(pub(crate) Arc<Decision<PyDecisionLoader, PyCustomNode>>);
+pub struct PyZenDecision(pub(crate) Arc<Decision>);
 
-impl From<Decision<PyDecisionLoader, PyCustomNode>> for PyZenDecision {
-    fn from(value: Decision<PyDecisionLoader, PyCustomNode>) -> Self {
+impl From<Decision> for PyZenDecision {
+    fn from(value: Decision) -> Self {
         Self(value.into())
     }
 }
@@ -38,13 +36,7 @@ impl PyZenDecision {
 
         let rt = Runtime::new()?;
         let result = rt
-            .block_on(decision.evaluate_with_opts(
-                ctx.into_inner(),
-                EvaluationOptions {
-                    max_depth: options.max_depth,
-                    trace: options.trace,
-                },
-            ))
+            .block_on(decision.evaluate_with_opts(ctx.into_inner(), options.into()))
             .map_err(|e| {
                 anyhow!(serde_json::to_string(e.as_ref()).unwrap_or_else(|_| e.to_string()))
             })?;
@@ -68,21 +60,15 @@ impl PyZenDecision {
             let value = worker_pool()
                 .spawn_pinned(move || async move {
                     decision
-                        .evaluate_with_opts(
-                            context.into(),
-                            EvaluationOptions {
-                                max_depth: options.max_depth,
-                                trace: options.trace,
-                            },
-                        )
+                        .evaluate_with_opts(context.into(), options.into())
                         .await
                         .map(serde_json::to_value)
+                        .map_err(|e| {
+                            anyhow!(serde_json::to_string(&e).unwrap_or_else(|_| e.to_string()))
+                        })
                 })
                 .await
-                .context("Failed to join threads")?
-                .map_err(|e| {
-                    anyhow!(serde_json::to_string(e.as_ref()).unwrap_or_else(|_| e.to_string()))
-                })?
+                .context("Failed to join threads")??
                 .context("Failed to serialize result")?;
 
             Python::with_gil(|py| PyValue(value).into_py_any(py))

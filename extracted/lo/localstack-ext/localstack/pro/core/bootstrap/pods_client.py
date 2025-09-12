@@ -10,11 +10,11 @@ _D='event'
 _C=True
 _B=False
 _A=None
-import io,json,logging,os,zipfile
+import builtins,io,json,logging,os,zipfile
 from abc import ABC,abstractmethod
 from functools import singledispatch
 from pathlib import Path
-from typing import IO,Any,Dict,List,Optional,Tuple,TypedDict,Union
+from typing import IO,Any,Optional,TypedDict,Union
 from urllib import parse
 from urllib.parse import urlparse
 import click,requests,yaml
@@ -31,7 +31,6 @@ from localstack.pro.core.bootstrap.pods.remotes.params import get_remote_params_
 from localstack.pro.core.config import CLI_INJECT_POD_IDENTITY,POD_LOAD_CLI_TIMEOUT
 from localstack.pro.core.constants import API_PATH_PODS,CLOUDPODS_METADATA_FILE,HEADER_POD_SECRET
 from localstack.utils.bootstrap import in_ci
-from localstack.utils.files import load_file
 from localstack.utils.http import safe_requests
 from localstack.utils.strings import to_str
 from packaging import version
@@ -41,10 +40,10 @@ LOG=logging.getLogger(__name__)
 HEADER_LS_API_KEY='ls-api-key'
 HEADER_LS_VERSION='ls-version'
 HEADER_AUTHORIZATION='Authorization'
-DiffResult=Dict[str,List[Dict[str,Any]]]
+DiffResult=dict[str,list[dict[str,Any]]]
 class CloudPodNotFound(Exception):
 	def __init__(A,pod_name):super().__init__(f"Cloud pod '{pod_name}' not found")
-class PodInfo(TypedDict,total=_B):name:str;pod_id:str;version:int;services:List[str];description:str;size:int;remote:str;localstack_version:str;encrypted:bool
+class PodInfo(TypedDict,total=_B):name:str;pod_id:str;version:int;services:list[str];description:str;size:int;remote:str;localstack_version:str;encrypted:bool
 def fetch_state_response_from_instance(services=_A):
 	B=services;C=f"{get_runtime_pods_endpoint()}/state";D=','.join(B)if B else'';E={INTERNAL_REQUEST_PARAMS_HEADER:'{}'};F=in_ci();A=requests.get(C,params={_I:D},headers=E,stream=not F)
 	if not A.ok:raise Exception(f"An error occurred while retrieving the LocalStack state (code {A.status_code})")
@@ -61,8 +60,8 @@ def get_state_zip_from_instance(services=_A):
 		H=C.add_task(_K,total=F)
 		for D in A.iter_content(chunk_size=100000):B+=D;C.update(H,advance=len(D))
 	return B,E
-class CloudPodRemoteAttributes(TypedDict,total=_B):is_public:bool;description:Optional[str];services:Optional[List[str]]
-class PodSaveRequest(TypedDict,total=_B):remote:Optional[Dict[str,Union[str,Dict]]];attributes:Optional[CloudPodRemoteAttributes]
+class CloudPodRemoteAttributes(TypedDict,total=_B):is_public:bool;description:Optional[str];services:Optional[list[str]]
+class PodSaveRequest(TypedDict,total=_B):remote:Optional[dict[str,Union[str,dict]]];attributes:Optional[CloudPodRemoteAttributes]
 class CloudPodsService(ABC):
 	@abstractmethod
 	def save(self,pod_name,attributes=_A,remote=_A,local=_B,version=_A,secret=_A):0
@@ -192,12 +191,14 @@ class StateService:
 		with zipfile.ZipFile(file=A,mode='a')as H:H.writestr(CLOUDPODS_METADATA_FILE,yaml.dump(B))
 		return F
 	def import_pod(I,source,show_progress=_C):
-		E='pro';B=urlparse(source);A=os.path.abspath(os.path.join(B.netloc,B.path))
+		E='pro';C=urlparse(source);A=os.path.abspath(os.path.join(C.netloc,C.path))
 		if not os.path.exists(A):raise Exception(f"Path {A} does not exist")
 		if not os.path.isfile(A):raise Exception(f"Path {A} is not a file")
-		C=load_file(A,mode='rb');F=zipfile.ZipFile(io.BytesIO(C),'r');D=read_metadata_from_pod(F)or{};G=D.get(_I,[]);H=get_environment_metadata().get(E)
-		if D.get(E,_B)and not H:console.print('Warning: You are trying to load a Cloud Pod generated with a Pro license.The loaded state might be incomplete.')
-		load_local_state(content=C,number_services=len(G),show_progress=show_progress)
+		with open(A,mode='rb')as B:
+			with zipfile.ZipFile(B,'r')as F:D=read_metadata_from_pod(F)or{}
+			G=D.get(_I,[]);H=get_environment_metadata().get(E)
+			if D.get(E,_B)and not H:console.print('Warning: You are trying to load a Cloud Pod generated with a Pro license.The loaded state might be incomplete.')
+			B.seek(0);load_local_state_from_open_zipfile(file=B,number_services=len(G),show_progress=show_progress)
 def list_public_pods():
 	B=create_platform_url('public');C=auth.get_platform_auth_headers();A=safe_requests.get(B,headers=C)
 	if not A.ok:raise Exception(to_str(A.content))
@@ -228,6 +229,9 @@ def load_local_state(content,number_services=0,show_progress=_C):
 	A=content
 	if show_progress:load_state_with_progress_bar(content=A,number_services=number_services)
 	else:call_post_load_endpoint(content=A,stream=_B)
+def load_local_state_from_open_zipfile(file,number_services=0,show_progress=_B):
+	if show_progress:load_state_with_progress_bar(content=file,number_services=number_services)
+	else:call_post_load_endpoint(content=file,stream=_B)
 def get_environment_metadata():
 	C=get_runtime_pods_endpoint();A=f"{C}/environment";B=requests.get(A)
 	if not B.ok:raise Exception(f"Unable to retrieve environment metadata from {A}")

@@ -162,6 +162,7 @@ line-length = 99
 extend-exclude = [ "flexget/ui" ]
 preview = true
 format.quote-style = "single"
+format.docstring-code-format = true # Ruff’s documentation claims that this will become the default behavior in the future, so we won’t need to specify it explicitly.
 lint.select = [ "ALL" ]
 lint.ignore = [
   "A",       # flake8-builtins
@@ -221,6 +222,7 @@ lint.per-file-ignores."flexget/*" = [ "PTH" ] # TODO
 lint.flake8-type-checking.quote-annotations = true
 lint.isort.known-first-party = [ 'flexget' ]
 lint.future-annotations = true
+per-file-target-version."scripts/cleanup_cassettes.py" = "py312"
 
 [tool.codespell]
 skip = [
@@ -240,14 +242,13 @@ max_supported_python = '3.14'
 keep_full_version = true
 
 [tool.pytest.ini_options]
-addopts = '-p no:legacypath --strict-markers'
+addopts = '-p no:legacypath --strict-config --strict-markers'
 filterwarnings = [
   'error',
   "ignore:jsonschema.RefResolver is deprecated as of v4.18.0:DeprecationWarning:flask_restx.api",                            # Can’t be fixed, consider migrating to `flask-smorest` to eliminate it. See https://github.com/python-restx/flask-restx/issues/633#issuecomment-2962412240
-  "ignore:'count' is passed as positional argument:DeprecationWarning:feedparser.html",                                      # Can’t be fixed, feedparser is no longer maintained unless we migrate to an alternative library.
   'ignore:tzname PST identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_input_sites.py::TestInputSites::test_apple_trailers_simple  tests/test_input_sites.py::TestInputSites::test_apple_trailers
   'ignore:tzname EDT identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_rss.py::TestRssOnline::test_rss_online
-  "ignore:unclosed file <_io.BufferedReader name=':ResourceWarning",                                                         # needs investigation, tests/api_tests/test_cached_api.py::TestCachedAPI::test_cached_api
+  "ignore:unclosed file <_io.BufferedReader name=':ResourceWarning:telegram._utils.files",                                   # Can be removed once `python-telegram-bot` makes a new release
   'ignore:Failed to load HostKeys from:UserWarning:pysftp',                                                                  # Can’t be fixed, https://stackoverflow.com/q/56521549 It's a bug in pysftp 0.2.9, not in 0.2.8
 ]
 markers = [

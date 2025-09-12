@@ -1,5 +1,3 @@
-# noqa: A005
-
 """The :mod:`pykka.typing` module contains helpers to improve type hints.
 
 Since Pykka 4.0, Pykka has complete type hints for the public API, tested using
@@ -60,24 +58,23 @@ Example usage::
 
 from __future__ import annotations
 
-import sys
-from typing import TYPE_CHECKING, Any, Callable, Generic, Protocol, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Concatenate,
+    Generic,
+    ParamSpec,
+    Protocol,
+    TypeVar,
+)
 
 from pykka import Actor
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pykka import Future
 
-if sys.version_info >= (3, 10):
-    from typing import (
-        Concatenate,
-        ParamSpec,
-    )
-else:
-    from typing_extensions import (
-        Concatenate,
-        ParamSpec,
-    )
 
 __all__ = [
     "ActorMemberMixin",

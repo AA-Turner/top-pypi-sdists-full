@@ -1,4 +1,3 @@
-from typing import List
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import PythonPackageInstaller
 _PYARROW_DEFAULT_VERSION='14.0.2'

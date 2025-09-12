@@ -1542,6 +1542,7 @@ def delete_js_injection(ctx, *args, **kwargs):
 @click.option("--source-port-override", default=None)
 @click.option("--source-address-override", default=None)
 @click.option("--dynamic-source-port-override", type=bool, default=None)
+@click.option("--set-token-cookie", type=bool, default=None)
 @click.pass_context
 def update_application_service(ctx, id, **kwargs):
     output_entry(ctx, apps.update_application_service(ctx, id, **kwargs))
@@ -2660,7 +2661,7 @@ def list_files(ctx, oper_status, **kwargs):
                 _file["label"],
                 _file["created"],
                 _file["last_access"],
-                _file["size"],
+                _file.get("size", None),
                 _file["visibility"],
             ]
         )

@@ -3,7 +3,7 @@ _C='Unable to connect to the LocalStack Pro instance.\nPlease make sure you have
 _B='Please perform request against LocalStack to start seeing policies here. Waiting for policies...'
 _A='plain'
 import json,subprocess
-from typing import Any,Dict,Optional
+from typing import Any,Optional
 import click,requests
 from click import ClickException
 from localstack import config
@@ -59,4 +59,4 @@ def cmd_iam_summary(output,follow):
 	except Exception as E:raise ClickException(f"Error while streaming Policies: {E}")
 	finally:
 		if A and D:
-			with open(D,mode='wt')as F:json.dump(A,fp=F)
+			with open(D,mode='w')as F:json.dump(A,fp=F)

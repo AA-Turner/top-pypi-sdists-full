@@ -34,7 +34,9 @@ __all__ = (
     "ResourceServiceName",
     "RuleGroupsNamespaceStatusCodeType",
     "ScraperActiveWaiterName",
+    "ScraperComponentTypeType",
     "ScraperDeletedWaiterName",
+    "ScraperLoggingConfigurationStatusCodeType",
     "ScraperStatusCodeType",
     "ServiceName",
     "WaiterName",
@@ -61,7 +63,11 @@ RuleGroupsNamespaceStatusCodeType = Literal[
     "ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 ScraperActiveWaiterName = Literal["scraper_active"]
+ScraperComponentTypeType = Literal["COLLECTOR", "EXPORTER", "SERVICE_DISCOVERY"]
 ScraperDeletedWaiterName = Literal["scraper_deleted"]
+ScraperLoggingConfigurationStatusCodeType = Literal[
+    "ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 ScraperStatusCodeType = Literal[
     "ACTIVE",
     "CREATING",
@@ -116,6 +122,7 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
     "bcm-recommended-actions",
@@ -360,8 +367,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -494,16 +499,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_rule_groups_namespaces", "list_scrapers", "list_workspaces"]
 WaiterName = Literal["scraper_active", "scraper_deleted", "workspace_active", "workspace_deleted"]

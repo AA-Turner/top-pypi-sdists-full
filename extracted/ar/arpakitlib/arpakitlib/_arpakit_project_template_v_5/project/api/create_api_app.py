@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from project.api.event import get_startup_api_events, get_shutdown_api_events
 from project.api.exception_handler import add_exception_handler_to_api_app
+from project.api.middleware.add_api_middlewares import add_api_middlewares
 from project.api.openapi_ui import add_local_openapi_ui_to_api_app
 from project.api.router.main_router import main_api_router
 from project.core.const import ProjectPaths
@@ -38,13 +39,7 @@ def create_api_app(*, prefix: str = "/api") -> FastAPI:
         },
     )
 
-    api_app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    add_api_middlewares(app=api_app)
 
     add_local_openapi_ui_to_api_app(
         app=api_app,
@@ -79,7 +74,9 @@ def create_api_app(*, prefix: str = "/api") -> FastAPI:
 
     if get_cached_settings().api_enable_sqladmin:
         from project.sqladmin_.add_admin_in_app import add_sqladmin_in_app
-        add_sqladmin_in_app(app=api_app, favicon_url="/static/openapi-favicon.png")
+        add_sqladmin_in_app(
+            base_url=get_cached_settings().sqladmin_prefix, app=api_app, favicon_url="/static/openapi-favicon.png"
+        )
 
     _logger.info("finish")
 

@@ -239,6 +239,9 @@ CANNOT_ACCESS_FINAL_INSTANCE_ATTR: Final = (
 )
 CANNOT_MAKE_DELETABLE_FINAL: Final = ErrorMessage("Deletable attribute cannot be final")
 
+# Disjoint bases
+INCOMPATIBLE_DISJOINT_BASES: Final = ErrorMessage('Class "{}" has incompatible disjoint bases')
+
 # Enum
 ENUM_MEMBERS_ATTR_WILL_BE_OVERRIDDEN: Final = ErrorMessage(
     'Assigned "__members__" will be overridden by "Enum" internally'
@@ -253,7 +256,6 @@ CANNOT_OVERRIDE_CLASS_VAR: Final = ErrorMessage(
     'Cannot override class variable (previously declared on base class "{}") with instance '
     "variable"
 )
-CLASS_VAR_WITH_TYPEVARS: Final = "ClassVar cannot contain type variables"
 CLASS_VAR_WITH_GENERIC_SELF: Final = "ClassVar cannot contain Self type in generic classes"
 CLASS_VAR_OUTSIDE_OF_CLASS: Final = "ClassVar can only be used for assignments in class body"
 
@@ -351,6 +353,10 @@ TYPE_VAR_AWAIT_EXPRESSION_IN_BOUND: Final = ErrorMessage(
 
 TYPE_VAR_GENERIC_CONSTRAINT_TYPE: Final = ErrorMessage(
     "TypeVar constraint type cannot be parametrized by type variables", codes.MISC
+)
+
+TYPE_VAR_REDECLARED_IN_NESTED_CLASS: Final = ErrorMessage(
+    'Type variable "{}" is bound by an outer class', codes.VALID_TYPE
 )
 
 TYPE_ALIAS_WITH_YIELD_EXPRESSION: Final = ErrorMessage(

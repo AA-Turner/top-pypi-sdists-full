@@ -7,16 +7,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class StreamChatRequest(_message.Message):
-    __slots__ = ("messages", "notebook_as_json", "selected_tab_id", "images")
+    __slots__ = ("messages", "notebook_as_json", "selected_tab_index", "images")
     MESSAGES_FIELD_NUMBER: _ClassVar[int]
     NOTEBOOK_AS_JSON_FIELD_NUMBER: _ClassVar[int]
-    SELECTED_TAB_ID_FIELD_NUMBER: _ClassVar[int]
+    SELECTED_TAB_INDEX_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     messages: _containers.RepeatedCompositeFieldContainer[ModelMessage]
     notebook_as_json: str
-    selected_tab_id: str
+    selected_tab_index: int
     images: _containers.RepeatedCompositeFieldContainer[ImagePart]
-    def __init__(self, messages: _Optional[_Iterable[_Union[ModelMessage, _Mapping]]] = ..., notebook_as_json: _Optional[str] = ..., selected_tab_id: _Optional[str] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ...) -> None: ...
+    def __init__(self, messages: _Optional[_Iterable[_Union[ModelMessage, _Mapping]]] = ..., notebook_as_json: _Optional[str] = ..., selected_tab_index: _Optional[int] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ...) -> None: ...
 
 class ModelMessage(_message.Message):
     __slots__ = ("user", "assistant")
@@ -147,22 +147,20 @@ class ReasoningEnd(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class AddTabMutation(_message.Message):
-    __slots__ = ("tab_id", "tab_name")
-    TAB_ID_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("tab_name",)
     TAB_NAME_FIELD_NUMBER: _ClassVar[int]
-    tab_id: str
     tab_name: str
-    def __init__(self, tab_id: _Optional[str] = ..., tab_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, tab_name: _Optional[str] = ...) -> None: ...
 
 class AddOrUpdatePanelMutation(_message.Message):
-    __slots__ = ("panel_as_json", "panel_id", "tab_id")
+    __slots__ = ("panel_as_json", "panel_id", "tab_index")
     PANEL_AS_JSON_FIELD_NUMBER: _ClassVar[int]
     PANEL_ID_FIELD_NUMBER: _ClassVar[int]
-    TAB_ID_FIELD_NUMBER: _ClassVar[int]
+    TAB_INDEX_FIELD_NUMBER: _ClassVar[int]
     panel_as_json: str
     panel_id: str
-    tab_id: str
-    def __init__(self, panel_as_json: _Optional[str] = ..., panel_id: _Optional[str] = ..., tab_id: _Optional[str] = ...) -> None: ...
+    tab_index: int
+    def __init__(self, panel_as_json: _Optional[str] = ..., panel_id: _Optional[str] = ..., tab_index: _Optional[int] = ...) -> None: ...
 
 class RemovePanelsMutation(_message.Message):
     __slots__ = ("panel_ids",)

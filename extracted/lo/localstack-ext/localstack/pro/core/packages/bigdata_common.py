@@ -1,5 +1,4 @@
 import os
-from typing import Dict
 from localstack.packages.core import InstallTarget
 from localstack.utils.archives import unzip
 from localstack.utils.common import cp_r,download,file_exists_not_empty,mkdir

@@ -1,7 +1,7 @@
 r'''
 # `snowflake_alert`
 
-Refer to the Terraform Registry for docs: [`snowflake_alert`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert).
+Refer to the Terraform Registry for docs: [`snowflake_alert`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Alert(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.alert.Alert",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert snowflake_alert}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert snowflake_alert}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class Alert(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert snowflake_alert} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert snowflake_alert} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: The SQL statement that should be executed if the condition returns one or more rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#action Alert#action}
-        :param condition: The SQL statement that represents the condition for the alert. (SELECT, SHOW, CALL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#condition Alert#condition}
-        :param database: The database in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#database Alert#database}
-        :param name: Specifies the identifier for the alert; must be unique for the database and schema in which the alert is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#name Alert#name}
-        :param schema: The schema in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#schema Alert#schema}
-        :param warehouse: The warehouse the alert will use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#warehouse Alert#warehouse}
-        :param alert_schedule: alert_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
-        :param comment: Specifies a comment for the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#comment Alert#comment}
-        :param enabled: (Default: ``false``) Specifies if an alert should be 'started' (enabled) after creation or should remain 'suspended' (default). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#enabled Alert#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#id Alert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#timeouts Alert#timeouts}
+        :param action: The SQL statement that should be executed if the condition returns one or more rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#action Alert#action}
+        :param condition: The SQL statement that represents the condition for the alert. (SELECT, SHOW, CALL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#condition Alert#condition}
+        :param database: The database in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#database Alert#database}
+        :param name: Specifies the identifier for the alert; must be unique for the database and schema in which the alert is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#name Alert#name}
+        :param schema: The schema in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#schema Alert#schema}
+        :param warehouse: The warehouse the alert will use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#warehouse Alert#warehouse}
+        :param alert_schedule: alert_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
+        :param comment: Specifies a comment for the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#comment Alert#comment}
+        :param enabled: (Default: ``false``) Specifies if an alert should be 'started' (enabled) after creation or should remain 'suspended' (default). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#enabled Alert#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#id Alert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#timeouts Alert#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class Alert(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Alert to import.
-        :param import_from_id: The id of the existing Alert that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Alert that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Alert to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class Alert(
         interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#cron Alert#cron}
-        :param interval: Specifies the interval in minutes for the alert schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#interval Alert#interval}
+        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#cron Alert#cron}
+        :param interval: Specifies the interval in minutes for the alert schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#interval Alert#interval}
         '''
         value = AlertAlertSchedule(cron=cron, interval=interval)
 
@@ -169,10 +169,10 @@ class Alert(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#create Alert#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#delete Alert#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#read Alert#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#update Alert#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#create Alert#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#delete Alert#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#read Alert#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#update Alert#update}.
         '''
         value = AlertTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -410,8 +410,8 @@ class AlertAlertSchedule:
         interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#cron Alert#cron}
-        :param interval: Specifies the interval in minutes for the alert schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#interval Alert#interval}
+        :param cron: cron block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#cron Alert#cron}
+        :param interval: Specifies the interval in minutes for the alert schedule. The interval must be greater than 0 and less than 1440 (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#interval Alert#interval}
         '''
         if isinstance(cron, dict):
             cron = AlertAlertScheduleCron(**cron)
@@ -429,7 +429,7 @@ class AlertAlertSchedule:
     def cron(self) -> typing.Optional["AlertAlertScheduleCron"]:
         '''cron block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#cron Alert#cron}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#cron Alert#cron}
         '''
         result = self._values.get("cron")
         return typing.cast(typing.Optional["AlertAlertScheduleCron"], result)
@@ -440,7 +440,7 @@ class AlertAlertSchedule:
 
         The interval must be greater than 0 and less than 1440 (24 hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#interval Alert#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#interval Alert#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -465,8 +465,8 @@ class AlertAlertSchedule:
 class AlertAlertScheduleCron:
     def __init__(self, *, expression: builtins.str, time_zone: builtins.str) -> None:
         '''
-        :param expression: Specifies the cron expression for the alert. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#expression Alert#expression}
-        :param time_zone: Specifies the time zone for alert refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#time_zone Alert#time_zone}
+        :param expression: Specifies the cron expression for the alert. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#expression Alert#expression}
+        :param time_zone: Specifies the time zone for alert refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#time_zone Alert#time_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__340cfbb5ff53fdd14210ecccce3ce69c7ce945c95c647a50e7a7994bf0f7f9f0)
@@ -483,7 +483,7 @@ class AlertAlertScheduleCron:
 
         The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#expression Alert#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#expression Alert#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -493,7 +493,7 @@ class AlertAlertScheduleCron:
     def time_zone(self) -> builtins.str:
         '''Specifies the time zone for alert refresh.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#time_zone Alert#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#time_zone Alert#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -601,8 +601,8 @@ class AlertAlertScheduleOutputReference(
     @jsii.member(jsii_name="putCron")
     def put_cron(self, *, expression: builtins.str, time_zone: builtins.str) -> None:
         '''
-        :param expression: Specifies the cron expression for the alert. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#expression Alert#expression}
-        :param time_zone: Specifies the time zone for alert refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#time_zone Alert#time_zone}
+        :param expression: Specifies the cron expression for the alert. The cron expression must be in the following format: "minute hour day-of-month month day-of-week". The following values are supported: minute: 0-59 hour: 0-23 day-of-month: 1-31 month: 1-12 day-of-week: 0-6 (0 is Sunday) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#expression Alert#expression}
+        :param time_zone: Specifies the time zone for alert refresh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#time_zone Alert#time_zone}
         '''
         value = AlertAlertScheduleCron(expression=expression, time_zone=time_zone)
 
@@ -711,17 +711,17 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: The SQL statement that should be executed if the condition returns one or more rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#action Alert#action}
-        :param condition: The SQL statement that represents the condition for the alert. (SELECT, SHOW, CALL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#condition Alert#condition}
-        :param database: The database in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#database Alert#database}
-        :param name: Specifies the identifier for the alert; must be unique for the database and schema in which the alert is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#name Alert#name}
-        :param schema: The schema in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#schema Alert#schema}
-        :param warehouse: The warehouse the alert will use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#warehouse Alert#warehouse}
-        :param alert_schedule: alert_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
-        :param comment: Specifies a comment for the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#comment Alert#comment}
-        :param enabled: (Default: ``false``) Specifies if an alert should be 'started' (enabled) after creation or should remain 'suspended' (default). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#enabled Alert#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#id Alert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#timeouts Alert#timeouts}
+        :param action: The SQL statement that should be executed if the condition returns one or more rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#action Alert#action}
+        :param condition: The SQL statement that represents the condition for the alert. (SELECT, SHOW, CALL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#condition Alert#condition}
+        :param database: The database in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#database Alert#database}
+        :param name: Specifies the identifier for the alert; must be unique for the database and schema in which the alert is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#name Alert#name}
+        :param schema: The schema in which to create the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#schema Alert#schema}
+        :param warehouse: The warehouse the alert will use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#warehouse Alert#warehouse}
+        :param alert_schedule: alert_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
+        :param comment: Specifies a comment for the alert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#comment Alert#comment}
+        :param enabled: (Default: ``false``) Specifies if an alert should be 'started' (enabled) after creation or should remain 'suspended' (default). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#enabled Alert#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#id Alert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#timeouts Alert#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -850,7 +850,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action(self) -> builtins.str:
         '''The SQL statement that should be executed if the condition returns one or more rows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#action Alert#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#action Alert#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -860,7 +860,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> builtins.str:
         '''The SQL statement that represents the condition for the alert. (SELECT, SHOW, CALL).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#condition Alert#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#condition Alert#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -870,7 +870,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the alert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#database Alert#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#database Alert#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -882,7 +882,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the database and schema in which the alert is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#name Alert#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#name Alert#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -892,7 +892,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the alert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#schema Alert#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#schema Alert#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -902,7 +902,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def warehouse(self) -> builtins.str:
         '''The warehouse the alert will use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#warehouse Alert#warehouse}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#warehouse Alert#warehouse}
         '''
         result = self._values.get("warehouse")
         assert result is not None, "Required property 'warehouse' is missing"
@@ -912,7 +912,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alert_schedule(self) -> typing.Optional[AlertAlertSchedule]:
         '''alert_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#alert_schedule Alert#alert_schedule}
         '''
         result = self._values.get("alert_schedule")
         return typing.cast(typing.Optional[AlertAlertSchedule], result)
@@ -921,7 +921,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the alert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#comment Alert#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#comment Alert#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -932,14 +932,14 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies if an alert should be 'started' (enabled) after creation or should remain 'suspended' (default).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#enabled Alert#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#enabled Alert#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#id Alert#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#id Alert#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -951,7 +951,7 @@ class AlertConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AlertTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#timeouts Alert#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#timeouts Alert#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AlertTimeouts"], result)
@@ -988,10 +988,10 @@ class AlertTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#create Alert#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#delete Alert#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#read Alert#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#update Alert#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#create Alert#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#delete Alert#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#read Alert#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#update Alert#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d59ea2d5fa88407dd002aa17cab9f9321269792e3336cbafa827d2844e0a7fdb)
@@ -1011,25 +1011,25 @@ class AlertTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#create Alert#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#create Alert#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#delete Alert#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#delete Alert#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#read Alert#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#read Alert#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/alert#update Alert#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/alert#update Alert#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

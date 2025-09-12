@@ -482,8 +482,8 @@ class AttributeLimitExceededException(ServiceException):
 
 class BlockedException(ServiceException):
     """Your Amazon Web Services account was blocked. For more information,
-    contact `Amazon Web
-    ServicesSupport <http://aws.amazon.com/contact-us/>`__.
+    contact `Amazon Web Services
+    Support <http://aws.amazon.com/contact-us/>`__.
     """
 
     code: str = "BlockedException"
@@ -785,16 +785,13 @@ class KeyValuePair(TypedDict, total=False):
 
 
 AttachmentDetails = List[KeyValuePair]
-Attachment = TypedDict(
-    "Attachment",
-    {
-        "id": Optional[String],
-        "type": Optional[String],
-        "status": Optional[String],
-        "details": Optional[AttachmentDetails],
-    },
-    total=False,
-)
+
+
+class Attachment(TypedDict, total=False):
+    id: Optional[String]
+    type: Optional[String]
+    status: Optional[String]
+    details: Optional[AttachmentDetails]
 
 
 class AttachmentStateChange(TypedDict, total=False):
@@ -1189,22 +1186,18 @@ class Container(TypedDict, total=False):
 
 
 FirelensConfigurationOptionsMap = Dict[String, String]
-FirelensConfiguration = TypedDict(
-    "FirelensConfiguration",
-    {
-        "type": FirelensConfigurationType,
-        "options": Optional[FirelensConfigurationOptionsMap],
-    },
-    total=False,
-)
-ResourceRequirement = TypedDict(
-    "ResourceRequirement",
-    {
-        "value": String,
-        "type": ResourceType,
-    },
-    total=False,
-)
+
+
+class FirelensConfiguration(TypedDict, total=False):
+    type: FirelensConfigurationType
+    options: Optional[FirelensConfigurationOptionsMap]
+
+
+class ResourceRequirement(TypedDict, total=False):
+    value: String
+    type: ResourceType
+
+
 ResourceRequirements = List[ResourceRequirement]
 
 
@@ -1667,14 +1660,13 @@ class MountPoint(TypedDict, total=False):
 
 
 MountPointList = List[MountPoint]
-EnvironmentFile = TypedDict(
-    "EnvironmentFile",
-    {
-        "value": String,
-        "type": EnvironmentFileType,
-    },
-    total=False,
-)
+
+
+class EnvironmentFile(TypedDict, total=False):
+    value: String
+    type: EnvironmentFileType
+
+
 EnvironmentFiles = List[EnvironmentFile]
 EnvironmentVariables = List[KeyValuePair]
 IntegerList = List[BoxedInteger]
@@ -1814,16 +1806,15 @@ class ContainerImage(TypedDict, total=False):
 
 
 ContainerImages = List[ContainerImage]
-InstanceHealthCheckResult = TypedDict(
-    "InstanceHealthCheckResult",
-    {
-        "type": Optional[InstanceHealthCheckType],
-        "status": Optional[InstanceHealthCheckState],
-        "lastUpdated": Optional[Timestamp],
-        "lastStatusChange": Optional[Timestamp],
-    },
-    total=False,
-)
+
+
+class InstanceHealthCheckResult(TypedDict, total=False):
+    type: Optional[InstanceHealthCheckType]
+    status: Optional[InstanceHealthCheckState]
+    lastUpdated: Optional[Timestamp]
+    lastStatusChange: Optional[Timestamp]
+
+
 InstanceHealthCheckResultList = List[InstanceHealthCheckResult]
 
 
@@ -1835,18 +1826,17 @@ class ContainerInstanceHealthStatus(TypedDict, total=False):
 
 
 Long = int
-Resource = TypedDict(
-    "Resource",
-    {
-        "name": Optional[String],
-        "type": Optional[String],
-        "doubleValue": Optional[Double],
-        "longValue": Optional[Long],
-        "integerValue": Optional[Integer],
-        "stringSetValue": Optional[StringList],
-    },
-    total=False,
-)
+
+
+class Resource(TypedDict, total=False):
+    name: Optional[String]
+    type: Optional[String]
+    doubleValue: Optional[Double]
+    longValue: Optional[Long]
+    integerValue: Optional[Integer]
+    stringSetValue: Optional[StringList]
+
+
 Resources = List[Resource]
 
 
@@ -2149,13 +2139,8 @@ class ServiceConnectConfiguration(TypedDict, total=False):
     logConfiguration: Optional[LogConfiguration]
 
 
-DeploymentController = TypedDict(
-    "DeploymentController",
-    {
-        "type": DeploymentControllerType,
-    },
-    total=False,
-)
+class DeploymentController(TypedDict, total=False):
+    type: DeploymentControllerType
 
 
 class NetworkConfiguration(TypedDict, total=False):
@@ -2164,23 +2149,19 @@ class NetworkConfiguration(TypedDict, total=False):
     awsvpcConfiguration: Optional[AwsVpcConfiguration]
 
 
-PlacementStrategy = TypedDict(
-    "PlacementStrategy",
-    {
-        "type": Optional[PlacementStrategyType],
-        "field": Optional[String],
-    },
-    total=False,
-)
+class PlacementStrategy(TypedDict, total=False):
+    type: Optional[PlacementStrategyType]
+    field: Optional[String]
+
+
 PlacementStrategies = List[PlacementStrategy]
-PlacementConstraint = TypedDict(
-    "PlacementConstraint",
-    {
-        "type": Optional[PlacementConstraintType],
-        "expression": Optional[String],
-    },
-    total=False,
-)
+
+
+class PlacementConstraint(TypedDict, total=False):
+    type: Optional[PlacementConstraintType]
+    expression: Optional[String]
+
+
 PlacementConstraints = List[PlacementConstraint]
 DeploymentLifecycleHookStageList = List[DeploymentLifecycleHookStage]
 
@@ -2527,16 +2508,11 @@ class DeleteAccountSettingRequest(ServiceRequest):
     principalArn: Optional[String]
 
 
-Setting = TypedDict(
-    "Setting",
-    {
-        "name": Optional[SettingName],
-        "value": Optional[String],
-        "principalArn": Optional[String],
-        "type": Optional[SettingType],
-    },
-    total=False,
-)
+class Setting(TypedDict, total=False):
+    name: Optional[SettingName]
+    value: Optional[String]
+    principalArn: Optional[String]
+    type: Optional[SettingType]
 
 
 class DeleteAccountSettingResponse(TypedDict, total=False):
@@ -2616,15 +2592,12 @@ class EphemeralStorage(TypedDict, total=False):
 
 
 ProxyConfigurationProperties = List[KeyValuePair]
-ProxyConfiguration = TypedDict(
-    "ProxyConfiguration",
-    {
-        "type": Optional[ProxyConfigurationType],
-        "containerName": String,
-        "properties": Optional[ProxyConfigurationProperties],
-    },
-    total=False,
-)
+
+
+class ProxyConfiguration(TypedDict, total=False):
+    type: Optional[ProxyConfigurationType]
+    containerName: String
+    properties: Optional[ProxyConfigurationProperties]
 
 
 class InferenceAccelerator(TypedDict, total=False):
@@ -2653,14 +2626,11 @@ class RuntimePlatform(TypedDict, total=False):
     operatingSystemFamily: Optional[OSFamily]
 
 
-TaskDefinitionPlacementConstraint = TypedDict(
-    "TaskDefinitionPlacementConstraint",
-    {
-        "type": Optional[TaskDefinitionPlacementConstraintType],
-        "expression": Optional[String],
-    },
-    total=False,
-)
+class TaskDefinitionPlacementConstraint(TypedDict, total=False):
+    type: Optional[TaskDefinitionPlacementConstraintType]
+    expression: Optional[String]
+
+
 TaskDefinitionPlacementConstraints = List[TaskDefinitionPlacementConstraint]
 RequiresAttributes = List[Attribute]
 
@@ -3415,14 +3385,13 @@ class ManagedAgentStateChange(TypedDict, total=False):
 
 
 ManagedAgentStateChanges = List[ManagedAgentStateChange]
-PlatformDevice = TypedDict(
-    "PlatformDevice",
-    {
-        "id": String,
-        "type": PlatformDeviceType,
-    },
-    total=False,
-)
+
+
+class PlatformDevice(TypedDict, total=False):
+    id: String
+    type: PlatformDeviceType
+
+
 PlatformDevices = List[PlatformDevice]
 
 
@@ -4087,9 +4056,9 @@ class EcsApi:
         service.
         :param placement_strategy: The placement strategy objects to use for tasks in your service.
         :param network_configuration: The network configuration for the service.
-        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler
-        ignores unhealthy Elastic Load Balancing, VPC Lattice, and container
-        health checks after a task has first started.
+        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon Amazon ECS service
+        scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and
+        container health checks after a task has first started.
         :param scheduling_strategy: The scheduling strategy to use for the service.
         :param deployment_controller: The deployment controller to use for the service.
         :param tags: The metadata that you apply to the service to help you categorize and

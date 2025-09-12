@@ -1,6 +1,6 @@
 import json
 from abc import ABC,abstractmethod
-from typing import Dict,List,Optional
+from typing import Optional
 import requests
 from localstack import config
 from localstack.pro.core.bootstrap.pods.constants import INTERNAL_REQUEST_PARAMS_HEADER

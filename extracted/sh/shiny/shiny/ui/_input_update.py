@@ -16,6 +16,7 @@ __all__ = (
     "update_text",
     "update_text_area",
     "update_navs",
+    "update_navset",
 )
 
 import json
@@ -27,6 +28,7 @@ from htmltools import TagChild, TagList, tags
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from .._deprecated import warn_deprecated
 from .._docstring import add_example, doc_format, no_example
 from .._typing_extensions import NotRequired, TypedDict
 from .._utils import drop_none
@@ -71,7 +73,7 @@ _note = """
 def update_action_button(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     icon: TagChild = None,
     disabled: Optional[bool] = None,
     session: Optional[Session] = None,
@@ -104,11 +106,9 @@ def update_action_button(
     """
 
     session = require_active_session(session)
-    # TODO: supporting a TagChild for label would require changes to shiny.js
-    # https://github.com/rstudio/shiny/issues/1140
     msg = {
-        "label": label,
-        "icon": session._process_ui(icon)["html"] if icon else None,
+        "label": session._process_ui(label) if label is not None else None,
+        "icon": session._process_ui(icon) if icon is not None else None,
         "disabled": disabled,
     }
     session.send_input_message(id, drop_none(msg))
@@ -119,7 +119,7 @@ def update_action_button(
 def update_action_link(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     icon: TagChild = None,
     session: Optional[Session] = None,
 ) -> None:
@@ -148,11 +148,9 @@ def update_action_link(
     """
 
     session = require_active_session(session)
-    # TODO: supporting a TagChild for label would require changes to shiny.js
-    # https://github.com/rstudio/shiny/issues/1140
     msg = {
-        "label": label,
-        "icon": session._process_ui(icon)["html"] if icon else None,
+        "label": session._process_ui(label) if label is not None else None,
+        "icon": session._process_ui(icon) if icon is not None else None,
     }
     session.send_input_message(id, drop_none(msg))
 
@@ -229,7 +227,7 @@ def _(
 def update_checkbox(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[bool] = None,
     session: Optional[Session] = None,
 ) -> None:
@@ -258,7 +256,10 @@ def update_checkbox(
     """
 
     session = require_active_session(session)
-    msg = {"label": label, "value": value}
+    msg = {
+        "label": session._process_ui(label) if label is not None else None,
+        "value": value,
+    }
     session.send_input_message(id, drop_none(msg))
 
 
@@ -267,7 +268,7 @@ def update_checkbox(
 def update_switch(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[bool] = None,
     session: Optional[Session] = None,
 ) -> None:
@@ -296,7 +297,10 @@ def update_switch(
     """
 
     session = require_active_session(session)
-    msg = {"label": label, "value": value}
+    msg = {
+        "label": session._process_ui(label) if label is not None else None,
+        "value": value,
+    }
     session.send_input_message(id, drop_none(msg))
 
 
@@ -305,7 +309,7 @@ def update_switch(
 def update_checkbox_group(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     choices: Optional[ChoicesArg] = None,
     selected: Optional[str | list[str] | tuple[str, ...]] = None,
     inline: bool = False,
@@ -357,7 +361,7 @@ def update_checkbox_group(
 def update_radio_buttons(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     choices: Optional[ChoicesArg] = None,
     selected: Optional[str] = None,
     inline: bool = False,
@@ -408,7 +412,7 @@ def _update_choice_input(
     id: str,
     *,
     type: Literal["checkbox", "radio"],
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     choices: Optional[ChoicesArg] = None,
     selected: Optional[str | list[str] | tuple[str, ...]] = None,
     inline: bool = False,
@@ -429,7 +433,11 @@ def _update_choice_input(
             inline=inline,
         )
         options = session._process_ui(opts)["html"]
-    msg = {"label": label, "options": options, "value": selected}
+    msg = {
+        "label": session._process_ui(label) if label is not None else None,
+        "options": options,
+        "value": selected,
+    }
     session.send_input_message(id, drop_none(msg))
 
 
@@ -441,7 +449,7 @@ def _update_choice_input(
 def update_date(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[date | str] = None,
     min: Optional[date | str] = None,
     max: Optional[date | str] = None,
@@ -457,12 +465,11 @@ def update_date(
     label
         An input label.
     value
-        The starting date. Either a `date()` object, or a string in yyyy-mm-dd format.
-        If ``None`` (the default), will use the current date in the client's time zone.
+        The starting date. Either a `date()` object, or a string in yyyy-mm-dd format. If an empty string is provided, the value will be cleared.
     min
-        The minimum allowed value.
+        The minimum allowed value. Either a `date()` object, or a string in yyyy-mm-dd format. An empty string will clear the minimum constraint.
     max
-        The maximum allowed value.
+        The maximum allowed value. Either a `date()` object, or a string in yyyy-mm-dd format. An empty string will clear the maximum constraint.
     session
         A :class:`~shiny.Session` instance. If not provided, it is inferred via
         :func:`~shiny.session.get_current_session`.
@@ -477,13 +484,27 @@ def update_date(
     """
 
     session = require_active_session(session)
+
     msg = {
-        "label": label,
+        "label": session._process_ui(label) if label is not None else None,
         "value": _as_date_attr(value),
         "min": _as_date_attr(min),
         "max": _as_date_attr(max),
     }
-    session.send_input_message(id, drop_none(msg))
+
+    msg = drop_none(msg)
+
+    # Handle the special case of "", which means the value should be cleared
+    # (i.e., go from a specified date to no specified date).
+    # This is equivalent to the NA case in R
+    if value == "":
+        msg["value"] = None
+    if min == "":
+        msg["min"] = None
+    if max == "":
+        msg["max"] = None
+
+    session.send_input_message(id, msg)
 
 
 @add_example()
@@ -491,7 +512,7 @@ def update_date(
 def update_date_range(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     start: Optional[date | str] = None,
     end: Optional[date | str] = None,
     min: Optional[date | str] = None,
@@ -508,17 +529,15 @@ def update_date_range(
     label
         An input label.
     start
-        The initial start date. Either a :class:`~datetime.date` object, or a string in
-        yyyy-mm-dd format. If ``None`` (the default), will use the current date in the
-        client's time zone.
+        The starting date. Either a `date()` object, or a string in yyyy-mm-dd format.
+        If an empty string is provided, the value will be cleared.
     end
-        The initial end date. Either a :class:`~datetime.date` object, or a string in
-        yyyy-mm-dd format. If ``None`` (the default), will use the current date in the
-        client's time zone.
+        The ending date. Either a `date()` object, or a string in yyyy-mm-dd format.
+        If an empty string is provided, the value will be cleared.
     min
-        The minimum allowed value.
+        The minimum allowed value. If an empty string is passed there will be no minimum date.
     max
-        The maximum allowed value.
+        The maximum allowed value. If an empty string is passed there will be no maximum date.
     session
         A :class:`~shiny.Session` instance. If not provided, it is inferred via
         :func:`~shiny.session.get_current_session`.
@@ -533,14 +552,41 @@ def update_date_range(
     """
 
     session = require_active_session(session)
-    value = {"start": _as_date_attr(start), "end": _as_date_attr(end)}
+
     msg = {
-        "label": label,
-        "value": drop_none(value),
+        "label": session._process_ui(label) if label is not None else None,
         "min": _as_date_attr(min),
         "max": _as_date_attr(max),
     }
-    session.send_input_message(id, drop_none(msg))
+
+    msg = drop_none(msg)
+
+    # Handle the special case of "", which means the value should be cleared
+    # (i.e., go from a specified date to no specified date).
+    # This is equivalent to the NA case in R
+    if min == "":
+        msg["min"] = None
+    if max == "":
+        msg["max"] = None
+
+    value = {
+        "start": _as_date_attr(start),
+        "end": _as_date_attr(end),
+    }
+
+    value = drop_none(value)
+
+    # Handle the special case of "", which means the value should be cleared
+    # (i.e., go from a specified date to no specified date)
+    # This is equivalent to the NA case in R
+    if start == "":
+        value["start"] = None
+    if end == "":
+        value["end"] = None
+
+    msg["value"] = value
+
+    session.send_input_message(id, msg)
 
 
 # -----------------------------------------------------------------------------
@@ -551,7 +597,7 @@ def update_date_range(
 def update_numeric(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[float] = None,
     min: Optional[float] = None,
     max: Optional[float] = None,
@@ -589,7 +635,7 @@ def update_numeric(
 
     session = require_active_session(session)
     msg = {
-        "label": label,
+        "label": session._process_ui(label) if label is not None else None,
         "value": value,
         "min": min,
         "max": max,
@@ -606,7 +652,7 @@ def update_numeric(
 def update_select(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     choices: Optional[SelectChoicesArg] = None,
     selected: Optional[str | list[str]] = None,
     session: Optional[Session] = None,
@@ -622,8 +668,7 @@ def update_select(
         An input label.
     choices
         Either a list of choices or a dictionary mapping choice values to labels. Note
-        that if a dictionary is provided, the keys are used as the (input) values so
-        that the dictionary values can hold HTML labels. A dictionary of dictionaries is
+        that if a dictionary is provided, the keys are used as the (input) values. A dictionary of dictionaries is
         also supported, and in that case, the top-level keys are treated as
         ``<optgroup>`` labels.
     selected
@@ -652,12 +697,10 @@ def update_select(
         options = None
     else:
         option_tags = _render_choices(_normalize_choices(choices), selected)
-        # Typing problem due to a bug in pylance:
-        # https://github.com/microsoft/pylance-release/issues/2377
-        options = session._process_ui(option_tags)["html"]  # type: ignore
+        options = session._process_ui(option_tags)["html"]
 
     msg = {
-        "label": label,
+        "label": session._process_ui(label) if label is not None else None,
         "options": options,
         "value": selected_values,
     }
@@ -675,7 +718,7 @@ class FlatSelectChoice(TypedDict):
 def update_selectize(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     choices: Optional[SelectChoicesArg] = None,
     selected: Optional[str | list[str]] = None,
     options: Optional[dict[str, str | float | JSEval]] = None,
@@ -693,8 +736,7 @@ def update_selectize(
         An input label.
     choices
         Either a list of choices or a dictionary mapping choice values to labels. Note
-        that if a dictionary is provided, the keys are used as the (input) values so
-        that the dictionary values can hold HTML labels. A dictionary of dictionaries is
+        that if a dictionary is provided, the keys are used as the (input) values. A dictionary of dictionaries is
         also supported, and in that case, the top-level keys are treated as
         ``<optgroup>`` labels.
     selected
@@ -720,21 +762,19 @@ def update_selectize(
 
     session = require_active_session(session)
 
+    if options is not None:
+        cfg = tags.script(
+            json.dumps(options),
+            type="application/json",
+            data_for=resolve_id(id),
+            data_eval=json.dumps(extract_js_keys(options)),
+        )
+        session.send_input_message(id, {"config": cfg.get_html_string()})
+
     if not server:
         return update_select(
             id, label=label, choices=choices, selected=selected, session=session
         )
-
-    if options is not None:
-        cfg = TagList(
-            tags.script(
-                json.dumps(options),
-                type="application/json",
-                data_for=id,
-                data_eval=json.dumps(extract_js_keys(options)),
-            )
-        )
-        session.send_input_message(id, drop_none({"config": cfg.get_html_string()}))
 
     # Transform choices to a list of dicts (this is the form the client wants)
     # [{"label": "Foo", "value": "foo", "optgroup": "foo"}, ...]
@@ -742,15 +782,11 @@ def update_selectize(
     if choices is not None:
         for k, v in _normalize_choices(choices).items():
             if not isinstance(v, Mapping):
-                flat_choices.append(
-                    FlatSelectChoice(value=k, label=session._process_ui(v)["html"])
-                )
+                flat_choices.append(FlatSelectChoice(value=k, label=v))
             else:  # The optgroup case
                 flat_choices.extend(
                     [
-                        FlatSelectChoice(
-                            optgroup=k, value=k2, label=session._process_ui(v2)["html"]
-                        )
+                        FlatSelectChoice(optgroup=k, value=k2, label=v2)
                         for (k2, v2) in v.items()
                     ]
                 )
@@ -854,7 +890,7 @@ def update_selectize(
 def update_slider(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[SliderValueArg | tuple[SliderValueArg, SliderValueArg]] = None,
     min: Optional[SliderValueArg] = None,
     max: Optional[SliderValueArg] = None,
@@ -928,7 +964,7 @@ def update_slider(
         value_num = None
 
     msg = {
-        "label": label,
+        "label": session._process_ui(label) if label is not None else None,
         "value": value_num,
         "min": min_num,
         "max": max_num,
@@ -948,7 +984,7 @@ def update_slider(
 def update_text(
     id: str,
     *,
-    label: Optional[str] = None,
+    label: Optional[TagChild] = None,
     value: Optional[str] = None,
     placeholder: Optional[str] = None,
     session: Optional[Session] = None,
@@ -980,7 +1016,11 @@ def update_text(
     """
 
     session = require_active_session(session)
-    msg = {"label": label, "value": value, "placeholder": placeholder}
+    msg = {
+        "label": session._process_ui(label) if label is not None else None,
+        "value": value,
+        "placeholder": placeholder,
+    }
     session.send_input_message(id, drop_none(msg))
 
 
@@ -997,6 +1037,45 @@ update_text_area.__doc__ = update_text.__doc__
 @add_example()
 @doc_format(note=_note)
 def update_navs(
+    id: str, selected: Optional[str] = None, session: Optional[Session] = None
+) -> None:
+    """
+    Change the value of a navs container on the client.
+
+    Parameters
+    ----------
+    id
+        An input id.
+    selected
+        The values that should be initially selected, if any.
+    session
+        A :class:`~shiny.Session` instance. If not provided, it is inferred via
+        :func:`~shiny.session.get_current_session`.
+
+    Note
+    ----
+    {note}
+
+    See Also
+    --------
+    * :func:`~shiny.ui.navset_tab`
+    * :func:`~shiny.ui.navset_pill`
+    * :func:`~shiny.ui.page_navbar`
+    """
+    warn_deprecated(
+        "`shiny.ui.update_navs()` has been superseded by `shiny.ui.update_navset()` and will be removed in the near future."
+    )
+
+    update_navset(
+        id=id,
+        selected=selected,
+        session=session,
+    )
+
+
+@add_example()
+@doc_format(note=_note)
+def update_navset(
     id: str, selected: Optional[str] = None, session: Optional[Session] = None
 ) -> None:
     """

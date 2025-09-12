@@ -1,7 +1,7 @@
 r'''
 # `data_aws_dynamodb_table`
 
-Refer to the Terraform Registry for docs: [`data_aws_dynamodb_table`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table).
+Refer to the Terraform Registry for docs: [`data_aws_dynamodb_table`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsDynamodbTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table aws_dynamodb_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table aws_dynamodb_table}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAwsDynamodbTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table aws_dynamodb_table} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table aws_dynamodb_table} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAwsDynamodbTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsDynamodbTable to import.
-        :param import_from_id: The id of the existing DataAwsDynamodbTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsDynamodbTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsDynamodbTable to import is found.
         '''
         if __debug__:
@@ -257,6 +257,11 @@ class DataAwsDynamodbTable(
     @jsii.member(jsii_name="ttl")
     def ttl(self) -> "DataAwsDynamodbTableTtlList":
         return typing.cast("DataAwsDynamodbTableTtlList", jsii.get(self, "ttl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="warmThroughput")
+    def warm_throughput(self) -> "DataAwsDynamodbTableWarmThroughputList":
+        return typing.cast("DataAwsDynamodbTableWarmThroughputList", jsii.get(self, "warmThroughput"))
 
     @builtins.property
     @jsii.member(jsii_name="writeCapacity")
@@ -528,11 +533,11 @@ class DataAwsDynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -644,14 +649,14 @@ class DataAwsDynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#name DataAwsDynamodbTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#id DataAwsDynamodbTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -663,7 +668,7 @@ class DataAwsDynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#region DataAwsDynamodbTable#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -674,14 +679,14 @@ class DataAwsDynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataAwsDynamodbTableServerSideEncryption"]:
         '''server_side_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#server_side_encryption DataAwsDynamodbTable#server_side_encryption}
         '''
         result = self._values.get("server_side_encryption")
         return typing.cast(typing.Optional["DataAwsDynamodbTableServerSideEncryption"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/dynamodb_table#tags DataAwsDynamodbTable#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1009,6 +1014,13 @@ class DataAwsDynamodbTableGlobalSecondaryIndexOutputReference(
         return typing.cast(jsii.Number, jsii.get(self, "readCapacity"))
 
     @builtins.property
+    @jsii.member(jsii_name="warmThroughput")
+    def warm_throughput(
+        self,
+    ) -> "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputList":
+        return typing.cast("DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputList", jsii.get(self, "warmThroughput"))
+
+    @builtins.property
     @jsii.member(jsii_name="writeCapacity")
     def write_capacity(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "writeCapacity"))
@@ -1027,6 +1039,157 @@ class DataAwsDynamodbTableGlobalSecondaryIndexOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__642dac689e1e49ae73303880e30e8f34e323abb7e0806e54b7e3dd8a8cdc6cca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e7d41b9c9472b8d55cd79067c8c19d0fe9004a68f66cd544ba2d8fa534315b1)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d0f532663ad4c69f36b659de9fe2e51fc5923f9c69e8c7de3c113524420d3e7)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ceaf3836e52d4bba14aa247a70b603b330a6541324270976a2bb7c4cb7fbff19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55246b408223502efacf18d04056d843bbee0a009300310b9f4304a3aec5ef56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85dbaf4765bd03fdaa0e5622848cca2d339d80048950d1025faccac756617f5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5413d0d74a43e072dcdccb6e409391f575f0b9c2cc110fd0d307dfce6579352)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="readUnitsPerSecond")
+    def read_units_per_second(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "readUnitsPerSecond"))
+
+    @builtins.property
+    @jsii.member(jsii_name="writeUnitsPerSecond")
+    def write_units_per_second(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "writeUnitsPerSecond"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput]:
+        return typing.cast(typing.Optional[DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5072b3636171dd8750d1f7173f95cc60b1387befc3da67058280684f63b88d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1850,6 +2013,155 @@ class DataAwsDynamodbTableTtlOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableWarmThroughput",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsDynamodbTableWarmThroughput:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsDynamodbTableWarmThroughput(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsDynamodbTableWarmThroughputList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableWarmThroughputList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da60561ae1b612dc2e4d118c66897fc3e9d02a43d99c32fe55f7af7a48a1c6ed)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsDynamodbTableWarmThroughputOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79f7c41e3f688eb14de968ba260adf2e0a81b15de8036a96e0dadc8e7d884f44)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsDynamodbTableWarmThroughputOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eaf601be240f10052ec7542053c028f88c81663e8f4ca6fbdd45d3ee53e4cf0f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02e0e60566557adb6c092d3995f0930d88642ff5b72c0986f873740c3c50ea65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35b5282cb066a30b0725e30d09d8c64c350215a6bbdc6bec596df8b9c34521d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsDynamodbTableWarmThroughputOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsDynamodbTable.DataAwsDynamodbTableWarmThroughputOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d66403693c5a7866302733ac20992417f7852823c6603f7d8b2baed4249e6680)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="readUnitsPerSecond")
+    def read_units_per_second(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "readUnitsPerSecond"))
+
+    @builtins.property
+    @jsii.member(jsii_name="writeUnitsPerSecond")
+    def write_units_per_second(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "writeUnitsPerSecond"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[DataAwsDynamodbTableWarmThroughput]:
+        return typing.cast(typing.Optional[DataAwsDynamodbTableWarmThroughput], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAwsDynamodbTableWarmThroughput],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6397e2651d2cb89de83ef14feb9bd9f29da2b7b0e7fbab4971c5ddd788e80145)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "DataAwsDynamodbTable",
     "DataAwsDynamodbTableAttribute",
@@ -1862,6 +2174,9 @@ __all__ = [
     "DataAwsDynamodbTableGlobalSecondaryIndexOnDemandThroughputList",
     "DataAwsDynamodbTableGlobalSecondaryIndexOnDemandThroughputOutputReference",
     "DataAwsDynamodbTableGlobalSecondaryIndexOutputReference",
+    "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput",
+    "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputList",
+    "DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughputOutputReference",
     "DataAwsDynamodbTableLocalSecondaryIndex",
     "DataAwsDynamodbTableLocalSecondaryIndexList",
     "DataAwsDynamodbTableLocalSecondaryIndexOutputReference",
@@ -1879,6 +2194,9 @@ __all__ = [
     "DataAwsDynamodbTableTtl",
     "DataAwsDynamodbTableTtlList",
     "DataAwsDynamodbTableTtlOutputReference",
+    "DataAwsDynamodbTableWarmThroughput",
+    "DataAwsDynamodbTableWarmThroughputList",
+    "DataAwsDynamodbTableWarmThroughputOutputReference",
 ]
 
 publication.publish()
@@ -2091,6 +2409,53 @@ def _typecheckingstub__d99c7dcfd22569a685f9c9dbbdb91aba38a2de993fc8b5919ad34896a
 
 def _typecheckingstub__642dac689e1e49ae73303880e30e8f34e323abb7e0806e54b7e3dd8a8cdc6cca(
     value: typing.Optional[DataAwsDynamodbTableGlobalSecondaryIndex],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e7d41b9c9472b8d55cd79067c8c19d0fe9004a68f66cd544ba2d8fa534315b1(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d0f532663ad4c69f36b659de9fe2e51fc5923f9c69e8c7de3c113524420d3e7(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceaf3836e52d4bba14aa247a70b603b330a6541324270976a2bb7c4cb7fbff19(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55246b408223502efacf18d04056d843bbee0a009300310b9f4304a3aec5ef56(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85dbaf4765bd03fdaa0e5622848cca2d339d80048950d1025faccac756617f5a(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5413d0d74a43e072dcdccb6e409391f575f0b9c2cc110fd0d307dfce6579352(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5072b3636171dd8750d1f7173f95cc60b1387befc3da67058280684f63b88d8(
+    value: typing.Optional[DataAwsDynamodbTableGlobalSecondaryIndexWarmThroughput],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2339,6 +2704,53 @@ def _typecheckingstub__f16543f15d1bc81c08a78c6a82684441451cc3ac342a8b9d474192f7f
 
 def _typecheckingstub__316e311f114d7b52a42ba4587c2d5cb35d5069b2d9c6cc113e5213038feae9b9(
     value: typing.Optional[DataAwsDynamodbTableTtl],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da60561ae1b612dc2e4d118c66897fc3e9d02a43d99c32fe55f7af7a48a1c6ed(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79f7c41e3f688eb14de968ba260adf2e0a81b15de8036a96e0dadc8e7d884f44(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eaf601be240f10052ec7542053c028f88c81663e8f4ca6fbdd45d3ee53e4cf0f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02e0e60566557adb6c092d3995f0930d88642ff5b72c0986f873740c3c50ea65(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35b5282cb066a30b0725e30d09d8c64c350215a6bbdc6bec596df8b9c34521d3(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d66403693c5a7866302733ac20992417f7852823c6603f7d8b2baed4249e6680(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6397e2651d2cb89de83ef14feb9bd9f29da2b7b0e7fbab4971c5ddd788e80145(
+    value: typing.Optional[DataAwsDynamodbTableWarmThroughput],
 ) -> None:
     """Type checking stubs"""
     pass

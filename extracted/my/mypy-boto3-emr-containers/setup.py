@@ -13,13 +13,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="mypy-boto3-emr-containers",
-    version="1.40.17",
+    version="1.40.29",
     packages=["mypy_boto3_emr_containers"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 EMRContainers 1.40.17 service generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 EMRContainers 1.40.29 service generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

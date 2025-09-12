@@ -1817,9 +1817,12 @@ class RuleActionOverride(TypedDict, total=False):
     inside the rule group. You specify one override for each rule whose
     action you want to change.
 
-    Take care to verify the rule names in your overrides. If you provide a
-    rule name that doesn't match the name of any rule in the rule group, WAF
-    doesn't return an error and doesn't apply the override setting.
+    Verify the rule names in your overrides carefully. With managed rule
+    groups, WAF silently ignores any override that uses an invalid rule
+    name. With customer-owned rule groups, invalid rule names in your
+    overrides will cause web ACL updates to fail. An invalid rule name is
+    any name that doesn't exactly match the case-sensitive name of an
+    existing rule in the rule group.
 
     You can use overrides for testing, for example you can override all of
     rule actions to ``Count`` and then monitor the resulting count metrics
@@ -3963,6 +3966,7 @@ class UpdateWebACLRequest(ServiceRequest):
     TokenDomains: Optional[TokenDomains]
     AssociationConfig: Optional[AssociationConfig]
     OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
+    ApplicationConfig: Optional[ApplicationConfig]
 
 
 class UpdateWebACLResponse(TypedDict, total=False):
@@ -5829,6 +5833,7 @@ class Wafv2Api:
         token_domains: TokenDomains | None = None,
         association_config: AssociationConfig | None = None,
         on_source_d_do_s_protection_config: OnSourceDDoSProtectionConfig | None = None,
+        application_config: ApplicationConfig | None = None,
         **kwargs,
     ) -> UpdateWebACLResponse:
         """Updates the specified WebACL. While updating a web ACL, WAF provides
@@ -5909,6 +5914,8 @@ class Wafv2Api:
         and protected resources.
         :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a
         web ACL.
+        :param application_config: Configures the ability for the WAF console to store and retrieve
+        application attributes.
         :returns: UpdateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:

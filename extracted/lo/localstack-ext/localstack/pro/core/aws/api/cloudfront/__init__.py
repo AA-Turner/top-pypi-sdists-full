@@ -146,6 +146,12 @@ class ImportSourceType(StrEnum):
     S3 = "S3"
 
 
+class IpAddressType(StrEnum):
+    ipv4 = "ipv4"
+    ipv6 = "ipv6"
+    dualstack = "dualstack"
+
+
 class ItemSelection(StrEnum):
     none = "none"
     whitelist = "whitelist"
@@ -180,6 +186,7 @@ class MinimumProtocolVersion(StrEnum):
     TLSv1_2_2018 = "TLSv1.2_2018"
     TLSv1_2_2019 = "TLSv1.2_2019"
     TLSv1_2_2021 = "TLSv1.2_2021"
+    TLSv1_3_2025 = "TLSv1.3_2025"
 
 
 class OriginAccessControlOriginTypes(StrEnum):
@@ -2181,6 +2188,11 @@ class CacheBehavior(TypedDict, total=False):
     distribution configuration and specify all of the cache behaviors that
     you want to include in the updated distribution.
 
+    If your minimum TTL is greater than 0, CloudFront will cache content for
+    at least the duration specified in the cache policy's minimum TTL, even
+    if the ``Cache-Control: no-cache``, ``no-store``, or ``private``
+    directives are present in the origin headers.
+
     For more information about cache behaviors, see `Cache Behavior
     Settings <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesCacheBehavior>`__
     in the *Amazon CloudFront Developer Guide*.
@@ -2291,6 +2303,11 @@ class CachePolicyConfig(TypedDict, total=False):
 
     -  The default, minimum, and maximum time to live (TTL) values that you
        want objects to stay in the CloudFront cache.
+
+       If your minimum TTL is greater than 0, CloudFront will cache content
+       for at least the duration specified in the cache policy's minimum
+       TTL, even if the ``Cache-Control: no-cache``, ``no-store``, or
+       ``private`` directives are present in the origin headers.
 
     The headers, cookies, and query strings that are included in the cache
     key are also included in requests that CloudFront sends to the origin.
@@ -2821,6 +2838,11 @@ class DefaultCacheBehavior(TypedDict, total=False):
     specify a ``CacheBehavior`` element or if request URLs don't match any
     of the values of ``PathPattern`` in ``CacheBehavior`` elements. You must
     create exactly one default cache behavior.
+
+    If your minimum TTL is greater than 0, CloudFront will cache content for
+    at least the duration specified in the cache policy's minimum TTL, even
+    if the ``Cache-Control: no-cache``, ``no-store``, or ``private``
+    directives are present in the origin headers.
     """
 
     TargetOriginId: string
@@ -2960,6 +2982,7 @@ class CustomOriginConfig(TypedDict, total=False):
     OriginSslProtocols: Optional[OriginSslProtocols]
     OriginReadTimeout: Optional[integer]
     OriginKeepaliveTimeout: Optional[integer]
+    IpAddressType: Optional[IpAddressType]
 
 
 class S3OriginConfig(TypedDict, total=False):
@@ -2969,6 +2992,7 @@ class S3OriginConfig(TypedDict, total=False):
     """
 
     OriginAccessIdentity: string
+    OriginReadTimeout: Optional[integer]
 
 
 class OriginCustomHeader(TypedDict, total=False):
@@ -3031,6 +3055,7 @@ class Origin(TypedDict, total=False):
     VpcOriginConfig: Optional[VpcOriginConfig]
     ConnectionAttempts: Optional[integer]
     ConnectionTimeout: Optional[integer]
+    ResponseCompletionTimeout: Optional[integer]
     OriginShield: Optional[OriginShield]
     OriginAccessControlId: Optional[string]
 
@@ -6119,6 +6144,11 @@ class CloudfrontApi:
         -  The default, minimum, and maximum time to live (TTL) values that you
            want objects to stay in the CloudFront cache.
 
+           If your minimum TTL is greater than 0, CloudFront will cache content
+           for at least the duration specified in the cache policy's minimum
+           TTL, even if the ``Cache-Control: no-cache``, ``no-store``, or
+           ``private`` directives are present in the origin headers.
+
         The headers, cookies, and query strings that are included in the cache
         key are also included in requests that CloudFront sends to the origin.
         CloudFront sends a request when it can't find an object in its cache
@@ -8305,7 +8335,7 @@ class CloudfrontApi:
 
         :param connection_mode: This field specifies whether the connection mode is through a standard
         distribution (direct) or a multi-tenant distribution with distribution
-        tenants(tenant-only).
+        tenants (tenant-only).
         :param marker: The marker for the next set of distributions to retrieve.
         :param max_items: The maximum number of distributions to return.
         :returns: ListDistributionsByConnectionModeResult
@@ -9036,6 +9066,11 @@ class CloudfrontApi:
         #. Call ``UpdateCachePolicy`` by providing the entire cache policy
            configuration, including the fields that you modified and those that
            you didn't.
+
+        If your minimum TTL is greater than 0, CloudFront will cache content for
+        at least the duration specified in the cache policy's minimum TTL, even
+        if the ``Cache-Control: no-cache``, ``no-store``, or ``private``
+        directives are present in the origin headers.
 
         :param cache_policy_config: A cache policy configuration.
         :param id: The unique identifier for the cache policy that you are updating.

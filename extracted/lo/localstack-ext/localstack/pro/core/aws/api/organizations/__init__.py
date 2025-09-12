@@ -12,6 +12,8 @@ ChildId = str
 CreateAccountName = str
 CreateAccountRequestId = str
 Email = str
+ErrorCode = str
+ErrorMessage = str
 ExceptionMessage = str
 ExceptionType = str
 GenericArn = str
@@ -28,6 +30,8 @@ OrganizationalUnitArn = str
 OrganizationalUnitId = str
 OrganizationalUnitName = str
 ParentId = str
+Path = str
+PathToError = str
 PolicyArn = str
 PolicyContent = str
 PolicyDescription = str
@@ -1511,6 +1515,26 @@ class DisablePolicyTypeResponse(TypedDict, total=False):
     Root: Optional[Root]
 
 
+PolicyIds = List[PolicyId]
+
+
+class EffectivePolicyValidationError(TypedDict, total=False):
+    """Contains details about the validation errors that occurred when
+    generating or enforcing an `effective
+    policy <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_effective.html>`__,
+    such as which policies contributed to the error and location of the
+    error.
+    """
+
+    ErrorCode: Optional[ErrorCode]
+    ErrorMessage: Optional[ErrorMessage]
+    PathToError: Optional[PathToError]
+    ContributingPolicies: Optional[PolicyIds]
+
+
+EffectivePolicyValidationErrors = List[EffectivePolicyValidationError]
+
+
 class EnableAWSServiceAccessRequest(ServiceRequest):
     ServicePrincipal: ServicePrincipal
 
@@ -1598,6 +1622,18 @@ class ListAccountsResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class ListAccountsWithInvalidEffectivePolicyRequest(ServiceRequest):
+    PolicyType: EffectivePolicyType
+    NextToken: Optional[NextToken]
+    MaxResults: Optional[MaxResults]
+
+
+class ListAccountsWithInvalidEffectivePolicyResponse(TypedDict, total=False):
+    Accounts: Optional[Accounts]
+    PolicyType: Optional[EffectivePolicyType]
+    NextToken: Optional[NextToken]
+
+
 class ListChildrenRequest(ServiceRequest):
     ParentId: ParentId
     ChildType: ChildType
@@ -1641,6 +1677,22 @@ class ListDelegatedServicesForAccountRequest(ServiceRequest):
 class ListDelegatedServicesForAccountResponse(TypedDict, total=False):
     DelegatedServices: Optional[DelegatedServices]
     NextToken: Optional[NextToken]
+
+
+class ListEffectivePolicyValidationErrorsRequest(ServiceRequest):
+    AccountId: AccountId
+    PolicyType: EffectivePolicyType
+    NextToken: Optional[NextToken]
+    MaxResults: Optional[MaxResults]
+
+
+class ListEffectivePolicyValidationErrorsResponse(TypedDict, total=False):
+    AccountId: Optional[AccountId]
+    PolicyType: Optional[EffectivePolicyType]
+    Path: Optional[Path]
+    EvaluationTimestamp: Optional[Timestamp]
+    NextToken: Optional[NextToken]
+    EffectivePolicyValidationErrors: Optional[EffectivePolicyValidationErrors]
 
 
 class ListHandshakesForAccountRequest(ServiceRequest):
@@ -3298,6 +3350,42 @@ class OrganizationsApi:
         """
         raise NotImplementedError
 
+    @handler("ListAccountsWithInvalidEffectivePolicy")
+    def list_accounts_with_invalid_effective_policy(
+        self,
+        context: RequestContext,
+        policy_type: EffectivePolicyType,
+        next_token: NextToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListAccountsWithInvalidEffectivePolicyResponse:
+        """Lists all the accounts in an organization that have invalid effective
+        policies. An *invalid effective policy* is an `effective
+        policy <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_effective.html>`__
+        that fails validation checks, resulting in the effective policy not
+        being fully enforced on all the intended accounts within an
+        organization.
+
+        This operation can be called only from the organization's management
+        account or by a member account that is a delegated administrator.
+
+        :param policy_type: The type of policy that you want information about.
+        :param next_token: The parameter for receiving additional results if you receive a
+        ``NextToken`` response in a previous request.
+        :param max_results: The total number of results that you want included on each page of the
+        response.
+        :returns: ListAccountsWithInvalidEffectivePolicyResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ConstraintViolationException:
+        :raises EffectivePolicyNotFoundException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises InvalidInputException:
+        :raises UnsupportedAPIEndpointException:
+        """
+        raise NotImplementedError
+
     @handler("ListChildren")
     def list_children(
         self,
@@ -3436,6 +3524,42 @@ class OrganizationsApi:
         :raises InvalidInputException:
         :raises TooManyRequestsException:
         :raises ServiceException:
+        :raises UnsupportedAPIEndpointException:
+        """
+        raise NotImplementedError
+
+    @handler("ListEffectivePolicyValidationErrors")
+    def list_effective_policy_validation_errors(
+        self,
+        context: RequestContext,
+        account_id: AccountId,
+        policy_type: EffectivePolicyType,
+        next_token: NextToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListEffectivePolicyValidationErrorsResponse:
+        """Lists all the validation errors on an `effective
+        policy <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_effective.html>`__
+        for a specified account and policy type.
+
+        This operation can be called only from the organization's management
+        account or by a member account that is a delegated administrator.
+
+        :param account_id: The ID of the account that you want details about.
+        :param policy_type: The type of policy that you want information about.
+        :param next_token: The parameter for receiving additional results if you receive a
+        ``NextToken`` response in a previous request.
+        :param max_results: The total number of results that you want included on each page of the
+        response.
+        :returns: ListEffectivePolicyValidationErrorsResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ConstraintViolationException:
+        :raises EffectivePolicyNotFoundException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises AccountNotFoundException:
+        :raises InvalidInputException:
         :raises UnsupportedAPIEndpointException:
         """
         raise NotImplementedError

@@ -242,6 +242,7 @@ class BaseModelInference(WMLResource, ABC):
         self,
         messages: list[dict],
         params: dict | TextChatParameters | None = None,
+        context: str | None = None,
         tools: list[dict] | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: str | None = None,
@@ -376,21 +377,20 @@ class BaseModelInference(WMLResource, ABC):
         self,
         deployment_chat_url: str,
         messages: list[dict],
+        params: dict | TextChatParameters | None,
         context: str | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> dict:
-        payload: dict = {"messages": messages}
-
-        if context:
-            payload["context"] = context
-        if tools:
-            payload["tools"] = tools
-        if tool_choice:
-            payload["tool_choice"] = tool_choice
-        if tool_choice_option:
-            payload["tool_choice_option"] = tool_choice_option
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
         post_params: dict[str, Any] = dict(
             url=deployment_chat_url,
@@ -417,21 +417,20 @@ class BaseModelInference(WMLResource, ABC):
         self,
         deployment_chat_url: str,
         messages: list[dict],
+        params: dict | TextChatParameters | None,
         context: str | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> dict:
-        payload: dict = {"messages": messages}
-
-        if context:
-            payload["context"] = context
-        if tools:
-            payload["tools"] = tools
-        if tool_choice:
-            payload["tool_choice"] = tool_choice
-        if tool_choice_option:
-            payload["tool_choice_option"] = tool_choice_option
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
         post_params: dict[str, Any] = dict(
             url=deployment_chat_url,
@@ -656,21 +655,20 @@ class BaseModelInference(WMLResource, ABC):
         self,
         deployment_chat_stream_url: str,
         messages: list[dict],
+        params: dict | TextChatParameters | None,
         context: str | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> Generator:
-        payload: dict = {"messages": messages}
-
-        if context:
-            payload["context"] = context
-        if tools:
-            payload["tools"] = tools
-        if tool_choice:
-            payload["tool_choice"] = tool_choice
-        if tool_choice_option:
-            payload["tool_choice_option"] = tool_choice_option
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
         kw_args: dict = dict(
             url=deployment_chat_stream_url,
@@ -725,21 +723,20 @@ class BaseModelInference(WMLResource, ABC):
         self,
         deployment_chat_stream_url: str,
         messages: list[dict],
+        params: dict | TextChatParameters | None,
         context: str | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> AsyncGenerator:
-        payload: dict = {"messages": messages}
-
-        if context:
-            payload["context"] = context
-        if tools:
-            payload["tools"] = tools
-        if tool_choice:
-            payload["tool_choice"] = tool_choice
-        if tool_choice_option:
-            payload["tool_choice_option"] = tool_choice_option
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
         if isinstance(self._async_http_client, requests.HTTPXAsyncClient):
             stream_function = self._async_http_client.post_stream

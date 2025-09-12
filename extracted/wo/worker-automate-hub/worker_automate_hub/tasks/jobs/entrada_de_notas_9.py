@@ -646,10 +646,11 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     center_y = (grid_rect.top + grid_rect.bottom) // 2
 
                     pyautogui.click(center_x, center_y)
-                    await worker_sleep(1)
+                    await worker_sleep(3)
                     send_keys("^({HOME})")
-                    await worker_sleep(1)
+                    await worker_sleep(3)
                     send_keys("{LEFT 3}")
+                    await worker_sleep(3)
 
                     distribuiu_algo = False
                     distribuicao_atual = []
@@ -658,14 +659,16 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
 
                     while max_distribuicao <= 20:
                         console.print(f"Tentativa: {max_distribuicao}... \n")
-                        await worker_sleep(1)
+                        await worker_sleep(3)
                         with pyautogui.hold('ctrl'):
                             pyautogui.press('c')
 
-                        await worker_sleep(1)
+                        await worker_sleep(3)
 
                         with pyautogui.hold('ctrl'):
                             pyautogui.press('c')
+                        
+                        await worker_sleep(3)
 
                         win32clipboard.OpenClipboard()
                         line_almoxarifado_emsys = win32clipboard.GetClipboardData().strip()

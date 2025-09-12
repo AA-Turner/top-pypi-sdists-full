@@ -48,6 +48,7 @@ from .type_defs import (
     DeleteQueryLoggingConfigurationRequestTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupsNamespaceRequestTypeDef,
+    DeleteScraperLoggingConfigurationRequestTypeDef,
     DeleteScraperRequestTypeDef,
     DeleteScraperResponseTypeDef,
     DeleteWorkspaceRequestTypeDef,
@@ -61,6 +62,8 @@ from .type_defs import (
     DescribeResourcePolicyResponseTypeDef,
     DescribeRuleGroupsNamespaceRequestTypeDef,
     DescribeRuleGroupsNamespaceResponseTypeDef,
+    DescribeScraperLoggingConfigurationRequestTypeDef,
+    DescribeScraperLoggingConfigurationResponseTypeDef,
     DescribeScraperRequestTypeDef,
     DescribeScraperResponseTypeDef,
     DescribeWorkspaceConfigurationRequestTypeDef,
@@ -89,6 +92,8 @@ from .type_defs import (
     UpdateLoggingConfigurationResponseTypeDef,
     UpdateQueryLoggingConfigurationRequestTypeDef,
     UpdateQueryLoggingConfigurationResponseTypeDef,
+    UpdateScraperLoggingConfigurationRequestTypeDef,
+    UpdateScraperLoggingConfigurationResponseTypeDef,
     UpdateScraperRequestTypeDef,
     UpdateScraperResponseTypeDef,
     UpdateWorkspaceAliasRequestTypeDef,
@@ -288,6 +293,17 @@ class PrometheusServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#delete_scraper)
         """
 
+    def delete_scraper_logging_configuration(
+        self, **kwargs: Unpack[DeleteScraperLoggingConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/delete_scraper_logging_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#delete_scraper_logging_configuration)
+        """
+
     def delete_workspace(
         self, **kwargs: Unpack[DeleteWorkspaceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -361,6 +377,17 @@ class PrometheusServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_scraper.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#describe_scraper)
+        """
+
+    def describe_scraper_logging_configuration(
+        self, **kwargs: Unpack[DescribeScraperLoggingConfigurationRequestTypeDef]
+    ) -> DescribeScraperLoggingConfigurationResponseTypeDef:
+        """
+        Describes the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_scraper_logging_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#describe_scraper_logging_configuration)
         """
 
     def describe_workspace(
@@ -513,6 +540,17 @@ class PrometheusServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/update_scraper.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#update_scraper)
+        """
+
+    def update_scraper_logging_configuration(
+        self, **kwargs: Unpack[UpdateScraperLoggingConfigurationRequestTypeDef]
+    ) -> UpdateScraperLoggingConfigurationResponseTypeDef:
+        """
+        Updates the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/update_scraper_logging_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#update_scraper_logging_configuration)
         """
 
     def update_workspace_alias(

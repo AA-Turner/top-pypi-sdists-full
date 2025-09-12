@@ -430,8 +430,9 @@ def load_model_criterion_config(
                 f"Then place it at: {model_path}",
             ) from res[0]
 
-    loaded_model, criterion, config = load_model(path=model_path)
-    loaded_model.cache_trainset_representation = cache_trainset_representation
+    loaded_model, criterion, config = load_model(
+        path=model_path, cache_trainset_representation=cache_trainset_representation
+    )
     if check_bar_distribution_criterion and not isinstance(
         criterion,
         FullSupportBarDistribution,
@@ -517,6 +518,7 @@ def get_loss_criterion(
 def load_model(
     *,
     path: Path,
+    cache_trainset_representation: bool = True,
 ) -> tuple[
     Architecture,
     nn.BCEWithLogitsLoss | nn.CrossEntropyLoss | FullSupportBarDistribution,
@@ -526,6 +528,8 @@ def load_model(
 
     Args:
         path: Path to the checkpoint
+        cache_trainset_representation: If True, the model will cache the
+            trainset representation. Forwarded to get_architecture.
     """
     # Catch the `FutureWarning` that torch raises. This should be dealt with!
     # The warning is raised due to `torch.load`, which advises against ckpt
@@ -562,7 +566,7 @@ def load_model(
     model = architecture.get_architecture(
         config,
         n_out=get_n_out(config, loss_criterion),
-        cache_trainset_representation=True,
+        cache_trainset_representation=cache_trainset_representation,
     )
     model.load_state_dict(state_dict)
     model.eval()
@@ -607,9 +611,13 @@ def save_tabpfn_model(
     model_state = model.model_.state_dict()
 
     # Get bardist state dict and prefix with 'criterion.'
-    if hasattr(model, "bardist_") and model.bardist_ is not None:
+    if (
+        hasattr(model, "znorm_space_bardist_")
+        and model.znorm_space_bardist_ is not None
+    ):
         bardist_state = {
-            f"criterion.{k}": v for k, v in model.bardist_.state_dict().items()
+            f"criterion.{k}": v
+            for k, v in model.znorm_space_bardist_.state_dict().items()
         }
         # Combine model and bardist states
         state_dict = {**model_state, **bardist_state}
@@ -637,7 +645,7 @@ def save_fitted_tabpfn_model(estimator: BaseEstimator, path: Path | str) -> None
         raise ValueError("Path must end with .tabpfn_fit")
 
     # Attributes that are handled separately or should not be saved.
-    blacklist = {"model_", "executor_", "config_", "device_"}
+    blacklist = {"model_", "executor_", "config_", "devices_"}
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -660,7 +668,7 @@ def save_fitted_tabpfn_model(estimator: BaseEstimator, path: Path | str) -> None
         joblib.dump(fitted_attrs, tmp / "fitted_attrs.joblib")
 
         # 3. Save the InferenceEngine state without the model weights
-        estimator.executor_.save_state_expect_model_weights(
+        estimator.executor_.save_state_except_model_weights(
             tmp / "executor_state.joblib"
         )
 
@@ -735,15 +743,15 @@ def load_fitted_tabpfn_model(
             ]
 
         # 5. Move all torch components to the target device
-        est.device_ = torch.device(device)
+        est.devices_ = (torch.device(device),)
         if hasattr(est.executor_, "model") and est.executor_.model is not None:
-            est.executor_.model.to(est.device_)
+            est.executor_.model.to(device)
         if hasattr(est.executor_, "models"):
-            est.executor_.models = [m.to(est.device_) for m in est.executor_.models]
+            est.executor_.models = [m.to(device) for m in est.executor_.models]
 
         # Restore other potential torch objects from fitted_attrs
         for key, value in vars(est).items():
             if key.endswith("_") and hasattr(value, "to"):
-                setattr(est, key, value.to(est.device_))
+                setattr(est, key, value.to(device))
 
         return est

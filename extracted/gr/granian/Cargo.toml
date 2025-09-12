@@ -1,6 +1,6 @@
 [package]
 name = "granian"
-version = "2.5.2"
+version = "2.5.3"
 description = "A Rust HTTP server for Python applications"
 authors = ["Giovanni Barillari <g@baro.dev>"]
 license = "BSD-3-Clause"
@@ -32,7 +32,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "=1.0"
-bus = "=2.4"
 crossbeam-channel = "0.5"
 futures = "=0.3"
 futures-util = { version = "=0.3", default-features = false }

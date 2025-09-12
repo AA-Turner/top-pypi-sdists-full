@@ -81,7 +81,7 @@ with open("./README.md") as readme:
 setup(
     name="faster-eth-utils",
     # *IMPORTANT*: Don't manually change the version here. Use `make bump`, as described in readme
-    version="5.3.5",
+    version="5.3.6",
     description=(
         """A fork of eth-utils: Common utility functions for python code that interacts with Ethereum, implemented in C"""
     ),
@@ -92,6 +92,7 @@ setup(
     url="https://github.com/BobTheBuidler/eth-utils",
     include_package_data=True,
     install_requires=[
+        "cchecksum>=0.0.3",
         "eth-hash>=0.3.1",
         "eth-typing>=5.0.0",
         "toolz>0.8.2;implementation_name=='pypy'",

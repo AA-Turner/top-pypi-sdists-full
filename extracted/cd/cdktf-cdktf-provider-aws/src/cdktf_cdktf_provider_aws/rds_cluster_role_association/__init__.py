@@ -1,7 +1,7 @@
 r'''
 # `aws_rds_cluster_role_association`
 
-Refer to the Terraform Registry for docs: [`aws_rds_cluster_role_association`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association).
+Refer to the Terraform Registry for docs: [`aws_rds_cluster_role_association`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RdsClusterRoleAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.rdsClusterRoleAssociation.RdsClusterRoleAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association aws_rds_cluster_role_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association aws_rds_cluster_role_association}.'''
 
     def __init__(
         self,
@@ -52,8 +52,8 @@ class RdsClusterRoleAssociation(
         id_: builtins.str,
         *,
         db_cluster_identifier: builtins.str,
-        feature_name: builtins.str,
         role_arn: builtins.str,
+        feature_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["RdsClusterRoleAssociationTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -65,16 +65,16 @@ class RdsClusterRoleAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association aws_rds_cluster_role_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association aws_rds_cluster_role_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.
-        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
+        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.
+        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -89,8 +89,8 @@ class RdsClusterRoleAssociation(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = RdsClusterRoleAssociationConfig(
             db_cluster_identifier=db_cluster_identifier,
-            feature_name=feature_name,
             role_arn=role_arn,
+            feature_name=feature_name,
             id=id,
             region=region,
             timeouts=timeouts,
@@ -118,7 +118,7 @@ class RdsClusterRoleAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RdsClusterRoleAssociation to import.
-        :param import_from_id: The id of the existing RdsClusterRoleAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RdsClusterRoleAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RdsClusterRoleAssociation to import is found.
         '''
         if __debug__:
@@ -137,12 +137,16 @@ class RdsClusterRoleAssociation(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.
         '''
         value = RdsClusterRoleAssociationTimeouts(create=create, delete=delete)
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetFeatureName")
+    def reset_feature_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFeatureName", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -279,8 +283,8 @@ class RdsClusterRoleAssociation(
         "provider": "provider",
         "provisioners": "provisioners",
         "db_cluster_identifier": "dbClusterIdentifier",
-        "feature_name": "featureName",
         "role_arn": "roleArn",
+        "feature_name": "featureName",
         "id": "id",
         "region": "region",
         "timeouts": "timeouts",
@@ -298,8 +302,8 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         db_cluster_identifier: builtins.str,
-        feature_name: builtins.str,
         role_arn: builtins.str,
+        feature_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["RdsClusterRoleAssociationTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -312,12 +316,12 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.
-        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
+        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.
+        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,14 +337,13 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument db_cluster_identifier", value=db_cluster_identifier, expected_type=type_hints["db_cluster_identifier"])
-            check_type(argname="argument feature_name", value=feature_name, expected_type=type_hints["feature_name"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument feature_name", value=feature_name, expected_type=type_hints["feature_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_cluster_identifier": db_cluster_identifier,
-            "feature_name": feature_name,
             "role_arn": role_arn,
         }
         if connection is not None:
@@ -357,6 +360,8 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if feature_name is not None:
+            self._values["feature_name"] = feature_name
         if id is not None:
             self._values["id"] = id
         if region is not None:
@@ -430,28 +435,27 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def db_cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#db_cluster_identifier RdsClusterRoleAssociation#db_cluster_identifier}.'''
         result = self._values.get("db_cluster_identifier")
         assert result is not None, "Required property 'db_cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def feature_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.'''
-        result = self._values.get("feature_name")
-        assert result is not None, "Required property 'feature_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#role_arn RdsClusterRoleAssociation#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def feature_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#feature_name RdsClusterRoleAssociation#feature_name}.'''
+        result = self._values.get("feature_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#id RdsClusterRoleAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -463,7 +467,7 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#region RdsClusterRoleAssociation#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -472,7 +476,7 @@ class RdsClusterRoleAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RdsClusterRoleAssociationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#timeouts RdsClusterRoleAssociation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RdsClusterRoleAssociationTimeouts"], result)
@@ -502,8 +506,8 @@ class RdsClusterRoleAssociationTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e830e4f482c358d729ed66d09a54ed440191d11a2254fea7fa61a79127e8fa95)
@@ -517,13 +521,13 @@ class RdsClusterRoleAssociationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#create RdsClusterRoleAssociation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/rds_cluster_role_association#delete RdsClusterRoleAssociation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -633,8 +637,8 @@ def _typecheckingstub__1dc4c8eb7559ff2523d642d5feecb65986aeacfdd7dd50074733b71af
     id_: builtins.str,
     *,
     db_cluster_identifier: builtins.str,
-    feature_name: builtins.str,
     role_arn: builtins.str,
+    feature_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[RdsClusterRoleAssociationTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -698,8 +702,8 @@ def _typecheckingstub__32946d7d67d1798f1b344b71d2315d01e921f7a2b5795d16ee11188fe
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     db_cluster_identifier: builtins.str,
-    feature_name: builtins.str,
     role_arn: builtins.str,
+    feature_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[RdsClusterRoleAssociationTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

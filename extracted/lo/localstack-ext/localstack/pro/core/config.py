@@ -1,5 +1,5 @@
 import os
-from typing import List, Literal
+from typing import Literal
 
 from localstack import config as localstack_config
 from localstack import constants as localstack_constants
@@ -62,7 +62,7 @@ KUBE_ENDPOINT = os.environ.get("KUBE_ENDPOINT", "")
 EXTENSION_DEV_MODE = localstack_config.is_env_true("EXTENSION_DEV_MODE")
 
 # List of extensions that should be installed when localstack starts
-EXTENSION_AUTO_INSTALL: List[str] = [
+EXTENSION_AUTO_INSTALL: list[str] = [
     e.strip() for e in (os.environ.get("EXTENSION_AUTO_INSTALL") or "").split(",") if e.strip()
 ]
 
@@ -84,6 +84,12 @@ LAMBDA_DOWNLOAD_AWS_LAYERS = localstack_config.is_env_not_false("LAMBDA_DOWNLOAD
 LAMBDA_DISABLE_JAVA_SDK_V2_CERTIFICATE_VALIDATION = localstack_config.is_env_not_false(
     "LAMBDA_DISABLE_JAVA_SDK_V2_CERTIFICATE_VALIDATION"
 )
+
+# Temporary feature flag to enable the latest LDM features:
+#   - LDM endpoint
+#   - automatic debug-wrapper scripts injection
+#   - user-agent based redirects
+LDM_PREVIEW = localstack_config.is_env_not_false("LDM_PREVIEW")
 
 # PUBLIC: amazon/aws-lambda- (default, pro)
 # Prefix for images that will be used to execute Lambda functions in Kubernetes.
@@ -199,8 +205,11 @@ EKS_MOCK_CREATE_CLUSTER_DELAY = int(os.environ.get("EKS_MOCK_CREATE_CLUSTER_DELA
 # startup timeout for an EKS cluster
 EKS_STARTUP_TIMEOUT = int(os.environ.get("EKS_STARTUP_TIMEOUT", "180").strip())
 
-# Allow customsiation of the k3s cluster
+# Allow customisation of the k3s cluster
 EKS_K3S_FLAGS = os.environ.get("EKS_K3S_FLAGS")
+
+# whether to automatically start Traefik in EKS K3D clusters
+EKS_START_K3D_LB_INGRESS = localstack_config.is_env_true("EKS_START_K3D_LB_INGRESS")
 
 # Port where Hive/metastore/Spark are available for EMR/Athena
 PORT_HIVE_METASTORE = int(os.getenv("PORT_HIVE_METASTORE") or 9083)
@@ -403,7 +412,7 @@ NEPTUNE_GREMLIN_DEBUG = is_env_true("NEPTUNE_GREMLIN_DEBUG")
 MEDIACONVERT_DISABLE_JOB_DURATION = is_env_true("MEDIACONVERT_DISABLE_JOB_DURATION")
 
 # Batch provider override
-BATCH_V2_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_BATCH") == "v2"
+BATCH_LEGACY_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_BATCH") == "legacy"
 
 # EventStudio
 EVENTSTUDIO_DEV_ENABLE = is_env_true(
@@ -457,6 +466,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "IAM_SOFT_MODE",
     "KUBE_ENDPOINT",
     "LAMBDA_DOWNLOAD_AWS_LAYERS",
+    "LDM_PREVIEW",
     "LOCALSTACK_K8S_NAMESPACE",
     "LOCALSTACK_K8S_LABELS",
     "LOCALSTACK_K8S_ANNOTATIONS",

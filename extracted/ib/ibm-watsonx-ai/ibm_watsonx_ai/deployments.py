@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.foundation_models.inference import ModelInference
+    from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
     from ibm_watsonx_ai.lifecycle import SpecStates
 
 lib_checker = LibraryChecker()
@@ -2013,10 +2014,12 @@ class Deployments(WMLResource):
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
+        params: dict | TextChatParameters | None = None,
     ) -> dict:
         d_inference = self._get_model_inference(deployment_id, "chat")
         return d_inference.chat(
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -2031,10 +2034,12 @@ class Deployments(WMLResource):
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
+        params: dict | TextChatParameters | None = None,
     ) -> Generator:
         d_inference = self._get_model_inference(deployment_id, "chat_stream")
         return d_inference.chat_stream(
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -2049,10 +2054,12 @@ class Deployments(WMLResource):
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
+        params: dict | TextChatParameters | None = None,
     ) -> dict:
         d_inference = self._get_model_inference(deployment_id, "chat")
         return await d_inference.achat(
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,
@@ -2067,10 +2074,12 @@ class Deployments(WMLResource):
         tools: list | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: Literal["none", "auto"] | None = None,
+        params: dict | TextChatParameters | None = None,
     ) -> AsyncGenerator:
         d_inference = self._get_model_inference(deployment_id, "chat_stream")
         return await d_inference.achat_stream(
             messages=messages,
+            params=params,
             context=context,
             tools=tools,
             tool_choice=tool_choice,

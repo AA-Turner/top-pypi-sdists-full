@@ -18,10 +18,9 @@ async def _():
     is_in_web_notebook = sys.platform == "emscripten"
     if is_in_web_notebook:
         import micropip
-        import os
         import zipfile
         await micropip.install(
-            "https://nickkarpowicz.github.io/wheels/attoworld-2025.0.42-cp312-cp312-emscripten_3_1_58_wasm32.whl"
+            "https://nickkarpowicz.github.io/wheels/attoworld-2025.0.44-cp312-cp312-emscripten_3_1_58_wasm32.whl"
         )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
@@ -63,7 +62,7 @@ async def _():
 def _(mo):
     mo.output.append(mo.md("# FROG Reconstruction:"))
     mo.output.append(mo.md("---"))
-    mo.output.append(mo.md("#### Select your FROG file:"))
+    mo.output.append(mo.md("### Select your FROG file:"))
     return
 
 
@@ -83,7 +82,7 @@ def _(aw, mo):
 
 @app.cell
 def _(mo):
-    mode_selector = mo.ui.dropdown(options=["SHG", "THG", "Kerr", "XFROG", "BlindFROG"], label="FROG type:", value="SHG")
+    mode_selector = mo.ui.dropdown(options=["SHG GP", "SHG ptychographic", "THG", "Kerr", "XFROG", "BlindFROG"], label="FROG type:", value="SHG ptychographic")
     mode_selector
     return (mode_selector,)
 
@@ -94,7 +93,7 @@ def _(mo, mode_selector):
     xfrog_time_reverse_checkbox = mo.ui.checkbox(label="Reverse time")
     if(mode_selector.value == "XFROG"):
         mo.output.append(mo.md("---"))
-        mo.output.append(mo.md("#### XFROG Reference:"))
+        mo.output.append(mo.md("### XFROG Reference:"))
         mo.output.append(xfrog_reference_file)
         mo.output.append(xfrog_time_reverse_checkbox)
     return xfrog_reference_file, xfrog_time_reverse_checkbox
@@ -144,7 +143,7 @@ def _(aw, calibration_selector, file_browser):
 @app.cell
 def _(mo):
     mo.output.append(mo.md("---"))
-    mo.output.append(mo.md("#### Bin data onto evenly spaced grid:"))
+    mo.output.append(mo.md("### Bin data onto evenly spaced grid:"))
     return
 
 
@@ -279,9 +278,33 @@ def _(
 
 
 @app.cell
+def _(mo, mode_selector):
+    ptycho_roi_lower = mo.ui.number(value = 300.0, step=0.1, label="ROI lower frequency (THz)")
+    ptycho_roi_upper = mo.ui.number(value = 900.0, step=0.1, label="ROI upper frequency (THz)")
+    ptycho_exclude_lower = mo.ui.number(value = 1000.0, step=0.1, label="Excluded region lower frequency (THz)")
+    ptycho_exclude_upper = mo.ui.number(value = 1200.0, step=0.1, label="Excluded region upper frequency (THz)")
+    ptycho_threshhold = mo.ui.number(value = 10000.0, step=0.1, label="Ptychographic noise filter threshhold")
+    if mode_selector.value == "SHG ptychographic":
+        mo.output.append(mo.md("---"))
+        mo.output.append(mo.md("### Ptychographic FROG options:"))
+        mo.output.append(ptycho_roi_lower)
+        mo.output.append(ptycho_roi_upper)
+        mo.output.append(ptycho_exclude_lower)
+        mo.output.append(ptycho_exclude_upper)
+        mo.output.append(ptycho_threshhold)
+    return (
+        ptycho_exclude_lower,
+        ptycho_exclude_upper,
+        ptycho_roi_lower,
+        ptycho_roi_upper,
+        ptycho_threshhold,
+    )
+
+
+@app.cell
 def _(mo):
     mo.output.append(mo.md("---"))
-    mo.output.append(mo.md("#### Optional spectral constraint:"))
+    mo.output.append(mo.md("### Optional spectral constraint:"))
     spectral_constraint_file = mo.ui.file(label="Spectral contstraint file")
     mo.output.append(spectral_constraint_file)
     return (spectral_constraint_file,)
@@ -302,6 +325,9 @@ def _(mo, spectral_constraint_data, spectral_constraint_format):
     spectral_constraint_wavelength_multiplier = mo.ui.number(label="Wavelength multiplier:", value=1e9)
     spectral_constraint_intensity_header = mo.ui.text(label="Intensity column key:", value="intensity (a.u.)")
     spectral_constraint_skip_lines = mo.ui.number(value=0, label="Header lines:")
+    spectral_constraint_bandpass_f0 = mo.ui.number(value=375, label="Bandpass central frequency (THz)")
+    spectral_constraint_bandpass_sigma = mo.ui.number(value=50, label="Bandpass width (THz)")
+    spectral_constraint_bandpass_order = mo.ui.number(value=4, start=2, step=2, label="Bandpass order")
     if spectral_constraint_data is not None:
         if spectral_constraint_format.value == "Text with headers":
             mo.output.append(spectral_constraint_wavelength_header)
@@ -309,7 +335,13 @@ def _(mo, spectral_constraint_data, spectral_constraint_format):
             mo.output.append(spectral_constraint_intensity_header)
         if spectral_constraint_format.value == "Columns":
             mo.output.append(spectral_constraint_skip_lines)
+        mo.output.append(spectral_constraint_bandpass_f0)
+        mo.output.append(spectral_constraint_bandpass_sigma)
+        mo.output.append(spectral_constraint_bandpass_order)
     return (
+        spectral_constraint_bandpass_f0,
+        spectral_constraint_bandpass_order,
+        spectral_constraint_bandpass_sigma,
         spectral_constraint_intensity_header,
         spectral_constraint_skip_lines,
         spectral_constraint_wavelength_header,
@@ -321,6 +353,9 @@ def _(mo, spectral_constraint_data, spectral_constraint_format):
 def _(
     aw,
     mo,
+    spectral_constraint_bandpass_f0,
+    spectral_constraint_bandpass_order,
+    spectral_constraint_bandpass_sigma,
     spectral_constraint_data,
     spectral_constraint_format,
     spectral_constraint_intensity_header,
@@ -344,6 +379,7 @@ def _(
                     spectrum_field=spectral_constraint_intensity_header.value,
                     is_data_string=True
                 )
+        spectral_constraint = spectral_constraint.to_bandpassed(spectral_constraint_bandpass_f0.value * 1e12,spectral_constraint_bandpass_sigma.value * 1e12,int(spectral_constraint_bandpass_order.value))
         mo.output.append(mo.md("### Loaded spectral constraint:"))
         spectral_constraint.plot_with_group_delay()
         aw.plot.showmo()
@@ -353,15 +389,15 @@ def _(
 @app.cell
 def _(mo):
     mo.output.append(mo.md("---"))
-    mo.output.append(mo.md("#### Run the reconstruction:"))
+    mo.output.append(mo.md("### Run the reconstruction:"))
     return
 
 
 @app.cell
 def _(is_in_web_notebook, mo):
-    recon_trials = mo.ui.number(value=8, label="Initial guesses")
-    recon_trial_length = mo.ui.number(value=64, label="Trial iterations")
-    recon_followups = mo.ui.number(value=512, label="Finishing iterations")
+    recon_trials = mo.ui.number(value=16, label="Initial guesses")
+    recon_trial_length = mo.ui.number(value=128, label="Trial iterations")
+    recon_followups = mo.ui.number(value=1024, label="Finishing iterations")
     reconstruct_button = mo.ui.run_button(label="reconstruct")
     save_button = mo.ui.run_button(label="save")
     save_plot_button = mo.ui.run_button(label="save plot")
@@ -392,22 +428,49 @@ def _(is_in_web_notebook, mo):
 
 
 @app.cell
+def _(np):
+    def resolve_frequency_roi(
+        freq,
+        start_roi: float,
+        stop_roi: float,
+        start_excluded_band: float,
+        stop_excluded_band: float,
+    ):
+        roi = (freq >= start_roi) * (freq <= stop_roi)
+        for i in range(len(freq)):
+            if (freq[i] >= start_excluded_band) and (
+                freq[i] <= stop_excluded_band
+            ):
+                roi[i] = False
+        return np.fft.fftshift(roi)
+    return (resolve_frequency_roi,)
+
+
+@app.cell
 def _(
     aw,
     frog_data,
     mo,
     mode_selector,
+    ptycho_exclude_lower,
+    ptycho_exclude_upper,
+    ptycho_roi_lower,
+    ptycho_roi_upper,
+    ptycho_threshhold,
     recon_followups,
     recon_trial_length,
     recon_trials,
     reconstruct_button,
+    resolve_frequency_roi,
     spectral_constraint,
     xfrog_reference,
 ):
     mo.stop(not reconstruct_button.value)
     if frog_data is not None:
+        roi = None
+        ptycho_threshhold_float = None
         match mode_selector.value:
-            case "SHG":
+            case "SHG GP":
                 frog_type = aw.attoworld_rs.FrogType.Shg
             case "THG":
                 frog_type = aw.attoworld_rs.FrogType.Thg
@@ -417,6 +480,16 @@ def _(
                 frog_type = aw.attoworld_rs.FrogType.Xfrog
             case "BlindFROG":
                 frog_type = aw.attoworld_rs.FrogType.Blindfrog
+            case "SHG ptychographic":
+                frog_type = aw.attoworld_rs.FrogType.PtychographicShg
+                roi = resolve_frequency_roi(
+                    frog_data.freq,
+                    ptycho_roi_lower.value * 1e12,
+                    ptycho_roi_upper.value * 1e12,
+                    ptycho_exclude_lower.value * 1e12,
+                    ptycho_exclude_upper.value * 1e12,
+                )
+                ptycho_threshhold_float = ptycho_threshhold.value
         result, result_gate = aw.wave.reconstruct_frog(
             measurement=frog_data,
             repeats=int(recon_trials.value),
@@ -424,7 +497,9 @@ def _(
             polish_iterations=int(recon_followups.value),
             frog_type=frog_type,
             spectrum=spectral_constraint,
-            xfrog_gate = xfrog_reference
+            xfrog_gate=xfrog_reference,
+            roi=roi,
+            ptychographic_threshhold=ptycho_threshhold_float,
         )
     else:
         result = None
@@ -488,7 +563,6 @@ def _(
             zip.write(f"{file_base.value}.Ek.dat")
             zip.write(f"{file_base.value}.Speck.dat")
             zip.write(f"{file_base.value}.yml")
-            zip.write(f"{file_base.value}.svg")
         display_download_link_from_file(
             f"{file_base.value}.zip",
             output_name=f"{file_base.value}.zip",

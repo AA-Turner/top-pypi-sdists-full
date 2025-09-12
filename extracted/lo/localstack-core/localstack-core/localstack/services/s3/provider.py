@@ -8,7 +8,7 @@ from collections import defaultdict
 from inspect import signature
 from io import BytesIO
 from operator import itemgetter
-from typing import IO, Optional, Union
+from typing import IO
 from urllib import parse as urlparse
 from zoneinfo import ZoneInfo
 
@@ -277,6 +277,7 @@ from localstack.services.s3.utils import (
     get_canned_acl,
     get_class_attrs_from_spec_class,
     get_failed_precondition_copy_source,
+    get_failed_upload_part_copy_source_preconditions,
     get_full_default_bucket_location,
     get_kms_key_arn,
     get_lifecycle_rule_from_object,
@@ -2483,10 +2484,6 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         request: UploadPartCopyRequest,
     ) -> UploadPartCopyOutput:
         # TODO: handle following parameters:
-        #  CopySourceIfMatch: Optional[CopySourceIfMatch]
-        #  CopySourceIfModifiedSince: Optional[CopySourceIfModifiedSince]
-        #  CopySourceIfNoneMatch: Optional[CopySourceIfNoneMatch]
-        #  CopySourceIfUnmodifiedSince: Optional[CopySourceIfUnmodifiedSince]
         #  SSECustomerAlgorithm: Optional[SSECustomerAlgorithm]
         #  SSECustomerKey: Optional[SSECustomerKey]
         #  SSECustomerKeyMD5: Optional[SSECustomerKeyMD5]
@@ -2545,9 +2542,17 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         source_range = request.get("CopySourceRange")
         # TODO implement copy source IF
 
-        range_data: Optional[ObjectRange] = None
+        range_data: ObjectRange | None = None
         if source_range:
             range_data = parse_copy_source_range_header(source_range, src_s3_object.size)
+
+        if precondition := get_failed_upload_part_copy_source_preconditions(
+            request, src_s3_object.last_modified, src_s3_object.etag
+        ):
+            raise PreconditionFailed(
+                "At least one of the pre-conditions you specified did not hold",
+                Condition=precondition,
+            )
 
         s3_part = S3Part(part_number=part_number)
         if s3_multipart.checksum_algorithm:
@@ -3166,11 +3171,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if "TagSet" not in tagging:
             raise MalformedXML()
 
-        validate_tag_set(tagging["TagSet"], type_set="bucket")
+        tag_set = tagging["TagSet"] or []
+        validate_tag_set(tag_set, type_set="bucket")
 
         # remove the previous tags before setting the new ones, it overwrites the whole TagSet
         store.TAGS.tags.pop(s3_bucket.bucket_arn, None)
-        store.TAGS.tag_resource(s3_bucket.bucket_arn, tags=tagging["TagSet"])
+        store.TAGS.tag_resource(s3_bucket.bucket_arn, tags=tag_set)
 
     def get_bucket_tagging(
         self,
@@ -3220,12 +3226,13 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if "TagSet" not in tagging:
             raise MalformedXML()
 
-        validate_tag_set(tagging["TagSet"], type_set="object")
+        tag_set = tagging["TagSet"] or []
+        validate_tag_set(tag_set, type_set="object")
 
         key_id = get_unique_key_id(bucket, key, s3_object.version_id)
         # remove the previous tags before setting the new ones, it overwrites the whole TagSet
         store.TAGS.tags.pop(key_id, None)
-        store.TAGS.tag_resource(key_id, tags=tagging["TagSet"])
+        store.TAGS.tag_resource(key_id, tags=tag_set)
         response = PutObjectTaggingOutput()
         if s3_object.version_id:
             response["VersionId"] = s3_object.version_id
@@ -4820,14 +4827,12 @@ def get_part_range(s3_object: S3Object, part_number: PartNumber) -> ObjectRange:
 
 
 def get_acl_headers_from_request(
-    request: Union[
-        PutObjectRequest,
-        CreateMultipartUploadRequest,
-        CopyObjectRequest,
-        CreateBucketRequest,
-        PutBucketAclRequest,
-        PutObjectAclRequest,
-    ],
+    request: PutObjectRequest
+    | CreateMultipartUploadRequest
+    | CopyObjectRequest
+    | CreateBucketRequest
+    | PutBucketAclRequest
+    | PutObjectAclRequest,
 ) -> list[tuple[str, str]]:
     permission_keys = [
         "GrantFullControl",
@@ -4845,7 +4850,7 @@ def get_acl_headers_from_request(
 
 
 def get_access_control_policy_from_acl_request(
-    request: Union[PutBucketAclRequest, PutObjectAclRequest],
+    request: PutBucketAclRequest | PutObjectAclRequest,
     owner: Owner,
     request_body: bytes,
 ) -> AccessControlPolicy:
@@ -4894,9 +4899,10 @@ def get_access_control_policy_from_acl_request(
 
 
 def get_access_control_policy_for_new_resource_request(
-    request: Union[
-        PutObjectRequest, CreateMultipartUploadRequest, CopyObjectRequest, CreateBucketRequest
-    ],
+    request: PutObjectRequest
+    | CreateMultipartUploadRequest
+    | CopyObjectRequest
+    | CreateBucketRequest,
     owner: Owner,
 ) -> AccessControlPolicy:
     # TODO: this is basic ACL, not taking into account Bucket settings. Revisit once we really implement ACLs.

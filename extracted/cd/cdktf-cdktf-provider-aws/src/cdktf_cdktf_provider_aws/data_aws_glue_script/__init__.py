@@ -1,7 +1,7 @@
 r'''
 # `data_aws_glue_script`
 
-Refer to the Terraform Registry for docs: [`data_aws_glue_script`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script).
+Refer to the Terraform Registry for docs: [`data_aws_glue_script`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsGlueScript(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsGlueScript.DataAwsGlueScript",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script aws_glue_script}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script aws_glue_script}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAwsGlueScript(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script aws_glue_script} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script aws_glue_script} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dag_edge: dag_edge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
-        :param dag_node: dag_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
+        :param dag_edge: dag_edge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
+        :param dag_node: dag_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAwsGlueScript(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsGlueScript to import.
-        :param import_from_id: The id of the existing DataAwsGlueScript that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsGlueScript that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsGlueScript to import is found.
         '''
         if __debug__:
@@ -306,11 +306,11 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dag_edge: dag_edge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
-        :param dag_node: dag_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
+        :param dag_edge: dag_edge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
+        :param dag_node: dag_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -423,7 +423,7 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsGlueScriptDagEdge"]]:
         '''dag_edge block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_edge DataAwsGlueScript#dag_edge}
         '''
         result = self._values.get("dag_edge")
         assert result is not None, "Required property 'dag_edge' is missing"
@@ -435,7 +435,7 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsGlueScriptDagNode"]]:
         '''dag_node block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#dag_node DataAwsGlueScript#dag_node}
         '''
         result = self._values.get("dag_node")
         assert result is not None, "Required property 'dag_node' is missing"
@@ -443,7 +443,7 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -453,7 +453,7 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def language(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#language DataAwsGlueScript#language}.'''
         result = self._values.get("language")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -461,7 +461,7 @@ class DataAwsGlueScriptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#region DataAwsGlueScript#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -496,9 +496,9 @@ class DataAwsGlueScriptDagEdge:
         target_parameter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#source DataAwsGlueScript#source}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#target DataAwsGlueScript#target}.
-        :param target_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#target_parameter DataAwsGlueScript#target_parameter}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#source DataAwsGlueScript#source}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#target DataAwsGlueScript#target}.
+        :param target_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#target_parameter DataAwsGlueScript#target_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4365df315bb3304ef9e74a60014d645b8e1666971a260eed8e822f3178d3b4d)
@@ -514,21 +514,21 @@ class DataAwsGlueScriptDagEdge:
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#source DataAwsGlueScript#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#source DataAwsGlueScript#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#target DataAwsGlueScript#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#target DataAwsGlueScript#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_parameter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#target_parameter DataAwsGlueScript#target_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#target_parameter DataAwsGlueScript#target_parameter}.'''
         result = self._values.get("target_parameter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -753,10 +753,10 @@ class DataAwsGlueScriptDagNode:
         line_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param args: args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#args DataAwsGlueScript#args}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#node_type DataAwsGlueScript#node_type}.
-        :param line_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#line_number DataAwsGlueScript#line_number}.
+        :param args: args block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#args DataAwsGlueScript#args}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#node_type DataAwsGlueScript#node_type}.
+        :param line_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#line_number DataAwsGlueScript#line_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b75307d85d0f026c28d909a1de943fbf220374221b8d731a6887022b0d817680)
@@ -778,7 +778,7 @@ class DataAwsGlueScriptDagNode:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsGlueScriptDagNodeArgs"]]:
         '''args block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#args DataAwsGlueScript#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#args DataAwsGlueScript#args}
         '''
         result = self._values.get("args")
         assert result is not None, "Required property 'args' is missing"
@@ -786,7 +786,7 @@ class DataAwsGlueScriptDagNode:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#id DataAwsGlueScript#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -797,14 +797,14 @@ class DataAwsGlueScriptDagNode:
 
     @builtins.property
     def node_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#node_type DataAwsGlueScript#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#node_type DataAwsGlueScript#node_type}.'''
         result = self._values.get("node_type")
         assert result is not None, "Required property 'node_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def line_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#line_number DataAwsGlueScript#line_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#line_number DataAwsGlueScript#line_number}.'''
         result = self._values.get("line_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -834,9 +834,9 @@ class DataAwsGlueScriptDagNodeArgs:
         param: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#name DataAwsGlueScript#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#value DataAwsGlueScript#value}.
-        :param param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#param DataAwsGlueScript#param}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#name DataAwsGlueScript#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#value DataAwsGlueScript#value}.
+        :param param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#param DataAwsGlueScript#param}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ce393cb68745c7c23db4fc7ef4cf99b0e6af30a447da3e80745e233d12aa738)
@@ -852,14 +852,14 @@ class DataAwsGlueScriptDagNodeArgs:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#name DataAwsGlueScript#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#name DataAwsGlueScript#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#value DataAwsGlueScript#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#value DataAwsGlueScript#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -868,7 +868,7 @@ class DataAwsGlueScriptDagNodeArgs:
     def param(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/data-sources/glue_script#param DataAwsGlueScript#param}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/data-sources/glue_script#param DataAwsGlueScript#param}.'''
         result = self._values.get("param")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

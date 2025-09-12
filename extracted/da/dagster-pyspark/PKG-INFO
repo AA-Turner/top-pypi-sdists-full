@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pyspark
-Version: 0.27.9
+Version: 0.27.10
 Summary: Package for PySpark Dagster framework components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/dagster-framework/pyspark
 Author: Dagster Labs
@@ -14,8 +14,8 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.14
 License-File: LICENSE
-Requires-Dist: dagster==1.11.9
-Requires-Dist: dagster_spark==0.27.9
+Requires-Dist: dagster==1.11.10
+Requires-Dist: dagster_spark==0.27.10
 Requires-Dist: pyspark<5,>=3
 Dynamic: author
 Dynamic: author-email

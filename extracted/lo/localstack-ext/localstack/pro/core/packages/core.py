@@ -1,7 +1,7 @@
 _A='install'
 import functools,logging,os,threading
 from abc import ABC
-from typing import Callable,List
+from collections.abc import Callable
 from localstack import config
 from localstack.packages import InstallTarget,PackageInstaller,SystemNotSupportedException,package
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller

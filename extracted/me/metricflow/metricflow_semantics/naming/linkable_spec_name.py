@@ -3,10 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Optional, Sequence, Tuple
 
+from dbt_semantic_interfaces.references import EntityReference
 from dbt_semantic_interfaces.type_enums.date_part import DatePart
 from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 from metricflow_semantics.collection_helpers.lru_cache import typed_lru_cache
+from metricflow_semantics.collection_helpers.mf_type_aliases import AnyLengthTuple
+from metricflow_semantics.errors.error_classes import FeatureNotSupportedError
 
 DUNDER = "__"
 
@@ -24,16 +27,18 @@ class StructuredLinkableSpecName:
 
     def __init__(
         self,
-        entity_link_names: Tuple[str, ...],
+        entity_link_names: AnyLengthTuple[str],
         element_name: str,
         time_granularity_name: Optional[str] = None,
         date_part: Optional[DatePart] = None,
+        metric_subquery_entity_link_names: Optional[AnyLengthTuple[str]] = None,
     ) -> None:
         """Set attributes, ensuring names are lowercased."""
-        self.entity_link_names = tuple([entity_link_name.lower() for entity_link_name in entity_link_names])
+        self.entity_link_names = tuple(entity_link_name.lower() for entity_link_name in entity_link_names)
         self.element_name = element_name.lower()
         self.time_granularity_name = time_granularity_name.lower() if time_granularity_name else None
         self.date_part = date_part
+        self.metric_subquery_entity_link_names = metric_subquery_entity_link_names
 
     @staticmethod
     @typed_lru_cache
@@ -47,7 +52,7 @@ class StructuredLinkableSpecName:
 
         for date_part in DatePart:
             if name_parts[-1] == StructuredLinkableSpecName.date_part_suffix(date_part=date_part):
-                raise ValueError(
+                raise FeatureNotSupportedError(
                     "Dunder syntax not supported for querying date_part. Use `group_by` object syntax instead."
                 )
 
@@ -86,8 +91,17 @@ class StructuredLinkableSpecName:
         """Return the full name form. e.g. ds or listing__ds__month.
 
         If date_part is specified, don't include granularity in qualified_name since it will not impact the result.
+
+        If `metric_subquery_entity_link_names` is specified, this represents a metric. Metrics follow a different
+        format - if same entity links are used in inner & outer query, use standard qualified name (country__bookings).
+        Else, specify both sets of entity links (listing__country__user__country__bookings).
         """
-        items = list(self.entity_link_names) + [self.element_name]
+        entity_link_names = self.entity_link_names
+        if self.metric_subquery_entity_link_names is not None:
+            if self.entity_link_names != self.metric_subquery_entity_link_names:
+                entity_link_names = self.entity_link_names + self.metric_subquery_entity_link_names
+
+        items = list(entity_link_names) + [self.element_name]
         if self.date_part:
             items.append(self.date_part_suffix(date_part=self.date_part))
         elif self.time_granularity_name:
@@ -106,6 +120,11 @@ class StructuredLinkableSpecName:
     def date_part_suffix(date_part: DatePart) -> str:
         """Suffix used for names with a date_part."""
         return f"extract_{date_part.value}"
+
+    @property
+    def entity_links(self) -> Tuple[EntityReference, ...]:
+        """Returns the entity link references."""
+        return tuple(EntityReference(entity_link_name.lower()) for entity_link_name in self.entity_link_names)
 
     @property
     def granularity_free_qualified_name(self) -> str:

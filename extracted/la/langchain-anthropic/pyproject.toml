@@ -8,12 +8,12 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "anthropic<1,>=0.64.0",
-    "langchain-core<1.0.0,>=0.3.74",
+    "anthropic<1,>=0.67.0",
+    "langchain-core<1.0.0,>=0.3.76",
     "pydantic<3.0.0,>=2.7.4",
 ]
 name = "langchain-anthropic"
-version = "0.3.19"
+version = "0.3.20"
 description = "An integration package connecting Anthropic and LangChain"
 readme = "README.md"
 
@@ -136,6 +136,9 @@ ignore = [
 unfixable = [
     "B028",
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [

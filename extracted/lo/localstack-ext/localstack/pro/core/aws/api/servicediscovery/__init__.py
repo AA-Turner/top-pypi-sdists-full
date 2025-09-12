@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
+AWSAccountId = str
 AmazonResourceName = str
 Arn = str
 AttrKey = str
@@ -68,6 +69,7 @@ class NamespaceFilterName(StrEnum):
     TYPE = "TYPE"
     NAME = "NAME"
     HTTP_NAME = "HTTP_NAME"
+    RESOURCE_OWNER = "RESOURCE_OWNER"
 
 
 class NamespaceType(StrEnum):
@@ -120,6 +122,7 @@ class RoutingPolicy(StrEnum):
 
 class ServiceFilterName(StrEnum):
     NAMESPACE_ID = "NAMESPACE_ID"
+    RESOURCE_OWNER = "RESOURCE_OWNER"
 
 
 class ServiceType(StrEnum):
@@ -148,7 +151,7 @@ class DuplicateRequest(ServiceException):
     code: str = "DuplicateRequest"
     sender_fault: bool = False
     status_code: int = 400
-    DuplicateOperationId: Optional[ResourceId]
+    DuplicateOperationId: Optional[OperationId]
 
 
 class InstanceNotFound(ServiceException):
@@ -250,6 +253,7 @@ class ServiceAlreadyExists(ServiceException):
     status_code: int = 400
     CreatorRequestId: Optional[ResourceId]
     ServiceId: Optional[ResourceId]
+    ServiceArn: Optional[Arn]
 
 
 class ServiceAttributesLimitExceededException(ServiceException):
@@ -509,7 +513,7 @@ class DnsConfig(TypedDict, total=False):
 
 class CreateServiceRequest(ServiceRequest):
     Name: ServiceName
-    NamespaceId: Optional[ResourceId]
+    NamespaceId: Optional[Arn]
     CreatorRequestId: Optional[ResourceId]
     Description: Optional[ResourceDescription]
     DnsConfig: Optional[DnsConfig]
@@ -527,6 +531,7 @@ class Service(TypedDict, total=False):
 
     Id: Optional[ResourceId]
     Arn: Optional[Arn]
+    ResourceOwner: Optional[AWSAccountId]
     Name: Optional[ServiceName]
     NamespaceId: Optional[ResourceId]
     Description: Optional[ResourceDescription]
@@ -537,6 +542,7 @@ class Service(TypedDict, total=False):
     HealthCheckCustomConfig: Optional[HealthCheckCustomConfig]
     CreateDate: Optional[Timestamp]
     CreatorRequestId: Optional[ResourceId]
+    CreatedByAccount: Optional[AWSAccountId]
 
 
 class CreateServiceResponse(TypedDict, total=False):
@@ -544,7 +550,7 @@ class CreateServiceResponse(TypedDict, total=False):
 
 
 class DeleteNamespaceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
 
 
 class DeleteNamespaceResponse(TypedDict, total=False):
@@ -555,7 +561,7 @@ ServiceAttributeKeyList = List[ServiceAttributeKey]
 
 
 class DeleteServiceAttributesRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     Attributes: ServiceAttributeKeyList
 
 
@@ -564,7 +570,7 @@ class DeleteServiceAttributesResponse(TypedDict, total=False):
 
 
 class DeleteServiceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
 
 
 class DeleteServiceResponse(TypedDict, total=False):
@@ -572,7 +578,7 @@ class DeleteServiceResponse(TypedDict, total=False):
 
 
 class DeregisterInstanceRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     InstanceId: ResourceId
 
 
@@ -587,6 +593,7 @@ class DiscoverInstancesRequest(ServiceRequest):
     QueryParameters: Optional[Attributes]
     OptionalParameters: Optional[Attributes]
     HealthStatus: Optional[HealthStatusFilter]
+    OwnerAccount: Optional[AWSAccountId]
 
 
 Revision = int
@@ -617,6 +624,7 @@ class DiscoverInstancesResponse(TypedDict, total=False):
 class DiscoverInstancesRevisionRequest(ServiceRequest):
     NamespaceName: NamespaceName
     ServiceName: ServiceName
+    OwnerAccount: Optional[AWSAccountId]
 
 
 class DiscoverInstancesRevisionResponse(TypedDict, total=False):
@@ -644,7 +652,7 @@ FilterValues = List[FilterValue]
 
 
 class GetInstanceRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     InstanceId: ResourceId
 
 
@@ -656,9 +664,11 @@ class Instance(TypedDict, total=False):
     Id: ResourceId
     CreatorRequestId: Optional[ResourceId]
     Attributes: Optional[Attributes]
+    CreatedByAccount: Optional[AWSAccountId]
 
 
 class GetInstanceResponse(TypedDict, total=False):
+    ResourceOwner: Optional[AWSAccountId]
     Instance: Optional[Instance]
 
 
@@ -666,7 +676,7 @@ InstanceIdList = List[ResourceId]
 
 
 class GetInstancesHealthStatusRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     Instances: Optional[InstanceIdList]
     MaxResults: Optional[MaxResults]
     NextToken: Optional[NextToken]
@@ -681,7 +691,7 @@ class GetInstancesHealthStatusResponse(TypedDict, total=False):
 
 
 class GetNamespaceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
 
 
 class HttpProperties(TypedDict, total=False):
@@ -704,6 +714,7 @@ class Namespace(TypedDict, total=False):
 
     Id: Optional[ResourceId]
     Arn: Optional[Arn]
+    ResourceOwner: Optional[AWSAccountId]
     Name: Optional[NamespaceName]
     Type: Optional[NamespaceType]
     Description: Optional[ResourceDescription]
@@ -718,7 +729,8 @@ class GetNamespaceResponse(TypedDict, total=False):
 
 
 class GetOperationRequest(ServiceRequest):
-    OperationId: ResourceId
+    OperationId: OperationId
+    OwnerAccount: Optional[AWSAccountId]
 
 
 OperationTargetsMap = Dict[OperationTargetType, ResourceId]
@@ -728,6 +740,7 @@ class Operation(TypedDict, total=False):
     """A complex type that contains information about a specified operation."""
 
     Id: Optional[OperationId]
+    OwnerAccount: Optional[AWSAccountId]
     Type: Optional[OperationType]
     Status: Optional[OperationStatus]
     ErrorMessage: Optional[Message]
@@ -742,7 +755,7 @@ class GetOperationResponse(TypedDict, total=False):
 
 
 class GetServiceAttributesRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
 
 
 ServiceAttributesMap = Dict[ServiceAttributeKey, ServiceAttributeValue]
@@ -754,6 +767,7 @@ class ServiceAttributes(TypedDict, total=False):
     """
 
     ServiceArn: Optional[Arn]
+    ResourceOwner: Optional[AWSAccountId]
     Attributes: Optional[ServiceAttributesMap]
 
 
@@ -762,7 +776,7 @@ class GetServiceAttributesResponse(TypedDict, total=False):
 
 
 class GetServiceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
 
 
 class GetServiceResponse(TypedDict, total=False):
@@ -782,18 +796,20 @@ class InstanceSummary(TypedDict, total=False):
 
     Id: Optional[ResourceId]
     Attributes: Optional[Attributes]
+    CreatedByAccount: Optional[AWSAccountId]
 
 
 InstanceSummaryList = List[InstanceSummary]
 
 
 class ListInstancesRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     NextToken: Optional[NextToken]
     MaxResults: Optional[MaxResults]
 
 
 class ListInstancesResponse(TypedDict, total=False):
+    ResourceOwner: Optional[AWSAccountId]
     Instances: Optional[InstanceSummaryList]
     NextToken: Optional[NextToken]
 
@@ -822,6 +838,7 @@ class NamespaceSummary(TypedDict, total=False):
 
     Id: Optional[ResourceId]
     Arn: Optional[Arn]
+    ResourceOwner: Optional[AWSAccountId]
     Name: Optional[NamespaceName]
     Type: Optional[NamespaceType]
     Description: Optional[ResourceDescription]
@@ -900,6 +917,7 @@ class ServiceSummary(TypedDict, total=False):
 
     Id: Optional[ResourceId]
     Arn: Optional[Arn]
+    ResourceOwner: Optional[AWSAccountId]
     Name: Optional[ServiceName]
     Type: Optional[ServiceType]
     Description: Optional[ResourceDescription]
@@ -908,6 +926,7 @@ class ServiceSummary(TypedDict, total=False):
     HealthCheckConfig: Optional[HealthCheckConfig]
     HealthCheckCustomConfig: Optional[HealthCheckCustomConfig]
     CreateDate: Optional[Timestamp]
+    CreatedByAccount: Optional[AWSAccountId]
 
 
 ServiceSummariesList = List[ServiceSummary]
@@ -973,7 +992,7 @@ class PublicDnsNamespaceChange(TypedDict, total=False):
 
 
 class RegisterInstanceRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     InstanceId: InstanceId
     CreatorRequestId: Optional[ResourceId]
     Attributes: Attributes
@@ -1013,7 +1032,7 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class UpdateHttpNamespaceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
     UpdaterRequestId: Optional[ResourceId]
     Namespace: HttpNamespaceChange
 
@@ -1023,13 +1042,13 @@ class UpdateHttpNamespaceResponse(TypedDict, total=False):
 
 
 class UpdateInstanceCustomHealthStatusRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     InstanceId: ResourceId
     Status: CustomHealthStatus
 
 
 class UpdatePrivateDnsNamespaceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
     UpdaterRequestId: Optional[ResourceId]
     Namespace: PrivateDnsNamespaceChange
 
@@ -1039,7 +1058,7 @@ class UpdatePrivateDnsNamespaceResponse(TypedDict, total=False):
 
 
 class UpdatePublicDnsNamespaceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
     UpdaterRequestId: Optional[ResourceId]
     Namespace: PublicDnsNamespaceChange
 
@@ -1049,7 +1068,7 @@ class UpdatePublicDnsNamespaceResponse(TypedDict, total=False):
 
 
 class UpdateServiceAttributesRequest(ServiceRequest):
-    ServiceId: ResourceId
+    ServiceId: Arn
     Attributes: ServiceAttributesMap
 
 
@@ -1058,7 +1077,7 @@ class UpdateServiceAttributesResponse(TypedDict, total=False):
 
 
 class UpdateServiceRequest(ServiceRequest):
-    Id: ResourceId
+    Id: Arn
     Service: ServiceChange
 
 
@@ -1220,7 +1239,8 @@ class ServicediscoveryApi:
         in the *Cloud Map Developer Guide*.
 
         :param name: The name that you want to assign to the service.
-        :param namespace_id: The ID of the namespace that you want to use to create the service.
+        :param namespace_id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
+        use to create the service.
         :param creator_request_id: A unique string that identifies the request and that allows failed
         ``CreateService`` requests to be retried without the risk of running the
         operation twice.
@@ -1244,12 +1264,13 @@ class ServicediscoveryApi:
 
     @handler("DeleteNamespace")
     def delete_namespace(
-        self, context: RequestContext, id: ResourceId, **kwargs
+        self, context: RequestContext, id: Arn, **kwargs
     ) -> DeleteNamespaceResponse:
         """Deletes a namespace from the current account. If the namespace still
         contains one or more services, the request fails.
 
-        :param id: The ID of the namespace that you want to delete.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
+        delete.
         :returns: DeleteNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1259,14 +1280,13 @@ class ServicediscoveryApi:
         raise NotImplementedError
 
     @handler("DeleteService")
-    def delete_service(
-        self, context: RequestContext, id: ResourceId, **kwargs
-    ) -> DeleteServiceResponse:
+    def delete_service(self, context: RequestContext, id: Arn, **kwargs) -> DeleteServiceResponse:
         """Deletes a specified service and all associated service attributes. If
         the service still contains one or more registered instances, the request
         fails.
 
-        :param id: The ID of the service that you want to delete.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to
+        delete.
         :returns: DeleteServiceResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1278,13 +1298,14 @@ class ServicediscoveryApi:
     def delete_service_attributes(
         self,
         context: RequestContext,
-        service_id: ResourceId,
+        service_id: Arn,
         attributes: ServiceAttributeKeyList,
         **kwargs,
     ) -> DeleteServiceAttributesResponse:
         """Deletes specific attributes associated with a service.
 
-        :param service_id: The ID of the service from which the attributes will be deleted.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service from which the
+        attributes will be deleted.
         :param attributes: A list of keys corresponding to each attribute that you want to delete.
         :returns: DeleteServiceAttributesResponse
         :raises InvalidInput:
@@ -1294,12 +1315,13 @@ class ServicediscoveryApi:
 
     @handler("DeregisterInstance")
     def deregister_instance(
-        self, context: RequestContext, service_id: ResourceId, instance_id: ResourceId, **kwargs
+        self, context: RequestContext, service_id: Arn, instance_id: ResourceId, **kwargs
     ) -> DeregisterInstanceResponse:
         """Deletes the Amazon Route 53 DNS records and health check, if any, that
         Cloud Map created for the specified instance.
 
-        :param service_id: The ID of the service that the instance is associated with.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
+        associated with.
         :param instance_id: The value that you specified for ``Id`` in the
         `RegisterInstance <https://docs.
         :returns: DeregisterInstanceResponse
@@ -1321,6 +1343,7 @@ class ServicediscoveryApi:
         query_parameters: Attributes | None = None,
         optional_parameters: Attributes | None = None,
         health_status: HealthStatusFilter | None = None,
+        owner_account: AWSAccountId | None = None,
         **kwargs,
     ) -> DiscoverInstancesResponse:
         """Discovers registered instances for a specified namespace and service.
@@ -1339,6 +1362,9 @@ class ServicediscoveryApi:
         (for example, ``{version=v1, az=1a}``).
         :param optional_parameters: Opportunistic filters to scope the results based on custom attributes.
         :param health_status: The health status of the instances that you want to discover.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
+        associated with the instance, as specified in the namespace
+        ``ResourceOwner`` field.
         :returns: DiscoverInstancesResponse
         :raises ServiceNotFound:
         :raises NamespaceNotFound:
@@ -1353,6 +1379,7 @@ class ServicediscoveryApi:
         context: RequestContext,
         namespace_name: NamespaceName,
         service_name: ServiceName,
+        owner_account: AWSAccountId | None = None,
         **kwargs,
     ) -> DiscoverInstancesRevisionResponse:
         """Discovers the increasing revision associated with an instance.
@@ -1360,6 +1387,9 @@ class ServicediscoveryApi:
         :param namespace_name: The ``HttpName`` name of the namespace.
         :param service_name: The name of the service that you specified when you registered the
         instance.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
+        associated with the instance, as specified in the namespace
+        ``ResourceOwner`` field.
         :returns: DiscoverInstancesRevisionResponse
         :raises ServiceNotFound:
         :raises NamespaceNotFound:
@@ -1370,11 +1400,12 @@ class ServicediscoveryApi:
 
     @handler("GetInstance")
     def get_instance(
-        self, context: RequestContext, service_id: ResourceId, instance_id: ResourceId, **kwargs
+        self, context: RequestContext, service_id: Arn, instance_id: ResourceId, **kwargs
     ) -> GetInstanceResponse:
         """Gets information about a specified instance.
 
-        :param service_id: The ID of the service that the instance is associated with.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
+        associated with.
         :param instance_id: The ID of the instance that you want to get information about.
         :returns: GetInstanceResponse
         :raises InstanceNotFound:
@@ -1387,7 +1418,7 @@ class ServicediscoveryApi:
     def get_instances_health_status(
         self,
         context: RequestContext,
-        service_id: ResourceId,
+        service_id: Arn,
         instances: InstanceIdList | None = None,
         max_results: MaxResults | None = None,
         next_token: NextToken | None = None,
@@ -1400,7 +1431,8 @@ class ServicediscoveryApi:
         There's a brief delay between when you register an instance and when the
         health status for the instance is available.
 
-        :param service_id: The ID of the service that the instance is associated with.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
+        associated with.
         :param instances: An array that contains the IDs of all the instances that you want to get
         the health status for.
         :param max_results: The maximum number of instances that you want Cloud Map to return in the
@@ -1414,12 +1446,11 @@ class ServicediscoveryApi:
         raise NotImplementedError
 
     @handler("GetNamespace")
-    def get_namespace(
-        self, context: RequestContext, id: ResourceId, **kwargs
-    ) -> GetNamespaceResponse:
+    def get_namespace(self, context: RequestContext, id: Arn, **kwargs) -> GetNamespaceResponse:
         """Gets information about a namespace.
 
-        :param id: The ID of the namespace that you want to get information about.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
+        get information about.
         :returns: GetNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1428,7 +1459,11 @@ class ServicediscoveryApi:
 
     @handler("GetOperation")
     def get_operation(
-        self, context: RequestContext, operation_id: ResourceId, **kwargs
+        self,
+        context: RequestContext,
+        operation_id: OperationId,
+        owner_account: AWSAccountId | None = None,
+        **kwargs,
     ) -> GetOperationResponse:
         """Gets information about any operation that returns an operation ID in the
         response, such as a ``CreateHttpNamespace`` request.
@@ -1437,6 +1472,9 @@ class ServicediscoveryApi:
         `ListOperations <https://docs.aws.amazon.com/cloud-map/latest/api/API_ListOperations.html>`__.
 
         :param operation_id: The ID of the operation that you want to get more information about.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
+        associated with the operation, as specified in the namespace
+        ``ResourceOwner`` field.
         :returns: GetOperationResponse
         :raises InvalidInput:
         :raises OperationNotFound:
@@ -1444,10 +1482,11 @@ class ServicediscoveryApi:
         raise NotImplementedError
 
     @handler("GetService")
-    def get_service(self, context: RequestContext, id: ResourceId, **kwargs) -> GetServiceResponse:
+    def get_service(self, context: RequestContext, id: Arn, **kwargs) -> GetServiceResponse:
         """Gets the settings for a specified service.
 
-        :param id: The ID of the service that you want to get settings for.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to get
+        settings for.
         :returns: GetServiceResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1456,11 +1495,12 @@ class ServicediscoveryApi:
 
     @handler("GetServiceAttributes")
     def get_service_attributes(
-        self, context: RequestContext, service_id: ResourceId, **kwargs
+        self, context: RequestContext, service_id: Arn, **kwargs
     ) -> GetServiceAttributesResponse:
         """Returns the attributes associated with a specified service.
 
-        :param service_id: The ID of the service that you want to get attributes for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to get
+        attributes for.
         :returns: GetServiceAttributesResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1471,7 +1511,7 @@ class ServicediscoveryApi:
     def list_instances(
         self,
         context: RequestContext,
-        service_id: ResourceId,
+        service_id: Arn,
         next_token: NextToken | None = None,
         max_results: MaxResults | None = None,
         **kwargs,
@@ -1479,7 +1519,8 @@ class ServicediscoveryApi:
         """Lists summary information about the instances that you registered by
         using a specified service.
 
-        :param service_id: The ID of the service that you want to list instances for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to
+        list instances for.
         :param next_token: For the first ``ListInstances`` request, omit this value.
         :param max_results: The maximum number of instances that you want Cloud Map to return in the
         response to a ``ListInstances`` request.
@@ -1499,7 +1540,8 @@ class ServicediscoveryApi:
         **kwargs,
     ) -> ListNamespacesResponse:
         """Lists summary information about the namespaces that were created by the
-        current Amazon Web Services account.
+        current Amazon Web Services account and shared with the current Amazon
+        Web Services account.
 
         :param next_token: For the first ``ListNamespaces`` request, omit this value.
         :param max_results: The maximum number of namespaces that you want Cloud Map to return in
@@ -1573,7 +1615,7 @@ class ServicediscoveryApi:
     def register_instance(
         self,
         context: RequestContext,
-        service_id: ResourceId,
+        service_id: Arn,
         instance_id: InstanceId,
         attributes: Attributes,
         creator_request_id: ResourceId | None = None,
@@ -1615,8 +1657,8 @@ class ServicediscoveryApi:
         quotas <https://docs.aws.amazon.com/cloud-map/latest/dg/cloud-map-limits.html>`__
         in the *Cloud Map Developer Guide*.
 
-        :param service_id: The ID of the service that you want to use for settings for the
-        instance.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to use
+        for settings for the instance.
         :param instance_id: An identifier that you want to associate with the instance.
         :param attributes: A string map that contains the following information for the service
         that you specify in ``ServiceId``:
@@ -1674,14 +1716,15 @@ class ServicediscoveryApi:
     def update_http_namespace(
         self,
         context: RequestContext,
-        id: ResourceId,
+        id: Arn,
         namespace: HttpNamespaceChange,
         updater_request_id: ResourceId | None = None,
         **kwargs,
     ) -> UpdateHttpNamespaceResponse:
         """Updates an HTTP namespace.
 
-        :param id: The ID of the namespace that you want to update.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
+        update.
         :param namespace: Updated properties for the the HTTP namespace.
         :param updater_request_id: A unique string that identifies the request and that allows failed
         ``UpdateHttpNamespace`` requests to be retried without the risk of
@@ -1698,7 +1741,7 @@ class ServicediscoveryApi:
     def update_instance_custom_health_status(
         self,
         context: RequestContext,
-        service_id: ResourceId,
+        service_id: Arn,
         instance_id: ResourceId,
         status: CustomHealthStatus,
         **kwargs,
@@ -1715,8 +1758,9 @@ class ServicediscoveryApi:
         For more information, see
         `HealthCheckCustomConfig <https://docs.aws.amazon.com/cloud-map/latest/api/API_HealthCheckCustomConfig.html>`__.
 
-        :param service_id: The ID of the service that includes the configuration for the custom
-        health check that you want to change the status for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that includes the
+        configuration for the custom health check that you want to change the
+        status for.
         :param instance_id: The ID of the instance that you want to change the health status for.
         :param status: The new status of the instance, ``HEALTHY`` or ``UNHEALTHY``.
         :raises InstanceNotFound:
@@ -1730,14 +1774,15 @@ class ServicediscoveryApi:
     def update_private_dns_namespace(
         self,
         context: RequestContext,
-        id: ResourceId,
+        id: Arn,
         namespace: PrivateDnsNamespaceChange,
         updater_request_id: ResourceId | None = None,
         **kwargs,
     ) -> UpdatePrivateDnsNamespaceResponse:
         """Updates a private DNS namespace.
 
-        :param id: The ID of the namespace that you want to update.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
+        update.
         :param namespace: Updated properties for the private DNS namespace.
         :param updater_request_id: A unique string that identifies the request and that allows failed
         ``UpdatePrivateDnsNamespace`` requests to be retried without the risk of
@@ -1754,14 +1799,14 @@ class ServicediscoveryApi:
     def update_public_dns_namespace(
         self,
         context: RequestContext,
-        id: ResourceId,
+        id: Arn,
         namespace: PublicDnsNamespaceChange,
         updater_request_id: ResourceId | None = None,
         **kwargs,
     ) -> UpdatePublicDnsNamespaceResponse:
         """Updates a public DNS namespace.
 
-        :param id: The ID of the namespace being updated.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace being updated.
         :param namespace: Updated properties for the public DNS namespace.
         :param updater_request_id: A unique string that identifies the request and that allows failed
         ``UpdatePublicDnsNamespace`` requests to be retried without the risk of
@@ -1776,7 +1821,7 @@ class ServicediscoveryApi:
 
     @handler("UpdateService")
     def update_service(
-        self, context: RequestContext, id: ResourceId, service: ServiceChange, **kwargs
+        self, context: RequestContext, id: Arn, service: ServiceChange, **kwargs
     ) -> UpdateServiceResponse:
         """Submits a request to perform the following operations:
 
@@ -1797,11 +1842,21 @@ class ServicediscoveryApi:
            from an ``UpdateService`` request, the configuration isn't deleted
            from the service.
 
+        You can't call ``UpdateService`` and update settings in the following
+        scenarios:
+
+        -  When the service is associated with an HTTP namespace
+
+        -  When the service is associated with a shared namespace and contains
+           instances that were registered by Amazon Web Services accounts other
+           than the account making the ``UpdateService`` call
+
         When you update settings for a service, Cloud Map also updates the
         corresponding settings in all the records and health checks that were
         created by using the specified service.
 
-        :param id: The ID of the service that you want to update.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to
+        update.
         :param service: A complex type that contains the new settings for the service.
         :returns: UpdateServiceResponse
         :raises DuplicateRequest:
@@ -1812,16 +1867,13 @@ class ServicediscoveryApi:
 
     @handler("UpdateServiceAttributes")
     def update_service_attributes(
-        self,
-        context: RequestContext,
-        service_id: ResourceId,
-        attributes: ServiceAttributesMap,
-        **kwargs,
+        self, context: RequestContext, service_id: Arn, attributes: ServiceAttributesMap, **kwargs
     ) -> UpdateServiceAttributesResponse:
         """Submits a request to update a specified service to add service-level
         attributes.
 
-        :param service_id: The ID of the service that you want to update.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to
+        update.
         :param attributes: A string map that contains attribute key-value pairs.
         :returns: UpdateServiceAttributesResponse
         :raises InvalidInput:

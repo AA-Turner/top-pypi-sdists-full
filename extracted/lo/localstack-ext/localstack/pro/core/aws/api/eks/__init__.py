@@ -34,6 +34,7 @@ TagValue = str
 ZeroCapacity = int
 labelKey = str
 labelValue = str
+namespace = str
 requiredClaimsKey = str
 requiredClaimsValue = str
 taintKey = str
@@ -216,6 +217,12 @@ class InsightStatusValue(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class InsightsRefreshStatus(StrEnum):
+    IN_PROGRESS = "IN_PROGRESS"
+    FAILED = "FAILED"
+    COMPLETED = "COMPLETED"
+
+
 class IpFamily(StrEnum):
     ipv4 = "ipv4"
     ipv6 = "ipv6"
@@ -337,6 +344,7 @@ class UpdateParamType(StrEnum):
     StorageConfig = "StorageConfig"
     KubernetesNetworkConfig = "KubernetesNetworkConfig"
     RemoteNetworkConfig = "RemoteNetworkConfig"
+    DeletionProtection = "DeletionProtection"
 
 
 class UpdateStatus(StrEnum):
@@ -361,6 +369,7 @@ class UpdateType(StrEnum):
     ZonalShiftConfigUpdate = "ZonalShiftConfigUpdate"
     AutoModeUpdate = "AutoModeUpdate"
     RemoteNetworkConfigUpdate = "RemoteNetworkConfigUpdate"
+    DeletionProtectionUpdate = "DeletionProtectionUpdate"
 
 
 class VersionStatus(StrEnum):
@@ -578,21 +587,18 @@ class AccessConfigResponse(TypedDict, total=False):
 
 TagMap = Dict[TagKey, TagValue]
 Timestamp = datetime
-AccessEntry = TypedDict(
-    "AccessEntry",
-    {
-        "clusterName": Optional[String],
-        "principalArn": Optional[String],
-        "kubernetesGroups": Optional[StringList],
-        "accessEntryArn": Optional[String],
-        "createdAt": Optional[Timestamp],
-        "modifiedAt": Optional[Timestamp],
-        "tags": Optional[TagMap],
-        "username": Optional[String],
-        "type": Optional[String],
-    },
-    total=False,
-)
+
+
+class AccessEntry(TypedDict, total=False):
+    clusterName: Optional[String]
+    principalArn: Optional[String]
+    kubernetesGroups: Optional[StringList]
+    accessEntryArn: Optional[String]
+    createdAt: Optional[Timestamp]
+    modifiedAt: Optional[Timestamp]
+    tags: Optional[TagMap]
+    username: Optional[String]
+    type: Optional[String]
 
 
 class AccessPolicy(TypedDict, total=False):
@@ -615,15 +621,22 @@ class AccessPolicy(TypedDict, total=False):
 
 
 AccessPoliciesList = List[AccessPolicy]
-AccessScope = TypedDict(
-    "AccessScope",
-    {
-        "type": Optional[AccessScopeType],
-        "namespaces": Optional[StringList],
-    },
-    total=False,
-)
+
+
+class AccessScope(TypedDict, total=False):
+    type: Optional[AccessScopeType]
+    namespaces: Optional[StringList]
+
+
 AdditionalInfoMap = Dict[String, String]
+
+
+class AddonNamespaceConfigResponse(TypedDict, total=False):
+    """The namespace configuration response object containing information about
+    the namespace where an addon is installed.
+    """
+
+    namespace: Optional[namespace]
 
 
 class MarketplaceInformation(TypedDict, total=False):
@@ -673,6 +686,7 @@ class Addon(TypedDict, total=False):
     marketplaceInformation: Optional[MarketplaceInformation]
     configurationValues: Optional[String]
     podIdentityAssociations: Optional[StringList]
+    namespaceConfig: Optional[AddonNamespaceConfigResponse]
 
 
 class AddonCompatibilityDetail(TypedDict, total=False):
@@ -711,18 +725,24 @@ class AddonVersionInfo(TypedDict, total=False):
 
 
 AddonVersionInfoList = List[AddonVersionInfo]
-AddonInfo = TypedDict(
-    "AddonInfo",
-    {
-        "addonName": Optional[String],
-        "type": Optional[String],
-        "addonVersions": Optional[AddonVersionInfoList],
-        "publisher": Optional[String],
-        "owner": Optional[String],
-        "marketplaceInformation": Optional[MarketplaceInformation],
-    },
-    total=False,
-)
+
+
+class AddonInfo(TypedDict, total=False):
+    addonName: Optional[String]
+    type: Optional[String]
+    addonVersions: Optional[AddonVersionInfoList]
+    publisher: Optional[String]
+    owner: Optional[String]
+    marketplaceInformation: Optional[MarketplaceInformation]
+    defaultNamespace: Optional[String]
+
+
+class AddonNamespaceConfigRequest(TypedDict, total=False):
+    """The namespace configuration request object for specifying a custom
+    namespace when creating an addon.
+    """
+
+    namespace: Optional[namespace]
 
 
 class AddonPodIdentityAssociations(TypedDict, total=False):
@@ -810,27 +830,23 @@ class ErrorDetail(TypedDict, total=False):
 
 
 ErrorDetails = List[ErrorDetail]
-UpdateParam = TypedDict(
-    "UpdateParam",
-    {
-        "type": Optional[UpdateParamType],
-        "value": Optional[String],
-    },
-    total=False,
-)
+
+
+class UpdateParam(TypedDict, total=False):
+    type: Optional[UpdateParamType]
+    value: Optional[String]
+
+
 UpdateParams = List[UpdateParam]
-Update = TypedDict(
-    "Update",
-    {
-        "id": Optional[String],
-        "status": Optional[UpdateStatus],
-        "type": Optional[UpdateType],
-        "params": Optional[UpdateParams],
-        "createdAt": Optional[Timestamp],
-        "errors": Optional[ErrorDetails],
-    },
-    total=False,
-)
+
+
+class Update(TypedDict, total=False):
+    id: Optional[String]
+    status: Optional[UpdateStatus]
+    type: Optional[UpdateType]
+    params: Optional[UpdateParams]
+    createdAt: Optional[Timestamp]
+    errors: Optional[ErrorDetails]
 
 
 class AssociateEncryptionConfigResponse(TypedDict, total=False):
@@ -1181,6 +1197,7 @@ class Cluster(TypedDict, total=False):
     remoteNetworkConfig: Optional[RemoteNetworkConfigResponse]
     computeConfig: Optional[ComputeConfigResponse]
     storageConfig: Optional[StorageConfigResponse]
+    deletionProtection: Optional[BoxedBoolean]
 
 
 class ClusterVersionInformation(TypedDict, total=False):
@@ -1238,19 +1255,14 @@ class CreateAccessConfigRequest(TypedDict, total=False):
     authenticationMode: Optional[AuthenticationMode]
 
 
-CreateAccessEntryRequest = TypedDict(
-    "CreateAccessEntryRequest",
-    {
-        "clusterName": String,
-        "principalArn": String,
-        "kubernetesGroups": Optional[StringList],
-        "tags": Optional[TagMap],
-        "clientRequestToken": Optional[String],
-        "username": Optional[String],
-        "type": Optional[String],
-    },
-    total=False,
-)
+class CreateAccessEntryRequest(TypedDict, total=False):
+    clusterName: String
+    principalArn: String
+    kubernetesGroups: Optional[StringList]
+    tags: Optional[TagMap]
+    clientRequestToken: Optional[String]
+    username: Optional[String]
+    type: Optional[String]
 
 
 class CreateAccessEntryResponse(TypedDict, total=False):
@@ -1267,6 +1279,7 @@ class CreateAddonRequest(ServiceRequest):
     tags: Optional[TagMap]
     configurationValues: Optional[String]
     podIdentityAssociations: Optional[AddonPodIdentityAssociationsList]
+    namespaceConfig: Optional[AddonNamespaceConfigRequest]
 
 
 class CreateAddonResponse(TypedDict, total=False):
@@ -1363,6 +1376,7 @@ class CreateClusterRequest(ServiceRequest):
     remoteNetworkConfig: Optional[RemoteNetworkConfigRequest]
     computeConfig: Optional[ComputeConfigRequest]
     storageConfig: Optional[StorageConfigRequest]
+    deletionProtection: Optional[BoxedBoolean]
 
 
 class CreateClusterResponse(TypedDict, total=False):
@@ -1857,14 +1871,9 @@ class DescribeFargateProfileResponse(TypedDict, total=False):
     fargateProfile: Optional[FargateProfile]
 
 
-IdentityProviderConfig = TypedDict(
-    "IdentityProviderConfig",
-    {
-        "type": String,
-        "name": String,
-    },
-    total=False,
-)
+class IdentityProviderConfig(TypedDict, total=False):
+    type: String
+    name: String
 
 
 class DescribeIdentityProviderConfigRequest(ServiceRequest):
@@ -1955,6 +1964,17 @@ class Insight(TypedDict, total=False):
 
 class DescribeInsightResponse(TypedDict, total=False):
     insight: Optional[Insight]
+
+
+class DescribeInsightsRefreshRequest(ServiceRequest):
+    clusterName: String
+
+
+class DescribeInsightsRefreshResponse(TypedDict, total=False):
+    message: Optional[String]
+    status: Optional[InsightsRefreshStatus]
+    startedAt: Optional[Timestamp]
+    endedAt: Optional[Timestamp]
 
 
 class DescribeNodegroupRequest(ServiceRequest):
@@ -2226,6 +2246,15 @@ class RegisterClusterResponse(TypedDict, total=False):
     cluster: Optional[Cluster]
 
 
+class StartInsightsRefreshRequest(ServiceRequest):
+    clusterName: String
+
+
+class StartInsightsRefreshResponse(TypedDict, total=False):
+    message: Optional[String]
+    status: Optional[InsightsRefreshStatus]
+
+
 TagKeyList = List[TagKey]
 
 
@@ -2292,6 +2321,7 @@ class UpdateClusterConfigRequest(ServiceRequest):
     kubernetesNetworkConfig: Optional[KubernetesNetworkConfigRequest]
     storageConfig: Optional[StorageConfigRequest]
     remoteNetworkConfig: Optional[RemoteNetworkConfigRequest]
+    deletionProtection: Optional[BoxedBoolean]
 
 
 class UpdateClusterConfigResponse(TypedDict, total=False):
@@ -2542,6 +2572,7 @@ class EksApi:
         tags: TagMap | None = None,
         configuration_values: String | None = None,
         pod_identity_associations: AddonPodIdentityAssociationsList | None = None,
+        namespace_config: AddonNamespaceConfigRequest | None = None,
         **kwargs,
     ) -> CreateAddonResponse:
         """Creates an Amazon EKS add-on.
@@ -2563,6 +2594,7 @@ class EksApi:
         :param tags: Metadata that assists with categorization and organization.
         :param configuration_values: The set of configuration values for the add-on that's created.
         :param pod_identity_associations: An array of EKS Pod Identity associations to be created.
+        :param namespace_config: The namespace configuration for the addon.
         :returns: CreateAddonResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -2594,6 +2626,7 @@ class EksApi:
         remote_network_config: RemoteNetworkConfigRequest | None = None,
         compute_config: ComputeConfigRequest | None = None,
         storage_config: StorageConfigRequest | None = None,
+        deletion_protection: BoxedBoolean | None = None,
         **kwargs,
     ) -> CreateClusterResponse:
         """Creates an Amazon EKS control plane.
@@ -2670,6 +2703,7 @@ class EksApi:
         your EKS Auto Mode cluster.
         :param storage_config: Enable or disable the block storage capability of EKS Auto Mode when
         creating your EKS Auto Mode cluster.
+        :param deletion_protection: Indicates whether to enable deletion protection for the cluster.
         :returns: CreateClusterResponse
         :raises ResourceInUseException:
         :raises ResourceLimitExceededException:
@@ -3022,6 +3056,7 @@ class EksApi:
         :raises ClientException:
         :raises ServerException:
         :raises ServiceUnavailableException:
+        :raises InvalidRequestException:
         """
         raise NotImplementedError
 
@@ -3329,6 +3364,22 @@ class EksApi:
         :param cluster_name: The name of the cluster to describe the insight for.
         :param id: The identity of the insight to describe.
         :returns: DescribeInsightResponse
+        :raises ServerException:
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises InvalidParameterException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeInsightsRefresh")
+    def describe_insights_refresh(
+        self, context: RequestContext, cluster_name: String, **kwargs
+    ) -> DescribeInsightsRefreshResponse:
+        """Returns the status of the latest on-demand cluster insights refresh
+        operation.
+
+        :param cluster_name: The name of the cluster associated with the insights refresh operation.
+        :returns: DescribeInsightsRefreshResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3838,6 +3889,22 @@ class EksApi:
         """
         raise NotImplementedError
 
+    @handler("StartInsightsRefresh")
+    def start_insights_refresh(
+        self, context: RequestContext, cluster_name: String, **kwargs
+    ) -> StartInsightsRefreshResponse:
+        """Initiates an on-demand refresh operation for cluster insights, getting
+        the latest analysis outside of the standard refresh schedule.
+
+        :param cluster_name: The name of the cluster for the refresh insights operation.
+        :returns: StartInsightsRefreshResponse
+        :raises ServerException:
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises InvalidParameterException:
+        """
+        raise NotImplementedError
+
     @handler("TagResource")
     def tag_resource(
         self, context: RequestContext, resource_arn: String, tags: TagMap, **kwargs
@@ -3954,6 +4021,7 @@ class EksApi:
         kubernetes_network_config: KubernetesNetworkConfigRequest | None = None,
         storage_config: StorageConfigRequest | None = None,
         remote_network_config: RemoteNetworkConfigRequest | None = None,
+        deletion_protection: BoxedBoolean | None = None,
         **kwargs,
     ) -> UpdateClusterConfigResponse:
         """Updates an Amazon EKS cluster configuration. Your cluster continues to
@@ -4024,6 +4092,8 @@ class EksApi:
         :param storage_config: Update the configuration of the block storage capability of your EKS
         Auto Mode cluster.
         :param remote_network_config: The configuration in the cluster for EKS Hybrid Nodes.
+        :param deletion_protection: Specifies whether to enable or disable deletion protection for the
+        cluster.
         :returns: UpdateClusterConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:

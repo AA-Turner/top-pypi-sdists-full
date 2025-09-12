@@ -2,7 +2,7 @@ _C='response'
 _B='--name'
 _A=True
 import json
-from typing import Optional,Tuple
+from typing import Optional
 import click,requests
 from localstack import constants as localstack_constants
 from localstack.cli import console

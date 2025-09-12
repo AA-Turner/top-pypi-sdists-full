@@ -330,7 +330,7 @@ class EMSys:
         # pyautogui.click(893, 549)
         await worker_sleep(5)
         try:
-            caminho_imagem = "assets\\banco_boleto.png"
+            caminho_imagem = "assets\\entrada_de_notas_16\\banco_boleto.png"
             # Verifica se apareceu a imagem de "sem dados"
             localizacao = pyautogui.locateOnScreen(caminho_imagem, confidence=0.9)
             if localizacao:

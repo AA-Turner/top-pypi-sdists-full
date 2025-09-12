@@ -56,9 +56,6 @@ clean-test: FORCE
 	rm -fr .pytest_cache
 	rm -rf typings/
 
-typings/appdirs:
-	@echo "Creating appdirs stubs"
-	pyright --createstub appdirs
 typings/folium:
 	@echo "Creating folium stubs"
 	pyright --createstub folium
@@ -75,7 +72,7 @@ typings/matplotlib/__init__.pyi:
 	mv typings/python-type-stubs/stubs/matplotlib typings/
 	rm -rf typings/python-type-stubs
 
-pyright-typings: typings/appdirs typings/folium typings/uvicorn typings/seaborn typings/matplotlib/__init__.pyi
+pyright-typings: typings/folium typings/uvicorn typings/seaborn typings/matplotlib/__init__.pyi
 
 check: check-format check-lint check-types check-tests  ## check code, style, types, and test (basic CI)
 check-fix: format check-lint check-types check-tests ## check and format code, style, types, and test
@@ -126,6 +123,35 @@ docs-quartodoc: FORCE
 	@echo "-------- Making quartodoc docs --------"
 	@cd docs && make quartodoc
 
+install-repomix: install-npm FORCE ## Install repomix if not already installed
+	@echo "-------- Installing repomix if needed --------"
+	@if ! command -v repomix > /dev/null 2>&1; then \
+		echo "Installing repomix..."; \
+		npm install -g repomix; \
+	else \
+		echo "repomix is already installed"; \
+	fi
+
+update-testing-docs-repomix: install-repomix FORCE ## Generate repomix output for testing docs
+	@echo "-------- Generating repomix output for testing docs --------"
+	repomix docs/api/testing -o tests/inspect-ai/utils/scripts/repomix-output-testing.xml
+
+update-testing-docs-process: FORCE ## Process repomix output to generate testing documentation JSON
+	@echo "-------- Processing testing documentation --------"
+	python tests/inspect-ai/utils/scripts/process_docs.py --input tests/inspect-ai/utils/scripts/repomix-output-testing.xml --output shiny/pytest/_generate/_data/testing-documentation.json
+	@echo "-------- Cleaning up temporary files --------"
+	rm -f tests/inspect-ai/utils/scripts/repomix-output-testing.xml
+
+update-testing-docs: docs update-testing-docs-repomix update-testing-docs-process FORCE ## Update testing documentation (full pipeline)
+	@echo "-------- Testing documentation update complete --------"
+
+ci-install-ai-deps: FORCE
+	uv pip install -e ".[dev,test,add-test]"
+	$(MAKE) install-playwright
+
+run-test-ai-evaluation: FORCE ## Run the AI evaluation script for tests
+	@echo "-------- Running AI evaluation for tests --------"
+	bash ./tests/inspect-ai/scripts/run-test-evaluation.sh
 
 install-npm: FORCE
 	$(if $(shell which npm), @echo -n, $(error Please install node.js and npm first. See https://nodejs.org/en/download/ for instructions.))
@@ -223,6 +249,8 @@ install-deps: FORCE ## install dependencies
 	pip install -e ".[dev,test]" --upgrade
 ci-install-deps: FORCE
 	uv pip install -e ".[dev,test]"
+ci-install-py-shiny-templates-deps: FORCE
+	uv pip install -r py-shiny-templates/requirements.txt
 
 install-docs: FORCE
 	pip install -e ".[dev,test,doc]"
@@ -261,4 +289,4 @@ narwhals-test-integration: FORCE
 	@echo "-------- Running py-shiny format, lint, typing, and unit tests ----------"
 	$(MAKE) check
 	@echo "-------- Running py-shiny playwright tests ----------"
-	$(MAKE) playwright TEST_FILE="tests/playwright/shiny/components/data_frame" PYTEST_BROWSERS="--browser chromium"
+	$(MAKE) playwright TEST_FILE="tests/playwright/shiny/components/data_frame/data_type/" PYTEST_BROWSERS="--browser chromium"

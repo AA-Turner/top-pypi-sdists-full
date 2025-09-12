@@ -1,5 +1,4 @@
 from dataclasses import asdict,dataclass,field
-from typing import Dict
 from urllib.parse import quote,urlparse
 DEFAULT_REMOTE_SCHEME='platform'
 @dataclass
@@ -12,7 +11,7 @@ class RemoteConfig:
 		return A
 @dataclass
 class RemoteConfigParams:
-	remote_name:str;remote_params:Dict[str,str]=field(default_factory=dict)
+	remote_name:str;remote_params:dict[str,str]=field(default_factory=dict)
 	def render_url(B,remote_url):
 		A=remote_url
 		if B.remote_params:C={A:quote(B or'')for(A,B)in B.remote_params.items()};A=A.format(**C)

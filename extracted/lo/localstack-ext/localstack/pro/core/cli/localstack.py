@@ -24,7 +24,7 @@ def dns():0
 @publish_invocation
 def cmd_dns_systemd(set_):import localstack.pro.core.bootstrap.dns_utils;from localstack.pro.core.bootstrap.dns_utils import configure_systemd as A;console.print('Configuring systemd-resolved...');B=localstack.pro.core.bootstrap.dns_utils.LOG.name;localstack.pro.core.bootstrap.dns_utils.LOG=ConsoleLogger(B);A(not set_)
 class ConsoleLogger(logging.Logger):
-	def __init__(A,name):super(ConsoleLogger,A).__init__(name)
+	def __init__(A,name):super().__init__(name)
 	def info(B,msg,*A,**C):console.print(msg%A)
 	def warning(B,msg,*A,**C):console.print('[red]Warning:[/red] ',msg%A)
 	def error(B,msg,*A,**C):console.print(_A,msg%A)

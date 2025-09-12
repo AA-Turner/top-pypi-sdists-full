@@ -1,5 +1,4 @@
 import os
-from typing import List
 from localstack.packages import DownloadInstaller,Package,PackageInstaller
 from localstack.packages.java import JavaInstallerMixin
 from localstack.pro.core.constants import S3_ASSETS_BUCKET_URL

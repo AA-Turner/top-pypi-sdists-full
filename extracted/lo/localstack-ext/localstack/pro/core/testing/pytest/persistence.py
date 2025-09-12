@@ -8,10 +8,10 @@ _C=False
 _B=True
 _A=None
 import copy,logging,os,tempfile,textwrap
+from collections.abc import Callable
 from contextlib import contextmanager
 from enum import Enum
 from itertools import islice
-from typing import Callable,List,Optional,Union
 import pytest
 from _pytest._code import ExceptionInfo
 from _pytest._code.code import Code,filter_traceback
@@ -136,8 +136,8 @@ class PersistenceSession:
 	def close(A):
 		if(B:=A.localstack_session):B.close()
 class LocalstackDevContainerServer(Server):
-	entrypoint:str=textwrap.dedent('\n        #!/bin/bash\n\n        # we re-use the extension venv to install coverage lazily (TODO: use a python package and lpm)\n        .venv/bin/python -m localstack.pro.core.bootstrap.extensions init\n        /var/lib/localstack/lib/extensions/python_venv/bin/pip install coverage[toml]\n\n        # then we run a single localstack runtime process wrapped with coverage\n        .venv/bin/python -m coverage run --source localstack_ext -m localstack.runtime.main\n        ')
-	def __init__(A,volume_dir,port=constants.DEFAULT_PORT_EDGE,env=_A,container_client=DOCKER_CLIENT,mount_source_files=_A,mount_dependencies=_A,bind_host=_A):C=mount_dependencies;B=mount_source_files;super().__init__(port);A.container_name=f"ls-dev-{short_uid()}";A.volume_dir=volume_dir;A.env=env or{};A.bind_host=bind_host or'127.0.0.1';A.container_client=container_client;A.container_config=ContainerConfiguration('localstack/localstack-pro',volumes=VolumeMappings(),ports=PortMappings(A.bind_host),env_vars=dict());A._container=_A;A.mount_source_files=B if B is not _A else config.is_env_not_false(ENV_TEST_CONTAINER_MOUNT_SOURCES);A.mount_dependencies=C if C is not _A else config.is_env_true(ENV_TEST_CONTAINER_MOUNT_DEPENDENCIES)
+	entrypoint=textwrap.dedent('\n        #!/bin/bash\n\n        # we re-use the extension venv to install coverage lazily (TODO: use a python package and lpm)\n        .venv/bin/python -m localstack.pro.core.bootstrap.extensions init\n        /var/lib/localstack/lib/extensions/python_venv/bin/pip install coverage[toml]\n\n        # then we run a single localstack runtime process wrapped with coverage\n        .venv/bin/python -m coverage run --source localstack_ext -m localstack.runtime.main\n        ')
+	def __init__(A,volume_dir,port=constants.DEFAULT_PORT_EDGE,env=_A,container_client=DOCKER_CLIENT,mount_source_files=_A,mount_dependencies=_A,bind_host=_A):C=mount_dependencies;B=mount_source_files;super().__init__(port);A.container_name=f"ls-dev-{short_uid()}";A.volume_dir=volume_dir;A.env=env or{};A.bind_host=bind_host or'127.0.0.1';A.container_client=container_client;A.container_config=ContainerConfiguration('localstack/localstack-pro',volumes=VolumeMappings(),ports=PortMappings(A.bind_host),env_vars={});A._container=_A;A.mount_source_files=B if B is not _A else config.is_env_not_false(ENV_TEST_CONTAINER_MOUNT_SOURCES);A.mount_dependencies=C if C is not _A else config.is_env_true(ENV_TEST_CONTAINER_MOUNT_DEPENDENCIES)
 	def _get_container_configurators(A):
 		E='GITHUB_API_TOKEN';D='LOCALSTACK_AUTH_TOKEN';C=HostPaths(workspace_dir=os.path.abspath(os.path.join(constants.LOCALSTACK_VENV_FOLDER,'..','..')),volume_dir=A.volume_dir);B=[ContainerConfigurators.env_vars({D:os.getenv(D,'test'),'ACTIVATE_PRO':'1',_E:f"/var/lib/localstack/{COVERAGE_FILE_NAME}",'RDS_MYSQL_DOCKER':'1','MSSQL_ACCEPT_EULA':'Y','LAMBDA_INIT_POST_INVOKE_WAIT_MS':'50',E:os.getenv(E),'GATEWAY_LISTEN':f":{A.port},:4566,:443"if A.port!=4566 else':4566,:443'}),ContainerConfigurators.container_name(A.container_name),ContainerConfigurators.debug,ContainerConfigurators.port(A.port),ContainerConfigurators.service_port_range,ContainerConfigurators.mount_localstack_volume(A.volume_dir),ContainerConfigurators.mount_docker_socket,CustomEntryPointConfigurator(A.entrypoint),ContainerConfigurators.env_vars(A.env)]
 		if A.mount_source_files:B.append(SourceVolumeMountConfigurator(host_paths=C,pro=_B));B.append(EntryPointMountConfigurator(host_paths=C,pro=_B))

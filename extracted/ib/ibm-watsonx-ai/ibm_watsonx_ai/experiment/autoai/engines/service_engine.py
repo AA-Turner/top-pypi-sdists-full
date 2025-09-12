@@ -583,34 +583,6 @@ class ServiceEngine(BaseEngine):
                 "train_sample_rows_test_size"
             ] = self._auto_pipelines_parameters["train_sample_rows_test_size"]
 
-        if self._auto_pipelines_parameters.get("t_shirt_size") == "s":
-            self._pipeline_metadata[
-                self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-            ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                "daub_adaptive_subsampling_max_mem_usage"
-            ] = 6e9
-
-        elif self._auto_pipelines_parameters.get("t_shirt_size") == "m":
-            self._pipeline_metadata[
-                self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-            ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                "daub_adaptive_subsampling_max_mem_usage"
-            ] = 9e9
-
-        elif self._auto_pipelines_parameters.get("t_shirt_size") == "l":
-            self._pipeline_metadata[
-                self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-            ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                "daub_adaptive_subsampling_max_mem_usage"
-            ] = 15e9
-
-        elif self._auto_pipelines_parameters.get("t_shirt_size") == "xl":
-            self._pipeline_metadata[
-                self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-            ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                "daub_adaptive_subsampling_max_mem_usage"
-            ] = 25e9
-
         if self._auto_pipelines_parameters.get("include_only_estimators") is not None:
             # note: transform values from Enum
             try:
@@ -767,16 +739,7 @@ class ServiceEngine(BaseEngine):
                     ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                         "imputation_threshold"
                     ] = self._auto_pipelines_parameters.get("imputation_threshold")
-        elif self._auto_pipelines_parameters.get("prediction_type") in [
-            PredictionType.TIMESERIES_ANOMALY_PREDICTION,
-            PredictionType.TIMESERIES_ANOMALY_PREDICTION.replace("_", "-"),
-        ]:
-            # To be changed
-            self._pipeline_metadata[
-                self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-            ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"].pop(
-                "daub_adaptive_subsampling_max_mem_usage", None
-            )
+
         else:
             if self._auto_pipelines_parameters.get(
                 "numerical_imputation_value"

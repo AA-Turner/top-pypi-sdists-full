@@ -171,9 +171,11 @@ from .literals import (
     H265TreeblockSizeType,
     HlsAdMarkersType,
     HlsAkamaiHttpTransferModeType,
+    HlsAutoSelectType,
     HlsCaptionLanguageSettingType,
     HlsClientCacheType,
     HlsCodecSpecificationType,
+    HlsDefaultType,
     HlsDirectoryStructureType,
     HlsDiscontinuityTagsType,
     HlsEncryptionTypeType,
@@ -760,8 +762,13 @@ __all__ = (
     "MaintenanceUpdateSettingsTypeDef",
     "MediaConnectFlowRequestTypeDef",
     "MediaConnectFlowTypeDef",
+    "MediaPackageGroupSettingsOutputTypeDef",
     "MediaPackageGroupSettingsTypeDef",
     "MediaPackageOutputDestinationSettingsTypeDef",
+    "MediaPackageOutputSettingsTypeDef",
+    "MediaPackageV2DestinationSettingsTypeDef",
+    "MediaPackageV2GroupSettingsOutputTypeDef",
+    "MediaPackageV2GroupSettingsTypeDef",
     "MediaResourceNeighborTypeDef",
     "MediaResourceTypeDef",
     "MonitorDeploymentTypeDef",
@@ -2260,6 +2267,13 @@ class MediaPackageOutputDestinationSettingsTypeDef(TypedDict):
     ChannelName: NotRequired[str]
 
 
+class MediaPackageV2DestinationSettingsTypeDef(TypedDict):
+    AudioGroupId: NotRequired[str]
+    AudioRenditionSets: NotRequired[str]
+    HlsAutoSelect: NotRequired[HlsAutoSelectType]
+    HlsDefault: NotRequired[HlsDefaultType]
+
+
 class MediaResourceNeighborTypeDef(TypedDict):
     Arn: str
     Name: NotRequired[str]
@@ -2631,10 +2645,6 @@ class UpdateAccountConfigurationRequestTypeDef(TypedDict):
 
 
 class AdditionalDestinationsTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-
-
-class MediaPackageGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
 
 
@@ -3095,6 +3105,14 @@ class UpdateEventBridgeRuleTemplateGroupResponseTypeDef(TypedDict):
     Name: str
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class MediaPackageV2GroupSettingsOutputTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[List[CaptionLanguageMappingTypeDef]]
+
+
+class MediaPackageV2GroupSettingsTypeDef(TypedDict):
+    CaptionLanguageMappings: NotRequired[Sequence[CaptionLanguageMappingTypeDef]]
 
 
 class TeletextSourceSettingsTypeDef(TypedDict):
@@ -3993,6 +4011,10 @@ class StandardHlsSettingsTypeDef(TypedDict):
     AudioRenditionSets: NotRequired[str]
 
 
+class MediaPackageOutputSettingsTypeDef(TypedDict):
+    MediaPackageV2DestinationSettings: NotRequired[MediaPackageV2DestinationSettingsTypeDef]
+
+
 class MediaResourceTypeDef(TypedDict):
     Destinations: NotRequired[List[MediaResourceNeighborTypeDef]]
     Name: NotRequired[str]
@@ -4309,6 +4331,16 @@ class Av1SettingsTypeDef(TypedDict):
 class AvailConfigurationTypeDef(TypedDict):
     AvailSettings: NotRequired[AvailSettingsTypeDef]
     Scte35SegmentationScope: NotRequired[Scte35SegmentationScopeType]
+
+
+class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
+
+
+class MediaPackageGroupSettingsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
 
 
 class CaptionSelectorSettingsOutputTypeDef(TypedDict):
@@ -5388,7 +5420,7 @@ class OutputGroupSettingsOutputTypeDef(TypedDict):
     ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
     FrameCaptureGroupSettings: NotRequired[FrameCaptureGroupSettingsTypeDef]
     HlsGroupSettings: NotRequired[HlsGroupSettingsOutputTypeDef]
-    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsTypeDef]
+    MediaPackageGroupSettings: NotRequired[MediaPackageGroupSettingsOutputTypeDef]
     MsSmoothGroupSettings: NotRequired[MsSmoothGroupSettingsTypeDef]
     MultiplexGroupSettings: NotRequired[Dict[str, Any]]
     RtmpGroupSettings: NotRequired[RtmpGroupSettingsOutputTypeDef]
@@ -5522,7 +5554,7 @@ class OutputSettingsOutputTypeDef(TypedDict):
     ArchiveOutputSettings: NotRequired[ArchiveOutputSettingsOutputTypeDef]
     FrameCaptureOutputSettings: NotRequired[FrameCaptureOutputSettingsTypeDef]
     HlsOutputSettings: NotRequired[HlsOutputSettingsOutputTypeDef]
-    MediaPackageOutputSettings: NotRequired[Dict[str, Any]]
+    MediaPackageOutputSettings: NotRequired[MediaPackageOutputSettingsTypeDef]
     MsSmoothOutputSettings: NotRequired[MsSmoothOutputSettingsTypeDef]
     MultiplexOutputSettings: NotRequired[MultiplexOutputSettingsTypeDef]
     RtmpOutputSettings: NotRequired[RtmpOutputSettingsTypeDef]
@@ -5535,7 +5567,7 @@ class OutputSettingsTypeDef(TypedDict):
     ArchiveOutputSettings: NotRequired[ArchiveOutputSettingsTypeDef]
     FrameCaptureOutputSettings: NotRequired[FrameCaptureOutputSettingsTypeDef]
     HlsOutputSettings: NotRequired[HlsOutputSettingsTypeDef]
-    MediaPackageOutputSettings: NotRequired[Mapping[str, Any]]
+    MediaPackageOutputSettings: NotRequired[MediaPackageOutputSettingsTypeDef]
     MsSmoothOutputSettings: NotRequired[MsSmoothOutputSettingsTypeDef]
     MultiplexOutputSettings: NotRequired[MultiplexOutputSettingsTypeDef]
     RtmpOutputSettings: NotRequired[RtmpOutputSettingsTypeDef]

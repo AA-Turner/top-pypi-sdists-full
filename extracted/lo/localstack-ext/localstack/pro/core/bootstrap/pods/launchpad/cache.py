@@ -1,7 +1,5 @@
 _A='timestamp'
-import hashlib,logging,os
-from typing import Dict
-import requests
+import hashlib,logging,os,requests
 from localstack import config
 from localstack.pro.core.bootstrap.pods_client import get_runtime_pods_endpoint
 from localstack.utils.json import FileMappedDocument

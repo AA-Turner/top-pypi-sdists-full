@@ -106,7 +106,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
     """Transaction handler for all brokerages"""
 
     @property
-    def _order_request_queue(self) -> QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]:
+    def _order_request_queues(self) -> typing.List[QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]]:
         """
         OrderQueue holds the newly updated orders from the user algorithm waiting to be processed. Once
         orders are processed they are moved into the Orders queue awaiting the brokerage response.
@@ -115,8 +115,8 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    @_order_request_queue.setter
-    def _order_request_queue(self, value: QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]) -> None:
+    @_order_request_queues.setter
+    def _order_request_queues(self, value: typing.List[QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]]) -> None:
         ...
 
     @property
@@ -299,7 +299,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def initialize_transaction_thread(self) -> None:
+    def initialize_transaction_thread(self, processing_threads_count: int) -> None:
         """
         Create and start the transaction thread, who will be in charge of processing
         the order requests
@@ -350,7 +350,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def run(self) -> None:
+    def run(self, thread_id: int) -> None:
         """
         Primary thread entry point to launch the transaction thread.
         
@@ -398,7 +398,7 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         """
         ...
 
-    def initialize_transaction_thread(self) -> None:
+    def initialize_transaction_thread(self, thread_id: int) -> None:
         """
         For backtesting order requests will be processed by the algorithm thread
         sequentially at WaitForOrderSubmission and ProcessSynchronousEvents

@@ -145,6 +145,7 @@ from .literals import (
     NegativeValueDisplayModeType,
     NetworkInterfaceStatusType,
     NullFilterOptionType,
+    NullFilterTypeType,
     NumberScaleType,
     NumericEqualityMatchOperatorType,
     NumericSeparatorSymbolType,
@@ -167,6 +168,7 @@ from .literals import (
     PurchaseModeType,
     QAResultTypeType,
     QBusinessInsightsStatusType,
+    QDataKeyTypeType,
     QSearchStatusType,
     QueryExecutionModeType,
     RadarChartAxesRangeScaleType,
@@ -603,6 +605,7 @@ __all__ = (
     "CustomActionSetParametersOperationTypeDef",
     "CustomActionURLOperationTypeDef",
     "CustomColorTypeDef",
+    "CustomConnectionParametersTypeDef",
     "CustomContentConfigurationTypeDef",
     "CustomContentVisualOutputTypeDef",
     "CustomContentVisualTypeDef",
@@ -674,6 +677,7 @@ __all__ = (
     "DataSourceSummaryTypeDef",
     "DataSourceTypeDef",
     "DataStoriesConfigurationsTypeDef",
+    "DataStoriesSharingOptionTypeDef",
     "DatabricksParametersTypeDef",
     "DatasetMetadataOutputTypeDef",
     "DatasetMetadataTypeDef",
@@ -735,6 +739,8 @@ __all__ = (
     "DefaultSliderControlOptionsTypeDef",
     "DefaultTextAreaControlOptionsTypeDef",
     "DefaultTextFieldControlOptionsTypeDef",
+    "DeleteAccountCustomPermissionRequestTypeDef",
+    "DeleteAccountCustomPermissionResponseTypeDef",
     "DeleteAccountCustomizationRequestTypeDef",
     "DeleteAccountCustomizationResponseTypeDef",
     "DeleteAccountSubscriptionRequestTypeDef",
@@ -797,6 +803,8 @@ __all__ = (
     "DeleteUserResponseTypeDef",
     "DeleteVPCConnectionRequestTypeDef",
     "DeleteVPCConnectionResponseTypeDef",
+    "DescribeAccountCustomPermissionRequestTypeDef",
+    "DescribeAccountCustomPermissionResponseTypeDef",
     "DescribeAccountCustomizationRequestTypeDef",
     "DescribeAccountCustomizationResponseTypeDef",
     "DescribeAccountSettingsRequestTypeDef",
@@ -918,6 +926,7 @@ __all__ = (
     "ExasolParametersTypeDef",
     "ExcludePeriodConfigurationTypeDef",
     "ExecutiveSummaryConfigurationsTypeDef",
+    "ExecutiveSummaryOptionTypeDef",
     "ExplicitHierarchyOutputTypeDef",
     "ExplicitHierarchyTypeDef",
     "ExportHiddenFieldsOptionTypeDef",
@@ -1510,6 +1519,7 @@ __all__ = (
     "PutDataSetRefreshPropertiesRequestTypeDef",
     "PutDataSetRefreshPropertiesResponseTypeDef",
     "QAResultTypeDef",
+    "QDataKeyTypeDef",
     "QueryExecutionOptionsTypeDef",
     "QueueInfoTypeDef",
     "RadarChartAggregatedFieldWellsOutputTypeDef",
@@ -1878,6 +1888,7 @@ __all__ = (
     "TopicIRUnionTypeDef",
     "TopicNamedEntityOutputTypeDef",
     "TopicNamedEntityTypeDef",
+    "TopicNullFilterTypeDef",
     "TopicNumericEqualityFilterTypeDef",
     "TopicNumericRangeFilterTypeDef",
     "TopicRangeFilterConstantTypeDef",
@@ -1932,6 +1943,8 @@ __all__ = (
     "UntagColumnOperationUnionTypeDef",
     "UntagResourceRequestTypeDef",
     "UntagResourceResponseTypeDef",
+    "UpdateAccountCustomPermissionRequestTypeDef",
+    "UpdateAccountCustomPermissionResponseTypeDef",
     "UpdateAccountCustomizationRequestTypeDef",
     "UpdateAccountCustomizationResponseTypeDef",
     "UpdateAccountSettingsRequestTypeDef",
@@ -2531,6 +2544,8 @@ class CapabilitiesTypeDef(TypedDict):
     ExportToCsvInScheduledReports: NotRequired[Literal["DENY"]]
     ExportToExcelInScheduledReports: NotRequired[Literal["DENY"]]
     IncludeContentInScheduledReportsEmail: NotRequired[Literal["DENY"]]
+    Dashboard: NotRequired[Literal["DENY"]]
+    Analysis: NotRequired[Literal["DENY"]]
 
 class CastColumnTypeOperationTypeDef(TypedDict):
     ColumnName: str
@@ -2792,6 +2807,9 @@ class CustomActionURLOperationTypeDef(TypedDict):
     URLTemplate: str
     URLTarget: URLTargetConfigurationType
 
+class CustomConnectionParametersTypeDef(TypedDict):
+    ConnectionType: NotRequired[str]
+
 class CustomNarrativeOptionsTypeDef(TypedDict):
     Narrative: str
 
@@ -2820,6 +2838,12 @@ class DataPointTooltipOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
 class DataQAEnabledOptionTypeDef(TypedDict):
+    AvailabilityStatus: NotRequired[DashboardBehaviorType]
+
+class DataStoriesSharingOptionTypeDef(TypedDict):
+    AvailabilityStatus: NotRequired[DashboardBehaviorType]
+
+class ExecutiveSummaryOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
 class ExportToCSVOptionTypeDef(TypedDict):
@@ -3079,6 +3103,9 @@ class FilterSelectableValuesOutputTypeDef(TypedDict):
 class FilterSelectableValuesTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
+class DeleteAccountCustomPermissionRequestTypeDef(TypedDict):
+    AwsAccountId: str
+
 class DeleteAccountCustomizationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
@@ -3221,6 +3248,9 @@ class DeleteUserRequestTypeDef(TypedDict):
 class DeleteVPCConnectionRequestTypeDef(TypedDict):
     AwsAccountId: str
     VPCConnectionId: str
+
+class DescribeAccountCustomPermissionRequestTypeDef(TypedDict):
+    AwsAccountId: str
 
 class DescribeAccountCustomizationRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -3398,6 +3428,10 @@ class DescribeIpRestrictionRequestTypeDef(TypedDict):
 class DescribeKeyRegistrationRequestTypeDef(TypedDict):
     AwsAccountId: str
     DefaultKeyOnly: NotRequired[bool]
+
+class QDataKeyTypeDef(TypedDict):
+    QDataKeyArn: NotRequired[str]
+    QDataKeyType: NotRequired[QDataKeyTypeType]
 
 class RegisteredCustomerManagedKeyTypeDef(TypedDict):
     KeyArn: NotRequired[str]
@@ -4488,6 +4522,10 @@ class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
 
+class UpdateAccountCustomPermissionRequestTypeDef(TypedDict):
+    CustomPermissionsName: str
+    AwsAccountId: str
+
 class UpdateAccountSettingsRequestTypeDef(TypedDict):
     AwsAccountId: str
     DefaultNamespace: str
@@ -5174,6 +5212,11 @@ class CreateVPCConnectionResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteAccountCustomPermissionResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteAccountCustomizationResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
@@ -5357,6 +5400,12 @@ class DeleteVPCConnectionResponseTypeDef(TypedDict):
     VPCConnectionId: str
     DeletionStatus: VPCConnectionResourceStatusType
     AvailabilityStatus: VPCConnectionAvailabilityStatusType
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeAccountCustomPermissionResponseTypeDef(TypedDict):
+    CustomPermissionsName: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5565,6 +5614,11 @@ class TagResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UntagResourceResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAccountCustomPermissionResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6499,6 +6553,7 @@ class DescribeIAMPolicyAssignmentResponseTypeDef(TypedDict):
 class DescribeKeyRegistrationResponseTypeDef(TypedDict):
     AwsAccountId: str
     KeyRegistration: List[RegisteredCustomerManagedKeyTypeDef]
+    QDataKey: QDataKeyTypeDef
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7059,6 +7114,11 @@ class TableFieldImageConfigurationTypeDef(TypedDict):
 class TextBoxInteractionOptionsTypeDef(TypedDict):
     TextBoxMenuOption: NotRequired[TextBoxMenuOptionTypeDef]
 
+class TopicNullFilterTypeDef(TypedDict):
+    NullFilterType: NotRequired[NullFilterTypeType]
+    Constant: NotRequired[TopicSingularFilterConstantTypeDef]
+    Inverse: NotRequired[bool]
+
 class TopicNumericEqualityFilterTypeDef(TypedDict):
     Constant: NotRequired[TopicSingularFilterConstantTypeDef]
     Aggregation: NotRequired[NamedFilterAggTypeType]
@@ -7373,6 +7433,8 @@ class DashboardPublishOptionsTypeDef(TypedDict):
     DataPointMenuLabelOption: NotRequired[DataPointMenuLabelOptionTypeDef]
     DataPointTooltipOption: NotRequired[DataPointTooltipOptionTypeDef]
     DataQAEnabledOption: NotRequired[DataQAEnabledOptionTypeDef]
+    ExecutiveSummaryOption: NotRequired[ExecutiveSummaryOptionTypeDef]
+    DataStoriesSharingOption: NotRequired[DataStoriesSharingOptionTypeDef]
 
 class DataPathColorTypeDef(TypedDict):
     Element: DataPathValueTypeDef
@@ -8113,6 +8175,7 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
     ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
+    CustomConnectionParameters: NotRequired[CustomConnectionParametersTypeDef]
 
 class DestinationParameterValueConfigurationTypeDef(TypedDict):
     CustomValuesConfiguration: NotRequired[CustomValuesConfigurationTypeDef]
@@ -8515,6 +8578,7 @@ class TopicFilterOutputTypeDef(TypedDict):
     NumericRangeFilter: NotRequired[TopicNumericRangeFilterTypeDef]
     DateRangeFilter: NotRequired[TopicDateRangeFilterTypeDef]
     RelativeDateFilter: NotRequired[TopicRelativeDateFilterTypeDef]
+    NullFilter: NotRequired[TopicNullFilterTypeDef]
 
 class TopicFilterTypeDef(TypedDict):
     FilterName: str
@@ -8528,6 +8592,7 @@ class TopicFilterTypeDef(TypedDict):
     NumericRangeFilter: NotRequired[TopicNumericRangeFilterTypeDef]
     DateRangeFilter: NotRequired[TopicDateRangeFilterTypeDef]
     RelativeDateFilter: NotRequired[TopicRelativeDateFilterTypeDef]
+    NullFilter: NotRequired[TopicNullFilterTypeDef]
 
 RedshiftParametersUnionTypeDef = Union[RedshiftParametersTypeDef, RedshiftParametersOutputTypeDef]
 
@@ -9314,6 +9379,7 @@ class DataSourceParametersTypeDef(TypedDict):
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
     ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
+    CustomConnectionParameters: NotRequired[CustomConnectionParametersTypeDef]
 
 class CreateRefreshScheduleRequestTypeDef(TypedDict):
     DataSetId: str

@@ -198,6 +198,7 @@ class ConfigurationTypeDef(TypedDict):
 
 class EksInfoTypeDef(TypedDict):
     namespace: NotRequired[str]
+    nodeLabel: NotRequired[str]
 
 
 class ContainerLogRotationConfigurationTypeDef(TypedDict):
@@ -900,6 +901,7 @@ class CreateSecurityConfigurationRequestTypeDef(TypedDict):
     clientToken: str
     name: str
     securityConfigurationData: SecurityConfigurationDataTypeDef
+    containerProvider: NotRequired[ContainerProviderTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 

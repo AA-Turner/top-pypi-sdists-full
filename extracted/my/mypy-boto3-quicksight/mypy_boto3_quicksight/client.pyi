@@ -119,6 +119,8 @@ from .type_defs import (
     CreateVPCConnectionResponseTypeDef,
     DeleteAccountCustomizationRequestTypeDef,
     DeleteAccountCustomizationResponseTypeDef,
+    DeleteAccountCustomPermissionRequestTypeDef,
+    DeleteAccountCustomPermissionResponseTypeDef,
     DeleteAccountSubscriptionRequestTypeDef,
     DeleteAccountSubscriptionResponseTypeDef,
     DeleteAnalysisRequestTypeDef,
@@ -181,6 +183,8 @@ from .type_defs import (
     DeleteVPCConnectionResponseTypeDef,
     DescribeAccountCustomizationRequestTypeDef,
     DescribeAccountCustomizationResponseTypeDef,
+    DescribeAccountCustomPermissionRequestTypeDef,
+    DescribeAccountCustomPermissionResponseTypeDef,
     DescribeAccountSettingsRequestTypeDef,
     DescribeAccountSettingsResponseTypeDef,
     DescribeAccountSubscriptionRequestTypeDef,
@@ -395,6 +399,8 @@ from .type_defs import (
     UntagResourceResponseTypeDef,
     UpdateAccountCustomizationRequestTypeDef,
     UpdateAccountCustomizationResponseTypeDef,
+    UpdateAccountCustomPermissionRequestTypeDef,
+    UpdateAccountCustomPermissionResponseTypeDef,
     UpdateAccountSettingsRequestTypeDef,
     UpdateAccountSettingsResponseTypeDef,
     UpdateAnalysisPermissionsRequestTypeDef,
@@ -599,7 +605,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[CreateAccountSubscriptionRequestTypeDef]
     ) -> CreateAccountSubscriptionResponseTypeDef:
         """
-        Creates an Amazon QuickSight account, or subscribes to Amazon QuickSight Q.
+        Creates an QuickSight account, or subscribes to QuickSight Q.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_account_subscription.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_account_subscription)
@@ -619,7 +625,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[CreateBrandRequestTypeDef]
     ) -> CreateBrandResponseTypeDef:
         """
-        Creates an Amazon QuickSight brand.
+        Creates an QuickSight brand.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_brand.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_brand)
@@ -690,8 +696,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[CreateGroupRequestTypeDef]
     ) -> CreateGroupResponseTypeDef:
         """
-        Use the <code>CreateGroup</code> operation to create a group in Amazon
-        QuickSight.
+        Use the <code>CreateGroup</code> operation to create a group in QuickSight.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_group.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_group)
@@ -753,8 +758,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[CreateRoleMembershipRequestTypeDef]
     ) -> CreateRoleMembershipResponseTypeDef:
         """
-        Use <code>CreateRoleMembership</code> to add an existing Amazon QuickSight
-        group to an existing role.
+        Use <code>CreateRoleMembership</code> to add an existing QuickSight group to an
+        existing role.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_role_membership.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_role_membership)
@@ -765,7 +770,7 @@ class QuickSightClient(BaseClient):
     ) -> CreateTemplateResponseTypeDef:
         """
         Creates a template either from a <code>TemplateDefinition</code> or from an
-        existing Amazon QuickSight analysis or template.
+        existing QuickSight analysis or template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_template.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_template)
@@ -831,12 +836,22 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_vpc_connection)
         """
 
+    def delete_account_custom_permission(
+        self, **kwargs: Unpack[DeleteAccountCustomPermissionRequestTypeDef]
+    ) -> DeleteAccountCustomPermissionResponseTypeDef:
+        """
+        Unapplies a custom permissions profile from an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_account_custom_permission.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_account_custom_permission)
+        """
+
     def delete_account_customization(
         self, **kwargs: Unpack[DeleteAccountCustomizationRequestTypeDef]
     ) -> DeleteAccountCustomizationResponseTypeDef:
         """
         Deletes all Amazon QuickSight customizations in this Amazon Web Services Region
-        for the specified Amazon Web Services account and Amazon QuickSight namespace.
+        for the specified Amazon Web Services account and QuickSight namespace.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_account_customization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_account_customization)
@@ -846,7 +861,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DeleteAccountSubscriptionRequestTypeDef]
     ) -> DeleteAccountSubscriptionResponseTypeDef:
         """
-        Use the <code>DeleteAccountSubscription</code> operation to delete an Amazon
+        Use the <code>DeleteAccountSubscription</code> operation to delete an
         QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_account_subscription.html)
@@ -867,7 +882,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DeleteBrandRequestTypeDef]
     ) -> DeleteBrandResponseTypeDef:
         """
-        Deletes an Amazon QuickSight brand.
+        Deletes an QuickSight brand.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_brand.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_brand)
@@ -937,8 +952,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DeleteDefaultQBusinessApplicationRequestTypeDef]
     ) -> DeleteDefaultQBusinessApplicationResponseTypeDef:
         """
-        Deletes a linked Amazon Q Business application from an Amazon QuickSight
-        account.
+        Deletes a linked Amazon Q Business application from an QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_default_q_business_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_default_q_business_application)
@@ -999,7 +1013,7 @@ class QuickSightClient(BaseClient):
     ) -> DeleteIdentityPropagationConfigResponseTypeDef:
         """
         Deletes all access scopes and authorized targets that are associated with a
-        service from the Amazon QuickSight IAM Identity Center application.
+        service from the QuickSight IAM Identity Center application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_identity_propagation_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_identity_propagation_config)
@@ -1145,13 +1159,22 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_vpc_connection)
         """
 
+    def describe_account_custom_permission(
+        self, **kwargs: Unpack[DescribeAccountCustomPermissionRequestTypeDef]
+    ) -> DescribeAccountCustomPermissionResponseTypeDef:
+        """
+        Describes the custom permissions profile that is applied to an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_account_custom_permission.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_account_custom_permission)
+        """
+
     def describe_account_customization(
         self, **kwargs: Unpack[DescribeAccountCustomizationRequestTypeDef]
     ) -> DescribeAccountCustomizationResponseTypeDef:
         """
         Describes the customizations associated with the provided Amazon Web Services
-        account and Amazon Amazon QuickSight namespace in an Amazon Web Services
-        Region.
+        account and Amazon QuickSight namespace in an Amazon Web Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_account_customization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_account_customization)
@@ -1161,8 +1184,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DescribeAccountSettingsRequestTypeDef]
     ) -> DescribeAccountSettingsResponseTypeDef:
         """
-        Describes the settings that were used when your Amazon QuickSight subscription
-        was first created in this Amazon Web Services account.
+        Describes the settings that were used when your QuickSight subscription was
+        first created in this Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_account_settings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_account_settings)
@@ -1173,7 +1196,7 @@ class QuickSightClient(BaseClient):
     ) -> DescribeAccountSubscriptionResponseTypeDef:
         """
         Use the DescribeAccountSubscription operation to receive a description of an
-        Amazon QuickSight account's subscription.
+        QuickSight account's subscription.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_account_subscription.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_account_subscription)
@@ -1383,8 +1406,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DescribeDefaultQBusinessApplicationRequestTypeDef]
     ) -> DescribeDefaultQBusinessApplicationResponseTypeDef:
         """
-        Describes a Amazon Q Business application that is linked to an Amazon
-        QuickSight account.
+        Describes a Amazon Q Business application that is linked to an QuickSight
+        account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_default_q_business_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_default_q_business_application)
@@ -1476,7 +1499,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DescribeKeyRegistrationRequestTypeDef]
     ) -> DescribeKeyRegistrationResponseTypeDef:
         """
-        Describes all customer managed key registrations in a Amazon QuickSight account.
+        Describes all customer managed key registrations in a QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_key_registration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_key_registration)
@@ -1506,7 +1529,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DescribeQuickSightQSearchConfigurationRequestTypeDef]
     ) -> DescribeQuickSightQSearchConfigurationResponseTypeDef:
         """
-        Describes the state of a Amazon QuickSight Q Search configuration.
+        Describes the state of a QuickSight Q Search configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_quick_sight_q_search_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_quick_sight_q_search_configuration)
@@ -1688,8 +1711,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[GenerateEmbedUrlForRegisteredUserWithIdentityRequestTypeDef]
     ) -> GenerateEmbedUrlForRegisteredUserWithIdentityResponseTypeDef:
         """
-        Generates an embed URL that you can use to embed an Amazon QuickSight
-        experience in your website.
+        Generates an embed URL that you can use to embed an QuickSight experience in
+        your website.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/generate_embed_url_for_registered_user_with_identity.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#generate_embed_url_for_registered_user_with_identity)
@@ -1700,7 +1723,7 @@ class QuickSightClient(BaseClient):
     ) -> GetDashboardEmbedUrlResponseTypeDef:
         """
         Generates a temporary session URL and authorization code(bearer token) that you
-        can use to embed an Amazon QuickSight read-only dashboard in your website or
+        can use to embed an QuickSight read-only dashboard in your website or
         application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_dashboard_embed_url.html)
@@ -1712,7 +1735,7 @@ class QuickSightClient(BaseClient):
     ) -> GetSessionEmbedUrlResponseTypeDef:
         """
         Generates a session URL and authorization code that you can use to embed the
-        Amazon Amazon QuickSight console in your web server code.
+        Amazon QuickSight console in your web server code.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_session_embed_url.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_session_embed_url)
@@ -1752,7 +1775,7 @@ class QuickSightClient(BaseClient):
 
     def list_brands(self, **kwargs: Unpack[ListBrandsRequestTypeDef]) -> ListBrandsResponseTypeDef:
         """
-        Lists all brands in an Amazon QuickSight account.
+        Lists all brands in an QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_brands.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_brands)
@@ -1772,7 +1795,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[ListDashboardVersionsRequestTypeDef]
     ) -> ListDashboardVersionsResponseTypeDef:
         """
-        Lists all the versions of the dashboards in the Amazon QuickSight subscription.
+        Lists all the versions of the dashboards in the QuickSight subscription.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_dashboard_versions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_dashboard_versions)
@@ -1885,8 +1908,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[ListIdentityPropagationConfigsRequestTypeDef]
     ) -> ListIdentityPropagationConfigsResponseTypeDef:
         """
-        Lists all services and authorized targets that the Amazon QuickSight IAM
-        Identity Center application can access.
+        Lists all services and authorized targets that the QuickSight IAM Identity
+        Center application can access.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_identity_propagation_configs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_identity_propagation_configs)
@@ -2157,7 +2180,7 @@ class QuickSightClient(BaseClient):
     ) -> SearchGroupsResponseTypeDef:
         """
         Use the <code>SearchGroups</code> operation to search groups in a specified
-        Amazon QuickSight namespace using the supplied filters.
+        QuickSight namespace using the supplied filters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_groups.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_groups)
@@ -2167,7 +2190,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[SearchTopicsRequestTypeDef]
     ) -> SearchTopicsResponseTypeDef:
         """
-        Searches for any Q topic that exists in an Amazon QuickSight account.
+        Searches for any Q topic that exists in an QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_topics.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_topics)
@@ -2218,8 +2241,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> TagResourceResponseTypeDef:
         """
-        Assigns one or more tags (key-value pairs) to the specified Amazon QuickSight
-        resource.
+        Assigns one or more tags (key-value pairs) to the specified QuickSight resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/tag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#tag_resource)
@@ -2233,6 +2255,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#untag_resource)
+        """
+
+    def update_account_custom_permission(
+        self, **kwargs: Unpack[UpdateAccountCustomPermissionRequestTypeDef]
+    ) -> UpdateAccountCustomPermissionResponseTypeDef:
+        """
+        Applies a custom permissions profile to an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_account_custom_permission.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_account_custom_permission)
         """
 
     def update_account_customization(
@@ -2280,7 +2312,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateApplicationWithTokenExchangeGrantRequestTypeDef]
     ) -> UpdateApplicationWithTokenExchangeGrantResponseTypeDef:
         """
-        Updates an Amazon QuickSight application with a token exchange grant.
+        Updates an QuickSight application with a token exchange grant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_application_with_token_exchange_grant.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_application_with_token_exchange_grant)
@@ -2420,8 +2452,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateDefaultQBusinessApplicationRequestTypeDef]
     ) -> UpdateDefaultQBusinessApplicationResponseTypeDef:
         """
-        Updates a Amazon Q Business application that is linked to a Amazon QuickSight
-        account.
+        Updates a Amazon Q Business application that is linked to a QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_default_q_business_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_default_q_business_application)
@@ -2471,7 +2502,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateIdentityPropagationConfigRequestTypeDef]
     ) -> UpdateIdentityPropagationConfigResponseTypeDef:
         """
-        Adds or updates services and authorized targets to configure what the Amazon
+        Adds or updates services and authorized targets to configure what the
         QuickSight IAM Identity Center application can access.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_identity_propagation_config.html)
@@ -2492,7 +2523,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateKeyRegistrationRequestTypeDef]
     ) -> UpdateKeyRegistrationResponseTypeDef:
         """
-        Updates a customer managed key in a Amazon QuickSight account.
+        Updates a customer managed key in a QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_key_registration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_key_registration)
@@ -2503,7 +2534,7 @@ class QuickSightClient(BaseClient):
     ) -> UpdatePublicSharingSettingsResponseTypeDef:
         """
         Use the <code>UpdatePublicSharingSettings</code> operation to turn on or turn
-        off the public sharing settings of an Amazon QuickSight dashboard.
+        off the public sharing settings of an QuickSight dashboard.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_public_sharing_settings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_public_sharing_settings)
@@ -2523,7 +2554,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateQuickSightQSearchConfigurationRequestTypeDef]
     ) -> UpdateQuickSightQSearchConfigurationResponseTypeDef:
         """
-        Updates the state of a Amazon QuickSight Q Search configuration.
+        Updates the state of a QuickSight Q Search configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_quick_sight_q_search_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_quick_sight_q_search_configuration)
@@ -2553,7 +2584,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateSPICECapacityConfigurationRequestTypeDef]
     ) -> UpdateSPICECapacityConfigurationResponseTypeDef:
         """
-        Updates the SPICE capacity configuration for a Amazon QuickSight account.
+        Updates the SPICE capacity configuration for a QuickSight account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_spice_capacity_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_spice_capacity_configuration)

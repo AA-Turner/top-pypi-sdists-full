@@ -26,7 +26,7 @@ class FoundationModelsManager(WMLResource):
 
     @cached_property
     def TextModels(self):
-        return StrEnum("TextModels", self._get_model_dict("base"))
+        return StrEnum("TextModels", self._get_model_dict("text_generation"))
 
     @cached_property
     def ChatModels(self):
@@ -121,6 +121,7 @@ class FoundationModelsManager(WMLResource):
         limit: int | None = None,
         asynchronous: bool = False,
         get_all: bool = False,
+        filters: str | None = "function_text_generation,!lifecycle_withdrawn:and",
         **kwargs: Any,
     ) -> dict | Generator | None:
         """
@@ -138,6 +139,53 @@ class FoundationModelsManager(WMLResource):
         :param get_all: if True, will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
+        :param filters: a set of filters to specify the list of models, default to ``function_text_generation``
+            Filters are described by the following pattern:
+
+            ``pattern: tfilter[,tfilter][:(or|and)]``
+            ``tfilter: filter | !filter``
+
+            * ``filter`` – requires existence of the filter.
+            * ``!filter`` – requires absence of the filter.
+
+            **Available filters:**
+
+            .. list-table::
+               :header-rows: 1
+               :widths: 20 55 25
+
+               * - Filter
+                 - Description
+                 - Example
+               * - ``modelid_*``
+                 - Filters by model id. Selects a model with a specific model id.
+                 - ``modelid_ibm/granite-3-3-8b-instruct``
+               * - ``provider_*``
+                 - Filters by provider. Selects all models with a specific provider.
+                 - ``provider_IBM``
+               * - ``source_*``
+                 - Filters by source. Selects all models with a specific source.
+                 - ``source_IBM``
+               * - ``input_tier_*``
+                 - Filters by input tier. Selects all models with a specific input tier.
+                 - ``input_tier_class_1``
+               * - ``output_tier_*``
+                 - Filters by output tier. Selects all models with a specific output tier.
+                 - ``output_tier_class_c1``
+               * - ``tier_*``
+                 - Filters by tier. Selects all models with a specific input or output tier.
+                 - ``tier_class_12``
+               * - ``task_*``
+                 - Filters by task id. Selects all models supporting a specific task id.
+                 - ``task_generation``
+               * - ``lifecycle_*``
+                 - Filters by lifecycle state. Selects all models in the specified lifecycle state.
+                 - ``lifecycle_available``
+               * - ``function_*``
+                 - Filters by function. Selects all models supporting a specific function.
+                 - ``function_text_chat``
+        :type filters: str, list[str], optional
+
         :return: list of specifications for the deployed foundation model
         :rtype: dict or generator
 
@@ -150,16 +198,20 @@ class FoundationModelsManager(WMLResource):
 
             # GET MODEL SPECS BY MODEL_ID
             client.foundation_models.get_model_specs(model_id="google/flan-ul2")
+
+            # GET MODEL SPECS WITH ONE FILTER
+            client.foundation_models.get_model_specs(filters="function_text_generation")
+
+            # GET MODEL SPECS WITH MULTIPLE FILTERS
+            client.foundation_models.get_model_specs(filters="function_text_generation,function_text_chat,!lifecycle_withdrawn:and")
         """
+        WMLResource._validate_type(filters, "filters", str, mandatory=False)
+
         return self._get_spec(
             url=self._client._href_definitions.get_fm_specifications_href(),
             operation_name="Get available foundation models",
             error_msg_id="fm_prompt_tuning_no_model_specs",
-            filters=(
-                None
-                if self._client.CPD_version < 5.0
-                else "function_text_generation,!lifecycle_withdrawn:and"
-            ),
+            filters=(None if self._client.CPD_version < 5.0 else filters),
             model_id=model_id,
             limit=limit,
             asynchronous=asynchronous,
@@ -300,6 +352,56 @@ class FoundationModelsManager(WMLResource):
             error_msg_id="fm_prompt_tuning_no_model_specs",
             model_id=model_id,
             filters="function_audio_chat,!lifecycle_withdrawn:and",
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+        )
+
+    def get_text_generation_model_specs(
+        self,
+        model_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+    ) -> dict | Generator | None:
+        """
+        Operations to retrieve the list of text generation foundation models specifications.
+
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
+        :type model_id: str or ModelTypes, optional
+
+        :param limit: limit number of fetched records
+        :type limit: int, optional
+
+        :param asynchronous: if True, will work as a generator
+        :type asynchronous: bool, optional
+
+        :param get_all: if True, will get all entries in 'limited' chunks
+        :type get_all: bool, optional
+
+        :return: list of specifications for the deployed foundation model
+        :rtype: dict or generator
+
+        **Example:**
+
+        .. code-block:: python
+
+            # GET TEXT GENERATION MODEL SPECS
+            client.foundation_models.get_text_generation_model_specs()
+
+            # GET TEXT GENERATION MODEL SPECS BY MODEL_ID
+            client.foundation_models.get_text_generation_model_specs(model_id="google/flan-ul2")
+        """
+        return self._get_spec(
+            url=self._client._href_definitions.get_fm_specifications_href(),
+            operation_name="Get available text generation foundation models",
+            error_msg_id="fm_prompt_tuning_no_model_specs",
+            filters=(
+                None
+                if self._client.CPD_version < 5.0
+                else "function_text_generation,!lifecycle_withdrawn:and"
+            ),
+            model_id=model_id,
             limit=limit,
             asynchronous=asynchronous,
             get_all=get_all,
@@ -763,13 +865,14 @@ class FoundationModelsManager(WMLResource):
             "rerank",
             "time_series_forecast",
             "audio_transcriptions",
+            "text_generation",
         ],
     ) -> dict:
         """
         Retrieves the dictionary of models to Enum.
 
         :param model_type: type of model function
-        :type model_type: Literal["base", "embedding", "prompt_tuning", "text_chat", "rerank", "time_series_forecast", "audio_transcriptions"]
+        :type model_type: Literal["base", "embedding", "prompt_tuning", "text_chat", "rerank", "time_series_forecast", "audio_transcriptions", "text_generation"]
 
         :return: dictionary of models to Enum
         :rtype: dict
@@ -782,6 +885,7 @@ class FoundationModelsManager(WMLResource):
             "rerank": self.get_rerank_model_specs,
             "time_series_forecast": self.get_time_series_model_specs,
             "audio_transcriptions": self.get_audio_transcriptions_model_specs,
+            "text_generation": self.get_text_generation_model_specs,
         }
         model_specs_dict = {}
         for model_spec in function_dict[model_type]()["resources"]:

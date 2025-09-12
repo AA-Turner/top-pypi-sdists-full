@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_grants`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_grants`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants).
+Refer to the Terraform Registry for docs: [`data_snowflake_grants`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeGrants(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeGrants.DataSnowflakeGrants",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants snowflake_grants}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants snowflake_grants}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataSnowflakeGrants(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants snowflake_grants} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants snowflake_grants} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param future_grants_in: future_grants_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
-        :param future_grants_to: future_grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
-        :param grants_of: grants_of block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
-        :param grants_on: grants_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
-        :param grants_to: grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#id DataSnowflakeGrants#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param future_grants_in: future_grants_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
+        :param future_grants_to: future_grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
+        :param grants_of: grants_of block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
+        :param grants_on: grants_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
+        :param grants_to: grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#id DataSnowflakeGrants#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataSnowflakeGrants(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeGrants to import.
-        :param import_from_id: The id of the existing DataSnowflakeGrants that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeGrants that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeGrants to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class DataSnowflakeGrants(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Lists all privileges on new (i.e. future) objects of a specified type in the database granted to a role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
-        :param schema: Lists all privileges on new (i.e. future) objects of a specified type in the schema granted to a role. Schema must be a fully qualified name ("<db_name>"."<schema_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
+        :param database: Lists all privileges on new (i.e. future) objects of a specified type in the database granted to a role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
+        :param schema: Lists all privileges on new (i.e. future) objects of a specified type in the schema granted to a role. Schema must be a fully qualified name ("<db_name>"."<schema_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
         '''
         value = DataSnowflakeGrantsFutureGrantsIn(database=database, schema=schema)
 
@@ -152,8 +152,8 @@ class DataSnowflakeGrants(
         database_role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all privileges on new (i.e. future) objects of a specified type in a database or schema granted to the account role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param database_role: Lists all privileges on new (i.e. future) objects granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param account_role: Lists all privileges on new (i.e. future) objects of a specified type in a database or schema granted to the account role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param database_role: Lists all privileges on new (i.e. future) objects granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
         '''
         value = DataSnowflakeGrantsFutureGrantsTo(
             account_role=account_role, database_role=database_role
@@ -171,10 +171,10 @@ class DataSnowflakeGrants(
         share: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all users and roles to which the account role has been granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param application_role: Lists all the users and roles to which the application role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
-        :param database_role: Lists all users and roles to which the database role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
-        :param share: Lists all the accounts for the share and indicates the accounts that are using the share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        :param account_role: Lists all users and roles to which the account role has been granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param application_role: Lists all the users and roles to which the application role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        :param database_role: Lists all users and roles to which the database role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param share: Lists all the accounts for the share and indicates the accounts that are using the share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
         '''
         value = DataSnowflakeGrantsGrantsOf(
             account_role=account_role,
@@ -194,9 +194,9 @@ class DataSnowflakeGrants(
         object_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Object hierarchy to list privileges on. The only valid value is: ACCOUNT. Setting this attribute lists all the account-level (i.e. global) privileges that have been granted to roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
-        :param object_name: Name of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
-        :param object_type: Type of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
+        :param account: Object hierarchy to list privileges on. The only valid value is: ACCOUNT. Setting this attribute lists all the account-level (i.e. global) privileges that have been granted to roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
+        :param object_name: Name of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
+        :param object_type: Type of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
         '''
         value = DataSnowflakeGrantsGrantsOn(
             account=account, object_name=object_name, object_type=object_type
@@ -216,12 +216,12 @@ class DataSnowflakeGrants(
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all privileges and roles granted to the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param application: Lists all the privileges and roles granted to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
-        :param application_role: Lists all the privileges and roles granted to the application role. Must be a fully qualified name ("<app_name>"."<app_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
-        :param database_role: Lists all privileges and roles granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
-        :param share: share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
-        :param user: Lists all the roles granted to the user. Note that the PUBLIC role, which is automatically available to every user, is not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
+        :param account_role: Lists all privileges and roles granted to the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param application: Lists all the privileges and roles granted to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
+        :param application_role: Lists all the privileges and roles granted to the application role. Must be a fully qualified name ("<app_name>"."<app_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        :param database_role: Lists all privileges and roles granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param share: share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        :param user: Lists all the roles granted to the user. Note that the PUBLIC role, which is automatically available to every user, is not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
         '''
         value = DataSnowflakeGrantsGrantsTo(
             account_role=account_role,
@@ -393,12 +393,12 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param future_grants_in: future_grants_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
-        :param future_grants_to: future_grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
-        :param grants_of: grants_of block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
-        :param grants_on: grants_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
-        :param grants_to: grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#id DataSnowflakeGrants#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param future_grants_in: future_grants_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
+        :param future_grants_to: future_grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
+        :param grants_of: grants_of block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
+        :param grants_on: grants_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
+        :param grants_to: grants_to block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#id DataSnowflakeGrants#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,7 +523,7 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def future_grants_in(self) -> typing.Optional["DataSnowflakeGrantsFutureGrantsIn"]:
         '''future_grants_in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_in DataSnowflakeGrants#future_grants_in}
         '''
         result = self._values.get("future_grants_in")
         return typing.cast(typing.Optional["DataSnowflakeGrantsFutureGrantsIn"], result)
@@ -532,7 +532,7 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def future_grants_to(self) -> typing.Optional["DataSnowflakeGrantsFutureGrantsTo"]:
         '''future_grants_to block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#future_grants_to DataSnowflakeGrants#future_grants_to}
         '''
         result = self._values.get("future_grants_to")
         return typing.cast(typing.Optional["DataSnowflakeGrantsFutureGrantsTo"], result)
@@ -541,7 +541,7 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grants_of(self) -> typing.Optional["DataSnowflakeGrantsGrantsOf"]:
         '''grants_of block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_of DataSnowflakeGrants#grants_of}
         '''
         result = self._values.get("grants_of")
         return typing.cast(typing.Optional["DataSnowflakeGrantsGrantsOf"], result)
@@ -550,7 +550,7 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grants_on(self) -> typing.Optional["DataSnowflakeGrantsGrantsOn"]:
         '''grants_on block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_on DataSnowflakeGrants#grants_on}
         '''
         result = self._values.get("grants_on")
         return typing.cast(typing.Optional["DataSnowflakeGrantsGrantsOn"], result)
@@ -559,14 +559,14 @@ class DataSnowflakeGrantsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grants_to(self) -> typing.Optional["DataSnowflakeGrantsGrantsTo"]:
         '''grants_to block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#grants_to DataSnowflakeGrants#grants_to}
         '''
         result = self._values.get("grants_to")
         return typing.cast(typing.Optional["DataSnowflakeGrantsGrantsTo"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#id DataSnowflakeGrants#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#id DataSnowflakeGrants#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -599,8 +599,8 @@ class DataSnowflakeGrantsFutureGrantsIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database: Lists all privileges on new (i.e. future) objects of a specified type in the database granted to a role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
-        :param schema: Lists all privileges on new (i.e. future) objects of a specified type in the schema granted to a role. Schema must be a fully qualified name ("<db_name>"."<schema_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
+        :param database: Lists all privileges on new (i.e. future) objects of a specified type in the database granted to a role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
+        :param schema: Lists all privileges on new (i.e. future) objects of a specified type in the schema granted to a role. Schema must be a fully qualified name ("<db_name>"."<schema_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6add772fc9f6e2557f64ed071c05bc8901170952fc3d31d8cae895a579c98d05)
@@ -616,7 +616,7 @@ class DataSnowflakeGrantsFutureGrantsIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges on new (i.e. future) objects of a specified type in the database granted to a role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database DataSnowflakeGrants#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -625,7 +625,7 @@ class DataSnowflakeGrantsFutureGrantsIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges on new (i.e. future) objects of a specified type in the schema granted to a role. Schema must be a fully qualified name ("<db_name>"."<schema_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#schema DataSnowflakeGrants#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -733,8 +733,8 @@ class DataSnowflakeGrantsFutureGrantsTo:
         database_role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all privileges on new (i.e. future) objects of a specified type in a database or schema granted to the account role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param database_role: Lists all privileges on new (i.e. future) objects granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param account_role: Lists all privileges on new (i.e. future) objects of a specified type in a database or schema granted to the account role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param database_role: Lists all privileges on new (i.e. future) objects granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62cbddd0dddbbb1aa34b3be4a548a8d20ab655e7446e2792811fa28177828626)
@@ -750,7 +750,7 @@ class DataSnowflakeGrantsFutureGrantsTo:
     def account_role(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges on new (i.e. future) objects of a specified type in a database or schema granted to the account role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
         '''
         result = self._values.get("account_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -759,7 +759,7 @@ class DataSnowflakeGrantsFutureGrantsTo:
     def database_role(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges on new (i.e. future) objects granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
         '''
         result = self._values.get("database_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -968,10 +968,10 @@ class DataSnowflakeGrantsGrantsOf:
         share: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all users and roles to which the account role has been granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param application_role: Lists all the users and roles to which the application role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
-        :param database_role: Lists all users and roles to which the database role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
-        :param share: Lists all the accounts for the share and indicates the accounts that are using the share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        :param account_role: Lists all users and roles to which the account role has been granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param application_role: Lists all the users and roles to which the application role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        :param database_role: Lists all users and roles to which the database role has been granted. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param share: Lists all the accounts for the share and indicates the accounts that are using the share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95efc5e8313d2bdc6fe257f92f6f248a8672529b18ea534401d5723be8d2bfc4)
@@ -993,7 +993,7 @@ class DataSnowflakeGrantsGrantsOf:
     def account_role(self) -> typing.Optional[builtins.str]:
         '''Lists all users and roles to which the account role has been granted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
         '''
         result = self._values.get("account_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1004,7 +1004,7 @@ class DataSnowflakeGrantsGrantsOf:
 
         Must be a fully qualified name ("<db_name>"."<database_role_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
         '''
         result = self._values.get("application_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1015,7 +1015,7 @@ class DataSnowflakeGrantsGrantsOf:
 
         Must be a fully qualified name ("<db_name>"."<database_role_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
         '''
         result = self._values.get("database_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1024,7 +1024,7 @@ class DataSnowflakeGrantsGrantsOf:
     def share(self) -> typing.Optional[builtins.str]:
         '''Lists all the accounts for the share and indicates the accounts that are using the share.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
         '''
         result = self._values.get("share")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1179,9 +1179,9 @@ class DataSnowflakeGrantsGrantsOn:
         object_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Object hierarchy to list privileges on. The only valid value is: ACCOUNT. Setting this attribute lists all the account-level (i.e. global) privileges that have been granted to roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
-        :param object_name: Name of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
-        :param object_type: Type of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
+        :param account: Object hierarchy to list privileges on. The only valid value is: ACCOUNT. Setting this attribute lists all the account-level (i.e. global) privileges that have been granted to roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
+        :param object_name: Name of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
+        :param object_type: Type of object to list privileges on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__494e1f51c43d12d6d0f22a8cefcc81823594b516338949a3f1172638f3952782)
@@ -1204,7 +1204,7 @@ class DataSnowflakeGrantsGrantsOn:
 
         The only valid value is: ACCOUNT. Setting this attribute lists all the account-level (i.e. global) privileges that have been granted to roles.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account DataSnowflakeGrants#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1213,7 +1213,7 @@ class DataSnowflakeGrantsGrantsOn:
     def object_name(self) -> typing.Optional[builtins.str]:
         '''Name of object to list privileges on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_name DataSnowflakeGrants#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1222,7 +1222,7 @@ class DataSnowflakeGrantsGrantsOn:
     def object_type(self) -> typing.Optional[builtins.str]:
         '''Type of object to list privileges on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#object_type DataSnowflakeGrants#object_type}
         '''
         result = self._values.get("object_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1446,12 +1446,12 @@ class DataSnowflakeGrantsGrantsTo:
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_role: Lists all privileges and roles granted to the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
-        :param application: Lists all the privileges and roles granted to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
-        :param application_role: Lists all the privileges and roles granted to the application role. Must be a fully qualified name ("<app_name>"."<app_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
-        :param database_role: Lists all privileges and roles granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
-        :param share: share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
-        :param user: Lists all the roles granted to the user. Note that the PUBLIC role, which is automatically available to every user, is not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
+        :param account_role: Lists all privileges and roles granted to the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        :param application: Lists all the privileges and roles granted to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
+        :param application_role: Lists all the privileges and roles granted to the application role. Must be a fully qualified name ("<app_name>"."<app_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        :param database_role: Lists all privileges and roles granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        :param share: share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        :param user: Lists all the roles granted to the user. Note that the PUBLIC role, which is automatically available to every user, is not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
         '''
         if isinstance(share, dict):
             share = DataSnowflakeGrantsGrantsToShare(**share)
@@ -1481,7 +1481,7 @@ class DataSnowflakeGrantsGrantsTo:
     def account_role(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges and roles granted to the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#account_role DataSnowflakeGrants#account_role}
         '''
         result = self._values.get("account_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1490,7 +1490,7 @@ class DataSnowflakeGrantsGrantsTo:
     def application(self) -> typing.Optional[builtins.str]:
         '''Lists all the privileges and roles granted to the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application DataSnowflakeGrants#application}
         '''
         result = self._values.get("application")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1499,7 +1499,7 @@ class DataSnowflakeGrantsGrantsTo:
     def application_role(self) -> typing.Optional[builtins.str]:
         '''Lists all the privileges and roles granted to the application role. Must be a fully qualified name ("<app_name>"."<app_role_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#application_role DataSnowflakeGrants#application_role}
         '''
         result = self._values.get("application_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1508,7 +1508,7 @@ class DataSnowflakeGrantsGrantsTo:
     def database_role(self) -> typing.Optional[builtins.str]:
         '''Lists all privileges and roles granted to the database role. Must be a fully qualified name ("<db_name>"."<database_role_name>").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#database_role DataSnowflakeGrants#database_role}
         '''
         result = self._values.get("database_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1517,7 +1517,7 @@ class DataSnowflakeGrantsGrantsTo:
     def share(self) -> typing.Optional["DataSnowflakeGrantsGrantsToShare"]:
         '''share block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share DataSnowflakeGrants#share}
         '''
         result = self._values.get("share")
         return typing.cast(typing.Optional["DataSnowflakeGrantsGrantsToShare"], result)
@@ -1528,7 +1528,7 @@ class DataSnowflakeGrantsGrantsTo:
 
         Note that the PUBLIC role, which is automatically available to every user, is not listed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#user DataSnowflakeGrants#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1568,7 +1568,7 @@ class DataSnowflakeGrantsGrantsToOutputReference(
     @jsii.member(jsii_name="putShare")
     def put_share(self, *, share_name: builtins.str) -> None:
         '''
-        :param share_name: Lists all of the privileges and roles granted to the specified share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
+        :param share_name: Lists all of the privileges and roles granted to the specified share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
         '''
         value = DataSnowflakeGrantsGrantsToShare(share_name=share_name)
 
@@ -1717,7 +1717,7 @@ class DataSnowflakeGrantsGrantsToOutputReference(
 class DataSnowflakeGrantsGrantsToShare:
     def __init__(self, *, share_name: builtins.str) -> None:
         '''
-        :param share_name: Lists all of the privileges and roles granted to the specified share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
+        :param share_name: Lists all of the privileges and roles granted to the specified share. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97caedccbe9784d9da482e72bfc14b4d0140b5a342c2c42692f2d0ed98644fb3)
@@ -1730,7 +1730,7 @@ class DataSnowflakeGrantsGrantsToShare:
     def share_name(self) -> builtins.str:
         '''Lists all of the privileges and roles granted to the specified share.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/grants#share_name DataSnowflakeGrants#share_name}
         '''
         result = self._values.get("share_name")
         assert result is not None, "Required property 'share_name' is missing"

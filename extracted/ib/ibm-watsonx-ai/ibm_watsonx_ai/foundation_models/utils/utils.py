@@ -103,7 +103,8 @@ def get_model_specs(url: str, model_id: str | None = None) -> dict:
     """
     Retrieve the list of deployed foundation models specifications.
 
-    **Decrecated:** From ``ibm_watsonx_ai`` 1.0, the `get_model_specs()` function is deprecated, use the `client.foundation_models.get_model_specs()` function instead.
+    .. deprecated:: v1.0
+       The ``get_model_specs()`` function is deprecated, use the :meth:`client.foundation_models.get_model_specs() <ibm_watsonx_ai.foundation_models_manager.FoundationModelsManager.get_model_specs>` function instead.
 
     :param url: URL of the environment
     :type url: str
@@ -190,7 +191,8 @@ def get_custom_model_specs(
     """Get details on available custom model(s) as dict or as generator (``asynchronous``).
     If ``asynchronous`` or ``get_all`` is set, then ``model_id`` is ignored.
 
-    **Decrecated:** From ``ibm_watsonx_ai`` 1.0, the `get_custom_model_specs()` function is deprecated, use `client.foundation_models.get_custom_model_specs()` function instead.
+    .. deprecated:: v1.0
+       The ``get_custom_model_specs()`` function is deprecated, use the :meth:`client.foundation_models.get_custom_model_specs() <ibm_watsonx_ai.foundation_models_manager.FoundationModelsManager.get_custom_model_specs>` function instead.
 
     :param credentials: credentials to watsonx.ai instance
     :type credentials: dict, optional
@@ -318,7 +320,8 @@ def get_model_lifecycle(url: str, model_id: str) -> list | None:
     """
     Retrieve the list of model lifecycle data.
 
-    **Decrecated:** From ``ibm_watsonx_ai`` 1.0, the `get_model_lifecycle()` function is deprecated, use `client.foundation_models.get_model_lifecycle()` function instead.
+    .. deprecated:: v1.0
+       The ``get_model_lifecycle()`` function is deprecated, use the :meth:`client.foundation_models.get_model_lifecycle() <ibm_watsonx_ai.foundation_models_manager.FoundationModelsManager.get_model_lifecycle>` function instead.
 
     :param url: URL of environment
     :type url: str
@@ -466,7 +469,8 @@ def get_model_specs_with_prompt_tuning_support(url: str) -> dict:
     """
     Query the details of the deployed foundation models with prompt tuning support.
 
-    **Decrecated:** From ``ibm_watsonx_ai`` 1.0, the `get_model_specs_with_prompt_tuning_support()` function is deprecated, use the `client.foundation_models.get_model_specs_with_prompt_tuning_support()` function instead.
+    .. deprecated:: v1.0
+       The ``get_model_specs_with_prompt_tuning_support()`` function is deprecated, use the :meth:`client.foundation_models.get_model_specs_with_prompt_tuning_support() <ibm_watsonx_ai.foundation_models_manager.FoundationModelsManager.get_model_specs_with_prompt_tuning_support>` function instead.
 
     :param url: URL of environment
     :type url: str
@@ -684,7 +688,8 @@ def _raise_watsonxllm_deprecation_warning() -> None:
 
 def get_embedding_model_specs(url: str) -> dict:
     """
-    **Decrecated:** From ``ibm_watsonx_ai`` 1.0, the `get_embedding_model_specs()` function is deprecated, use the `client.foundation_models.get_embeddings_model_specs()` function instead.
+    .. deprecated:: v1.0
+       The ``get_embedding_model_specs()`` function is deprecated, use the :meth:`client.foundation_models.get_embeddings_model_specs() <ibm_watsonx_ai.foundation_models_manager.FoundationModelsManager.get_embeddings_model_specs>` function instead.
     """
     get_embedding_model_specs_deprecated_warning = (
         "`get_embedding_model_specs()` function is deprecated from 1.0, "

@@ -10,8 +10,9 @@ _C='status'
 _B='message'
 _A='event'
 import inspect,logging,os,subprocess
+from collections.abc import Generator
 from pathlib import Path
-from typing import Any,Dict,Generator,Literal,Optional,TypedDict
+from typing import Any,Literal,Optional,TypedDict
 from localstack import config,constants
 from localstack.utils.objects import singleton_factory
 from localstack.utils.venv import VirtualEnvironment
@@ -36,7 +37,7 @@ def list_plugin_distribution_data(plugin_manager):
 		if not D:continue
 		E=A.plugin_spec;B=inspect.getmodule(A.plugin_spec.factory);G={'namespace':E.namespace,_F:A.name,'factory':{'module':str(B.__name__),'code':f"{B.__name__}.{E.factory.__name__}",'file':str(B.__file__)},'distribution':D.metadata.json};C.append(G)
 	return C
-class InstallerEvent(TypedDict,total=False):event:Literal[_C,_D,'error','exception',_E,_G];message:str;extra:Optional[Dict[str,Any]]
+class InstallerEvent(TypedDict,total=False):event:Literal[_C,_D,'error','exception',_E,_G];message:str;extra:Optional[dict[str,Any]]
 class ExtensionsRepository:
 	venv:VirtualEnvironment
 	def __init__(A,venv=None):A.venv=venv or get_extensions_venv();A.venv.inject_to_sys_path()
@@ -47,7 +48,7 @@ class ExtensionsRepository:
 		return A
 	def pip_show(A,package):
 		B=[A.pip,'show',package]
-		try:C=subprocess.check_output(B,stderr=subprocess.STDOUT,text=True);return{A:B for(A,B)in[A.split(': ',maxsplit=1)for A in C.splitlines()]}
+		try:C=subprocess.check_output(B,stderr=subprocess.STDOUT,text=True);return dict(A.split(': ',maxsplit=1)for A in C.splitlines())
 		except subprocess.CalledProcessError as D:
 			if'not found'in D.output:return
 			raise
@@ -77,7 +78,7 @@ class ExtensionsRepository:
 			for F in E:yield{_A:_E,_B:F}
 		yield{_A:_D,_B:'Extension successfully uninstalled'};_clear_plugin_cache();yield{_A:_C,_B:'Extension uninstall completed'}
 class SubprocessLineStream:
-	default_timeout:int=5
+	default_timeout=5
 	def __init__(A,process):A.process=process
 	def __iter__(A):return A._gen()
 	def _gen(A):

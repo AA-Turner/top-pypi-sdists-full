@@ -58,6 +58,7 @@ from langchain_aws.llms.bedrock import (
 )
 from langchain_aws.utils import (
     anthropic_tokens_supported,
+    create_aws_client,
     get_num_tokens_anthropic,
     get_token_ids_anthropic,
 )
@@ -651,6 +652,10 @@ def _format_anthropic_messages(
             # Simple string content
             content = message.content
 
+        # AWS Bedrock requires content arrays to have at least 1 item
+        if isinstance(content, list) and len(content) == 0:
+            content = [{"type": "text", "text": "."}]
+
         formatted_messages.append({"role": role, "content": content})
     return system, formatted_messages
 
@@ -747,9 +752,36 @@ class ChatBedrock(BaseChatModel, BedrockBase):
     @classmethod
     def set_beta_use_converse_api(cls, values: Dict) -> Any:
         model_id = values.get("model_id", values.get("model"))
+        base_model_id = values.get("base_model_id", values.get("base_model", ""))
 
-        if model_id and "beta_use_converse_api" not in values:
-            values["beta_use_converse_api"] = "nova" in model_id
+        if not model_id or "beta_use_converse_api" in values:
+            return values
+
+        nova_id = "amazon.nova"
+        values["beta_use_converse_api"] = False
+
+        if nova_id in model_id or nova_id in base_model_id:
+            values["beta_use_converse_api"] = True
+        elif not base_model_id and "application-inference-profile" in model_id:
+            bedrock_client = values.get("bedrock_client")
+            if not bedrock_client:
+                bedrock_client = create_aws_client(
+                    region_name=values.get("region_name"),
+                    credentials_profile_name=values.get("credentials_profile_name"),
+                    aws_access_key_id=values.get("aws_access_key_id"),
+                    aws_secret_access_key=values.get("aws_secret_access_key"),
+                    aws_session_token=values.get("aws_session_token"),
+                    endpoint_url=values.get("endpoint_url"),
+                    config=values.get("config"),
+                    service_name="bedrock",
+                )
+            response = bedrock_client.get_inference_profile(
+                inferenceProfileIdentifier=model_id
+            )
+            if 'models' in response and len(response['models']) > 0:
+                model_arn = response['models'][0]['modelArn']
+                resolved_base_model = model_arn.split('/')[-1]
+                values["beta_use_converse_api"] = "nova" in resolved_base_model
         return values
 
     @model_validator(mode="before")
@@ -833,6 +865,9 @@ class ChatBedrock(BaseChatModel, BedrockBase):
             )
 
         added_model_name = False
+        # Track guardrails trace information for callback handling
+        guardrails_trace_info = None
+        
         for chunk in self._prepare_input_and_invoke_stream(
             prompt=prompt,
             system=system,
@@ -852,6 +887,12 @@ class ChatBedrock(BaseChatModel, BedrockBase):
                 delta = chunk.text
                 response_metadata = None
                 if generation_info := chunk.generation_info:
+                    # Check for guardrail intervention in the streaming chunk
+                    services_trace = self._get_bedrock_services_signal(generation_info)
+                    if services_trace.get("signal") and run_manager:
+                        # Store trace info for potential callback
+                        guardrails_trace_info = services_trace
+                    
                     usage_metadata = generation_info.pop("usage_metadata", None)
                     response_metadata = generation_info
                     if not added_model_name:
@@ -873,6 +914,15 @@ class ChatBedrock(BaseChatModel, BedrockBase):
                         generation_chunk.text, chunk=generation_chunk
                     )
                 yield generation_chunk
+        
+        # If guardrails intervened during streaming, notify the callback handler
+        if guardrails_trace_info and run_manager:
+            run_manager.on_llm_error(
+                Exception(
+                    f"Error raised by bedrock service: {guardrails_trace_info.get('reason')}"
+                ),
+                **guardrails_trace_info,
+            )
 
     def _generate(
         self,

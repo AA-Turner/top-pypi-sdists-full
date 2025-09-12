@@ -1,15 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-click
-Version: 6.0.0
+Version: 6.1.0
 Summary: Sphinx extension that automatically documents click applications
-Home-page: https://github.com/click-contrib/sphinx-click
-Author: Stephen Finucane
-Author-email: stephen@that.guru
+Author-email: Stephen Finucane <stephen@that.guru>
 License: MIT License
 Project-URL: Bug Tracker, https://github.com/click-contrib/sphinx-click/issues
 Project-URL: Documentation, https://sphinx-click.readthedocs.io/en/latest
 Project-URL: Source Code, https://github.com/click-contrib/sphinx-click
-Keywords: sphinx click
+Keywords: sphinx,click
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Sphinx :: Extension
@@ -23,12 +21,18 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
-Description-Content-Type: text/x-rst; charset=UTF-8
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: sphinx>=4.0
 Requires-Dist: click>=8.0
 Requires-Dist: docutils
+Provides-Extra: docs
+Requires-Dist: reno; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Dynamic: license-file
 
 ============
 sphinx-click
@@ -105,4 +109,3 @@ CLI in your documentation`__.
 
 __ https://github.com/kdeldycke/click-extra/
 __ https://kdeldycke.github.io/click-extra/sphinx.html
-

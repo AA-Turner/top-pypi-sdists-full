@@ -10,12 +10,13 @@ from dbt_semantic_interfaces.references import SemanticModelReference, TimeDimen
 from dbt_semantic_interfaces.type_enums import TimeGranularity
 from typing_extensions import override
 
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
 from metricflow_semantics.model.semantics.linkable_element_set import LinkableElementSet
+from metricflow_semantics.model.semantics.linkable_element_set_base import BaseLinkableElementSet
 from metricflow_semantics.naming.object_builder_scheme import ObjectBuilderNamingScheme
 from metricflow_semantics.query.group_by_item.candidate_push_down.push_down_visitor import (
     PushDownResult,
@@ -51,13 +52,21 @@ class GroupByItemResolution(SemanticModelDerivation):
 
     # If the spec is None, then the pattern couldn't be resolved
     spec: Optional[LinkableInstanceSpec]
-    linkable_element_set: LinkableElementSet
+    linkable_element_set: BaseLinkableElementSet
     issue_set: MetricFlowQueryResolutionIssueSet
 
     @property
     @override
     def derived_from_semantic_models(self) -> Sequence[SemanticModelReference]:
         return self.linkable_element_set.derived_from_semantic_models
+
+    def with_alias(self, alias: Optional[str]) -> GroupByItemResolution:
+        """Return a new GroupByItemResolution with the spec's alias field replaced, if a spec is present."""
+        return GroupByItemResolution(
+            spec=self.spec.with_alias(alias) if self.spec else None,
+            linkable_element_set=self.linkable_element_set,
+            issue_set=self.issue_set,
+        )
 
 
 @dataclass(frozen=True)
@@ -115,9 +124,9 @@ class GroupByItemResolver:
         logger.debug(
             LazyFormat(
                 lambda: f"Spec pattern:\n"
-                f"{indent(mf_pformat(spec_pattern))}\n"
+                f"{mf_indent(mf_pformat(spec_pattern))}\n"
                 f"was resolved to:\n"
-                f"{indent(mf_pformat(push_down_result.candidate_set.specs))}"
+                f"{mf_indent(mf_pformat(push_down_result.candidate_set.specs))}"
             )
         )
         if push_down_result.candidate_set.num_candidates > 1:
@@ -248,10 +257,13 @@ class GroupByItemResolver:
             if metric_time_grain_resolution.spec is not None
             else InstanceSpecSet.empty_instance()
         )
-        if len(metric_time_spec_set.time_dimension_specs) != 1:
+        if (
+            len(metric_time_spec_set.time_dimension_specs) != 1
+            or metric_time_spec_set.time_dimension_specs[0].time_granularity is None
+        ):
             raise RuntimeError(
                 f"The grain for {repr(METRIC_TIME_ELEMENT_NAME)} could not be resolved. Got spec "
                 f"{metric_time_grain_resolution.spec} and issues:\n\n"
-                f"{indent(mf_pformat(metric_time_grain_resolution.issue_set))}"
+                f"{mf_indent(mf_pformat(metric_time_grain_resolution.issue_set))}"
             )
         return metric_time_spec_set.time_dimension_specs[0].time_granularity.base_granularity

@@ -1,20 +1,10 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Generator, Iterable
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generic,
-    Optional,
-    TypeVar,
-    cast,
-)
+from collections.abc import Callable, Generator, Iterable
+from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
     from pykka._types import OptExcInfo
 
 __all__ = ["Future", "get_all"]
@@ -25,7 +15,11 @@ J = TypeVar("J")  # For when T is Iterable[J]
 M = TypeVar("M")  # Result of Future.map()
 R = TypeVar("R")  # Result of Future.reduce()
 
-GetHookFunc: TypeAlias = Callable[[Optional[float]], T]
+GetHookFunc: TypeAlias = Callable[[float | None], T]
+
+
+class _Unset:
+    pass
 
 
 class Future(Generic[T]):
@@ -37,13 +31,13 @@ class Future(Generic[T]):
     ``await`` the future.
     """
 
-    _get_hook: Optional[GetHookFunc[T]]
-    _get_hook_result: Optional[T]
+    _get_hook: GetHookFunc[T] | None
+    _get_hook_result: T | _Unset
 
     def __init__(self) -> None:
         super().__init__()
         self._get_hook = None
-        self._get_hook_result = None
+        self._get_hook_result = _Unset()
 
     def __repr__(self) -> str:
         return "<pykka.Future>"
@@ -51,7 +45,7 @@ class Future(Generic[T]):
     def get(
         self,
         *,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> T:
         """Get the value encapsulated by the future.
 
@@ -74,16 +68,20 @@ class Future(Generic[T]):
         :return: encapsulated value if it is not an exception
         """
         if self._get_hook is not None:
-            if self._get_hook_result is None:
+            if isinstance(self._get_hook_result, _Unset):
                 self._get_hook_result = self._get_hook(timeout)
             return self._get_hook_result
         raise NotImplementedError
 
     def set(
         self,
-        value: Optional[T] = None,
+        value: T | None = None,
     ) -> None:
         """Set the encapsulated value.
+
+        .. versionchanged:: 4.3
+            Calling :meth:`set` on a future that already has a get hook set now
+            raises an exception.
 
         :param value: the encapsulated value or nothing
         :type value: any object or :class:`None`
@@ -93,7 +91,7 @@ class Future(Generic[T]):
 
     def set_exception(
         self,
-        exc_info: Optional[OptExcInfo] = None,
+        exc_info: OptExcInfo | None = None,
     ) -> None:
         """Set an exception as the encapsulated value.
 
@@ -104,6 +102,10 @@ class Future(Generic[T]):
         In other words, if you're calling :meth:`set_exception`, without any
         arguments, from an except block, the exception you're currently
         handling will automatically be set on the future.
+
+        .. versionchanged:: 4.3
+            Calling :meth:`set_exception` on a future that already has a
+            get hook set now raises an exception.
 
         :param exc_info: the encapsulated exception
         :type exc_info: three-tuple of (exc_class, exc_instance, traceback)
@@ -121,6 +123,10 @@ class Future(Generic[T]):
         will be returned from :meth:`get`.
 
         .. versionadded:: 1.2
+
+        .. versionchanged:: 4.3
+            Calling :meth:`set_get_hook` on a future that already has a
+            result set now raises an exception.
 
         :param func: called to produce return value of :meth:`get`
         :type func: function accepting a timeout value
@@ -184,7 +190,7 @@ class Future(Generic[T]):
 
         .. versionadded:: 1.2
         """
-        future = cast(Future[Iterable[Any]], self.__class__())
+        future = cast("Future[Iterable[Any]]", self.__class__())
         future.set_get_hook(
             lambda timeout: [f.get(timeout=timeout) for f in [self, *futures]]
         )
@@ -221,7 +227,7 @@ class Future(Generic[T]):
             behavior has been simplified. Now, the entire result value is
             passed to the function.
         """
-        future = cast(Future[M], self.__class__())
+        future = cast("Future[M]", self.__class__())
         future.set_get_hook(lambda timeout: func(self.get(timeout=timeout)))
         return future
 
@@ -275,7 +281,7 @@ class Future(Generic[T]):
 
         .. versionadded:: 1.2
         """
-        future = cast(Future[R], self.__class__())
+        future = cast("Future[R]", self.__class__())
         future.set_get_hook(
             lambda timeout: functools.reduce(func, self.get(timeout=timeout), *args)
         )
@@ -292,7 +298,7 @@ class Future(Generic[T]):
 def get_all(
     futures: Iterable[Future[T]],
     *,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
 ) -> Iterable[T]:
     """Collect all values encapsulated in the list of futures.
 

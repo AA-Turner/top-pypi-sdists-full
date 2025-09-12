@@ -32,7 +32,7 @@ class BatchSource(google.protobuf.message.Message):
     ELASTICSEARCHSOURCE_FIELD_NUMBER: builtins.int
     CLICKHOUSESOURCE_FIELD_NUMBER: builtins.int
     FEATURESETOFFLINESOURCE_FIELD_NUMBER: builtins.int
-    TABLEFORMATSOURCE_FIELD_NUMBER: builtins.int
+    CATALOGSOURCE_FIELD_NUMBER: builtins.int
     name: builtins.str
     """Source given name (by the user)"""
     description: builtins.str
@@ -62,7 +62,7 @@ class BatchSource(google.protobuf.message.Message):
     @property
     def featuresetOfflineSource(self) -> global___FeaturesetOfflineSource: ...
     @property
-    def tableFormatSource(self) -> global___TableFormatSource: ...
+    def catalogSource(self) -> global___CatalogSource: ...
     def __init__(
         self,
         *,
@@ -80,11 +80,11 @@ class BatchSource(google.protobuf.message.Message):
         elasticsearchSource: global___ElasticsearchSource | None = ...,
         clickhouseSource: global___ClickhouseSource | None = ...,
         featuresetOfflineSource: global___FeaturesetOfflineSource | None = ...,
-        tableFormatSource: global___TableFormatSource | None = ...,
+        catalogSource: global___CatalogSource | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["athenaSource", b"athenaSource", "bigquerySource", b"bigquerySource", "clickhouseSource", b"clickhouseSource", "csvSource", b"csvSource", "elasticsearchSource", b"elasticsearchSource", "featuresetOfflineSource", b"featuresetOfflineSource", "jdbcSource", b"jdbcSource", "mongoSource", b"mongoSource", "parquetSource", b"parquetSource", "snowflakeSource", b"snowflakeSource", "tableFormatSource", b"tableFormatSource", "type", b"type", "verticaSource", b"verticaSource"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["athenaSource", b"athenaSource", "bigquerySource", b"bigquerySource", "clickhouseSource", b"clickhouseSource", "csvSource", b"csvSource", "date_created_column", b"date_created_column", "description", b"description", "elasticsearchSource", b"elasticsearchSource", "featuresetOfflineSource", b"featuresetOfflineSource", "jdbcSource", b"jdbcSource", "mongoSource", b"mongoSource", "name", b"name", "parquetSource", b"parquetSource", "snowflakeSource", b"snowflakeSource", "tableFormatSource", b"tableFormatSource", "type", b"type", "verticaSource", b"verticaSource"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["athenaSource", "mongoSource", "csvSource", "snowflakeSource", "parquetSource", "jdbcSource", "verticaSource", "bigquerySource", "elasticsearchSource", "clickhouseSource", "featuresetOfflineSource", "tableFormatSource"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["athenaSource", b"athenaSource", "bigquerySource", b"bigquerySource", "catalogSource", b"catalogSource", "clickhouseSource", b"clickhouseSource", "csvSource", b"csvSource", "elasticsearchSource", b"elasticsearchSource", "featuresetOfflineSource", b"featuresetOfflineSource", "jdbcSource", b"jdbcSource", "mongoSource", b"mongoSource", "parquetSource", b"parquetSource", "snowflakeSource", b"snowflakeSource", "type", b"type", "verticaSource", b"verticaSource"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["athenaSource", b"athenaSource", "bigquerySource", b"bigquerySource", "catalogSource", b"catalogSource", "clickhouseSource", b"clickhouseSource", "csvSource", b"csvSource", "date_created_column", b"date_created_column", "description", b"description", "elasticsearchSource", b"elasticsearchSource", "featuresetOfflineSource", b"featuresetOfflineSource", "jdbcSource", b"jdbcSource", "mongoSource", b"mongoSource", "name", b"name", "parquetSource", b"parquetSource", "snowflakeSource", b"snowflakeSource", "type", b"type", "verticaSource", b"verticaSource"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["athenaSource", "mongoSource", "csvSource", "snowflakeSource", "parquetSource", "jdbcSource", "verticaSource", "bigquerySource", "elasticsearchSource", "clickhouseSource", "featuresetOfflineSource", "catalogSource"] | None: ...
 
 global___BatchSource = BatchSource
 
@@ -805,71 +805,85 @@ class ElasticsearchSource(google.protobuf.message.Message):
 
 global___ElasticsearchSource = ElasticsearchSource
 
-class TableFormatSource(google.protobuf.message.Message):
-    """TableFormat batch source"""
-
+class CatalogSource(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    CATALOG_FIELD_NUMBER: builtins.int
+    URL_FIELD_NUMBER: builtins.int
+    TABLE_FIELD_NUMBER: builtins.int
     QUERY_FIELD_NUMBER: builtins.int
-    @property
-    def catalog(self) -> global___Catalog:
-        """Table format catalog"""
+    UNITYCATALOGSOURCE_FIELD_NUMBER: builtins.int
+    url: builtins.str
+    """Connection url i.e https://<workspace-instance-name>.<domain-name>"""
+    table: builtins.str
+    """Catalog table including schema"""
     query: builtins.str
-    """Table format query"""
-    def __init__(
-        self,
-        *,
-        catalog: global___Catalog | None = ...,
-        query: builtins.str = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["catalog", b"catalog"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["catalog", b"catalog", "query", b"query"]) -> None: ...
-
-global___TableFormatSource = TableFormatSource
-
-class Catalog(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    UNITYCATALOG_FIELD_NUMBER: builtins.int
+    """Catalog query"""
     @property
-    def unityCatalog(self) -> global___UnityCatalog:
-        """Unity Catalog"""
+    def unityCatalogSource(self) -> global___UnityCatalogSource:
+        """Unity Catalog source"""
     def __init__(
         self,
         *,
-        unityCatalog: global___UnityCatalog | None = ...,
+        url: builtins.str = ...,
+        table: builtins.str = ...,
+        query: builtins.str = ...,
+        unityCatalogSource: global___UnityCatalogSource | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["type", b"type", "unityCatalog", b"unityCatalog"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["type", b"type", "unityCatalog", b"unityCatalog"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["unityCatalog"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["query", b"query", "select_type", b"select_type", "table", b"table", "type", b"type", "unityCatalogSource", b"unityCatalogSource"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["query", b"query", "select_type", b"select_type", "table", b"table", "type", b"type", "unityCatalogSource", b"unityCatalogSource", "url", b"url"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["select_type", b"select_type"]) -> typing_extensions.Literal["table", "query"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["unityCatalogSource"] | None: ...
 
-global___Catalog = Catalog
+global___CatalogSource = CatalogSource
 
-class UnityCatalog(google.protobuf.message.Message):
+class UnityCatalogSource(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    HOST_FIELD_NUMBER: builtins.int
     CATALOG_FIELD_NUMBER: builtins.int
+    SCHEMA_FIELD_NUMBER: builtins.int
     PERSONAL_ACCESS_TOKEN_SECRET_NAME_FIELD_NUMBER: builtins.int
-    host: builtins.str
-    """Connection host address i.e <workspace-instance-name>.<domain-name>"""
+    OAUTH2_FIELD_NUMBER: builtins.int
     catalog: builtins.str
     """Unity Catalog catalog name"""
+    schema: builtins.str
+    """Unity Catalog schema name"""
     personal_access_token_secret_name: builtins.str
-    """Personal access token"""
+    @property
+    def oauth2(self) -> global___Oauth2: ...
     def __init__(
         self,
         *,
-        host: builtins.str = ...,
         catalog: builtins.str = ...,
+        schema: builtins.str = ...,
         personal_access_token_secret_name: builtins.str = ...,
+        oauth2: global___Oauth2 | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "personal_access_token_secret_name", b"personal_access_token_secret_name"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "catalog", b"catalog", "host", b"host", "personal_access_token_secret_name", b"personal_access_token_secret_name"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth_type", b"auth_type"]) -> typing_extensions.Literal["personal_access_token_secret_name"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "oauth2", b"oauth2", "personal_access_token_secret_name", b"personal_access_token_secret_name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "catalog", b"catalog", "oauth2", b"oauth2", "personal_access_token_secret_name", b"personal_access_token_secret_name", "schema", b"schema"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth_type", b"auth_type"]) -> typing_extensions.Literal["personal_access_token_secret_name", "oauth2"] | None: ...
 
-global___UnityCatalog = UnityCatalog
+global___UnityCatalogSource = UnityCatalogSource
+
+class Oauth2(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CLIENT_ID_SECRET_NAME_FIELD_NUMBER: builtins.int
+    CLIENT_SECRET_SECRET_NAME_FIELD_NUMBER: builtins.int
+    client_id_secret_name: builtins.str
+    """client id"""
+    client_secret_secret_name: builtins.str
+    """client secret"""
+    def __init__(
+        self,
+        *,
+        client_id_secret_name: builtins.str = ...,
+        client_secret_secret_name: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["client_id_secret_name", b"client_id_secret_name", "client_secret_secret_name", b"client_secret_secret_name"]) -> None: ...
+
+global___Oauth2 = Oauth2
 
 class FeaturesetOfflineSource(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

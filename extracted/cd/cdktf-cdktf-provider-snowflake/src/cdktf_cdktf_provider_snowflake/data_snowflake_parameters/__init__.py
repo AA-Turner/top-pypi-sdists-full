@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_parameters`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_parameters`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters).
+Refer to the Terraform Registry for docs: [`data_snowflake_parameters`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeParameters(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeParameters.DataSnowflakeParameters",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters snowflake_parameters}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters snowflake_parameters}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataSnowflakeParameters(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters snowflake_parameters} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters snowflake_parameters} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_name: If parameter_type is set to "OBJECT" then object_name is the name of the object to display object parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
-        :param object_type: If parameter_type is set to "OBJECT" then object_type is the type of object to display object parameters for. Valid values are any object supported by the IN clause of the `SHOW PARAMETERS <https://docs.snowflake.com/en/sql-reference/sql/show-parameters.html#parameters>`_ statement, including: WAREHOUSE | DATABASE | SCHEMA | TASK | TABLE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
-        :param parameter_type: (Default: ``ACCOUNT``) The type of parameter to filter by. Valid values are: "ACCOUNT", "SESSION", "OBJECT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
-        :param pattern: Allows limiting the list of parameters by name using LIKE clause. Refer to `Limiting the List of Parameters by Name <https://docs.snowflake.com/en/sql-reference/parameters.html#limiting-the-list-of-parameters-by-name>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
-        :param user: If parameter_type is set to "SESSION" then user is the name of the user to display session parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_name: If parameter_type is set to "OBJECT" then object_name is the name of the object to display object parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
+        :param object_type: If parameter_type is set to "OBJECT" then object_type is the type of object to display object parameters for. Valid values are any object supported by the IN clause of the `SHOW PARAMETERS <https://docs.snowflake.com/en/sql-reference/sql/show-parameters.html#parameters>`_ statement, including: WAREHOUSE | DATABASE | SCHEMA | TASK | TABLE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
+        :param parameter_type: (Default: ``ACCOUNT``) The type of parameter to filter by. Valid values are: "ACCOUNT", "SESSION", "OBJECT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
+        :param pattern: Allows limiting the list of parameters by name using LIKE clause. Refer to `Limiting the List of Parameters by Name <https://docs.snowflake.com/en/sql-reference/parameters.html#limiting-the-list-of-parameters-by-name>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
+        :param user: If parameter_type is set to "SESSION" then user is the name of the user to display session parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataSnowflakeParameters(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeParameters to import.
-        :param import_from_id: The id of the existing DataSnowflakeParameters that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeParameters that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeParameters to import is found.
         '''
         if __debug__:
@@ -319,12 +319,12 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_name: If parameter_type is set to "OBJECT" then object_name is the name of the object to display object parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
-        :param object_type: If parameter_type is set to "OBJECT" then object_type is the type of object to display object parameters for. Valid values are any object supported by the IN clause of the `SHOW PARAMETERS <https://docs.snowflake.com/en/sql-reference/sql/show-parameters.html#parameters>`_ statement, including: WAREHOUSE | DATABASE | SCHEMA | TASK | TABLE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
-        :param parameter_type: (Default: ``ACCOUNT``) The type of parameter to filter by. Valid values are: "ACCOUNT", "SESSION", "OBJECT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
-        :param pattern: Allows limiting the list of parameters by name using LIKE clause. Refer to `Limiting the List of Parameters by Name <https://docs.snowflake.com/en/sql-reference/parameters.html#limiting-the-list-of-parameters-by-name>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
-        :param user: If parameter_type is set to "SESSION" then user is the name of the user to display session parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_name: If parameter_type is set to "OBJECT" then object_name is the name of the object to display object parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
+        :param object_type: If parameter_type is set to "OBJECT" then object_type is the type of object to display object parameters for. Valid values are any object supported by the IN clause of the `SHOW PARAMETERS <https://docs.snowflake.com/en/sql-reference/sql/show-parameters.html#parameters>`_ statement, including: WAREHOUSE | DATABASE | SCHEMA | TASK | TABLE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
+        :param parameter_type: (Default: ``ACCOUNT``) The type of parameter to filter by. Valid values are: "ACCOUNT", "SESSION", "OBJECT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
+        :param pattern: Allows limiting the list of parameters by name using LIKE clause. Refer to `Limiting the List of Parameters by Name <https://docs.snowflake.com/en/sql-reference/parameters.html#limiting-the-list-of-parameters-by-name>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
+        :param user: If parameter_type is set to "SESSION" then user is the name of the user to display session parameters for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -437,7 +437,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#id DataSnowflakeParameters#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -449,7 +449,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_name(self) -> typing.Optional[builtins.str]:
         '''If parameter_type is set to "OBJECT" then object_name is the name of the object to display object parameters for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_name DataSnowflakeParameters#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -460,7 +460,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are any object supported by the IN clause of the `SHOW PARAMETERS <https://docs.snowflake.com/en/sql-reference/sql/show-parameters.html#parameters>`_ statement, including: WAREHOUSE | DATABASE | SCHEMA | TASK | TABLE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#object_type DataSnowflakeParameters#object_type}
         '''
         result = self._values.get("object_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -469,7 +469,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parameter_type(self) -> typing.Optional[builtins.str]:
         '''(Default: ``ACCOUNT``) The type of parameter to filter by. Valid values are: "ACCOUNT", "SESSION", "OBJECT".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#parameter_type DataSnowflakeParameters#parameter_type}
         '''
         result = self._values.get("parameter_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -480,7 +480,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Refer to `Limiting the List of Parameters by Name <https://docs.snowflake.com/en/sql-reference/parameters.html#limiting-the-list-of-parameters-by-name>`_
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#pattern DataSnowflakeParameters#pattern}
         '''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -489,7 +489,7 @@ class DataSnowflakeParametersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user(self) -> typing.Optional[builtins.str]:
         '''If parameter_type is set to "SESSION" then user is the name of the user to display session parameters for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/data-sources/parameters#user DataSnowflakeParameters#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,0 +1,3 @@
+from localstack.runtime import hooks
+@hooks.on_pro_infra_start()
+def register_aws_avro_plugins():import py_avro_schema as B;from localstack.pro.core.persistence.avro.aws import base_store as A;from localstack.pro.core.persistence.avro.serialization import ObjectDeserializer as C,ObjectSerializer as D;B.register_schema(A.BaseStoreSchema);C.register_default_deserializer(A.BaseStoreDeserializer());D.register_default_serializer(A.BaseStoreSerializer())

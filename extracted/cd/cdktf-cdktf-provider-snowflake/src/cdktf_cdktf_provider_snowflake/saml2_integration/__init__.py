@@ -1,7 +1,7 @@
 r'''
 # `snowflake_saml2_integration`
 
-Refer to the Terraform Registry for docs: [`snowflake_saml2_integration`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration).
+Refer to the Terraform Registry for docs: [`snowflake_saml2_integration`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Saml2Integration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.saml2Integration.Saml2Integration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration snowflake_saml2_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration snowflake_saml2_integration}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class Saml2Integration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration snowflake_saml2_integration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration snowflake_saml2_integration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Specifies the name of the SAML2 integration. This name follows the rules for Object Identifiers. The name should be unique among security integrations in your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#name Saml2Integration#name}
-        :param saml2_issuer: The string containing the IdP EntityID / Issuer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
-        :param saml2_provider: The string describing the IdP. Valid options are: ``OKTA`` | ``ADFS`` | ``CUSTOM``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
-        :param saml2_sso_url: The string containing the IdP SSO URL, where the user should be redirected by Snowflake (the Service Provider) with a SAML AuthnRequest message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
-        :param saml2_x509_cert: The Base64 encoded IdP signing certificate on a single line without the leading -----BEGIN CERTIFICATE----- and ending -----END CERTIFICATE----- markers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
-        :param allowed_email_patterns: A list of regular expressions that email addresses are matched against to authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
-        :param allowed_user_domains: A list of email domains that can authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
-        :param comment: Specifies a comment for the integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
-        :param enabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether this security integration is enabled or disabled. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#id Saml2Integration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param saml2_enable_sp_initiated: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating if the Log In With button will be shown on the login page. TRUE: displays the Log in With button on the login page. FALSE: does not display the Log in With button on the login page. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
-        :param saml2_force_authn: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether users, during the initial authentication flow, are forced to authenticate again to access Snowflake. When set to TRUE, Snowflake sets the ForceAuthn SAML parameter to TRUE in the outgoing request from Snowflake to the identity provider. TRUE: forces users to authenticate again to access Snowflake, even if a valid session with the identity provider exists. FALSE: does not force users to authenticate again to access Snowflake. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
-        :param saml2_post_logout_redirect_url: The endpoint to which Snowflake redirects users after clicking the Log Out button in the classic Snowflake web interface. Snowflake terminates the Snowflake session upon redirecting to the specified endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
-        :param saml2_requested_nameid_format: The SAML NameID format allows Snowflake to set an expectation of the identifying attribute of the user (i.e. SAML Subject) in the SAML assertion from the IdP to ensure a valid authentication to Snowflake. Valid options are: ``urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:transient``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
-        :param saml2_sign_request: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether SAML requests are signed. TRUE: allows SAML requests to be signed. FALSE: does not allow SAML requests to be signed. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
-        :param saml2_snowflake_acs_url: The string containing the Snowflake Assertion Consumer Service URL to which the IdP will send its SAML authentication response back to Snowflake. This property will be set in the SAML authentication request generated by Snowflake when initiating a SAML SSO operation with the IdP. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
-        :param saml2_snowflake_issuer_url: The string containing the EntityID / Issuer for the Snowflake service provider. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
-        :param saml2_sp_initiated_login_page_label: The string containing the label to display after the Log In With button on the login page. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
+        :param name: Specifies the name of the SAML2 integration. This name follows the rules for Object Identifiers. The name should be unique among security integrations in your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#name Saml2Integration#name}
+        :param saml2_issuer: The string containing the IdP EntityID / Issuer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
+        :param saml2_provider: The string describing the IdP. Valid options are: ``OKTA`` | ``ADFS`` | ``CUSTOM``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
+        :param saml2_sso_url: The string containing the IdP SSO URL, where the user should be redirected by Snowflake (the Service Provider) with a SAML AuthnRequest message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
+        :param saml2_x509_cert: The Base64 encoded IdP signing certificate on a single line without the leading -----BEGIN CERTIFICATE----- and ending -----END CERTIFICATE----- markers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
+        :param allowed_email_patterns: A list of regular expressions that email addresses are matched against to authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
+        :param allowed_user_domains: A list of email domains that can authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
+        :param comment: Specifies a comment for the integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
+        :param enabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether this security integration is enabled or disabled. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#id Saml2Integration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param saml2_enable_sp_initiated: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating if the Log In With button will be shown on the login page. TRUE: displays the Log in With button on the login page. FALSE: does not display the Log in With button on the login page. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
+        :param saml2_force_authn: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether users, during the initial authentication flow, are forced to authenticate again to access Snowflake. When set to TRUE, Snowflake sets the ForceAuthn SAML parameter to TRUE in the outgoing request from Snowflake to the identity provider. TRUE: forces users to authenticate again to access Snowflake, even if a valid session with the identity provider exists. FALSE: does not force users to authenticate again to access Snowflake. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
+        :param saml2_post_logout_redirect_url: The endpoint to which Snowflake redirects users after clicking the Log Out button in the classic Snowflake web interface. Snowflake terminates the Snowflake session upon redirecting to the specified endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
+        :param saml2_requested_nameid_format: The SAML NameID format allows Snowflake to set an expectation of the identifying attribute of the user (i.e. SAML Subject) in the SAML assertion from the IdP to ensure a valid authentication to Snowflake. Valid options are: ``urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:transient``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
+        :param saml2_sign_request: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether SAML requests are signed. TRUE: allows SAML requests to be signed. FALSE: does not allow SAML requests to be signed. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
+        :param saml2_snowflake_acs_url: The string containing the Snowflake Assertion Consumer Service URL to which the IdP will send its SAML authentication response back to Snowflake. This property will be set in the SAML authentication request generated by Snowflake when initiating a SAML SSO operation with the IdP. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
+        :param saml2_snowflake_issuer_url: The string containing the EntityID / Issuer for the Snowflake service provider. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
+        :param saml2_sp_initiated_login_page_label: The string containing the label to display after the Log In With button on the login page. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class Saml2Integration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Saml2Integration to import.
-        :param import_from_id: The id of the existing Saml2Integration that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Saml2Integration that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Saml2Integration to import is found.
         '''
         if __debug__:
@@ -178,10 +178,10 @@ class Saml2Integration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#create Saml2Integration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#read Saml2Integration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#update Saml2Integration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#create Saml2Integration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#read Saml2Integration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#update Saml2Integration#update}.
         '''
         value = Saml2IntegrationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -667,25 +667,25 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Specifies the name of the SAML2 integration. This name follows the rules for Object Identifiers. The name should be unique among security integrations in your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#name Saml2Integration#name}
-        :param saml2_issuer: The string containing the IdP EntityID / Issuer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
-        :param saml2_provider: The string describing the IdP. Valid options are: ``OKTA`` | ``ADFS`` | ``CUSTOM``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
-        :param saml2_sso_url: The string containing the IdP SSO URL, where the user should be redirected by Snowflake (the Service Provider) with a SAML AuthnRequest message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
-        :param saml2_x509_cert: The Base64 encoded IdP signing certificate on a single line without the leading -----BEGIN CERTIFICATE----- and ending -----END CERTIFICATE----- markers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
-        :param allowed_email_patterns: A list of regular expressions that email addresses are matched against to authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
-        :param allowed_user_domains: A list of email domains that can authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
-        :param comment: Specifies a comment for the integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
-        :param enabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether this security integration is enabled or disabled. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#id Saml2Integration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param saml2_enable_sp_initiated: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating if the Log In With button will be shown on the login page. TRUE: displays the Log in With button on the login page. FALSE: does not display the Log in With button on the login page. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
-        :param saml2_force_authn: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether users, during the initial authentication flow, are forced to authenticate again to access Snowflake. When set to TRUE, Snowflake sets the ForceAuthn SAML parameter to TRUE in the outgoing request from Snowflake to the identity provider. TRUE: forces users to authenticate again to access Snowflake, even if a valid session with the identity provider exists. FALSE: does not force users to authenticate again to access Snowflake. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
-        :param saml2_post_logout_redirect_url: The endpoint to which Snowflake redirects users after clicking the Log Out button in the classic Snowflake web interface. Snowflake terminates the Snowflake session upon redirecting to the specified endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
-        :param saml2_requested_nameid_format: The SAML NameID format allows Snowflake to set an expectation of the identifying attribute of the user (i.e. SAML Subject) in the SAML assertion from the IdP to ensure a valid authentication to Snowflake. Valid options are: ``urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:transient``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
-        :param saml2_sign_request: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether SAML requests are signed. TRUE: allows SAML requests to be signed. FALSE: does not allow SAML requests to be signed. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
-        :param saml2_snowflake_acs_url: The string containing the Snowflake Assertion Consumer Service URL to which the IdP will send its SAML authentication response back to Snowflake. This property will be set in the SAML authentication request generated by Snowflake when initiating a SAML SSO operation with the IdP. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
-        :param saml2_snowflake_issuer_url: The string containing the EntityID / Issuer for the Snowflake service provider. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
-        :param saml2_sp_initiated_login_page_label: The string containing the label to display after the Log In With button on the login page. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
+        :param name: Specifies the name of the SAML2 integration. This name follows the rules for Object Identifiers. The name should be unique among security integrations in your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#name Saml2Integration#name}
+        :param saml2_issuer: The string containing the IdP EntityID / Issuer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
+        :param saml2_provider: The string describing the IdP. Valid options are: ``OKTA`` | ``ADFS`` | ``CUSTOM``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
+        :param saml2_sso_url: The string containing the IdP SSO URL, where the user should be redirected by Snowflake (the Service Provider) with a SAML AuthnRequest message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
+        :param saml2_x509_cert: The Base64 encoded IdP signing certificate on a single line without the leading -----BEGIN CERTIFICATE----- and ending -----END CERTIFICATE----- markers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
+        :param allowed_email_patterns: A list of regular expressions that email addresses are matched against to authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
+        :param allowed_user_domains: A list of email domains that can authenticate with a SAML2 security integration. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
+        :param comment: Specifies a comment for the integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
+        :param enabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether this security integration is enabled or disabled. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#id Saml2Integration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param saml2_enable_sp_initiated: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating if the Log In With button will be shown on the login page. TRUE: displays the Log in With button on the login page. FALSE: does not display the Log in With button on the login page. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
+        :param saml2_force_authn: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether users, during the initial authentication flow, are forced to authenticate again to access Snowflake. When set to TRUE, Snowflake sets the ForceAuthn SAML parameter to TRUE in the outgoing request from Snowflake to the identity provider. TRUE: forces users to authenticate again to access Snowflake, even if a valid session with the identity provider exists. FALSE: does not force users to authenticate again to access Snowflake. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
+        :param saml2_post_logout_redirect_url: The endpoint to which Snowflake redirects users after clicking the Log Out button in the classic Snowflake web interface. Snowflake terminates the Snowflake session upon redirecting to the specified endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
+        :param saml2_requested_nameid_format: The SAML NameID format allows Snowflake to set an expectation of the identifying attribute of the user (i.e. SAML Subject) in the SAML assertion from the IdP to ensure a valid authentication to Snowflake. Valid options are: ``urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:transient``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
+        :param saml2_sign_request: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) The Boolean indicating whether SAML requests are signed. TRUE: allows SAML requests to be signed. FALSE: does not allow SAML requests to be signed. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
+        :param saml2_snowflake_acs_url: The string containing the Snowflake Assertion Consumer Service URL to which the IdP will send its SAML authentication response back to Snowflake. This property will be set in the SAML authentication request generated by Snowflake when initiating a SAML SSO operation with the IdP. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
+        :param saml2_snowflake_issuer_url: The string containing the EntityID / Issuer for the Snowflake service provider. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
+        :param saml2_sp_initiated_login_page_label: The string containing the label to display after the Log In With button on the login page. If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -839,7 +839,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This name follows the rules for Object Identifiers. The name should be unique among security integrations in your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#name Saml2Integration#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#name Saml2Integration#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -849,7 +849,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def saml2_issuer(self) -> builtins.str:
         '''The string containing the IdP EntityID / Issuer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_issuer Saml2Integration#saml2_issuer}
         '''
         result = self._values.get("saml2_issuer")
         assert result is not None, "Required property 'saml2_issuer' is missing"
@@ -859,7 +859,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def saml2_provider(self) -> builtins.str:
         '''The string describing the IdP. Valid options are: ``OKTA`` | ``ADFS`` | ``CUSTOM``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_provider Saml2Integration#saml2_provider}
         '''
         result = self._values.get("saml2_provider")
         assert result is not None, "Required property 'saml2_provider' is missing"
@@ -869,7 +869,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def saml2_sso_url(self) -> builtins.str:
         '''The string containing the IdP SSO URL, where the user should be redirected by Snowflake (the Service Provider) with a SAML AuthnRequest message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sso_url Saml2Integration#saml2_sso_url}
         '''
         result = self._values.get("saml2_sso_url")
         assert result is not None, "Required property 'saml2_sso_url' is missing"
@@ -879,7 +879,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def saml2_x509_cert(self) -> builtins.str:
         '''The Base64 encoded IdP signing certificate on a single line without the leading -----BEGIN CERTIFICATE----- and ending -----END CERTIFICATE----- markers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_x509_cert Saml2Integration#saml2_x509_cert}
         '''
         result = self._values.get("saml2_x509_cert")
         assert result is not None, "Required property 'saml2_x509_cert' is missing"
@@ -891,7 +891,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_email_patterns Saml2Integration#allowed_email_patterns}
         '''
         result = self._values.get("allowed_email_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -902,7 +902,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#allowed_user_domains Saml2Integration#allowed_user_domains}
         '''
         result = self._values.get("allowed_user_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -911,7 +911,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#comment Saml2Integration#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -922,14 +922,14 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#enabled Saml2Integration#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#id Saml2Integration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#id Saml2Integration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -943,7 +943,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         TRUE: displays the Log in With button on the login page. FALSE: does not display the Log in With button on the login page. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_enable_sp_initiated Saml2Integration#saml2_enable_sp_initiated}
         '''
         result = self._values.get("saml2_enable_sp_initiated")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -954,7 +954,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When set to TRUE, Snowflake sets the ForceAuthn SAML parameter to TRUE in the outgoing request from Snowflake to the identity provider. TRUE: forces users to authenticate again to access Snowflake, even if a valid session with the identity provider exists. FALSE: does not force users to authenticate again to access Snowflake. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_force_authn Saml2Integration#saml2_force_authn}
         '''
         result = self._values.get("saml2_force_authn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -965,7 +965,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Snowflake terminates the Snowflake session upon redirecting to the specified endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_post_logout_redirect_url Saml2Integration#saml2_post_logout_redirect_url}
         '''
         result = self._values.get("saml2_post_logout_redirect_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -974,7 +974,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def saml2_requested_nameid_format(self) -> typing.Optional[builtins.str]:
         '''The SAML NameID format allows Snowflake to set an expectation of the identifying attribute of the user (i.e. SAML Subject) in the SAML assertion from the IdP to ensure a valid authentication to Snowflake. Valid options are: ``urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName`` | ``urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`` | ``urn:oasis:names:tc:SAML:2.0:nameid-format:transient``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_requested_nameid_format Saml2Integration#saml2_requested_nameid_format}
         '''
         result = self._values.get("saml2_requested_nameid_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -985,7 +985,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         TRUE: allows SAML requests to be signed. FALSE: does not allow SAML requests to be signed. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sign_request Saml2Integration#saml2_sign_request}
         '''
         result = self._values.get("saml2_sign_request")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -996,7 +996,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This property will be set in the SAML authentication request generated by Snowflake when initiating a SAML SSO operation with the IdP. If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_acs_url Saml2Integration#saml2_snowflake_acs_url}
         '''
         result = self._values.get("saml2_snowflake_acs_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1007,7 +1007,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If an incorrect value is specified, Snowflake returns an error message indicating the acceptable values to use. Because Okta does not support underscores in URLs, the underscore in the account name must be converted to a hyphen. See `docs <https://docs.snowflake.com/en/user-guide/organizations-connect#okta-urls>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_snowflake_issuer_url Saml2Integration#saml2_snowflake_issuer_url}
         '''
         result = self._values.get("saml2_snowflake_issuer_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1018,7 +1018,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this field changes value from non-empty to empty, the whole resource is recreated because of Snowflake limitations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#saml2_sp_initiated_login_page_label Saml2Integration#saml2_sp_initiated_login_page_label}
         '''
         result = self._values.get("saml2_sp_initiated_login_page_label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1027,7 +1027,7 @@ class Saml2IntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Saml2IntegrationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#timeouts Saml2Integration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Saml2IntegrationTimeouts"], result)
@@ -4213,10 +4213,10 @@ class Saml2IntegrationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#create Saml2Integration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#read Saml2Integration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#update Saml2Integration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#create Saml2Integration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#read Saml2Integration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#update Saml2Integration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbbfdfedbe754d3500b3bfc551df2b78250732af633229075f13f9a237970d06)
@@ -4236,25 +4236,25 @@ class Saml2IntegrationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#create Saml2Integration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#create Saml2Integration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#delete Saml2Integration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#read Saml2Integration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#read Saml2Integration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/saml2_integration#update Saml2Integration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/saml2_integration#update Saml2Integration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -26,7 +26,8 @@ if _version_not_supported:
 
 
 class ProceduresServiceStub(object):
-    """Service for creating and managing procedures.
+    """Service for creating and managing procedure templates, which are versioned collections
+    of steps to be performed, typically in a specific order.
     """
 
     def __init__(self, channel):
@@ -93,7 +94,8 @@ class ProceduresServiceStub(object):
 
 
 class ProceduresServiceServicer(object):
-    """Service for creating and managing procedures.
+    """Service for creating and managing procedure templates, which are versioned collections
+    of steps to be performed, typically in a specific order.
     """
 
     def CreateProcedure(self, request, context):
@@ -241,7 +243,8 @@ def add_ProceduresServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class ProceduresService(object):
-    """Service for creating and managing procedures.
+    """Service for creating and managing procedure templates, which are versioned collections
+    of steps to be performed, typically in a specific order.
     """
 
     @staticmethod

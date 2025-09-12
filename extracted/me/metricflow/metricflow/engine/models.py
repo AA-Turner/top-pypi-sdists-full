@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
@@ -16,7 +17,12 @@ from dbt_semantic_interfaces.protocols.export import Export
 from dbt_semantic_interfaces.protocols.measure import MeasureAggregationParameters
 from dbt_semantic_interfaces.protocols.metadata import Metadata
 from dbt_semantic_interfaces.protocols.metric import Metric as SemanticManifestMetric
-from dbt_semantic_interfaces.protocols.metric import MetricConfig, MetricInputMeasure, MetricType, MetricTypeParams
+from dbt_semantic_interfaces.protocols.metric import (
+    MetricInputMeasure,
+    MetricType,
+    MetricTypeParams,
+    SemanticLayerElementConfig,
+)
 from dbt_semantic_interfaces.protocols.saved_query import (
     SavedQuery as SemanticManifestSavedQuery,
 )
@@ -24,7 +30,7 @@ from dbt_semantic_interfaces.protocols.saved_query import (
     SavedQueryQueryParams,
 )
 from dbt_semantic_interfaces.protocols.where_filter import WhereFilterIntersection
-from dbt_semantic_interfaces.references import EntityReference
+from dbt_semantic_interfaces.references import EntityReference, SemanticModelReference
 from dbt_semantic_interfaces.transformations.add_input_metric_measures import AddInputMetricMeasuresRule
 from dbt_semantic_interfaces.type_enums.aggregation_type import AggregationType
 from dbt_semantic_interfaces.type_enums.entity_type import EntityType
@@ -32,8 +38,18 @@ from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpe
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 
 
+class SearchableElement(ABC):
+    """Base class for searchable elements."""
+
+    @property
+    @abstractmethod
+    def default_search_and_sort_attribute(self) -> str:  # noqa: D102
+        """The default attribute to use when filtering elements by a search string."""
+        raise NotImplementedError
+
+
 @dataclass(frozen=True)
-class Metric:
+class Metric(SearchableElement):
     """Dataclass representation of a Metric."""
 
     name: str
@@ -44,10 +60,16 @@ class Metric:
     metadata: Optional[Metadata]
     dimensions: List[Dimension]
     label: Optional[str]
-    config: Optional[MetricConfig]
+    config: Optional[SemanticLayerElementConfig]
+    semantic_models: List[SemanticModelReference]
 
     @classmethod
-    def from_pydantic(cls, pydantic_metric: SemanticManifestMetric, dimensions: List[Dimension]) -> Metric:
+    def from_pydantic(
+        cls,
+        pydantic_metric: SemanticManifestMetric,
+        dimensions: List[Dimension],
+        semantic_models: List[SemanticModelReference],
+    ) -> Metric:
         """Build from pydantic Metric object and list of Dimensions."""
         return cls(
             name=pydantic_metric.name,
@@ -59,6 +81,7 @@ class Metric:
             dimensions=dimensions,
             label=pydantic_metric.label,
             config=pydantic_metric.config,
+            semantic_models=semantic_models,
         )
 
     @property
@@ -70,9 +93,13 @@ class Metric:
         )
         return self.type_params.input_measures
 
+    @property
+    def default_search_and_sort_attribute(self) -> str:  # noqa: D102
+        return self.name
+
 
 @dataclass(frozen=True)
-class Dimension:
+class Dimension(SearchableElement):
     """Dataclass representation of a Dimension."""
 
     name: str
@@ -82,6 +109,8 @@ class Dimension:
     entity_links: Tuple[EntityReference, ...]
     type_params: Optional[DimensionTypeParams]
     metadata: Optional[Metadata]
+    semantic_model_reference: Optional[SemanticModelReference]
+    config: Optional[SemanticLayerElementConfig] = None
     is_partition: bool = False
     expr: Optional[str] = None
     label: Optional[str] = None
@@ -91,6 +120,7 @@ class Dimension:
         cls,
         pydantic_dimension: SemanticManifestDimension,
         entity_links: Tuple[EntityReference, ...],
+        semantic_model_reference: SemanticModelReference,
     ) -> Dimension:
         """Build from pydantic Dimension and entity_key."""
         qualified_name = DimensionSpec(element_name=pydantic_dimension.name, entity_links=entity_links).qualified_name
@@ -107,11 +137,17 @@ class Dimension:
             type=pydantic_dimension.type,
             type_params=parsed_type_params,
             metadata=pydantic_dimension.metadata,
+            config=pydantic_dimension.config,
             is_partition=pydantic_dimension.is_partition,
             expr=pydantic_dimension.expr,
             label=pydantic_dimension.label,
             entity_links=entity_links,
+            semantic_model_reference=semantic_model_reference,
         )
+
+    @property
+    def default_search_and_sort_attribute(self) -> str:  # noqa: D102
+        return self.qualified_name
 
     @property
     def granularity_free_qualified_name(self) -> str:
@@ -130,25 +166,35 @@ class Dimension:
 
 
 @dataclass(frozen=True)
-class Entity:
+class Entity(SearchableElement):
     """Dataclass representation of a Entity."""
 
     name: str
     description: Optional[str]
     type: EntityType
+    semantic_model_reference: SemanticModelReference
     role: Optional[str]
+    config: Optional[SemanticLayerElementConfig] = None
     expr: Optional[str] = None
 
     @classmethod
-    def from_pydantic(cls, pydantic_entity: SemanticManifestEntity) -> Entity:
+    def from_pydantic(
+        cls, pydantic_entity: SemanticManifestEntity, semantic_model_reference: SemanticModelReference
+    ) -> Entity:
         """Build from pydantic Entity."""
         return cls(
             name=pydantic_entity.name,
             description=pydantic_entity.description,
             type=pydantic_entity.type,
             role=pydantic_entity.role,
+            config=pydantic_entity.config,
             expr=pydantic_entity.expr,
+            semantic_model_reference=semantic_model_reference,
         )
+
+    @property
+    def default_search_and_sort_attribute(self) -> str:  # noqa: D102
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -158,13 +204,14 @@ class Measure:
     name: str
     agg: AggregationType
     agg_time_dimension: str
+    config: Optional[SemanticLayerElementConfig] = None
     description: Optional[str] = None
     expr: Optional[str] = None
     agg_params: Optional[MeasureAggregationParameters] = None
 
 
 @dataclass(frozen=True)
-class SavedQuery:
+class SavedQuery(SearchableElement):
     """Dataclass representation of a SavedQuery."""
 
     name: str
@@ -173,6 +220,7 @@ class SavedQuery:
     query_params: SavedQueryQueryParams
     metadata: Optional[Metadata]
     exports: Sequence[Export]
+    tags: Sequence[str]
 
     @classmethod
     def from_pydantic(cls, pydantic_saved_query: SemanticManifestSavedQuery) -> SavedQuery:
@@ -184,4 +232,9 @@ class SavedQuery:
             query_params=pydantic_saved_query.query_params,
             metadata=pydantic_saved_query.metadata,
             exports=pydantic_saved_query.exports,
+            tags=pydantic_saved_query.tags,
         )
+
+    @property
+    def default_search_and_sort_attribute(self) -> str:  # noqa: D102
+        return self.name

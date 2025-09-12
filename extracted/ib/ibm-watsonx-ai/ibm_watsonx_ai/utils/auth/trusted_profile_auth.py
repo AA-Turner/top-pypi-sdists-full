@@ -15,7 +15,11 @@ from ibm_watsonx_ai.utils.auth.base_auth import (
     _get_token_info,
 )
 from ibm_watsonx_ai.utils.utils import _requests_retry_session
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_client_error import (
+    AuthenticationError,
+    InvalidCredentialsError,
+    WMLClientError,
+)
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -119,10 +123,10 @@ class TrustedProfileAuth(RefreshableTokenAuth):
 
         if response.status_code == 200:
             return TokenInfo(response.json().get("access_token"))
+        elif 400 <= response.status_code < 500:
+            raise InvalidCredentialsError(reason=response.text)
         else:
-            raise WMLClientError(
-                "Error getting trusted profile IAM Token.", response.text
-            )
+            raise AuthenticationError("trusted profile IAM", response)
 
     def _is_trusted_profile_token(self) -> bool:
         """Valid only for `TokenAuth` as internal auth method.

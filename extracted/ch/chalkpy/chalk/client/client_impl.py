@@ -154,11 +154,12 @@ from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import Features, is_feature_set_class
 from chalk.features.pseudofeatures import CHALK_TS_FEATURE
-from chalk.features.resolver import Resolver
+from chalk.features.resolver import Resolver, StreamResolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
 from chalk.importer import CHALK_IMPORT_FLAG
 from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
+from chalk.parsed.to_proto import ToProtoConverter
 from chalk.prompts import Prompt
 from chalk.queries.query_context import ContextJsonDict, JsonValue
 from chalk.utils import notebook
@@ -1785,7 +1786,9 @@ https://docs.chalk.ai/cli/apply
                     name = render_fqn(f.name)
 
                 if f.is_windowed:
-                    feature_type = f"Windowed[{f.typ.parsed_annotation.__name__}]"
+                    window = f.typ.parsed_annotation
+                    windowed_type = getattr(window, "__name__", None) or str(window)
+                    feature_type = f"Windowed[{windowed_type}]"
 
                 if f.primary:
                     name = f"{name} [blue]★[/blue]"
@@ -4090,6 +4093,13 @@ https://docs.chalk.ai/cli/apply
         kafka_auto_offset_reset: Optional[Literal["earliest", "latest"]] = "earliest",
     ) -> StreamResolverTestResponse:
         resolver_fqn = resolver.fqn if isinstance(resolver, Resolver) else resolver
+        static_stream_resolver_b64: str | None = None
+        if isinstance(resolver, StreamResolver) and resolver.feature_expressions:
+            proto_resolver = ToProtoConverter.convert_stream_resolver(resolver)
+            static_stream_resolver_b64 = base64.b64encode(proto_resolver.SerializeToString(deterministic=True)).decode(
+                "utf-8"
+            )
+
         if num_messages is None and message_filepath is None and message_bodies is None:
             raise ValueError("One of 'num_messages', 'message_filepath', or 'message_bodies' must be provided.")
         payloads = (
@@ -4107,6 +4117,7 @@ https://docs.chalk.ai/cli/apply
             num_messages=num_messages,
             test_messages=payloads,
             kafka_auto_offset_reset=kafka_auto_offset_reset,
+            static_stream_resolver_b64=static_stream_resolver_b64,
         )
         result = self._request(
             method="POST",

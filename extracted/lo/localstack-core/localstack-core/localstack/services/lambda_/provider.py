@@ -7,7 +7,7 @@ import logging
 import re
 import threading
 import time
-from typing import IO, Any, Optional, Tuple
+from typing import IO, Any
 
 from botocore.exceptions import ClientError
 
@@ -313,7 +313,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                             LOG.warning(
                                 "Failed to restore function version %s",
                                 fn_version.id.qualified_arn(),
-                                exc_info=True,
+                                exc_info=LOG.isEnabledFor(logging.DEBUG),
                             )
                     # restore provisioned concurrency per function considering both versions and aliases
                     for (
@@ -344,7 +344,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                                 "Failed to restore provisioned concurrency %s for function %s",
                                 provisioned_config,
                                 fn_arn,
-                                exc_info=True,
+                                exc_info=LOG.isEnabledFor(logging.DEBUG),
                             )
 
                 for esm in state.event_source_mappings.values():
@@ -477,7 +477,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         self,
         account_id: str,
         region_name: str,
-        vpc_config: Optional[dict] = None,
+        vpc_config: dict | None = None,
     ) -> VpcConfig | None:
         if not vpc_config or not is_api_enabled("ec2"):
             return None
@@ -709,7 +709,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 "Cannot reference more than 5 layers.", Type="User"
             )
 
-        visited_layers = dict()
+        visited_layers = {}
         for layer_version_arn in new_layers:
             (
                 layer_region,
@@ -1512,7 +1512,8 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         code_location = None
         if code := version.config.code:
             code_location = FunctionCodeLocation(
-                Location=code.generate_presigned_url(), RepositoryType="S3"
+                Location=code.generate_presigned_url(endpoint_url=config.external_service_url()),
+                RepositoryType="S3",
             )
         elif image := version.config.image:
             code_location = FunctionCodeLocation(
@@ -3589,7 +3590,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
     @staticmethod
     def _resolve_layer(
         layer_name_or_arn: str, context: RequestContext
-    ) -> Tuple[str, str, str, Optional[str]]:
+    ) -> tuple[str, str, str, str | None]:
         """
         Return locator attributes for a given Lambda layer.
 

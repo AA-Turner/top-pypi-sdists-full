@@ -1,6 +1,4 @@
-import os,tempfile
-from typing import List
-import distro
+import os,tempfile,distro
 from localstack.packages import InstallTarget,Package
 from localstack.pro.core.packages import OSPackageInstaller
 from localstack.utils.files import new_tmp_file,rm_rf,save_file

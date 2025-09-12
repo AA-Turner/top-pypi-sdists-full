@@ -2080,14 +2080,11 @@ class CreateApplicationOutput(TypedDict, total=False):
     applicationId: Optional[ApplicationId]
 
 
-MinimumHealthyHostsPerZone = TypedDict(
-    "MinimumHealthyHostsPerZone",
-    {
-        "type": Optional[MinimumHealthyHostsPerZoneType],
-        "value": Optional[MinimumHealthyHostsPerZoneValue],
-    },
-    total=False,
-)
+class MinimumHealthyHostsPerZone(TypedDict, total=False):
+    type: Optional[MinimumHealthyHostsPerZoneType]
+    value: Optional[MinimumHealthyHostsPerZoneValue]
+
+
 WaitTimeInSeconds = int
 
 
@@ -2135,23 +2132,15 @@ class TimeBasedCanary(TypedDict, total=False):
     canaryInterval: Optional[WaitTimeInMins]
 
 
-TrafficRoutingConfig = TypedDict(
-    "TrafficRoutingConfig",
-    {
-        "type": Optional[TrafficRoutingType],
-        "timeBasedCanary": Optional[TimeBasedCanary],
-        "timeBasedLinear": Optional[TimeBasedLinear],
-    },
-    total=False,
-)
-MinimumHealthyHosts = TypedDict(
-    "MinimumHealthyHosts",
-    {
-        "type": Optional[MinimumHealthyHostsType],
-        "value": Optional[MinimumHealthyHostsValue],
-    },
-    total=False,
-)
+class TrafficRoutingConfig(TypedDict, total=False):
+    type: Optional[TrafficRoutingType]
+    timeBasedCanary: Optional[TimeBasedCanary]
+    timeBasedLinear: Optional[TimeBasedLinear]
+
+
+class MinimumHealthyHosts(TypedDict, total=False):
+    type: Optional[MinimumHealthyHostsType]
+    value: Optional[MinimumHealthyHostsValue]
 
 
 class CreateDeploymentConfigInput(ServiceRequest):

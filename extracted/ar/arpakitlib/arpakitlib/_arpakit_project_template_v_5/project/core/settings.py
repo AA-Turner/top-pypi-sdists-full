@@ -129,6 +129,12 @@ class Settings(SimpleSettings):
 
     api_openapi_url: str = "/secret/openapi"
 
+    api_uvicorn_timeout_keep_alive: int = 3
+
+    api_uvicorn_limit_concurrency: int = 1000
+
+    api_uvicorn_backlog: int = 2048
+
     sqladmin_secret_key: str | None = "85a9583cb91c4de7a78d7eb1e5306a04418c9c43014c447ea8ec8dd5deb4cf71"
 
     sqladmin_authorize_keys: list[str] | None = ["1"]
@@ -146,6 +152,12 @@ class Settings(SimpleSettings):
         return v
 
     sqladmin_port: int | None = 8081
+
+    sqladmin_prefix: str | None = "/sqladmin"
+
+    sqladmin_full_url: str = f"http://{api_host}:{api_port}"
+
+    sqladmin_full_url_with_prefix: str = sqladmin_full_url + sqladmin_prefix
 
     tg_bot_token: str | None = None
 

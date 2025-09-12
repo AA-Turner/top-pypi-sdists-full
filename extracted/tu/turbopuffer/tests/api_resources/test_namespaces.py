@@ -75,7 +75,6 @@ class TestNamespaces:
             consistency={"level": "strong"},
             distance_metric="cosine_distance",
             exclude_attributes=["string"],
-
             include_attributes=True,
             top_k=0,
             vector_encoding="float",
@@ -196,7 +195,6 @@ class TestNamespaces:
                 {
                     "distance_metric": "cosine_distance",
                     "exclude_attributes": ["string"],
-
                     "include_attributes": True,
                     "rank_by": ("id", "asc"),
                     "top_k": 0,
@@ -257,7 +255,6 @@ class TestNamespaces:
             consistency={"level": "strong"},
             distance_metric="cosine_distance",
             exclude_attributes=["string"],
-
             include_attributes=True,
             rank_by=("id", "asc"),
             top_k=0,
@@ -303,6 +300,7 @@ class TestNamespaces:
     @parametrize
     def test_method_recall_with_all_params(self, client: Turbopuffer) -> None:
         namespace = client.namespace("namespace").recall(
+            include_ground_truth=True,
             num=0,
             queries=[0],
             top_k=0,
@@ -532,7 +530,6 @@ class TestAsyncNamespaces:
             consistency={"level": "strong"},
             distance_metric="cosine_distance",
             exclude_attributes=["string"],
-
             include_attributes=True,
             top_k=0,
             vector_encoding="float",
@@ -656,7 +653,6 @@ class TestAsyncNamespaces:
                 {
                     "distance_metric": "cosine_distance",
                     "exclude_attributes": ["string"],
-
                     "include_attributes": True,
                     "rank_by": ("id", "asc"),
                     "top_k": 0,
@@ -717,7 +713,6 @@ class TestAsyncNamespaces:
             consistency={"level": "strong"},
             distance_metric="cosine_distance",
             exclude_attributes=["string"],
-
             include_attributes=True,
             rank_by=("id", "asc"),
             top_k=0,
@@ -764,6 +759,7 @@ class TestAsyncNamespaces:
     async def test_method_recall_with_all_params(self, async_client: AsyncTurbopuffer) -> None:
         namespace = await async_client.namespace("namespace").recall(
             filters={},
+            include_ground_truth=True,
             num=0,
             queries=[0],
             top_k=0,

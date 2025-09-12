@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.8.12,<0.9.0"]
+requires = ["uv_build>=0.8.13,<0.9.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -9,7 +9,7 @@ source-include = [".mypyignore"] # for scipy-stubs-feedstock
 
 [project]
 name = "scipy-stubs"
-version = "1.16.1.1"
+version = "1.16.2.0"
 description = "Type annotations for SciPy"
 readme = "README.md"
 authors = [
@@ -39,7 +39,7 @@ requires-python = ">=3.11"
 dependencies = ["optype[numpy]>=0.13.4,<0.14"]
 
 [project.optional-dependencies]
-scipy = ["scipy>=1.16.1,<1.17"]
+scipy = ["scipy>=1.16.2,<1.17"]
 
 [project.urls]
 Homepage = "https://scipy.org/"
@@ -53,14 +53,14 @@ ci = ["packaging>=25.0"]
 lint = [
   { include-group = "extras" },
   "dprint-py>=0.50.1.4",
-  "ruff>=0.12.9",
+  "ruff>=0.13.0",
   "sp-repo-review[cli]>=2025.5.2",
 ]
 type = [
   { include-group = "extras" },
   { include-group = "ci" },
   "array-api-compat==1.12.0", # bundled as `scipy._lib.array_api_compat`
-  "basedpyright>=1.31.2, !=1.31.3", # see https://github.com/microsoft/pyright/issues/10832
+  "basedpyright>=1.31.4",
   "mypy[faster-cache]>=1.17.1",
 ]
 dev = [
@@ -118,7 +118,7 @@ reportImplicitOverride = true
 reportImportCycles = true
 reportMissingSuperCall = true
 reportPropertyTypeMismatch = false
-reportShadowedImports = true
+reportShadowedImports = false
 reportUninitializedInstanceVariable = true
 reportUnnecessaryTypeIgnoreComment = true
 reportUnusedCallResult = true

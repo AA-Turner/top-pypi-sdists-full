@@ -89,6 +89,10 @@ class ExtensionLspCompile(google.protobuf.message.Message):
     COMPILE_SUCCESS_FIELD_NUMBER: builtins.int
     ERRORS_FIELD_NUMBER: builtins.int
     DURATION_MS_FIELD_NUMBER: builtins.int
+    COMPILE_TYPE_FIELD_NUMBER: builtins.int
+    MODELS_COUNT_FIELD_NUMBER: builtins.int
+    USER_INITIATED_FIELD_NUMBER: builtins.int
+    COMPILE_CAUSE_FIELD_NUMBER: builtins.int
     project_id: builtins.str
     """this is the hash of the project's name, used for anonymized telemetry"""
     adapter_type: builtins.str
@@ -101,6 +105,14 @@ class ExtensionLspCompile(google.protobuf.message.Message):
     """Indicates whether the compile was successful"""
     duration_ms: builtins.int
     """duration of the compile in milliseconds"""
+    compile_type: dbtlabs.proto.public.v1.fields.vscode_types_pb2.CompileType.ValueType
+    """the type of compile"""
+    models_count: builtins.int
+    """project models count"""
+    user_initiated: builtins.bool
+    """True if the compile was triggered by a user action (ie. saving a file)"""
+    compile_cause: dbtlabs.proto.public.v1.fields.vscode_types_pb2.CompileCause.ValueType
+    """The event that triggered the compile"""
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
     @property
@@ -122,9 +134,13 @@ class ExtensionLspCompile(google.protobuf.message.Message):
         compile_success: builtins.bool = ...,
         errors: collections.abc.Iterable[dbtlabs.proto.public.v1.fields.vscode_types_pb2.CompileError] | None = ...,
         duration_ms: builtins.int = ...,
+        compile_type: dbtlabs.proto.public.v1.fields.vscode_types_pb2.CompileType.ValueType = ...,
+        models_count: builtins.int = ...,
+        user_initiated: builtins.bool = ...,
+        compile_cause: dbtlabs.proto.public.v1.fields.vscode_types_pb2.CompileCause.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "user", b"user"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["adapter_type", b"adapter_type", "adapter_unique_id", b"adapter_unique_id", "compile_success", b"compile_success", "dbt_version", b"dbt_version", "duration_ms", b"duration_ms", "editor", b"editor", "enrichment", b"enrichment", "errors", b"errors", "project_id", b"project_id", "user", b"user"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["adapter_type", b"adapter_type", "adapter_unique_id", b"adapter_unique_id", "compile_cause", b"compile_cause", "compile_success", b"compile_success", "compile_type", b"compile_type", "dbt_version", b"dbt_version", "duration_ms", b"duration_ms", "editor", b"editor", "enrichment", b"enrichment", "errors", b"errors", "models_count", b"models_count", "project_id", b"project_id", "user", b"user", "user_initiated", b"user_initiated"]) -> None: ...
 
 global___ExtensionLspCompile = ExtensionLspCompile
 
@@ -335,3 +351,61 @@ class ExtensionUsedBuildMenu(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "selected_command", b"selected_command", "user", b"user"]) -> None: ...
 
 global___ExtensionUsedBuildMenu = ExtensionUsedBuildMenu
+
+@typing.final
+class ExtensionGetSupportPopupShown(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EDITOR_FIELD_NUMBER: builtins.int
+    USER_FIELD_NUMBER: builtins.int
+    SUPPORT_TYPE_FIELD_NUMBER: builtins.int
+    support_type: builtins.str
+    """the type of support being offered"""
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def editor(self) -> dbtlabs.proto.public.v1.fields.vscode_types_pb2.Editor: ...
+    @property
+    def user(self) -> dbtlabs.proto.public.v1.fields.vscode_types_pb2.User: ...
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        editor: dbtlabs.proto.public.v1.fields.vscode_types_pb2.Editor | None = ...,
+        user: dbtlabs.proto.public.v1.fields.vscode_types_pb2.User | None = ...,
+        support_type: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "user", b"user"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "support_type", b"support_type", "user", b"user"]) -> None: ...
+
+global___ExtensionGetSupportPopupShown = ExtensionGetSupportPopupShown
+
+@typing.final
+class ExtensionGetSupportClicked(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EDITOR_FIELD_NUMBER: builtins.int
+    USER_FIELD_NUMBER: builtins.int
+    SUPPORT_TYPE_FIELD_NUMBER: builtins.int
+    support_type: builtins.str
+    """the type of support that was clicked"""
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def editor(self) -> dbtlabs.proto.public.v1.fields.vscode_types_pb2.Editor: ...
+    @property
+    def user(self) -> dbtlabs.proto.public.v1.fields.vscode_types_pb2.User: ...
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        editor: dbtlabs.proto.public.v1.fields.vscode_types_pb2.Editor | None = ...,
+        user: dbtlabs.proto.public.v1.fields.vscode_types_pb2.User | None = ...,
+        support_type: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "user", b"user"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["editor", b"editor", "enrichment", b"enrichment", "support_type", b"support_type", "user", b"user"]) -> None: ...
+
+global___ExtensionGetSupportClicked = ExtensionGetSupportClicked

@@ -13,7 +13,10 @@ def start_api():
         port=get_cached_settings().api_port,
         host=get_cached_settings().api_host,
         workers=get_cached_settings().api_workers,
-        reload=get_cached_settings().api_reload
+        reload=get_cached_settings().api_reload,
+        timeout_keep_alive=get_cached_settings().api_uvicorn_timeout_keep_alive,
+        limit_concurrency=get_cached_settings().api_uvicorn_limit_concurrency,
+        backlog=get_cached_settings().api_uvicorn_backlog,
     )
 
 

@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.sql.sql_exprs import (
     SqlColumnAliasReferenceExpression,
@@ -18,18 +18,16 @@ from metricflow_semantics.sql.sql_exprs import (
 from typing_extensions import override
 
 from metricflow.sql.optimizer.sql_query_plan_optimizer import SqlPlanOptimizer
+from metricflow.sql.sql_ctas_node import SqlCreateTableAsNode
+from metricflow.sql.sql_cte_node import SqlCteNode
 from metricflow.sql.sql_plan import (
-    SqlCreateTableAsNode,
-    SqlCteNode,
-    SqlJoinDescription,
-    SqlOrderByDescription,
     SqlPlanNode,
     SqlPlanNodeVisitor,
     SqlSelectColumn,
-    SqlSelectQueryFromClauseNode,
-    SqlSelectStatementNode,
-    SqlTableNode,
 )
+from metricflow.sql.sql_select_node import SqlJoinDescription, SqlOrderByDescription, SqlSelectStatementNode
+from metricflow.sql.sql_select_text_node import SqlSelectTextNode
+from metricflow.sql.sql_table_node import SqlTableNode
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +245,10 @@ class SqlRewritingSubQueryReducerVisitor(SqlPlanNodeVisitor[SqlPlanNode]):
 
         # Skip this case for simplicity of reasoning.
         if len(from_source_node_as_select_node.group_bys) > 0 and len(node.group_bys) > 0:
+            return False
+
+        # Skip this case for readability.
+        if any(col.expr.is_verbose for col in from_source_node_as_select_node.select_columns):
             return False
 
         # If there is a column in the parent group by that is not used in the current select statement, don't reduce or it
@@ -517,7 +519,11 @@ class SqlRewritingSubQueryReducerVisitor(SqlPlanNodeVisitor[SqlPlanNode]):
             join_select_node = join_desc.right_source.as_select_node
 
             # Verifying that it's simple makes it easier to reason about the logic.
-            if not join_select_node or not SqlRewritingSubQueryReducerVisitor._is_simple_source(join_select_node):
+            if (
+                not join_select_node
+                or not SqlRewritingSubQueryReducerVisitor._is_simple_source(join_select_node)
+                or any(col.expr.is_verbose for col in join_select_node.select_columns)
+            ):
                 new_join_descs.append(join_desc)
                 continue
 
@@ -758,7 +764,7 @@ class SqlRewritingSubQueryReducerVisitor(SqlPlanNodeVisitor[SqlPlanNode]):
     def visit_table_node(self, node: SqlTableNode) -> SqlPlanNode:  # noqa: D102
         return node
 
-    def visit_query_from_clause_node(self, node: SqlSelectQueryFromClauseNode) -> SqlPlanNode:  # noqa: D102
+    def visit_query_from_clause_node(self, node: SqlSelectTextNode) -> SqlPlanNode:  # noqa: D102
         return node
 
     def visit_create_table_as_node(self, node: SqlCreateTableAsNode) -> SqlPlanNode:  # noqa: D102
@@ -801,7 +807,7 @@ class SqlGroupByRewritingVisitor(SqlPlanNodeVisitor[SqlPlanNode]):
             else:
                 logger.debug(
                     LazyFormat(
-                        lambda: f"Did not find matching select for {group_by} in:\n{indent(node.structure_text())}"
+                        lambda: f"Did not find matching select for {group_by} in:\n{mf_indent(node.structure_text())}"
                     )
                 )
                 new_group_bys.append(group_by)
@@ -833,7 +839,7 @@ class SqlGroupByRewritingVisitor(SqlPlanNodeVisitor[SqlPlanNode]):
     def visit_table_node(self, node: SqlTableNode) -> SqlPlanNode:  # noqa: D102
         return node
 
-    def visit_query_from_clause_node(self, node: SqlSelectQueryFromClauseNode) -> SqlPlanNode:  # noqa: D102
+    def visit_query_from_clause_node(self, node: SqlSelectTextNode) -> SqlPlanNode:  # noqa: D102
         return node
 
     def visit_create_table_as_node(self, node: SqlCreateTableAsNode) -> SqlPlanNode:  # noqa: D102

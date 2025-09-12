@@ -19,12 +19,9 @@ with ui.hold() as map_ui:
         return ipyl.Map(center=(52, 10), zoom=8)
 
 
-chat = ui.Chat(
-    id="chat",
-    messages=[map_ui],
-)
+chat = ui.Chat(id="chat")
 
-chat.ui()
+chat.ui(messages=[map_ui])
 
 with ui.hold() as df_1:
 
@@ -49,15 +46,17 @@ with ui.hold() as df_2:
 
 @reactive.effect
 async def _():
-    await chat.append_message_stream(df_2)
+    await chat.append_message(df_2)
 
 
 with ui.hold() as plot_ui:
 
     @render_plotly
-    def plot():
+    def plot():  # pyright: ignore[reportUnknownReturnType,reportUnknownParameterType]
         dat = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-        return px.scatter(dat, x="x", y="y")  # pyright: ignore[reportUnknownMemberType]
+        return px.scatter(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            dat, x="x", y="y"
+        )
 
 
 @reactive.effect

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclass
 from dbt_semantic_interfaces.references import EntityReference, GroupByMetricReference
@@ -25,7 +25,7 @@ class GroupByMetricSpec(LinkableInstanceSpec, SerializableDataclass):
         metric_subquery_entity_links: Sequence of entities used in the metric subquery to join the metric to the entity.
     """
 
-    metric_subquery_entity_links: Tuple[EntityReference, ...]
+    metric_subquery_entity_links: Tuple[EntityReference, ...] = ()
 
     def __post_init__(self) -> None:
         """The inner query and outer query entity paths must end with the same entity (that's what they join on).
@@ -74,20 +74,14 @@ class GroupByMetricSpec(LinkableInstanceSpec, SerializableDataclass):
         )
 
     @property
+    @override
     def qualified_name(self) -> str:
-        """Element name prefixed with entity links.
-
-        If same entity links are used in inner & outer query, use standard qualified name (country__bookings).
-        Else, specify both sets of entity links (listing__country__user__country__bookings).
-        """
-        if self.entity_links == self.metric_subquery_entity_links:
-            entity_links = self.entity_links
-        else:
-            entity_links = self.entity_links + self.metric_subquery_entity_links
-
         return StructuredLinkableSpecName(
-            entity_link_names=tuple(entity_link.element_name for entity_link in entity_links),
+            entity_link_names=tuple(entity_link.element_name for entity_link in self.entity_links),
             element_name=self.element_name,
+            metric_subquery_entity_link_names=tuple(
+                entity_link.element_name for entity_link in self.metric_subquery_entity_links
+            ),
         ).qualified_name
 
     def __eq__(self, other: Any) -> bool:  # type: ignore[misc] # noqa: D105
@@ -117,4 +111,13 @@ class GroupByMetricSpec(LinkableInstanceSpec, SerializableDataclass):
             element_name=self.element_name,
             entity_links=(entity_prefix,) + self.entity_links,
             metric_subquery_entity_links=self.metric_subquery_entity_links,
+        )
+
+    @override
+    def with_alias(self, alias: Optional[str]) -> GroupByMetricSpec:  # noqa: D102
+        return GroupByMetricSpec(
+            element_name=self.element_name,
+            entity_links=self.entity_links,
+            metric_subquery_entity_links=self.metric_subquery_entity_links,
+            alias=alias,
         )

@@ -1094,3 +1094,54 @@ class PaymentEntryWindow(NextGenWindow):
 
         self.logger.debug("Payment Entry is opened for the expected encounter and resub.")
         return True
+
+    def delete_allowed_field(self, row) -> None:
+        """Delete (set to empty) the Allowed field of the given service line."""
+        self.logger.debug("Deleting Allowed field (set to empty).")
+        row = self.revalidate_service_row(row)
+        items = row.children(control_type="Edit")
+        for item in items:
+            window_text = item.window_text()
+            if "allowed" in window_text.lower():
+                element = row.descendants(title=window_text, control_type="Edit")[0]
+                element.click_input()
+                send_keys("^a{DELETE}")
+                if element.get_value() != "":
+                    element.click_input()
+                    send_keys("^a{DELETE}")
+                return
+        raise FieldNotFoundException("Allowed field not found in the row")
+
+    def delete_adj_field(self, row) -> None:
+        """Delete (set to empty) the Adj field of the given service line."""
+        self.logger.debug("Deleting Adj field (set to empty).")
+        row = self.revalidate_service_row(row)
+        items = row.children(control_type="Edit")
+        for item in items:
+            window_text = item.window_text()
+            if "adj" in window_text.lower():
+                element = row.descendants(title=window_text, control_type="Edit")[0]
+                element.click_input()
+                send_keys("^a{DELETE}")
+                if element.get_value() != "":
+                    element.click_input()
+                    send_keys("^a{DELETE}")
+                return
+        raise AdjFieldNotFoundException("Adj field not found in the row")
+
+    def delete_pay_field(self, row) -> None:
+        """Delete (set to empty) the Pay field of the given service line."""
+        self.logger.debug("Deleting Pay field (set to empty).")
+        row = self.revalidate_service_row(row)
+        items = row.children(control_type="Edit")
+        for item in items:
+            window_text = item.window_text()
+            if "pay" in window_text.lower():
+                element = row.descendants(title=window_text, control_type="Edit")[0]
+                element.click_input()
+                send_keys("^a{DELETE}")
+                if element.get_value() != "":
+                    element.click_input()
+                    send_keys("^a{DELETE}")
+                return
+        raise PayFieldNotFoundException("Pay field not found in the row")

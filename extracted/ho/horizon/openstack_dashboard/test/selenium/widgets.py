@@ -11,6 +11,7 @@
 #    under the License.
 
 from dataclasses import dataclass
+
 from selenium.common import exceptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -26,8 +27,10 @@ class TableDefinition:
     names: list
 
 
-def get_and_dismiss_messages(element):
-    messages = element.find_elements_by_css_selector("div.messages div.alert")
+def get_and_dismiss_messages(driver, config):
+    messages = WebDriverWait(driver, config.selenium.message_wait).until(
+        EC.presence_of_all_elements_located(
+            (By.CSS_SELECTOR, 'div.messages div.alert')))
     collect = []
     for message in messages:
         text = message.find_element_by_css_selector("p, div").text

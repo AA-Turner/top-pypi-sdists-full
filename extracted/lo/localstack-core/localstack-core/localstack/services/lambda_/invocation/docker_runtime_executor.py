@@ -5,8 +5,9 @@ import shutil
 import tempfile
 import threading
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, Literal, Optional
+from typing import Literal
 
 from localstack import config
 from localstack.aws.api.lambda_ import Architecture, PackageType, Runtime
@@ -145,7 +146,7 @@ class RuntimeImageResolver:
     def __init__(
         self, default_resolve_fn: Callable[[Runtime], str] = get_default_image_for_runtime
     ):
-        self._mapping = dict()
+        self._mapping = {}
         self._default_resolve_fn = default_resolve_fn
 
     def _resolve(self, runtime: Runtime, custom_image_mapping: str = "") -> str:
@@ -274,12 +275,12 @@ class LambdaContainerConfiguration(ContainerConfiguration):
 
 
 class DockerRuntimeExecutor(RuntimeExecutor):
-    ip: Optional[str]
-    executor_endpoint: Optional[ExecutorEndpoint]
+    ip: str | None
+    executor_endpoint: ExecutorEndpoint | None
     container_name: str
 
     def __init__(self, id: str, function_version: FunctionVersion) -> None:
-        super(DockerRuntimeExecutor, self).__init__(id=id, function_version=function_version)
+        super().__init__(id=id, function_version=function_version)
         self.ip = None
         self.executor_endpoint = ExecutorEndpoint(self.id)
         self.container_name = self._generate_container_name()
@@ -455,7 +456,7 @@ class DockerRuntimeExecutor(RuntimeExecutor):
     def _get_networks_for_executor(self) -> list[str]:
         return get_all_container_networks_for_lambda()
 
-    def invoke(self, payload: Dict[str, str]):
+    def invoke(self, payload: dict[str, str]):
         LOG.debug(
             "Sending invoke-payload '%s' to executor '%s'",
             truncate(json.dumps(payload), config.LAMBDA_TRUNCATE_STDOUT),

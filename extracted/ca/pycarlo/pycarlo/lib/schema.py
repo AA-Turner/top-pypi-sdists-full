@@ -35612,7 +35612,7 @@ class Mutation(sgqlc.types.Type):
                     "alert_conditions",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(
-                            sgqlc.types.list_of(sgqlc.types.non_null(CustomRuleComparisonInput))
+                            sgqlc.types.list_of(sgqlc.types.non_null(MetricAlertConditionInput))
                         ),
                         graphql_name="alertConditions",
                         default=None,
@@ -35717,7 +35717,7 @@ class Mutation(sgqlc.types.Type):
 
     * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
       agent span fields (agent, workflow, task, span_name)
-    * `alert_conditions` (`[CustomRuleComparisonInput!]!`): Alert
+    * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
       conditions.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-

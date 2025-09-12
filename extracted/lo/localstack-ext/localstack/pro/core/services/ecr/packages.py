@@ -1,6 +1,5 @@
 _A='latest'
 import logging,os.path,platform
-from typing import List
 from localstack.constants import ARTIFACTS_REPO
 from localstack.packages import InstallTarget,Package
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller

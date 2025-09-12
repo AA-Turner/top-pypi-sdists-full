@@ -17938,6 +17938,7 @@ class DescribeBackupsResponseBodyItemsBackup(TeaModel):
         backup_region: str = None,
         backup_size: int = None,
         backup_start_time: str = None,
+        backup_status: str = None,
         backup_type: str = None,
         dbcluster_id: str = None,
         parent_backup_id: str = None,
@@ -17954,6 +17955,7 @@ class DescribeBackupsResponseBodyItemsBackup(TeaModel):
         self.backup_size = backup_size
         # The start time of the backup.
         self.backup_start_time = backup_start_time
+        self.backup_status = backup_status
         # The backup type. Valid values:
         # 
         # *   **FullBackup**\
@@ -17986,6 +17988,8 @@ class DescribeBackupsResponseBodyItemsBackup(TeaModel):
             result['BackupSize'] = self.backup_size
         if self.backup_start_time is not None:
             result['BackupStartTime'] = self.backup_start_time
+        if self.backup_status is not None:
+            result['BackupStatus'] = self.backup_status
         if self.backup_type is not None:
             result['BackupType'] = self.backup_type
         if self.dbcluster_id is not None:
@@ -18010,6 +18014,8 @@ class DescribeBackupsResponseBodyItemsBackup(TeaModel):
             self.backup_size = m.get('BackupSize')
         if m.get('BackupStartTime') is not None:
             self.backup_start_time = m.get('BackupStartTime')
+        if m.get('BackupStatus') is not None:
+            self.backup_status = m.get('BackupStatus')
         if m.get('BackupType') is not None:
             self.backup_type = m.get('BackupType')
         if m.get('DBClusterId') is not None:

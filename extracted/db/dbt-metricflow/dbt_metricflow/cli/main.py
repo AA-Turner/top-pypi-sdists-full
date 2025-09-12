@@ -201,7 +201,7 @@ def query(
         click.echo(f"❌ The `decimals` option was set to {decimals!r}, but it should be a non-negative integer.")
         exit(1)
 
-    start = time.time()
+    start = time.perf_counter()
     spinner: Optional[Halo] = None
     if not quiet:
         spinner = Halo(text="Initiating query…", spinner="dots")
@@ -227,7 +227,7 @@ def query(
         query_result = cfg.mf.query(mf_request=mf_request)
 
     if spinner is not None:
-        spinner.succeed(f"Success 🦄 - query completed after {time.time() - start:.2f} seconds")
+        spinner.succeed(f"Success 🦄 - query completed after {time.perf_counter() - start:.2f} seconds")
 
     if explain:
         assert explain_result
@@ -617,6 +617,30 @@ def validate_configs(
     _print_issues(merged_results, show_non_blocking=show_all, verbose=verbose_issues)
     if merged_results.has_blocking_issues:
         exit(1)
+
+
+@list_command_group.command()
+@pass_config
+@exception_handler
+@log_call(module_name=__name__, telemetry_reporter=_telemetry_reporter)
+def saved_queries(cfg: CLIConfiguration) -> None:
+    """List all saved queries in the project."""
+    if not cfg.is_setup:
+        cfg.setup()
+    spinner = Halo(text="🔍 Looking for all available saved queries...", spinner="dots")
+    spinner.start()
+
+    saved_queries = cfg.mf.list_saved_queries()
+
+    if not saved_queries:
+        spinner.fail("No saved queries found.")
+        return
+
+    spinner.succeed(f"🌱 We've found {len(saved_queries)} saved queries.")
+    click.echo("The list below shows saved queries with their descriptions:")
+    for sq in saved_queries:
+        description = sq.description if sq.description else "No description provided"
+        click.echo(f"• {click.style(sq.name, bold=True, fg='green')}: {description}")
 
 
 if __name__ == "__main__":

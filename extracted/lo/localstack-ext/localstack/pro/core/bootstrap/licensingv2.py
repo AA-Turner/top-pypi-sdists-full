@@ -19,7 +19,7 @@ from datetime import datetime,timezone
 from enum import Enum
 from json import JSONDecodeError,JSONEncoder
 from pathlib import PurePosixPath
-from typing import Any,Dict,List,Optional,Protocol,Tuple,TypedDict,Union,cast
+from typing import Any,Optional,Protocol,TypedDict,Union,cast
 import dateutil.parser
 from localstack import config,constants
 from localstack.constants import VERSION
@@ -89,12 +89,12 @@ class Credentials:
 class ApiKeyCredentials(Credentials):
 	api_key:str
 	def __init__(A,api_key):A.api_key=api_key
-	def __repr__(A):return'"%s..."(%s)'%(A.api_key[:3],len(A.api_key))
+	def __repr__(A):return f'"{A.api_key[:3]}..."({len(A.api_key)})'
 	def encoded(A):return A.api_key
 	def is_valid(A):return _B
 	def to_bytes(A):return A.api_key.encode(_D)
 class AuthToken(Credentials):
-	TOKEN_PREFIX='ls[a-zA-Z]*-';MIN_TOKEN_PREFIX_LENGTH=3;TOKEN_REGEX=re.compile('^%s[a-zA-Z]{4}[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$'%TOKEN_PREFIX);MIN_TOKEN_LENGTH=36+MIN_TOKEN_PREFIX_LENGTH;token:str;prefix:str;payload:str
+	TOKEN_PREFIX='ls[a-zA-Z]*-';MIN_TOKEN_PREFIX_LENGTH=3;TOKEN_REGEX=re.compile(f"^{TOKEN_PREFIX}[a-zA-Z]{{4}}[a-zA-Z0-9]{{4}}-[a-zA-Z0-9]{{4}}-[a-zA-Z0-9]{{4}}-[a-zA-Z0-9]{{4}}-[a-zA-Z0-9]{{12}}$");MIN_TOKEN_LENGTH=36+MIN_TOKEN_PREFIX_LENGTH;token:str;prefix:str;payload:str
 	def __init__(A,token):B=token;A.token=B;A.prefix,D,C=B.partition('-');A.prefix+='-';A.payload=C[:-4];A.checksum=C[-4:]
 	def __repr__(A):B=8+len(A.prefix);return f"{A.token[:B]}-****-****-****-************"
 	def encoded(A):return A.token
@@ -115,7 +115,7 @@ class License:
 	def to_log_string(A):return A.id
 @dataclasses.dataclass
 class LicenseV1(License):
-	license_type:str;issue_date:datetime;expiry_date:datetime;products:List[ProductInfo]=dataclasses.field(default_factory=list);license_status:LicenseStatus=LicenseStatus.UNKNOWN;license_secret:Optional[str]=_A;last_activated:Optional[datetime]=_A;reactivate_after:Optional[datetime]=_A;offline_data:Dict[str,str]=dataclasses.field(default_factory=dict)
+	license_type:str;issue_date:datetime;expiry_date:datetime;products:list[ProductInfo]=dataclasses.field(default_factory=list);license_status:LicenseStatus=LicenseStatus.UNKNOWN;license_secret:Optional[str]=_A;last_activated:Optional[datetime]=_A;reactivate_after:Optional[datetime]=_A;offline_data:dict[str,str]=dataclasses.field(default_factory=dict)
 	def to_log_string(A):B=A.id if len(A.id)>30 else f"{A.id[:3]}...";return f"{B}:{A.license_type}"
 class LicenseSigner:
 	def calculate_signature(A,license):raise NotImplementedError
@@ -203,7 +203,7 @@ class LicenseV1Client(LicenseV1ClientBase):
 		if isinstance(A,AuthToken):D=_L;E=A.token
 		elif isinstance(A,ApiKeyCredentials):D=_M;E=A.api_key
 		else:raise CredentialsTypeError(f"{type(A)}")
-		C=F.post('%s/license/activate'%constants.API_ENDPOINT,json.dumps({'license_id':license.id,_I:{'type':D,'token':E},_N:B._get_product_data(),_O:B._get_machine_data()}),verify=not config.is_env_true(_P),proxies=H)
+		C=F.post(f"{constants.API_ENDPOINT}/license/activate",json.dumps({'license_id':license.id,_I:{'type':D,'token':E},_N:B._get_product_data(),_O:B._get_machine_data()}),verify=not config.is_env_true(_P),proxies=H)
 		if C.ok:return cast(LicenseV1,LicenseParser().parse(C.content))
 		B._server_error_to_exception(C)
 	def _request_license(B,credentials):
@@ -211,7 +211,7 @@ class LicenseV1Client(LicenseV1ClientBase):
 		if isinstance(A,AuthToken):D=_L;E=A.token
 		elif isinstance(A,ApiKeyCredentials):D=_M;E=A.api_key
 		else:raise CredentialsTypeError(f"{type(A)}")
-		C=F.post('%s/license/request'%constants.API_ENDPOINT,json.dumps({_I:{'type':D,'token':E},_N:B._get_product_data(),_O:B._get_machine_data()}),verify=not config.is_env_true(_P),proxies=H)
+		C=F.post(f"{constants.API_ENDPOINT}/license/request",json.dumps({_I:{'type':D,'token':E},_N:B._get_product_data(),_O:B._get_machine_data()}),verify=not config.is_env_true(_P),proxies=H)
 		if C.ok:return LicenseParser().parse(C.content)
 		B._server_error_to_exception(C)
 	def _server_error_to_exception(F,response):

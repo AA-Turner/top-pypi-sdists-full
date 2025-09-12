@@ -19,6 +19,7 @@ from typing_extensions import override
 from metricflow_semantics.collection_helpers.merger import Mergeable
 from metricflow_semantics.dag.id_prefix import IdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.mf_dag import DagNode, DisplayedProperty
+from metricflow_semantics.mf_logging.pretty_formatter import PrettyFormatContext
 from metricflow_semantics.sql.sql_bind_parameters import SqlBindParameterSet
 from metricflow_semantics.visitor import Visitable, VisitorOutputT
 
@@ -75,6 +76,14 @@ class SqlExpressionNode(DagNode["SqlExpressionNode"], Visitable, ABC):
     def as_window_function_expression(self) -> Optional[SqlWindowFunctionExpression]:
         """If this is a window function expression, return self."""
         return None
+
+    @property
+    def is_verbose(self) -> bool:
+        """Denotes if the statement is typically verbose, and therefore can be hard to read when optimized.
+
+        This is helpful in determining if statements will be harder to read when collapsed.
+        """
+        return False
 
     @abstractmethod
     def rewrite(
@@ -308,8 +317,7 @@ class SqlStringExpression(SqlExpressionNode):
         return tuple(super().displayed_properties) + (DisplayedProperty("sql_expr", self.sql_expr),)
 
     @override
-    @property
-    def pretty_format(self) -> str:
+    def pretty_format(self, format_context: PrettyFormatContext) -> Optional[str]:
         return f"{self.__class__.__name__}(node_id={self.node_id} sql_expr={self.sql_expr})"
 
     def rewrite(  # noqa: D102
@@ -550,8 +558,14 @@ class SqlColumnReferenceExpression(SqlExpressionNode):
         return self.col_ref == other.col_ref
 
     @staticmethod
-    def from_table_and_column_names(table_alias: str, column_name: str) -> SqlColumnReferenceExpression:  # noqa: D102
+    def from_column_reference(table_alias: str, column_name: str) -> SqlColumnReferenceExpression:  # noqa: D102
         return SqlColumnReferenceExpression.create(SqlColumnReference(table_alias=table_alias, column_name=column_name))
+
+    def with_new_table_alias(self, new_table_alias: str) -> SqlColumnReferenceExpression:
+        """Returns a new column reference expression with the same column name but a new table alias."""
+        return SqlColumnReferenceExpression.from_column_reference(
+            table_alias=new_table_alias, column_name=self.col_ref.column_name
+        )
 
 
 @dataclass(frozen=True, eq=False)
@@ -859,9 +873,8 @@ class SqlAggregateFunctionExpression(SqlFunctionExpression):
             + tuple(DisplayedProperty("argument", x) for x in self.sql_function_args)
         )
 
-    @property
     @override
-    def pretty_format(self) -> str:  # noqa: D105
+    def pretty_format(self, format_context: PrettyFormatContext) -> Optional[str]:
         return f"{self.__class__.__name__}(node_id={self.node_id}, sql_function={self.sql_function.name})"
 
     def rewrite(  # noqa: D102
@@ -1154,9 +1167,8 @@ class SqlWindowFunctionExpression(SqlFunctionExpression):
     def is_aggregate_function(self) -> bool:  # noqa: D102
         return False
 
-    @property
     @override
-    def pretty_format(self) -> str:  # noqa: D105
+    def pretty_format(self, format_context: PrettyFormatContext) -> Optional[str]:
         return f"{self.__class__.__name__}(node_id={self.node_id}, sql_function={self.sql_function.name})"
 
     def rewrite(  # noqa: D102
@@ -1201,6 +1213,10 @@ class SqlWindowFunctionExpression(SqlFunctionExpression):
             and self.partition_by_args == other.partition_by_args
             and self.sql_function_args == other.sql_function_args
         )
+
+    @property
+    def is_verbose(self) -> bool:  # noqa: D102
+        return True
 
 
 @dataclass(frozen=True, eq=False)
@@ -1887,6 +1903,10 @@ class SqlCaseExpression(SqlExpressionNode):
         if not isinstance(other, SqlCaseExpression):
             return False
         return self.when_to_then_exprs == other.when_to_then_exprs and self.else_expr == other.else_expr
+
+    @property
+    def is_verbose(self) -> bool:  # noqa: D102
+        return True
 
 
 class SqlArithmeticOperator(Enum):

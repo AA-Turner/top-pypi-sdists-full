@@ -19,6 +19,7 @@ if IS_WINDOWS_OS:
     from pywinauto.findwindows import ElementNotFoundError
     from pywinauto.controls.hwndwrapper import InvalidWindowHandle
     from pywinauto.controls.uia_controls import ListItemWrapper
+    from pywinauto import mouse
 
 
 from t_nextgen.utils.logger import logger as lib_logger
@@ -353,6 +354,29 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
         self.logger.debug(f"Clicking down key {n + confidence_value} times.")
         for _ in range(n + confidence_value):
             pyautogui.press("down")
+
+    def click_center_and_scroll(self, element, index: int, page_size: int = 50, scroll_step: int = 3):
+        """Clicks at the center of the given element and performs a downward scroll.
+
+        Args:
+            element: The element on which the click and scroll action is performed.
+            index (int): The index to determine the scroll amount.
+            page_size (int, optional): The size of the page to calculate scrolling. Defaults to 50
+            scroll_step (int, optional): The step size for each scroll action. Defaults to 3.
+
+        Raises:
+            Exception: If any error occurs during the click or scroll operation,
+        """
+        rect = element.rectangle()
+        center_x = rect.left + (rect.width() // 2)
+        center_y = rect.top + (rect.height() // 2)
+        mouse.click("left", (center_x, center_y))
+        pyautogui.press("home")
+        scroll_count = max(0, (index - page_size + 1 + scroll_step - 1) // scroll_step)
+        self.logger.debug(f"Index to scroll: {index}")
+        self.logger.debug(f"Scroll count {scroll_count}")
+        mouse.scroll(coords=(center_x, center_y), wheel_dist=-scroll_count)
+        time.sleep(0.5)
 
     def click_button_by_element_name(self, element_name: str) -> None:
         """This method clicks on a button by element name.

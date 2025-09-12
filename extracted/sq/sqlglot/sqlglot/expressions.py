@@ -134,6 +134,11 @@ class Expression(metaclass=_Expression):
 
         return hash((self.__class__, self.hashable_args))
 
+    def __reduce__(self) -> t.Tuple[t.Callable, t.Tuple[t.Dict[str, t.Any]]]:
+        from sqlglot.serde import dump, load
+
+        return (load, (dump(self),))
+
     @property
     def this(self) -> t.Any:
         """
@@ -1646,6 +1651,12 @@ class Show(Expression):
         "position": False,
         "types": False,
         "privileges": False,
+        "for_table": False,
+        "for_group": False,
+        "for_user": False,
+        "for_role": False,
+        "into_outfile": False,
+        "json": False,
     }
 
 
@@ -2197,7 +2208,7 @@ class Copy(DML):
     arg_types = {
         "this": True,
         "kind": True,
-        "files": True,
+        "files": False,
         "credentials": False,
         "format": False,
         "params": False,
@@ -6694,9 +6705,24 @@ class JSONBContains(Binary, Func):
     _sql_names = ["JSONB_CONTAINS"]
 
 
+# https://www.postgresql.org/docs/9.5/functions-json.html
+class JSONBContainsAnyTopKeys(Binary, Func):
+    pass
+
+
+# https://www.postgresql.org/docs/9.5/functions-json.html
+class JSONBContainsAllTopKeys(Binary, Func):
+    pass
+
+
 class JSONBExists(Func):
     arg_types = {"this": True, "path": True}
     _sql_names = ["JSONB_EXISTS"]
+
+
+# https://www.postgresql.org/docs/9.5/functions-json.html
+class JSONBDeleteAtPath(Binary, Func):
+    pass
 
 
 class JSONExtract(Binary, Func):
@@ -6963,6 +6989,11 @@ class Predict(Func):
     arg_types = {"this": True, "expression": True, "params_struct": False}
 
 
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-translate#mltranslate_function
+class MLTranslate(Func):
+    arg_types = {"this": True, "expression": True, "params_struct": True}
+
+
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-feature-time
 class FeaturesAtTime(Func):
     arg_types = {"this": True, "time": False, "num_rows": False, "ignore_feature_nulls": False}
@@ -6971,6 +7002,10 @@ class FeaturesAtTime(Func):
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate-embedding
 class GenerateEmbedding(Func):
     arg_types = {"this": True, "expression": True, "params_struct": False}
+
+
+class MLForecast(Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
 
 
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/search_functions#vector_search

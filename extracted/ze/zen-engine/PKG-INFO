@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zen-engine
-Version: 0.49.1
+Version: 0.50.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -15,7 +15,6 @@ License-File: LICENSE
 Summary: Open-Source Business Rules Engine
 Keywords: gorules,zen-engine,business rules engine,rules engine,rule engine,bre,rule,rules,engine,decision,decision table,rust,pyo3
 Author-email: GoRules Team <hi@gorules.io>
-License: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/gorules/zen

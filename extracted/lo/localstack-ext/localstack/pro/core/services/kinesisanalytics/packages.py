@@ -1,7 +1,6 @@
 _B='siddhi-sdk'
 _A='localstack-5.1.0.post2'
 import os
-from typing import List
 from localstack.packages import InstallTarget,Package,PackageInstaller
 from localstack.packages.api import MultiPackageInstaller
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller,DownloadInstaller,SystemNotSupportedException

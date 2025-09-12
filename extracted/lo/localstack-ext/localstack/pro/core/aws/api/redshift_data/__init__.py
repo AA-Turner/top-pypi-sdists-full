@@ -439,15 +439,12 @@ class ListTablesRequest(ServiceRequest):
     WorkgroupName: Optional[WorkgroupNameString]
 
 
-TableMember = TypedDict(
-    "TableMember",
-    {
-        "name": Optional[String],
-        "schema": Optional[String],
-        "type": Optional[String],
-    },
-    total=False,
-)
+class TableMember(TypedDict, total=False):
+    name: Optional[String]
+    schema: Optional[String]
+    type: Optional[String]
+
+
 TableList = List[TableMember]
 
 

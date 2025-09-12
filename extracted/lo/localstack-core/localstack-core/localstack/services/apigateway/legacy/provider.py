@@ -665,66 +665,6 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         parent_id = moto_resource.parent_id
         api_resources[parent_id].remove(resource_id)
 
-    def update_integration_response(
-        self,
-        context: RequestContext,
-        rest_api_id: String,
-        resource_id: String,
-        http_method: String,
-        status_code: StatusCode,
-        patch_operations: ListOfPatchOperation = None,
-        **kwargs,
-    ) -> IntegrationResponse:
-        # XXX: THIS IS NOT A COMPLETE IMPLEMENTATION, just the minimum required to get tests going
-        # TODO: validate patch operations
-
-        moto_rest_api = get_moto_rest_api(context, rest_api_id)
-        moto_resource = moto_rest_api.resources.get(resource_id)
-        if not moto_resource:
-            raise NotFoundException("Invalid Resource identifier specified")
-
-        moto_method = moto_resource.resource_methods.get(http_method)
-        if not moto_method:
-            raise NotFoundException("Invalid Method identifier specified")
-
-        integration_response = moto_method.method_integration.integration_responses.get(status_code)
-        if not integration_response:
-            raise NotFoundException("Invalid Integration Response identifier specified")
-
-        for patch_operation in patch_operations:
-            op = patch_operation.get("op")
-            path = patch_operation.get("path")
-
-            # for path "/responseTemplates/application~1json"
-            if "/responseTemplates" in path:
-                integration_response.response_templates = (
-                    integration_response.response_templates or {}
-                )
-                value = patch_operation.get("value")
-                if not isinstance(value, str):
-                    raise BadRequestException(
-                        f"Invalid patch value  '{value}' specified for op '{op}'. Must be a string"
-                    )
-                param = path.removeprefix("/responseTemplates/")
-                param = param.replace("~1", "/")
-                if op == "remove":
-                    integration_response.response_templates.pop(param)
-                elif op in ("add", "replace"):
-                    integration_response.response_templates[param] = value
-
-            elif "/contentHandling" in path and op == "replace":
-                integration_response.content_handling = patch_operation.get("value")
-
-            elif "/selectionPattern" in path and op == "replace":
-                integration_response.selection_pattern = patch_operation.get("value")
-
-        response: IntegrationResponse = integration_response.to_json()
-        # in case it's empty, we still want to pass it on as ""
-        # TODO: add a test case for this
-        response["selectionPattern"] = integration_response.selection_pattern
-
-        return response
-
     def update_resource(
         self,
         context: RequestContext,
@@ -756,6 +696,9 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
                 raise BadRequestException(
                     f"Invalid patch path  '{path}' specified for op '{op}'. Please choose supported operations"
                 )
+
+            if moto_resource.parent_id is None:
+                raise BadRequestException(f"Root resource cannot update its {path.strip('/')}.")
 
             if path == "/parentId":
                 value = patch_operation.get("value")
@@ -793,7 +736,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
                     api_resources.pop(current_parent_id)
 
         # add it to the new parent children
-        future_sibling_resources = api_resources[moto_resource.parent_id]
+        future_sibling_resources = api_resources.setdefault(moto_resource.parent_id, [])
         future_sibling_resources.append(resource_id)
 
         response = moto_resource.to_dict()
@@ -2307,6 +2250,93 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
 
         return response
 
+    def update_integration_response(
+        self,
+        context: RequestContext,
+        rest_api_id: String,
+        resource_id: String,
+        http_method: String,
+        status_code: StatusCode,
+        patch_operations: ListOfPatchOperation = None,
+        **kwargs,
+    ) -> IntegrationResponse:
+        # XXX: THIS IS NOT A COMPLETE IMPLEMENTATION, just the minimum required to get tests going
+        # TODO: validate patch operations
+
+        moto_rest_api = get_moto_rest_api(context, rest_api_id)
+        moto_resource = moto_rest_api.resources.get(resource_id)
+        if not moto_resource:
+            raise NotFoundException("Invalid Resource identifier specified")
+
+        moto_method = moto_resource.resource_methods.get(http_method)
+        if not moto_method:
+            raise NotFoundException("Invalid Method identifier specified")
+
+        integration_response = moto_method.method_integration.integration_responses.get(status_code)
+        if not integration_response:
+            raise NotFoundException("Invalid Integration Response identifier specified")
+
+        for patch_operation in patch_operations:
+            op = patch_operation.get("op")
+            path = patch_operation.get("path")
+
+            # for path "/responseTemplates/application~1json"
+            if "/responseTemplates" in path:
+                integration_response.response_templates = (
+                    integration_response.response_templates or {}
+                )
+                value = patch_operation.get("value")
+                if not isinstance(value, str):
+                    raise BadRequestException(
+                        f"Invalid patch value  '{value}' specified for op '{op}'. Must be a string"
+                    )
+                param = path.removeprefix("/responseTemplates/")
+                param = param.replace("~1", "/")
+                if op == "remove":
+                    integration_response.response_templates.pop(param)
+                elif op in ("add", "replace"):
+                    integration_response.response_templates[param] = value
+
+            elif "/contentHandling" in path and op == "replace":
+                integration_response.content_handling = patch_operation.get("value")
+
+            elif "/selectionPattern" in path and op == "replace":
+                integration_response.selection_pattern = patch_operation.get("value")
+
+        response: IntegrationResponse = integration_response.to_json()
+        # in case it's empty, we still want to pass it on as ""
+        # TODO: add a test case for this
+        response["selectionPattern"] = integration_response.selection_pattern
+
+        return response
+
+    def delete_integration_response(
+        self,
+        context: RequestContext,
+        rest_api_id: String,
+        resource_id: String,
+        http_method: String,
+        status_code: StatusCode,
+        **kwargs,
+    ) -> None:
+        moto_backend = apigw_models.apigateway_backends[context.account_id][context.region]
+        moto_rest_api = moto_backend.apis.get(rest_api_id)
+        if not moto_rest_api:
+            raise NotFoundException("Invalid Resource identifier specified")
+
+        if not (moto_resource := moto_rest_api.resources.get(resource_id)):
+            raise NotFoundException("Invalid Resource identifier specified")
+
+        if not (moto_method := moto_resource.resource_methods.get(http_method)):
+            raise NotFoundException("Invalid Integration identifier specified")
+
+        if not moto_method.method_integration:
+            raise NotFoundException("Invalid Integration identifier specified")
+        if not (
+            integration_responses := moto_method.method_integration.integration_responses
+        ) or not integration_responses.pop(status_code, None):
+            raise NotFoundException("Invalid Response status code specified")
+
     def get_export(
         self,
         context: RequestContext,
@@ -2998,7 +3028,7 @@ def to_documentation_part_response_json(api_id, data):
 
 
 def to_base_mapping_response_json(domain_name, base_path, data):
-    self_link = "/domainnames/%s/basepathmappings/%s" % (domain_name, base_path)
+    self_link = f"/domainnames/{domain_name}/basepathmappings/{base_path}"
     result = to_response_json("basepathmapping", data, self_link=self_link)
     result = select_from_typed_dict(BasePathMapping, result)
     return result
@@ -3034,9 +3064,9 @@ def to_response_json(model_type, data, api_id=None, self_link=None, id_attr=None
     id_attr = id_attr or "id"
     result = deepcopy(data)
     if not self_link:
-        self_link = "/%ss/%s" % (model_type, data[id_attr])
+        self_link = f"/{model_type}s/{data[id_attr]}"
         if api_id:
-            self_link = "/restapis/%s/%s" % (api_id, self_link)
+            self_link = f"/restapis/{api_id}/{self_link}"
     # TODO: check if this is still required - "_links" are listed in the sample responses in the docs, but
     #  recent parity tests indicate that this field is not returned by real AWS...
     # https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizers.html#API_GetAuthorizers_Example_1_Response
@@ -3048,7 +3078,7 @@ def to_response_json(model_type, data, api_id=None, self_link=None, id_attr=None
         "name": model_type,
         "templated": True,
     }
-    result["_links"]["%s:delete" % model_type] = {"href": self_link}
+    result["_links"][f"{model_type}:delete"] = {"href": self_link}
     return result
 
 

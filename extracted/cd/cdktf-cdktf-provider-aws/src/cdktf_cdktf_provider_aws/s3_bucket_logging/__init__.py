@@ -1,7 +1,7 @@
 r'''
 # `aws_s3_bucket_logging`
 
-Refer to the Terraform Registry for docs: [`aws_s3_bucket_logging`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging).
+Refer to the Terraform Registry for docs: [`aws_s3_bucket_logging`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3BucketLoggingA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3BucketLogging.S3BucketLoggingA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging aws_s3_bucket_logging}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging aws_s3_bucket_logging}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class S3BucketLoggingA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging aws_s3_bucket_logging} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging aws_s3_bucket_logging} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.
-        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.
-        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
-        :param target_grant: target_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
-        :param target_object_key_format: target_object_key_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.
+        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.
+        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
+        :param target_grant: target_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
+        :param target_object_key_format: target_object_key_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class S3BucketLoggingA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3BucketLoggingA to import.
-        :param import_from_id: The id of the existing S3BucketLoggingA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3BucketLoggingA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3BucketLoggingA to import is found.
         '''
         if __debug__:
@@ -156,8 +156,8 @@ class S3BucketLoggingA(
         simple_prefix: typing.Optional[typing.Union["S3BucketLoggingTargetObjectKeyFormatSimplePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param partitioned_prefix: partitioned_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
-        :param simple_prefix: simple_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
+        :param partitioned_prefix: partitioned_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
+        :param simple_prefix: simple_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
         '''
         value = S3BucketLoggingTargetObjectKeyFormat(
             partitioned_prefix=partitioned_prefix, simple_prefix=simple_prefix
@@ -376,14 +376,14 @@ class S3BucketLoggingAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.
-        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.
-        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
-        :param target_grant: target_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
-        :param target_object_key_format: target_object_key_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.
+        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.
+        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
+        :param target_grant: target_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
+        :param target_object_key_format: target_object_key_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -502,34 +502,34 @@ class S3BucketLoggingAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#bucket S3BucketLoggingA#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_bucket S3BucketLoggingA#target_bucket}.'''
         result = self._values.get("target_bucket")
         assert result is not None, "Required property 'target_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_prefix S3BucketLoggingA#target_prefix}.'''
         result = self._values.get("target_prefix")
         assert result is not None, "Required property 'target_prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#expected_bucket_owner S3BucketLoggingA#expected_bucket_owner}.'''
         result = self._values.get("expected_bucket_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -541,7 +541,7 @@ class S3BucketLoggingAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#region S3BucketLoggingA#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -552,7 +552,7 @@ class S3BucketLoggingAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLoggingTargetGrant"]]]:
         '''target_grant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_grant S3BucketLoggingA#target_grant}
         '''
         result = self._values.get("target_grant")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLoggingTargetGrant"]]], result)
@@ -563,7 +563,7 @@ class S3BucketLoggingAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["S3BucketLoggingTargetObjectKeyFormat"]:
         '''target_object_key_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#target_object_key_format S3BucketLoggingA#target_object_key_format}
         '''
         result = self._values.get("target_object_key_format")
         return typing.cast(typing.Optional["S3BucketLoggingTargetObjectKeyFormat"], result)
@@ -593,8 +593,8 @@ class S3BucketLoggingTargetGrant:
         permission: builtins.str,
     ) -> None:
         '''
-        :param grantee: grantee block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#grantee S3BucketLoggingA#grantee}
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#permission S3BucketLoggingA#permission}.
+        :param grantee: grantee block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#grantee S3BucketLoggingA#grantee}
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#permission S3BucketLoggingA#permission}.
         '''
         if isinstance(grantee, dict):
             grantee = S3BucketLoggingTargetGrantGrantee(**grantee)
@@ -611,7 +611,7 @@ class S3BucketLoggingTargetGrant:
     def grantee(self) -> "S3BucketLoggingTargetGrantGrantee":
         '''grantee block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#grantee S3BucketLoggingA#grantee}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#grantee S3BucketLoggingA#grantee}
         '''
         result = self._values.get("grantee")
         assert result is not None, "Required property 'grantee' is missing"
@@ -619,7 +619,7 @@ class S3BucketLoggingTargetGrant:
 
     @builtins.property
     def permission(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#permission S3BucketLoggingA#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#permission S3BucketLoggingA#permission}.'''
         result = self._values.get("permission")
         assert result is not None, "Required property 'permission' is missing"
         return typing.cast(builtins.str, result)
@@ -656,10 +656,10 @@ class S3BucketLoggingTargetGrantGrantee:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e0975cb67ccf7ac65cd73a9a68db3d6abd8eb189aadeaa4967e9ddf1adab9b2)
@@ -679,20 +679,20 @@ class S3BucketLoggingTargetGrantGrantee:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.'''
         result = self._values.get("email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -702,7 +702,7 @@ class S3BucketLoggingTargetGrantGrantee:
 
     @builtins.property
     def uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.'''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -965,10 +965,10 @@ class S3BucketLoggingTargetGrantOutputReference(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#type S3BucketLoggingA#type}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#email_address S3BucketLoggingA#email_address}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#id S3BucketLoggingA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#uri S3BucketLoggingA#uri}.
         '''
         value = S3BucketLoggingTargetGrantGrantee(
             type=type, email_address=email_address, id=id, uri=uri
@@ -1037,8 +1037,8 @@ class S3BucketLoggingTargetObjectKeyFormat:
         simple_prefix: typing.Optional[typing.Union["S3BucketLoggingTargetObjectKeyFormatSimplePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param partitioned_prefix: partitioned_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
-        :param simple_prefix: simple_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
+        :param partitioned_prefix: partitioned_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
+        :param simple_prefix: simple_prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
         '''
         if isinstance(partitioned_prefix, dict):
             partitioned_prefix = S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix(**partitioned_prefix)
@@ -1060,7 +1060,7 @@ class S3BucketLoggingTargetObjectKeyFormat:
     ) -> typing.Optional["S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix"]:
         '''partitioned_prefix block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partitioned_prefix S3BucketLoggingA#partitioned_prefix}
         '''
         result = self._values.get("partitioned_prefix")
         return typing.cast(typing.Optional["S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix"], result)
@@ -1071,7 +1071,7 @@ class S3BucketLoggingTargetObjectKeyFormat:
     ) -> typing.Optional["S3BucketLoggingTargetObjectKeyFormatSimplePrefix"]:
         '''simple_prefix block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#simple_prefix S3BucketLoggingA#simple_prefix}
         '''
         result = self._values.get("simple_prefix")
         return typing.cast(typing.Optional["S3BucketLoggingTargetObjectKeyFormatSimplePrefix"], result)
@@ -1111,7 +1111,7 @@ class S3BucketLoggingTargetObjectKeyFormatOutputReference(
     @jsii.member(jsii_name="putPartitionedPrefix")
     def put_partitioned_prefix(self, *, partition_date_source: builtins.str) -> None:
         '''
-        :param partition_date_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.
+        :param partition_date_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.
         '''
         value = S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix(
             partition_date_source=partition_date_source
@@ -1185,7 +1185,7 @@ class S3BucketLoggingTargetObjectKeyFormatOutputReference(
 class S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix:
     def __init__(self, *, partition_date_source: builtins.str) -> None:
         '''
-        :param partition_date_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.
+        :param partition_date_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8dfad2796305f867085857ffe77aab38146cd1d4ed442ccf6ef0546eaaeaf518)
@@ -1196,7 +1196,7 @@ class S3BucketLoggingTargetObjectKeyFormatPartitionedPrefix:
 
     @builtins.property
     def partition_date_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/s3_bucket_logging#partition_date_source S3BucketLoggingA#partition_date_source}.'''
         result = self._values.get("partition_date_source")
         assert result is not None, "Required property 'partition_date_source' is missing"
         return typing.cast(builtins.str, result)

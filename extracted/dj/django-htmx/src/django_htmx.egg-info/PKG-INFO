@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-htmx
-Version: 1.24.0
+Version: 1.24.1
 Summary: Extensions for using Django with htmx.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT

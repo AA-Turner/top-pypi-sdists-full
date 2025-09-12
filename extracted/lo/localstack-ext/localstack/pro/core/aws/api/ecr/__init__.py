@@ -1117,16 +1117,13 @@ class ResourceDetails(TypedDict, total=False):
     awsEcrContainerImage: Optional[AwsEcrContainerImageDetails]
 
 
-Resource = TypedDict(
-    "Resource",
-    {
-        "details": Optional[ResourceDetails],
-        "id": Optional[ResourceId],
-        "tags": Optional[Tags],
-        "type": Optional[Type],
-    },
-    total=False,
-)
+class Resource(TypedDict, total=False):
+    details: Optional[ResourceDetails]
+    id: Optional[ResourceId]
+    tags: Optional[Tags]
+    type: Optional[Type]
+
+
 ResourceList = List[Resource]
 
 
@@ -1177,29 +1174,26 @@ class PackageVulnerabilityDetails(TypedDict, total=False):
     vulnerablePackages: Optional[VulnerablePackagesList]
 
 
-EnhancedImageScanFinding = TypedDict(
-    "EnhancedImageScanFinding",
-    {
-        "awsAccountId": Optional[RegistryId],
-        "description": Optional[FindingDescription],
-        "findingArn": Optional[FindingArn],
-        "firstObservedAt": Optional[Date],
-        "lastObservedAt": Optional[Date],
-        "packageVulnerabilityDetails": Optional[PackageVulnerabilityDetails],
-        "remediation": Optional[Remediation],
-        "resources": Optional[ResourceList],
-        "score": Optional[Score],
-        "scoreDetails": Optional[ScoreDetails],
-        "severity": Optional[Severity],
-        "status": Optional[Status],
-        "title": Optional[Title],
-        "type": Optional[Type],
-        "updatedAt": Optional[Date],
-        "fixAvailable": Optional[FixAvailable],
-        "exploitAvailable": Optional[ExploitAvailable],
-    },
-    total=False,
-)
+class EnhancedImageScanFinding(TypedDict, total=False):
+    awsAccountId: Optional[RegistryId]
+    description: Optional[FindingDescription]
+    findingArn: Optional[FindingArn]
+    firstObservedAt: Optional[Date]
+    lastObservedAt: Optional[Date]
+    packageVulnerabilityDetails: Optional[PackageVulnerabilityDetails]
+    remediation: Optional[Remediation]
+    resources: Optional[ResourceList]
+    score: Optional[Score]
+    scoreDetails: Optional[ScoreDetails]
+    severity: Optional[Severity]
+    status: Optional[Status]
+    title: Optional[Title]
+    type: Optional[Type]
+    updatedAt: Optional[Date]
+    fixAvailable: Optional[FixAvailable]
+    exploitAvailable: Optional[ExploitAvailable]
+
+
 EnhancedImageScanFindingList = List[EnhancedImageScanFinding]
 
 
@@ -1476,13 +1470,8 @@ class LifecyclePolicyPreviewSummary(TypedDict, total=False):
     expiringImageTotalCount: Optional[ImageCount]
 
 
-LifecyclePolicyRuleAction = TypedDict(
-    "LifecyclePolicyRuleAction",
-    {
-        "type": Optional[ImageActionType],
-    },
-    total=False,
-)
+class LifecyclePolicyRuleAction(TypedDict, total=False):
+    type: Optional[ImageActionType]
 
 
 class LifecyclePolicyPreviewResult(TypedDict, total=False):

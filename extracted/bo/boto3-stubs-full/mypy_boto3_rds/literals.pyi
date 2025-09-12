@@ -45,6 +45,7 @@ __all__ = (
     "DBSnapshotCompletedWaiterName",
     "DBSnapshotDeletedWaiterName",
     "DatabaseInsightsModeType",
+    "DefaultAuthSchemeType",
     "DescribeBlueGreenDeploymentsPaginatorName",
     "DescribeCertificatesPaginatorName",
     "DescribeDBClusterAutomatedBackupsPaginatorName",
@@ -161,6 +162,7 @@ DBSnapshotAvailableWaiterName = Literal["db_snapshot_available"]
 DBSnapshotCompletedWaiterName = Literal["db_snapshot_completed"]
 DBSnapshotDeletedWaiterName = Literal["db_snapshot_deleted"]
 DatabaseInsightsModeType = Literal["advanced", "standard"]
+DefaultAuthSchemeType = Literal["IAM_AUTH", "NONE"]
 DescribeBlueGreenDeploymentsPaginatorName = Literal["describe_blue_green_deployments"]
 DescribeCertificatesPaginatorName = Literal["describe_certificates"]
 DescribeDBClusterAutomatedBackupsPaginatorName = Literal["describe_db_cluster_automated_backups"]

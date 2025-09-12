@@ -9,23 +9,27 @@ from dbt_semantic_interfaces.implementations.filters.where_filter import (
     PydanticWhereFilter,
     PydanticWhereFilterIntersection,
 )
+from dbt_semantic_interfaces.parsing.text_input.ti_description import QueryItemType
+from dbt_semantic_interfaces.parsing.where_filter.jinja_object_parser import JinjaObjectParser
 from dbt_semantic_interfaces.protocols import SavedQuery
 from dbt_semantic_interfaces.protocols.where_filter import WhereFilter
 from dbt_semantic_interfaces.references import SemanticModelReference
 from dbt_semantic_interfaces.type_enums import TimeGranularity
 
 from metricflow_semantics.assert_one_arg import assert_at_most_one_arg_set
+from metricflow_semantics.errors.error_classes import InvalidQueryException
 from metricflow_semantics.filters.time_constraint import TimeRangeConstraint
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat
 from metricflow_semantics.mf_logging.runtime import log_runtime
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.naming.dunder_scheme import DunderNamingScheme
 from metricflow_semantics.naming.metric_scheme import MetricNamingScheme
+from metricflow_semantics.naming.naming_scheme import QueryItemLocation
 from metricflow_semantics.naming.object_builder_scheme import ObjectBuilderNamingScheme
 from metricflow_semantics.protocols.query_parameter import (
-    GroupByParameter,
+    GroupByQueryParameter,
     MetricQueryParameter,
     OrderByQueryParameter,
     SavedQueryParameter,
@@ -38,12 +42,12 @@ from metricflow_semantics.query.group_by_item.group_by_item_resolver import Grou
 from metricflow_semantics.query.group_by_item.resolution_dag.dag import GroupByItemResolutionDag
 from metricflow_semantics.query.issues.issues_base import MetricFlowQueryResolutionIssueSet
 from metricflow_semantics.query.issues.parsing.string_input_parsing_issue import StringInputParsingIssue
-from metricflow_semantics.query.query_exceptions import InvalidQueryException
 from metricflow_semantics.query.query_resolution import InputToIssueSetMapping, InputToIssueSetMappingItem
 from metricflow_semantics.query.query_resolver import MetricFlowQueryResolver
 from metricflow_semantics.query.resolver_inputs.base_resolver_inputs import MetricFlowQueryResolverInput
 from metricflow_semantics.query.resolver_inputs.query_resolver_inputs import (
     InvalidStringInput,
+    ResolverInputForApplyGroupBy,
     ResolverInputForGroupByItem,
     ResolverInputForLimit,
     ResolverInputForMetric,
@@ -81,23 +85,21 @@ class MetricFlowQueryParser:
         where_filter_pattern_factory: WhereFilterPatternFactory = DefaultWhereFilterPatternFactory(),
     ) -> None:
         self._manifest_lookup = semantic_manifest_lookup
-        self._metric_naming_schemes = (MetricNamingScheme(),)
-        self._group_by_item_naming_schemes = (
-            ObjectBuilderNamingScheme(),
-            DunderNamingScheme(),
-        )
+        self._metric_naming_schemes = (MetricNamingScheme(), ObjectBuilderNamingScheme())
+        self._group_by_item_naming_schemes = (ObjectBuilderNamingScheme(), DunderNamingScheme())
         self._where_filter_pattern_factory = where_filter_pattern_factory
         self._time_period_adjuster = DateutilTimePeriodAdjuster()
 
     def parse_and_validate_saved_query(
         self,
         saved_query_parameter: SavedQueryParameter,
-        where_filters: Optional[Sequence[WhereFilter]],
-        limit: Optional[int],
-        time_constraint_start: Optional[datetime.datetime],
-        time_constraint_end: Optional[datetime.datetime],
-        order_by_names: Optional[Sequence[str]],
-        order_by_parameters: Optional[Sequence[OrderByQueryParameter]],
+        where_filters: Optional[Sequence[WhereFilter]] = None,
+        limit: Optional[int] = None,
+        time_constraint_start: Optional[datetime.datetime] = None,
+        time_constraint_end: Optional[datetime.datetime] = None,
+        order_by_names: Optional[Sequence[str]] = None,
+        order_by_parameters: Optional[Sequence[OrderByQueryParameter]] = None,
+        apply_group_by: bool = True,
     ) -> ParseQueryResult:
         """Parse and validate a query using parameters from a pre-defined / saved query.
 
@@ -112,6 +114,12 @@ class MetricFlowQueryParser:
         if where_filters is not None:
             parsed_where_filters.extend(where_filters)
 
+        # Order by and limit passed into the query directly should override those in the YAML.
+        if order_by_names is None and order_by_parameters is None:
+            order_by_names = saved_query.query_params.order_by
+        if limit is None:
+            limit = saved_query.query_params.limit
+
         return self._parse_and_validate_query(
             metric_names=saved_query.query_params.metrics,
             metrics=None,
@@ -125,6 +133,7 @@ class MetricFlowQueryParser:
             order_by_names=order_by_names,
             order_by=order_by_parameters,
             min_max_only=False,
+            apply_group_by=apply_group_by,
         )
 
     def _get_saved_query(self, saved_query_parameter: SavedQueryParameter) -> SavedQuery:
@@ -166,7 +175,7 @@ class MetricFlowQueryParser:
             len(time_dimension_specs) == 1
         ), f"Bug with MinimumTimeGrainPattern - should have returned exactly 1 spec but got {time_dimension_specs}"
 
-        return time_dimension_specs[0].time_granularity.base_granularity
+        return time_dimension_specs[0].base_granularity
 
     def _adjust_time_constraint(
         self,
@@ -202,37 +211,108 @@ class MetricFlowQueryParser:
 
         for order_by_name in order_by_names:
             possible_inputs: List[Union[ResolverInputForMetric, ResolverInputForGroupByItem]] = []
+            descending = False
             if order_by_name[0] == "-":
                 descending = True
                 order_by_name_without_prefix = order_by_name[1:]
             else:
-                descending = False
                 order_by_name_without_prefix = order_by_name
 
-            for group_by_item_naming_scheme in self._group_by_item_naming_schemes:
-                if group_by_item_naming_scheme.input_str_follows_scheme(order_by_name_without_prefix):
-                    possible_inputs.append(
-                        ResolverInputForGroupByItem(
-                            input_obj=order_by_name,
-                            input_obj_naming_scheme=group_by_item_naming_scheme,
-                            spec_pattern=group_by_item_naming_scheme.spec_pattern(
-                                order_by_name_without_prefix, semantic_manifest_lookup=self._manifest_lookup
-                            ),
-                        )
-                    )
-                    break
+            # Aside from the string syntax parsed above, object is the only naming scheme that supports `descending`.
+            # Parse objects here to determine `descending` value before moving on to the other naming schemes.
+            object_builder_scheme = ObjectBuilderNamingScheme()
+            if object_builder_scheme.input_str_follows_scheme(
+                order_by_name_without_prefix,
+                semantic_manifest_lookup=self._manifest_lookup,
+                query_item_location=QueryItemLocation.ORDER_BY,
+            ):
+                call_parameter_sets = JinjaObjectParser.parse_call_parameter_sets(
+                    where_sql_template="{{ " + order_by_name_without_prefix + " }}",
+                    custom_granularity_names=self._manifest_lookup.semantic_model_lookup.custom_granularity_names,
+                    query_item_location=QueryItemLocation.ORDER_BY,
+                )
+                if len(call_parameter_sets.dimension_call_parameter_sets) > 0:
+                    for dimension_call_parameter_set in call_parameter_sets.dimension_call_parameter_sets:
+                        query_item_type = QueryItemType.DIMENSION
+                        if dimension_call_parameter_set.descending is not None:
+                            descending = dimension_call_parameter_set.descending
+                elif len(call_parameter_sets.time_dimension_call_parameter_sets) > 0:
+                    for time_dimension_call_parameter_set in call_parameter_sets.time_dimension_call_parameter_sets:
+                        query_item_type = QueryItemType.TIME_DIMENSION
+                        if time_dimension_call_parameter_set.descending is not None:
+                            descending = time_dimension_call_parameter_set.descending
+                elif len(call_parameter_sets.entity_call_parameter_sets) > 0:
+                    for entity_call_parameter_set in call_parameter_sets.entity_call_parameter_sets:
+                        query_item_type = QueryItemType.ENTITY
+                        if entity_call_parameter_set.descending is not None:
+                            descending = entity_call_parameter_set.descending
+                elif len(call_parameter_sets.metric_call_parameter_sets) > 0:
+                    for metric_call_parameter_set in call_parameter_sets.metric_call_parameter_sets:
+                        query_item_type = QueryItemType.METRIC
+                        if metric_call_parameter_set.descending is not None:
+                            descending = metric_call_parameter_set.descending
 
-            for metric_naming_scheme in self._metric_naming_schemes:
-                if metric_naming_scheme.input_str_follows_scheme(order_by_name_without_prefix):
+                spec_pattern = object_builder_scheme.spec_pattern(
+                    order_by_name_without_prefix,
+                    semantic_manifest_lookup=self._manifest_lookup,
+                    query_item_location=QueryItemLocation.ORDER_BY,
+                )
+                if query_item_type == QueryItemType.METRIC:
                     possible_inputs.append(
                         ResolverInputForMetric(
                             input_obj=order_by_name,
-                            naming_scheme=metric_naming_scheme,
-                            spec_pattern=metric_naming_scheme.spec_pattern(
-                                order_by_name_without_prefix, semantic_manifest_lookup=self._manifest_lookup
-                            ),
+                            naming_scheme=object_builder_scheme,
+                            spec_pattern=spec_pattern,
                         )
                     )
+                else:
+                    possible_inputs.append(
+                        ResolverInputForGroupByItem(
+                            input_obj=order_by_name,
+                            input_obj_naming_scheme=object_builder_scheme,
+                            spec_pattern=spec_pattern,
+                        )
+                    )
+            else:
+                for group_by_item_naming_scheme in set(self._group_by_item_naming_schemes).difference(
+                    {object_builder_scheme}
+                ):
+                    if group_by_item_naming_scheme.input_str_follows_scheme(
+                        order_by_name_without_prefix,
+                        semantic_manifest_lookup=self._manifest_lookup,
+                        query_item_location=QueryItemLocation.ORDER_BY,
+                    ):
+                        spec_pattern = group_by_item_naming_scheme.spec_pattern(
+                            order_by_name_without_prefix,
+                            semantic_manifest_lookup=self._manifest_lookup,
+                            query_item_location=QueryItemLocation.ORDER_BY,
+                        )
+                        possible_inputs.append(
+                            ResolverInputForGroupByItem(
+                                input_obj=order_by_name,
+                                input_obj_naming_scheme=group_by_item_naming_scheme,
+                                spec_pattern=spec_pattern,
+                            )
+                        )
+
+                for metric_naming_scheme in set(self._metric_naming_schemes).difference({object_builder_scheme}):
+                    if metric_naming_scheme.input_str_follows_scheme(
+                        order_by_name_without_prefix,
+                        semantic_manifest_lookup=self._manifest_lookup,
+                        query_item_location=QueryItemLocation.ORDER_BY,
+                    ):
+                        spec_pattern = metric_naming_scheme.spec_pattern(
+                            order_by_name_without_prefix,
+                            semantic_manifest_lookup=self._manifest_lookup,
+                            query_item_location=QueryItemLocation.ORDER_BY,
+                        )
+                        possible_inputs.append(
+                            ResolverInputForMetric(
+                                input_obj=order_by_name,
+                                naming_scheme=metric_naming_scheme,
+                                spec_pattern=spec_pattern,
+                            )
+                        )
 
             resolver_inputs.append(
                 ResolverInputForOrderByItem(
@@ -273,20 +353,26 @@ class MetricFlowQueryParser:
                 lines.append(f"\nError #{issue_counter}:")
                 issue_set_lines: List[str] = [
                     "Message:\n",
-                    indent(error_issue.ui_description(resolver_input)),
-                    "\nQuery Input:\n",
-                    indent(resolver_input.ui_description),
+                    mf_indent(error_issue.ui_description(resolver_input)),
                 ]
+                resolver_input_description = resolver_input.ui_description
+                if len(resolver_input_description) > 0:
+                    issue_set_lines.extend(
+                        (
+                            "\nQuery Input:\n",
+                            mf_indent(resolver_input.ui_description),
+                        )
+                    )
 
                 if len(error_issue.query_resolution_path.resolution_path_nodes) > 0:
                     issue_set_lines.extend(
                         [
                             "\nIssue Location:\n",
-                            indent(error_issue.query_resolution_path.ui_description),
+                            mf_indent(error_issue.query_resolution_path.ui_description),
                         ]
                     )
 
-                lines.extend(indent(issue_set_line) for issue_set_line in issue_set_lines)
+                lines.extend(mf_indent(issue_set_line) for issue_set_line in issue_set_lines)
 
         return "\n".join(lines)
 
@@ -304,7 +390,7 @@ class MetricFlowQueryParser:
         metric_names: Optional[Sequence[str]] = None,
         metrics: Optional[Sequence[MetricQueryParameter]] = None,
         group_by_names: Optional[Sequence[str]] = None,
-        group_by: Optional[Tuple[GroupByParameter, ...]] = None,
+        group_by: Optional[Tuple[GroupByQueryParameter, ...]] = None,
         limit: Optional[int] = None,
         time_constraint_start: Optional[datetime.datetime] = None,
         time_constraint_end: Optional[datetime.datetime] = None,
@@ -313,6 +399,7 @@ class MetricFlowQueryParser:
         order_by_names: Optional[Sequence[str]] = None,
         order_by: Optional[Sequence[OrderByQueryParameter]] = None,
         min_max_only: bool = False,
+        apply_group_by: bool = True,
     ) -> ParseQueryResult:
         """Parse the query into spec objects, validating them in the process.
 
@@ -333,6 +420,7 @@ class MetricFlowQueryParser:
             order_by_names=order_by_names,
             order_by=order_by,
             min_max_only=min_max_only,
+            apply_group_by=apply_group_by,
         )
 
     @log_runtime()
@@ -341,7 +429,7 @@ class MetricFlowQueryParser:
         metric_names: Optional[Sequence[str]],
         metrics: Optional[Sequence[MetricQueryParameter]],
         group_by_names: Optional[Sequence[str]],
-        group_by: Optional[Tuple[GroupByParameter, ...]],
+        group_by: Optional[Tuple[GroupByQueryParameter, ...]],
         limit: Optional[int],
         time_constraint_start: Optional[datetime.datetime],
         time_constraint_end: Optional[datetime.datetime],
@@ -350,6 +438,7 @@ class MetricFlowQueryParser:
         order_by_names: Optional[Sequence[str]],
         order_by: Optional[Sequence[OrderByQueryParameter]],
         min_max_only: bool,
+        apply_group_by: bool,
     ) -> ParseQueryResult:
         if min_max_only and (metric_names or metrics):
             raise InvalidQueryException("Cannot use min_max_only param for queries with metrics.")
@@ -373,7 +462,9 @@ class MetricFlowQueryParser:
         for metric_name in metric_names:
             resolver_input_for_metric: Optional[MetricFlowQueryResolverInput] = None
             for metric_naming_scheme in self._metric_naming_schemes:
-                if metric_naming_scheme.input_str_follows_scheme(metric_name):
+                if metric_naming_scheme.input_str_follows_scheme(
+                    metric_name, semantic_manifest_lookup=self._manifest_lookup
+                ):
                     resolver_input_for_metric = ResolverInputForMetric(
                         input_obj=metric_name,
                         naming_scheme=metric_naming_scheme,
@@ -405,7 +496,9 @@ class MetricFlowQueryParser:
         for group_by_name in group_by_names:
             resolver_input_for_group_by_item: Optional[MetricFlowQueryResolverInput] = None
             for group_by_item_naming_scheme in self._group_by_item_naming_schemes:
-                if group_by_item_naming_scheme.input_str_follows_scheme(group_by_name):
+                if group_by_item_naming_scheme.input_str_follows_scheme(
+                    group_by_name, semantic_manifest_lookup=self._manifest_lookup
+                ):
                     spec_pattern = group_by_item_naming_scheme.spec_pattern(
                         group_by_name, semantic_manifest_lookup=self._manifest_lookup
                     )
@@ -432,9 +525,9 @@ class MetricFlowQueryParser:
             logger.debug(
                 LazyFormat(
                     lambda: "Converted group-by-item input:\n"
-                    + indent(f"Input: {repr(group_by_name)}")
+                    + mf_indent(f"Input: {repr(group_by_name)}")
                     + "\n"
-                    + indent(f"Resolver Input: {mf_pformat(resolver_input_for_group_by_item)}")
+                    + mf_indent(f"Resolver Input: {mf_pformat(resolver_input_for_group_by_item)}")
                 )
             )
 
@@ -446,9 +539,9 @@ class MetricFlowQueryParser:
             logger.debug(
                 LazyFormat(
                     lambda: "Converted group-by-item input:\n"
-                    + indent(f"Input: {repr(group_by_parameter)}")
+                    + mf_indent(f"Input: {repr(group_by_parameter)}")
                     + "\n"
-                    + indent(f"Resolver Input: {mf_pformat(resolver_input_for_group_by_parameter)}")
+                    + mf_indent(f"Resolver Input: {mf_pformat(resolver_input_for_group_by_parameter)}")
                 )
             )
 
@@ -478,15 +571,12 @@ class MetricFlowQueryParser:
         )
 
         resolver_inputs_for_order_by: List[ResolverInputForOrderByItem] = []
-        resolver_inputs_for_order_by.extend(
-            self._parse_order_by_names(
-                order_by_names=order_by_names,
-            )
-        )
+        resolver_inputs_for_order_by.extend(self._parse_order_by_names(order_by_names=order_by_names))
         resolver_inputs_for_order_by.extend(self._parse_order_by(order_by=order_by))
 
         resolver_input_for_limit = ResolverInputForLimit(limit=limit)
         resolver_input_for_min_max_only = ResolverInputForMinMaxOnly(min_max_only=min_max_only)
+        resolver_input_for_apply_group_by = ResolverInputForApplyGroupBy(apply_group_by=apply_group_by)
 
         resolver_input_for_query = ResolverInputForQuery(
             metric_inputs=tuple(resolver_inputs_for_metrics),
@@ -495,10 +585,11 @@ class MetricFlowQueryParser:
             limit_input=resolver_input_for_limit,
             filter_input=resolver_input_for_filter,
             min_max_only=resolver_input_for_min_max_only,
+            apply_group_by=resolver_input_for_apply_group_by,
         )
 
         logger.debug(
-            LazyFormat(lambda: "Resolver input for query is:\n" + indent(mf_pformat(resolver_input_for_query)))
+            LazyFormat(lambda: "Resolver input for query is:\n" + mf_indent(mf_pformat(resolver_input_for_query)))
         )
 
         query_resolution = query_resolver.resolve_query(resolver_input_for_query)

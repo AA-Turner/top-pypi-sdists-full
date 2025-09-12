@@ -859,10 +859,12 @@ class BigQuery(Dialect):
                 exp.JSONArray, expressions=self._parse_csv(self._parse_bitwise)
             ),
             "MAKE_INTERVAL": lambda self: self._parse_make_interval(),
-            "PREDICT": lambda self: self._parse_predict(),
+            "PREDICT": lambda self: self._parse_ml(exp.Predict),
+            "TRANSLATE": lambda self: self._parse_translate(),
             "FEATURES_AT_TIME": lambda self: self._parse_features_at_time(),
-            "GENERATE_EMBEDDING": lambda self: self._parse_generate_embedding(),
+            "GENERATE_EMBEDDING": lambda self: self._parse_ml(exp.GenerateEmbedding),
             "VECTOR_SEARCH": lambda self: self._parse_vector_search(),
+            "FORECAST": lambda self: self._parse_ml(exp.MLForecast),
         }
         FUNCTION_PARSERS.pop("TRIM")
 
@@ -1146,33 +1148,34 @@ class BigQuery(Dialect):
 
             return expr
 
-        def _parse_predict(self) -> exp.Predict:
+        def _parse_ml(self, expr_type: t.Type[E]) -> E:
             self._match_text_seq("MODEL")
             this = self._parse_table()
 
             self._match(TokenType.COMMA)
             self._match_text_seq("TABLE")
 
-            return self.expression(
-                exp.Predict,
-                this=this,
-                expression=self._parse_table(),
-                params_struct=self._match(TokenType.COMMA) and self._parse_bitwise(),
+            # Certain functions like ML.FORECAST require a STRUCT argument but not a TABLE/SELECT one
+            expression = (
+                self._parse_table() if not self._match(TokenType.STRUCT, advance=False) else None
             )
-
-        def _parse_generate_embedding(self) -> exp.GenerateEmbedding:
-            self._match_text_seq("MODEL")
-            this = self._parse_table()
 
             self._match(TokenType.COMMA)
-            self._match_text_seq("TABLE")
 
             return self.expression(
-                exp.GenerateEmbedding,
+                expr_type,
                 this=this,
-                expression=self._parse_table(),
-                params_struct=self._match(TokenType.COMMA) and self._parse_bitwise(),
+                expression=expression,
+                params_struct=self._parse_bitwise(),
             )
+
+        def _parse_translate(self) -> exp.Translate | exp.MLTranslate:
+            # Check if this is ML.TRANSLATE by looking at previous tokens
+            token = seq_get(self._tokens, self._index - 4)
+            if token and token.text.upper() == "ML":
+                return self._parse_ml(exp.MLTranslate)
+
+            return exp.Translate.from_arg_list(self._parse_function_args())
 
         def _parse_features_at_time(self) -> exp.FeaturesAtTime:
             self._match(TokenType.TABLE)

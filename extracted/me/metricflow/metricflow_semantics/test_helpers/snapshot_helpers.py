@@ -14,13 +14,15 @@ import tabulate
 from _pytest.fixtures import FixtureRequest
 
 from metricflow_semantics.dag.mf_dag import MetricFlowDag
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
+from metricflow_semantics.mf_logging.format_option import PrettyFormatOption
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat
-from metricflow_semantics.model.semantics.linkable_element_set import LinkableElementSet
+from metricflow_semantics.model.semantics.linkable_element_set_base import BaseLinkableElementSet
 from metricflow_semantics.naming.object_builder_scheme import ObjectBuilderNamingScheme
 from metricflow_semantics.specs.linkable_spec_set import LinkableSpecSet
-from metricflow_semantics.specs.spec_set import InstanceSpecSet
+from metricflow_semantics.specs.spec_set import InstanceSpecSet, group_spec_by_type
+from metricflow_semantics.test_helpers.terminal_helpers import mf_colored_link_text
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class SnapshotConfiguration:
 
 def assert_snapshot_text_equal(
     request: _pytest.fixtures.FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
+    snapshot_configuration: SnapshotConfiguration,
     group_id: str,
     snapshot_id: str,
     snapshot_text: str,
@@ -54,51 +56,59 @@ def assert_snapshot_text_equal(
     additional_sub_directories_for_snapshots: Tuple[str, ...] = (),
     additional_header_fields: Optional[Mapping[str, str]] = None,
     expectation_description: Optional[str] = None,
+    include_headers: bool = True,
+    log_snapshot_text: bool = True,
 ) -> None:
     """Similar to assert_plan_snapshot_text_equal(), but with more controls on how the snapshot paths are generated."""
-    logger.debug(LazyFormat(lambda: "Generated snapshot text:\n" + indent(snapshot_text)))
-    file_path = (
-        str(
-            snapshot_path_prefix(
-                request=request,
-                snapshot_configuration=mf_test_configuration,
-                snapshot_group=group_id,
-                snapshot_id=snapshot_id,
-                additional_sub_directories=additional_sub_directories_for_snapshots,
-            )
-        )
-        + snapshot_file_extension
-    )
+    file_path = snapshot_path_prefix(
+        request=request,
+        snapshot_configuration=snapshot_configuration,
+        snapshot_group=group_id,
+        snapshot_id=snapshot_id,
+        additional_sub_directories=additional_sub_directories_for_snapshots,
+    ).with_suffix(snapshot_file_extension)
 
     if incomparable_strings_replacement_function is not None:
         snapshot_text = incomparable_strings_replacement_function(snapshot_text)
 
-    # Add a header with context about the snapshot.
-    path_to_test_file = pathlib.Path(request.node.fspath)
-    test_doc_string = request.function.__doc__
-    header_lines = [
-        f"test_name: {request.node.name}",
-        f"test_filename: {path_to_test_file.name}",
-    ]
-    if test_doc_string is not None:
-        header_lines.append("docstring:")
-        header_lines.append(indent(test_doc_string.rstrip()))
-    if additional_header_fields is not None:
-        for header_field_name, header_field_value in additional_header_fields.items():
-            header_lines.append(f"{header_field_name}: {header_field_value}")
-    if expectation_description is not None:
-        header_lines.append(f"{SNAPSHOT_EXPECTATION_DESCRIPTION}:")
-        header_lines.append(indent(expectation_description))
-    header_lines.append("---")
+    open_snapshot_uri = file_path.resolve().as_uri()
+    logger.debug(
+        LazyFormat(
+            "Generated snapshot text",
+            snapshot_text=snapshot_text if log_snapshot_text else "<hidden in log output>",
+            file_path=file_path,
+            open_link=mf_colored_link_text(open_snapshot_uri),
+            iterm_hint="Link may be opened with <Command> + <Left Click>",
+        )
+    )
 
-    snapshot_text = "\n".join(header_lines) + "\n" + snapshot_text
+    # Add a header with context about the snapshot.
+    if include_headers:
+        path_to_test_file = pathlib.Path(request.node.fspath)
+        test_doc_string = request.function.__doc__
+        header_lines = [
+            f"test_name: {request.node.name}",
+            f"test_filename: {path_to_test_file.name}",
+        ]
+        if test_doc_string is not None:
+            header_lines.append("docstring:")
+            header_lines.append(mf_indent(test_doc_string.rstrip()))
+        if additional_header_fields is not None:
+            for header_field_name, header_field_value in additional_header_fields.items():
+                header_lines.append(f"{header_field_name}: {header_field_value}")
+        if expectation_description is not None:
+            header_lines.append(f"{SNAPSHOT_EXPECTATION_DESCRIPTION}:")
+            header_lines.append(mf_indent(expectation_description))
+        header_lines.append("---")
+
+        snapshot_text = "\n".join(header_lines) + "\n" + snapshot_text
 
     # Add a new line at the end of the file so that PRs don't show the "no newline" symbol on Github.
     if len(snapshot_text) > 1 and snapshot_text[-1] != "\n":
         snapshot_text = snapshot_text + "\n"
 
     # If we are in overwrite mode, create / overwrite the snapshot file.:
-    if mf_test_configuration.overwrite_snapshots:
+    if snapshot_configuration.overwrite_snapshots:
         # Create parent directory for the plan text files.
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w") as snapshot_text_file:
@@ -111,15 +121,15 @@ def assert_snapshot_text_equal(
             f"to see what's new."
         )
 
-    if mf_test_configuration.display_snapshots:
-        if not mf_test_configuration.overwrite_snapshots:
+    if snapshot_configuration.display_snapshots:
+        if not snapshot_configuration.overwrite_snapshots:
             logger.warning(
                 LazyFormat(lambda: f"Not overwriting snapshots, so displaying existing snapshot at {file_path}")
             )
 
         if len(request.session.items) > 1:
             raise ValueError("Displaying snapshots is only supported when there's a single item in a testing session.")
-        webbrowser.open("file://" + file_path)
+        webbrowser.open(file_path.resolve().as_uri())
 
     # Read the existing plan from the file and compare with the actual plan
     with open(file_path, "r") as snapshot_text_file:
@@ -251,7 +261,7 @@ PlanT = TypeVar("PlanT", bound=MetricFlowDag)
 
 def assert_plan_snapshot_text_equal(
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
+    snapshot_configuration: SnapshotConfiguration,
     plan: PlanT,
     plan_snapshot_text: str,
     plan_snapshot_file_extension: str = ".xml",
@@ -273,7 +283,7 @@ def assert_plan_snapshot_text_equal(
     """
     assert_snapshot_text_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         group_id=plan.__class__.__name__,
         snapshot_id=str(plan.dag_id),
         snapshot_text=plan_snapshot_text,
@@ -285,96 +295,74 @@ def assert_plan_snapshot_text_equal(
     )
 
 
+def _convert_linkable_element_set_to_rows(
+    linkable_element_set: BaseLinkableElementSet,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for annotated_spec in sorted(
+        linkable_element_set.annotated_specs,
+        key=lambda annotated_spec_in_lambda: annotated_spec_in_lambda.spec.qualified_name,
+    ):
+        row_dict: dict[str, str] = {
+            "Dunder Name": annotated_spec.spec.qualified_name.ljust(78),
+        }
+        spec_set = group_spec_by_type(annotated_spec.spec)
+
+        if len(spec_set.group_by_metric_specs) == 0:
+            row_dict["Metric-Subquery Entity-Links"] = ""
+        elif len(spec_set.group_by_metric_specs) == 1:
+            group_by_metric_spec = spec_set.group_by_metric_specs[0]
+            row_dict["Metric-Subquery Entity-Links"] = ",".join(
+                entity_link.element_name for entity_link in group_by_metric_spec.metric_subquery_entity_links
+            )
+        else:
+            raise RuntimeError(LazyFormat("There should have been at most 1 group-by-metric spec", spec_set=spec_set))
+        row_dict["Type"] = annotated_spec.element_type.name.ljust(14)
+
+        row_dict["Properties"] = ",".join(
+            sorted(linkable_element_property.name for linkable_element_property in annotated_spec.property_set)
+        )
+        row_dict["Derived-From Semantic Models"] = ",".join(
+            sorted(
+                model_reference.semantic_model_name for model_reference in annotated_spec.derived_from_semantic_models
+            )
+        )
+        rows.append(row_dict)
+
+    return rows
+
+
 def assert_linkable_element_set_snapshot_equal(  # noqa: D103
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
-    set_id: str,
-    linkable_element_set: LinkableElementSet,
+    snapshot_configuration: SnapshotConfiguration,
+    linkable_element_set: BaseLinkableElementSet,
+    set_id: str = "result",
     expectation_description: Optional[str] = None,
 ) -> None:
-    headers = ("Model Join-Path", "Entity Links", "Name", "Time Granularity", "Date Part", "Properties")
-    rows = []
-    for linkable_dimension_iterable in linkable_element_set.path_key_to_linkable_dimensions.values():
-        for linkable_dimension in linkable_dimension_iterable:
-            row_to_add = (
-                # Checking a limited set of fields as the result is large due to the paths in the object.
-                (linkable_dimension.join_path.left_semantic_model_reference.semantic_model_name,)
-                + tuple(
-                    path_element.semantic_model_reference.semantic_model_name
-                    for path_element in linkable_dimension.join_path.path_elements
-                ),
-                tuple(entity_link.element_name for entity_link in linkable_dimension.entity_links),
-                linkable_dimension.element_name,
-                linkable_dimension.time_granularity.name if linkable_dimension.time_granularity is not None else "",
-                linkable_dimension.date_part.name if linkable_dimension.date_part is not None else "",
-                sorted(linkable_element_property.name for linkable_element_property in linkable_dimension.properties),
-            )
-            if row_to_add not in rows:
-                rows.append(row_to_add)
-
-    for linkable_entity_iterable in linkable_element_set.path_key_to_linkable_entities.values():
-        for linkable_entity in linkable_entity_iterable:
-            row_to_add = (
-                # Checking a limited set of fields as the result is large due to the paths in the object.
-                (linkable_entity.join_path.left_semantic_model_reference.semantic_model_name,)
-                + tuple(
-                    path_element.semantic_model_reference.semantic_model_name
-                    for path_element in linkable_entity.join_path.path_elements
-                ),
-                tuple(entity_link.element_name for entity_link in linkable_entity.entity_links),
-                linkable_entity.element_name,
-                "",
-                "",
-                sorted(linkable_element_property.name for linkable_element_property in linkable_entity.properties),
-            )
-            if row_to_add not in rows:
-                rows.append(row_to_add)
-
-    for linkable_metric_iterable in linkable_element_set.path_key_to_linkable_metrics.values():
-        for linkable_metric in linkable_metric_iterable:
-            semantic_model_join_path = linkable_metric.join_path.semantic_model_join_path
-            rows.append(
-                (
-                    # Checking a limited set of fields as the result is large due to the paths in the object.
-                    (semantic_model_join_path.left_semantic_model_reference.semantic_model_name,)
-                    + tuple(
-                        path_element.semantic_model_reference.semantic_model_name
-                        for path_element in semantic_model_join_path.path_elements
-                    ),
-                    (
-                        str(tuple(entity_link.element_name for entity_link in linkable_metric.join_path.entity_links)),
-                        str(
-                            tuple(
-                                entity_link.element_name for entity_link in linkable_metric.metric_subquery_entity_links
-                            )
-                        ),
-                    ),
-                    linkable_metric.element_name,
-                    "",
-                    "",
-                    sorted(linkable_element_property.name for linkable_element_property in linkable_metric.properties),
-                )
-            )
+    rows = _convert_linkable_element_set_to_rows(linkable_element_set)
 
     assert_str_snapshot_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         snapshot_id=set_id,
-        snapshot_str=tabulate.tabulate(headers=headers, tabular_data=sorted(rows)),
+        snapshot_str=tabulate.tabulate(
+            headers="keys",
+            tabular_data=sorted(rows, key=lambda row: tuple(row.values())),  # type: ignore[attr-defined]
+        ),
         expectation_description=expectation_description,
     )
 
 
 def assert_spec_set_snapshot_equal(  # noqa: D103
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
+    snapshot_configuration: SnapshotConfiguration,
     set_id: str,
     spec_set: InstanceSpecSet,
     expectation_description: Optional[str] = None,
 ) -> None:
     assert_object_snapshot_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         obj_id=set_id,
         obj=sorted(spec.qualified_name for spec in spec_set.all_specs),
         expectation_description=expectation_description,
@@ -383,7 +371,7 @@ def assert_spec_set_snapshot_equal(  # noqa: D103
 
 def assert_linkable_spec_set_snapshot_equal(  # noqa: D103
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
+    snapshot_configuration: SnapshotConfiguration,
     set_id: str,
     spec_set: LinkableSpecSet,
     expectation_description: Optional[str] = None,
@@ -391,7 +379,7 @@ def assert_linkable_spec_set_snapshot_equal(  # noqa: D103
     naming_scheme = ObjectBuilderNamingScheme()
     assert_snapshot_text_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         group_id=spec_set.__class__.__name__,
         snapshot_id=set_id,
         snapshot_text=mf_pformat(sorted(naming_scheme.input_str(spec) for spec in spec_set.as_tuple)),
@@ -403,18 +391,19 @@ def assert_linkable_spec_set_snapshot_equal(  # noqa: D103
 
 def assert_object_snapshot_equal(  # type: ignore[misc]
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
+    snapshot_configuration: SnapshotConfiguration,
     obj: Any,
     obj_id: str = "result",
     expectation_description: Optional[str] = None,
+    format_option: Optional[PrettyFormatOption] = None,
 ) -> None:
     """For tests to compare large objects, this can be used to snapshot a text representation of the object."""
     assert_snapshot_text_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         group_id=obj.__class__.__name__,
         snapshot_id=obj_id,
-        snapshot_text=mf_pformat(obj),
+        snapshot_text=mf_pformat(obj, format_option),
         snapshot_file_extension=".txt",
         expectation_description=expectation_description,
     )
@@ -422,20 +411,23 @@ def assert_object_snapshot_equal(  # type: ignore[misc]
 
 def assert_str_snapshot_equal(  # noqa: D103
     request: FixtureRequest,
-    mf_test_configuration: SnapshotConfiguration,
-    snapshot_id: str,
+    snapshot_configuration: SnapshotConfiguration,
     snapshot_str: str,
+    snapshot_id: str = "result",
+    snapshot_file_extension: str = ".txt",
     expectation_description: Optional[str] = None,
     incomparable_strings_replacement_function: Optional[Callable[[str], str]] = None,
+    include_headers: bool = True,
 ) -> None:
     """Write / compare a string snapshot."""
     assert_snapshot_text_equal(
         request=request,
-        mf_test_configuration=mf_test_configuration,
+        snapshot_configuration=snapshot_configuration,
         group_id=snapshot_str.__class__.__name__,
         snapshot_id=snapshot_id,
         snapshot_text=snapshot_str,
-        snapshot_file_extension=".txt",
+        snapshot_file_extension=snapshot_file_extension,
         expectation_description=expectation_description,
         incomparable_strings_replacement_function=incomparable_strings_replacement_function,
+        include_headers=include_headers,
     )

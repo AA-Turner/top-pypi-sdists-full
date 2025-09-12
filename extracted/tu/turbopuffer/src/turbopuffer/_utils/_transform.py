@@ -20,6 +20,7 @@ from ._utils import (
 )
 from .._files import is_base64_file_input
 from .._types import SequenceNotStr
+from ._compat import get_origin, is_typeddict
 from ._typing import (
     is_list_type,
     is_union_type,
@@ -30,7 +31,6 @@ from ._typing import (
     is_annotated_type,
     strip_annotated_type,
 )
-from .._compat import get_origin, model_dump, is_typeddict
 from ..lib.vector import b64encode_vector
 
 _T = TypeVar("_T")
@@ -176,6 +176,8 @@ def _transform_recursive(
 
             Defaults to the same value as the `annotation` argument.
     """
+    from .._compat import model_dump
+
     if inner_type is None:
         inner_type = annotation
 
@@ -358,6 +360,8 @@ async def _async_transform_recursive(
 
             Defaults to the same value as the `annotation` argument.
     """
+    from .._compat import model_dump
+
     if inner_type is None:
         inner_type = annotation
 

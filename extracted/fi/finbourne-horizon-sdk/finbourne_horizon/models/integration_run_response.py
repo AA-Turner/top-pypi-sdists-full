@@ -19,7 +19,7 @@ import json
 
 
 from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr 
+from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, StrictStr 
 from finbourne_horizon.models.integration_run_integration import IntegrationRunIntegration
 from finbourne_horizon.models.integration_run_log import IntegrationRunLog
 from finbourne_horizon.models.integration_run_version import IntegrationRunVersion
@@ -29,6 +29,8 @@ class IntegrationRunResponse(BaseModel):
     IntegrationRunResponse
     """
     run_id:  StrictStr = Field(...,alias="runId") 
+    ref_run_id:  Optional[StrictStr] = Field(None,alias="refRunId") 
+    attempt: StrictInt = Field(...)
     instance_id:  Optional[StrictStr] = Field(None,alias="instanceId") 
     instance_name:  Optional[StrictStr] = Field(None,alias="instanceName") 
     status:  Optional[StrictStr] = Field(None,alias="status") 
@@ -36,7 +38,7 @@ class IntegrationRunResponse(BaseModel):
     integration: IntegrationRunIntegration = Field(...)
     version: IntegrationRunVersion = Field(...)
     integration_logs: Optional[Dict[str, Dict[str, IntegrationRunLog]]] = Field(None, alias="integrationLogs")
-    __properties = ["runId", "instanceId", "instanceName", "status", "message", "integration", "version", "integrationLogs"]
+    __properties = ["runId", "refRunId", "attempt", "instanceId", "instanceName", "status", "message", "integration", "version", "integrationLogs"]
 
     class Config:
         """Pydantic configuration"""
@@ -83,6 +85,11 @@ class IntegrationRunResponse(BaseModel):
                 if self.integration_logs[_key]:
                     _field_dict[_key] = self.integration_logs[_key].to_dict()
             _dict['integrationLogs'] = _field_dict
+        # set to None if ref_run_id (nullable) is None
+        # and __fields_set__ contains the field
+        if self.ref_run_id is None and "ref_run_id" in self.__fields_set__:
+            _dict['refRunId'] = None
+
         # set to None if instance_id (nullable) is None
         # and __fields_set__ contains the field
         if self.instance_id is None and "instance_id" in self.__fields_set__:
@@ -121,6 +128,8 @@ class IntegrationRunResponse(BaseModel):
 
         _obj = IntegrationRunResponse.parse_obj({
             "run_id": obj.get("runId"),
+            "ref_run_id": obj.get("refRunId"),
+            "attempt": obj.get("attempt"),
             "instance_id": obj.get("instanceId"),
             "instance_name": obj.get("instanceName"),
             "status": obj.get("status"),

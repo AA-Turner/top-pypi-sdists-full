@@ -310,51 +310,47 @@ class InitialCapacityConfig(TypedDict, total=False):
 
 
 InitialCapacityConfigMap = Dict[WorkerTypeString, InitialCapacityConfig]
-Application = TypedDict(
-    "Application",
-    {
-        "applicationId": ApplicationId,
-        "name": Optional[ApplicationName],
-        "arn": ApplicationArn,
-        "releaseLabel": ReleaseLabel,
-        "type": EngineType,
-        "state": ApplicationState,
-        "stateDetails": Optional[String256],
-        "initialCapacity": Optional[InitialCapacityConfigMap],
-        "maximumCapacity": Optional[MaximumAllowedResources],
-        "createdAt": Date,
-        "updatedAt": Date,
-        "tags": Optional[TagMap],
-        "autoStartConfiguration": Optional[AutoStartConfig],
-        "autoStopConfiguration": Optional[AutoStopConfig],
-        "networkConfiguration": Optional[NetworkConfiguration],
-        "architecture": Optional[Architecture],
-        "imageConfiguration": Optional[ImageConfiguration],
-        "workerTypeSpecifications": Optional[WorkerTypeSpecificationMap],
-        "runtimeConfiguration": Optional[ConfigurationList],
-        "monitoringConfiguration": Optional[MonitoringConfiguration],
-        "interactiveConfiguration": Optional[InteractiveConfiguration],
-        "schedulerConfiguration": Optional[SchedulerConfiguration],
-        "identityCenterConfiguration": Optional[IdentityCenterConfiguration],
-    },
-    total=False,
-)
-ApplicationSummary = TypedDict(
-    "ApplicationSummary",
-    {
-        "id": ApplicationId,
-        "name": Optional[ApplicationName],
-        "arn": ApplicationArn,
-        "releaseLabel": ReleaseLabel,
-        "type": EngineType,
-        "state": ApplicationState,
-        "stateDetails": Optional[String256],
-        "createdAt": Date,
-        "updatedAt": Date,
-        "architecture": Optional[Architecture],
-    },
-    total=False,
-)
+
+
+class Application(TypedDict, total=False):
+    applicationId: ApplicationId
+    name: Optional[ApplicationName]
+    arn: ApplicationArn
+    releaseLabel: ReleaseLabel
+    type: EngineType
+    state: ApplicationState
+    stateDetails: Optional[String256]
+    initialCapacity: Optional[InitialCapacityConfigMap]
+    maximumCapacity: Optional[MaximumAllowedResources]
+    createdAt: Date
+    updatedAt: Date
+    tags: Optional[TagMap]
+    autoStartConfiguration: Optional[AutoStartConfig]
+    autoStopConfiguration: Optional[AutoStopConfig]
+    networkConfiguration: Optional[NetworkConfiguration]
+    architecture: Optional[Architecture]
+    imageConfiguration: Optional[ImageConfiguration]
+    workerTypeSpecifications: Optional[WorkerTypeSpecificationMap]
+    runtimeConfiguration: Optional[ConfigurationList]
+    monitoringConfiguration: Optional[MonitoringConfiguration]
+    interactiveConfiguration: Optional[InteractiveConfiguration]
+    schedulerConfiguration: Optional[SchedulerConfiguration]
+    identityCenterConfiguration: Optional[IdentityCenterConfiguration]
+
+
+class ApplicationSummary(TypedDict, total=False):
+    id: ApplicationId
+    name: Optional[ApplicationName]
+    arn: ApplicationArn
+    releaseLabel: ReleaseLabel
+    type: EngineType
+    state: ApplicationState
+    stateDetails: Optional[String256]
+    createdAt: Date
+    updatedAt: Date
+    architecture: Optional[Architecture]
+
+
 ApplicationList = List[ApplicationSummary]
 ApplicationStateSet = List[ApplicationState]
 
@@ -402,30 +398,27 @@ class WorkerTypeSpecificationInput(TypedDict, total=False):
 
 
 WorkerTypeSpecificationInputMap = Dict[WorkerTypeString, WorkerTypeSpecificationInput]
-CreateApplicationRequest = TypedDict(
-    "CreateApplicationRequest",
-    {
-        "name": Optional[ApplicationName],
-        "releaseLabel": ReleaseLabel,
-        "type": EngineType,
-        "clientToken": ClientToken,
-        "initialCapacity": Optional[InitialCapacityConfigMap],
-        "maximumCapacity": Optional[MaximumAllowedResources],
-        "tags": Optional[TagMap],
-        "autoStartConfiguration": Optional[AutoStartConfig],
-        "autoStopConfiguration": Optional[AutoStopConfig],
-        "networkConfiguration": Optional[NetworkConfiguration],
-        "architecture": Optional[Architecture],
-        "imageConfiguration": Optional[ImageConfigurationInput],
-        "workerTypeSpecifications": Optional[WorkerTypeSpecificationInputMap],
-        "runtimeConfiguration": Optional[ConfigurationList],
-        "monitoringConfiguration": Optional[MonitoringConfiguration],
-        "interactiveConfiguration": Optional[InteractiveConfiguration],
-        "schedulerConfiguration": Optional[SchedulerConfiguration],
-        "identityCenterConfiguration": Optional[IdentityCenterConfigurationInput],
-    },
-    total=False,
-)
+
+
+class CreateApplicationRequest(TypedDict, total=False):
+    name: Optional[ApplicationName]
+    releaseLabel: ReleaseLabel
+    type: EngineType
+    clientToken: ClientToken
+    initialCapacity: Optional[InitialCapacityConfigMap]
+    maximumCapacity: Optional[MaximumAllowedResources]
+    tags: Optional[TagMap]
+    autoStartConfiguration: Optional[AutoStartConfig]
+    autoStopConfiguration: Optional[AutoStopConfig]
+    networkConfiguration: Optional[NetworkConfiguration]
+    architecture: Optional[Architecture]
+    imageConfiguration: Optional[ImageConfigurationInput]
+    workerTypeSpecifications: Optional[WorkerTypeSpecificationInputMap]
+    runtimeConfiguration: Optional[ConfigurationList]
+    monitoringConfiguration: Optional[MonitoringConfiguration]
+    interactiveConfiguration: Optional[InteractiveConfiguration]
+    schedulerConfiguration: Optional[SchedulerConfiguration]
+    identityCenterConfiguration: Optional[IdentityCenterConfigurationInput]
 
 
 class CreateApplicationResponse(TypedDict, total=False):
@@ -576,51 +569,47 @@ class GetJobRunResponse(TypedDict, total=False):
     jobRun: JobRun
 
 
-JobRunAttemptSummary = TypedDict(
-    "JobRunAttemptSummary",
-    {
-        "applicationId": ApplicationId,
-        "id": JobRunId,
-        "name": Optional[String256],
-        "mode": Optional[JobRunMode],
-        "arn": JobArn,
-        "createdBy": RequestIdentityUserArn,
-        "jobCreatedAt": Date,
-        "createdAt": Date,
-        "updatedAt": Date,
-        "executionRole": IAMRoleArn,
-        "state": JobRunState,
-        "stateDetails": String256,
-        "releaseLabel": ReleaseLabel,
-        "type": Optional[JobRunType],
-        "attempt": Optional[AttemptNumber],
-    },
-    total=False,
-)
+class JobRunAttemptSummary(TypedDict, total=False):
+    applicationId: ApplicationId
+    id: JobRunId
+    name: Optional[String256]
+    mode: Optional[JobRunMode]
+    arn: JobArn
+    createdBy: RequestIdentityUserArn
+    jobCreatedAt: Date
+    createdAt: Date
+    updatedAt: Date
+    executionRole: IAMRoleArn
+    state: JobRunState
+    stateDetails: String256
+    releaseLabel: ReleaseLabel
+    type: Optional[JobRunType]
+    attempt: Optional[AttemptNumber]
+
+
 JobRunAttempts = List[JobRunAttemptSummary]
 JobRunStateSet = List[JobRunState]
-JobRunSummary = TypedDict(
-    "JobRunSummary",
-    {
-        "applicationId": ApplicationId,
-        "id": JobRunId,
-        "name": Optional[String256],
-        "mode": Optional[JobRunMode],
-        "arn": JobArn,
-        "createdBy": RequestIdentityUserArn,
-        "createdAt": Date,
-        "updatedAt": Date,
-        "executionRole": IAMRoleArn,
-        "state": JobRunState,
-        "stateDetails": String256,
-        "releaseLabel": ReleaseLabel,
-        "type": Optional[JobRunType],
-        "attempt": Optional[AttemptNumber],
-        "attemptCreatedAt": Optional[Date],
-        "attemptUpdatedAt": Optional[Date],
-    },
-    total=False,
-)
+
+
+class JobRunSummary(TypedDict, total=False):
+    applicationId: ApplicationId
+    id: JobRunId
+    name: Optional[String256]
+    mode: Optional[JobRunMode]
+    arn: JobArn
+    createdBy: RequestIdentityUserArn
+    createdAt: Date
+    updatedAt: Date
+    executionRole: IAMRoleArn
+    state: JobRunState
+    stateDetails: String256
+    releaseLabel: ReleaseLabel
+    type: Optional[JobRunType]
+    attempt: Optional[AttemptNumber]
+    attemptCreatedAt: Optional[Date]
+    attemptUpdatedAt: Optional[Date]
+
+
 JobRuns = List[JobRunSummary]
 
 

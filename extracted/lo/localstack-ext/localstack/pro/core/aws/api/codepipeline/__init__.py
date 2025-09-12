@@ -750,19 +750,16 @@ class ActionConfiguration(TypedDict, total=False):
     configuration: Optional[ActionConfigurationMap]
 
 
-ActionConfigurationProperty = TypedDict(
-    "ActionConfigurationProperty",
-    {
-        "name": ActionConfigurationKey,
-        "required": Boolean,
-        "key": Boolean,
-        "secret": Boolean,
-        "queryable": Optional[Boolean],
-        "description": Optional[Description],
-        "type": Optional[ActionConfigurationPropertyType],
-    },
-    total=False,
-)
+class ActionConfigurationProperty(TypedDict, total=False):
+    name: ActionConfigurationKey
+    required: Boolean
+    key: Boolean
+    secret: Boolean
+    queryable: Optional[Boolean]
+    description: Optional[Description]
+    type: Optional[ActionConfigurationPropertyType]
+
+
 ActionConfigurationPropertyList = List[ActionConfigurationProperty]
 
 
@@ -775,15 +772,12 @@ class ActionContext(TypedDict, total=False):
     actionExecutionId: Optional[ActionExecutionId]
 
 
-EnvironmentVariable = TypedDict(
-    "EnvironmentVariable",
-    {
-        "name": EnvironmentVariableName,
-        "value": EnvironmentVariableValue,
-        "type": Optional[EnvironmentVariableType],
-    },
-    total=False,
-)
+class EnvironmentVariable(TypedDict, total=False):
+    name: EnvironmentVariableName
+    value: EnvironmentVariableValue
+    type: Optional[EnvironmentVariableType]
+
+
 EnvironmentVariableList = List[EnvironmentVariable]
 OutputVariableList = List[OutputVariable]
 
@@ -1093,16 +1087,11 @@ class ExecutorConfiguration(TypedDict, total=False):
     jobWorkerExecutorConfiguration: Optional[JobWorkerExecutorConfiguration]
 
 
-ActionTypeExecutor = TypedDict(
-    "ActionTypeExecutor",
-    {
-        "configuration": ExecutorConfiguration,
-        "type": ExecutorType,
-        "policyStatementsTemplate": Optional[PolicyStatementsTemplate],
-        "jobTimeout": Optional[JobTimeout],
-    },
-    total=False,
-)
+class ActionTypeExecutor(TypedDict, total=False):
+    configuration: ExecutorConfiguration
+    type: ExecutorType
+    policyStatementsTemplate: Optional[PolicyStatementsTemplate]
+    jobTimeout: Optional[JobTimeout]
 
 
 class ActionTypeDeclaration(TypedDict, total=False):
@@ -1137,14 +1126,9 @@ class S3ArtifactLocation(TypedDict, total=False):
     objectKey: S3ObjectKey
 
 
-ArtifactLocation = TypedDict(
-    "ArtifactLocation",
-    {
-        "type": Optional[ArtifactLocationType],
-        "s3Location": Optional[S3ArtifactLocation],
-    },
-    total=False,
-)
+class ArtifactLocation(TypedDict, total=False):
+    type: Optional[ArtifactLocationType]
+    s3Location: Optional[S3ArtifactLocation]
 
 
 class Artifact(TypedDict, total=False):
@@ -1175,23 +1159,19 @@ class ArtifactRevision(TypedDict, total=False):
 
 
 ArtifactRevisionList = List[ArtifactRevision]
-EncryptionKey = TypedDict(
-    "EncryptionKey",
-    {
-        "id": EncryptionKeyId,
-        "type": EncryptionKeyType,
-    },
-    total=False,
-)
-ArtifactStore = TypedDict(
-    "ArtifactStore",
-    {
-        "type": ArtifactStoreType,
-        "location": ArtifactStoreLocation,
-        "encryptionKey": Optional[EncryptionKey],
-    },
-    total=False,
-)
+
+
+class EncryptionKey(TypedDict, total=False):
+    id: EncryptionKeyId
+    type: EncryptionKeyType
+
+
+class ArtifactStore(TypedDict, total=False):
+    type: ArtifactStoreType
+    location: ArtifactStoreLocation
+    encryptionKey: Optional[EncryptionKey]
+
+
 ArtifactStoreMap = Dict[AWSRegionName, ArtifactStore]
 RuleConfigurationMap = Dict[RuleConfigurationKey, RuleConfigurationValue]
 
@@ -1266,14 +1246,9 @@ class BeforeEntryConditions(TypedDict, total=False):
     conditions: ConditionList
 
 
-BlockerDeclaration = TypedDict(
-    "BlockerDeclaration",
-    {
-        "name": BlockerName,
-        "type": BlockerType,
-    },
-    total=False,
-)
+class BlockerDeclaration(TypedDict, total=False):
+    name: BlockerName
+    type: BlockerType
 
 
 class ConditionExecution(TypedDict, total=False):
@@ -1672,15 +1647,10 @@ class ExecutionTrigger(TypedDict, total=False):
     triggerDetail: Optional[TriggerDetail]
 
 
-FailureDetails = TypedDict(
-    "FailureDetails",
-    {
-        "type": FailureType,
-        "message": Message,
-        "externalExecutionId": Optional[ExecutionId],
-    },
-    total=False,
-)
+class FailureDetails(TypedDict, total=False):
+    type: FailureType
+    message: Message
+    externalExecutionId: Optional[ExecutionId]
 
 
 class GetActionTypeInput(ServiceRequest):
@@ -1848,15 +1818,12 @@ class StageConditionState(TypedDict, total=False):
     conditionStates: Optional[ConditionStateList]
 
 
-StageExecution = TypedDict(
-    "StageExecution",
-    {
-        "pipelineExecutionId": PipelineExecutionId,
-        "status": StageExecutionStatus,
-        "type": Optional[ExecutionType],
-    },
-    total=False,
-)
+class StageExecution(TypedDict, total=False):
+    pipelineExecutionId: PipelineExecutionId
+    status: StageExecutionStatus
+    type: Optional[ExecutionType]
+
+
 LastChangedAt = datetime
 
 
@@ -2176,19 +2143,16 @@ class ListRuleTypesInput(ServiceRequest):
     regionFilter: Optional[AWSRegionName]
 
 
-RuleConfigurationProperty = TypedDict(
-    "RuleConfigurationProperty",
-    {
-        "name": RuleConfigurationKey,
-        "required": Boolean,
-        "key": Boolean,
-        "secret": Boolean,
-        "queryable": Optional[Boolean],
-        "description": Optional[Description],
-        "type": Optional[RuleConfigurationPropertyType],
-    },
-    total=False,
-)
+class RuleConfigurationProperty(TypedDict, total=False):
+    name: RuleConfigurationKey
+    required: Boolean
+    key: Boolean
+    secret: Boolean
+    queryable: Optional[Boolean]
+    description: Optional[Description]
+    type: Optional[RuleConfigurationPropertyType]
+
+
 RuleConfigurationPropertyList = List[RuleConfigurationProperty]
 
 

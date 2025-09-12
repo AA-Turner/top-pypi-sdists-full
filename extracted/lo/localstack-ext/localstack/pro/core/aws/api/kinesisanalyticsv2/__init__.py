@@ -23,6 +23,7 @@ InAppStreamName = str
 InAppTableName = str
 InputParallelismCount = int
 JobPlanDescription = str
+KeyId = str
 KinesisAnalyticsARN = str
 ListApplicationOperationsInputLimit = int
 ListApplicationVersionsInputLimit = int
@@ -105,6 +106,11 @@ class InputStartingPosition(StrEnum):
     NOW = "NOW"
     TRIM_HORIZON = "TRIM_HORIZON"
     LAST_STOPPED_POINT = "LAST_STOPPED_POINT"
+
+
+class KeyType(StrEnum):
+    AWS_OWNED_KEY = "AWS_OWNED_KEY"
+    CUSTOMER_MANAGED_KEY = "CUSTOMER_MANAGED_KEY"
 
 
 class LogLevel(StrEnum):
@@ -851,6 +857,13 @@ class ApplicationCodeConfigurationUpdate(TypedDict, total=False):
     CodeContentUpdate: Optional[CodeContentUpdate]
 
 
+class ApplicationEncryptionConfiguration(TypedDict, total=False):
+    """Specifies the configuration to manage encryption at rest."""
+
+    KeyId: Optional[KeyId]
+    KeyType: KeyType
+
+
 class MavenReference(TypedDict, total=False):
     """The information required to specify a Maven reference. You can use Maven
     references to specify dependency JAR files.
@@ -929,8 +942,8 @@ VpcConfigurations = List[VpcConfiguration]
 
 
 class ApplicationSystemRollbackConfiguration(TypedDict, total=False):
-    """Describes system rollback configuration for a Managed Service for Apache
-    Flink application
+    """Describes the system rollback configuration for a Managed Service for
+    Apache Flink application.
     """
 
     RollbackEnabled: BooleanObject
@@ -969,9 +982,9 @@ class ParallelismConfiguration(TypedDict, total=False):
     """Describes parameters for how a Managed Service for Apache Flink
     application executes multiple tasks simultaneously. For more information
     about parallelism, see `Parallel
-    Execution <https://nightlies.apache.org/flink/flink-docs-release-1.19/dev/parallel.html>`__
+    Execution <https://nightlies.apache.org/flink/flink-docs-release-1.20/dev/parallel.html>`__
     in the `Apache Flink
-    Documentation <https://nightlies.apache.org/flink/flink-docs-release-1.19/>`__.
+    Documentation <https://nightlies.apache.org/flink/flink-docs-release-1.20/>`__.
     """
 
     ConfigurationType: ConfigurationType
@@ -999,9 +1012,9 @@ class CheckpointConfiguration(TypedDict, total=False):
     """Describes an application's checkpointing configuration. Checkpointing is
     the process of persisting application state for fault tolerance. For
     more information, see `Checkpoints for Fault
-    Tolerance <https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/dev/datastream/fault-tolerance/checkpointing/#enabling-and-configuring-checkpointing>`__
+    Tolerance <https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/checkpointing/#enabling-and-configuring-checkpointing>`__
     in the `Apache Flink
-    Documentation <https://nightlies.apache.org/flink/flink-docs-release-1.19/>`__.
+    Documentation <https://nightlies.apache.org/flink/flink-docs-release-1.20/>`__.
     """
 
     ConfigurationType: ConfigurationType
@@ -1048,6 +1061,14 @@ class ApplicationConfiguration(TypedDict, total=False):
     ApplicationSystemRollbackConfiguration: Optional[ApplicationSystemRollbackConfiguration]
     VpcConfigurations: Optional[VpcConfigurations]
     ZeppelinApplicationConfiguration: Optional[ZeppelinApplicationConfiguration]
+    ApplicationEncryptionConfiguration: Optional[ApplicationEncryptionConfiguration]
+
+
+class ApplicationEncryptionConfigurationDescription(TypedDict, total=False):
+    """Describes the encryption at rest configuration."""
+
+    KeyId: Optional[KeyId]
+    KeyType: KeyType
 
 
 class CustomArtifactConfigurationDescription(TypedDict, total=False):
@@ -1116,8 +1137,8 @@ VpcConfigurationDescriptions = List[VpcConfigurationDescription]
 
 
 class ApplicationSystemRollbackConfigurationDescription(TypedDict, total=False):
-    """Describes system rollback configuration for a Managed Service for Apache
-    Flink application
+    """Describes the system rollback configuration for a Managed Service for
+    Apache Flink application.
     """
 
     RollbackEnabled: BooleanObject
@@ -1237,6 +1258,16 @@ class ApplicationConfigurationDescription(TypedDict, total=False):
     ZeppelinApplicationConfigurationDescription: Optional[
         ZeppelinApplicationConfigurationDescription
     ]
+    ApplicationEncryptionConfigurationDescription: Optional[
+        ApplicationEncryptionConfigurationDescription
+    ]
+
+
+class ApplicationEncryptionConfigurationUpdate(TypedDict, total=False):
+    """Describes configuration updates to encryption at rest."""
+
+    KeyIdUpdate: Optional[KeyId]
+    KeyTypeUpdate: KeyType
 
 
 class S3ContentBaseLocationUpdate(TypedDict, total=False):
@@ -1305,8 +1336,8 @@ VpcConfigurationUpdates = List[VpcConfigurationUpdate]
 
 
 class ApplicationSystemRollbackConfigurationUpdate(TypedDict, total=False):
-    """Describes system rollback configuration for a Managed Service for Apache
-    Flink application
+    """Describes the system rollback configuration for a Managed Service for
+    Apache Flink application.
     """
 
     RollbackEnabledUpdate: BooleanObject
@@ -1539,6 +1570,7 @@ class ApplicationConfigurationUpdate(TypedDict, total=False):
     ]
     VpcConfigurationUpdates: Optional[VpcConfigurationUpdates]
     ZeppelinApplicationConfigurationUpdate: Optional[ZeppelinApplicationConfigurationUpdate]
+    ApplicationEncryptionConfigurationUpdate: Optional[ApplicationEncryptionConfigurationUpdate]
 
 
 Timestamp = datetime
@@ -1585,8 +1617,8 @@ class ApplicationMaintenanceConfigurationUpdate(TypedDict, total=False):
 
 
 class ApplicationOperationInfo(TypedDict, total=False):
-    """Provides a description of the operation, such as the type and status of
-    operation
+    """A description of the aplication operation that provides information
+    about the updates that were made to the application.
     """
 
     Operation: Optional[Operation]
@@ -1597,21 +1629,21 @@ class ApplicationOperationInfo(TypedDict, total=False):
 
 
 class ErrorInfo(TypedDict, total=False):
-    """Provides a description of the operation failure error"""
+    """A description of the error that caused an operation to fail."""
 
     ErrorString: Optional[ErrorString]
 
 
 class OperationFailureDetails(TypedDict, total=False):
-    """Provides a description of the operation failure"""
+    """Provides a description of the operation failure."""
 
     RollbackOperationId: Optional[OperationId]
     ErrorInfo: Optional[ErrorInfo]
 
 
 class ApplicationVersionChangeDetails(TypedDict, total=False):
-    """Contains information about the application version changes due to an
-    operation
+    """Contains information about the version changes that the operation
+    applied to the application.
     """
 
     ApplicationVersionUpdatedFrom: ApplicationVersionId
@@ -1619,8 +1651,8 @@ class ApplicationVersionChangeDetails(TypedDict, total=False):
 
 
 class ApplicationOperationInfoDetails(TypedDict, total=False):
-    """Provides a description of the operation, such as the operation-type and
-    status
+    """A description of the application operation that provides information
+    about the updates that were made to the application.
     """
 
     Operation: Operation
@@ -1803,8 +1835,8 @@ class DeleteApplicationVpcConfigurationResponse(TypedDict, total=False):
 
 
 class DescribeApplicationOperationRequest(ServiceRequest):
-    """Request for information about a specific operation performed on a
-    Managed Service for Apache Flink application
+    """A request for information about a specific operation that was performed
+    on a Managed Service for Apache Flink application.
     """
 
     ApplicationName: ApplicationName
@@ -1812,8 +1844,8 @@ class DescribeApplicationOperationRequest(ServiceRequest):
 
 
 class DescribeApplicationOperationResponse(TypedDict, total=False):
-    """Provides details of the operation corresponding to the operation-ID on a
-    Managed Service for Apache Flink application
+    """Provides details of the operation that corresponds to the operation ID
+    on a Managed Service for Apache Flink application.
     """
 
     ApplicationOperationInfoDetails: Optional[ApplicationOperationInfoDetails]
@@ -1841,6 +1873,9 @@ class SnapshotDetails(TypedDict, total=False):
     ApplicationVersionId: ApplicationVersionId
     SnapshotCreationTimestamp: Optional[Timestamp]
     RuntimeEnvironment: Optional[RuntimeEnvironment]
+    ApplicationEncryptionConfigurationDescription: Optional[
+        ApplicationEncryptionConfigurationDescription
+    ]
 
 
 class DescribeApplicationSnapshotResponse(TypedDict, total=False):
@@ -1887,7 +1922,7 @@ class DiscoverInputSchemaResponse(TypedDict, total=False):
 
 
 class ListApplicationOperationsRequest(ServiceRequest):
-    """Request to list operations performed on an application"""
+    """A request for a list of operations performed on an application."""
 
     ApplicationName: ApplicationName
     Limit: Optional[ListApplicationOperationsInputLimit]
@@ -1897,7 +1932,7 @@ class ListApplicationOperationsRequest(ServiceRequest):
 
 
 class ListApplicationOperationsResponse(TypedDict, total=False):
-    """Response with the list of operations for an application"""
+    """A response that returns a list of operations for an application."""
 
     ApplicationOperationInfoList: Optional[ApplicationOperationInfoList]
     NextToken: Optional[NextToken]
@@ -2576,11 +2611,14 @@ class Kinesisanalyticsv2Api:
         operation_id: OperationId,
         **kwargs,
     ) -> DescribeApplicationOperationResponse:
-        """Returns information about a specific operation performed on a Managed
-        Service for Apache Flink application
+        """Provides a detailed description of a specified application operation. To
+        see a list of all the operations of an application, invoke the
+        ListApplicationOperations operation.
+
+        This operation is supported only for Managed Service for Apache Flink.
 
         :param application_name: The name of the application.
-        :param operation_id: Identifier of the Operation.
+        :param operation_id: The operation ID of the request.
         :returns: DescribeApplicationOperationResponse
         :raises InvalidArgumentException:
         :raises ResourceNotFoundException:
@@ -2683,15 +2721,20 @@ class Kinesisanalyticsv2Api:
         operation_status: OperationStatus | None = None,
         **kwargs,
     ) -> ListApplicationOperationsResponse:
-        """Lists information about operations performed on a Managed Service for
-        Apache Flink application
+        """Lists all the operations performed for the specified application such as
+        UpdateApplication, StartApplication etc. The response also includes a
+        summary of the operation.
+
+        To get the complete description of a specific operation, invoke the
+        DescribeApplicationOperation operation.
+
+        This operation is supported only for Managed Service for Apache Flink.
 
         :param application_name: The name of the application.
-        :param limit: Limit on the number of records returned in the response.
-        :param next_token: If a previous command returned a pagination token, pass it into this
-        value to retrieve the next set of results.
-        :param operation: Type of operation performed on an application.
-        :param operation_status: Status of the operation performed on an application.
+        :param limit: The limit on the number of records to be returned in the response.
+        :param next_token: A pagination token that can be used in a subsequent request.
+        :param operation: The type of operation that is performed on an application.
+        :param operation_status: The status of the operation.
         :returns: ListApplicationOperationsResponse
         :raises InvalidArgumentException:
         :raises ResourceNotFoundException:

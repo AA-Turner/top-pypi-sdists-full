@@ -34,7 +34,9 @@ __all__ = (
     "ResourceServiceName",
     "RuleGroupsNamespaceStatusCodeType",
     "ScraperActiveWaiterName",
+    "ScraperComponentTypeType",
     "ScraperDeletedWaiterName",
+    "ScraperLoggingConfigurationStatusCodeType",
     "ScraperStatusCodeType",
     "ServiceName",
     "WaiterName",
@@ -61,7 +63,11 @@ RuleGroupsNamespaceStatusCodeType = Literal[
     "ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 ScraperActiveWaiterName = Literal["scraper_active"]
+ScraperComponentTypeType = Literal["COLLECTOR", "EXPORTER", "SERVICE_DISCOVERY"]
 ScraperDeletedWaiterName = Literal["scraper_deleted"]
+ScraperLoggingConfigurationStatusCodeType = Literal[
+    "ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 ScraperStatusCodeType = Literal[
     "ACTIVE",
     "CREATING",

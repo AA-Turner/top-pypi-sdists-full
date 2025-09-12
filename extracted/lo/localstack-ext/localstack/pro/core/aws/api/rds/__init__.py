@@ -140,6 +140,12 @@ class DatabaseInsightsMode(StrEnum):
     advanced = "advanced"
 
 
+class EndpointNetworkType(StrEnum):
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
+    DUAL = "DUAL"
+
+
 class EngineFamily(StrEnum):
     MYSQL = "MYSQL"
     POSTGRESQL = "POSTGRESQL"
@@ -202,6 +208,11 @@ class LocalWriteForwardingStatus(StrEnum):
     requested = "requested"
 
 
+class MasterUserAuthenticationType(StrEnum):
+    password = "password"
+    iam_db_auth = "iam-db-auth"
+
+
 class ReplicaMode(StrEnum):
     open_read_only = "open-read-only"
     mounted = "mounted"
@@ -217,6 +228,11 @@ class SourceType(StrEnum):
     custom_engine_version = "custom-engine-version"
     db_proxy = "db-proxy"
     blue_green_deployment = "blue-green-deployment"
+
+
+class TargetConnectionNetworkType(StrEnum):
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
 
 
 class TargetHealthReason(StrEnum):
@@ -2562,6 +2578,7 @@ class CreateDBClusterMessage(ServiceRequest):
     EnableLocalWriteForwarding: Optional[BooleanOptional]
     CACertificateIdentifier: Optional[String]
     EngineLifecycleSupport: Optional[String]
+    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
     SourceRegion: Optional[String]
 
 
@@ -2795,6 +2812,7 @@ class DBCluster(TypedDict, total=False):
     PerformanceInsightsKMSKeyId: Optional[String]
     PerformanceInsightsRetentionPeriod: Optional[IntegerOptional]
     ServerlessV2ScalingConfiguration: Optional[ServerlessV2ScalingConfigurationInfo]
+    ServerlessV2PlatformVersion: Optional[String]
     NetworkType: Optional[String]
     DBSystemId: Optional[String]
     MasterUserSecret: Optional[MasterUserSecret]
@@ -2890,6 +2908,7 @@ class CreateDBInstanceMessage(ServiceRequest):
     DedicatedLogVolume: Optional[BooleanOptional]
     MultiTenant: Optional[BooleanOptional]
     EngineLifecycleSupport: Optional[String]
+    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
 
 
 class CreateDBInstanceReadReplicaMessage(ServiceRequest):
@@ -3238,6 +3257,7 @@ class CreateDBProxyEndpointRequest(ServiceRequest):
     VpcSecurityGroupIds: Optional[StringList]
     TargetRole: Optional[DBProxyEndpointTargetRole]
     Tags: Optional[TagList]
+    EndpointNetworkType: Optional[EndpointNetworkType]
 
 
 class DBProxyEndpoint(TypedDict, total=False):
@@ -3262,6 +3282,7 @@ class DBProxyEndpoint(TypedDict, total=False):
     CreatedDate: Optional[TStamp]
     TargetRole: Optional[DBProxyEndpointTargetRole]
     IsDefault: Optional[Boolean]
+    EndpointNetworkType: Optional[EndpointNetworkType]
 
 
 class CreateDBProxyEndpointResponse(TypedDict, total=False):
@@ -3295,6 +3316,8 @@ class CreateDBProxyRequest(ServiceRequest):
     IdleClientTimeout: Optional[IntegerOptional]
     DebugLogging: Optional[Boolean]
     Tags: Optional[TagList]
+    EndpointNetworkType: Optional[EndpointNetworkType]
+    TargetConnectionNetworkType: Optional[TargetConnectionNetworkType]
 
 
 class UserAuthConfigInfo(TypedDict, total=False):
@@ -3335,6 +3358,8 @@ class DBProxy(TypedDict, total=False):
     DebugLogging: Optional[Boolean]
     CreatedDate: Optional[TStamp]
     UpdatedDate: Optional[TStamp]
+    EndpointNetworkType: Optional[EndpointNetworkType]
+    TargetConnectionNetworkType: Optional[TargetConnectionNetworkType]
 
 
 class CreateDBProxyResponse(TypedDict, total=False):
@@ -3767,11 +3792,11 @@ class DBClusterSnapshotMessage(TypedDict, total=False):
 
 class ServerlessV2FeaturesSupport(TypedDict, total=False):
     """Specifies any Aurora Serverless v2 properties or limits that differ
-    between Aurora engine versions. You can test the values of this
-    attribute when deciding which Aurora version to use in a new or upgraded
-    DB cluster. You can also retrieve the version of an existing DB cluster
-    and check whether that version supports certain Aurora Serverless v2
-    features before you attempt to use those features.
+    between Aurora engine versions and platform versions. You can test the
+    values of this attribute when deciding which Aurora version to use in a
+    new or upgraded DB cluster. You can also retrieve the version of an
+    existing DB cluster and check whether that version supports certain
+    Aurora Serverless v2 features before you attempt to use those features.
     """
 
     MinCapacity: Optional[DoubleOptional]
@@ -5340,6 +5365,7 @@ class ModifyDBClusterMessage(ServiceRequest):
     AwsBackupRecoveryPointArn: Optional[AwsBackupRecoveryPointArn]
     EnableLimitlessDatabase: Optional[BooleanOptional]
     CACertificateIdentifier: Optional[String]
+    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
 
 
 class ModifyDBClusterParameterGroupMessage(ServiceRequest):
@@ -5424,6 +5450,7 @@ class ModifyDBInstanceMessage(ServiceRequest):
     Engine: Optional[String]
     DedicatedLogVolume: Optional[BooleanOptional]
     MultiTenant: Optional[BooleanOptional]
+    MasterUserAuthenticationType: Optional[MasterUserAuthenticationType]
 
 
 class ModifyDBInstanceResult(TypedDict, total=False):
@@ -5718,6 +5745,7 @@ class OrderableDBInstanceOption(TypedDict, total=False):
     MinStorageThroughputPerIops: Optional[DoubleOptional]
     MaxStorageThroughputPerIops: Optional[DoubleOptional]
     SupportsDedicatedLogVolume: Optional[Boolean]
+    SupportsHttpEndpoint: Optional[Boolean]
 
 
 OrderableDBInstanceOptionsList = List[OrderableDBInstanceOption]
@@ -7018,6 +7046,7 @@ class RdsApi:
         enable_local_write_forwarding: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> CreateDBClusterResult:
@@ -7133,6 +7162,7 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :param source_region: The ID of the region that contains the source for the db cluster.
         :returns: CreateDBClusterResult
         :raises DBClusterAlreadyExistsFault:
@@ -7356,6 +7386,7 @@ class RdsApi:
         dedicated_log_volume: BooleanOptional | None = None,
         multi_tenant: BooleanOptional | None = None,
         engine_lifecycle_support: String | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         **kwargs,
     ) -> CreateDBInstanceResult:
         """Creates a new DB instance.
@@ -7471,6 +7502,7 @@ class RdsApi:
         :param multi_tenant: Specifies whether to use the multi-tenant configuration or the
         single-tenant configuration (default).
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: CreateDBInstanceResult
         :raises DBInstanceAlreadyExistsFault:
         :raises InsufficientDBInstanceCapacityFault:
@@ -7553,17 +7585,14 @@ class RdsApi:
     ) -> CreateDBInstanceReadReplicaResult:
         """Creates a new DB instance that acts as a read replica for an existing
         source DB instance or Multi-AZ DB cluster. You can create a read replica
-        for a DB instance running MariaDB, MySQL, Oracle, PostgreSQL, or SQL
-        Server. You can create a read replica for a Multi-AZ DB cluster running
-        MySQL or PostgreSQL. For more information, see `Working with read
+        for a DB instance running Db2, MariaDB, MySQL, Oracle, PostgreSQL, or
+        SQL Server. You can create a read replica for a Multi-AZ DB cluster
+        running MySQL or PostgreSQL. For more information, see `Working with
+        read
         replicas <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html>`__
         and `Migrating from a Multi-AZ DB cluster to a DB instance using a read
         replica <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html#multi-az-db-clusters-migrating-to-instance-with-read-replica>`__
         in the *Amazon RDS User Guide*.
-
-        Amazon RDS for Db2 supports this operation for standby replicas. To
-        create a standby replica for a DB instance running Db2, you must set
-        ``ReplicaMode`` to ``mounted``.
 
         Amazon Aurora doesn't support this operation. To create a DB instance
         for an Aurora DB cluster, use the ``CreateDBInstance`` operation.
@@ -7727,6 +7756,8 @@ class RdsApi:
         idle_client_timeout: IntegerOptional | None = None,
         debug_logging: Boolean | None = None,
         tags: TagList | None = None,
+        endpoint_network_type: EndpointNetworkType | None = None,
+        target_connection_network_type: TargetConnectionNetworkType | None = None,
         **kwargs,
     ) -> CreateDBProxyResponse:
         """Creates a new DB proxy.
@@ -7742,10 +7773,12 @@ class RdsApi:
         for connections to the proxy.
         :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive
         before the proxy disconnects it.
-        :param debug_logging: Specifies whether the proxy includes detailed information about SQL
-        statements in its logs.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query
+        information.
         :param tags: An optional set of key-value pairs to associate arbitrary data of your
         choosing with the proxy.
+        :param endpoint_network_type: The network type of the DB proxy endpoint.
+        :param target_connection_network_type: The network type that the proxy uses to connect to the target database.
         :returns: CreateDBProxyResponse
         :raises InvalidSubnet:
         :raises DBProxyAlreadyExistsFault:
@@ -7763,6 +7796,7 @@ class RdsApi:
         vpc_security_group_ids: StringList | None = None,
         target_role: DBProxyEndpointTargetRole | None = None,
         tags: TagList | None = None,
+        endpoint_network_type: EndpointNetworkType | None = None,
         **kwargs,
     ) -> CreateDBProxyEndpointResponse:
         """Creates a ``DBProxyEndpoint``. Only applies to proxies that are
@@ -7778,6 +7812,7 @@ class RdsApi:
         :param vpc_security_group_ids: The VPC security group IDs for the DB proxy endpoint that you create.
         :param target_role: The role of the DB proxy endpoint.
         :param tags: A list of tags.
+        :param endpoint_network_type: The network type of the DB proxy endpoint.
         :returns: CreateDBProxyEndpointResponse
         :raises InvalidSubnet:
         :raises DBProxyNotFoundFault:
@@ -10420,6 +10455,7 @@ class RdsApi:
         aws_backup_recovery_point_arn: AwsBackupRecoveryPointArn | None = None,
         enable_limitless_database: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         **kwargs,
     ) -> ModifyDBClusterResult:
         """Modifies the settings of an Amazon Aurora DB cluster or a Multi-AZ DB
@@ -10510,6 +10546,7 @@ class RdsApi:
         :param enable_limitless_database: Specifies whether to enable Aurora Limitless Database.
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
         certificate.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBClusterResult
         :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
@@ -10720,6 +10757,7 @@ class RdsApi:
         engine: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         multi_tenant: BooleanOptional | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         **kwargs,
     ) -> ModifyDBInstanceResult:
         """Modifies settings for a DB instance. You can change one or more database
@@ -10825,6 +10863,7 @@ class RdsApi:
         enabled.
         :param multi_tenant: Specifies whether the to convert your DB instance from the single-tenant
         conﬁguration to the multi-tenant conﬁguration.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBInstanceResult
         :raises InvalidDBInstanceStateFault:
         :raises InvalidDBSecurityGroupStateFault:
@@ -10908,8 +10947,8 @@ class RdsApi:
         connections to the proxy.
         :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive
         before the proxy disconnects it.
-        :param debug_logging: Whether the proxy includes detailed information about SQL statements in
-        its logs.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query
+        information.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to
         access secrets in Amazon Web Services Secrets Manager.
         :param security_groups: The new list of security groups for the ``DBProxy``.
@@ -11028,8 +11067,9 @@ class RdsApi:
         """Updates a manual DB snapshot with a new engine version. The snapshot can
         be encrypted or unencrypted, but not shared or public.
 
-        Amazon RDS supports upgrading DB snapshots for MySQL, PostgreSQL, and
-        Oracle. This operation doesn't apply to RDS Custom or RDS for Db2.
+        Amazon RDS supports upgrading DB snapshots for MariaDB, MySQL,
+        PostgreSQL, and Oracle. This operation doesn't apply to RDS Custom or
+        RDS for Db2.
 
         :param db_snapshot_identifier: The identifier of the DB snapshot to modify.
         :param engine_version: The engine version to upgrade the DB snapshot to.
@@ -12315,9 +12355,9 @@ class RdsApi:
         databases by using backup files. You can create a backup of your
         on-premises database, store it on Amazon Simple Storage Service (Amazon
         S3), and then restore the backup file onto a new Amazon RDS DB instance
-        running MySQL. For more information, see `Importing Data into an Amazon
-        RDS MySQL DB
-        Instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/MySQL.Procedural.Importing.html>`__
+        running MySQL. For more information, see `Restoring a backup into an
+        Amazon RDS for MySQL DB
+        instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/MySQL.Procedural.Importing.html>`__
         in the *Amazon RDS User Guide.*
 
         This operation doesn't apply to RDS Custom.

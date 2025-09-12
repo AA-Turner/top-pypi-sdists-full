@@ -1,6 +1,4 @@
-import dataclasses
-from typing import Optional
-import pytest
+import dataclasses,pytest
 from _pytest.config import Config
 from _pytest.reports import TestReport
 from _pytest.runner import CallInfo

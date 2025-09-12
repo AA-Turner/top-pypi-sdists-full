@@ -313,7 +313,14 @@ class TextLoader:
 
     @classmethod
     def _df_to_key_value_str(cls, df: "DataFrame") -> str:
-        return "\n".join([json.dumps(row)[1:-1] for row in df.to_dict("records")])
+        selected_dtypes = df.select_dtypes(
+            include=["datetime64", "datetime"]
+        )  # for readibility of converted columns
+        df[selected_dtypes.columns] = selected_dtypes.astype(str)
+
+        return "\n".join(
+            [json.dumps(row)[1:-1] for row in json.loads(df.to_json(orient="records"))]
+        )
 
     @classmethod
     def _csv_to_string(cls, binary_data: bytes) -> str:

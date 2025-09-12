@@ -2,7 +2,7 @@ from localstack.aws.protocol import service_router as localstack_service_router
 from localstack.aws.spec import ServiceModelIdentifier
 from localstack.utils.patch import patch
 def patch_service_router():
-	from typing import Callable,Optional
+	from collections.abc import Callable
 	@patch(localstack_service_router.custom_signing_name_rules)
 	def A(fn,signing_name,path,**C):
 		B='rds';A=signing_name

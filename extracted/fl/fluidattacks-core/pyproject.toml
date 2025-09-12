@@ -1,6 +1,6 @@
 [project]
 name = "fluidattacks-core"
-version = "2.13.4"
+version = "2.13.5"
 description = "Fluid Attacks Core Library"
 authors = [{ name = "Development", email = "development@fluidattacks.com" }]
 license = { text = "MPL-2.0" }
@@ -73,6 +73,7 @@ dev = [
   "types-aiofiles==24.1.0.20240626",
   "pytest==8.4.1",
   "types-aioboto3[s3]>=15.1.0",
+  "pytest-asyncio>=1.1.0",
 ]
 
 [build-system]

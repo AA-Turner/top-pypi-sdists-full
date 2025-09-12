@@ -15,6 +15,7 @@ _string = str
 class AuthenticationStrategy(StrEnum):
     SIMPLE = "SIMPLE"
     LDAP = "LDAP"
+    CONFIG_MANAGED = "CONFIG_MANAGED"
 
 
 class BrokerState(StrEnum):
@@ -353,7 +354,7 @@ class CreateBrokerInput(TypedDict, total=False):
     StorageType: Optional[BrokerStorageType]
     SubnetIds: Optional[_listOf__string]
     Tags: Optional[_mapOf__string]
-    Users: _listOfUser
+    Users: Optional[_listOfUser]
 
 
 class CreateBrokerOutput(TypedDict, total=False):
@@ -384,7 +385,7 @@ class CreateBrokerRequest(ServiceRequest):
     StorageType: Optional[BrokerStorageType]
     SubnetIds: Optional[_listOf__string]
     Tags: Optional[_mapOf__string]
-    Users: _listOfUser
+    Users: Optional[_listOfUser]
     DataReplicationMode: Optional[DataReplicationMode]
     DataReplicationPrimaryBrokerArn: Optional[_string]
 
@@ -1052,7 +1053,6 @@ class MqApi:
         self,
         context: RequestContext,
         host_instance_type: _string,
-        users: _listOfUser,
         broker_name: _string,
         deployment_mode: DeploymentMode,
         engine_type: EngineType,
@@ -1070,6 +1070,7 @@ class MqApi:
         storage_type: BrokerStorageType | None = None,
         subnet_ids: _listOf__string | None = None,
         tags: _mapOf__string | None = None,
+        users: _listOfUser | None = None,
         data_replication_mode: DataReplicationMode | None = None,
         data_replication_primary_broker_arn: _string | None = None,
         **kwargs,
@@ -1116,8 +1117,6 @@ class MqApi:
         in the *Amazon MQ Developer Guide*.
 
         :param host_instance_type: Required.
-        :param users: The list of broker users (persons or applications) who can access queues
-        and topics.
         :param broker_name: Required.
         :param deployment_mode: Required.
         :param engine_type: Required.
@@ -1139,6 +1138,8 @@ class MqApi:
         :param subnet_ids: The list of groups that define which subnets and IP ranges the broker
         can use from different Availability Zones.
         :param tags: Create tags when creating the broker.
+        :param users: The list of broker users (persons or applications) who can access queues
+        and topics.
         :param data_replication_mode: Defines whether this broker is a part of a data replication pair.
         :param data_replication_primary_broker_arn: The Amazon Resource Name (ARN) of the primary broker that is used to
         replicate data from in a data replication pair, and is applied to the

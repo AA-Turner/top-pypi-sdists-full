@@ -1142,6 +1142,7 @@ class FileFormatType(IntEnum):
     EXCEL_4 = 23,
     EXCEL_95 = 22,
     EXCEL_97_TO_2003 = 5,
+    FLAT_OPC = 516,
     FODS = 59,
     G_ZIP = 35615,
     GIF = 322,
@@ -1446,6 +1447,9 @@ class HtmlCrossType(IntEnum):
     DEFAULT = 0,
     FIT_TO_CELL = 4,
     MS_EXPORT = 1,
+class HtmlEmbeddedFontType(IntEnum):
+    NONE = 0,
+    WOFF = 1,
 class HtmlExportDataOptions(IntEnum):
     ALL = 255,
     TABLE = 1,
@@ -2662,6 +2666,9 @@ class RevisionType(IntEnum):
     RENAME_SHEET = 12,
     UNDO = 9,
     UNKNOWN = 13,
+class SaveElementType(IntEnum):
+    ALL = 251658239,
+    CHART = 256,
 class SaveFormat(IntEnum):
     AUTO = 0,
     AZW_3 = 773,

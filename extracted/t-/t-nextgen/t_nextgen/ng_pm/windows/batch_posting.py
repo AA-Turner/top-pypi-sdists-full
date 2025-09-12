@@ -167,7 +167,7 @@ class BatchPostingWindow(NextGenWindow):
         if rows_count == 1:
             row: BatchPostingRow = rows[0]
             if not row.visible:
-                self.desktop_app.click_down_n_times(row.index)
+                self.desktop_app.click_center_and_scroll(self.batch_posting_window, row.index, 10)
                 row.visible = True
             with contextlib.suppress(_ctypes.COMError):
                 row.edit_wrapper.click_input()
@@ -400,7 +400,7 @@ class BatchPostingWindow(NextGenWindow):
         if rows_count == 1:
             row: BatchPostingRow = rows[0]
             if not row.visible:
-                self.desktop_app.click_down_n_times(row.index)
+                self.desktop_app.click_center_and_scroll(self.batch_posting_window, row.index, 10)
                 row.visible = True
             with contextlib.suppress(_ctypes.COMError):
                 row.edit_wrapper.click_input()

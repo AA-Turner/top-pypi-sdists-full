@@ -731,7 +731,7 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         if test_with_subnetpool:
             subnetpool = self.subnetpools.first()
             form_data['subnetpool'] = subnetpool.id
-            form_data['prefixlen'] = subnetpool.default_prefixlen
+            form_data['prefixlen'] = subnetpool.default_prefix_length
         form_data.update(form_data_subnet(subnet, cidr='10.0.0.0',
                                           allocation_pools=[]))
         url = reverse('horizon:project:networks:create')
@@ -768,7 +768,7 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         if test_with_subnetpool:
             subnetpool = self.subnetpools.first()
             form_data['subnetpool'] = subnetpool.id
-            form_data['prefixlen'] = subnetpool.default_prefixlen
+            form_data['prefixlen'] = subnetpool.default_prefix_length
 
         form_data.update(form_data_subnet(subnet, cidr='30.30.30.0/24',
                                           allocation_pools=[]))
@@ -809,7 +809,7 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         if test_with_subnetpool:
             subnetpool = self.subnetpools.first()
             form_data['subnetpool'] = subnetpool.id
-            form_data['prefixlen'] = subnetpool.default_prefixlen
+            form_data['prefixlen'] = subnetpool.default_prefix_length
 
         form_data.update(form_data_subnet(subnet_v6, cidr='fc00::/7',
                                           allocation_pools=[]))
@@ -898,7 +898,7 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         if test_with_subnetpool:
             subnetpool = self.subnetpools.first()
             form_data['subnetpool'] = subnetpool.id
-            form_data['prefixlen'] = subnetpool.default_prefixlen
+            form_data['prefixlen'] = subnetpool.default_prefix_length
         form_data.update(form_data_subnet(subnet, cidr=cidr,
                                           allocation_pools=[]))
         url = reverse('horizon:project:networks:create')
@@ -934,7 +934,7 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         if test_with_subnetpool:
             subnetpool = self.subnetpools.first()
             form_data['subnetpool'] = subnetpool.id
-            form_data['prefixlen'] = subnetpool.default_prefixlen
+            form_data['prefixlen'] = subnetpool.default_prefix_length
         form_data.update(form_data_subnet(subnet, gateway_ip=gateway_ip,
                                           allocation_pools=[]))
         url = reverse('horizon:project:networks:create')
@@ -1156,7 +1156,7 @@ class NetworkViewTests(test.TestCase, NetworkStubMixin):
         networks = res.context['networks_table'].data
 
         button = find_button_fn(res)
-        self.assertFalse('disabled' in button.classes,
+        self.assertNotIn('disabled', button.classes,
                          "The create button should not be disabled")
 
         self._check_net_list()
@@ -1347,7 +1347,8 @@ class NetworkViewTests(test.TestCase, NetworkStubMixin):
         self.mock_network_get.assert_called_once_with(
             test.IsHttpRequest(), network_id)
         self.mock_port_list.assert_called_once_with(
-            test.IsHttpRequest(), network_id=network_id)
+            test.IsHttpRequest(), network_id=network_id,
+            project_id=self.tenant.id)
         self._check_is_extension_supported({'mac-learning': 1,
                                             'network_availability_zone': 1})
         self.mock_tenant_quota_usages.assert_has_calls([

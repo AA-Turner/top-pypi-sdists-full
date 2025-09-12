@@ -122,6 +122,8 @@ MulticastGroupMessageId = str
 MulticastGroupName = str
 MulticastGroupStatus = str
 NRCapable = bool
+NbTransMax = int
+NbTransMin = int
 NetId = str
 NetworkAnalyzerConfigurationArn = str
 NetworkAnalyzerConfigurationName = str
@@ -205,6 +207,8 @@ ThingName = str
 TransmissionInterval = int
 TransmissionIntervalMulticast = int
 TransmitMode = int
+TxPowerIndexMax = int
+TxPowerIndexMin = int
 UARFCN = int
 UARFCNDL = int
 UlBucketSize = int
@@ -1160,6 +1164,10 @@ class LoRaWANServiceProfile(TypedDict, total=False):
     DrMax: Optional[DrMaxBox]
     PrAllowed: Optional[PrAllowed]
     RaAllowed: Optional[RaAllowed]
+    TxPowerIndexMin: Optional[TxPowerIndexMin]
+    TxPowerIndexMax: Optional[TxPowerIndexMax]
+    NbTransMin: Optional[NbTransMin]
+    NbTransMax: Optional[NbTransMax]
 
 
 class CreateServiceProfileRequest(ServiceRequest):
@@ -2188,6 +2196,10 @@ class LoRaWANGetServiceProfileInfo(TypedDict, total=False):
     NwkGeoLoc: Optional[NwkGeoLoc]
     TargetPer: Optional[TargetPer]
     MinGwDiversity: Optional[MinGwDiversity]
+    TxPowerIndexMin: Optional[TxPowerIndexMin]
+    TxPowerIndexMax: Optional[TxPowerIndexMax]
+    NbTransMin: Optional[NbTransMin]
+    NbTransMax: Optional[NbTransMax]
 
 
 class GetServiceProfileResponse(TypedDict, total=False):

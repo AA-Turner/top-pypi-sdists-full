@@ -1,9 +1,10 @@
 from __future__ import annotations
-_J='localstack.pro.core'
-_I='neptune'
-_H='transfer'
-_G='mediastore'
-_F='elasticache'
+_K='localstack.pro.core'
+_J='neptune'
+_I='transfer'
+_H='mediastore'
+_G='elasticache'
+_F='ecs'
 _E='athena'
 _D='apigatewayv2'
 _C='apigateway'
@@ -19,8 +20,9 @@ from localstack.runtime import hooks
 from localstack.runtime.exceptions import LocalstackExit
 from localstack.utils.bootstrap import API_DEPENDENCIES,Container,get_enabled_apis,get_preloaded_services
 LOG=logging.getLogger(__name__)
-EXTERNAL_PORT_APIS=_C,_D,_E,'cloudfront','codecommit','ecs','ecr',_F,_G,_B,_H,'kafka',_I
-API_DEPENDENCIES.update({'amplify':[_A,'appsync','cognito'],_C:[_D],_D:[_C],_E:[_A],'backup':[_A],'docdb':[_B],'ecs':['ecr'],_F:['ec2'],'elb':['elbv2'],'emr':[_E,_A],'glacier':[_A],'glue':[_A,'iam'],'iot':['iotanalytics','iot-data','iotwireless'],'kinesisanalytics':['kinesis','dynamodb'],_I:[_B],_B:['rds-data'],_G:['mediastore-data'],'redshift':['redshift-data'],'timestream':['timestream-write','timestream-query'],_H:[_A]})
+EXTERNAL_PORT_APIS=_C,_D,_E,'cloudfront','codecommit',_F,'ecr',_G,_H,_B,_I,'kafka',_J
+API_DEPENDENCIES.update({'amplify':[_A,'appsync','cognito'],_C:[_D],_D:[_C],_E:[_A],'backup':[_A],'docdb':[_B],_F:['ecr','events'],_G:['ec2'],'elb':['elbv2'],'emr':[_E,_A],'glacier':[_A],'glue':[_A,'iam'],'iot':['iotanalytics','iot-data','iotwireless'],'kinesisanalytics':['kinesis','dynamodb'],_J:[_B],_B:['rds-data'],_H:['mediastore-data'],'redshift':['redshift-data'],'timestream':['timestream-write','timestream-query'],_I:[_A]})
+if not pro_config.BATCH_LEGACY_PROVIDER_OVERRIDE:API_DEPENDENCIES.update({'batch':[_F,'logs']})
 get_enabled_apis.cache_clear()
 get_preloaded_services.cache_clear()
 def modify_gateway_listen_config(cfg):
@@ -53,5 +55,5 @@ def set_default_providers_to_pro():
 	I=[B for B in A.apis_with_provider(F)if localstack_config.SERVICE_PROVIDER_CONFIG.default_value not in A.api_provider_specs[B]or E.has_product_license(f"{D}/{B}:pro")];localstack_config.SERVICE_PROVIDER_CONFIG.bulk_set_provider_if_not_exists(I,F)
 @hooks.on_infra_start(priority=100)
 def deprecation_warnings_pro():D='4.0.0';C='2.2.0';from localstack.deprecations import DEPRECATIONS as A,EnvVarDeprecation as B;A.append(B('EC2_AUTOSTART_DAEMON',C,'The localstack local daemons have been removed, please let us know if you were actively using them.'));A.append(B('AUTOSTART_UTIL_CONTAINERS',C,'The external bigdata image support has been removed. This option has no effect. Please remove it from your configuration.'));A.append(B('ACTIVATE_NEW_POD_CLIENT','2.3.0','This configuration does not have any effect anymore. Please remove this environment variable.'));A.append(B('S3_DIR',D,'The Legacy S3 implementation has been removed. This option has no effect. Please remove this environment variable.'));A.append(B('LOCALSTACK_API_KEY',D,'Please use your personal developer auth token or CI auth token with LOCALSTACK_AUTH_TOKEN.'))
-def _setup_logging():A=logging.DEBUG if localstack_config.DEBUG else logging.INFO;logging.getLogger(_J).setLevel(A);logging.getLogger('asyncio').setLevel(logging.INFO);logging.getLogger('botocore').setLevel(logging.INFO);logging.getLogger('dulwich').setLevel(logging.ERROR);logging.getLogger('hpack').setLevel(logging.INFO);logging.getLogger('jnius.reflect').setLevel(logging.INFO);logging.getLogger('kazoo').setLevel(logging.ERROR);logging.getLogger('kubernetes').setLevel(logging.INFO);logging.getLogger('parquet').setLevel(logging.INFO);logging.getLogger('pyftpdlib').setLevel(logging.INFO);logging.getLogger('pyhive').setLevel(logging.INFO);logging.getLogger('pyqldb').setLevel(logging.INFO);logging.getLogger('redshift_connector').setLevel(logging.INFO);logging.getLogger('websockets').setLevel(logging.INFO);logging.getLogger('Parser').setLevel(logging.CRITICAL);logging.getLogger('postgresql_proxy').setLevel(logging.WARNING);logging.getLogger('intercept').setLevel(logging.WARNING);logging.getLogger('root').setLevel(logging.ERROR);logging.getLogger('').setLevel(logging.ERROR)
-class OASProCore(OASPlugin):name=_J
+def _setup_logging():A=logging.DEBUG if localstack_config.DEBUG else logging.INFO;logging.getLogger(_K).setLevel(A);logging.getLogger('asyncio').setLevel(logging.INFO);logging.getLogger('botocore').setLevel(logging.INFO);logging.getLogger('dulwich').setLevel(logging.ERROR);logging.getLogger('hpack').setLevel(logging.INFO);logging.getLogger('jnius.reflect').setLevel(logging.INFO);logging.getLogger('kazoo').setLevel(logging.ERROR);logging.getLogger('kubernetes').setLevel(logging.INFO);logging.getLogger('parquet').setLevel(logging.INFO);logging.getLogger('pyftpdlib').setLevel(logging.INFO);logging.getLogger('pyhive').setLevel(logging.INFO);logging.getLogger('pyqldb').setLevel(logging.INFO);logging.getLogger('redshift_connector').setLevel(logging.INFO);logging.getLogger('websockets').setLevel(logging.INFO);logging.getLogger('Parser').setLevel(logging.CRITICAL);logging.getLogger('postgresql_proxy').setLevel(logging.WARNING);logging.getLogger('intercept').setLevel(logging.WARNING);logging.getLogger('root').setLevel(logging.ERROR);logging.getLogger('').setLevel(logging.ERROR)
+class OASProCore(OASPlugin):name=_K

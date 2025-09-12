@@ -1,5 +1,5 @@
 import logging,os
-from typing import Callable,Dict,Optional
+from typing import Callable,Optional
 from urllib.parse import urlparse
 from localstack.pro.core.bootstrap.pods.remotes.configs import DEFAULT_REMOTE_SCHEME
 LOG=logging.getLogger(__name__)

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 from dbt_semantic_interfaces.implementations.time_spine import PydanticTimeSpineCustomGranularityColumn
 from dbt_semantic_interfaces.protocols import SemanticManifest
 from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 from metricflow_semantics.collection_helpers.lru_cache import typed_lru_cache
+from metricflow_semantics.errors.error_classes import SemanticManifestConfigurationError
 from metricflow_semantics.specs.time_dimension_spec import DEFAULT_TIME_GRANULARITY, TimeDimensionSpec
 from metricflow_semantics.sql.sql_table import SqlTable
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
@@ -77,7 +78,7 @@ class TimeSpineSource:
 
         # Sanity check: this should have been validated during manifest parsing.
         if not time_spine_sources:
-            raise RuntimeError(
+            raise SemanticManifestConfigurationError(
                 "At least one time spine must be configured to use the semantic layer, but none were found."
             )
 
@@ -94,7 +95,7 @@ class TimeSpineSource:
         }
 
     @staticmethod
-    def build_custom_granularities(time_spine_sources: Sequence[TimeSpineSource]) -> Dict[str, ExpandedTimeGranularity]:
+    def build_custom_granularities(time_spine_sources: Iterable[TimeSpineSource]) -> Dict[str, ExpandedTimeGranularity]:
         """Creates a set of supported custom granularities based on what's in the manifest."""
         return {
             custom_granularity.name: ExpandedTimeGranularity(
@@ -105,10 +106,10 @@ class TimeSpineSource:
         }
 
     @staticmethod
-    def choose_time_spine_source(
+    def choose_time_spine_sources(
         required_time_spine_specs: Sequence[TimeDimensionSpec],
         time_spine_sources: Dict[TimeGranularity, TimeSpineSource],
-    ) -> TimeSpineSource:
+    ) -> Tuple[TimeSpineSource, ...]:
         """Determine which time spine sources to use to satisfy the given specs.
 
         Custom grains can only use the time spine where they are defined. For standard grains, this will choose the time
@@ -128,12 +129,14 @@ class TimeSpineSource:
         required_time_spines = {
             custom_time_spines[spec.time_granularity.name]
             for spec in required_time_spine_specs
-            if spec.time_granularity.is_custom_granularity
+            if spec.time_granularity and spec.has_custom_grain
         }
 
-        # Standard grains can be satisfied by any time spine with a base grain that's <= the standard grain.
+        # Standard grains can be satisfied by any time spine with a base grain that's <= the standard grain. If date part was
+        # requested instead of grain, assume DAY since is is the largest grain that's compatible with all supported date parts.
         smallest_required_standard_grain = min(
-            spec.time_granularity.base_granularity for spec in required_time_spine_specs
+            TimeGranularity.DAY if spec.time_granularity is None else spec.time_granularity.base_granularity
+            for spec in required_time_spine_specs
         )
         compatible_time_spines_for_standard_grains = {
             grain: time_spine_source
@@ -141,7 +144,7 @@ class TimeSpineSource:
             if grain.to_int() <= smallest_required_standard_grain.to_int()
         }
         if len(compatible_time_spines_for_standard_grains) == 0:
-            raise RuntimeError(
+            raise SemanticManifestConfigurationError(
                 f"This query requires a time spine with granularity {smallest_required_standard_grain.name} or smaller, which is not configured. "
                 f"The smallest available time spine granularity is {min(time_spine_sources).name}, which is too large."
                 "See documentation for how to configure a new time spine: https://docs.getdbt.com/docs/build/metricflow-time-spine"
@@ -151,15 +154,14 @@ class TimeSpineSource:
         if not required_time_spines.intersection(set(compatible_time_spines_for_standard_grains.values())):
             required_time_spines.add(time_spine_sources[max(compatible_time_spines_for_standard_grains)])
 
-        if len(required_time_spines) != 1:
-            raise RuntimeError(
-                "Multiple time spines are required to satisfy the specs, but only one is supported per query currently. "
-                f"Multiple will be supported in the future. Time spines required: {required_time_spines}."
-            )
-
-        return required_time_spines.pop()
+        return tuple(sorted(required_time_spines, key=lambda x: x.base_granularity.to_int()))
 
     @property
     def data_set_description(self) -> str:
         """Description to be displayed when this time spine is used in a data set."""
         return f"Read From Time Spine '{self.table_name}'"
+
+    @property
+    def custom_grain_names(self) -> Sequence[str]:
+        """Names of custom grains defined in this time spine."""
+        return tuple(custom_granularity.name for custom_granularity in self.custom_granularities)

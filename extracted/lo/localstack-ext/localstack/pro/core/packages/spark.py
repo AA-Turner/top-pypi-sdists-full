@@ -4,7 +4,6 @@ _C='pkg:maven/de.undercouch/bson4jackson@2.13.1'
 _B='common'
 _A='3.5.2'
 import glob,logging,os,re,textwrap
-from typing import List
 from localstack.packages import InstallTarget,Package,PackageInstaller
 from localstack.packages.core import MavenDownloadInstaller
 from localstack.packages.java import java_package
@@ -57,7 +56,7 @@ class SparkInstaller(MirrorArchiveInstaller):
 	def _patch_spark_python_dependencies(F,target):E='co.co_freevars, co.co_cellvars, ';C=F._get_install_dir(target);A=os.path.join(C,'python/lib/py4j-*-src.zip');A=glob.glob(A)[0];B={'from collections import':'from collections.abc import'};replace_in_zip_file(A,'py4j/java_collections.py',B);A=os.path.join(C,'python/lib/pyspark.zip');B={'import collections\n':'import collections.abc\n','collections.Iterable':'collections.abc.Iterable'};replace_in_zip_file(A,'pyspark/resultiterable.py',B);D=textwrap.dedent('\n        def _walk_global_ops_patched(code):\n            for instr in dis.get_instructions(code):\n                op = instr.opcode\n                if op in GLOBAL_OPS:\n                    yield instr.argval\n        out_names = {name for name in _walk_global_ops_patched(co)}\n        ');B={'obj.co_argcount, obj.co_kwonlyargcount':'obj.co_argcount, obj.co_posonlyargcount, obj.co_kwonlyargcount','co.co_argcount,\n        ':'co.co_argcount, co.co_posonlyargcount, ','obj.co_name, obj.co_firstlineno, ':'obj.co_name, obj.co_qualname, obj.co_firstlineno, ','co.co_name,\n        ':'co.co_name, co.co_qualname, ','obj.co_name,\n        ':'obj.co_name, obj.co_qualname, ',', obj.co_lnotab, obj.co_freevars,':', obj.co_lnotab, obj.co_exceptiontable, obj.co_freevars,','co.co_lnotab,\n        ':'co.co_lnotab, co.co_exceptiontable, ','obj.co_linetable, obj.co_freevars':'obj.co_linetable, obj.co_exceptiontable, obj.co_freevars','co.co_cellvars,  # this is the trickery\n            (),':E,'co.co_cellvars,  # co_freevars is initialized with co_cellvars\n        (),':E,'oparg in _walk_global_ops(co))':'oparg in _walk_global_ops(co) if len(names) > oparg)\n'+textwrap.indent(D,' '*16),'oparg in _walk_global_ops(co)}':'oparg in _walk_global_ops(co) if len(names) > oparg}\n'+textwrap.indent(D,' '*8),'def cell_set(cell, value):\n    """':'def cell_set(cell, value):\n    cell.cell_contents = value; return\n    """'};replace_in_zip_file(A,'pyspark/cloudpickle.py',B);replace_in_zip_file(A,'pyspark/cloudpickle/cloudpickle.py',B);replace_in_zip_file(A,'pyspark/cloudpickle/cloudpickle_fast.py',B)
 	def _install_hadoop(A,target):from localstack.pro.core.packages.hadoop import hadoop_package as B;C=A.get_hadoop_version_for_spark(A.version);B.install(version=C,target=target)
 	def _install_java(A,target):from localstack.packages.java import java_package as B;C='17'if A.version==_A else'8';B.install(version=C,target=target)
-	def add_java_home_for_spark_version(B,spark_version=None,env_vars={}):A=env_vars;C=spark_version or B.version;D='17'if C==_A else'8';E=java_package.get_installer(D);A['JAVA_HOME']=E.get_java_home();return A
+	def get_java_home_for_spark_version(A,spark_version=None):B=spark_version or A.version;C='17'if B==_A else'8';D=java_package.get_installer(C);return D.get_java_home()
 	def get_spark_home(A):return A.get_installed_dir()
 spark_package=SparkPackage()
 spark_common_driver_package=SparkCommonDriverPackage()

@@ -22,6 +22,10 @@ class GlueAthenaOnboardingService(BaseOnboardingService):
         """
         Onboard a glue connection by validating and adding a connection
         """
+        ssl_options = self.load_ssl_options(options=kwargs)
+        if ssl_options:
+            kwargs["ssl_options"] = ssl_options
+
         self.onboard(
             validation_query=TEST_GLUE_CRED_MUTATION,
             validation_response=EXPECTED_GLUE_GQL_RESPONSE_FIELD,

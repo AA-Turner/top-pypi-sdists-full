@@ -21,7 +21,7 @@ _logging_was_setup: bool = False
 
 def setup_normal_logging(log_filepath: Optional[str] = None):
     global _logging_was_setup
-    if _normal_logging_was_setup is True:
+    if _logging_was_setup:
         return
 
     if log_filepath:

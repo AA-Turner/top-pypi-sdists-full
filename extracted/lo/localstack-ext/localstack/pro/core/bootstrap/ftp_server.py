@@ -20,17 +20,17 @@ FTP_PASSIVE_PORTS=[config.EXTERNAL_SERVICE_PORTS_END-2,config.EXTERNAL_SERVICE_P
 USE_SUBPROCESS=_A
 DIRECTORY_MAPPING={}
 DIRECTORY_MAPPING_FILE='<data_dir>/ftp.user.dir.mapping.json'
-def get_dir_mapping_key(username,server_port):return'{}:{}'.format(username,server_port)
+def get_dir_mapping_key(username,server_port):return f"{username}:{server_port}"
 def apply_patches():
-	from pyftpdlib.handlers import FTPHandler as B,TLS_FTPHandler as A;C=A.proto_cmds.copy();C.update({'SITE ADDUSER':dict(perm='m',auth=_A,arg=_A,help='Syntax: SITE <SP> ADDUSER USERNAME PASSWORD HOME PRIVS <SP>.')})
+	from pyftpdlib.handlers import FTPHandler as B,TLS_FTPHandler as A;C=A.proto_cmds.copy();C.update({'SITE ADDUSER':{'perm':'m','auth':_A,'arg':_A,'help':'Syntax: SITE <SP> ADDUSER USERNAME PASSWORD HOME PRIVS <SP>.'}})
 	def D(self,file_path):
 		C=file_path;A=get_dir_mapping_key(self.username,self.server.address[1]);E=get_directory_mapping();B=E.get(A,{})
 		if not B:return
-		D=B['HomeDirectory'];F=B[_B];A=C.replace('{}/'.format(F),'')
+		D=B['HomeDirectory'];F=B[_B];A=C.replace(f"{F}/",'')
 		with open(C)as G:H=connect_to().s3;H.put_object(Bucket=D,Key=A,Body=G.read());LOG.info('Received file via FTP -- target: s3://%s/%s',D,A)
 	def E(self,line):A,B,C,D=line.split(' ')[1:];self.authorizer.add_user(A,B,C,D);self.respond('201 Add User OK.')
 	B.proto_cmds=C;A.proto_cmds=C;B.on_file_received=D;B.ftp_SITE_ADDUSER=E;A.on_file_received=D;A.ftp_SITE_ADDUSER=E
-def add_ftp_user(user,server_port):C=server_port;B=user;A=FTP();A.connect(constants.LOCALHOST_HOSTNAME,port=C);A.login(ROOT_USER[0],ROOT_USER[1]);D=new_tmp_dir();A.sendcmd('SITE ADDUSER  {} {} {} {}'.format(B.user_name,FTP_USER_DEFAULT_PASSWD,D,FTP_USER_PERMISSIONS));A.quit();F=get_dir_mapping_key(B.user_name,C);E=B.get_directory_configuration();E.update({_B:D});set_directory_mapping(F,E)
+def add_ftp_user(user,server_port):C=server_port;B=user;A=FTP();A.connect(constants.LOCALHOST_HOSTNAME,port=C);A.login(ROOT_USER[0],ROOT_USER[1]);D=new_tmp_dir();A.sendcmd(f"SITE ADDUSER  {B.user_name} {FTP_USER_DEFAULT_PASSWD} {D} {FTP_USER_PERMISSIONS}");A.quit();F=get_dir_mapping_key(B.user_name,C);E=B.get_directory_configuration();E.update({_B:D});set_directory_mapping(F,E)
 def update_ftp_user(user,server_port):A=get_dir_mapping_key(user.user_name,server_port);set_directory_mapping(A,user.get_directory_configuration())
 def start_ftp(port):
 	G='PYTHONPATH';F='SERVICES';D=port
@@ -38,10 +38,10 @@ def start_ftp(port):
 		B=os.environ.get(F,'')
 		if B and's3'not in B:B+=',s3'
 		A=os.environ.get(G)or''
-		if os.getcwd()not in A.split(':'):A='%s:%s'%(os.getcwd(),A)
-		E=glob.glob('%s/.venv/lib/python*/site-packages'%os.getcwd())
-		if E:A+=':%s'%':'.join(E)
-		H={F:B,G:A};I='%s %s %s'%(sys.executable,__file__,D);C=ShellCommandThread(I,outfile=subprocess.PIPE,env_vars=H,quiet=False);C.start();time.sleep(2)
+		if os.getcwd()not in A.split(':'):A=f"{os.getcwd()}:{A}"
+		E=glob.glob(f"{os.getcwd()}/.venv/lib/python*/site-packages")
+		if E:A+=':{}'.format(':'.join(E))
+		H={F:B,G:A};I=f"{sys.executable} {__file__} {D}";C=ShellCommandThread(I,outfile=subprocess.PIPE,env_vars=H,quiet=False);C.start();time.sleep(2)
 	else:C=do_start_ftp(D,asynchronous=_A)
 	time.sleep(2);wait_for_port_open(D,retries=10,sleep_time=1.5);TMP_THREADS.append(C);return C
 def do_start_ftp(port,asynchronous=_A):

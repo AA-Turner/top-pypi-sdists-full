@@ -11,7 +11,7 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import PurePosixPath, PureWindowsPath
 from threading import RLock
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from localstack import config
 from localstack.aws.api.lambda_ import (
@@ -233,7 +233,7 @@ class LambdaService:
         request_id: str,
         payload: bytes | None,
         trace_context: dict | None = None,
-        user_agent: Optional[str] = None,
+        user_agent: str | None = None,
     ) -> InvocationResult | None:
         """
         Invokes a specific version of a lambda
@@ -478,7 +478,11 @@ class LambdaService:
             ] = new_version_state
 
         except Exception:
-            LOG.exception("Failed to update function version for arn %s", function_arn)
+            LOG.error(
+                "Failed to update function version for arn %s",
+                function_arn,
+                exc_info=LOG.isEnabledFor(logging.DEBUG),
+            )
 
     def update_alias(self, old_alias: VersionAlias, new_alias: VersionAlias, function: Function):
         # if pointer changed, need to restart provisioned
@@ -627,7 +631,7 @@ def create_hot_reloading_code(path: str) -> HotReloadingCode:
 def store_s3_bucket_archive(
     archive_bucket: str,
     archive_key: str,
-    archive_version: Optional[str],
+    archive_version: str | None,
     function_name: str,
     region_name: str,
     account_id: str,
@@ -646,7 +650,7 @@ def store_s3_bucket_archive(
     if archive_bucket == config.BUCKET_MARKER_LOCAL:
         hotreload_counter.labels(operation="create").increment()
         return create_hot_reloading_code(path=archive_key)
-    s3_client: "S3Client" = connect_to().s3
+    s3_client: S3Client = connect_to().s3
     kwargs = {"VersionId": archive_version} if archive_version else {}
     try:
         archive_file = s3_client.get_object(Bucket=archive_bucket, Key=archive_key, **kwargs)[

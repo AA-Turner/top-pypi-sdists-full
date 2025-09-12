@@ -14,6 +14,7 @@ from ibm_watsonx_ai.utils.auth.base_auth import (
 )
 from ibm_watsonx_ai.utils.utils import _requests_retry_session
 from ibm_watsonx_ai.wml_client_error import (
+    AuthenticationError,
     CannotAutogenerateBedrockUrl,
     InvalidCredentialsError,
     WMLClientError,
@@ -107,8 +108,10 @@ class ICPAuth(RefreshableTokenAuth):
 
         if response.status_code == 200:
             return TokenInfo(response.json().get("token"))
-        else:
+        elif 400 <= response.status_code < 500:
             raise InvalidCredentialsError(reason=response.text)
+        else:
+            raise AuthenticationError("ICP", response)
 
     def _get_cpd_token_from_request_new_auth_flow(self) -> TokenInfo:
         bedrock_url = self._href_definitions.get_cpd_bedrock_token_endpoint_href()
@@ -118,8 +121,10 @@ class ICPAuth(RefreshableTokenAuth):
             data=self._get_cpd_bedrock_auth_data(),
         )
 
-        if response.status_code != 200:
+        if 400 <= response.status_code < 500:
             raise InvalidCredentialsError(reason=response.text, logg_messages=False)
+        elif response.status_code != 200:
+            raise AuthenticationError("ICP", response)
 
         iam_token = response.json()["access_token"]
         expiration_datetime = datetime.now() + timedelta(
@@ -138,8 +143,10 @@ class ICPAuth(RefreshableTokenAuth):
 
         if response.status_code == 200:
             return TokenInfo(response.json()["accessToken"], expiration_datetime)
-        else:
+        elif 400 <= response.status_code < 500:
             raise InvalidCredentialsError(reason=response.text)
+        else:
+            raise AuthenticationError("ICP", response)
 
     def _get_cpd_auth_pair(self) -> str:
         """Get a pair of credentials required for the token generation.

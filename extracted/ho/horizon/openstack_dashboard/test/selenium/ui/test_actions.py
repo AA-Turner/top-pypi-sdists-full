@@ -17,7 +17,7 @@ from openstack_dashboard.test.selenium import widgets
 
 
 def test_delete_multiple_instance_rows(live_server, driver, dashboard_data,
-                                       user):
+                                       config, user):
     with mock.patch.object(
         api.glance, 'image_list_detailed') as mocked_i_l_d, \
             mock.patch.object(
@@ -36,7 +36,7 @@ def test_delete_multiple_instance_rows(live_server, driver, dashboard_data,
         mocked_i_l_d.return_value = [dashboard_data.images.list()]
         mocked_f_l.return_value = dashboard_data.flavors.list()
         mocked_l_e.return_value = {
-            'extensions': dashboard_data.api_extensions.list()}
+            'extensions': dashboard_data.api_extensions_sdk}
         mocked_t_a_l.return_value = dashboard_data.limits['absolute']
         novaclient = mock_novaclient.return_value
         novaclient.versions.get_current.return_value = "2.0"
@@ -52,18 +52,19 @@ def test_delete_multiple_instance_rows(live_server, driver, dashboard_data,
             server_names.append(str(server)[1:-1].split("Server: ")[1])
         string_server_names = ", ".join(server_names)
         widgets.confirm_modal(driver)
-        messages = widgets.get_and_dismiss_messages(driver)
+        messages = widgets.get_and_dismiss_messages(driver, config)
         assert (f"Info: Scheduled deletion of Instances: {string_server_names}"
                 in messages)
 
 
 # Test for cover delete multiple rows also for Angular based table
 def test_delete_multiple_images_rows(live_server, driver, dashboard_data,
-                                     user):
+                                     config, user):
     with mock.patch.object(
-            api.glance, 'image_list_detailed') as mocked_i_l_d,\
+            api.glance, 'image_list_detailed') as mocked_i_l_d, \
             mock.patch.object(
-                api.glance, 'metadefs_namespace_full_list') as mocked_m_n_f_l,\
+                api.glance,
+                'metadefs_namespace_full_list') as mocked_m_n_f_l, \
             mock.patch.object(
                 api.glance, 'image_delete') as mocked_i_d:
         mocked_i_l_d.return_value = (
@@ -90,6 +91,6 @@ def test_delete_multiple_images_rows(live_server, driver, dashboard_data,
         driver.find_element_by_xpath(
             "//button[normalize-space()='Delete Images']").click()
         widgets.confirm_modal(driver)
-        messages = widgets.get_and_dismiss_messages(driver)
+        messages = widgets.get_and_dismiss_messages(driver, config)
         assert (f"Success: Deleted Images: {string_image_names}."
                 in messages)

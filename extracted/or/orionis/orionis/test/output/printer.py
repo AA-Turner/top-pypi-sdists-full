@@ -1,15 +1,15 @@
-import io
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
 import unittest
+from typing import Any, Dict, List
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
+from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn
 from rich.syntax import Syntax
 from rich.table import Table
-from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn
 from rich.text import Text
+from orionis.foundation.config.testing.enums.verbosity import VerbosityMode
 from orionis.test.contracts.printer import ITestPrinter
 from orionis.test.entities.result import TestResult
 from orionis.test.enums import TestStatus
@@ -18,37 +18,58 @@ class TestPrinter(ITestPrinter):
 
     def __init__(
         self,
-        print_result: bool = True,
+        verbosity: VerbosityMode | int = VerbosityMode.DETAILED,
         title: str = "🧪 Orionis Framework - Component Test Suite",
         width: int = 75
     ) -> None:
         """
-        Initialize a TestPrinter instance for formatted test output.
+        Initializes a TestPrinter instance for formatted test output using the Rich library.
 
         Parameters
         ----------
         print_result : bool, optional
-            Whether to print test results to the console (default is True).
+            If True, enables printing of test results to the console. If False, suppresses all output.
+        verbosity : VerbosityMode or int, optional
+            Specifies the verbosity level for output. Accepts either a VerbosityMode enum or an integer value.
+            Default is VerbosityMode.DETAILED.
         title : str, optional
-            The title to display in the output panel (default is "🧪 Orionis Framework - Component Test Suite").
+            The title displayed in the output panel. Default is "🧪 Orionis Framework - Component Test Suite".
         width : int, optional
-            The width of the output panel as a percentage of the console width (default is 75).
+            The width of the output panel as a percentage of the console width. Must be between 10 and 100.
+            Default is 75.
 
         Returns
         -------
         None
+            This constructor does not return any value. It initializes the TestPrinter instance.
+
+        Raises
+        ------
+        ValueError
+            If any of the input parameters are of invalid type or out of allowed range.
+
+        Notes
+        -----
+        - The Rich Console instance is created for rendering output.
+        - The verbosity level, panel width, panel title, and print_result flag are validated and set.
         """
         # Create a Rich Console instance for output rendering
         self.__rich_console = Console()
 
-        # Set the panel title for display
-        self.__panel_title: str = title
+        # Validate and set verbosity level
+        if not isinstance(verbosity, (int, VerbosityMode)):
+            raise ValueError("The 'verbosity' parameter must be an integer or VerbosityMode enum.")
+        self.__verbosity: int = verbosity if isinstance(verbosity, int) else verbosity.value
 
-        # Calculate the panel width as a percentage of the console width
+        # Validate and set panel width (must be between 10% and 100% of console width)
+        if not isinstance(width, int) or not (10 <= width <= 100):
+            raise ValueError("The 'width' parameter must be an integer between 10 and 100.")
         self.__panel_width: int = int(self.__rich_console.width * (width / 100))
 
-        # Store the flag indicating whether to print results
-        self.__print_result: bool = print_result
+        # Validate and set panel title
+        if not isinstance(title, str):
+            raise ValueError("The 'title' parameter must be a string.")
+        self.__panel_title: str = title
 
     def print(
         self,
@@ -76,7 +97,7 @@ class TestPrinter(ITestPrinter):
         """
 
         # If printing results is disabled, do not output anything
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Print string values directly
@@ -114,7 +135,7 @@ class TestPrinter(ITestPrinter):
         """
 
         # If printing results is disabled, do not output anything
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Print the specified number of blank lines
@@ -139,7 +160,7 @@ class TestPrinter(ITestPrinter):
         - The message is displayed in a Rich panel with a yellow border and centered title.
         """
         # If printing results is disabled, do not output anything
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Print a styled panel to indicate that no tests were found
@@ -189,7 +210,7 @@ class TestPrinter(ITestPrinter):
         """
 
         # If printing results is disabled, do not output anything
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Format the execution mode text for display
@@ -245,14 +266,17 @@ class TestPrinter(ITestPrinter):
         - The progress bar is suitable for tracking the progress of tasks such as test execution.
         """
 
+        # Flag to disable the progress bar if printing is off or verbosity is silent/minimal
+        disable = self.__verbosity <= VerbosityMode.MINIMAL.value
+
         # Create and return a Rich Progress bar instance with custom columns and settings
         return Progress(
-            TextColumn("[cyan]{task.description}"),  # Task description in cyan
-            BarColumn(),                             # Visual progress bar
-            TaskProgressColumn(),                    # Percentage completion indicator
-            console=self.__rich_console,             # Output to the configured Rich console
-            transient=True,                          # Remove the bar after completion
-            disable=not self.__print_result          # Disable if printing is turned off
+            TextColumn("[cyan]{task.description}"),         # Task description in cyan
+            BarColumn(bar_width=self.__panel_width - 30),   # Set custom bar width (adjust -30 as needed)
+            TaskProgressColumn(),                           # Percentage completion indicator
+            console=self.__rich_console,                    # Output to the configured Rich console
+            transient=True,                                 # Remove the bar after completion
+            disable=disable                                 # Disable if printing is off
         )
 
     def finishMessage(
@@ -276,7 +300,7 @@ class TestPrinter(ITestPrinter):
         None
         """
         # If not printing results, return early
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Determine status icon based on failures and errors
@@ -335,7 +359,7 @@ class TestPrinter(ITestPrinter):
             raise ValueError("The 'func' parameter must be a callable (function or method).")
 
         # Only display output if printing results is enabled
-        if self.__print_result:
+        if self.__verbosity != VerbosityMode.SILENT.value:
 
             # If live_console is True, use a live panel for dynamic updates
             if live_console:
@@ -366,6 +390,7 @@ class TestPrinter(ITestPrinter):
                 return func()
 
         else:
+
             # If result printing is disabled, execute the callable without any panel
             return func()
 
@@ -386,7 +411,7 @@ class TestPrinter(ITestPrinter):
         None
         """
         # If not printing results, do not display the link
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Create the base invitation text with a green style
@@ -425,7 +450,7 @@ class TestPrinter(ITestPrinter):
         None
         """
         # If result printing is disabled, do not display the summary table
-        if self.__print_result is False:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Create a Rich Table with headers and styling
@@ -482,7 +507,7 @@ class TestPrinter(ITestPrinter):
         None
         """
         # If result printing is disabled, do not display results
-        if not self.__print_result:
+        if self.__verbosity == VerbosityMode.SILENT.value:
             return
 
         # Print one blank line before the summary
@@ -491,18 +516,17 @@ class TestPrinter(ITestPrinter):
         # Print the summary table of test results
         self.summaryTable(summary)
 
-        # Print failed and errored tests
+        # Get the list of individual test results
         test_details: List[Dict] = summary.get("test_details", [])
+
+        # Iterate through each test result to display failures and errors
         for test in test_details:
 
             # If there are no failures or errors, skip to the next test
             if test["status"] in (TestStatus.FAILED.name, TestStatus.ERRORED.name):
 
                 # Determine the status icon based on the test status
-                if test["status"] == TestStatus.FAILED.name:
-                    status_icon = "❌ FAILED: "
-                else:
-                    status_icon = "💥 ERRORED: "
+                status_icon = "❌ FAILED:" if test["status"] == TestStatus.FAILED.name else "💥 ERRORED:"
 
                 # Print separator line before each test result with class name and method name
                 self.__rich_console.rule(title=f'🧪 {test["class"]}.{test["method"]}()', align="left")
@@ -516,7 +540,6 @@ class TestPrinter(ITestPrinter):
                     _file = last_trace_frame.get('file')
                     _line = last_trace_frame.get('line')
                     _code = last_trace_frame.get('code')
-                    _function = last_trace_frame.get('function')
 
                     # Print the file and line number if available
                     text = Text("📂 ")
@@ -524,43 +547,48 @@ class TestPrinter(ITestPrinter):
                     self.__rich_console.print(text)
 
                     # Print the error message with better formatting
-                    text = Text(status_icon, style="red")
+                    text = Text(f"{status_icon} ", style="red")
                     error_msg = test["error_message"] if test["error_message"] else "Unknown error"
                     text.append(error_msg, style="yellow")
                     self.__rich_console.print(text)
 
-                    # Print the code context (1 line before and 2 lines after the error)
-                    try:
+                    # If verbosity is detailed, include file path, line number, error message, and traceback
+                    if self.__verbosity == VerbosityMode.DETAILED.value:
 
-                        # Open the file and read its lines
-                        with open(_file, 'r', encoding='utf-8') as f:
-                            file_lines = f.readlines()
+                        try:
 
-                        # Convert to 0-based index
-                        error_line_num = int(_line) - 1
-                        start_line = max(0, error_line_num - 1)
-                        end_line = min(len(file_lines), error_line_num + 3)
-
-                        # Create a code block with syntax highlighting
-                        code_lines = []
-                        for i in range(start_line, end_line):
-                            line_num = i + 1
-                            line_content = file_lines[i].rstrip()
-                            if line_num == int(_line):
-                                # Highlight the error line
-                                code_lines.append(f"* {line_num:3d} | {line_content}")
+                            # Open the file and read its lines
+                            if isinstance(_file, str) and _file:
+                                with open(_file, 'r', encoding='utf-8') as f:
+                                    file_lines = f.readlines()
                             else:
-                                code_lines.append(f"  {line_num:3d} | {line_content}")
+                                raise ValueError(f"Invalid file path: {_file}")
 
-                        code_block = '\n'.join(code_lines)
-                        syntax = Syntax(code_block, "python", theme="monokai", line_numbers=False)
-                        self.__rich_console.print(syntax)
+                            # Convert to 0-based index
+                            error_line_num = int(_line) - 1
+                            start_line = max(0, error_line_num - 1)
+                            end_line = min(len(file_lines), error_line_num + 3)
 
-                    except (FileNotFoundError, ValueError, IndexError):
+                            # Create a code block with syntax highlighting
+                            code_lines = []
+                            for i in range(start_line, end_line):
+                                line_num = i + 1
+                                line_content = file_lines[i].rstrip()
+                                if line_num == int(_line):
+                                    # Highlight the error line
+                                    code_lines.append(f"* {line_num:3d} | {line_content}")
+                                else:
+                                    code_lines.append(f"  {line_num:3d} | {line_content}")
 
-                        # Fallback to original behavior if file cannot be read
-                        text = Text(f"{_line} | {_code}", style="dim")
-                        self.__rich_console.print(text)
+                            code_block = '\n'.join(code_lines)
+                            syntax = Syntax(code_block, "python", theme="monokai", line_numbers=False)
+                            self.__rich_console.print(syntax)
+
+                        except Exception:
+
+                            # Fallback to original behavior if file cannot be read
+                            text = Text(f"{_line} | {_code}", style="dim")
+                            self.__rich_console.print(text)
 
                 else:
 
@@ -570,7 +598,7 @@ class TestPrinter(ITestPrinter):
                     self.__rich_console.print(text)
 
                     # Print the error message with better formatting
-                    text = Text(status_icon, style="bold red")
+                    text = Text(f"{status_icon} ", style="bold red")
                     self.__rich_console.print(text)
 
                     # Print traceback if available
@@ -583,7 +611,8 @@ class TestPrinter(ITestPrinter):
                         self.__rich_console.print(syntax)
 
                 # Print a separator line after each test result
-                self.__rich_console.rule()
+                if self.__verbosity == VerbosityMode.DETAILED.value:
+                    self.__rich_console.rule()
 
                 # Print one blank line after the results
                 self.__rich_console.line(1)
@@ -608,7 +637,7 @@ class TestPrinter(ITestPrinter):
         None
         """
         # If result printing is disabled, do not display results
-        if not self.__print_result:
+        if self.__verbosity < VerbosityMode.DETAILED.value:
             return
 
         # Determine the status icon and label based on the test result

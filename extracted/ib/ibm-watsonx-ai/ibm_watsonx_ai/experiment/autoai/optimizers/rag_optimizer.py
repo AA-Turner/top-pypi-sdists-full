@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
     from ibm_watsonx_ai.foundation_models.schema import (
         AutoAIRAGCustomModelConfig,
+        AutoAIRAGGenerationConfig,
         AutoAIRAGModelConfig,
         AutoAIRAGRetrievalConfig,
     )
@@ -61,7 +62,7 @@ class RAGOptimizer:
     :type optimization_metrics: list[str], optional
 
     :param generation: Properties describing the generation step.
-    :type generation: dict[str, Any], optional
+    :type generation: dict[str, Any] | AutoAIRAGGenerationConfig, optional
 
     :param retrieval: Retrieval settings to be used.
     :type retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig], optional
@@ -82,14 +83,14 @@ class RAGOptimizer:
         max_number_of_rag_patterns: int | None = None,
         optimization_metrics: list[str] | None = None,
         chunking: list[dict] | None = None,
-        generation: dict[str, Any] | None = None,
+        generation: dict[str, Any] | AutoAIRAGGenerationConfig | None = None,
         retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig] | None = None,
         **kwargs: dict[str, Any],
     ):
         self._engine = engine
 
         if chunking_methods is not None:
-            chunking_methods_deprecated_warning = "The parameter chunking_methods is deprecated, please use `chunking` instead"
+            chunking_methods_deprecated_warning = "The parameter `chunking_methods` is deprecated, please use `chunking` instead."
             warn(chunking_methods_deprecated_warning, category=DeprecationWarning)
 
         WMLResource._validate_type(
@@ -99,61 +100,23 @@ class RAGOptimizer:
 
         self._params: dict[str, Any] = {}
 
-        if foundation_models is not None:
-            if self._engine._client.CPD_version <= 5.1:
-                if any(not isinstance(fm, str) for fm in foundation_models):
-                    raise WMLClientError(
-                        "Parameter `foundation_models` must be a list of string for CPD 5.1 or below."
-                    )
-                self._params["foundation_models"] = foundation_models
-            else:
-                foundation_models_conv = []
-                for fm in foundation_models:
-                    if isinstance(fm, BaseSchema):
-                        foundation_models_conv.append(fm.to_dict())
-                    elif isinstance(fm, dict):
-                        foundation_models_conv.append(fm)
-                    elif isinstance(fm, str):
-                        foundation_models_conv.append({"model_id": fm})
-                    else:
-                        raise WMLClientError(
-                            f"Invalid item type '{type(fm)}' provided in `foundation_models` list."
-                        )
-
-                if isinstance(generation, dict):
-                    generation["foundation_models"] = foundation_models_conv
-                else:
-                    generation = {"foundation_models": foundation_models_conv}
-
-        if retrieval is not None:
-            if self._engine._client.CPD_version <= 5.1:
-                if any(not isinstance(r, dict) for r in retrieval):
-                    raise WMLClientError(
-                        "Parameter `retrieval` must be a list of 'dict' for CPD 5.1 or below."
-                    )
-            else:
-                for i in range(len(retrieval)):
-                    if isinstance(retrieval[i], BaseSchema):
-                        retrieval[i] = retrieval[i].to_dict()  # type: ignore[union-attr]
-                    elif isinstance(retrieval[i], dict):
-                        pass
-                    else:
-                        raise WMLClientError(
-                            f"Invalid item type '{type(retrieval[i])}' provided in `retrieval` list."
-                        )
-
         self._params.update(
             {
                 "name": name,
                 "description": description,
                 "chunking": chunking,
                 "embedding_models": embedding_models,
-                "retrieval_methods": retrieval_methods,
-                "retrieval": retrieval,
-                "generation": generation,
                 "max_number_of_rag_patterns": max_number_of_rag_patterns,
                 "optimization_metrics": optimization_metrics,
             }
+        )
+
+        self._handle_generation_and_foundation_models_params(
+            generation=generation, foundation_models=foundation_models
+        )
+
+        self._handle_retrieval_and_retrieval_methods_params(
+            retrieval=retrieval, retrieval_methods=retrieval_methods
         )
 
         self._engine.initiate_optimizer_metadata(self._params, **kwargs)
@@ -604,3 +567,213 @@ class RAGOptimizer:
 
         """
         return self._engine.get_evaluation_results(pattern_name=pattern_name)
+
+    def _handle_generation_and_foundation_models_params(
+        self,
+        generation: dict[str, Any] | AutoAIRAGGenerationConfig | None = None,
+        foundation_models: (
+            list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
+        ) = None,
+    ) -> None:
+        if self._engine._client.CPD_version <= 5.1:
+            if foundation_models is not None:
+                if generation is not None:
+                    warning_message = (
+                        "Both `foundation_models` and `generation` were provided; using `foundation_models` and "
+                        "ignoring `generation`."
+                    )
+                    warn(warning_message, category=UserWarning)
+                if not all(isinstance(fm, str) for fm in foundation_models):
+                    raise WMLClientError(
+                        "Parameter `foundation_models` must be a list of string for CPD 5.1 or below."
+                    )
+                self._params["foundation_models"] = foundation_models
+            elif generation is not None:
+                warning_message = (
+                    "In CPD versions ≤ 5.1, the `generation` parameter is not supported. Please update your "
+                    "configuration to use the `foundation_models` parameter instead. The functionality of the "
+                    "`generation` parameter has been consolidated into `foundation_models` to ensure forward "
+                    "compatibility. To suppress this warning, replace all instances of `generation` with "
+                    "`foundation_models`."
+                )
+                warn(warning_message, category=UserWarning)
+                if isinstance(generation, BaseSchema):
+                    generation = generation.to_dict()
+
+                fm = generation.get("foundation_models", [])
+
+                fm = [el.to_dict() if isinstance(el, BaseSchema) else el for el in fm]
+
+                models = [
+                    el["model_id"]
+                    for el in fm
+                    if isinstance(el, dict) and el.get("model_id")
+                ]
+
+                if models:
+                    self._params["foundation_models"] = models
+
+            return
+
+        # CPD >= 5.2 and CLOUD scenario
+        generation = self._normalize_generation(generation)
+
+        if foundation_models is not None and generation is not None:
+            if "foundation_models" in generation:
+                warning_message = (
+                    "Both `generation` and `foundation_models` were provided. `generation` will take "
+                    "precedence.\n\n"
+                    "Tip: You can view sample generation parameters using:\n"
+                    "    from ibm_watsonx_ai.foundation_models.schema import AutoAIRAGGenerationConfig\n"
+                    "    AutoAIRAGGenerationConfig.get_sample_params()\n"
+                )
+                warn(warning_message, category=UserWarning)
+                generation = {
+                    **generation,
+                    "foundation_models": self._normalize_fm_list(
+                        generation["foundation_models"]
+                    ),
+                }
+            else:
+                warning_message = (
+                    "`foundation_models` was provided separately and has been merged into `generation` because "
+                    "`generation` did not include a `foundation_models` key. To silence this warning, pass "
+                    "foundation models inside `generation`."
+                )
+                warn(warning_message, category=UserWarning)
+                generation = {
+                    **generation,
+                    "foundation_models": self._normalize_fm_list(foundation_models),
+                }
+
+        if generation is None and foundation_models is not None:
+            warning_message = (
+                "`foundation_models` is deprecated and will be removed in a future release. "
+                "Use `generation` instead.\n\n"
+                "Tip: You can view sample generation parameters using:\n"
+                "    from ibm_watsonx_ai.foundation_models.schema import AutoAIRAGGenerationConfig\n"
+                "    AutoAIRAGGenerationConfig.get_sample_params()\n"
+            )
+            warn(warning_message, category=DeprecationWarning)
+            generation = {
+                "foundation_models": self._normalize_fm_list(foundation_models)
+            }
+
+        if generation:
+            self._params["generation"] = generation
+
+    def _handle_retrieval_and_retrieval_methods_params(
+        self,
+        retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig] | None = None,
+        retrieval_methods: list[str] | None = None,
+    ) -> None:
+        if self._engine._client.CPD_version <= 5.1:
+            if retrieval_methods is not None:
+                if retrieval is not None:
+                    warning_message = (
+                        "Both `retrieval` and `retrieval_methods` were provided; using `retrieval_methods` "
+                        "and ignoring `retrieval`."
+                    )
+                    warn(warning_message, category=UserWarning)
+                self._params["retrieval_methods"] = retrieval_methods
+            elif retrieval is not None:
+                warning_message = (
+                    "In CPD versions ≤ 5.1, the `retrieval` parameter is not supported. Please update your "
+                    "configuration to use the `retrieval_methods` parameter instead. The functionality of the "
+                    "`retrieval` parameter has been consolidated into `retrieval_methods` to ensure forward "
+                    "compatibility. To suppress this warning, replace all instances of `retrieval` with "
+                    "`retrieval_methods`."
+                )
+                warn(warning_message, category=UserWarning)
+                retrieval_dict = [
+                    el.to_dict() if isinstance(el, BaseSchema) else el
+                    for el in retrieval
+                ]
+                retrieval = [
+                    el["method"]
+                    for el in retrieval_dict
+                    if isinstance(el, dict) and el.get("method")
+                ]
+
+                self._params["retrieval_methods"] = retrieval
+
+            return
+
+        # CPD >= 5.2 and CLOUD scenario
+        if retrieval_methods is not None:
+            if retrieval is not None:
+                warning_message = (
+                    "Both `retrieval` and `retrieval_methods` were provided; using `retrieval` "
+                    "and ignoring `retrieval_methods`."
+                )
+                warn(warning_message, category=UserWarning)
+            else:
+                warning_message = (
+                    "The `retrieval_methods` parameter is deprecated and will be removed in a future release. "
+                    "Please pass retrieval configuration via the `retrieval` parameter instead."
+                )
+                warn(warning_message, category=DeprecationWarning)
+                retrieval = [{"method": m} for m in retrieval_methods]
+
+        if retrieval is not None:
+            self._params["retrieval"] = self._normalize_retrieval(retrieval)
+
+    def _normalize_generation(
+        self, generation: dict | BaseSchema | None
+    ) -> dict[str, Any] | None:
+        if generation is None:
+            return None
+
+        if isinstance(generation, BaseSchema):
+            gen = generation.to_dict()
+        elif isinstance(generation, dict):
+            gen = dict(generation)
+        else:
+            raise WMLClientError(
+                f"Unsupported type for `generation`: {type(generation)}, expected {dict}"
+            )
+
+        if "foundation_models" in gen:
+            WMLResource._validate_type(
+                gen["foundation_models"],
+                "generation['foundation_models']",
+                list,
+                mandatory=False,
+            )
+            gen["foundation_models"] = self._normalize_fm_list(gen["foundation_models"])
+
+        return gen
+
+    @staticmethod
+    def _normalize_fm_list(fms: list) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for fm in fms:
+            match fm:
+                case BaseSchema():
+                    out.append(fm.to_dict())
+                case dict():
+                    out.append(dict(fm))
+                case str():
+                    out.append({"model_id": fm})
+                case _:
+                    raise WMLClientError(
+                        f"Invalid item type '{type(fm)}' provided in `foundation_models` list, expected {str}, {dict} or {BaseSchema} type class."
+                    )
+
+        return out
+
+    @staticmethod
+    def _normalize_retrieval(retrieval: list) -> list[dict[str, Any]]:
+        norm: list[dict[str, Any]] = []
+        for r in retrieval:
+            match r:
+                case BaseSchema():
+                    norm.append(r.to_dict())  # type: ignore[union-attr]
+                case dict():
+                    norm.append(dict(r))
+                case _:
+                    raise WMLClientError(
+                        f"Invalid item type '{type(r)}' provided in `retrieval` list, expected {dict} or {BaseSchema} type class."
+                    )
+
+        return norm

@@ -1,4 +1,3 @@
-from typing import Dict,List
 from localstack.cli import console
 def print_diff(operations):
 	F='MODIFICATION';B='operation_type';A=operations

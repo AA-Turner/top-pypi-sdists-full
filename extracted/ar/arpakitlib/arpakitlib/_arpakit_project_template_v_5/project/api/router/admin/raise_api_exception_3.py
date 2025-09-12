@@ -35,6 +35,6 @@ async def _(
         error_specification_code="3",
         error_description="Simple, logging=False",
         kwargs_={
-            "logging": False
+            "logging_full_error": False
         }
     )

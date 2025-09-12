@@ -943,10 +943,10 @@ class AutoAI(BaseExperiment):
         description: str | None = None,
         chunking: list[dict] | None = None,
         embedding_models: list[str] | None = None,
-        retrieval_methods: list[str] | None = None,
+        retrieval_methods: list[str] | None = None,  # deprecated
         foundation_models: (
             list[str | dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
-        ) = None,
+        ) = None,  # deprecated
         max_number_of_rag_patterns: int | None = None,
         optimization_metrics: list[str] | None = None,
         generation: dict[str, Any] | None = None,
@@ -980,10 +980,18 @@ class AutoAI(BaseExperiment):
         :type optimization_metrics: list[str], optional
 
         :param generation: Properties describing the generation step.
-        :type generation: dict[str, Any], optional
+        :type generation: dict[str, Any] | AutoAIRAGGenerationConfig, optional
 
         :param retrieval: Retrieval settings to be used.
         :type retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig], optional
+
+        .. deprecated:: IBM Cloud Pak® for Data 5.2
+           The parameter ``retrieval_methods`` is deprecated and will be removed in a future version.
+           Use ``retrieval`` instead.
+
+        .. deprecated:: IBM Cloud Pak® for Data 5.2
+           The parameter ``foundation_models`` is deprecated and will be removed in a future version.
+           Use ``generation.foundation_models`` instead.
 
         :return: AutoAI RAG optimizer
         :rtype: RAGOptimizer
@@ -1020,12 +1028,16 @@ class AutoAI(BaseExperiment):
                     {"method": "semantic", "chunk_size": 1024},
                 ],
                 embedding_models=["ibm/slate-125m-english-rtrvr-v2"],
-                foundation_models=["meta-llama/llama-3-3-70b-instruct"],
                 retrieval=[
                     {"method": "window", "number_of_chunks": 3, "window_size": 2},
                     {"method": "simple", "number_of_chunks": 5},
                 ],
-                generation={"language": {"auto-detect": True}},
+                generation={
+                    "language": {"auto-detect": True},
+                    "foundation_models": [
+                        {"model_id": "meta-llama/llama-3-3-70b-instruct"}
+                    ],
+                },
                 optimization_metrics=["answer_correctness"],
             )
         """

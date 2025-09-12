@@ -611,6 +611,7 @@ class FMModelInference(BaseModelInference):
         self,
         messages: list[dict],
         params: dict | TextChatParameters | None = None,
+        context: str | None = None,
         tools: list[dict] | None = None,
         tool_choice: dict | None = None,
         tool_choice_option: str | None = None,

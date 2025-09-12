@@ -27,7 +27,6 @@ import inspect
 import tracemalloc
 import resource
 from urllib.parse import urlencode
-
 import psutil
 
 FORCE_EXIT: bool = False
@@ -99,7 +98,7 @@ joined_valid_occ_types: str = ", ".join(valid_occ_types)
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM", "TPE"]
 joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
-special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time", "metric_name", "mean", "sem", "worker_generator_uuid"]
+special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time", "metric_name", "mean", "sem", "worker_generator_uuid", "runtime", "status"]
 
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
 
@@ -203,6 +202,9 @@ try:
 
     with spinner("Importing rich.pretty..."):
         from rich.pretty import pprint
+
+    with spinner("Importing pformat..."):
+        from pprint import pformat
 
     with spinner("Importing rich.prompt..."):
         from rich.prompt import Prompt, FloatPrompt, IntPrompt
@@ -802,6 +804,7 @@ class ConfigLoader:
     parameter: Optional[List[str]]
     experiment_constraints: Optional[List[str]]
     main_process_gb: int
+    beartype: bool
     worker_timeout: int
     slurm_signal_delay_s: int
     gridsearch: bool
@@ -999,6 +1002,7 @@ class ConfigLoader:
         debug.add_argument('--debug_stack_regex', help='Only print debug messages if call stack matches any regex', type=str, default='')
         debug.add_argument('--debug_stack_trace_regex', help='Show compact call stack with arrows if any function in stack matches regex', type=str, default=None)
         debug.add_argument('--show_func_name', help='Show func name before each execution and when it is done', action='store_true', default=False)
+        debug.add_argument('--beartype', help='Use beartype', action='store_true', default=False)
 
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
         if not os.path.isfile(config_path):
@@ -1351,19 +1355,6 @@ try:
     with spinner("Importing GeneratorSpec..."):
         from ax.generation_strategy.generator_spec import GeneratorSpec
 
-    #except Exception:
-    #    with spinner("Fallback: Importing ax.generation_strategy.generation_node..."):
-    #        import ax.generation_strategy.generation_node
-
-    #    with spinner("Fallback: Importing GenerationStep, GenerationStrategy from ax.generation_strategy..."):
-    #        from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-
-    #    with spinner("Fallback: Importing ExternalGenerationNode..."):
-    #        from ax.generation_strategy.external_generation_node import ExternalGenerationNode
-
-    #    with spinner("Fallback: Importing MaxTrials..."):
-    #        from ax.generation_strategy.transition_criterion import MaxTrials
-
     with spinner("Importing Models from ax.generation_strategy.registry..."):
         from ax.adapter.registry import Models
 
@@ -1471,6 +1462,9 @@ class RandomForestGenerationNode(ExternalGenerationNode):
     def update_generator_state(self: Any, experiment: Experiment, data: Data) -> None:
         search_space = experiment.search_space
         parameter_names = list(search_space.parameters.keys())
+        if experiment.optimization_config is None:
+            print_red("Error: update_generator_state is None")
+            return
         metric_names = list(experiment.optimization_config.metrics.keys())
 
         completed_trials = [
@@ -1482,7 +1476,7 @@ class RandomForestGenerationNode(ExternalGenerationNode):
         y = np.zeros([num_completed_trials, 1])
 
         for t_idx, trial in enumerate(completed_trials):
-            trial_parameters = trial.arm.parameters
+            trial_parameters = trial.arms[t_idx].parameters
             x[t_idx, :] = np.array([trial_parameters[p] for p in parameter_names])
             trial_df = data.df[data.df["trial_index"] == trial.index]
             y[t_idx, 0] = trial_df[trial_df["metric_name"] == metric_names[0]]["mean"].item()
@@ -1622,10 +1616,18 @@ class RandomForestGenerationNode(ExternalGenerationNode):
     def _format_best_sample(self: Any, best_sample: TParameterization, reverse_choice_map: dict) -> None:
         for name in best_sample.keys():
             param = self.parameters.get(name)
+            best_sample_by_name = best_sample[name]
+
             if isinstance(param, RangeParameter) and param.parameter_type == ParameterType.INT:
-                best_sample[name] = int(round(best_sample[name]))
+                if best_sample_by_name is not None:
+                    best_sample[name] = int(round(float(best_sample_by_name)))
+                else:
+                    print_debug("best_sample_by_name was empty")
             elif isinstance(param, ChoiceParameter):
-                best_sample[name] = str(reverse_choice_map.get(int(best_sample[name])))
+                if best_sample_by_name is not None:
+                    best_sample[name] = str(reverse_choice_map.get(int(best_sample_by_name)))
+                else:
+                    print_debug("best_sample_by_name was empty")
 
 decoder_registry["RandomForestGenerationNode"] = RandomForestGenerationNode
 
@@ -2121,7 +2123,11 @@ def try_saving_to_db() -> None:
         else:
             print_red("ax_client was not defined in try_saving_to_db")
             my_exit(101)
-        save_generation_strategy(global_gs)
+
+        if global_gs is not None:
+            save_generation_strategy(global_gs)
+        else:
+            print_red("Not saving generation strategy: global_gs was empty")
     except Exception as e:
         print_debug(f"Failed trying to save sqlite3-DB: {e}")
 
@@ -2188,13 +2194,20 @@ def save_results_csv() -> Optional[str]:
 def get_results_paths() -> tuple[str, str]:
     return (get_current_run_folder(RESULTS_CSV_FILENAME), get_state_file_name('pd.json'))
 
+def ax_client_get_trials_data_frame() -> Optional[pd.DataFrame]:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    return ax_client.get_trials_data_frame()
+
 def fetch_and_prepare_trials() -> Optional[pd.DataFrame]:
     if not ax_client:
         return None
 
     ax_client.experiment.fetch_data()
-    df = ax_client.get_trials_data_frame()
-
+    df = ax_client_get_trials_data_frame()
     #print("========================")
     #print("BEFORE merge_with_job_infos:")
     #print(df["generation_node"])
@@ -2211,11 +2224,24 @@ def write_csv(df: pd.DataFrame, path: str) -> None:
         pass
     df.to_csv(path, index=False, float_format="%.30f")
 
+def ax_client_to_json_snapshot() -> Optional[dict]:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    json_snapshot = ax_client.to_json_snapshot()
+
+    return json_snapshot
+
 def write_json_snapshot(path: str) -> None:
     if ax_client is not None:
-        json_snapshot = ax_client.to_json_snapshot()
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(json_snapshot, f, indent=4)
+        json_snapshot = ax_client_to_json_snapshot()
+        if json_snapshot is not None:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(json_snapshot, f, indent=4)
+        else:
+            print_debug('json_snapshot from ax_client_to_json_snapshot was None')
     else:
         print_red("write_json_snapshot: ax_client was None")
 
@@ -4945,7 +4971,10 @@ def abandon_job(job: Job, trial_index: int, reason: str) -> bool:
     if job:
         try:
             if ax_client:
-                _trial = ax_client.get_trial(trial_index)
+                _trial = get_ax_client_trial(trial_index)
+                if _trial is None:
+                    return False
+
                 _trial.mark_abandoned(reason=reason)
                 print_debug(f"abandon_job: removing job {job}, trial_index: {trial_index}")
                 global_vars["jobs"].remove((job, trial_index))
@@ -5037,6 +5066,16 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
 
     my_exit(_exit)
 
+def save_ax_client_to_json_file(checkpoint_filepath: str) -> None:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    ax_client.save_to_json_file(checkpoint_filepath)
+
+    return None
+
 def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) -> None:
     if trial_nr > 3:
         if eee:
@@ -5049,7 +5088,7 @@ def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) 
         checkpoint_filepath = get_state_file_name('checkpoint.json')
 
         if ax_client:
-            ax_client.save_to_json_file(filepath=checkpoint_filepath)
+            save_ax_client_to_json_file(checkpoint_filepath)
         else:
             _fatal_error("Something went wrong using the ax_client", 101)
     except Exception as e:
@@ -5665,7 +5704,7 @@ def load_from_checkpoint(continue_previous_job: str, cli_params_experiment_param
 
     replace_parameters_for_continued_jobs(args.parameter, cli_params_experiment_parameters)
 
-    ax_client.save_to_json_file(filepath=original_ax_client_file)
+    save_ax_client_to_json_file(original_ax_client_file)
 
     load_original_generation_strategy(original_ax_client_file)
     load_ax_client_from_experiment_parameters()
@@ -5694,6 +5733,109 @@ def load_from_checkpoint(continue_previous_job: str, cli_params_experiment_param
         )
 
     return experiment_args, gpu_string, gpu_color
+
+def get_experiment_args_import_python_script() -> str:
+
+    return """from ax.service.ax_client import AxClient, ObjectiveProperties
+from ax.adapter.registry import Generators
+import random
+
+"""
+
+def get_generate_and_test_random_function_str() -> str:
+    raw_data_entries = ",\n                ".join(
+        f'"{name}": random.uniform(0, 1)' for name in arg_result_names
+    )
+
+    return f"""
+def generate_and_test_random_parameters(n):
+    for _ in range(n):
+        print("======================================")
+        parameters, trial_index = ax_client.get_next_trial()
+        print("Trial Index:", trial_index)
+        print("Suggested parameters:", parameters)
+
+        ax_client.complete_trial(
+            trial_index=trial_index,
+            raw_data={{
+                {raw_data_entries}
+            }}
+        )
+
+generate_and_test_random_parameters({args.num_random_steps + 1})
+"""
+
+def get_global_gs_string() -> str:
+    seed_str = ""
+    if args.seed is not None:
+        seed_str = f"model_kwargs={{'seed': {args.seed}}},"
+
+    return f"""from ax.generation_strategy.generation_strategy import GenerationStep, GenerationStrategy
+
+global_gs = GenerationStrategy(
+    steps=[
+        GenerationStep(
+            generator=Generators.SOBOL,
+            num_trials={args.num_random_steps},
+            max_parallelism=5,
+            {seed_str}
+        ),
+        GenerationStep(
+            generator=Generators.{args.model},
+            num_trials=-1,
+            max_parallelism=5,
+        ),
+    ]
+)
+"""
+
+def get_debug_ax_client_str() -> str:
+    return """
+ax_client = AxClient(
+    verbose_logging=True,
+    enforce_sequential_optimization=False,
+    generation_strategy=global_gs
+)
+"""
+
+def write_ax_debug_python_code(experiment_args: dict) -> None:
+    if args.generation_strategy:
+        print_debug("Cannot write debug code for custom generation_strategy")
+        return None
+
+    if args.model in uncontinuable_models:
+        print_debug(f"Cannot write debug code for uncontinuable mode {args.model}")
+        return None
+
+    python_code = python_code = get_experiment_args_import_python_script() + \
+        get_global_gs_string() + \
+        get_debug_ax_client_str() + \
+        "experiment_args = " + pformat(experiment_args, width=120, compact=False) + \
+        "\nax_client.create_experiment(**experiment_args)\n" + \
+        get_generate_and_test_random_function_str()
+
+    file_path = f"{get_current_run_folder()}/debug.py"
+
+    try:
+        print_debug(python_code)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(python_code)
+    except Exception as e:
+        print_red(f"Error while writing {file_path}: {e}")
+
+    return None
+
+def create_ax_client_experiment(experiment_args: dict) -> None:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    write_ax_debug_python_code(experiment_args)
+
+    ax_client.create_experiment(**experiment_args)
+
+    return None
 
 def create_new_experiment() -> Tuple[dict, str, str]:
     if ax_client is None:
@@ -5724,7 +5866,7 @@ def create_new_experiment() -> Tuple[dict, str, str]:
     experiment_args = set_experiment_constraints(get_constraints(), experiment_args, experiment_parameters)
 
     try:
-        ax_client.create_experiment(**experiment_args)
+        create_ax_client_experiment(experiment_args)
         new_metrics = [Metric(k) for k in arg_result_names if k not in ax_client.metric_names]
         ax_client.experiment.add_tracking_metrics(new_metrics)
     except AssertionError as error:
@@ -5738,7 +5880,7 @@ def create_new_experiment() -> Tuple[dict, str, str]:
 
     return experiment_args, gpu_string, gpu_color
 
-def get_experiment_parameters(cli_params_experiment_parameters: Optional[dict | list]) -> Optional[Tuple[AxClient, dict, str, str]]:
+def get_experiment_parameters(cli_params_experiment_parameters: Optional[dict | list]) -> Optional[Tuple[dict, str, str]]:
     continue_previous_job = args.worker_generator_path or args.continue_previous_job
 
     check_ax_client()
@@ -5748,7 +5890,7 @@ def get_experiment_parameters(cli_params_experiment_parameters: Optional[dict | 
     else:
         experiment_args, gpu_string, gpu_color = create_new_experiment()
 
-    return ax_client, experiment_args, gpu_string, gpu_color
+    return experiment_args, gpu_string, gpu_color
 
 def get_type_short(typename: str) -> str:
     if typename == "RangeParameter":
@@ -5884,19 +6026,62 @@ def print_ax_parameter_constraints_table(experiment_args: dict) -> None:
 
     return None
 
+def check_base_for_print_overview() -> Optional[bool]:
+    if args.continue_previous_job is not None and arg_result_names is not None and len(arg_result_names) != 0 and original_result_names is not None and len(original_result_names) != 0:
+        print_yellow("--result_names will be ignored in continued jobs. The result names from the previous job will be used.")
+
+    if ax_client is None:
+        print_red("ax_client was None")
+        return None
+
+    if ax_client.experiment is None:
+        print_red("ax_client.experiment was None")
+        return None
+
+    if ax_client.experiment.optimization_config is None:
+        print_red("ax_client.experiment.optimization_config was None")
+        return None
+
+    return True
+
+def get_config_objectives() -> Any:
+    if not ax_client:
+        print_red("create_new_experiment: ax_client is None")
+        my_exit(101)
+
+        return None
+
+    config_objectives = None
+
+    if ax_client.experiment and ax_client.experiment.optimization_config:
+        opt_config = ax_client.experiment.optimization_config
+        if opt_config.is_moo_problem:
+            objective = getattr(opt_config, "objective", None)
+            if objective and getattr(objective, "objectives", None) is not None:
+                config_objectives = objective.objectives
+            else:
+                print_debug("ax_client.experiment.optimization_config.objective was None")
+        else:
+            config_objectives = [opt_config.objective]
+    else:
+        print_debug("ax_client.experiment or optimization_config was None")
+
+    return config_objectives
+
 def print_result_names_overview_table() -> None:
     if not ax_client:
         _fatal_error("Tried to access ax_client in print_result_names_overview_table, but it failed, because the ax_client was not defined.", 101)
 
         return None
 
-    if args.continue_previous_job is not None and arg_result_names is not None and len(arg_result_names) != 0 and original_result_names is not None and len(original_result_names) != 0:
-        print_yellow("--result_names will be ignored in continued jobs. The result names from the previous job will be used.")
+    if check_base_for_print_overview() is None:
+        return None
 
-    if ax_client.experiment.optimization_config.is_moo_problem:
-        config_objectives = ax_client.experiment.optimization_config.objective.objectives
-    else:
-        config_objectives = [ax_client.experiment.optimization_config.objective]
+    config_objectives = get_config_objectives()
+
+    if config_objectives is None:
+        print_red("config_objectives not found")
+        return None
 
     res_names = []
     res_min_max = []
@@ -6285,7 +6470,7 @@ def progressbar_description(new_msgs: Union[str, List[str]] = []) -> None:
         print_red("Cannot update progress bar! It is None.")
 
 def clean_completed_jobs() -> None:
-    job_states_to_be_removed = ["early_stopped", "abandoned", "cancelled", "timeout", "interrupted", "failed", "preempted", "node_fail", "boot_fail"]
+    job_states_to_be_removed = ["early_stopped", "abandoned", "cancelled", "timeout", "interrupted", "failed", "preempted", "node_fail", "boot_fail", "finished"]
     job_states_to_be_ignored = ["ready", "completed", "unknown", "pending", "running", "completing", "out_of_memory", "requeued", "resv_del_hold"]
 
     for job, trial_index in global_vars["jobs"][:]:
@@ -6603,11 +6788,21 @@ def check_ax_client() -> None:
     if ax_client is None or not ax_client:
         _fatal_error("insert_job_into_ax_client: ax_client was not defined where it should have been", 101)
 
+def attach_ax_client_data(arm_params: dict) -> Optional[Tuple[Any, int]]:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    new_trial = ax_client.attach_trial(arm_params)
+
+    return new_trial
+
 def attach_trial(arm_params: dict) -> Tuple[Any, int]:
     if ax_client is None:
         raise RuntimeError("attach_trial: ax_client was empty")
 
-    new_trial = ax_client.attach_trial(arm_params)
+    new_trial = attach_ax_client_data(arm_params)
     if not isinstance(new_trial, tuple) or len(new_trial) < 2:
         raise RuntimeError("attach_trial didn't return the expected tuple")
     return new_trial
@@ -6638,7 +6833,7 @@ def complete_trial_if_result(trial_idx: int, result: dict, __status: Optional[An
                 is_ok = False
 
         if is_ok:
-            ax_client.complete_trial(trial_index=trial_idx, raw_data=result)
+            complete_ax_client_trial(trial_idx, result)
             update_status(__status, base_str, "Completed trial")
         else:
             print_debug("Empty job encountered")
@@ -7089,7 +7284,7 @@ def mark_trial_as_failed(trial_index: int, _trial: Any) -> None:
 
             return None
 
-        ax_client.log_trial_failure(trial_index=trial_index)
+        log_ax_client_trial_failure(trial_index)
         _trial.mark_failed(unsafe=True)
     except ValueError as e:
         print_debug(f"mark_trial_as_failed error: {e}")
@@ -7106,6 +7301,26 @@ def check_valid_result(result: Union[None, list, int, float, tuple]) -> bool:
     values_to_check = result if isinstance(result, list) else [result]
     return result is not None and all(r not in possible_val_not_found_values for r in values_to_check)
 
+def update_ax_client_trial(trial_idx: int, result: Union[list, dict]) -> None:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    ax_client.update_trial_data(trial_index=trial_idx, raw_data=result)
+
+    return None
+
+def complete_ax_client_trial(trial_idx: int, result: Union[list, dict]) -> None:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    ax_client.complete_trial(trial_index=trial_idx, raw_data=result)
+
+    return None
+
 def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -> None:
     if ax_client is None:
         print_red("ax_client is not defined in _finish_job_core_helper_complete_trial")
@@ -7113,12 +7328,12 @@ def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -
 
     try:
         print_debug(f"Completing trial: {trial_index} with result: {raw_result}...")
-        ax_client.complete_trial(trial_index=trial_index, raw_data=raw_result)
+        complete_ax_client_trial(trial_index, raw_result)
         print_debug(f"Completing trial: {trial_index} with result: {raw_result}... Done!")
     except ax.exceptions.core.UnsupportedError as e:
         if f"{e}":
             print_debug(f"Completing trial: {trial_index} with result: {raw_result} after failure. Trying to update trial...")
-            ax_client.update_trial_data(trial_index=trial_index, raw_data=raw_result)
+            update_ax_client_trial(trial_index, raw_result)
             print_debug(f"Completing trial: {trial_index} with result: {raw_result} after failure... Done!")
         else:
             _fatal_error(f"Error completing trial: {e}", 234)
@@ -7145,8 +7360,8 @@ def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any
     if job:
         try:
             progressbar_description("job_failed")
-            ax_client.log_trial_failure(trial_index=trial_index)
-            _trial.mark_failed(unsafe=True)
+            log_ax_client_trial_failure(trial_index)
+            mark_trial_as_failed(trial_index, _trial)
         except Exception as e:
             print_red(f"\nERROR while trying to mark job as failure: {e}")
         job.cancel()
@@ -7169,7 +7384,10 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     this_jobs_finished += 1
 
     if ax_client:
-        _trial = ax_client.get_trial(trial_index)
+        _trial = get_ax_client_trial(trial_index)
+
+        if _trial is None:
+            return 0
 
         if check_valid_result(result):
             _finish_job_core_helper_complete_trial(trial_index, raw_result)
@@ -7201,8 +7419,11 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
     if job:
         try:
             progressbar_description("job_failed")
-            _trial = ax_client.get_trial(trial_index)
-            ax_client.log_trial_failure(trial_index=trial_index)
+            _trial = get_ax_client_trial(trial_index)
+            if _trial is None:
+                return None
+
+            log_ax_client_trial_failure(trial_index)
             mark_trial_as_failed(trial_index, _trial)
         except Exception as e:
             print(f"ERROR in line {get_line_info()}: {e}")
@@ -7242,7 +7463,10 @@ def _finish_previous_jobs_helper_process_job(job: Any, trial_index: int, this_jo
         this_jobs_finished += _finish_previous_jobs_helper_handle_exception(job, trial_index, error)
     return this_jobs_finished
 
-def _finish_previous_jobs_helper_check_and_process(job: Any, trial_index: int, this_jobs_finished: int) -> int:
+def _finish_previous_jobs_helper_check_and_process(__args: Tuple[Any, int]) -> int:
+    job, trial_index = __args
+
+    this_jobs_finished = 0
     if job is None:
         print_debug(f"finish_previous_jobs: job {job} is None")
         return this_jobs_finished
@@ -7254,10 +7478,6 @@ def _finish_previous_jobs_helper_check_and_process(job: Any, trial_index: int, t
             print_debug(f"finish_previous_jobs: job was neither done, nor LocalJob nor DebugJob, but {job}")
 
     return this_jobs_finished
-
-def _finish_previous_jobs_helper_wrapper(__args: Tuple[Any, int]) -> int:
-    job, trial_index = __args
-    return _finish_previous_jobs_helper_check_and_process(job, trial_index, 0)
 
 def finish_previous_jobs(new_msgs: List[str] = []) -> None:
     global JOBS_FINISHED
@@ -7274,7 +7494,7 @@ def finish_previous_jobs(new_msgs: List[str] = []) -> None:
     finishing_jobs_start_time = time.time()
 
     with ThreadPoolExecutor() as finish_job_executor:
-        futures = [finish_job_executor.submit(_finish_previous_jobs_helper_wrapper, (job, trial_index)) for job, trial_index in jobs_copy]
+        futures = [finish_job_executor.submit(_finish_previous_jobs_helper_check_and_process, (job, trial_index)) for job, trial_index in jobs_copy]
 
         for future in as_completed(futures):
             try:
@@ -7454,22 +7674,33 @@ def submit_new_job(parameters: Union[dict, str], trial_index: int) -> Any:
 
     return new_job
 
+def get_ax_client_trial(trial_index: int) -> Optional[ax.core.trial.Trial]:
+    if not ax_client:
+        my_exit(101)
+
+        return None
+
+    return ax_client.get_trial(trial_index)
+
 def orchestrator_start_trial(parameters: Union[dict, str], trial_index: int) -> None:
     if submitit_executor and ax_client:
         new_job = submit_new_job(parameters, trial_index)
         if new_job:
             submitted_jobs(1)
 
-            _trial = ax_client.get_trial(trial_index)
+            _trial = get_ax_client_trial(trial_index)
 
-            try:
-                _trial.mark_staged(unsafe=True)
-            except Exception as e:
-                print_debug(f"orchestrator_start_trial: error {e}")
-            _trial.mark_running(unsafe=True, no_runner_required=True)
+            if _trial is not None:
+                try:
+                    _trial.mark_staged(unsafe=True)
+                except Exception as e:
+                    print_debug(f"orchestrator_start_trial: error {e}")
+                _trial.mark_running(unsafe=True, no_runner_required=True)
 
-            print_debug(f"orchestrator_start_trial: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
-            global_vars["jobs"].append((new_job, trial_index))
+                print_debug(f"orchestrator_start_trial: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
+                global_vars["jobs"].append((new_job, trial_index))
+            else:
+                print_red("Trial was none in orchestrator_start_trial")
         else:
             print_red("orchestrator_start_trial: Failed to start new job")
     elif ax_client:
@@ -7590,7 +7821,11 @@ def execute_evaluation(_params: list) -> Optional[int]:
 
         return None
 
-    _trial = ax_client.get_trial(trial_index)
+    _trial = get_ax_client_trial(trial_index)
+
+    if _trial is None:
+        print_red("_trial was not in execute_evaluation")
+        return None
 
     def mark_trial_stage(stage: str, error_msg: str) -> None:
         try:
@@ -7669,12 +7904,20 @@ def handle_failed_job(error: Union[None, Exception, str], trial_index: int, new_
 
     return None
 
+def log_ax_client_trial_failure(trial_index: int) -> None:
+    if not ax_client:
+        my_exit(101)
+
+        return
+
+    ax_client.log_trial_failure(trial_index=trial_index)
+
 def cancel_failed_job(trial_index: int, new_job: Job) -> None:
     print_debug("Trying to cancel job that failed")
     if new_job:
         try:
             if ax_client:
-                ax_client.log_trial_failure(trial_index=trial_index)
+                log_ax_client_trial_failure(trial_index)
             else:
                 _fatal_error("ax_client not defined", 101)
         except Exception as e:
@@ -7874,11 +8117,11 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         t0 = time.time()
         pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
         dt = time.time() - t0
-        print_debug(f"got pending observations (took {dt:.2f} seconds)")
+        print_debug(f"got pending observations: {pending_observations} (took {dt:.2f} seconds)")
 
         try:
             print_debug("getting global_gs.gen() with n=1")
-            batched_generator_run = global_gs.gen(
+            batched_generator_run: Any = global_gs.gen(
                 experiment=ax_client.experiment,
                 n=1,
                 pending_observations=pending_observations,
@@ -7886,11 +8129,12 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
             print_debug(f"got global_gs.gen(): {batched_generator_run}")
         except Exception as e:
             print_debug(f"global_gs.gen failed: {e}")
+            traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
             break
 
         depth = 0
         path = "batched_generator_run"
-        while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) > 0:
+        while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) == 1:
             print_debug(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
             batched_generator_run = batched_generator_run[0]
             path += "[0]"
@@ -8105,12 +8349,12 @@ def set_global_gs_to_random() -> None:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                generator_specs=[
-                    GeneratorSpec(
-                        Models.SOBOL,
-                        model_gen_kwargs=get_model_gen_kwargs()
-                    )
-                ]
+                generator_specs=[ # type: ignore[arg-type]
+                    GeneratorSpec( # type: ignore[arg-type]
+                        Models.SOBOL, # type: ignore[arg-type]
+                        model_gen_kwargs=get_model_gen_kwargs() # type: ignore[arg-type]
+                    ) # type: ignore[arg-type]
+                ] # type: ignore[arg-type]
             )
         ]
     )
@@ -8671,7 +8915,7 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
     if model_name.lower() != "sobol":
         kwargs["model_kwargs"] = get_model_kwargs()
 
-    model_spec = [GeneratorSpec(selected_model, **kwargs)]
+    model_spec = [GeneratorSpec(selected_model, **kwargs)] # type: ignore[arg-type]
 
     res = GenerationNode(
         node_name=model_name,
@@ -8686,7 +8930,7 @@ def get_optimizer_kwargs() -> dict:
         "sequential": False
     }
 
-def create_step(model_name: str, _num_trials: int = -1, index: Optional[int] = None) -> GenerationStep:
+def create_step(model_name: str, _num_trials: int, index: int) -> GenerationStep:
     model_enum = get_model_from_name(model_name)
 
     return GenerationStep(
@@ -9616,7 +9860,7 @@ def save_experiment_state() -> None:
             print_red("save_experiment_state: ax_client or ax_client.experiment is None, cannot save.")
             return
         state_path = get_current_run_folder("experiment_state.json")
-        ax_client.save_to_json_file(state_path)
+        save_ax_client_to_json_file(state_path)
     except Exception as e:
         print(f"Error saving experiment state: {e}")
 
@@ -10389,7 +10633,7 @@ def show_omniopt_call() -> None:
     original_print(oo_call + " " + cleaned)
 
 def main() -> None:
-    global RESULT_CSV_FILE, ax_client, LOGFILE_DEBUG_GET_NEXT_TRIALS
+    global RESULT_CSV_FILE, LOGFILE_DEBUG_GET_NEXT_TRIALS
 
     check_if_has_random_steps()
 
@@ -10471,7 +10715,7 @@ def main() -> None:
     exp_params = get_experiment_parameters(cli_params_experiment_parameters)
 
     if exp_params is not None:
-        ax_client, experiment_args, gpu_string, gpu_color = exp_params
+        experiment_args, gpu_string, gpu_color = exp_params
         print_debug(f"experiment_parameters: {experiment_parameters}")
 
         set_orchestrator()
@@ -11167,7 +11411,7 @@ Exit-Code: 159
 
     my_exit(nr_errors)
 
-def main_outside() -> None:
+def main_wrapper() -> None:
     print(f"Run-UUID: {run_uuid}")
 
     auto_wrap_namespace(globals())
@@ -11235,6 +11479,9 @@ def stack_trace_wrapper(func: Any, regex: Any = None) -> Any:
 def auto_wrap_namespace(namespace: Any) -> Any:
     enable_beartype = any(os.getenv(v) for v in ("ENABLE_BEARTYPE", "CI"))
 
+    if args.beartype:
+        enable_beartype = True
+
     excluded_functions = {
         "log_time_and_memory_wrapper",
         "collect_runtime_stats",
@@ -11269,7 +11516,7 @@ def auto_wrap_namespace(namespace: Any) -> Any:
 
 if __name__ == "__main__":
     try:
-        main_outside()
+        main_wrapper()
     except (SignalUSR, SignalINT, SignalCONT) as e:
-        print_red(f"main_outside failed with exception {e}")
+        print_red(f"main_wrapper failed with exception {e}")
         end_program(True)

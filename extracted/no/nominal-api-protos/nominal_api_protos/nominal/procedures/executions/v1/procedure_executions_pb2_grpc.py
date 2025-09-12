@@ -45,6 +45,11 @@ class ProcedureExecutionsServiceStub(object):
                 request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.GetProcedureExecutionRequest.SerializeToString,
                 response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.GetProcedureExecutionResponse.FromString,
                 _registered_method=True)
+        self.UpdateProcedureExecutionMetadata = channel.unary_unary(
+                '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateProcedureExecutionMetadata',
+                request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataRequest.SerializeToString,
+                response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataResponse.FromString,
+                _registered_method=True)
         self.UpdateProcedureExecution = channel.unary_unary(
                 '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateProcedureExecution',
                 request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionRequest.SerializeToString,
@@ -54,6 +59,11 @@ class ProcedureExecutionsServiceStub(object):
                 '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStep',
                 request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepRequest.SerializeToString,
                 response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepResponse.FromString,
+                _registered_method=True)
+        self.UpdateStepSuccessConditionStatus = channel.unary_unary(
+                '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStepSuccessConditionStatus',
+                request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.SerializeToString,
+                response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.FromString,
                 _registered_method=True)
         self.SearchProcedureExecutions = channel.unary_unary(
                 '/nominal.procedures.executions.v1.ProcedureExecutionsService/SearchProcedureExecutions',
@@ -85,6 +95,13 @@ class ProcedureExecutionsServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateProcedureExecutionMetadata(self, request, context):
+        """Update the metadata of a procedure execution
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def UpdateProcedureExecution(self, request, context):
         """Heavy-handed update method for procedure execution
         TODO(pchen): This isn't the expected final endpoint, this is just for editing the graph while we iterate
@@ -95,7 +112,16 @@ class ProcedureExecutionsServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UpdateStep(self, request, context):
-        """Update the status of a step in a procedure execution
+        """Update the status of a step in a procedure execution. This can only be done if the step is NOT_STARTED,
+        IN_PROGRESS, or SUBMITTED. Other state transitions are managed by the backend.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateStepSuccessConditionStatus(self, request, context):
+        """This should only be called by the backend to update the success_condition_status of a step.
+        This can only be done if the step is SUBMITTED.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -128,6 +154,11 @@ def add_ProcedureExecutionsServiceServicer_to_server(servicer, server):
                     request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.GetProcedureExecutionRequest.FromString,
                     response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.GetProcedureExecutionResponse.SerializeToString,
             ),
+            'UpdateProcedureExecutionMetadata': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateProcedureExecutionMetadata,
+                    request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataRequest.FromString,
+                    response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataResponse.SerializeToString,
+            ),
             'UpdateProcedureExecution': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateProcedureExecution,
                     request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionRequest.FromString,
@@ -137,6 +168,11 @@ def add_ProcedureExecutionsServiceServicer_to_server(servicer, server):
                     servicer.UpdateStep,
                     request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepRequest.FromString,
                     response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepResponse.SerializeToString,
+            ),
+            'UpdateStepSuccessConditionStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateStepSuccessConditionStatus,
+                    request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.FromString,
+                    response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.SerializeToString,
             ),
             'SearchProcedureExecutions': grpc.unary_unary_rpc_method_handler(
                     servicer.SearchProcedureExecutions,
@@ -215,6 +251,33 @@ class ProcedureExecutionsService(object):
             _registered_method=True)
 
     @staticmethod
+    def UpdateProcedureExecutionMetadata(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateProcedureExecutionMetadata',
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataRequest.SerializeToString,
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateProcedureExecutionMetadataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def UpdateProcedureExecution(request,
             target,
             options=(),
@@ -258,6 +321,33 @@ class ProcedureExecutionsService(object):
             '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStep',
             nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepRequest.SerializeToString,
             nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateStepSuccessConditionStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStepSuccessConditionStatus',
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.SerializeToString,
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

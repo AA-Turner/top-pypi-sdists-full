@@ -45,6 +45,8 @@ from radboy.Occurances import *
 from radboy.preloader import preloader
 from radboy.Comm2Common import *
 import radboy.DB.OrderedAndRxd as OAR
+import radboy.DB.LetterWriter as LW
+
 def today():
     dt=datetime.now()
     return date(dt.year,dt.month,dt.day)
@@ -1066,6 +1068,8 @@ SALES TAX ON APPLICABLE TANGIBLE ITEMS = (PRICE + CRV) * TTL TAX RATE
                 print(e,str(e),repr(e))
 
 class TasksMode:
+    def WriteLetter(self):
+        return LW.WriteLetter()
     def setPrec(self):
         print("WAS: ",getcontext().prec)
         operator=Prompt.__init2__(None,func=FormBuilderMkText,ptext="How many decimals?",helpText="how many places behind the decimal floating point",data="integer")

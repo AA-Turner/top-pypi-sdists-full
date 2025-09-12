@@ -12,17 +12,19 @@ from typing import Optional, Tuple, Union
 from dbt_semantic_interfaces.protocols import WhereFilterIntersection
 from typing_extensions import override
 
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat
-from metricflow_semantics.naming.metric_scheme import MetricNamingScheme
 from metricflow_semantics.naming.naming_scheme import QueryItemNamingScheme
-from metricflow_semantics.protocols.query_parameter import GroupByParameter, MetricQueryParameter, OrderByQueryParameter
+from metricflow_semantics.protocols.query_parameter import (
+    GroupByQueryParameter,
+    MetricQueryParameter,
+    OrderByQueryParameter,
+)
 from metricflow_semantics.query.group_by_item.resolution_path import MetricFlowQueryResolutionPath
 from metricflow_semantics.query.resolver_inputs.base_resolver_inputs import (
     InputPatternDescription,
     MetricFlowQueryResolverInput,
 )
-from metricflow_semantics.specs.patterns.metric_pattern import MetricSpecPattern
 from metricflow_semantics.specs.patterns.spec_pattern import SpecPattern
 
 
@@ -43,8 +45,8 @@ class ResolverInputForMetric(MetricFlowQueryResolverInput):
     """An input that describes the metrics in the query."""
 
     input_obj: Union[MetricQueryParameter, str]
-    naming_scheme: MetricNamingScheme
-    spec_pattern: MetricSpecPattern
+    naming_scheme: QueryItemNamingScheme
+    spec_pattern: SpecPattern
     alias: Optional[str] = None
 
     @property
@@ -65,9 +67,10 @@ class ResolverInputForMetric(MetricFlowQueryResolverInput):
 class ResolverInputForGroupByItem(MetricFlowQueryResolverInput):
     """An input that describes a group-by item in the query."""
 
-    input_obj: Union[GroupByParameter, str]
+    input_obj: Union[GroupByQueryParameter, str]
     input_obj_naming_scheme: QueryItemNamingScheme
     spec_pattern: SpecPattern
+    alias: Optional[str] = None
 
     @property
     @override
@@ -136,6 +139,18 @@ class ResolverInputForMinMaxOnly(MetricFlowQueryResolverInput):
 
 
 @dataclass(frozen=True)
+class ResolverInputForApplyGroupBy(MetricFlowQueryResolverInput):
+    """An input that describes if the query will apply a group by. Can only be false for no-metric queries."""
+
+    apply_group_by: bool = True
+
+    @property
+    @override
+    def ui_description(self) -> str:
+        return str(self.apply_group_by)
+
+
+@dataclass(frozen=True)
 class ResolverInputForQueryLevelWhereFilterIntersection(MetricFlowQueryResolverInput):
     """An input that describes the where filter for the query."""
 
@@ -146,7 +161,7 @@ class ResolverInputForQueryLevelWhereFilterIntersection(MetricFlowQueryResolverI
     def ui_description(self) -> str:
         return (
             "WhereFilter(\n"
-            + indent(
+            + mf_indent(
                 mf_pformat(
                     [where_filter.where_sql_template for where_filter in self.where_filter_intersection.where_filters]
                 )
@@ -173,18 +188,18 @@ class ResolverInputForWhereFilterIntersection(MetricFlowQueryResolverInput):
     def ui_description(self) -> str:
         lines = [
             "WhereFilter(",
-            indent(
+            mf_indent(
                 mf_pformat(
                     [where_filter.where_sql_template for where_filter in self.where_filter_intersection.where_filters]
                 )
             ),
             ")",
             "Filter Path:",
-            indent(self.filter_resolution_path.ui_description),
+            mf_indent(self.filter_resolution_path.ui_description),
         ]
         if self.object_builder_str is not None:
             lines.append("Object Builder Input:")
-            lines.append(indent(self.object_builder_str))
+            lines.append(mf_indent(self.object_builder_str))
         return "\n".join(lines)
 
 
@@ -198,11 +213,11 @@ class ResolverInputForQuery(MetricFlowQueryResolverInput):
     order_by_item_inputs: Tuple[ResolverInputForOrderByItem, ...]
     limit_input: ResolverInputForLimit
     min_max_only: ResolverInputForMinMaxOnly
+    apply_group_by: ResolverInputForApplyGroupBy
 
     @property
     @override
     def ui_description(self) -> str:
-        return (
-            f"Query({repr([metric_input.ui_description for metric_input in self.metric_inputs])}, "
-            f"{repr([group_by_item_input.input_obj for group_by_item_input in self.group_by_item_inputs])}"
-        )
+        # Since the error message shows the query in the resolution path and there's only ever 1 query for an error
+        # message, there's no need for a query-specific description.
+        return ""

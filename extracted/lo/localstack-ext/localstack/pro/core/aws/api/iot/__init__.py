@@ -203,6 +203,8 @@ KafkaHeaderValue = str
 Key = str
 KeyName = str
 KeyValue = str
+KmsAccessRoleArn = str
+KmsKeyArn = str
 LaserMaxResults = int
 ListSuppressedAlerts = bool
 ListSuppressedFindings = bool
@@ -632,6 +634,11 @@ class ConfigName(StrEnum):
     CERT_EXPIRATION_THRESHOLD_IN_DAYS = "CERT_EXPIRATION_THRESHOLD_IN_DAYS"
 
 
+class ConfigurationStatus(StrEnum):
+    HEALTHY = "HEALTHY"
+    UNHEALTHY = "UNHEALTHY"
+
+
 class CustomMetricType(StrEnum):
     string_list = "string-list"
     ip_address_list = "ip-address-list"
@@ -718,6 +725,11 @@ class DynamicGroupStatus(StrEnum):
 class DynamoKeyType(StrEnum):
     STRING = "STRING"
     NUMBER = "NUMBER"
+
+
+class EncryptionType(StrEnum):
+    CUSTOMER_MANAGED_KMS_KEY = "CUSTOMER_MANAGED_KMS_KEY"
+    AWS_OWNED_KMS_KEY = "AWS_OWNED_KMS_KEY"
 
 
 class EventType(StrEnum):
@@ -1334,17 +1346,12 @@ class LocationAction(TypedDict, total=False):
     longitude: String
 
 
-OpenSearchAction = TypedDict(
-    "OpenSearchAction",
-    {
-        "roleArn": AwsArn,
-        "endpoint": ElasticsearchEndpoint,
-        "index": ElasticsearchIndex,
-        "type": ElasticsearchType,
-        "id": ElasticsearchId,
-    },
-    total=False,
-)
+class OpenSearchAction(TypedDict, total=False):
+    roleArn: AwsArn
+    endpoint: ElasticsearchEndpoint
+    index: ElasticsearchIndex
+    type: ElasticsearchType
+    id: ElasticsearchId
 
 
 class KafkaActionHeader(TypedDict, total=False):
@@ -1531,17 +1538,12 @@ class SalesforceAction(TypedDict, total=False):
     url: SalesforceEndpoint
 
 
-ElasticsearchAction = TypedDict(
-    "ElasticsearchAction",
-    {
-        "roleArn": AwsArn,
-        "endpoint": ElasticsearchEndpoint,
-        "index": ElasticsearchIndex,
-        "type": ElasticsearchType,
-        "id": ElasticsearchId,
-    },
-    total=False,
-)
+class ElasticsearchAction(TypedDict, total=False):
+    roleArn: AwsArn
+    endpoint: ElasticsearchEndpoint
+    index: ElasticsearchIndex
+    type: ElasticsearchType
+    id: ElasticsearchId
 
 
 class CloudwatchLogsAction(TypedDict, total=False):
@@ -2758,6 +2760,17 @@ class Configuration(TypedDict, total=False):
     Enabled: Optional[Enabled]
 
 
+class ConfigurationDetails(TypedDict, total=False):
+    """The encryption configuration details that include the status information
+    of the Amazon Web Services Key Management Service (KMS) key and the KMS
+    access role.
+    """
+
+    configurationStatus: Optional[ConfigurationStatus]
+    errorCode: Optional[ErrorCode]
+    errorMessage: Optional[ErrorMessage]
+
+
 class ConfirmTopicRuleDestinationRequest(ServiceRequest):
     confirmationToken: ConfirmationToken
 
@@ -2878,17 +2891,14 @@ class CreateCustomMetricResponse(TypedDict, total=False):
 
 
 DimensionStringValues = List[DimensionStringValue]
-CreateDimensionRequest = TypedDict(
-    "CreateDimensionRequest",
-    {
-        "name": DimensionName,
-        "type": DimensionType,
-        "stringValues": DimensionStringValues,
-        "tags": Optional[TagList],
-        "clientRequestToken": ClientRequestToken,
-    },
-    total=False,
-)
+
+
+class CreateDimensionRequest(TypedDict, total=False):
+    name: DimensionName
+    type: DimensionType
+    stringValues: DimensionStringValues
+    tags: Optional[TagList]
+    clientRequestToken: ClientRequestToken
 
 
 class CreateDimensionResponse(TypedDict, total=False):
@@ -3373,20 +3383,15 @@ class ProvisioningHook(TypedDict, total=False):
     targetArn: TargetArn
 
 
-CreateProvisioningTemplateRequest = TypedDict(
-    "CreateProvisioningTemplateRequest",
-    {
-        "templateName": TemplateName,
-        "description": Optional[TemplateDescription],
-        "templateBody": TemplateBody,
-        "enabled": Optional[Enabled],
-        "provisioningRoleArn": RoleArn,
-        "preProvisioningHook": Optional[ProvisioningHook],
-        "tags": Optional[TagList],
-        "type": Optional[TemplateType],
-    },
-    total=False,
-)
+class CreateProvisioningTemplateRequest(TypedDict, total=False):
+    templateName: TemplateName
+    description: Optional[TemplateDescription]
+    templateBody: TemplateBody
+    enabled: Optional[Enabled]
+    provisioningRoleArn: RoleArn
+    preProvisioningHook: Optional[ProvisioningHook]
+    tags: Optional[TagList]
+    type: Optional[TemplateType]
 
 
 class CreateProvisioningTemplateResponse(TypedDict, total=False):
@@ -4203,18 +4208,13 @@ class DescribeDimensionRequest(ServiceRequest):
     name: DimensionName
 
 
-DescribeDimensionResponse = TypedDict(
-    "DescribeDimensionResponse",
-    {
-        "name": Optional[DimensionName],
-        "arn": Optional[DimensionArn],
-        "type": Optional[DimensionType],
-        "stringValues": Optional[DimensionStringValues],
-        "creationDate": Optional[Timestamp],
-        "lastModifiedDate": Optional[Timestamp],
-    },
-    total=False,
-)
+class DescribeDimensionResponse(TypedDict, total=False):
+    name: Optional[DimensionName]
+    arn: Optional[DimensionArn]
+    type: Optional[DimensionType]
+    stringValues: Optional[DimensionStringValues]
+    creationDate: Optional[Timestamp]
+    lastModifiedDate: Optional[Timestamp]
 
 
 class DescribeDomainConfigurationRequest(ServiceRequest):
@@ -4247,6 +4247,18 @@ class DescribeDomainConfigurationResponse(TypedDict, total=False):
     authenticationType: Optional[AuthenticationType]
     applicationProtocol: Optional[ApplicationProtocol]
     clientCertificateConfig: Optional[ClientCertificateConfig]
+
+
+class DescribeEncryptionConfigurationRequest(ServiceRequest):
+    pass
+
+
+class DescribeEncryptionConfigurationResponse(TypedDict, total=False):
+    encryptionType: Optional[EncryptionType]
+    kmsKeyArn: Optional[KmsKeyArn]
+    kmsAccessRoleArn: Optional[KmsAccessRoleArn]
+    configurationDetails: Optional[ConfigurationDetails]
+    lastModifiedDate: Optional[DateType]
 
 
 class DescribeEndpointRequest(ServiceRequest):
@@ -4484,23 +4496,18 @@ class DescribeProvisioningTemplateRequest(ServiceRequest):
     templateName: TemplateName
 
 
-DescribeProvisioningTemplateResponse = TypedDict(
-    "DescribeProvisioningTemplateResponse",
-    {
-        "templateArn": Optional[TemplateArn],
-        "templateName": Optional[TemplateName],
-        "description": Optional[TemplateDescription],
-        "creationDate": Optional[DateType],
-        "lastModifiedDate": Optional[DateType],
-        "defaultVersionId": Optional[TemplateVersionId],
-        "templateBody": Optional[TemplateBody],
-        "enabled": Optional[Enabled],
-        "provisioningRoleArn": Optional[RoleArn],
-        "preProvisioningHook": Optional[ProvisioningHook],
-        "type": Optional[TemplateType],
-    },
-    total=False,
-)
+class DescribeProvisioningTemplateResponse(TypedDict, total=False):
+    templateArn: Optional[TemplateArn]
+    templateName: Optional[TemplateName]
+    description: Optional[TemplateDescription]
+    creationDate: Optional[DateType]
+    lastModifiedDate: Optional[DateType]
+    defaultVersionId: Optional[TemplateVersionId]
+    templateBody: Optional[TemplateBody]
+    enabled: Optional[Enabled]
+    provisioningRoleArn: Optional[RoleArn]
+    preProvisioningHook: Optional[ProvisioningHook]
+    type: Optional[TemplateType]
 
 
 class DescribeProvisioningTemplateVersionRequest(ServiceRequest):
@@ -4796,14 +4803,11 @@ class ErrorInfo(TypedDict, total=False):
     message: Optional[OTAUpdateErrorMessage]
 
 
-Field = TypedDict(
-    "Field",
-    {
-        "name": Optional[FieldName],
-        "type": Optional[FieldType],
-    },
-    total=False,
-)
+class Field(TypedDict, total=False):
+    name: Optional[FieldName]
+    type: Optional[FieldType]
+
+
 Fields = List[Field]
 
 
@@ -5992,19 +5996,16 @@ class ListProvisioningTemplatesRequest(ServiceRequest):
     nextToken: Optional[NextToken]
 
 
-ProvisioningTemplateSummary = TypedDict(
-    "ProvisioningTemplateSummary",
-    {
-        "templateArn": Optional[TemplateArn],
-        "templateName": Optional[TemplateName],
-        "description": Optional[TemplateDescription],
-        "creationDate": Optional[DateType],
-        "lastModifiedDate": Optional[DateType],
-        "enabled": Optional[Enabled],
-        "type": Optional[TemplateType],
-    },
-    total=False,
-)
+class ProvisioningTemplateSummary(TypedDict, total=False):
+    templateArn: Optional[TemplateArn]
+    templateName: Optional[TemplateName]
+    description: Optional[TemplateDescription]
+    creationDate: Optional[DateType]
+    lastModifiedDate: Optional[DateType]
+    enabled: Optional[Enabled]
+    type: Optional[TemplateType]
+
+
 ProvisioningTemplateListing = List[ProvisioningTemplateSummary]
 
 
@@ -6953,18 +6954,13 @@ class UpdateDimensionRequest(ServiceRequest):
     stringValues: DimensionStringValues
 
 
-UpdateDimensionResponse = TypedDict(
-    "UpdateDimensionResponse",
-    {
-        "name": Optional[DimensionName],
-        "arn": Optional[DimensionArn],
-        "type": Optional[DimensionType],
-        "stringValues": Optional[DimensionStringValues],
-        "creationDate": Optional[Timestamp],
-        "lastModifiedDate": Optional[Timestamp],
-    },
-    total=False,
-)
+class UpdateDimensionResponse(TypedDict, total=False):
+    name: Optional[DimensionName]
+    arn: Optional[DimensionArn]
+    type: Optional[DimensionType]
+    stringValues: Optional[DimensionStringValues]
+    creationDate: Optional[Timestamp]
+    lastModifiedDate: Optional[Timestamp]
 
 
 class UpdateDomainConfigurationRequest(ServiceRequest):
@@ -6995,6 +6991,16 @@ class UpdateDynamicThingGroupRequest(ServiceRequest):
 
 class UpdateDynamicThingGroupResponse(TypedDict, total=False):
     version: Optional[Version]
+
+
+class UpdateEncryptionConfigurationRequest(ServiceRequest):
+    encryptionType: EncryptionType
+    kmsKeyArn: Optional[KmsKeyArn]
+    kmsAccessRoleArn: Optional[KmsAccessRoleArn]
+
+
+class UpdateEncryptionConfigurationResponse(TypedDict, total=False):
+    pass
 
 
 class UpdateEventConfigurationsRequest(ServiceRequest):
@@ -8899,6 +8905,7 @@ class IotApi:
         :raises ResourceAlreadyExistsException:
         :raises ServiceUnavailableException:
         :raises ConflictingResourceUpdateException:
+        :raises UnauthorizedException:
         """
         raise NotImplementedError
 
@@ -8923,6 +8930,7 @@ class IotApi:
         :raises ResourceAlreadyExistsException:
         :raises ServiceUnavailableException:
         :raises ConflictingResourceUpdateException:
+        :raises UnauthorizedException:
         """
         raise NotImplementedError
 
@@ -10115,6 +10123,25 @@ class IotApi:
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
         :raises InvalidRequestException:
+        :raises UnauthorizedException:
+        :raises ServiceUnavailableException:
+        :raises InternalFailureException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeEncryptionConfiguration")
+    def describe_encryption_configuration(
+        self, context: RequestContext, **kwargs
+    ) -> DescribeEncryptionConfigurationResponse:
+        """Retrieves the encryption configuration for resources and data of your
+        Amazon Web Services account in Amazon Web Services IoT Core. For more
+        information, see `Key management in
+        IoT <https://docs.aws.amazon.com/iot/latest/developerguide/key-management.html>`__
+        from the *Amazon Web Services IoT Core Developer Guide*.
+
+        :returns: DescribeEncryptionConfigurationResponse
+        :raises InvalidRequestException:
+        :raises ThrottlingException:
         :raises UnauthorizedException:
         :raises ServiceUnavailableException:
         :raises InternalFailureException:
@@ -13123,6 +13150,7 @@ class IotApi:
         :raises InternalException:
         :raises InvalidRequestException:
         :raises ServiceUnavailableException:
+        :raises UnauthorizedException:
         """
         raise NotImplementedError
 
@@ -13887,14 +13915,36 @@ class IotApi:
 
         You can cancel the transfer until it is acknowledged by the recipient.
 
-        No notification is sent to the transfer destination's account. It is up
+        No notification is sent to the transfer destination's account. It's up
         to the caller to notify the transfer target.
 
-        The certificate being transferred must not be in the ACTIVE state. You
-        can use the UpdateCertificate action to deactivate it.
+        The certificate being transferred must not be in the ``ACTIVE`` state.
+        You can use the UpdateCertificate action to deactivate it.
 
         The certificate must not have any policies attached to it. You can use
         the DetachPolicy action to detach them.
+
+        **Customer managed key behavior:** When you use a customer managed key
+        to secure your data and then transfer the key to a customer in a
+        different account using the TransferCertificate operation, the
+        certificates will no longer be protected by their customer managed key
+        configuration. During the transfer process, certificates are encrypted
+        using IoT owned keys.
+
+        While a certificate is in the **PENDING_TRANSFER** state, it's always
+        protected by IoT owned keys, regardless of the customer managed key
+        configuration of either the source or destination account.
+
+        Once the transfer is completed through AcceptCertificateTransfer,
+        RejectCertificateTransfer, or CancelCertificateTransfer, the certificate
+        will be protected by the customer managed key configuration of the
+        account that owns the certificate after the transfer operation:
+
+        -  If the transfer is accepted: The certificate is protected by the
+           destination account's customer managed key configuration.
+
+        -  If the transfer is rejected or cancelled: The certificate is
+           protected by the source account's customer managed key configuration.
 
         :param certificate_id: The ID of the certificate.
         :param target_aws_account: The Amazon Web Services account.
@@ -14296,6 +14346,38 @@ class IotApi:
         :raises InternalFailureException:
         :raises ResourceNotFoundException:
         :raises InvalidQueryException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateEncryptionConfiguration")
+    def update_encryption_configuration(
+        self,
+        context: RequestContext,
+        encryption_type: EncryptionType,
+        kms_key_arn: KmsKeyArn | None = None,
+        kms_access_role_arn: KmsAccessRoleArn | None = None,
+        **kwargs,
+    ) -> UpdateEncryptionConfigurationResponse:
+        """Updates the encryption configuration. By default, all Amazon Web
+        Services IoT Core data at rest is encrypted using Amazon Web Services
+        owned keys. Amazon Web Services IoT Core also supports symmetric
+        customer managed keys from Amazon Web Services Key Management Service
+        (KMS). With customer managed keys, you create, own, and manage the KMS
+        keys in your Amazon Web Services account. For more information, see
+        `Data
+        encryption <https://docs.aws.amazon.com/iot/latest/developerguide/data-encryption.html>`__
+        in the *Amazon Web Services IoT Core Developer Guide*.
+
+        :param encryption_type: The type of the Amazon Web Services Key Management Service (KMS) key.
+        :param kms_key_arn: The ARN of the customer-managed KMS key.
+        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by Amazon Web
+        Services IoT Core to call KMS on behalf of the customer.
+        :returns: UpdateEncryptionConfigurationResponse
+        :raises InvalidRequestException:
+        :raises ThrottlingException:
+        :raises UnauthorizedException:
+        :raises ServiceUnavailableException:
+        :raises InternalFailureException:
         """
         raise NotImplementedError
 

@@ -14,7 +14,8 @@ _C='-m'
 _B=True
 _A='extensions'
 import json,os
-from typing import Iterable,List,Union
+from collections.abc import Iterable
+from typing import Union
 import click
 from click import ClickException
 from localstack.cli import console

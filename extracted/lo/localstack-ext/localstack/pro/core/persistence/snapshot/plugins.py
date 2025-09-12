@@ -33,6 +33,7 @@ def register_state_load_strategy():
 		case _:LOG.warning('Unknown load strategy %s',B)
 def do_run_state_load_all():
 	from localstack.pro.core.persistence.snapshot.api import LoadStrategy as A;B=get_load_strategy()
+	if B!=A.ON_STARTUP and config.EAGER_SERVICE_LOADING:LOG.info('Overriding LoadStrategy to ON_STARTUP due to EAGER_SERVICE_LOADING being enabled');B=A.ON_STARTUP
 	if B==A.ON_STARTUP:LOG.info('restoring state of all services on startup');get_service_state_manager().load_all()
 def register_state_save_strategy():
 	from localstack.aws.handlers import run_custom_response_handlers as C,serve_custom_service_request_handlers as D;from.api import SaveStrategy as A;from.manager import SaveOnRequestHandler as H,SaveStateScheduler as I;E=get_save_strategy();F=get_service_state_manager()

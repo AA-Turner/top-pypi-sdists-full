@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from orionis.metadata.framework import *
+from orionis.metadata.framework import NAME, VERSION, AUTHOR, AUTHOR_EMAIL, DESCRIPTION, FRAMEWORK, DOCS, CLASSIFIERS, PYTHON_REQUIRES, REQUIRES, KEYWORDS
 
 """
 Configures the packaging and distribution settings for the Orionis Framework Python project.

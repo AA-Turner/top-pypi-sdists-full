@@ -17,7 +17,7 @@ import bellows.config as config
 from bellows.exception import ControllerError, EzspError
 import bellows.ezsp as ezsp
 from bellows.ezsp.v9.commands import GetTokenDataRsp
-from bellows.ezsp.xncp import FirmwareFeatures, FlowControlType
+from bellows.ezsp.xncp import FirmwareFeatures, FlowControlType, GetChipInfoRsp
 import bellows.types
 import bellows.types as t
 import bellows.types.struct
@@ -756,7 +756,7 @@ async def test_request_concurrency_duplicate_failure(
     )
 
     await app.send_packet(packet)
-    app._concurrent_requests_semaphore.max_value = 10000
+    app._concurrent_requests_semaphore.max_concurrency = 10000
     results = await asyncio.gather(
         *(app.send_packet(packet) for _ in range(256 + 1)), return_exceptions=True
     )
@@ -1024,7 +1024,7 @@ async def test_send_packet_unicast_concurrency(app, packet, monkeypatch):
     monkeypatch.setattr(bellows.zigbee.application, "MESSAGE_SEND_TIMEOUT_MAINS", 0.5)
     monkeypatch.setattr(bellows.zigbee.application, "MESSAGE_SEND_TIMEOUT_BATTERY", 0.5)
 
-    app._concurrent_requests_semaphore.max_value = 10
+    app._concurrent_requests_semaphore.max_concurrency = 12
 
     max_concurrency = 0
     in_flight_requests = 0
@@ -1073,9 +1073,14 @@ async def test_send_packet_unicast_concurrency(app, packet, monkeypatch):
 
     app._ezsp.send_unicast = AsyncMock(side_effect=send_unicast)
 
-    responses = await asyncio.gather(*[app.send_packet(packet) for _ in range(100)])
+    responses = await asyncio.gather(
+        *[
+            app.send_packet(packet.replace(priority=zigpy_t.PacketPriority.HIGH))
+            for _ in range(100)
+        ]
+    )
     assert len(responses) == 100
-    assert max_concurrency == 10
+    assert max_concurrency == 12
     assert in_flight_requests == 0
 
 
@@ -1782,6 +1787,36 @@ async def test_startup_new_coordinator_no_groups_joined(app, ieee):
 
 
 @pytest.mark.parametrize(
+    ("concurrency_config", "chip_concurrency", "expected_concurrency"),
+    [
+        (None, 32, 32),  # Default config (None) uses chip
+        (8, 16, 16),  # Default fallback (8) uses chip
+        (16, 32, 16),  # Explicit config overrides chip
+        (12, 32, 12),  # Low explicit config overrides chip
+    ],
+)
+async def test_startup_concurrency_setting(
+    app, ieee, concurrency_config, chip_concurrency, expected_concurrency
+):
+    """Test that adapter concurrency is set correctly based on configuration."""
+    app._config[zigpy.config.CONF_MAX_CONCURRENT_REQUESTS] = concurrency_config
+
+    with mock_for_startup(app, ieee) as ezsp:
+        ezsp._xncp_features |= FirmwareFeatures.CHIP_INFO
+        ezsp.get_default_adapter_concurrency = AsyncMock(return_value=chip_concurrency)
+        ezsp.xncp_get_chip_info = AsyncMock(
+            return_value=GetChipInfoRsp(ram_size=0, part_number="")
+        )
+
+        await app.connect()
+        await app.start_network()
+
+        assert (
+            app._concurrent_requests_semaphore.max_concurrency == expected_concurrency
+        )
+
+
+@pytest.mark.parametrize(
     "scan_results",
     [
         # Normal
@@ -1959,6 +1994,7 @@ def zigpy_backup() -> zigpy.backups.NetworkBackup:
                     "flow_control": "hardware",
                     "can_burn_userdata_custom_eui64": True,
                     "can_rewrite_custom_eui64": True,
+                    "chip_info": None,
                 }
             },
         ),
@@ -1994,6 +2030,26 @@ async def test_load_network_info_xncp_flow_control(
     assert app.state.network_info == zigpy_backup.network_info
 
 
+async def test_load_network_info_chip_info(
+    app: ControllerApplication,
+    ieee: zigpy_t.EUI64,
+) -> None:
+    """Test that chip info is included in network metadata when available."""
+    app._ezsp._xncp_features |= FirmwareFeatures.CHIP_INFO
+    expected_chip_info = GetChipInfoRsp(
+        ram_size=262144, part_number="EFR32MG24A020F1536IM48"
+    )
+    app._ezsp.xncp_get_chip_info = AsyncMock(return_value=expected_chip_info)
+
+    await app.load_network_info(load_devices=True)
+
+    # Check that chip info is included in the metadata
+    assert app.state.network_info.metadata["ezsp"]["chip_info"] == {
+        "ram_size": 262144,
+        "part_number": "EFR32MG24A020F1536IM48",
+    }
+
+
 async def test_write_network_info(
     app: ControllerApplication,
     ieee: zigpy_t.EUI64,
@@ -2025,6 +2081,96 @@ async def test_write_network_info(
             )
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("node_ieee", "current_eui64", "can_rewrite", "can_burn", "confirmation_flag"),
+    [
+        (
+            zigpy_t.EUI64.UNKNOWN,
+            t.EUI64.convert("00:01:02:03:04:05:06:07"),
+            False,
+            False,
+            False,
+        ),
+        (
+            t.EUI64.convert("00:01:02:03:04:05:06:07"),
+            t.EUI64.convert("00:01:02:03:04:05:06:07"),
+            False,
+            False,
+            False,
+        ),
+        (
+            t.EUI64.convert("aa:aa:aa:aa:aa:aa:aa:aa"),
+            t.EUI64.convert("00:01:02:03:04:05:06:07"),
+            True,
+            False,
+            False,
+        ),
+        (
+            t.EUI64.convert("aa:aa:aa:aa:aa:aa:aa:aa"),
+            t.EUI64.convert("00:01:02:03:04:05:06:07"),
+            False,
+            True,
+            True,
+        ),
+    ],
+)
+async def test_can_write_network_settings(
+    app: ControllerApplication,
+    zigpy_backup: zigpy.backups.NetworkBackup,
+    node_ieee: t.EUI64,
+    current_eui64: t.EUI64,
+    can_rewrite: bool,
+    can_burn: bool,
+    confirmation_flag: bool,
+) -> None:
+    """Test `can_write_network_settings`."""
+    app._ezsp.getEui64 = AsyncMock(return_value=[current_eui64])
+    app._ezsp.can_rewrite_custom_eui64 = AsyncMock(return_value=can_rewrite)
+    app._ezsp.can_burn_userdata_custom_eui64 = AsyncMock(return_value=can_burn)
+    app._get_board_info = AsyncMock(
+        return_value=("Mock board", "Mock Manufacturer", "Mock version")
+    )
+
+    node_info = zigpy_backup.node_info.replace(ieee=node_ieee)
+    network_info = zigpy_backup.network_info
+
+    if confirmation_flag:
+        network_info = network_info.replace(
+            stack_specific={
+                "ezsp": {
+                    **network_info.stack_specific.get("ezsp", {}),
+                    "i_understand_i_can_update_eui64_only_once_and_i_still_want_to_do_it": True,
+                }
+            }
+        )
+
+    assert await app.can_write_network_settings(
+        network_info=network_info,
+        node_info=node_info,
+    )
+
+
+async def test_write_network_info_uses_write_custom_eui64(
+    app: ControllerApplication,
+    zigpy_backup: zigpy.backups.NetworkBackup,
+) -> None:
+    """Test that `write_network_info` uses `write_custom_eui64` correctly."""
+    app._ezsp.can_rewrite_custom_eui64 = AsyncMock(return_value=True)
+    app._ezsp.write_custom_eui64 = AsyncMock()
+
+    different_ieee = t.EUI64.convert("aa:aa:aa:aa:aa:aa:aa:aa")
+    node_info = zigpy_backup.node_info.replace(ieee=different_ieee)
+
+    with patch.object(app, "_reset"):
+        await app.write_network_info(
+            node_info=node_info,
+            network_info=zigpy_backup.network_info,
+        )
+
+    # Verify write_custom_eui64 was called without burn_into_userdata flag
+    assert app._ezsp.write_custom_eui64.mock_calls == [call(different_ieee)]
 
 
 async def test_network_scan(app: ControllerApplication) -> None:
@@ -2209,7 +2355,7 @@ async def test_migration_failure_eui64_overwrite_confirmation(
     # Migration explicitly fails if we need to write the EUI64 but the adapter treats it
     # as a write-once operation
     with pytest.raises(
-        zigpy.exceptions.ControllerException,
+        zigpy.exceptions.DestructiveWriteNetworkSettings,
         match=(
             "Please upgrade your adapter firmware. The adapter IEEE address needs to be"
             " replaced and firmware 'Mock version' does not support writing it multiple"
@@ -2229,7 +2375,7 @@ async def test_migration_failure_eui64_overwrite_confirmation(
         app._ezsp, "write_custom_eui64", wraps=app._ezsp.write_custom_eui64
     ), patch.object(app._ezsp, "can_burn_userdata_custom_eui64", return_value=False):
         with pytest.raises(
-            zigpy.exceptions.ControllerException,
+            zigpy.exceptions.CannotWriteNetworkSettings,
             match=(
                 "Please upgrade your adapter firmware. The adapter IEEE address has"
                 " been overwritten and firmware 'Mock version' does not support writing"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltanolabs-target-postgres
-Version: 0.4.5
+Version: 0.5.0
 Summary: Singer target for Postgres, built with the Meltano SDK for Singer Targets.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/MeltanoLabs/target-postgres
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
 Requires-Dist: paramiko<4,>=3
 Requires-Dist: psycopg2-binary==2.9.10
-Requires-Dist: psycopg[binary]==3.2.9
-Requires-Dist: singer-sdk~=0.48.0
+Requires-Dist: psycopg[binary]==3.2.10
+Requires-Dist: singer-sdk[sql]~=0.49.0
 Requires-Dist: sqlalchemy~=2.0
 Requires-Dist: sshtunnel==0.4.0
 Provides-Extra: faker
@@ -50,7 +50,7 @@ Built with the [Meltano SDK](https://sdk.meltano.com) for Singer Taps and Target
 
 ## Supported Python and PostgreSQL Versions
 
-This target is tested with all actively supported [Python](https://devguide.python.org/versions/#supported-versions) and [PostgreSQL](https://www.postgresql.org/support/versioning/) versions. At the time of writing, this includes Python 3.9 through 3.13 and PostgreSQL 12 through 17.
+This target is tested with all actively supported [Python](https://devguide.python.org/versions/#supported-versions) and [PostgreSQL](https://www.postgresql.org/support/versioning/) versions. At the time of writing, this includes Python 3.10 through 3.13 and PostgreSQL 12 through 17.
 
 ## Settings
 
@@ -183,7 +183,7 @@ tap-carbon-intensity | target-postgres --config /path/to/target-postgres-config.
 
 Prerequisites:
 
-- Python 3.9+
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 
 ```bash

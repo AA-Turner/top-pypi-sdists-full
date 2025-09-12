@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-core
-Version: 4.7.0
+Version: 4.8.0
 Summary: The core library and runtime of LocalStack
 Author-email: LocalStack Contributors <info@localstack.cloud>
 License-Expression: Apache-2.0
@@ -20,7 +20,6 @@ Requires-Dist: click>=7.1
 Requires-Dist: cachetools>=5.0
 Requires-Dist: cryptography
 Requires-Dist: dill==0.3.6
-Requires-Dist: jsonpickle==4.1.1
 Requires-Dist: dnslib>=0.9.10
 Requires-Dist: dnspython>=1.16.0
 Requires-Dist: plux>=1.10
@@ -32,8 +31,8 @@ Requires-Dist: requests>=2.20.0
 Requires-Dist: semver>=2.10
 Requires-Dist: tailer>=0.4.1
 Provides-Extra: base-runtime
-Requires-Dist: boto3==1.39.14; extra == "base-runtime"
-Requires-Dist: botocore==1.39.14; extra == "base-runtime"
+Requires-Dist: boto3==1.40.25; extra == "base-runtime"
+Requires-Dist: botocore==1.40.25; extra == "base-runtime"
 Requires-Dist: awscrt!=0.27.1,>=0.13.14; extra == "base-runtime"
 Requires-Dist: cbor2>=5.5.0; extra == "base-runtime"
 Requires-Dist: dnspython>=1.16.0; extra == "base-runtime"
@@ -51,7 +50,7 @@ Requires-Dist: xmltodict>=0.13.0; extra == "base-runtime"
 Requires-Dist: rolo>=0.7; extra == "base-runtime"
 Provides-Extra: runtime
 Requires-Dist: localstack-core[base-runtime]; extra == "runtime"
-Requires-Dist: awscli==1.41.14; extra == "runtime"
+Requires-Dist: awscli==1.42.25; extra == "runtime"
 Requires-Dist: airspeed-ext>=0.6.3; extra == "runtime"
 Requires-Dist: kclpy-ext>=3.0.0; extra == "runtime"
 Requires-Dist: antlr4-python3-runtime==4.13.2; extra == "runtime"
@@ -59,11 +58,11 @@ Requires-Dist: apispec>=5.1.1; extra == "runtime"
 Requires-Dist: aws-sam-translator>=1.15.1; extra == "runtime"
 Requires-Dist: crontab>=0.22.6; extra == "runtime"
 Requires-Dist: cryptography>=41.0.5; extra == "runtime"
-Requires-Dist: jpype1-ext>=0.0.1; extra == "runtime"
+Requires-Dist: jpype1>=1.6.0; extra == "runtime"
 Requires-Dist: json5>=0.9.11; extra == "runtime"
 Requires-Dist: jsonpath-ng>=1.6.1; extra == "runtime"
 Requires-Dist: jsonpath-rw>=1.4.0; extra == "runtime"
-Requires-Dist: moto-ext[all]==5.1.6.post2; extra == "runtime"
+Requires-Dist: moto-ext[all]==5.1.11.post1; extra == "runtime"
 Requires-Dist: opensearch-py>=2.4.1; extra == "runtime"
 Requires-Dist: pymongo>=4.2.0; extra == "runtime"
 Requires-Dist: pyopenssl>=23.0.0; extra == "runtime"

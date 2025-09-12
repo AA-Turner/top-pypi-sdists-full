@@ -8,7 +8,7 @@ class SMTP(smtplib.SMTP):
 	def login(C,user,password):
 		L='auth';G=password;F=user
 		def M(challenge,user,password):A=challenge;A=base64.decodestring(A);B=user+' '+hmac.HMAC(password,A).hexdigest();return base64_encode(B)
-		def N(user,password):return base64_encode('\x00%s\x00%s'%(user,password))
+		def N(user,password):return base64_encode(f"\x00{user}\x00{password}")
 		H='PLAIN';I='CRAM-MD5';J='LOGIN';C.ehlo_or_helo_if_needed()
 		if not C.has_extn(L):raise SMTPException('SMTP AUTH extension not supported by server.')
 		O=C.esmtp_features[L].split();P=[I,H,J];E=None

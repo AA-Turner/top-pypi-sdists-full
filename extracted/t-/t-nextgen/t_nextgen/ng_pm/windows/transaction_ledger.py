@@ -128,17 +128,22 @@ class TransactionLedgerWindow(NextGenWindow):
         """
         self.logger.debug(f"Clicking on the row at index: {index}")
         pane.set_focus()
-        self.desktop_app.mouse_click_element(pane, "left")
-        self.desktop_app.click_down_n_times(index + offset)
+        page_size = 50 if self.window.is_maximized() else 20
+        self.desktop_app.click_center_and_scroll(self.window, index + offset, page_size=page_size)
         row.double_click_input()
-        modal = self.window.child_window(
-            title="Security has been specified for this batch.  This batch of "
-            "transactions is only accessible by its specified owner."
-        )
-        if modal.exists(timeout=1, retry_interval=0.001):
-            raise LockedBatchError("Batch locked: Security has been specified for this batch!")
-        else:
-            self.desktop_app.dialog.child_window(auto_id="PaymentEntry", control_type="Window").wait("visible", 5)
+
+        try:
+            self.desktop_app.dialog.child_window(auto_id="PaymentEntry", control_type="Window").wait(
+                "visible", 5, retry_interval=0.001
+            )
+        except TimeoutError as e:
+            modal = self.window.child_window(
+                title="Security has been specified for this batch.  This batch of "
+                "transactions is only accessible by its specified owner."
+            )
+            if modal.exists(timeout=1, retry_interval=0.001):
+                raise LockedBatchError("Batch locked: Security has been specified for this batch!")
+            raise e
 
     def get_row_elements(self) -> list[ListItemWrapper]:
         """Get all row elements.

@@ -1,7 +1,7 @@
 r'''
 # `snowflake_service`
 
-Refer to the Terraform Registry for docs: [`snowflake_service`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service).
+Refer to the Terraform Registry for docs: [`snowflake_service`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Service(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.service.Service",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service snowflake_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service snowflake_service}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class Service(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service snowflake_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service snowflake_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#compute_pool Service#compute_pool}
-        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#database Service#database}
-        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#name Service#name}
-        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#schema Service#schema}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a service. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_resume Service#auto_resume}
-        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity (service is idle) after which Snowflake automatically suspends the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
-        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#comment Service#comment}
-        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
-        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification Service#from_specification}
-        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification_template Service#from_specification_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_instances: Specifies the maximum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#max_instances Service#max_instances}
-        :param min_instances: Specifies the minimum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_instances Service#min_instances}
-        :param min_ready_instances: Indicates the minimum service instances that must be ready for Snowflake to consider the service is ready to process requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
-        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#query_warehouse Service#query_warehouse}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#timeouts Service#timeouts}
+        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#compute_pool Service#compute_pool}
+        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#database Service#database}
+        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#name Service#name}
+        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#schema Service#schema}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a service. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_resume Service#auto_resume}
+        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity (service is idle) after which Snowflake automatically suspends the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
+        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#comment Service#comment}
+        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
+        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification Service#from_specification}
+        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification_template Service#from_specification_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_instances: Specifies the maximum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#max_instances Service#max_instances}
+        :param min_instances: Specifies the minimum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_instances Service#min_instances}
+        :param min_ready_instances: Indicates the minimum service instances that must be ready for Snowflake to consider the service is ready to process requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
+        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#query_warehouse Service#query_warehouse}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#timeouts Service#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class Service(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Service to import.
-        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Service to import is found.
         '''
         if __debug__:
@@ -169,10 +169,10 @@ class Service(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
-        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
-        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
-        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
+        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
+        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
+        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         value = ServiceFromSpecification(file=file, path=path, stage=stage, text=text)
 
@@ -189,11 +189,11 @@ class Service(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#using Service#using}
-        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
-        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
-        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
-        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#using Service#using}
+        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
+        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
+        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
+        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         value = ServiceFromSpecificationTemplate(
             using=using, file=file, path=path, stage=stage, text=text
@@ -211,10 +211,10 @@ class Service(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#create Service#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#delete Service#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#read Service#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#update Service#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#create Service#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#delete Service#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#read Service#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#update Service#update}.
         '''
         value = ServiceTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -626,22 +626,22 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#compute_pool Service#compute_pool}
-        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#database Service#database}
-        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#name Service#name}
-        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#schema Service#schema}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a service. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_resume Service#auto_resume}
-        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity (service is idle) after which Snowflake automatically suspends the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
-        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#comment Service#comment}
-        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
-        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification Service#from_specification}
-        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification_template Service#from_specification_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_instances: Specifies the maximum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#max_instances Service#max_instances}
-        :param min_instances: Specifies the minimum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_instances Service#min_instances}
-        :param min_ready_instances: Indicates the minimum service instances that must be ready for Snowflake to consider the service is ready to process requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
-        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#query_warehouse Service#query_warehouse}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#timeouts Service#timeouts}
+        :param compute_pool: Specifies the name of the compute pool in your account on which to run the service. Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#compute_pool Service#compute_pool}
+        :param database: The database in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#database Service#database}
+        :param name: Specifies the identifier for the service; must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#name Service#name}
+        :param schema: The schema in which to create the service. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#schema Service#schema}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a service. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_resume Service#auto_resume}
+        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity (service is idle) after which Snowflake automatically suspends the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
+        :param comment: Specifies a comment for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#comment Service#comment}
+        :param external_access_integrations: Specifies the names of the external access integrations that allow your service to access external sites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
+        :param from_specification: from_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification Service#from_specification}
+        :param from_specification_template: from_specification_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification_template Service#from_specification_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_instances: Specifies the maximum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#max_instances Service#max_instances}
+        :param min_instances: Specifies the minimum number of service instances to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_instances Service#min_instances}
+        :param min_ready_instances: Indicates the minimum service instances that must be ready for Snowflake to consider the service is ready to process requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
+        :param query_warehouse: Warehouse to use if a service container connects to Snowflake to execute a query but does not explicitly specify a warehouse to use. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#query_warehouse Service#query_warehouse}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#timeouts Service#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -791,7 +791,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Identifiers with special or lower-case characters are not supported. This limitation in the provider follows the limitation in Snowflake (see `docs <https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool>`_). Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#compute_pool Service#compute_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#compute_pool Service#compute_pool}
         '''
         result = self._values.get("compute_pool")
         assert result is not None, "Required property 'compute_pool' is missing"
@@ -803,7 +803,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#database Service#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#database Service#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -815,7 +815,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the schema in which the service is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#name Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#name Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -827,7 +827,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#schema Service#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#schema Service#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -839,7 +839,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_resume Service#auto_resume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_resume Service#auto_resume}
         '''
         result = self._values.get("auto_resume")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -848,7 +848,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_suspend_secs(self) -> typing.Optional[jsii.Number]:
         '''(Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the number of seconds of inactivity (service is idle) after which Snowflake automatically suspends the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#auto_suspend_secs Service#auto_suspend_secs}
         '''
         result = self._values.get("auto_suspend_secs")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -857,7 +857,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#comment Service#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#comment Service#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -868,7 +868,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the names of the external access integrations that allow your service to access external sites.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#external_access_integrations Service#external_access_integrations}
         '''
         result = self._values.get("external_access_integrations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -877,7 +877,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def from_specification(self) -> typing.Optional["ServiceFromSpecification"]:
         '''from_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification Service#from_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification Service#from_specification}
         '''
         result = self._values.get("from_specification")
         return typing.cast(typing.Optional["ServiceFromSpecification"], result)
@@ -888,14 +888,14 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceFromSpecificationTemplate"]:
         '''from_specification_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#from_specification_template Service#from_specification_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#from_specification_template Service#from_specification_template}
         '''
         result = self._values.get("from_specification_template")
         return typing.cast(typing.Optional["ServiceFromSpecificationTemplate"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#id Service#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#id Service#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -907,7 +907,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the maximum number of service instances to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#max_instances Service#max_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#max_instances Service#max_instances}
         '''
         result = self._values.get("max_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -916,7 +916,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the minimum number of service instances to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_instances Service#min_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_instances Service#min_instances}
         '''
         result = self._values.get("min_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -925,7 +925,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_ready_instances(self) -> typing.Optional[jsii.Number]:
         '''Indicates the minimum service instances that must be ready for Snowflake to consider the service is ready to process requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#min_ready_instances Service#min_ready_instances}
         '''
         result = self._values.get("min_ready_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -936,7 +936,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#query_warehouse Service#query_warehouse}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#query_warehouse Service#query_warehouse}
         '''
         result = self._values.get("query_warehouse")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -945,7 +945,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#timeouts Service#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#timeouts Service#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ServiceTimeouts"], result)
@@ -1255,10 +1255,10 @@ class ServiceFromSpecification:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
-        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
-        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
-        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        :param file: The file name of the service specification. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
+        :param path: The path to the service specification file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
+        :param stage: The fully qualified name of the stage containing the service specification file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
+        :param text: The embedded text of the service specification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__234162c6912411e3690e01268f7f6720bf8171c3b4f95f0f1193c446172f1316)
@@ -1280,7 +1280,7 @@ class ServiceFromSpecification:
     def file(self) -> typing.Optional[builtins.str]:
         '''The file name of the service specification. Example: ``spec.yaml``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1291,7 +1291,7 @@ class ServiceFromSpecification:
 
         When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1302,7 +1302,7 @@ class ServiceFromSpecification:
 
         At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1311,7 +1311,7 @@ class ServiceFromSpecification:
     def text(self) -> typing.Optional[builtins.str]:
         '''The embedded text of the service specification.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1467,11 +1467,11 @@ class ServiceFromSpecificationTemplate:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#using Service#using}
-        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
-        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
-        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
-        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        :param using: using block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#using Service#using}
+        :param file: The file name of the service specification template. Example: ``spec.yaml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
+        :param path: The path to the service specification template file on the given stage. When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
+        :param stage: The fully qualified name of the stage containing the service specification template file. At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
+        :param text: The embedded text of the service specification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de1e3c19cd8a4201167e510d062a44c0fab900e3089bdad644a11ceff51f5a9d)
@@ -1498,7 +1498,7 @@ class ServiceFromSpecificationTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFromSpecificationTemplateUsing"]]:
         '''using block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#using Service#using}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#using Service#using}
         '''
         result = self._values.get("using")
         assert result is not None, "Required property 'using' is missing"
@@ -1508,7 +1508,7 @@ class ServiceFromSpecificationTemplate:
     def file(self) -> typing.Optional[builtins.str]:
         '''The file name of the service specification template. Example: ``spec.yaml``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#file Service#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#file Service#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1519,7 +1519,7 @@ class ServiceFromSpecificationTemplate:
 
         When the path is specified, the ``/`` character is automatically added as a path prefix. Example: ``path/to/spec``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#path Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#path Service#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1530,7 +1530,7 @@ class ServiceFromSpecificationTemplate:
 
         At symbol (``@``) is added automatically. Example: ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<stage_name>\\""``. For more information about this resource, see `docs <./stage>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#stage Service#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#stage Service#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1539,7 +1539,7 @@ class ServiceFromSpecificationTemplate:
     def text(self) -> typing.Optional[builtins.str]:
         '''The embedded text of the service specification template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#text Service#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#text Service#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1709,8 +1709,8 @@ class ServiceFromSpecificationTemplateOutputReference(
 class ServiceFromSpecificationTemplateUsing:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: The name of the template variable. The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#key Service#key}
-        :param value: The value to assign to the variable in the template. The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#value Service#value}
+        :param key: The name of the template variable. The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#key Service#key}
+        :param value: The value to assign to the variable in the template. The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#value Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a74dacf7c1eb23320456c1e0b51a4f3fcf2472193e821b5aad0508e9e1c4ada)
@@ -1727,7 +1727,7 @@ class ServiceFromSpecificationTemplateUsing:
 
         The provider wraps it in double quotes by default, so be aware of that while referencing the argument in the spec definition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#key Service#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#key Service#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1739,7 +1739,7 @@ class ServiceFromSpecificationTemplateUsing:
 
         The provider wraps it in ``$$`` by default, so be aware of that while referencing the argument in the spec definition. The value must either be alphanumeric or valid JSON.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#value Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#value Service#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -2221,10 +2221,10 @@ class ServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#create Service#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#delete Service#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#read Service#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#update Service#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#create Service#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#delete Service#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#read Service#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#update Service#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8700df35aebef680e60177be7b92d7b372d9d5579264ed7e4932bed52a1791c)
@@ -2244,25 +2244,25 @@ class ServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#create Service#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#create Service#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#delete Service#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#delete Service#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#read Service#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#read Service#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/service#update Service#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/service#update Service#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

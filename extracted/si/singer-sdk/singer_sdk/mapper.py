@@ -14,7 +14,6 @@ import hashlib
 import importlib.util
 import json
 import logging
-import sys
 import typing as t
 
 import simpleeval  # type: ignore[import-untyped]
@@ -23,22 +22,15 @@ import singer_sdk.typing as th
 from singer_sdk.exceptions import MapExpressionError, StreamMapConfigError
 from singer_sdk.helpers._catalog import get_selected_schema
 from singer_sdk.helpers._flattening import (
-    FlatteningOptions,
     flatten_record,
     flatten_schema,
     get_flattening_options,
 )
 
 if t.TYPE_CHECKING:
-    import sys
-
     from faker import Faker
 
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias  # noqa: ICN003
-    else:
-        from typing_extensions import TypeAlias
-
+    from singer_sdk.helpers._flattening import FlatteningOptions
     from singer_sdk.singerlib.catalog import Catalog
 
 
@@ -74,7 +66,7 @@ def sha256(string: str) -> str:
     return hashlib.sha256(string.encode("utf-8")).hexdigest()
 
 
-StreamMapsDict: TypeAlias = dict[str, t.Union[str, dict, None]]
+StreamMapsDict: t.TypeAlias = dict[str, str | dict | None]
 
 
 class StreamMap(metaclass=abc.ABCMeta):
@@ -406,7 +398,7 @@ class CustomStreamMap(StreamMap):
             return th.CustomType(self.raw_schema)
 
         if expr.startswith("float("):
-            return th.NumberType()
+            return th.DecimalType()
 
         if expr.startswith("int("):
             return th.IntegerType()

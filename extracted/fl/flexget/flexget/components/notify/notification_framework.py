@@ -7,7 +7,9 @@ A plugin who wishes to send messages using this notification framework should im
 
     from flexget import plugin
 
-    send_notification = plugin.get_plugin_by_name('notification_framework').instance.send_notification
+    send_notification = plugin.get_plugin_by_name(
+        'notification_framework'
+    ).instance.send_notification
     send_notification('the title', 'the message', the_notifiers)
 
 Delivering Messages

@@ -1,29 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: energyzero
-Version: 2.1.1
+Version: 3.0.0
 Summary: Asynchronous Python client providing energy/gas prices from EnergyZero
-Home-page: https://github.com/klaasnicolaas/python-energyzero
 License: MIT
 Keywords: energy,energyzero,gas,prices,api,async,client
 Author: Klaas Schoute
-Author-email: hello@student-techlife.com
+Author-email: <hello@student-techlife.com>
 Maintainer: Klaas Schoute
-Maintainer-email: hello@student-techlife.com
-Requires-Python: >=3.11,<4.0
+Maintainer-email: <hello@student-techlife.com>
+Requires-Python: >=3.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: aiohttp (>=3.0.0)
 Requires-Dist: yarl (>=1.6.0)
 Project-URL: Bug Tracker, https://github.com/klaasnicolaas/python-energyzero/issues
 Project-URL: Changelog, https://github.com/klaasnicolaas/python-energyzero/releases
 Project-URL: Documentation, https://github.com/klaasnicolaas/python-energyzero
+Project-URL: Homepage, https://github.com/klaasnicolaas/python-energyzero
 Project-URL: Repository, https://github.com/klaasnicolaas/python-energyzero
 Description-Content-Type: text/markdown
 
@@ -42,11 +43,8 @@ Description-Content-Type: text/markdown
 [![GitHub Last Commit][last-commit-shield]][commits-url]
 [![Open in Dev Containers][devcontainer-shield]][devcontainer]
 
-[![Code Quality][code-quality-shield]][code-quality]
 [![Build Status][build-shield]][build-url]
 [![Typing Status][typing-shield]][typing-url]
-
-[![Maintainability][maintainability-shield]][maintainability-url]
 [![Code Coverage][codecov-shield]][codecov-url]
 
 Asynchronous Python client for the EnergyZero API.
@@ -68,77 +66,170 @@ A python package with which you can retrieve the dynamic energy/gas prices from 
 pip install energyzero
 ```
 
-## Data
-
-**note**: Currently only tested for day/tomorrow prices
-
-You can read the following datasets with this package:
-
-### Electricity prices
-
-The energy prices are different every hour, after 15:00 (more usually already at 14:00) the prices for the next day are published and it is therefore possible to retrieve these data.
-
-- Current/Next[x] hour electricity market price (float)
-- Average electricity price (float)
-- Lowest energy price (float)
-- Highest energy price (float)
-- Time of highest price (datetime)
-- Time of lowest price (datetime)
-- Percentage of the current price compared to the maximum price
-- Number of hours with the current price or lower (int)
-
-### Gas prices
-
-The gas prices do not change per hour, but are fixed for 24 hours. Which means that from 06:00 in the morning the new rate for that day will be used.
-
-- Current/Next[x] hour gas market price (float)
-- Average gas price (float)
-- Lowest gas price (float)
-- Highest gas price (float)
-
 ## Example
 
 ```python
 import asyncio
 
 from datetime import date
-from energyzero import EnergyZero, VatOption
+from energyzero import EnergyZero
 
 
 async def main() -> None:
     """Show example on fetching the energy prices from EnergyZero."""
-    async with EnergyZero(vat=VatOption.INCLUDE) as client:
+    async with EnergyZero() as client:
         start_date = date(2022, 12, 7)
         end_date = date(2022, 12, 7)
 
-        energy = await client.energy_prices(start_date, end_date)
-        gas = await client.gas_prices(start_date, end_date)
+        energy = await client.get_electricity_prices(start_date, end_date)
+        gas = await client.get_gas_prices(start_date, end_date)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Class Parameters
+More examples can be found in the [examples folder](./examples/).
 
-| Parameter | value Type | Description |
-| :-------- | :--------- | :---------- |
-| `vat` | enum (default: **VatOption.INCLUDE**) | Include or exclude VAT on class level |
+## Data
 
-### Function Parameters
+> **Note:** Currently tested primarily with day-ahead pricing (today/tomorrow).
 
-| Parameter | value Type | Description |
-| :-------- | :--------- | :---------- |
-| `start_date` | datetime | The start date of the selected period |
-| `end_date` | datetime | The end date of the selected period |
-| `interval` | integer (default: **4**) | The interval of data return (**day**, **week**, **month**, **year**) |
-| `vat` | enum (default: class value) | Include or exclude VAT (**VatOption.INCLUDE** or **VatOption.EXCLUDE**) |
+You can retrieve both electricity and gas pricing data using this package. Each data type supports a set of common fields, with some additional properties depending on whether you use the **GraphQL** or **legacy REST** endpoint.
 
-**Interval**
-4: Dag
-5: Maand
-6: Jaar
-9: Week
+## ⚡ Electricity Prices
+
+Electricity prices change **every hour**. Prices for the next day are typically published between **14:00–15:00**.
+
+### Common fields (`Electricity` and `EnergyPrices`)
+
+- `current_price` — Current electricity price for the current hour or time range
+- `average_price` — Average price over the selected period
+- `extreme_prices` — Tuple of `(min_price, max_price)`
+- `pct_of_max_price` — Current price as a percentage of the maximum
+- `price_at_time(moment)` — Get price for a specific `datetime`
+- `timestamp_prices` — List of hourly price entries:
+  - REST: `{"timestamp": datetime, "price": float}`
+  - GraphQL: `{"timerange": TimeRange, "price": float}`
+
+### GraphQL-only (`get_electricity_prices()`)
+
+- `highest_price_time_range` — `TimeRange` where the price is highest
+- `lowest_price_time_range` — `TimeRange` where the price is lowest
+- `time_ranges_priced_equal_or_lower` — Count of hours where the price is less than or equal to the current
+
+### REST-only (`get_electricity_prices_legacy()`)
+
+- `highest_price_time` — Timestamp of the highest hourly price
+- `lowest_price_time` — Timestamp of the lowest hourly price
+- `hours_priced_equal_or_lower` — Count of hours with a price ≤ current price
+
+## 🔥 Gas Prices
+
+Gas prices are **fixed for 24 hours**, and a new daily rate applies starting at **06:00** each morning.
+
+### Common fields (`Gas` and `EnergyPrices`)
+
+- `current_price` — Current gas price for today
+- `average_price` — Average gas price over the selected period
+- `extreme_prices` — Tuple of `(min_price, max_price)`
+- `price_at_time(moment)` — Get price for a specific `datetime`
+- `timestamp_prices` — List of daily price entries:
+  - REST: `{"timestamp": datetime, "price": float}`
+  - GraphQL: `{"timerange": TimeRange, "price": float}`
+
+### GraphQL-only (`get_gas_prices()`)
+
+- `highest_price_time_range` — Time range with the highest daily price
+- `lowest_price_time_range` — Time range with the lowest daily price
+- `pct_of_max_price` — Current price as a percentage of the maximum
+- `time_ranges_priced_equal_or_lower` — Count of days with a price ≤ current price
+
+## Modern GraphQL Methods
+
+### `get_electricity_prices()`
+
+| Parameter    | Type        | Description                                    |
+|--------------|-------------|------------------------------------------------|
+| `start_date` | `date`      | Start of the period (local timezone).          |
+| `end_date`   | `date`      | End of the period (local timezone).            |
+| `price_type` | `PriceType` | Type of price to return: `ALL_IN` or `MARKET`. |
+
+---
+
+### `get_gas_prices()`
+
+| Parameter    | Type        | Description                                    |
+|--------------|-------------|------------------------------------------------|
+| `start_date` | `date`      | Start of the period (local timezone).          |
+| `end_date`   | `date`      | End of the period (local timezone).            |
+| `price_type` | `PriceType` | Type of price to return: `ALL_IN` or `MARKET`. |
+
+---
+
+## Legacy REST Methods
+
+### `get_electricity_prices_legacy()`
+
+| Parameter    | Type                | Description                                          |
+|--------------|---------------------|------------------------------------------------------|
+| `start_date` | `date`              | Start of the period (local timezone).                |
+| `end_date`   | `date`              | End of the period (local timezone).                  |
+| `interval`   | `Interval`          | Data interval (see `Interval` enum values).           |
+| `vat`        | `VatOption \| None` | VAT inclusion (included by default). |
+
+---
+
+### `get_gas_prices_legacy()`
+
+| Parameter    | Type                | Description                                          |
+|--------------|---------------------|------------------------------------------------------|
+| `start_date` | `date`              | Start of the period (local timezone).                |
+| `end_date`   | `date`              | End of the period (local timezone).                  |
+| `interval`   | `Interval`          | Data interval (see `Interval` enum values).           |
+| `vat`        | `VatOption \| None` | VAT inclusion (included by default). |
+
+## Enum Options
+
+### `VatOption`
+
+Defines whether prices returned by legacy methods should include VAT.
+
+| Value          | Description                     |
+|----------------|---------------------------------|
+| `INCLUDE`      | Return prices **including VAT** |
+| `EXCLUDE`      | Return prices **excluding VAT** |
+
+Used in: `get_electricity_prices_legacy`, `get_gas_prices_legacy`
+> 📝 Ignored in GraphQL methods (`get_electricity_prices`, `get_gas_prices`)
+
+---
+
+### `PriceType`
+
+Specifies the type of prices returned by GraphQL methods.
+
+| Value       | Description                                                          |
+|-------------|----------------------------------------------------------------------|
+| `MARKET`    | Raw wholesale market price (excludes tax, VAT, and purchasing costs) |
+| `ALL_IN`    | Final consumer price (includes energy tax, VAT, and purchase fees)   |
+
+Used in: `get_electricity_prices`, `get_gas_prices`
+
+---
+
+### `Interval`
+
+Specifies the interval for prices returned by the legacy methods.
+
+| Value        | Description    |
+|--------------|----------------|
+| `DAY = 4`    | Daily prices   |
+| `MONTH = 5`  | Monthly prices |
+| `YEAR = 6`   | Yearly prices  |
+| `WEEK = 9`   | Weekly prices  |
+
+Used in: `get_electricity_prices_legacy`, `get_gas_prices_legacy`
 
 ## Contributing
 
@@ -166,37 +257,35 @@ You need at least:
 - Python 3.11+
 - [Poetry][poetry-install]
 
+### Installation
+
 Install all packages, including all development requirements:
 
 ```bash
 poetry install
 ```
 
-Poetry creates by default an virtual environment where it installs all
-necessary pip packages, to enter or exit the venv run the following commands:
+_Poetry creates by default an virtual environment where it installs all
+necessary pip packages_.
+
+### Pre-commit
+
+This repository uses the [pre-commit][pre-commit] framework, all changes
+are linted and tested with each commit. To setup the pre-commit check, run:
 
 ```bash
-poetry shell
-exit
+poetry run pre-commit install
 ```
 
-Setup the pre-commit check, you must run this inside the virtual environment:
-
-```bash
-pre-commit install
-```
-
-*Now you're all set to get started!*
-
-As this repository uses the [pre-commit][pre-commit] framework, all changes
-are linted and tested with each commit. You can run all checks and tests
-manually, using the following command:
+And to run all checks and tests manually, use the following command:
 
 ```bash
 poetry run pre-commit run --all-files
 ```
 
-To run just the Python tests:
+### Testing
+
+It uses [pytest](https://docs.pytest.org/en/stable/) as the test framework. To run the tests:
 
 ```bash
 poetry run pytest
@@ -212,7 +301,7 @@ poetry run pytest --snapshot-update
 
 MIT License
 
-Copyright (c) 2022-2024 Klaas Schoute
+Copyright (c) 2022-2025 Klaas Schoute
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -237,8 +326,6 @@ SOFTWARE.
 <!-- MARKDOWN LINKS & IMAGES -->
 [build-shield]: https://github.com/klaasnicolaas/python-energyzero/actions/workflows/tests.yaml/badge.svg
 [build-url]: https://github.com/klaasnicolaas/python-energyzero/actions/workflows/tests.yaml
-[code-quality-shield]: https://github.com/klaasnicolaas/python-energyzero/actions/workflows/codeql.yaml/badge.svg
-[code-quality]: https://github.com/klaasnicolaas/python-energyzero/actions/workflows/codeql.yaml
 [commits-shield]: https://img.shields.io/github/commit-activity/y/klaasnicolaas/python-energyzero.svg
 [commits-url]: https://github.com/klaasnicolaas/python-energyzero/commits/main
 [codecov-shield]: https://codecov.io/gh/klaasnicolaas/python-energyzero/branch/main/graph/badge.svg?token=29Y5JL4356
@@ -249,9 +336,7 @@ SOFTWARE.
 [downloads-url]: https://pypistats.org/packages/energyzero
 [license-shield]: https://img.shields.io/github/license/klaasnicolaas/python-energyzero.svg
 [last-commit-shield]: https://img.shields.io/github/last-commit/klaasnicolaas/python-energyzero.svg
-[maintenance-shield]: https://img.shields.io/maintenance/yes/2024.svg
-[maintainability-shield]: https://api.codeclimate.com/v1/badges/615e7a78f1a6191d4731/maintainability
-[maintainability-url]: https://codeclimate.com/github/klaasnicolaas/python-energyzero/maintainability
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2025.svg
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-production%20ready-brightgreen.svg
 [pypi]: https://pypi.org/project/energyzero/
 [python-versions-shield]: https://img.shields.io/pypi/pyversions/energyzero

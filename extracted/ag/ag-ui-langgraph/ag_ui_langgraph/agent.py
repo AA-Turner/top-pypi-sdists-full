@@ -1,8 +1,6 @@
 import uuid
 import json
 from typing import Optional, List, Any, Union, AsyncGenerator, Generator
-from dataclasses import is_dataclass, asdict
-from datetime import date, datetime
 
 from langgraph.graph.state import CompiledStateGraph
 from langchain.schema import BaseMessage, SystemMessage
@@ -29,7 +27,9 @@ from .utils import (
     langchain_messages_to_agui,
     resolve_reasoning_content,
     resolve_message_content,
-    camel_to_snake
+    camel_to_snake,
+    json_safe_stringify,
+    make_json_safe
 )
 
 from ag_ui.core import (
@@ -90,7 +90,12 @@ class LangGraphAgent:
         self.active_step = None
 
     def _dispatch_event(self, event: ProcessedEvents) -> str:
-        return event  # Fallback if no encoder
+        if event.type == EventType.RAW:
+            event.event = make_json_safe(event.event)
+        elif event.raw_event:
+            event.raw_event = make_json_safe(event.raw_event)
+
+        return event
 
     async def run(self, input: RunAgentInput) -> AsyncGenerator[str, None]:
         forwarded_props = {}
@@ -224,7 +229,7 @@ class LangGraphAgent:
                 CustomEvent(
                     type=EventType.CUSTOM,
                     name=LangGraphEventTypes.OnInterrupt.value,
-                    value=json.dumps(interrupt.value, default=make_json_safe) if not isinstance(interrupt.value, str) else interrupt.value,
+                    value=json.dumps(interrupt.value, default=json_safe_stringify) if not isinstance(interrupt.value, str) else interrupt.value,
                     raw_event=interrupt,
                 )
             )
@@ -257,14 +262,13 @@ class LangGraphAgent:
     async def prepare_stream(self, input: RunAgentInput, agent_state: State, config: RunnableConfig):
         state_input = input.state or {}
         messages = input.messages or []
-        tools = input.tools or []
         forwarded_props = input.forwarded_props or {}
         thread_id = input.thread_id
 
         state_input["messages"] = agent_state.values.get("messages", [])
         self.active_run["current_graph_state"] = agent_state.values.copy()
         langchain_messages = agui_messages_to_langchain(messages)
-        state = self.langgraph_default_merge_state(state_input, langchain_messages, tools)
+        state = self.langgraph_default_merge_state(state_input, langchain_messages, input)
         self.active_run["current_graph_state"].update(state)
         config["configurable"]["thread_id"] = thread_id
         interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and len(agent_state.tasks) > 0 else []
@@ -363,7 +367,7 @@ class LangGraphAgent:
             as_node=time_travel_checkpoint.next[0] if time_travel_checkpoint.next else "__start__"
         )
 
-        stream_input = self.langgraph_default_merge_state(time_travel_checkpoint.values, [message_checkpoint], tools)
+        stream_input = self.langgraph_default_merge_state(time_travel_checkpoint.values, [message_checkpoint], input)
         subgraphs_stream_enabled = input.forwarded_props.get('stream_subgraphs') if input.forwarded_props else False
         stream = self.graph.astream_events(
             stream_input,
@@ -410,7 +414,7 @@ class LangGraphAgent:
                 "config": [],
             }
 
-    def langgraph_default_merge_state(self, state: State, messages: List[BaseMessage], tools: Any) -> State:
+    def langgraph_default_merge_state(self, state: State, messages: List[BaseMessage], input: RunAgentInput) -> State:
         if messages and isinstance(messages[0], SystemMessage):
             messages = messages[1:]
 
@@ -419,6 +423,7 @@ class LangGraphAgent:
 
         new_messages = [msg for msg in messages if msg.id not in existing_message_ids]
 
+        tools = input.tools or []
         tools_as_dicts = []
         if tools:
             for tool in tools:
@@ -433,6 +438,10 @@ class LangGraphAgent:
             **state,
             "messages": new_messages,
             "tools": [*state.get("tools", []), *tools_as_dicts],
+            "ag-ui": {
+                "tools": [*state.get("tools", []), *tools_as_dicts],
+                "context": input.context or []
+            }
         }
 
     def get_state_snapshot(self, state: State) -> State:
@@ -735,16 +744,3 @@ class LangGraphAgent:
         self.active_run["node_name"] = None
         self.active_step = None
         return dispatch
-
-def make_json_safe(o):
-    if is_dataclass(o):          # dataclasses like Flight(...)
-        return asdict(o)
-    if hasattr(o, "model_dump"): # pydantic v2
-        return o.model_dump()
-    if hasattr(o, "dict"):       # pydantic v1
-        return o.dict()
-    if hasattr(o, "__dict__"):   # plain objects
-        return vars(o)
-    if isinstance(o, (datetime, date)):
-        return o.isoformat()
-    return str(o)                # last resort

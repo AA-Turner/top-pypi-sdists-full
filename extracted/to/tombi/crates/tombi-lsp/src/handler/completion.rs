@@ -209,6 +209,10 @@ pub async fn handle_completion(
         completion_items.extend(items);
     }
 
+    if comment_context.is_some() {
+        completion_items.retain(|item| item.in_comment);
+    }
+
     Ok(Some(completion_items))
 }
 

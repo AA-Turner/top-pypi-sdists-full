@@ -60,6 +60,7 @@ Isp = str
 IspName = str
 JobId = str
 ListRecommendationFilterValue = str
+ListTenantResourcesFilterValue = str
 MailFromDomainName = str
 Max24HourSend = float
 MaxItems = int
@@ -92,15 +93,20 @@ Region = str
 RenderedEmailTemplate = str
 ReportId = str
 ReportName = str
+ReputationEntityFilterValue = str
+ReputationEntityReference = str
 S3Url = str
 Selector = str
 SendingPoolName = str
 SentLast24Hours = float
+StatusCause = str
 Subject = str
 SuccessRedirectionURL = str
 TagKey = str
 TagValue = str
 TemplateContent = str
+TenantId = str
+TenantName = str
 TopicName = str
 UnsubscribeAll = bool
 UseCaseDescription = str
@@ -291,6 +297,10 @@ class ListRecommendationsFilterKey(StrEnum):
     RESOURCE_ARN = "RESOURCE_ARN"
 
 
+class ListTenantResourcesFilterKey(StrEnum):
+    RESOURCE_TYPE = "RESOURCE_TYPE"
+
+
 class MailFromDomainStatus(StrEnum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
@@ -352,6 +362,26 @@ class RecommendationType(StrEnum):
     SPF = "SPF"
     BIMI = "BIMI"
     COMPLAINT = "COMPLAINT"
+    BOUNCE = "BOUNCE"
+    FEEDBACK_3P = "FEEDBACK_3P"
+    IP_LISTING = "IP_LISTING"
+
+
+class ReputationEntityFilterKey(StrEnum):
+    ENTITY_TYPE = "ENTITY_TYPE"
+    REPUTATION_IMPACT = "REPUTATION_IMPACT"
+    SENDING_STATUS = "SENDING_STATUS"
+    ENTITY_REFERENCE_PREFIX = "ENTITY_REFERENCE_PREFIX"
+
+
+class ReputationEntityType(StrEnum):
+    RESOURCE = "RESOURCE"
+
+
+class ResourceType(StrEnum):
+    EMAIL_IDENTITY = "EMAIL_IDENTITY"
+    CONFIGURATION_SET = "CONFIGURATION_SET"
+    EMAIL_TEMPLATE = "EMAIL_TEMPLATE"
 
 
 class ReviewStatus(StrEnum):
@@ -364,6 +394,12 @@ class ReviewStatus(StrEnum):
 class ScalingMode(StrEnum):
     STANDARD = "STANDARD"
     MANAGED = "MANAGED"
+
+
+class SendingStatus(StrEnum):
+    ENABLED = "ENABLED"
+    REINSTATED = "REINSTATED"
+    DISABLED = "DISABLED"
 
 
 class Status(StrEnum):
@@ -1509,6 +1545,52 @@ class CreateMultiRegionEndpointResponse(TypedDict, total=False):
     EndpointId: Optional[EndpointId]
 
 
+class CreateTenantRequest(ServiceRequest):
+    """Represents a request to create a tenant.
+
+    *Tenants* are logical containers that group related SES resources
+    together. Each tenant can have its own set of resources like email
+    identities, configuration sets, and templates, along with reputation
+    metrics and sending status. This helps isolate and manage email sending
+    for different customers or business units within your Amazon SES API v2
+    account.
+    """
+
+    TenantName: TenantName
+    Tags: Optional[TagList]
+
+
+class CreateTenantResourceAssociationRequest(ServiceRequest):
+    """Represents a request to associate a resource with a tenant.
+
+    Resources can be email identities, configuration sets, or email
+    templates. When you associate a resource with a tenant, you can use that
+    resource when sending emails on behalf of that tenant.
+    """
+
+    TenantName: TenantName
+    ResourceArn: AmazonResourceName
+
+
+class CreateTenantResourceAssociationResponse(TypedDict, total=False):
+    """If the action is successful, the service sends back an HTTP 200 response
+    with an empty HTTP body.
+    """
+
+    pass
+
+
+class CreateTenantResponse(TypedDict, total=False):
+    """Information about a newly created tenant."""
+
+    TenantName: Optional[TenantName]
+    TenantId: Optional[TenantId]
+    TenantArn: Optional[AmazonResourceName]
+    CreatedTimestamp: Optional[Timestamp]
+    Tags: Optional[TagList]
+    SendingStatus: Optional[SendingStatus]
+
+
 class CustomVerificationEmailTemplateMetadata(TypedDict, total=False):
     """Contains information about a custom verification email template."""
 
@@ -1754,6 +1836,37 @@ class DeleteSuppressedDestinationRequest(ServiceRequest):
 class DeleteSuppressedDestinationResponse(TypedDict, total=False):
     """An HTTP 200 response if the request succeeds, or an error message if the
     request fails.
+    """
+
+    pass
+
+
+class DeleteTenantRequest(ServiceRequest):
+    """Represents a request to delete a tenant."""
+
+    TenantName: TenantName
+
+
+class DeleteTenantResourceAssociationRequest(ServiceRequest):
+    """Represents a request to delete an association between a tenant and a
+    resource.
+    """
+
+    TenantName: TenantName
+    ResourceArn: AmazonResourceName
+
+
+class DeleteTenantResourceAssociationResponse(TypedDict, total=False):
+    """If the action is successful, the service sends back an HTTP 200 response
+    with an empty HTTP body.
+    """
+
+    pass
+
+
+class DeleteTenantResponse(TypedDict, total=False):
+    """If the action is successful, the service sends back an HTTP 200 response
+    with an empty HTTP body.
     """
 
     pass
@@ -2409,6 +2522,45 @@ class GetMultiRegionEndpointResponse(TypedDict, total=False):
     LastUpdatedTimestamp: Optional[Timestamp]
 
 
+class GetReputationEntityRequest(ServiceRequest):
+    """Represents a request to retrieve information about a specific reputation
+    entity.
+    """
+
+    ReputationEntityReference: ReputationEntityReference
+    ReputationEntityType: ReputationEntityType
+
+
+class StatusRecord(TypedDict, total=False):
+    """An object that contains status information for a reputation entity,
+    including the current status, cause description, and timestamp.
+    """
+
+    Status: Optional[SendingStatus]
+    Cause: Optional[StatusCause]
+    LastUpdatedTimestamp: Optional[Timestamp]
+
+
+class ReputationEntity(TypedDict, total=False):
+    """An object that contains information about a reputation entity, including
+    its reference, type, policy, status records, and reputation impact.
+    """
+
+    ReputationEntityReference: Optional[ReputationEntityReference]
+    ReputationEntityType: Optional[ReputationEntityType]
+    ReputationManagementPolicy: Optional[AmazonResourceName]
+    CustomerManagedStatus: Optional[StatusRecord]
+    AwsSesManagedStatus: Optional[StatusRecord]
+    SendingStatusAggregate: Optional[SendingStatus]
+    ReputationImpact: Optional[RecommendationImpact]
+
+
+class GetReputationEntityResponse(TypedDict, total=False):
+    """Information about the requested reputation entity."""
+
+    ReputationEntity: Optional[ReputationEntity]
+
+
 class GetSuppressedDestinationRequest(ServiceRequest):
     """A request to retrieve information about an email address that's on the
     suppression list for your account.
@@ -2441,6 +2593,29 @@ class GetSuppressedDestinationResponse(TypedDict, total=False):
     """Information about the suppressed email address."""
 
     SuppressedDestination: SuppressedDestination
+
+
+class GetTenantRequest(ServiceRequest):
+    """Represents a request to get information about a specific tenant."""
+
+    TenantName: TenantName
+
+
+class Tenant(TypedDict, total=False):
+    """A structure that contains details about a tenant."""
+
+    TenantName: Optional[TenantName]
+    TenantId: Optional[TenantId]
+    TenantArn: Optional[AmazonResourceName]
+    CreatedTimestamp: Optional[Timestamp]
+    Tags: Optional[TagList]
+    SendingStatus: Optional[SendingStatus]
+
+
+class GetTenantResponse(TypedDict, total=False):
+    """Information about a specific tenant."""
+
+    Tenant: Optional[Tenant]
 
 
 class IdentityInfo(TypedDict, total=False):
@@ -2762,6 +2937,60 @@ class ListRecommendationsResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+ReputationEntityFilter = Dict[ReputationEntityFilterKey, ReputationEntityFilterValue]
+
+
+class ListReputationEntitiesRequest(ServiceRequest):
+    """Represents a request to list reputation entities with optional
+    filtering.
+    """
+
+    Filter: Optional[ReputationEntityFilter]
+    NextToken: Optional[NextToken]
+    PageSize: Optional[MaxItems]
+
+
+ReputationEntitiesList = List[ReputationEntity]
+
+
+class ListReputationEntitiesResponse(TypedDict, total=False):
+    """A list of reputation entities in your account."""
+
+    ReputationEntities: Optional[ReputationEntitiesList]
+    NextToken: Optional[NextToken]
+
+
+class ListResourceTenantsRequest(ServiceRequest):
+    """Represents a request to list tenants associated with a specific
+    resource.
+    """
+
+    ResourceArn: AmazonResourceName
+    PageSize: Optional[MaxItems]
+    NextToken: Optional[NextToken]
+
+
+class ResourceTenantMetadata(TypedDict, total=False):
+    """A structure that contains information about a tenant associated with a
+    resource.
+    """
+
+    TenantName: Optional[TenantName]
+    TenantId: Optional[TenantId]
+    ResourceArn: Optional[AmazonResourceName]
+    AssociatedTimestamp: Optional[Timestamp]
+
+
+ResourceTenantMetadataList = List[ResourceTenantMetadata]
+
+
+class ListResourceTenantsResponse(TypedDict, total=False):
+    """Information about tenants associated with a specific resource."""
+
+    ResourceTenants: Optional[ResourceTenantMetadataList]
+    NextToken: Optional[NextToken]
+
+
 class ListSuppressedDestinationsRequest(ServiceRequest):
     """A request to obtain a list of email destinations that are on the
     suppression list for your account.
@@ -2798,6 +3027,67 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 class ListTagsForResourceResponse(TypedDict, total=False):
     Tags: TagList
+
+
+ListTenantResourcesFilter = Dict[ListTenantResourcesFilterKey, ListTenantResourcesFilterValue]
+
+
+class ListTenantResourcesRequest(ServiceRequest):
+    """Represents a request to list resources associated with a specific
+    tenant.
+    """
+
+    TenantName: TenantName
+    Filter: Optional[ListTenantResourcesFilter]
+    PageSize: Optional[MaxItems]
+    NextToken: Optional[NextToken]
+
+
+class TenantResource(TypedDict, total=False):
+    """A structure that contains information about a resource associated with a
+    tenant.
+    """
+
+    ResourceType: Optional[ResourceType]
+    ResourceArn: Optional[AmazonResourceName]
+
+
+TenantResourceList = List[TenantResource]
+
+
+class ListTenantResourcesResponse(TypedDict, total=False):
+    """Information about resources associated with a specific tenant."""
+
+    TenantResources: Optional[TenantResourceList]
+    NextToken: Optional[NextToken]
+
+
+class ListTenantsRequest(ServiceRequest):
+    """Represents a request to list all tenants associated with your account in
+    the current Amazon Web Services Region.
+    """
+
+    NextToken: Optional[NextToken]
+    PageSize: Optional[MaxItems]
+
+
+class TenantInfo(TypedDict, total=False):
+    """A structure that contains basic information about a tenant."""
+
+    TenantName: Optional[TenantName]
+    TenantId: Optional[TenantId]
+    TenantArn: Optional[AmazonResourceName]
+    CreatedTimestamp: Optional[Timestamp]
+
+
+TenantInfoList = List[TenantInfo]
+
+
+class ListTenantsResponse(TypedDict, total=False):
+    """Information about tenants associated with your account."""
+
+    Tenants: Optional[TenantInfoList]
+    NextToken: Optional[NextToken]
 
 
 class PutAccountDedicatedIpWarmupAttributesRequest(ServiceRequest):
@@ -3181,6 +3471,7 @@ class SendBulkEmailRequest(ServiceRequest):
     BulkEmailEntries: BulkEmailEntryList
     ConfigurationSetName: Optional[ConfigurationSetName]
     EndpointId: Optional[EndpointId]
+    TenantName: Optional[TenantName]
 
 
 class SendBulkEmailResponse(TypedDict, total=False):
@@ -3221,6 +3512,7 @@ class SendEmailRequest(ServiceRequest):
     EmailTags: Optional[MessageTagList]
     ConfigurationSetName: Optional[ConfigurationSetName]
     EndpointId: Optional[EndpointId]
+    TenantName: Optional[TenantName]
     ListManagementOptions: Optional[ListManagementOptions]
 
 
@@ -3361,6 +3653,42 @@ class UpdateEmailTemplateRequest(ServiceRequest):
 
 
 class UpdateEmailTemplateResponse(TypedDict, total=False):
+    """If the action is successful, the service sends back an HTTP 200 response
+    with an empty HTTP body.
+    """
+
+    pass
+
+
+class UpdateReputationEntityCustomerManagedStatusRequest(ServiceRequest):
+    """Represents a request to update the customer-managed sending status for a
+    reputation entity.
+    """
+
+    ReputationEntityType: ReputationEntityType
+    ReputationEntityReference: ReputationEntityReference
+    SendingStatus: SendingStatus
+
+
+class UpdateReputationEntityCustomerManagedStatusResponse(TypedDict, total=False):
+    """If the action is successful, the service sends back an HTTP 200 response
+    with an empty HTTP body.
+    """
+
+    pass
+
+
+class UpdateReputationEntityPolicyRequest(ServiceRequest):
+    """Represents a request to update the reputation management policy for a
+    reputation entity.
+    """
+
+    ReputationEntityType: ReputationEntityType
+    ReputationEntityReference: ReputationEntityReference
+    ReputationEntityPolicy: AmazonResourceName
+
+
+class UpdateReputationEntityPolicyResponse(TypedDict, total=False):
     """If the action is successful, the service sends back an HTTP 200 response
     with an empty HTTP body.
     """
@@ -3840,6 +4168,63 @@ class Sesv2Api:
         """
         raise NotImplementedError
 
+    @handler("CreateTenant")
+    def create_tenant(
+        self,
+        context: RequestContext,
+        tenant_name: TenantName,
+        tags: TagList | None = None,
+        **kwargs,
+    ) -> CreateTenantResponse:
+        """Create a tenant.
+
+        *Tenants* are logical containers that group related SES resources
+        together. Each tenant can have its own set of resources like email
+        identities, configuration sets, and templates, along with reputation
+        metrics and sending status. This helps isolate and manage email sending
+        for different customers or business units within your Amazon SES API v2
+        account.
+
+        :param tenant_name: The name of the tenant to create.
+        :param tags: An array of objects that define the tags (keys and values) to associate
+        with the tenant.
+        :returns: CreateTenantResponse
+        :raises AlreadyExistsException:
+        :raises LimitExceededException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateTenantResourceAssociation")
+    def create_tenant_resource_association(
+        self,
+        context: RequestContext,
+        tenant_name: TenantName,
+        resource_arn: AmazonResourceName,
+        **kwargs,
+    ) -> CreateTenantResourceAssociationResponse:
+        """Associate a resource with a tenant.
+
+        *Resources* can be email identities, configuration sets, or email
+        templates. When you associate a resource with a tenant, you can use that
+        resource when sending emails on behalf of that tenant.
+
+        A single resource can be associated with multiple tenants, allowing for
+        resource sharing across different tenants while maintaining isolation in
+        email sending operations.
+
+        :param tenant_name: The name of the tenant to associate the resource with.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the
+        tenant.
+        :returns: CreateTenantResourceAssociationResponse
+        :raises AlreadyExistsException:
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteConfigurationSet")
     def delete_configuration_set(
         self, context: RequestContext, configuration_set_name: ConfigurationSetName, **kwargs
@@ -4047,6 +4432,48 @@ class Sesv2Api:
         :raises NotFoundException:
         :raises BadRequestException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteTenant")
+    def delete_tenant(
+        self, context: RequestContext, tenant_name: TenantName, **kwargs
+    ) -> DeleteTenantResponse:
+        """Delete an existing tenant.
+
+        When you delete a tenant, its associations with resources are removed,
+        but the resources themselves are not deleted.
+
+        :param tenant_name: The name of the tenant to delete.
+        :returns: DeleteTenantResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteTenantResourceAssociation")
+    def delete_tenant_resource_association(
+        self,
+        context: RequestContext,
+        tenant_name: TenantName,
+        resource_arn: AmazonResourceName,
+        **kwargs,
+    ) -> DeleteTenantResourceAssociationResponse:
+        """Delete an association between a tenant and a resource.
+
+        When you delete a tenant-resource association, the resource itself is
+        not deleted, only its association with the specific tenant is removed.
+        After removal, the resource will no longer be available for use with
+        that tenant's email sending operations.
+
+        :param tenant_name: The name of the tenant to remove the resource association from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to remove from the tenant
+        association.
+        :returns: DeleteTenantResourceAssociationResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
         """
         raise NotImplementedError
 
@@ -4432,6 +4859,33 @@ class Sesv2Api:
         """
         raise NotImplementedError
 
+    @handler("GetReputationEntity")
+    def get_reputation_entity(
+        self,
+        context: RequestContext,
+        reputation_entity_reference: ReputationEntityReference,
+        reputation_entity_type: ReputationEntityType,
+        **kwargs,
+    ) -> GetReputationEntityResponse:
+        """Retrieve information about a specific reputation entity, including its
+        reputation management policy, customer-managed status, Amazon Web
+        Services Amazon SES-managed status, and aggregate sending status.
+
+        *Reputation entities* represent resources in your Amazon SES account
+        that have reputation tracking and management capabilities. The
+        reputation impact reflects the highest impact reputation finding for the
+        entity. Reputation findings can be retrieved using the
+        ``ListRecommendations`` operation.
+
+        :param reputation_entity_reference: The unique identifier for the reputation entity.
+        :param reputation_entity_type: The type of reputation entity.
+        :returns: GetReputationEntityResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
     @handler("GetSuppressedDestination")
     def get_suppressed_destination(
         self, context: RequestContext, email_address: EmailAddress, **kwargs
@@ -4444,6 +4898,21 @@ class Sesv2Api:
         :raises BadRequestException:
         :raises TooManyRequestsException:
         :raises NotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("GetTenant")
+    def get_tenant(
+        self, context: RequestContext, tenant_name: TenantName, **kwargs
+    ) -> GetTenantResponse:
+        """Get information about a specific tenant, including the tenant's name,
+        ID, ARN, creation timestamp, tags, and sending status.
+
+        :param tenant_name: The name of the tenant to retrieve information about.
+        :returns: GetTenantResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
         """
         raise NotImplementedError
 
@@ -4770,6 +5239,64 @@ class Sesv2Api:
         """
         raise NotImplementedError
 
+    @handler("ListReputationEntities")
+    def list_reputation_entities(
+        self,
+        context: RequestContext,
+        filter: ReputationEntityFilter | None = None,
+        next_token: NextToken | None = None,
+        page_size: MaxItems | None = None,
+        **kwargs,
+    ) -> ListReputationEntitiesResponse:
+        """List reputation entities in your Amazon SES account in the current
+        Amazon Web Services Region. You can filter the results by entity type,
+        reputation impact, sending status, or entity reference prefix.
+
+        *Reputation entities* represent resources in your account that have
+        reputation tracking and management capabilities. Use this operation to
+        get an overview of all entities and their current reputation status.
+
+        :param filter: An object that contains filters to apply when listing reputation
+        entities.
+        :param next_token: A token returned from a previous call to ``ListReputationEntities`` to
+        indicate the position in the list of reputation entities.
+        :param page_size: The number of results to show in a single call to
+        ``ListReputationEntities``.
+        :returns: ListReputationEntitiesResponse
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("ListResourceTenants")
+    def list_resource_tenants(
+        self,
+        context: RequestContext,
+        resource_arn: AmazonResourceName,
+        page_size: MaxItems | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> ListResourceTenantsResponse:
+        """List all tenants associated with a specific resource.
+
+        This operation returns a list of tenants that are associated with the
+        specified resource. This is useful for understanding which tenants are
+        currently using a particular resource such as an email identity,
+        configuration set, or email template.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to list associated
+        tenants for.
+        :param page_size: The number of results to show in a single call to
+        ``ListResourceTenants``.
+        :param next_token: A token returned from a previous call to ``ListResourceTenants`` to
+        indicate the position in the list of resource tenants.
+        :returns: ListResourceTenantsResponse
+        :raises TooManyRequestsException:
+        :raises NotFoundException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
     @handler("ListSuppressedDestinations")
     def list_suppressed_destinations(
         self,
@@ -4817,6 +5344,60 @@ class Sesv2Api:
         :raises BadRequestException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("ListTenantResources")
+    def list_tenant_resources(
+        self,
+        context: RequestContext,
+        tenant_name: TenantName,
+        filter: ListTenantResourcesFilter | None = None,
+        page_size: MaxItems | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> ListTenantResourcesResponse:
+        """List all resources associated with a specific tenant.
+
+        This operation returns a list of resources (email identities,
+        configuration sets, or email templates) that are associated with the
+        specified tenant. You can optionally filter the results by resource
+        type.
+
+        :param tenant_name: The name of the tenant to list resources for.
+        :param filter: A map of filter keys and values for filtering the list of tenant
+        resources.
+        :param page_size: The number of results to show in a single call to
+        ``ListTenantResources``.
+        :param next_token: A token returned from a previous call to ``ListTenantResources`` to
+        indicate the position in the list of tenant resources.
+        :returns: ListTenantResourcesResponse
+        :raises TooManyRequestsException:
+        :raises NotFoundException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("ListTenants")
+    def list_tenants(
+        self,
+        context: RequestContext,
+        next_token: NextToken | None = None,
+        page_size: MaxItems | None = None,
+        **kwargs,
+    ) -> ListTenantsResponse:
+        """List all tenants associated with your account in the current Amazon Web
+        Services Region.
+
+        This operation returns basic information about each tenant, such as
+        tenant name, ID, ARN, and creation timestamp.
+
+        :param next_token: A token returned from a previous call to ``ListTenants`` to indicate the
+        position in the list of tenants.
+        :param page_size: The number of results to show in a single call to ``ListTenants``.
+        :returns: ListTenantsResponse
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
         """
         raise NotImplementedError
 
@@ -5326,6 +5907,7 @@ class Sesv2Api:
         default_email_tags: MessageTagList | None = None,
         configuration_set_name: ConfigurationSetName | None = None,
         endpoint_id: EndpointId | None = None,
+        tenant_name: TenantName | None = None,
         **kwargs,
     ) -> SendBulkEmailResponse:
         """Composes an email message to multiple destinations.
@@ -5342,6 +5924,7 @@ class Sesv2Api:
         that you send using the ``SendEmail`` operation.
         :param configuration_set_name: The name of the configuration set to use when sending the email.
         :param endpoint_id: The ID of the multi-region endpoint (global-endpoint).
+        :param tenant_name: The name of the tenant through which this bulk email will be sent.
         :returns: SendBulkEmailResponse
         :raises TooManyRequestsException:
         :raises LimitExceededException:
@@ -5405,6 +5988,7 @@ class Sesv2Api:
         email_tags: MessageTagList | None = None,
         configuration_set_name: ConfigurationSetName | None = None,
         endpoint_id: EndpointId | None = None,
+        tenant_name: TenantName | None = None,
         list_management_options: ListManagementOptions | None = None,
         **kwargs,
     ) -> SendEmailResponse:
@@ -5437,6 +6021,7 @@ class Sesv2Api:
         that you send using the ``SendEmail`` operation.
         :param configuration_set_name: The name of the configuration set to use when sending the email.
         :param endpoint_id: The ID of the multi-region endpoint (global-endpoint).
+        :param tenant_name: The name of the tenant through which this email will be sent.
         :param list_management_options: An object used to specify a list or topic to which an email belongs,
         which will be used when a contact chooses to unsubscribe.
         :returns: SendEmailResponse
@@ -5695,5 +6280,66 @@ class Sesv2Api:
         :raises NotFoundException:
         :raises TooManyRequestsException:
         :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateReputationEntityCustomerManagedStatus")
+    def update_reputation_entity_customer_managed_status(
+        self,
+        context: RequestContext,
+        reputation_entity_type: ReputationEntityType,
+        reputation_entity_reference: ReputationEntityReference,
+        sending_status: SendingStatus,
+        **kwargs,
+    ) -> UpdateReputationEntityCustomerManagedStatusResponse:
+        """Update the customer-managed sending status for a reputation entity. This
+        allows you to enable, disable, or reinstate sending for the entity.
+
+        The customer-managed status works in conjunction with the Amazon Web
+        Services Amazon SES-managed status to determine the overall sending
+        capability. When you update the customer-managed status, the Amazon Web
+        Services Amazon SES-managed status remains unchanged. If Amazon Web
+        Services Amazon SES has disabled the entity, it will not be allowed to
+        send regardless of the customer-managed status setting. When you
+        reinstate an entity through the customer-managed status, it can continue
+        sending only if the Amazon Web Services Amazon SES-managed status also
+        permits sending, even if there are active reputation findings, until the
+        findings are resolved or new violations occur.
+
+        :param reputation_entity_type: The type of reputation entity.
+        :param reputation_entity_reference: The unique identifier for the reputation entity.
+        :param sending_status: The new customer-managed sending status for the reputation entity.
+        :returns: UpdateReputationEntityCustomerManagedStatusResponse
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateReputationEntityPolicy")
+    def update_reputation_entity_policy(
+        self,
+        context: RequestContext,
+        reputation_entity_type: ReputationEntityType,
+        reputation_entity_reference: ReputationEntityReference,
+        reputation_entity_policy: AmazonResourceName,
+        **kwargs,
+    ) -> UpdateReputationEntityPolicyResponse:
+        """Update the reputation management policy for a reputation entity. The
+        policy determines how the entity responds to reputation findings, such
+        as automatically pausing sending when certain thresholds are exceeded.
+
+        Reputation management policies are Amazon Web Services Amazon
+        SES-managed (predefined policies). You can select from none, standard,
+        and strict policies.
+
+        :param reputation_entity_type: The type of reputation entity.
+        :param reputation_entity_reference: The unique identifier for the reputation entity.
+        :param reputation_entity_policy: The Amazon Resource Name (ARN) of the reputation management policy to
+        apply to this entity.
+        :returns: UpdateReputationEntityPolicyResponse
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        :raises ConflictException:
         """
         raise NotImplementedError

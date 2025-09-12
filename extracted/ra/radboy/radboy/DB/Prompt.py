@@ -34,8 +34,9 @@ from uuid import uuid1
 import zipfile,pydoc
 import math
 import enum
-from radboy.DB.types import *
+from radboy.DB.rad_types import *
 import asyncio
+import hashlib
 
 try:
     import resource
@@ -52,6 +53,7 @@ except Exception as e:
                 ru_maxrss=0
             return use()
 
+'''
 def std_colorize(m,n,c,start=f'',end=''):
     #start=f"[Prompt]{Back.black}{Fore.pale_turquoise_1} Start {'*'*(os.get_terminal_size().columns-(len(Fore.pale_turquoise_1)+(len(Fore.grey_27)*2)+len(Style.reset)))}{Style.reset}\n",end=f"\n{Back.black}{Fore.dark_red_1}{'-'*(os.get_terminal_size().columns-(len(Fore.dark_red_1)+(len(Fore.grey_50)*2)+len(Style.reset)))} Stop {Style.reset}"):
         if ((n % 2) != 0) and n > 0:
@@ -59,6 +61,7 @@ def std_colorize(m,n,c,start=f'',end=''):
         else:
             msg=f'{start}{Fore.light_cyan}i{n}/{Fore.green_yellow}L{n+1}{Fore.orange_red_1} of {c}T {Fore.light_salmon_1}{m}{Style.reset}{end}'
         return msg
+'''
 '''Formula/Price menu options'''
 PRICE=['quick price','qprc','price','prc']
 FMLA=['fmlau','formulae-u','pre-formula','formulas']
@@ -2444,10 +2447,85 @@ CMD's are not final until ended with {Fore.magenta}{hw_delim}{Style.reset}""")
 {Fore.grey_70}** {Fore.light_steel_blue}'si-reference','si-ref','si ref','si reference'{Fore.light_green}print si reference chart and continue prompt{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['fake',],endCmd=['phone','ph#','ph. no.','phone number']))}{Fore.light_green}fake phone number{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['util',],endCmd=['tags','tgs']))}{Fore.light_green}tags utility from TaskMode{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}'None'{Fore.light_red} return None{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}'NAN'{Fore.light_red} return 'NAN' for 'Not a Number'{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','checksum','cksm'],endCmd=['sha512 ','sha512'])} {Fore.light_green}generate a checksum for TEXT from user{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','eq'],endCmd=['text ','txt'])} {Fore.light_green}compare 2 strings/text and return True or False{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','rules'],endCmd=['encounter-verify','ev'])} {Fore.light_green}confirm an encounter rules{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['letter','message']{Fore.light_green} Generate a displayable letter from a default format, allowing to return the text as colored, or plain output; if a return is not desired, continue to the last prompt. using curly-braces you may attempt to write small python code to be evaluated and used as text in the message/letter. This includes colors from Fore,Back, and Style.{Style.reset}
 '''
                         print(extra)
                         print(helpText)
                         continue
+                    elif cmd.lower() in generate_cmds(startcmd=['util','checksum','cksm'],endCmd=['sha512 ','sha512']):
+                        text=Control(func=FormBuilderMkText,ptext="Text: ",helpText="text for a checksum",data="str")
+                        if text is None:
+                            continue
+                        elif text in ['NAN',]:
+                            continue
+                        returnIt=Control(func=FormBuilderMkText,ptext=f"Return '{hashlib.sha512(text.encode()).hexdigest()}': ",helpText="text for a checksum",data="boolean")
+                        if returnIt in [None,'NAN']:
+                            return func(None,data)
+                        elif returnIt in [True,]:
+                            return func(hashlib.sha512(text.encode()).hexdigest(),data)
+                        else:
+                            continue
+                    elif cmd.lower() in generate_cmds(startcmd=['util','diff','rules'],endCmd=['encounter-verify','ev']):
+                        rule=['Think of a passphrase that you will tell the messenger/courier',
+                        'execute `text2file` to send output to textfile',
+                        '''execute `util sha512` and type your passphrase
+into the prompt for sha512 checksum of the passphrase and hit enter when you are done''',
+                        'type one of `1/y/True/t` to return the hashsum to for writing to file.',
+                        'tell your passphrase to the messenger/courier whom will tell the passphrase to the target, ',
+                        'as well as provide the hashsum for the passphrase provided by the target to the courier',
+                        'the target will checksum the messenger/courier provided phrase exactly.'
+                        'the messenger/courier will checksum the phrase provided by the target exactly.'
+                        'if the checksum\'s match on both sides:'
+                        'then the transaction is confirmed to proceed',
+                        'execute `diff txt`',
+                        'execute `c2c`',
+                        'execute `Path("TextOut.txt").open("r"").read()` to the hashsum provided for the opposing parties passphrase',
+                        'execute `util sha512`',
+                        'type the passphrase exactly provided by the opposing party',
+                        'type `yes` or `1` or `t` to return the hashsum for the phrase provided by the opposing party for comparison',
+                        'against the pre-determined hashsum exchanged by file.',
+                        f'return "{Fore.light_green}True{Style.reset}" if they match',
+                        f'return "{Fore.light_red}False{Style.reset}" if they DO NOT match',
+                        'passphrases must be exchanged in person but are not restricted',
+                        'to how they are remitted for verification;',
+                        'each party is given the hashum of the opposing party\'s passphrase by file or must be written to TextOut.txt',
+                        'if the passphrase fails to match the checksum after a pre-determined number of fails(on either side),',
+                        'then the transaction is NOT to be completed and begin to',
+                        'follow appropriate procedures to handle the appropriate Severity of the failure; treat it as a threat under all circumstances.'
+                        ]
+                        ct=len(rule)
+                        for num,i in enumerate(rule):
+                            print(std_colorize(i,num,ct))
+                        continue
+                    elif cmd.lower() in generate_cmds(startcmd=['util','diff','eq'],endCmd=['text ','txt']):
+                        text1=Control(func=FormBuilderMkText,ptext="Text 1: ",helpText="text 1",data="str")
+                        if text1 is None:
+                            continue
+                        elif text1 in ['NAN',]:
+                            continue
+                        text2=Control(func=FormBuilderMkText,ptext="Text 2: ",helpText="text 2",data="str")
+                        if text2 is None:
+                            continue
+                        elif text2 in ['NAN',]:
+                            continue
+
+                        if text1 == text2:
+                            color=Fore.light_green
+                        else:
+                            color=Fore.light_red
+
+                        returnIt=Control(func=FormBuilderMkText,ptext=f"Return '\001{color}{text1==text2}{Style.reset}\002': ",helpText="text1 == text2",data="str")
+                        if returnIt in [None,'NAN']:
+                            return func(None,data)
+                        elif returnIt in [True,]:
+                            return func(str(text1==text2),data)
+                        else:
+                            continue
                     elif cmd.lower() in generate_cmds(startcmd=['util',],endCmd=['tags','tgs']):
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).setFieldInList("Tags",load=True,only_select_qty=True)
                         continue
@@ -2459,6 +2537,16 @@ CMD's are not final until ended with {Fore.magenta}{hw_delim}{Style.reset}""")
                             return func(r,data)
                     elif cmd.lower() in generate_cmds(startcmd=["set inlist","sil"],endCmd=["qtyu","u"]):
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).set_inList()
+                    elif cmd.lower() in ['None','none']:
+                        return func(None,data)
+                    elif cmd.lower() in ['NAN',]:
+                        return func('NAN',data)
+                    elif cmd.lower() in ['letter','message']:
+                        m=TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).WriteLetter()
+                        if m is None:
+                            continue
+                        else:
+                            return func(m,data)
                     elif cmd.lower() in ['rllo','reverse list lookup order']:
                         try:
                             state=db.detectGetOrSet('list maker lookup order',False,setValue=False,literal=False)
@@ -2484,7 +2572,10 @@ CMD's are not final until ended with {Fore.magenta}{hw_delim}{Style.reset}""")
                             otext=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f'Text to Dump to {outfile}',helpText='saveable text',data="string")
                             if otext in [None,'d','']:
                                 print("nothing was saved!")
+                            if otext is None:
+                                continue
                             x.write(otext)
+                            print(f"wrote '{otext}' to '{outfile}'")
                     elif cmd.lower() in ['known','known devices','known dev','knwn dev']:
                         disp=KNOWN_DEVICES
                         disp.append('')

@@ -16,6 +16,8 @@ extras_require = {
         "tox>=4.0.0",
         "twine",
         "wheel",
+        "pytest-codspeed",
+        "pytest-benchmark",
     ],
     "docs": [
         "sphinx>=6.0.0",
@@ -74,8 +76,8 @@ else:
 setup(
     name="faster_eth_abi",
     # *IMPORTANT*: Don't manually change the version here. See Contributing docs for the release process.
-    version="5.2.5",
-    description="""A fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding, implemented in C.""",
+    version="5.2.6",
+    description="""A aster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="The Ethereum Foundation",
@@ -110,6 +112,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 )

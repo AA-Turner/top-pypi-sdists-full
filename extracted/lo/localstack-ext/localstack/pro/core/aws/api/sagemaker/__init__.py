@@ -4,10 +4,12 @@ from typing import Dict, List, Optional, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
+AcceleratorsAmount = int
 Accept = str
 AcceptEula = bool
 AccountId = str
 ActionArn = str
+AddClusterNodeSpecificationIncrementTargetCountByInteger = int
 AdditionalModelChannelName = str
 AlarmName = str
 AlgorithmArn = str
@@ -39,8 +41,11 @@ AutoMLMaxResultsForTrials = int
 AutoMLNameContains = str
 AvailabilityZone = str
 AvailableInstanceCount = int
+AvailableSpareInstanceCount = int
 BacktestResultsLocation = str
 BaseModelName = str
+BatchAddClusterNodesRequestClientTokenString = str
+BatchAddFailureCount = int
 BillableTimeInSeconds = int
 BlockedReason = str
 Boolean = bool
@@ -88,12 +93,15 @@ ClusterArn = str
 ClusterAvailabilityZone = str
 ClusterAvailabilityZoneId = str
 ClusterEbsVolumeSizeInGB = int
+ClusterEventMaxResults = int
 ClusterInstanceCount = int
 ClusterInstanceGroupName = str
+ClusterInstanceMemoryAllocationPercentage = int
 ClusterLifeCycleConfigFileName = str
 ClusterName = str
 ClusterNameOrArn = str
 ClusterNodeId = str
+ClusterNodeLogicalId = str
 ClusterNonNegativeInstanceCount = int
 ClusterPrivateDnsHostname = str
 ClusterPrivatePrimaryIp = str
@@ -116,6 +124,7 @@ ComputeQuotaId = str
 ComputeQuotaTargetTeamName = str
 ConfigKey = str
 ConfigValue = str
+ConfiguredSpareInstanceCount = int
 ContainerArgument = str
 ContainerEntrypointString = str
 ContainerHostname = str
@@ -183,6 +192,7 @@ EntityDescription = str
 EntityName = str
 EnvironmentKey = str
 EnvironmentValue = str
+EventId = str
 ExcludeFeaturesAttribute = str
 ExitMessage = str
 ExperimentArn = str
@@ -262,6 +272,7 @@ ImageDeleteProperty = str
 ImageDescription = str
 ImageDigest = str
 ImageDisplayName = str
+ImageId = str
 ImageName = str
 ImageNameContains = str
 ImageUri = str
@@ -270,6 +281,7 @@ ImageVersionAliasPattern = str
 ImageVersionArn = str
 ImageVersionNumber = int
 InUseInstanceCount = int
+IncludeNodeLogicalIdsBoolean = bool
 InferenceComponentArn = str
 InferenceComponentCopyCount = int
 InferenceComponentName = str
@@ -339,6 +351,7 @@ MaxWaitTimeInSeconds = int
 MaximumExecutionTimeoutInSeconds = int
 MaximumRetryAttempts = int
 MediaType = str
+MemoryInGiBAmount = float
 MemoryInMb = int
 MetadataPropertyValue = str
 MetricName = str
@@ -515,6 +528,7 @@ SourceUri = str
 SpaceArn = str
 SpaceEbsVolumeSizeInGb = int
 SpaceName = str
+SpareInstanceCountPerUltraServer = int
 SpawnRate = int
 StageDescription = str
 StatusDetails = str
@@ -543,6 +557,7 @@ TableName = str
 TagKey = str
 TagValue = str
 TargetAttributeName = str
+TargetCount = int
 TargetLabelColumn = str
 TargetObjectiveMetricValue = float
 TaskAvailabilityLifetimeInSeconds = int
@@ -598,6 +613,9 @@ TrialComponentSourceArn = str
 TrialComponentStatusMessage = str
 TrialSourceArn = str
 TtlDurationValue = int
+UltraServerCount = int
+UltraServerType = str
+UnhealthyInstanceCount = int
 UnifiedStudioDomainId = str
 UnifiedStudioEnvironmentId = str
 UnifiedStudioProjectId = str
@@ -607,6 +625,7 @@ UserProfileName = str
 UsersPerStep = int
 UtilizationMetric = float
 UtilizationPercentagePerCore = int
+VCpuAmount = float
 ValidationFraction = float
 VariantName = str
 VariantStatusMessage = str
@@ -615,6 +634,8 @@ VersionId = str
 VersionedArnOrName = str
 VisibilityConditionsKey = str
 VisibilityConditionsValue = str
+VolumeDeviceName = str
+VolumeId = str
 VolumeSizeInGB = int
 VpcId = str
 WaitIntervalInSeconds = int
@@ -1081,6 +1102,11 @@ class AwsManagedHumanLoopRequestSource(StrEnum):
     AWS_Textract_AnalyzeDocument_Forms_V1 = "AWS/Textract/AnalyzeDocument/Forms/V1"
 
 
+class BatchAddClusterNodesErrorCode(StrEnum):
+    InstanceGroupNotFound = "InstanceGroupNotFound"
+    InvalidInstanceGroupStatus = "InvalidInstanceGroupStatus"
+
+
 class BatchDeleteClusterNodesErrorCode(StrEnum):
     NodeIdNotFound = "NodeIdNotFound"
     InvalidNodeStatus = "InvalidNodeStatus"
@@ -1119,6 +1145,11 @@ class CandidateStepType(StrEnum):
 
 class CapacityReservationPreference(StrEnum):
     capacity_reservations_only = "capacity-reservations-only"
+
+
+class CapacityReservationType(StrEnum):
+    ODCR = "ODCR"
+    CRG = "CRG"
 
 
 class CapacitySizeType(StrEnum):
@@ -1212,6 +1243,33 @@ class ClarifyTextLanguage(StrEnum):
     xx = "xx"
 
 
+class ClusterAutoScalerType(StrEnum):
+    Karpenter = "Karpenter"
+
+
+class ClusterAutoScalingMode(StrEnum):
+    Enable = "Enable"
+    Disable = "Disable"
+
+
+class ClusterAutoScalingStatus(StrEnum):
+    InService = "InService"
+    Failed = "Failed"
+    Creating = "Creating"
+    Deleting = "Deleting"
+
+
+class ClusterConfigMode(StrEnum):
+    Enable = "Enable"
+    Disable = "Disable"
+
+
+class ClusterEventResourceType(StrEnum):
+    Cluster = "Cluster"
+    InstanceGroup = "InstanceGroup"
+    Instance = "Instance"
+
+
 class ClusterInstanceStatus(StrEnum):
     Running = "Running"
     Failure = "Failure"
@@ -1219,12 +1277,14 @@ class ClusterInstanceStatus(StrEnum):
     ShuttingDown = "ShuttingDown"
     SystemUpdating = "SystemUpdating"
     DeepHealthCheckInProgress = "DeepHealthCheckInProgress"
+    NotFound = "NotFound"
 
 
 class ClusterInstanceType(StrEnum):
     ml_p4d_24xlarge = "ml.p4d.24xlarge"
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
+    ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_trn1_32xlarge = "ml.trn1.32xlarge"
     ml_trn1n_32xlarge = "ml.trn1n.32xlarge"
     ml_g5_xlarge = "ml.g5.xlarge"
@@ -1334,6 +1394,10 @@ class ClusterInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+
+
+class ClusterNodeProvisioningMode(StrEnum):
+    Continuous = "Continuous"
 
 
 class ClusterNodeRecovery(StrEnum):
@@ -1521,6 +1585,10 @@ class EndpointStatus(StrEnum):
     Deleting = "Deleting"
     Failed = "Failed"
     UpdateRollbackFailed = "UpdateRollbackFailed"
+
+
+class EventSortBy(StrEnum):
+    EventTime = "EventTime"
 
 
 class ExecutionRoleIdentityConfig(StrEnum):
@@ -1716,6 +1784,11 @@ class HyperParameterTuningJobWarmStartType(StrEnum):
     TransferLearning = "TransferLearning"
 
 
+class IPAddressType(StrEnum):
+    ipv4 = "ipv4"
+    dualstack = "dualstack"
+
+
 class ImageSortBy(StrEnum):
     CREATION_TIME = "CREATION_TIME"
     LAST_MODIFIED_TIME = "LAST_MODIFIED_TIME"
@@ -1899,6 +1972,7 @@ class InstanceType(StrEnum):
     ml_p4d_24xlarge = "ml.p4d.24xlarge"
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
     ml_m6i_large = "ml.m6i.large"
     ml_m6i_xlarge = "ml.m6i.xlarge"
     ml_m6i_2xlarge = "ml.m6i.2xlarge"
@@ -2591,6 +2665,7 @@ class ProcessingInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+    ml_p5_4xlarge = "ml.p5.4xlarge"
 
 
 class ProcessingJobStatus(StrEnum):
@@ -2911,6 +2986,7 @@ class ProductionVariantInstanceType(StrEnum):
     ml_c6in_32xlarge = "ml.c6in.32xlarge"
     ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
+    ml_p5_4xlarge = "ml.p5.4xlarge"
 
 
 class ProfilingStatus(StrEnum):
@@ -3020,6 +3096,8 @@ class ReservedCapacityInstanceType(StrEnum):
     ml_trn2_48xlarge = "ml.trn2.48xlarge"
     ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
+    ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
+    ml_p5_4xlarge = "ml.p5.4xlarge"
 
 
 class ReservedCapacityStatus(StrEnum):
@@ -3028,6 +3106,11 @@ class ReservedCapacityStatus(StrEnum):
     Scheduled = "Scheduled"
     Expired = "Expired"
     Failed = "Failed"
+
+
+class ReservedCapacityType(StrEnum):
+    UltraServer = "UltraServer"
+    Instance = "Instance"
 
 
 class ResourceCatalogSortBy(StrEnum):
@@ -3601,6 +3684,8 @@ class TrainingInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+    ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
+    ml_p5_4xlarge = "ml.p5.4xlarge"
 
 
 class TrainingJobEarlyStoppingType(StrEnum):
@@ -3778,6 +3863,12 @@ class TtlDurationUnit(StrEnum):
     Weeks = "Weeks"
 
 
+class UltraServerHealthStatus(StrEnum):
+    OK = "OK"
+    Impaired = "Impaired"
+    Insufficient_Data = "Insufficient-Data"
+
+
 class UserProfileSortKey(StrEnum):
     CreationTime = "CreationTime"
     LastModifiedTime = "LastModifiedTime"
@@ -3812,6 +3903,14 @@ class VendorGuidance(StrEnum):
     STABLE = "STABLE"
     TO_BE_ARCHIVED = "TO_BE_ARCHIVED"
     ARCHIVED = "ARCHIVED"
+
+
+class VolumeAttachmentStatus(StrEnum):
+    attaching = "attaching"
+    attached = "attached"
+    detaching = "detaching"
+    detached = "detached"
+    busy = "busy"
 
 
 class WarmPoolResourceStatus(StrEnum):
@@ -3911,6 +4010,16 @@ class AddAssociationResponse(TypedDict, total=False):
     DestinationArn: Optional[AssociationEntityArn]
 
 
+class AddClusterNodeSpecification(TypedDict, total=False):
+    """Specifies an instance group and the number of nodes to add to it."""
+
+    InstanceGroupName: ClusterInstanceGroupName
+    IncrementTargetCountBy: AddClusterNodeSpecificationIncrementTargetCountByInteger
+
+
+AddClusterNodeSpecificationList = List[AddClusterNodeSpecification]
+
+
 class Tag(TypedDict, total=False):
     """A tag object that consists of a key and an optional value, used to
     manage metadata for SageMaker Amazon Web Services resources.
@@ -3947,6 +4056,17 @@ class AddTagsOutput(TypedDict, total=False):
 
 
 AdditionalCodeRepositoryNamesOrUrls = List[CodeRepositoryNameOrUrl]
+EfaEnis = List[String]
+
+
+class AdditionalEnis(TypedDict, total=False):
+    """Information about additional Elastic Network Interfaces (ENIs)
+    associated with an instance.
+    """
+
+    EfaEnis: Optional[EfaEnis]
+
+
 ResponseMIMETypes = List[ResponseMIMEType]
 ContentTypes = List[ContentType]
 RealtimeInferenceInstanceTypes = List[ProductionVariantInstanceType]
@@ -4290,6 +4410,25 @@ class StoppingCondition(TypedDict, total=False):
     MaxPendingTimeInSeconds: Optional[MaxPendingTimeInSeconds]
 
 
+class PlacementSpecification(TypedDict, total=False):
+    """Specifies how instances should be placed on a specific UltraServer."""
+
+    UltraServerId: Optional[String256]
+    InstanceCount: TrainingInstanceCount
+
+
+PlacementSpecifications = List[PlacementSpecification]
+
+
+class InstancePlacementConfig(TypedDict, total=False):
+    """Configuration for how instances are placed and allocated within
+    UltraServers. This is only applicable for UltraServer capacity.
+    """
+
+    EnableMultipleJobs: Optional[Boolean]
+    PlacementSpecifications: Optional[PlacementSpecifications]
+
+
 class InstanceGroup(TypedDict, total=False):
     """Defines an instance group for heterogeneous cluster training. When
     requesting a training job using the
@@ -4317,6 +4456,7 @@ class ResourceConfig(TypedDict, total=False):
     KeepAlivePeriodInSeconds: Optional[KeepAlivePeriodInSeconds]
     InstanceGroups: Optional[InstanceGroups]
     TrainingPlanArn: Optional[TrainingPlanArn]
+    InstancePlacementConfig: Optional[InstancePlacementConfig]
 
 
 class OutputDataConfig(TypedDict, total=False):
@@ -4753,6 +4893,21 @@ class AthenaDatasetDefinition(TypedDict, total=False):
     KmsKeyId: Optional[KmsKeyId]
     OutputFormat: AthenaResultFormat
     OutputCompression: Optional[AthenaResultCompressionType]
+
+
+class AttachClusterNodeVolumeRequest(ServiceRequest):
+    ClusterArn: ClusterArn
+    NodeId: ClusterNodeId
+    VolumeId: VolumeId
+
+
+class AttachClusterNodeVolumeResponse(TypedDict, total=False):
+    ClusterArn: ClusterArn
+    NodeId: ClusterNodeId
+    VolumeId: VolumeId
+    AttachTime: Timestamp
+    Status: VolumeAttachmentStatus
+    DeviceName: VolumeDeviceName
 
 
 AuthenticationRequestExtraParams = Dict[
@@ -5274,6 +5429,42 @@ class Autotune(TypedDict, total=False):
     Mode: AutotuneMode
 
 
+class BatchAddClusterNodesError(TypedDict, total=False):
+    """Information about an error that occurred during the node addition
+    operation.
+    """
+
+    InstanceGroupName: InstanceGroupName
+    ErrorCode: BatchAddClusterNodesErrorCode
+    FailedCount: BatchAddFailureCount
+    Message: Optional[String]
+
+
+BatchAddClusterNodesErrorList = List[BatchAddClusterNodesError]
+
+
+class BatchAddClusterNodesRequest(ServiceRequest):
+    ClusterName: ClusterNameOrArn
+    ClientToken: Optional[BatchAddClusterNodesRequestClientTokenString]
+    NodesToAdd: AddClusterNodeSpecificationList
+
+
+class NodeAdditionResult(TypedDict, total=False):
+    """Information about a node that was successfully added to the cluster."""
+
+    NodeLogicalId: ClusterNodeLogicalId
+    InstanceGroupName: ClusterInstanceGroupName
+    Status: ClusterInstanceStatus
+
+
+NodeAdditionResultList = List[NodeAdditionResult]
+
+
+class BatchAddClusterNodesResponse(TypedDict, total=False):
+    Successful: NodeAdditionResultList
+    Failed: BatchAddClusterNodesErrorList
+
+
 class BatchDataCaptureConfig(TypedDict, total=False):
     """Configuration to control how SageMaker captures inference data for batch
     transform jobs.
@@ -5282,6 +5473,19 @@ class BatchDataCaptureConfig(TypedDict, total=False):
     DestinationS3Uri: S3Uri
     KmsKeyId: Optional[KmsKeyId]
     GenerateInferenceId: Optional[Boolean]
+
+
+class BatchDeleteClusterNodeLogicalIdsError(TypedDict, total=False):
+    """Information about an error that occurred when attempting to delete a
+    node identified by its ``NodeLogicalId``.
+    """
+
+    Code: BatchDeleteClusterNodesErrorCode
+    Message: String
+    NodeLogicalId: ClusterNodeLogicalId
+
+
+BatchDeleteClusterNodeLogicalIdsErrorList = List[BatchDeleteClusterNodeLogicalIdsError]
 
 
 class BatchDeleteClusterNodesError(TypedDict, total=False):
@@ -5295,17 +5499,21 @@ class BatchDeleteClusterNodesError(TypedDict, total=False):
 
 
 BatchDeleteClusterNodesErrorList = List[BatchDeleteClusterNodesError]
+ClusterNodeLogicalIdList = List[ClusterNodeLogicalId]
 ClusterNodeIds = List[ClusterNodeId]
 
 
 class BatchDeleteClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
     NodeIds: Optional[ClusterNodeIds]
+    NodeLogicalIds: Optional[ClusterNodeLogicalIdList]
 
 
 class BatchDeleteClusterNodesResponse(TypedDict, total=False):
     Failed: Optional[BatchDeleteClusterNodesErrorList]
     Successful: Optional[ClusterNodeIds]
+    FailedNodeLogicalIds: Optional[BatchDeleteClusterNodeLogicalIdsErrorList]
+    SuccessfulNodeLogicalIds: Optional[ClusterNodeLogicalIdList]
 
 
 class BatchDescribeModelPackageError(TypedDict, total=False):
@@ -5576,6 +5784,15 @@ class CanvasAppSettings(TypedDict, total=False):
     EmrServerlessSettings: Optional[EmrServerlessSettings]
 
 
+class CapacityReservation(TypedDict, total=False):
+    """Information about the Capacity Reservation used by an instance or
+    instance group.
+    """
+
+    Arn: Optional[String]
+    Type: Optional[CapacityReservationType]
+
+
 class CapacitySizeConfig(TypedDict, total=False):
     """The configuration of the size measurements of the AMI update. Using this
     configuration, you can specify whether SageMaker should update your
@@ -5835,6 +6052,24 @@ class ClarifyExplainerConfig(TypedDict, total=False):
     ShapConfig: ClarifyShapConfig
 
 
+class ClusterAutoScalingConfig(TypedDict, total=False):
+    """Specifies the autoscaling configuration for a HyperPod cluster."""
+
+    Mode: ClusterAutoScalingMode
+    AutoScalerType: Optional[ClusterAutoScalerType]
+
+
+class ClusterAutoScalingConfigOutput(TypedDict, total=False):
+    """The autoscaling configuration and status information for a HyperPod
+    cluster.
+    """
+
+    Mode: ClusterAutoScalingMode
+    AutoScalerType: Optional[ClusterAutoScalerType]
+    Status: ClusterAutoScalingStatus
+    FailureMessage: Optional[String]
+
+
 class ClusterEbsVolumeConfig(TypedDict, total=False):
     """Defines the configuration for attaching an additional Amazon Elastic
     Block Store (EBS) volume to each instance of the SageMaker HyperPod
@@ -5844,6 +6079,101 @@ class ClusterEbsVolumeConfig(TypedDict, total=False):
     """
 
     VolumeSizeInGB: Optional[ClusterEbsVolumeSizeInGB]
+    VolumeKmsKeyId: Optional[KmsKeyId]
+    RootVolume: Optional[Boolean]
+
+
+class InstanceMetadata(TypedDict, total=False):
+    """Metadata information about an instance in a HyperPod cluster."""
+
+    CustomerEni: Optional[String]
+    AdditionalEnis: Optional[AdditionalEnis]
+    CapacityReservation: Optional[CapacityReservation]
+    FailureMessage: Optional[String]
+    LcsExecutionState: Optional[String]
+    NodeLogicalId: Optional[ClusterNodeLogicalId]
+
+
+class InstanceGroupScalingMetadata(TypedDict, total=False):
+    """Metadata information about scaling operations for an instance group."""
+
+    InstanceCount: Optional[InstanceCount]
+    TargetCount: Optional[TargetCount]
+    FailureMessage: Optional[String]
+
+
+SecurityGroupIds = List[SecurityGroupId]
+
+
+class InstanceGroupMetadata(TypedDict, total=False):
+    """Metadata information about an instance group in a HyperPod cluster."""
+
+    FailureMessage: Optional[String]
+    AvailabilityZoneId: Optional[String]
+    CapacityReservation: Optional[CapacityReservation]
+    SubnetId: Optional[String]
+    SecurityGroupIds: Optional[SecurityGroupIds]
+    AmiOverride: Optional[String]
+
+
+EksRoleAccessEntries = List[String]
+
+
+class ClusterMetadata(TypedDict, total=False):
+    """Metadata information about a HyperPod cluster showing information about
+    the cluster level operations, such as creating, updating, and deleting.
+    """
+
+    FailureMessage: Optional[String]
+    EksRoleAccessEntries: Optional[EksRoleAccessEntries]
+    SlrAccessEntry: Optional[String]
+
+
+class EventMetadata(TypedDict, total=False):
+    """Metadata associated with a cluster event, which may include details
+    about various resource types.
+    """
+
+    Cluster: Optional[ClusterMetadata]
+    InstanceGroup: Optional[InstanceGroupMetadata]
+    InstanceGroupScaling: Optional[InstanceGroupScalingMetadata]
+    Instance: Optional[InstanceMetadata]
+
+
+class EventDetails(TypedDict, total=False):
+    """Detailed information about a specific event, including event metadata."""
+
+    EventMetadata: Optional[EventMetadata]
+
+
+class ClusterEventDetail(TypedDict, total=False):
+    """Detailed information about a specific event in a HyperPod cluster."""
+
+    EventId: EventId
+    ClusterArn: ClusterArn
+    ClusterName: ClusterName
+    InstanceGroupName: Optional[ClusterInstanceGroupName]
+    InstanceId: Optional[String]
+    ResourceType: ClusterEventResourceType
+    EventTime: Timestamp
+    EventDetails: Optional[EventDetails]
+    Description: Optional[String]
+
+
+class ClusterEventSummary(TypedDict, total=False):
+    """A summary of an event in a HyperPod cluster."""
+
+    EventId: EventId
+    ClusterArn: ClusterArn
+    ClusterName: ClusterName
+    InstanceGroupName: Optional[ClusterInstanceGroupName]
+    InstanceId: Optional[String]
+    ResourceType: ClusterEventResourceType
+    EventTime: Timestamp
+    Description: Optional[String]
+
+
+ClusterEventSummaries = List[ClusterEventSummary]
 
 
 class RollingDeploymentPolicy(TypedDict, total=False):
@@ -5910,6 +6240,8 @@ class ClusterInstanceGroupDetails(TypedDict, total=False):
     TrainingPlanStatus: Optional[InstanceGroupTrainingPlanStatus]
     OverrideVpcConfig: Optional[VpcConfig]
     ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
+    CurrentImageId: Optional[ImageId]
+    DesiredImageId: Optional[ImageId]
 
 
 ClusterInstanceGroupDetailsList = List[ClusterInstanceGroupDetails]
@@ -5929,6 +6261,7 @@ class ClusterInstanceGroupSpecification(TypedDict, total=False):
     TrainingPlanArn: Optional[TrainingPlanArn]
     OverrideVpcConfig: Optional[VpcConfig]
     ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
+    ImageId: Optional[ImageId]
 
 
 ClusterInstanceGroupSpecifications = List[ClusterInstanceGroupSpecification]
@@ -5952,6 +6285,12 @@ class ClusterInstanceStatusDetails(TypedDict, total=False):
     Message: Optional[String]
 
 
+class UltraServerInfo(TypedDict, total=False):
+    """Contains information about the UltraServer object."""
+
+    Id: Optional[String]
+
+
 class ClusterNodeDetails(TypedDict, total=False):
     """Details of an instance (also called a *node* interchangeably) in a
     SageMaker HyperPod cluster.
@@ -5959,6 +6298,7 @@ class ClusterNodeDetails(TypedDict, total=False):
 
     InstanceGroupName: Optional[ClusterInstanceGroupName]
     InstanceId: Optional[String]
+    NodeLogicalId: Optional[ClusterNodeLogicalId]
     InstanceStatus: Optional[ClusterInstanceStatusDetails]
     InstanceType: Optional[ClusterInstanceType]
     LaunchTime: Optional[Timestamp]
@@ -5971,6 +6311,9 @@ class ClusterNodeDetails(TypedDict, total=False):
     PrivatePrimaryIpv6: Optional[ClusterPrivatePrimaryIpv6]
     PrivateDnsHostname: Optional[ClusterPrivateDnsHostname]
     Placement: Optional[ClusterInstancePlacement]
+    CurrentImageId: Optional[ImageId]
+    DesiredImageId: Optional[ImageId]
+    UltraServerInfo: Optional[UltraServerInfo]
 
 
 class ClusterNodeSummary(TypedDict, total=False):
@@ -5980,10 +6323,12 @@ class ClusterNodeSummary(TypedDict, total=False):
 
     InstanceGroupName: ClusterInstanceGroupName
     InstanceId: String
+    NodeLogicalId: Optional[String]
     InstanceType: ClusterInstanceType
     LaunchTime: Timestamp
     LastSoftwareUpdateTime: Optional[Timestamp]
     InstanceStatus: ClusterInstanceStatusDetails
+    UltraServerInfo: Optional[UltraServerInfo]
 
 
 ClusterNodeSummaries = List[ClusterNodeSummary]
@@ -6098,6 +6443,21 @@ class ClusterSummary(TypedDict, total=False):
 
 
 ClusterSummaries = List[ClusterSummary]
+
+
+class ClusterTieredStorageConfig(TypedDict, total=False):
+    """Defines the configuration for managed tier checkpointing in a HyperPod
+    cluster. Managed tier checkpointing uses multiple storage tiers,
+    including cluster CPU memory, to provide faster checkpoint operations
+    and improved fault tolerance for large-scale model training. The system
+    automatically saves checkpoints at high frequency to memory and
+    periodically persists them to durable storage, like Amazon S3.
+    """
+
+    Mode: ClusterConfigMode
+    InstanceMemoryAllocationPercentage: Optional[ClusterInstanceMemoryAllocationPercentage]
+
+
 LifecycleConfigArns = List[StudioLifecycleConfigArn]
 
 
@@ -6248,6 +6608,9 @@ class ComputeQuotaResourceConfig(TypedDict, total=False):
 
     InstanceType: ClusterInstanceType
     Count: Optional[InstanceCount]
+    Accelerators: Optional[AcceleratorsAmount]
+    VCpu: Optional[VCpuAmount]
+    MemoryInGiB: Optional[MemoryInGiBAmount]
 
 
 ComputeQuotaResourceConfigList = List[ComputeQuotaResourceConfig]
@@ -6592,6 +6955,10 @@ class CreateClusterRequest(ServiceRequest):
     Tags: Optional[TagList]
     Orchestrator: Optional[ClusterOrchestrator]
     NodeRecovery: Optional[ClusterNodeRecovery]
+    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
+    NodeProvisioningMode: Optional[ClusterNodeProvisioningMode]
+    ClusterRole: Optional[RoleArn]
+    AutoScaling: Optional[ClusterAutoScalingConfig]
 
 
 class CreateClusterResponse(TypedDict, total=False):
@@ -6904,7 +7271,7 @@ class S3FileSystemConfig(TypedDict, total=False):
     """Configuration for the custom Amazon S3 file system."""
 
     MountPath: Optional[String1024]
-    S3Uri: Optional[S3SchemaUri]
+    S3Uri: S3SchemaUri
 
 
 class FSxLustreFileSystemConfig(TypedDict, total=False):
@@ -7008,9 +7375,6 @@ class JupyterServerAppSettings(TypedDict, total=False):
     CodeRepositories: Optional[CodeRepositories]
 
 
-SecurityGroupIds = List[SecurityGroupId]
-
-
 class DefaultSpaceSettings(TypedDict, total=False):
     """The default settings for shared spaces that users create in the domain.
 
@@ -7051,6 +7415,17 @@ class DockerSettings(TypedDict, total=False):
 
     EnableDockerAccess: Optional[FeatureStatus]
     VpcOnlyTrustedAccounts: Optional[VpcOnlyTrustedAccounts]
+    RootlessDocker: Optional[FeatureStatus]
+
+
+class TrustedIdentityPropagationSettings(TypedDict, total=False):
+    """The Trusted Identity Propagation (TIP) settings for the SageMaker
+    domain. These settings determine how user identities from IAM Identity
+    Center are propagated through the domain to TIP enabled Amazon Web
+    Services services.
+    """
+
+    Status: FeatureStatus
 
 
 class RStudioServerProDomainSettings(TypedDict, total=False):
@@ -7075,6 +7450,7 @@ class DomainSettings(TypedDict, total=False):
     SecurityGroupIds: Optional[DomainSecurityGroupIds]
     RStudioServerProDomainSettings: Optional[RStudioServerProDomainSettings]
     ExecutionRoleIdentityConfig: Optional[ExecutionRoleIdentityConfig]
+    TrustedIdentityPropagationSettings: Optional[TrustedIdentityPropagationSettings]
     DockerSettings: Optional[DockerSettings]
     AmazonQSettings: Optional[AmazonQSettings]
     UnifiedStudioSettings: Optional[UnifiedStudioSettings]
@@ -9162,6 +9538,7 @@ class CreateNotebookInstanceInput(ServiceRequest):
     InstanceType: InstanceType
     SubnetId: Optional[SubnetId]
     SecurityGroupIds: Optional[SecurityGroupIds]
+    IpAddressType: Optional[IPAddressType]
     RoleArn: RoleArn
     KmsKeyId: Optional[KmsKeyId]
     Tags: Optional[TagList]
@@ -9663,7 +10040,7 @@ class S3FileSystem(TypedDict, total=False):
     SageMaker Unified Studio.
     """
 
-    S3Uri: Optional[S3SchemaUri]
+    S3Uri: S3SchemaUri
 
 
 class FSxLustreFileSystem(TypedDict, total=False):
@@ -9922,6 +10299,7 @@ class CreateTrainingJobResponse(TypedDict, total=False):
 class CreateTrainingPlanRequest(ServiceRequest):
     TrainingPlanName: TrainingPlanName
     TrainingPlanOfferingId: TrainingPlanOfferingId
+    SpareInstanceCountPerUltraServer: Optional[SpareInstanceCountPerUltraServer]
     Tags: Optional[TagList]
 
 
@@ -10703,6 +11081,7 @@ class DescribeAppResponse(TypedDict, total=False):
     UserProfileName: Optional[UserProfileName]
     SpaceName: Optional[SpaceName]
     Status: Optional[AppStatus]
+    EffectiveTrustedIdentityPropagationStatus: Optional[FeatureStatus]
     RecoveryMode: Optional[Boolean]
     LastHealthCheckTimestamp: Optional[Timestamp]
     LastUserActivityTimestamp: Optional[Timestamp]
@@ -10802,9 +11181,19 @@ class DescribeAutoMLJobV2Response(TypedDict, total=False):
     AutoMLComputeConfig: Optional[AutoMLComputeConfig]
 
 
+class DescribeClusterEventRequest(ServiceRequest):
+    EventId: EventId
+    ClusterName: ClusterNameOrArn
+
+
+class DescribeClusterEventResponse(TypedDict, total=False):
+    EventDetails: Optional[ClusterEventDetail]
+
+
 class DescribeClusterNodeRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
     NodeId: Optional[ClusterNodeId]
+    NodeLogicalId: Optional[ClusterNodeLogicalId]
 
 
 class DescribeClusterNodeResponse(TypedDict, total=False):
@@ -10825,7 +11214,11 @@ class DescribeClusterResponse(TypedDict, total=False):
     RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupDetailsList]
     VpcConfig: Optional[VpcConfig]
     Orchestrator: Optional[ClusterOrchestrator]
+    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
     NodeRecovery: Optional[ClusterNodeRecovery]
+    NodeProvisioningMode: Optional[ClusterNodeProvisioningMode]
+    ClusterRole: Optional[RoleArn]
+    AutoScaling: Optional[ClusterAutoScalingConfigOutput]
 
 
 class DescribeClusterSchedulerConfigRequest(ServiceRequest):
@@ -12139,6 +12532,7 @@ class DescribeNotebookInstanceOutput(TypedDict, total=False):
     FailureReason: Optional[FailureReason]
     Url: Optional[NotebookInstanceUrl]
     InstanceType: Optional[InstanceType]
+    IpAddressType: Optional[IPAddressType]
     SubnetId: Optional[SubnetId]
     SecurityGroups: Optional[SecurityGroupIds]
     RoleArn: Optional[RoleArn]
@@ -12366,6 +12760,40 @@ class DescribeProjectOutput(TypedDict, total=False):
     LastModifiedBy: Optional[UserContext]
 
 
+class DescribeReservedCapacityRequest(ServiceRequest):
+    ReservedCapacityArn: ReservedCapacityArn
+
+
+class UltraServerSummary(TypedDict, total=False):
+    """A summary of UltraServer resources and their current status."""
+
+    UltraServerType: UltraServerType
+    InstanceType: ReservedCapacityInstanceType
+    UltraServerCount: Optional[UltraServerCount]
+    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
+    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
+
+
+ReservedCapacityDurationMinutes = int
+ReservedCapacityDurationHours = int
+
+
+class DescribeReservedCapacityResponse(TypedDict, total=False):
+    ReservedCapacityArn: ReservedCapacityArn
+    ReservedCapacityType: Optional[ReservedCapacityType]
+    Status: Optional[ReservedCapacityStatus]
+    AvailabilityZone: Optional[AvailabilityZone]
+    DurationHours: Optional[ReservedCapacityDurationHours]
+    DurationMinutes: Optional[ReservedCapacityDurationMinutes]
+    StartTime: Optional[Timestamp]
+    EndTime: Optional[Timestamp]
+    InstanceType: ReservedCapacityInstanceType
+    TotalInstanceCount: TotalInstanceCount
+    AvailableInstanceCount: Optional[AvailableInstanceCount]
+    InUseInstanceCount: Optional[InUseInstanceCount]
+    UltraServerSummary: Optional[UltraServerSummary]
+
+
 class DescribeSpaceRequest(ServiceRequest):
     DomainId: DomainId
     SpaceName: SpaceName
@@ -12527,10 +12955,6 @@ class DescribeTrainingPlanRequest(ServiceRequest):
     TrainingPlanName: TrainingPlanName
 
 
-ReservedCapacityDurationMinutes = int
-ReservedCapacityDurationHours = int
-
-
 class ReservedCapacitySummary(TypedDict, total=False):
     """Details of a reserved capacity for the training plan.
 
@@ -12540,6 +12964,9 @@ class ReservedCapacitySummary(TypedDict, total=False):
     """
 
     ReservedCapacityArn: ReservedCapacityArn
+    ReservedCapacityType: Optional[ReservedCapacityType]
+    UltraServerType: Optional[UltraServerType]
+    UltraServerCount: Optional[UltraServerCount]
     InstanceType: ReservedCapacityInstanceType
     TotalInstanceCount: TotalInstanceCount
     Status: ReservedCapacityStatus
@@ -12570,6 +12997,9 @@ class DescribeTrainingPlanResponse(TypedDict, total=False):
     TotalInstanceCount: Optional[TotalInstanceCount]
     AvailableInstanceCount: Optional[AvailableInstanceCount]
     InUseInstanceCount: Optional[InUseInstanceCount]
+    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
+    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
+    TotalUltraServerCount: Optional[UltraServerCount]
     TargetResources: Optional[SageMakerResourceNames]
     ReservedCapacitySummaries: Optional[ReservedCapacitySummaries]
 
@@ -12804,6 +13234,21 @@ class DesiredWeightAndCapacity(TypedDict, total=False):
 DesiredWeightAndCapacityList = List[DesiredWeightAndCapacity]
 
 
+class DetachClusterNodeVolumeRequest(ServiceRequest):
+    ClusterArn: ClusterArn
+    NodeId: ClusterNodeId
+    VolumeId: VolumeId
+
+
+class DetachClusterNodeVolumeResponse(TypedDict, total=False):
+    ClusterArn: ClusterArn
+    NodeId: ClusterNodeId
+    VolumeId: VolumeId
+    AttachTime: Timestamp
+    Status: VolumeAttachmentStatus
+    DeviceName: VolumeDeviceName
+
+
 class Device(TypedDict, total=False):
     """Information of a particular device."""
 
@@ -12928,6 +13373,7 @@ class DomainSettingsForUpdate(TypedDict, total=False):
     RStudioServerProDomainSettingsForUpdate: Optional[RStudioServerProDomainSettingsForUpdate]
     ExecutionRoleIdentityConfig: Optional[ExecutionRoleIdentityConfig]
     SecurityGroupIds: Optional[DomainSecurityGroupIds]
+    TrustedIdentityPropagationSettings: Optional[TrustedIdentityPropagationSettings]
     DockerSettings: Optional[DockerSettings]
     AmazonQSettings: Optional[AmazonQSettings]
     UnifiedStudioSettings: Optional[UnifiedStudioSettings]
@@ -13866,6 +14312,24 @@ class ListCandidatesForAutoMLJobResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class ListClusterEventsRequest(ServiceRequest):
+    ClusterName: ClusterNameOrArn
+    InstanceGroupName: Optional[ClusterInstanceGroupName]
+    NodeId: Optional[ClusterNodeId]
+    EventTimeAfter: Optional[Timestamp]
+    EventTimeBefore: Optional[Timestamp]
+    SortBy: Optional[EventSortBy]
+    SortOrder: Optional[SortOrder]
+    ResourceType: Optional[ClusterEventResourceType]
+    MaxResults: Optional[ClusterEventMaxResults]
+    NextToken: Optional[NextToken]
+
+
+class ListClusterEventsResponse(TypedDict, total=False):
+    NextToken: Optional[NextToken]
+    Events: Optional[ClusterEventSummaries]
+
+
 class ListClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
     CreationTimeAfter: Optional[Timestamp]
@@ -13875,6 +14339,7 @@ class ListClusterNodesRequest(ServiceRequest):
     NextToken: Optional[NextToken]
     SortBy: Optional[ClusterSortBy]
     SortOrder: Optional[SortOrder]
+    IncludeNodeLogicalIds: Optional[IncludeNodeLogicalIdsBoolean]
 
 
 class ListClusterNodesResponse(TypedDict, total=False):
@@ -15514,6 +15979,7 @@ class TrainingPlanSummary(TypedDict, total=False):
     TotalInstanceCount: Optional[TotalInstanceCount]
     AvailableInstanceCount: Optional[AvailableInstanceCount]
     InUseInstanceCount: Optional[InUseInstanceCount]
+    TotalUltraServerCount: Optional[UltraServerCount]
     TargetResources: Optional[SageMakerResourceNames]
     ReservedCapacitySummaries: Optional[ReservedCapacitySummaries]
 
@@ -15638,6 +16104,39 @@ TrialSummaries = List[TrialSummary]
 class ListTrialsResponse(TypedDict, total=False):
     TrialSummaries: Optional[TrialSummaries]
     NextToken: Optional[NextToken]
+
+
+class ListUltraServersByReservedCapacityRequest(ServiceRequest):
+    ReservedCapacityArn: ReservedCapacityArn
+    MaxResults: Optional[MaxResults]
+    NextToken: Optional[NextToken]
+
+
+class UltraServer(TypedDict, total=False):
+    """Represents a high-performance compute server used for distributed
+    training in SageMaker AI. An UltraServer consists of multiple instances
+    within a shared NVLink interconnect domain.
+    """
+
+    UltraServerId: NonEmptyString256
+    UltraServerType: UltraServerType
+    AvailabilityZone: AvailabilityZone
+    InstanceType: ReservedCapacityInstanceType
+    TotalInstanceCount: TotalInstanceCount
+    ConfiguredSpareInstanceCount: Optional[ConfiguredSpareInstanceCount]
+    AvailableInstanceCount: Optional[AvailableInstanceCount]
+    InUseInstanceCount: Optional[InUseInstanceCount]
+    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
+    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
+    HealthStatus: Optional[UltraServerHealthStatus]
+
+
+UltraServers = List[UltraServer]
+
+
+class ListUltraServersByReservedCapacityResponse(TypedDict, total=False):
+    NextToken: Optional[NextToken]
+    UltraServers: UltraServers
 
 
 class ListUserProfilesRequest(ServiceRequest):
@@ -16166,6 +16665,9 @@ class ReservedCapacityOffering(TypedDict, total=False):
     ``CreateTrainingPlan``.
     """
 
+    ReservedCapacityType: Optional[ReservedCapacityType]
+    UltraServerType: Optional[UltraServerType]
+    UltraServerCount: Optional[UltraServerCount]
     InstanceType: ReservedCapacityInstanceType
     InstanceCount: ReservedCapacityInstanceCount
     AvailabilityZone: Optional[AvailabilityZone]
@@ -16426,6 +16928,8 @@ TrainingPlanDurationHoursInput = int
 class SearchTrainingPlanOfferingsRequest(ServiceRequest):
     InstanceType: Optional[ReservedCapacityInstanceType]
     InstanceCount: Optional[ReservedCapacityInstanceCount]
+    UltraServerType: Optional[UltraServerType]
+    UltraServerCount: Optional[UltraServerCount]
     StartTimeAfter: Optional[Timestamp]
     EndTimeBefore: Optional[Timestamp]
     DurationHours: TrainingPlanDurationHoursInput
@@ -16675,8 +17179,11 @@ class UpdateClusterRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
     InstanceGroups: Optional[ClusterInstanceGroupSpecifications]
     RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupSpecifications]
+    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
     NodeRecovery: Optional[ClusterNodeRecovery]
     InstanceGroupsToDelete: Optional[ClusterInstanceGroupsToDelete]
+    ClusterRole: Optional[RoleArn]
+    AutoScaling: Optional[ClusterAutoScalingConfig]
 
 
 class UpdateClusterResponse(TypedDict, total=False):
@@ -16710,6 +17217,7 @@ class UpdateClusterSoftwareRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
     InstanceGroups: Optional[UpdateClusterSoftwareInstanceGroups]
     DeploymentConfig: Optional[DeploymentConfiguration]
+    ImageId: Optional[ImageId]
 
 
 class UpdateClusterSoftwareResponse(TypedDict, total=False):
@@ -17015,6 +17523,7 @@ class UpdateMonitoringScheduleResponse(TypedDict, total=False):
 class UpdateNotebookInstanceInput(ServiceRequest):
     NotebookInstanceName: NotebookInstanceName
     InstanceType: Optional[InstanceType]
+    IpAddressType: Optional[IPAddressType]
     RoleArn: Optional[RoleArn]
     LifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
     DisassociateLifecycleConfig: Optional[DisassociateNotebookInstanceLifecycleConfig]
@@ -17294,12 +17803,68 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("AttachClusterNodeVolume")
+    def attach_cluster_node_volume(
+        self,
+        context: RequestContext,
+        cluster_arn: ClusterArn,
+        node_id: ClusterNodeId,
+        volume_id: VolumeId,
+        **kwargs,
+    ) -> AttachClusterNodeVolumeResponse:
+        """Attaches your Amazon Elastic Block Store (Amazon EBS) volume to a node
+        in your EKS orchestrated HyperPod cluster.
+
+        This API works with the Amazon Elastic Block Store (Amazon EBS)
+        Container Storage Interface (CSI) driver to manage the lifecycle of
+        persistent storage in your HyperPod EKS clusters.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster
+        containing the target node.
+        :param node_id: The unique identifier of the cluster node to which you want to attach
+        the volume.
+        :param volume_id: The unique identifier of your EBS volume to attach.
+        :returns: AttachClusterNodeVolumeResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
+    @handler("BatchAddClusterNodes")
+    def batch_add_cluster_nodes(
+        self,
+        context: RequestContext,
+        cluster_name: ClusterNameOrArn,
+        nodes_to_add: AddClusterNodeSpecificationList,
+        client_token: BatchAddClusterNodesRequestClientTokenString | None = None,
+        **kwargs,
+    ) -> BatchAddClusterNodesResponse:
+        """Adds nodes to a HyperPod cluster by incrementing the target count for
+        one or more instance groups. This operation returns a unique
+        ``NodeLogicalId`` for each node being added, which can be used to track
+        the provisioning status of the node. This API provides a safer
+        alternative to ``UpdateCluster`` for scaling operations by avoiding
+        unintended configuration changes.
+
+        This API is only supported for clusters using ``Continuous`` as the
+        ``NodeProvisioningMode``.
+
+        :param cluster_name: The name of the HyperPod cluster to which you want to add nodes.
+        :param nodes_to_add: A list of instance groups and the number of nodes to add to each.
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
+        idempotency of the request.
+        :returns: BatchAddClusterNodesResponse
+        :raises ResourceNotFound:
+        :raises ResourceLimitExceeded:
+        """
+        raise NotImplementedError
+
     @handler("BatchDeleteClusterNodes")
     def batch_delete_cluster_nodes(
         self,
         context: RequestContext,
         cluster_name: ClusterNameOrArn,
         node_ids: ClusterNodeIds | None = None,
+        node_logical_ids: ClusterNodeLogicalIdList | None = None,
         **kwargs,
     ) -> BatchDeleteClusterNodesResponse:
         """Deletes specific nodes within a SageMaker HyperPod cluster.
@@ -17323,6 +17888,7 @@ class SagemakerApi:
         :param cluster_name: The name of the SageMaker HyperPod cluster from which to delete the
         specified nodes.
         :param node_ids: A list of node IDs to be deleted from the specified cluster.
+        :param node_logical_ids: A list of ``NodeLogicalIds`` identifying the nodes to be deleted.
         :returns: BatchDeleteClusterNodesResponse
         :raises ResourceNotFound:
         """
@@ -17681,6 +18247,10 @@ class SagemakerApi:
         tags: TagList | None = None,
         orchestrator: ClusterOrchestrator | None = None,
         node_recovery: ClusterNodeRecovery | None = None,
+        tiered_storage_config: ClusterTieredStorageConfig | None = None,
+        node_provisioning_mode: ClusterNodeProvisioningMode | None = None,
+        cluster_role: RoleArn | None = None,
+        auto_scaling: ClusterAutoScalingConfig | None = None,
         **kwargs,
     ) -> CreateClusterResponse:
         """Creates a SageMaker HyperPod cluster. SageMaker HyperPod is a capability
@@ -17700,6 +18270,12 @@ class SagemakerApi:
         Services resource.
         :param orchestrator: The type of orchestrator to use for the SageMaker HyperPod cluster.
         :param node_recovery: The node recovery mode for the SageMaker HyperPod cluster.
+        :param tiered_storage_config: The configuration for managed tier checkpointing on the HyperPod
+        cluster.
+        :param node_provisioning_mode: The mode for provisioning nodes in the cluster.
+        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes to
+        perform cluster autoscaling operations.
+        :param auto_scaling: The autoscaling configuration for the cluster.
         :returns: CreateClusterResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -19278,6 +19854,7 @@ class SagemakerApi:
         role_arn: RoleArn,
         subnet_id: SubnetId | None = None,
         security_group_ids: SecurityGroupIds | None = None,
+        ip_address_type: IPAddressType | None = None,
         kms_key_id: KmsKeyId | None = None,
         tags: TagList | None = None,
         lifecycle_config_name: NotebookInstanceLifecycleConfigName | None = None,
@@ -19341,6 +19918,7 @@ class SagemakerApi:
         :param subnet_id: The ID of the subnet in a VPC to which you would like to have a
         connectivity from your ML compute instance.
         :param security_group_ids: The VPC security group IDs, in the form sg-xxxxxxxx.
+        :param ip_address_type: The IP address type for the notebook instance.
         :param kms_key_id: The Amazon Resource Name (ARN) of a Amazon Web Services Key Management
         Service key that SageMaker AI uses to encrypt data on the storage volume
         attached to your notebook instance.
@@ -19927,6 +20505,7 @@ class SagemakerApi:
         context: RequestContext,
         training_plan_name: TrainingPlanName,
         training_plan_offering_id: TrainingPlanOfferingId,
+        spare_instance_count_per_ultra_server: SpareInstanceCountPerUltraServer | None = None,
         tags: TagList | None = None,
         **kwargs,
     ) -> CreateTrainingPlanResponse:
@@ -19980,6 +20559,8 @@ class SagemakerApi:
         :param training_plan_name: The name of the training plan to create.
         :param training_plan_offering_id: The unique identifier of the training plan offering to use for creating
         this plan.
+        :param spare_instance_count_per_ultra_server: Number of spare instances to reserve per UltraServer for enhanced
+        resiliency.
         :param tags: An array of key-value pairs to apply to this training plan.
         :returns: CreateTrainingPlanResponse
         :raises ResourceNotFound:
@@ -21244,12 +21825,29 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeClusterEvent")
+    def describe_cluster_event(
+        self, context: RequestContext, event_id: EventId, cluster_name: ClusterNameOrArn, **kwargs
+    ) -> DescribeClusterEventResponse:
+        """Retrieves detailed information about a specific event for a given
+        HyperPod cluster. This functionality is only supported when the
+        ``NodeProvisioningMode`` is set to ``Continuous``.
+
+        :param event_id: The unique identifier (UUID) of the event to describe.
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster
+        associated with the event.
+        :returns: DescribeClusterEventResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("DescribeClusterNode")
     def describe_cluster_node(
         self,
         context: RequestContext,
         cluster_name: ClusterNameOrArn,
         node_id: ClusterNodeId | None = None,
+        node_logical_id: ClusterNodeLogicalId | None = None,
         **kwargs,
     ) -> DescribeClusterNodeResponse:
         """Retrieves information of a node (also called a *instance*
@@ -21258,6 +21856,7 @@ class SagemakerApi:
         :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker
         HyperPod cluster in which the node is.
         :param node_id: The ID of the SageMaker HyperPod cluster node.
+        :param node_logical_id: The logical identifier of the node to describe.
         :returns: DescribeClusterNodeResponse
         :raises ResourceNotFound:
         """
@@ -21919,6 +22518,18 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeReservedCapacity")
+    def describe_reserved_capacity(
+        self, context: RequestContext, reserved_capacity_arn: ReservedCapacityArn, **kwargs
+    ) -> DescribeReservedCapacityResponse:
+        """Retrieves details about a reserved capacity.
+
+        :param reserved_capacity_arn: ARN of the reserved capacity to describe.
+        :returns: DescribeReservedCapacityResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("DescribeSpace")
     def describe_space(
         self, context: RequestContext, domain_id: DomainId, space_name: SpaceName, **kwargs
@@ -22073,6 +22684,32 @@ class SagemakerApi:
 
         :param workteam_name: The name of the work team to return a description of.
         :returns: DescribeWorkteamResponse
+        """
+        raise NotImplementedError
+
+    @handler("DetachClusterNodeVolume")
+    def detach_cluster_node_volume(
+        self,
+        context: RequestContext,
+        cluster_arn: ClusterArn,
+        node_id: ClusterNodeId,
+        volume_id: VolumeId,
+        **kwargs,
+    ) -> DetachClusterNodeVolumeResponse:
+        """Detaches your Amazon Elastic Block Store (Amazon EBS) volume from a node
+        in your EKS orchestrated SageMaker HyperPod cluster.
+
+        This API works with the Amazon Elastic Block Store (Amazon EBS)
+        Container Storage Interface (CSI) driver to manage the lifecycle of
+        persistent storage in your HyperPod EKS clusters.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster
+        containing the target node.
+        :param node_id: The unique identifier of the cluster node from which you want to detach
+        the volume.
+        :param volume_id: The unique identifier of your EBS volume that you want to detach.
+        :returns: DetachClusterNodeVolumeResponse
+        :raises ResourceNotFound:
         """
         raise NotImplementedError
 
@@ -22548,6 +23185,43 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("ListClusterEvents")
+    def list_cluster_events(
+        self,
+        context: RequestContext,
+        cluster_name: ClusterNameOrArn,
+        instance_group_name: ClusterInstanceGroupName | None = None,
+        node_id: ClusterNodeId | None = None,
+        event_time_after: Timestamp | None = None,
+        event_time_before: Timestamp | None = None,
+        sort_by: EventSortBy | None = None,
+        sort_order: SortOrder | None = None,
+        resource_type: ClusterEventResourceType | None = None,
+        max_results: ClusterEventMaxResults | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> ListClusterEventsResponse:
+        """Retrieves a list of event summaries for a specified HyperPod cluster.
+        The operation supports filtering, sorting, and pagination of results.
+        This functionality is only supported when the ``NodeProvisioningMode``
+        is set to ``Continuous``.
+
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster for which
+        to list events.
+        :param instance_group_name: The name of the instance group to filter events.
+        :param node_id: The EC2 instance ID to filter events.
+        :param event_time_after: The start of the time range for filtering events.
+        :param event_time_before: The end of the time range for filtering events.
+        :param sort_by: The field to use for sorting the event list.
+        :param sort_order: The order in which to sort the results.
+        :param resource_type: The type of resource for which to filter events.
+        :param max_results: The maximum number of events to return in the response.
+        :param next_token: A token to retrieve the next set of results.
+        :returns: ListClusterEventsResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("ListClusterNodes")
     def list_cluster_nodes(
         self,
@@ -22560,6 +23234,7 @@ class SagemakerApi:
         next_token: NextToken | None = None,
         sort_by: ClusterSortBy | None = None,
         sort_order: SortOrder | None = None,
+        include_node_logical_ids: IncludeNodeLogicalIdsBoolean | None = None,
         **kwargs,
     ) -> ListClusterNodesResponse:
         """Retrieves the list of instances (also called *nodes* interchangeably) in
@@ -22578,6 +23253,8 @@ class SagemakerApi:
         truncated, the response includes a ``NextToken``.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
+        :param include_node_logical_ids: Specifies whether to include nodes that are still being provisioned in
+        the response.
         :returns: ListClusterNodesResponse
         :raises ResourceNotFound:
         """
@@ -24829,6 +25506,25 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("ListUltraServersByReservedCapacity")
+    def list_ultra_servers_by_reserved_capacity(
+        self,
+        context: RequestContext,
+        reserved_capacity_arn: ReservedCapacityArn,
+        max_results: MaxResults | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> ListUltraServersByReservedCapacityResponse:
+        """Lists all UltraServers that are part of a specified reserved capacity.
+
+        :param reserved_capacity_arn: The ARN of the reserved capacity to list UltraServers for.
+        :param max_results: The maximum number of UltraServers to return in the response.
+        :param next_token: If the previous response was truncated, you receive this token.
+        :returns: ListUltraServersByReservedCapacityResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("ListUserProfiles")
     def list_user_profiles(
         self,
@@ -25072,6 +25768,8 @@ class SagemakerApi:
         target_resources: SageMakerResourceNames,
         instance_type: ReservedCapacityInstanceType | None = None,
         instance_count: ReservedCapacityInstanceCount | None = None,
+        ultra_server_type: UltraServerType | None = None,
+        ultra_server_count: UltraServerCount | None = None,
         start_time_after: Timestamp | None = None,
         end_time_before: Timestamp | None = None,
         **kwargs,
@@ -25095,6 +25793,8 @@ class SagemakerApi:
         plan offerings.
         :param instance_count: The number of instances you want to reserve in the training plan
         offerings.
+        :param ultra_server_type: The type of UltraServer to search for, such as ml.
+        :param ultra_server_count: The number of UltraServers to search for.
         :param start_time_after: A filter to search for training plan offerings with a start time after a
         specified date.
         :param end_time_before: A filter to search for reserved capacity offerings with an end time
@@ -25616,8 +26316,11 @@ class SagemakerApi:
         cluster_name: ClusterNameOrArn,
         instance_groups: ClusterInstanceGroupSpecifications | None = None,
         restricted_instance_groups: ClusterRestrictedInstanceGroupSpecifications | None = None,
+        tiered_storage_config: ClusterTieredStorageConfig | None = None,
         node_recovery: ClusterNodeRecovery | None = None,
         instance_groups_to_delete: ClusterInstanceGroupsToDelete | None = None,
+        cluster_role: RoleArn | None = None,
+        auto_scaling: ClusterAutoScalingConfig | None = None,
         **kwargs,
     ) -> UpdateClusterResponse:
         """Updates a SageMaker HyperPod cluster.
@@ -25626,8 +26329,13 @@ class SagemakerApi:
         :param instance_groups: Specify the instance groups to update.
         :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to
         be created in the SageMaker HyperPod cluster.
+        :param tiered_storage_config: Updates the configuration for managed tier checkpointing on the HyperPod
+        cluster.
         :param node_recovery: The node recovery mode to be applied to the SageMaker HyperPod cluster.
         :param instance_groups_to_delete: Specify the names of the instance groups to delete.
+        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes for
+        cluster autoscaling operations.
+        :param auto_scaling: Updates the autoscaling configuration for the cluster.
         :returns: UpdateClusterResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -25665,6 +26373,7 @@ class SagemakerApi:
         cluster_name: ClusterNameOrArn,
         instance_groups: UpdateClusterSoftwareInstanceGroups | None = None,
         deployment_config: DeploymentConfiguration | None = None,
+        image_id: ImageId | None = None,
         **kwargs,
     ) -> UpdateClusterSoftwareResponse:
         """Updates the platform software of a SageMaker HyperPod cluster for
@@ -25680,6 +26389,19 @@ class SagemakerApi:
         HyperPod cluster you want to update for security patching.
         :param instance_groups: The array of instance groups for which to update AMI versions.
         :param deployment_config: The configuration to use when updating the AMI versions.
+        :param image_id: When configuring your HyperPod cluster, you can specify an image ID
+        using one of the following options:
+
+        -  ``HyperPodPublicAmiId``: Use a HyperPod public AMI
+
+        -  ``CustomAmiId``: Use your custom AMI
+
+        -  ``default``: Use the default latest system image
+
+        If you choose to use a custom AMI (``CustomAmiId``), ensure it meets the
+        following requirements:
+
+        -  Encryption: The custom AMI must be unencrypted.
         :returns: UpdateClusterSoftwareResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -26376,6 +27098,7 @@ class SagemakerApi:
         context: RequestContext,
         notebook_instance_name: NotebookInstanceName,
         instance_type: InstanceType | None = None,
+        ip_address_type: IPAddressType | None = None,
         role_arn: RoleArn | None = None,
         lifecycle_config_name: NotebookInstanceLifecycleConfigName | None = None,
         disassociate_lifecycle_config: DisassociateNotebookInstanceLifecycleConfig | None = None,
@@ -26397,6 +27120,7 @@ class SagemakerApi:
 
         :param notebook_instance_name: The name of the notebook instance to update.
         :param instance_type: The Amazon ML compute instance type.
+        :param ip_address_type: The IP address type for the notebook instance.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker AI can
         assume to access the notebook instance.
         :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook
@@ -26741,8 +27465,14 @@ class SagemakerApi:
         using any IP address outside the specified range are denied and get a
         ``Not Found`` error message on the worker portal.
 
-        To restrict access to all the workers in public internet, add the
-        ``SourceIpConfig`` CIDR value as "10.0.0.0/16".
+        To restrict public internet access for all workers, configure the
+        ``SourceIpConfig`` CIDR value. For example, when using
+        ``SourceIpConfig`` with an ``IpAddressType`` of ``IPv4``, you can
+        restrict access to the IPv4 CIDR block "10.0.0.0/16". When using an
+        ``IpAddressType`` of ``dualstack``, you can specify both the IPv4 and
+        IPv6 CIDR blocks, such as "10.0.0.0/16" for IPv4 only,
+        "2001:db8:1234:1a00::/56" for IPv6 only, or "10.0.0.0/16" and
+        "2001:db8:1234:1a00::/56" for dual stack.
 
         Amazon SageMaker does not support Source Ip restriction for worker
         portals in VPC.

@@ -2,9 +2,7 @@ _D='3.4.11'
 _C='3.6.2'
 _B='3.5.2'
 _A='3.7.2'
-import logging,os
-from typing import List
-import localstack.pro.core.config as pro_config
+import logging,os,localstack.pro.core.config as pro_config
 from localstack import config
 from localstack.packages import DownloadInstaller,InstallTarget,Package,PackageInstaller
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller

@@ -11,7 +11,7 @@ from arpakitlib.ar_datetime_util import now_utc_dt
 from arpakitlib.ar_dict_util import combine_dicts
 from arpakitlib.ar_exception_util import exception_to_traceback_str
 from arpakitlib.ar_func_util import raise_if_not_async_func, is_async_func, is_sync_func
-from project.api.const import APIErrorCodes
+from project.api.api_error_codes import APIErrorCodes
 from project.api.exception import APIException
 from project.api.response import APIJSONResponse
 from project.api.schema.out.common.error import ErrorCommonSO
@@ -175,7 +175,7 @@ def logging_func_before_in_api_exception_handler(
             return
 
         if isinstance(exception, APIException):
-            if exception.kwargs_.get("logging") is False:
+            if exception.kwargs_.get("logging_full_error") is False:
                 return
 
         _logger.exception(exception)

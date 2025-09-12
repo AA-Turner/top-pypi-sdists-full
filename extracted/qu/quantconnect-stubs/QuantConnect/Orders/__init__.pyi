@@ -504,8 +504,16 @@ class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
         """Gets the manager for the combo order. If null, the order is not a combo order."""
         ...
 
+    @property
+    def asynchronous(self) -> bool:
+        """
+        Whether this request should be asynchronous,
+        which means the ticket will be returned to the algorithm without waiting for submission
+        """
+        ...
+
     @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, trigger_price: float, trailing_amount: float, trailing_as_percentage: bool, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None) -> None:
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, trigger_price: float, trailing_amount: float, trailing_as_percentage: bool, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
         """
         Initializes a new instance of the SubmitOrderRequest class.
         The OrderRequest.OrderId will default to OrderResponseErrorCode.UnableToFindOrder
@@ -523,11 +531,12 @@ class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
         :param tag: A custom tag for this request
         :param properties: The order properties for this request
         :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous, which means the ticket will be returned to the algorithm without waiting for submission
         """
         ...
 
     @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, trigger_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None) -> None:
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, trigger_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
         """
         Initializes a new instance of the SubmitOrderRequest class.
         The OrderRequest.OrderId will default to OrderResponseErrorCode.UnableToFindOrder
@@ -543,11 +552,12 @@ class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
         :param tag: A custom tag for this request
         :param properties: The order properties for this request
         :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous, which means the ticket will be returned to the algorithm without waiting for submission
         """
         ...
 
     @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None) -> None:
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
         """
         Initializes a new instance of the SubmitOrderRequest class.
         The OrderRequest.OrderId will default to OrderResponseErrorCode.UnableToFindOrder
@@ -562,6 +572,7 @@ class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
         :param tag: A custom tag for this request
         :param properties: The order properties for this request
         :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous, which means the ticket will be returned to the algorithm without waiting for submission
         """
         ...
 

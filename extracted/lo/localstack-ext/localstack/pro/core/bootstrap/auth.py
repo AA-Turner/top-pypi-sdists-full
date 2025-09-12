@@ -4,7 +4,7 @@ _C='username'
 _B='token'
 _A=None
 import base64,getpass,json,logging,sys,time
-from typing import Any,Dict,Optional,Tuple,Union
+from typing import Any,Optional,Union
 import jwt
 from localstack.constants import API_ENDPOINT
 from localstack.pro.core import config as pro_config
@@ -16,7 +16,7 @@ from localstack.utils.http import safe_requests
 from localstack.utils.json import FileMappedDocument
 from localstack.utils.strings import to_bytes,to_str
 LOG=logging.getLogger(__name__)
-AuthCache=Union[FileMappedDocument,Dict]
+AuthCache=Union[FileMappedDocument,dict]
 class AuthToken:
 	def __init__(A,token,metadata=_A):A.token=token;A.metadata=metadata
 	def extract_jwt(B):A=B.token.strip().split(' ')[-1];jwt.decode(A,options={_D:False});return A

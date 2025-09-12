@@ -759,21 +759,18 @@ class ListPendingInvitationResourcesRequest(ServiceRequest):
     resourceRegionScope: Optional[ResourceRegionScopeFilter]
 
 
-Resource = TypedDict(
-    "Resource",
-    {
-        "arn": Optional[String],
-        "type": Optional[String],
-        "resourceShareArn": Optional[String],
-        "resourceGroupArn": Optional[String],
-        "status": Optional[ResourceStatus],
-        "statusMessage": Optional[String],
-        "creationTime": Optional[DateTime],
-        "lastUpdatedTime": Optional[DateTime],
-        "resourceRegionScope": Optional[ResourceRegionScope],
-    },
-    total=False,
-)
+class Resource(TypedDict, total=False):
+    arn: Optional[String]
+    type: Optional[String]
+    resourceShareArn: Optional[String]
+    resourceGroupArn: Optional[String]
+    status: Optional[ResourceStatus]
+    statusMessage: Optional[String]
+    creationTime: Optional[DateTime]
+    lastUpdatedTime: Optional[DateTime]
+    resourceRegionScope: Optional[ResourceRegionScope]
+
+
 ResourceList = List[Resource]
 
 

@@ -56,8 +56,8 @@ def clear_instance_admin(instance_name, openstack_admin):
     )
 
 
-def wait_for_angular_readiness_instance_source(driver):
-    driver.set_script_timeout(10)
+def wait_for_angular_readiness_instance_source(driver, config):
+    driver.set_script_timeout(config.selenium.page_timeout)
     driver.execute_async_script("""
     var callback = arguments[arguments.length - 1];
     var element = document.querySelector(\
@@ -105,7 +105,7 @@ def apply_instance_name_filter(driver, config, name_pattern):
             driver.find_element_by_css_selector(
                 f".table_search input[value='{name_pattern}']")
             break
-        except(exceptions.NoSuchElementException):
+        except (exceptions.NoSuchElementException):
             time.sleep(3)
 
 
@@ -158,7 +158,7 @@ def test_create_instance_demo(complete_default_test_network, login, driver,
     )
     widgets.select_from_transfer_table(flavor_table, flavor)
     navigation.find_element_by_link_text("Source").click()
-    wait_for_angular_readiness_instance_source(driver)
+    wait_for_angular_readiness_instance_source(driver, config)
     source_table = wizard.find_element_by_css_selector(
         "ng-include[ng-form=launchInstanceSourceForm]"
     )
@@ -213,7 +213,7 @@ def test_create_instance_from_volume_demo(complete_default_test_network, login,
     )
     widgets.select_from_transfer_table(flavor_table, flavor)
     navigation.find_element_by_link_text("Source").click()
-    wait_for_angular_readiness_instance_source(driver)
+    wait_for_angular_readiness_instance_source(driver, config)
     source_table = wizard.find_element_by_css_selector(
         "ng-include[ng-form=launchInstanceSourceForm]"
     )
@@ -246,7 +246,7 @@ def test_delete_instance_demo(login, driver, instance_name, openstack_demo,
     actions_column = rows[0].find_element_by_css_selector("td.actions_column")
     widgets.select_from_dropdown(actions_column, "Delete Instance")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Info: Scheduled deletion of Instance: {instance_name}" in messages
     wait_for_instance_is_deleted(openstack_demo, instance_name)
     assert openstack_demo.compute.find_server(instance_name) is None
@@ -466,7 +466,7 @@ def test_create_instance_admin(complete_default_test_network, login, driver,
     )
     widgets.select_from_transfer_table(flavor_table, flavor)
     navigation.find_element_by_link_text("Source").click()
-    wait_for_angular_readiness_instance_source(driver)
+    wait_for_angular_readiness_instance_source(driver, config)
     source_table = wizard.find_element_by_css_selector(
         "ng-include[ng-form=launchInstanceSourceForm]"
     )
@@ -496,7 +496,7 @@ def test_delete_instance_admin(login, driver, instance_name, openstack_admin,
     actions_column = rows[0].find_element_by_css_selector("td.actions_column")
     widgets.select_from_dropdown(actions_column, "Delete Instance")
     widgets.confirm_modal(driver)
-    messages = widgets.get_and_dismiss_messages(driver)
+    messages = widgets.get_and_dismiss_messages(driver, config)
     assert f"Info: Scheduled deletion of Instance: {instance_name}" in messages
     wait_for_instance_is_deleted(openstack_admin, instance_name)
     assert openstack_admin.compute.find_server(instance_name) is None

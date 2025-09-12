@@ -1901,6 +1901,7 @@ GroupProfileSummaryTypeDef = TypedDict(
 
 class IamUserProfileDetailsTypeDef(TypedDict):
     arn: NotRequired[str]
+    principalId: NotRequired[str]
 
 
 class InExpressionOutputTypeDef(TypedDict):

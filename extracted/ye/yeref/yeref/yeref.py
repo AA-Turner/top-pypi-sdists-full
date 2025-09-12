@@ -13030,7 +13030,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
             if loop_ != '☑':
                 sql = "SELECT UB_TID, UB_CPODCAST FROM \"UB\" WHERE UB_TID=$1"
                 data_config = await db_select_pg(sql, (UB_TID,), BASE_P)
-                if not len(data_config): return
+                if not len(data_config): return result
                 UB_TID, UB_CPODCAST = data_config[0]
 
                 UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"

@@ -188,6 +188,7 @@ __all__ = (
     "NegativeValueDisplayModeType",
     "NetworkInterfaceStatusType",
     "NullFilterOptionType",
+    "NullFilterTypeType",
     "NumberScaleType",
     "NumericEqualityMatchOperatorType",
     "NumericFilterSelectAllOptionsType",
@@ -212,6 +213,7 @@ __all__ = (
     "PurchaseModeType",
     "QAResultTypeType",
     "QBusinessInsightsStatusType",
+    "QDataKeyTypeType",
     "QSearchStatusType",
     "QueryExecutionModeType",
     "QuickSightServiceName",
@@ -557,6 +559,7 @@ DataSourceTypeType = Literal[
     "DATABRICKS",
     "EXASOL",
     "GITHUB",
+    "GOOGLESHEETS",
     "JIRA",
     "MARIADB",
     "MYSQL",
@@ -809,6 +812,7 @@ NamedFilterAggTypeType = Literal[
 NamedFilterTypeType = Literal[
     "CATEGORY_FILTER",
     "DATE_RANGE_FILTER",
+    "NULL_FILTER",
     "NUMERIC_EQUALITY_FILTER",
     "NUMERIC_RANGE_FILTER",
     "RELATIVE_DATE_FILTER",
@@ -831,6 +835,7 @@ NetworkInterfaceStatusType = Literal[
     "UPDATING",
 ]
 NullFilterOptionType = Literal["ALL_VALUES", "NON_NULLS_ONLY", "NULLS_ONLY"]
+NullFilterTypeType = Literal["ALL_VALUES", "NON_NULLS_ONLY", "NULLS_ONLY"]
 NumberScaleType = Literal[
     "AUTO", "BILLIONS", "CRORES", "LAKHS", "MILLIONS", "NONE", "THOUSANDS", "TRILLIONS"
 ]
@@ -873,6 +878,7 @@ PropertyUsageType = Literal["DIMENSION", "INHERIT", "MEASURE"]
 PurchaseModeType = Literal["AUTO_PURCHASE", "MANUAL"]
 QAResultTypeType = Literal["DASHBOARD_VISUAL", "GENERATED_ANSWER", "NO_ANSWER"]
 QBusinessInsightsStatusType = Literal["DISABLED", "ENABLED"]
+QDataKeyTypeType = Literal["AWS_OWNED", "CMK"]
 QSearchStatusType = Literal["DISABLED", "ENABLED"]
 QueryExecutionModeType = Literal["AUTO", "MANUAL"]
 RadarChartAxesRangeScaleType = Literal["AUTO", "INDEPENDENT", "SHARED"]
@@ -1097,8 +1103,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -1340,8 +1348,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -1474,16 +1480,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_folder_permissions",
@@ -1539,6 +1536,8 @@ RegionName = Literal[
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "il-central-1",
+    "me-central-1",
     "sa-east-1",
     "us-east-1",
     "us-east-2",

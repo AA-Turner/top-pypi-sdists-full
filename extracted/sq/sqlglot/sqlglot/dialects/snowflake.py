@@ -32,6 +32,7 @@ from sqlglot.dialects.dialect import (
 )
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import find_new_name, flatten, is_float, is_int, seq_get
+from sqlglot.optimizer.annotate_types import TypeAnnotator
 from sqlglot.optimizer.scope import build_scope, find_all_in_scope
 from sqlglot.tokens import TokenType
 
@@ -482,6 +483,15 @@ def _eliminate_dot_variant_lookup(expression: exp.Expression) -> exp.Expression:
     return expression
 
 
+def _annotate_reverse(self: TypeAnnotator, expression: exp.Reverse) -> exp.Reverse:
+    expression = self._annotate_by_args(expression, "this")
+    if expression.is_type(exp.DataType.Type.NULL):
+        # Snowflake treats REVERSE(NULL) as a VARCHAR
+        self._set_type(expression, exp.DataType.Type.VARCHAR)
+
+    return expression
+
+
 class Snowflake(Dialect):
     # https://docs.snowflake.com/en/sql-reference/identifiers-syntax
     NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
@@ -500,9 +510,17 @@ class Snowflake(Dialect):
         **Dialect.ANNOTATORS,
         **{
             expr_type: lambda self, e: self._annotate_by_args(e, "this")
-            for expr_type in (exp.Reverse,)
+            for expr_type in (
+                exp.Left,
+                exp.Right,
+                exp.Substring,
+            )
         },
         exp.ConcatWs: lambda self, e: self._annotate_by_args(e, "expressions"),
+        exp.Length: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.INT),
+        exp.Replace: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
+        exp.Reverse: _annotate_reverse,
+        exp.Space: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
     }
 
     TIME_MAPPING = {
@@ -664,7 +682,8 @@ class Snowflake(Dialect):
             "TO_TIMESTAMP_LTZ": _build_datetime("TO_TIMESTAMP_LTZ", exp.DataType.Type.TIMESTAMPLTZ),
             "TO_TIMESTAMP_NTZ": _build_datetime("TO_TIMESTAMP_NTZ", exp.DataType.Type.TIMESTAMP),
             "TO_TIMESTAMP_TZ": _build_datetime("TO_TIMESTAMP_TZ", exp.DataType.Type.TIMESTAMPTZ),
-            "TO_VARCHAR": exp.ToChar.from_arg_list,
+            "TO_VARCHAR": build_timetostr_or_tochar,
+            "TO_JSON": exp.JSONFormat.from_arg_list,
             "VECTOR_L2_DISTANCE": exp.EuclideanDistance.from_arg_list,
             "ZEROIFNULL": _build_if_from_zeroifnull,
         }
@@ -1273,6 +1292,7 @@ class Snowflake(Dialect):
             exp.ParseJSON: lambda self, e: self.func(
                 "TRY_PARSE_JSON" if e.args.get("safe") else "PARSE_JSON", e.this
             ),
+            exp.JSONFormat: rename_func("TO_JSON"),
             exp.PartitionedByProperty: lambda self, e: f"PARTITION BY {self.sql(e, 'this')}",
             exp.PercentileCont: transforms.preprocess(
                 [transforms.add_within_group_for_percentiles]
@@ -1297,6 +1317,8 @@ class Snowflake(Dialect):
                 ]
             ),
             exp.SHA: rename_func("SHA1"),
+            exp.MD5Digest: rename_func("MD5_BINARY"),
+            exp.LowerHex: rename_func("TO_CHAR"),
             exp.SortArray: rename_func("ARRAY_SORT"),
             exp.StarMap: rename_func("OBJECT_CONSTRUCT"),
             exp.StartsWith: rename_func("STARTSWITH"),
@@ -1344,9 +1366,10 @@ class Snowflake(Dialect):
 
         TYPE_MAPPING = {
             **generator.Generator.TYPE_MAPPING,
+            exp.DataType.Type.BIGDECIMAL: "DOUBLE",
             exp.DataType.Type.NESTED: "OBJECT",
             exp.DataType.Type.STRUCT: "OBJECT",
-            exp.DataType.Type.BIGDECIMAL: "DOUBLE",
+            exp.DataType.Type.TEXT: "VARCHAR",
         }
 
         TOKEN_MAPPING = {

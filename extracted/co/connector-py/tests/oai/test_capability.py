@@ -10,6 +10,7 @@ import typing as t
 import pytest
 import pytest_cases
 from connector.oai.capability import (
+    _STANDARD_CAPABILITY_SIGNATURES,
     CapabilityCallableProto,
     Request,
     Response,
@@ -105,3 +106,24 @@ async def test_validate_capability_missing_annotation(
     capability_name = StandardCapabilityName.VALIDATE_CREDENTIALS
     with pytest.raises(TypeError):
         validate_capability(capability_name, capability)
+
+
+async def test_standard_capability_signatures_exhaustive() -> None:
+    """
+    Test if all standard capability signatures are exhaustively
+    covered in _STANDARD_CAPABILITY_SIGNATURES
+    """
+    for capability_name in StandardCapabilityName:
+        if capability_name == StandardCapabilityName.INFO:
+            # INFO is a special case as it is not manually registered
+            continue
+        if capability_name == StandardCapabilityName.CONNECTED_INFO:
+            # CONNECTED_INFO is a special case as it is not manually registered
+            continue
+        if capability_name == StandardCapabilityName.APP_INFO:
+            # APP_INFO is a special case as it is not manually registered
+            continue
+        signature = _STANDARD_CAPABILITY_SIGNATURES.get(capability_name)
+        assert (
+            signature is not None
+        ), f"Standard capability signature for {capability_name} is not found"

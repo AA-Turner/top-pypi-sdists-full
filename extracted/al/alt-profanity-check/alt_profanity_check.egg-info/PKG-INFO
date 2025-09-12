@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alt-profanity-check
-Version: 1.7.1
+Version: 1.7.2
 Summary: A fast, robust library to check for offensive language in strings. Dropdown replacement of "profanity-check".
 Home-page: https://github.com/dimitrismistriotis/alt-profanity-check
 Author: Victor Zhou (original author), Menelaos Kotoglou, Dimitrios Mistriotis
@@ -10,10 +10,10 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scikit-learn==1.7.1
+Requires-Dist: scikit-learn==1.7.2
 Requires-Dist: joblib==1.5.1
 Dynamic: author
 Dynamic: author-email

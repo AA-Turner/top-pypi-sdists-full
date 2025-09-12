@@ -518,13 +518,14 @@ class BasePyTreeCheckpointHandler(
     # Filter out requests that don't have any additions.
     filtered_requests = []
     for request in batch_requests:
-      filtered_items = [
-          (key, value, info, arg)
-          for key, value, info, arg in zip(
-              request.keys, request.values, request.infos, request.args
-          )
-          if key in additions
-      ]
+      filtered_items = []
+      for key, value, info, arg in zip(
+          request.keys, request.values, request.infos, request.args
+      ):
+        for add in additions:
+          # Additions may be a prefix/parent of the key.
+          if add == key[: len(add)]:
+            filtered_items.append((key, value, info, arg))
       if filtered_items:
         keys, values, infos, args = zip(*filtered_items)
         filtered_requests.append(
@@ -942,9 +943,12 @@ class BasePyTreeCheckpointHandler(
           leaves_equal=lambda a, b: True,
       )
       if diff is not None:
+        formatted_diff = tree_structure_utils.format_tree_diff(
+            diff, source_label='Item', target_label='Metadata'
+        )
         raise ValueError(
             'User-provided restore item and on-disk value metadata tree'
-            f' structures do not match: {diff}'
+            f' structures do not match:\n{formatted_diff}'
         )
       value_metadata_tree = jax.tree.map(
           lambda v, i: PLACEHOLDER if type_handlers.is_placeholder(i) else v,

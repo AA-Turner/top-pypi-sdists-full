@@ -48,9 +48,9 @@ from metricflow.dataset.semantic_model_adapter import SemanticModelDataSet
 from metricflow.dataset.sql_dataset import SqlDataSet
 from metricflow.sql.sql_plan import (
     SqlSelectColumn,
-    SqlSelectStatementNode,
-    SqlTableNode,
 )
+from metricflow.sql.sql_select_node import SqlSelectStatementNode
+from metricflow.sql.sql_table_node import SqlTableNode
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ class SemanticModelToDataSetConverter:
         self,
         element_name: str,
         entity_links: Tuple[EntityReference, ...],
-        time_granularity: ExpandedTimeGranularity,
+        time_granularity: Optional[ExpandedTimeGranularity] = None,
         date_part: Optional[DatePart] = None,
         semantic_model_name: Optional[str] = None,
     ) -> TimeDimensionInstance:
@@ -359,7 +359,6 @@ class SemanticModelToDataSetConverter:
                     semantic_model_name=semantic_model_name,
                     element_name=element_name,
                     entity_links=entity_links,
-                    time_granularity=ExpandedTimeGranularity.from_time_granularity(defined_time_granularity),
                     date_part=date_part,
                 )
                 time_dimension_instances.append(time_dimension_instance)
@@ -528,7 +527,7 @@ class SemanticModelToDataSetConverter:
             time_granularity=ExpandedTimeGranularity.from_time_granularity(base_granularity),
         )
         time_dimension_instances.append(base_time_dimension_instance)
-        base_dimension_select_expr = SqlColumnReferenceExpression.from_table_and_column_names(
+        base_dimension_select_expr = SqlColumnReferenceExpression.from_column_reference(
             table_alias=from_source_alias, column_name=base_column_name
         )
         base_select_column = SqlSelectColumn(

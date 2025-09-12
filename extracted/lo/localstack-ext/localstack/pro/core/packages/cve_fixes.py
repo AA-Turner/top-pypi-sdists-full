@@ -2,7 +2,7 @@ _B='jar-cve-fixes'
 _A=None
 import dataclasses,logging,os,tempfile
 from abc import ABC,abstractmethod
-from typing import Callable,List
+from collections.abc import Callable
 from zipfile import ZipFile
 from localstack import config
 from localstack.constants import ARTIFACTS_REPO,MAVEN_REPO_URL
@@ -31,7 +31,7 @@ class DefaultZipEntryRenamer(ZipEntryRenamer):
 		return A
 @dataclasses.dataclass
 class FixStrategyPatchJAR(FixStrategy):
-	patch_libs:List[str]|_A=_A;zip_entry_renamer:ZipEntryRenamer|_A=_A
+	patch_libs:list[str]|_A=_A;zip_entry_renamer:ZipEntryRenamer|_A=_A
 	def apply(C,file_path):
 		D=C.zip_entry_renamer or DefaultZipEntryRenamer()
 		for A in C.patch_libs or[]:
@@ -49,7 +49,7 @@ class FixStrategyDownloadFile(FixStrategy):
 		if not os.path.exists(B):download(A.file_url,B)
 		cp_r(B,A.target_path)
 @dataclasses.dataclass
-class CVEFix:paths:List[str];strategy:FixStrategy|List[FixStrategy]
+class CVEFix:paths:list[str];strategy:FixStrategy|list[FixStrategy]
 def fix_cves_in_jar_files(target,fixes):
 	if BIGDATA_SKIP_CVE_FIXES:return
 	for B in fixes:

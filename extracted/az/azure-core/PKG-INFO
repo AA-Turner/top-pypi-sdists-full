@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-core
-Version: 1.35.0
+Version: 1.35.1
 Summary: Microsoft Azure Core Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-core
 Author: Microsoft Corporation
@@ -27,6 +27,19 @@ Provides-Extra: aio
 Requires-Dist: aiohttp>=3.0; extra == "aio"
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-api~=1.26; extra == "tracing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 # Azure Core shared client library for Python
@@ -259,6 +272,33 @@ foo = Foo(
 )
 ```
 
+## Logging
+
+Azure libraries follow the guidance of Python's standard [logging](https://docs.python.org/3/library/logging.html) module. By following the Python documentation on logging, you should be able to configure logging for Azure libraries effectively.
+
+Azure library loggers use a dot-based separated syntax, where the first section is always `azure`, followed by the package name. For example, the Azure Core library uses logger names that start with `azure.core`.
+
+Here's an example of how to configure logging for Azure libraries:
+
+```python
+import logging
+import sys
+
+# Enable detailed console logs across Azure libraries
+azure_logger = logging.getLogger("azure")
+azure_logger.setLevel(logging.DEBUG)
+azure_logger.addHandler(logging.StreamHandler(stream=sys.stdout))
+
+# Exclude detailed logs for network calls associated with getting Entra ID token.
+identity_logger = logging.getLogger("azure.identity")
+identity_logger.setLevel(logging.ERROR)
+
+# Make sure regular (redacted) detailed azure.core logs are not shown, as we are about to
+# turn on non-redacted logs by passing 'logging_enable=True' to the client constructor 
+logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
+logger.setLevel(logging.ERROR)
+```
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require
@@ -283,6 +323,16 @@ additional questions or comments.
 
 
 # Release History
+
+## 1.35.1 (2025-09-11)
+
+### Bugs Fixed
+
+- Fixed an issue where the `retry_backoff_max` parameter in `RetryPolicy` and `AsyncRetryPolicy` constructors was being ignored, causing retry operations to use default maximum backoff values instead of the user-specified limits. #42444
+
+### Other Changes
+
+- `BearerTokenCredentialPolicy` and `AsyncBearerTokenCredentialPolicy` will now properly surface credential exceptions when handling claims challenges. Previously, exceptions from credential token requests were suppressed; now they are raised and chained with the original 401 `HttpResponseError` response for better debugging visibility. #42536
 
 ## 1.35.0 (2025-07-02)
 

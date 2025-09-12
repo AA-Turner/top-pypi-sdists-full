@@ -3318,19 +3318,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def combo_leg_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def combo_leg_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Issue a combo leg limit order/trade for multiple assets, each having its own limit price.
         
         :param legs: The list of legs the order consists of
         :param quantity: The total quantity for the order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: Sequence of order tickets, one for each leg.
         """
         ...
 
-    def combo_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def combo_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Issue a combo limit order/trade for multiple assets.
         A single limit price is defined for the combo order and will fill only if the sum of the assets price compares properly to the limit price, depending on the direction.
@@ -3338,6 +3339,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param legs: The list of legs the order consists of
         :param quantity: The total quantity for the order
         :param limit_price: The compound limit price to use for a ComboLimit order. This limit price will compared to the sum of the assets price in order to fill the order.
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: Sequence of order tickets, one for each leg.
@@ -4554,7 +4556,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trigger_price: float, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit if touched order to the transaction handler:
         
@@ -4562,6 +4564,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of shares for limit order
         :param trigger_price: Trigger price for this order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4569,7 +4572,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trigger_price: float, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit if touched order to the transaction handler:
         
@@ -4577,6 +4580,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of shares for limit order
         :param trigger_price: Trigger price for this order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4584,13 +4588,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit order to the transaction handler:
         
         :param symbol: String symbol for the asset
         :param quantity: Quantity of shares for limit order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4598,13 +4603,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit order to the transaction handler:
         
         :param symbol: String symbol for the asset
         :param quantity: Quantity of shares for limit order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4771,12 +4777,17 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+        ...
+
+    @overload
+    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on close order implementation: Send a market order when the exchange closes
         
         :param symbol: The symbol to be ordered
         :param quantity: The number of shares to required
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4784,25 +4795,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
-        """
-        Market on close order implementation: Send a market order when the exchange closes
-        
-        :param symbol: The symbol to be ordered
-        :param quantity: The number of shares to required
-        :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
-        :returns: The order ticket instance.
-        """
-        ...
-
-    @overload
-    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on open order implementation: Send a market order when the exchange opens
         
         :param symbol: The symbol to be ordered
         :param quantity: The number of shares to required
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -4810,12 +4809,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on open order implementation: Send a market order when the exchange opens
         
         :param symbol: The symbol to be ordered
         :param quantity: The number of shares to required
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6041,7 +6041,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_holdings(self, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget], liquidate_existing_holdings: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def set_holdings(self, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget], liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Sets holdings for a collection of targets.
         The implementation will order the provided targets executing first those that
@@ -6049,6 +6049,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param targets: The portfolio desired quantities as percentages
         :param liquidate_existing_holdings: True will liquidate existing holdings
+        :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: A list of order tickets.
@@ -6056,13 +6057,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: float, liquidate_existing_holdings: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: float, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Alias for SetHoldings to avoid the M-decimal errors.
         
         :param symbol: string symbol we wish to hold
         :param percentage: double percentage of holdings desired
         :param liquidate_existing_holdings: liquidate existing holdings if necessary to hold this stock
+        :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: A list of order tickets.
@@ -6070,13 +6072,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: int, liquidate_existing_holdings: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: int, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Alias for SetHoldings to avoid the M-decimal errors.
         
         :param symbol: string symbol we wish to hold
         :param percentage: float percentage of holdings desired
         :param liquidate_existing_holdings: bool liquidate existing holdings if necessary to hold this stock
+        :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: A list of order tickets.
@@ -6601,7 +6604,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a stop limit order to the transaction handler:
         
@@ -6609,6 +6612,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of shares for limit order
         :param stop_price: Stop price for this order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6616,7 +6620,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a stop limit order to the transaction handler:
         
@@ -6624,6 +6628,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of shares for limit order
         :param stop_price: Stop price for this order
         :param limit_price: Limit price to fill this order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6631,13 +6636,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a stop market order and return the newly created order id; or negative if the order is invalid
         
         :param symbol: String symbol for the asset we're trading
         :param quantity: Quantity to be traded
         :param stop_price: Price to fill the stop order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6645,13 +6651,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a stop market order and return the newly created order id; or negative if the order is invalid
         
         :param symbol: String symbol for the asset we're trading
         :param quantity: Quantity to be traded
         :param stop_price: Price to fill the stop order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6820,7 +6827,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trailing_amount: float, trailing_as_percentage: bool, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid.
         It will calculate the stop price using the trailing amount and the current market price.
@@ -6829,6 +6836,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity to be traded
         :param trailing_amount: The trailing amount to be used to update the stop price
         :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6836,7 +6844,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trailing_amount: float, trailing_as_percentage: bool, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid.
         It will calculate the stop price using the trailing amount and the current market price.
@@ -6845,6 +6853,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity to be traded
         :param trailing_amount: The trailing amount to be used to update the stop price
         :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6852,7 +6861,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid
         
@@ -6861,6 +6870,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param stop_price: Initial stop price at which the order should be triggered
         :param trailing_amount: The trailing amount to be used to update the stop price
         :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.
@@ -6868,7 +6878,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid
         
@@ -6877,6 +6887,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param stop_price: Initial stop price at which the order should be triggered
         :param trailing_amount: The trailing amount to be used to update the stop price
         :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
         :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
         :returns: The order ticket instance.

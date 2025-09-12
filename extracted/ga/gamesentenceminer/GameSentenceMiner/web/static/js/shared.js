@@ -19,12 +19,17 @@ function closeModal(modalId) {
 
 // Initialize modal close functionality (backdrop clicks and ESC key)
 function initializeModalHandlers() {
-    // Close modals when clicking outside (backdrop)
+    // Close modals only if both mousedown and mouseup are on the backdrop
     document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        let backdropMouseDown = false;
+        modal.addEventListener('mousedown', (e) => {
+            backdropMouseDown = (e.target === modal);
+        });
+        modal.addEventListener('mouseup', (e) => {
+            if (backdropMouseDown && e.target === modal) {
                 closeModal(modal.id);
             }
+            backdropMouseDown = false;
         });
     });
     
@@ -224,6 +229,9 @@ class SettingsManager {
         this.sessionGapInput = document.getElementById('sessionGap');
         this.heatmapYearSelect = document.getElementById('heatmapYear');
         this.streakRequirementInput = document.getElementById('streakRequirement');
+        this.readingHoursTargetInput = document.getElementById('readingHoursTarget');
+        this.characterCountTargetInput = document.getElementById('characterCountTarget');
+        this.gamesTargetInput = document.getElementById('gamesTarget');
     }
     
     attachEventListeners() {
@@ -245,17 +253,18 @@ class SettingsManager {
             this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
         }
         
-        // Close modal when clicking outside
-        if (this.settingsModal) {
-            this.settingsModal.addEventListener('click', (e) => {
-                if (e.target === this.settingsModal) {
-                    this.closeModal();
-                }
-            });
-        }
+        // // Close modal when clicking outside
+        // if (this.settingsModal) {
+        //     this.settingsModal.addEventListener('click', (e) => {
+        //         if (e.target === this.settingsModal) {
+        //             this.closeModal();
+        //         }
+        //     });
+        // }
         
         // Clear messages when user starts typing
-        [this.afkTimerInput, this.sessionGapInput, this.heatmapYearSelect, this.streakRequirementInput]
+        [this.afkTimerInput, this.sessionGapInput, this.heatmapYearSelect, this.streakRequirementInput,
+         this.readingHoursTargetInput, this.characterCountTargetInput, this.gamesTargetInput]
             .filter(Boolean)
             .forEach(input => {
                 input.addEventListener('input', () => this.clearMessages());
@@ -317,6 +326,15 @@ class SettingsManager {
         }
         if (this.streakRequirementInput) {
             this.streakRequirementInput.value = settings.streak_requirement_hours || 1;
+        }
+        if (this.readingHoursTargetInput) {
+            this.readingHoursTargetInput.value = settings.reading_hours_target || 1500;
+        }
+        if (this.characterCountTargetInput) {
+            this.characterCountTargetInput.value = settings.character_count_target || 25000000;
+        }
+        if (this.gamesTargetInput) {
+            this.gamesTargetInput.value = settings.games_target || 100;
         }
         
         // Load saved year preference
@@ -399,6 +417,33 @@ class SettingsManager {
                 settings.streak_requirement_hours = streakRequirement;
             }
             
+            if (this.readingHoursTargetInput) {
+                const readingHoursTarget = parseInt(this.readingHoursTargetInput.value);
+                if (isNaN(readingHoursTarget) || readingHoursTarget < 1 || readingHoursTarget > 10000) {
+                    this.showError('Reading hours target must be between 1 and 10,000 hours');
+                    return;
+                }
+                settings.reading_hours_target = readingHoursTarget;
+            }
+            
+            if (this.characterCountTargetInput) {
+                const characterCountTarget = parseInt(this.characterCountTargetInput.value);
+                if (isNaN(characterCountTarget) || characterCountTarget < 1000 || characterCountTarget > 1000000000) {
+                    this.showError('Character count target must be between 1,000 and 1,000,000,000 characters');
+                    return;
+                }
+                settings.character_count_target = characterCountTarget;
+            }
+            
+            if (this.gamesTargetInput) {
+                const gamesTarget = parseInt(this.gamesTargetInput.value);
+                if (isNaN(gamesTarget) || gamesTarget < 1 || gamesTarget > 1000) {
+                    this.showError('Games target must be between 1 and 1,000');
+                    return;
+                }
+                settings.games_target = gamesTarget;
+            }
+            
             // Show loading state
             if (this.saveSettingsBtn) {
                 this.saveSettingsBtn.disabled = true;
@@ -420,6 +465,9 @@ class SettingsManager {
             }
             
             this.showSuccess('Settings saved successfully! Changes will apply to new calculations.');
+            
+            // Dispatch event to notify other components that settings were updated
+            window.dispatchEvent(new CustomEvent('settingsUpdated'));
             
             // Auto-close modal after 2 seconds
             setTimeout(() => {

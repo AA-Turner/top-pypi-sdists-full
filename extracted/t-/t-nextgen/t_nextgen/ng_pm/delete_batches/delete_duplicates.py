@@ -80,7 +80,9 @@ class DuplicateBatchDeleter(BatchDeleterCore):
             for description in self.duplicated_batches:
                 if description in next_gen_description:
                     if not data_item.is_visible():
-                        self.next_gen.desktop_app.click_down_n_times(index)
+                        self.next_gen.desktop_app.click_center_and_scroll(
+                            self.next_gen.batch_posting_window.batch_posting_window, index
+                        )
 
                     if "thoughtful" in secured_to.lower() or secured_to.strip() == "":
                         members = data_item.descendants(title="Members", control_type="Edit")[0].get_value()

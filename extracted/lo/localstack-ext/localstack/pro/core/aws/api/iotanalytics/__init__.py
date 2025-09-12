@@ -353,14 +353,13 @@ class ChannelSummary(TypedDict, total=False):
 
 
 ChannelSummaries = List[ChannelSummary]
-Column = TypedDict(
-    "Column",
-    {
-        "name": ColumnName,
-        "type": ColumnDataType,
-    },
-    total=False,
-)
+
+
+class Column(TypedDict, total=False):
+    name: ColumnName
+    type: ColumnDataType
+
+
 Columns = List[Column]
 
 

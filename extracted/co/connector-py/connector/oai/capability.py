@@ -15,6 +15,8 @@ from connector_sdk_types.generated import (
     ActivateAccountResponse,
     AppInfoRequest,
     AppInfoResponse,
+    AssignApplicationRequest,
+    AssignApplicationResponse,
     AssignEntitlementRequest,
     AssignEntitlementResponse,
     AuthCredential,
@@ -31,8 +33,14 @@ from connector_sdk_types.generated import (
     ErrorCode,
     FindEntitlementAssociationsRequest,
     FindEntitlementAssociationsResponse,
+    GetAccountEntitlementAssociationsRequest,
+    GetAccountEntitlementAssociationsResponse,
     GetAccountRequest,
     GetAccountResponse,
+    GetApplicationAccountRequest,
+    GetApplicationAccountResponse,
+    GetApplicationRequest,
+    GetApplicationResponse,
     GetAuthorizationUrlRequest,
     GetAuthorizationUrlResponse,
     GetDataRecencyRequest,
@@ -48,6 +56,16 @@ from connector_sdk_types.generated import (
     ListAccountsResponse,
     ListActivityRecordsRequest,
     ListActivityRecordsResponse,
+    ListApplicationsAccountsRequest,
+    ListApplicationsAccountsResponse,
+    ListApplicationsActivityRecordsRequest,
+    ListApplicationsActivityRecordsResponse,
+    ListApplicationsEntitlementsRequest,
+    ListApplicationsEntitlementsResponse,
+    ListApplicationsRequest,
+    ListApplicationsResourcesRequest,
+    ListApplicationsResourcesResponse,
+    ListApplicationsResponse,
     ListCustomAttributesSchemaRequest,
     ListCustomAttributesSchemaResponse,
     ListEntitlementsRequest,
@@ -71,6 +89,8 @@ from connector_sdk_types.generated import (
     TokenCredential,
     TransferDataRequest,
     TransferDataResponse,
+    UnassignApplicationRequest,
+    UnassignApplicationResponse,
     UnassignEntitlementRequest,
     UnassignEntitlementResponse,
     UpdateAccountRequest,
@@ -682,6 +702,74 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.GET_ACCOUNT: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=GetAccountRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=GetAccountResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=ListApplicationsRequest, is_request=True),
+        output_payload=_payload_type_data(envelope_type=ListApplicationsResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS_ACCOUNTS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListApplicationsAccountsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListApplicationsAccountsResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS_ACTIVITY_RECORDS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListApplicationsActivityRecordsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListApplicationsActivityRecordsResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS_ENTITLEMENTS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListApplicationsEntitlementsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListApplicationsEntitlementsResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS_RESOURCES: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListApplicationsResourcesRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListApplicationsResourcesResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.UNASSIGN_APPLICATION: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=UnassignApplicationRequest, is_request=True),
+        output_payload=_payload_type_data(
+            envelope_type=UnassignApplicationResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.ASSIGN_APPLICATION: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=AssignApplicationRequest, is_request=True),
+        output_payload=_payload_type_data(
+            envelope_type=AssignApplicationResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.GET_APPLICATION: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=GetApplicationRequest, is_request=True),
+        output_payload=_payload_type_data(envelope_type=GetApplicationResponse, is_request=False),
+    ),
+    StandardCapabilityName.GET_APPLICATION_ACCOUNT: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=GetApplicationAccountRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=GetApplicationAccountResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.GET_ACCOUNT_ENTITLEMENT_ASSOCIATIONS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=GetAccountEntitlementAssociationsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=GetAccountEntitlementAssociationsResponse, is_request=False
+        ),
     ),
     StandardCapabilityName.GET_DATA_RECENCY: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=GetDataRecencyRequest, is_request=True),

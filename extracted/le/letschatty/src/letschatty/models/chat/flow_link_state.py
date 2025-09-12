@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from typing import Optional, Self, Dict, Any, TYPE_CHECKING
-
+import logging
 from letschatty.models.utils.types.identifier import StrObjectId
 from letschatty.models.utils.types.serializer_type import SerializerType
 from letschatty.models.copilot.links import LinkItem
@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from zoneinfo import ZoneInfo
 from letschatty.models.company.assets.flow import FlowPreview
 from letschatty.models.company.assets.chat_assets import AssignedAssetToChat, ChatAssetType
+
+logger = logging.getLogger("FlowStateAssignedToChat")
 
 if TYPE_CHECKING:
     from letschatty.models.execution.execution import ExecutionContext
@@ -40,6 +42,8 @@ class FlowStateAssignedToChat(AssignedAssetToChat):
     error_message: Optional[str] = Field(default=None)
     last_incoming_message_id: Optional[str] = Field(default=None)
     is_smart_follow_up: bool = Field(default=False)
+    total_followups_sent: int = Field(default=0)
+    consecutive_count: int = Field(default=0)
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -63,39 +67,25 @@ class FlowStateAssignedToChat(AssignedAssetToChat):
 
     @staticmethod
     def from_link(link: LinkItem, execution_context: ExecutionContext, description: str, last_incoming_message_id: Optional[str] = None, next_call: Optional[datetime] = None, is_smart_follow_up: bool = False) -> FlowStateAssignedToChat:
-        if is_smart_follow_up:
-            return SmartFollowUpState(
-                flow_id=link.flow_id,
-                chat_id=link.chat_id,
-                company_id=link.company_id,
-                asset_type=ChatAssetType.WORKFLOW,
-                assigned_by=execution_context.executor.id,
-                description=description,
-                last_incoming_message_id=last_incoming_message_id,
-                next_call=next_call if next_call else datetime.now(ZoneInfo("UTC")),
-                is_smart_follow_up=is_smart_follow_up
-            )
-        else:
-            return FlowStateAssignedToChat(
-                flow_id=link.flow_id,
-                chat_id=link.chat_id,
-                company_id=link.company_id,
-                asset_type=ChatAssetType.WORKFLOW,
-                assigned_by=execution_context.executor.id,
-                description=description,
-                last_incoming_message_id=last_incoming_message_id,
-                next_call=next_call if next_call else datetime.now(ZoneInfo("UTC")),
-                is_smart_follow_up=is_smart_follow_up
-            )
+        return FlowStateAssignedToChat(
+            flow_id=link.flow_id,
+            chat_id=link.chat_id,
+            company_id=link.company_id,
+            asset_type=ChatAssetType.WORKFLOW,
+            assigned_by=execution_context.executor.id,
+            description=description,
+            last_incoming_message_id=last_incoming_message_id,
+            next_call=next_call if next_call else datetime.now(ZoneInfo("UTC")),
+            is_smart_follow_up=is_smart_follow_up
+        )
 
     @classmethod
-    def from_json(cls, json: dict) -> FlowStateAssignedToChat | SmartFollowUpState:
-        if isinstance(json, FlowStateAssignedToChat | SmartFollowUpState):
+    def from_json(cls, json: dict) -> FlowStateAssignedToChat:
+        logger.debug(f"json: {json}")
+        if isinstance(json, FlowStateAssignedToChat):
+            logger.debug(f"json is instance of  {type(json)}")
             return json
-        if json.get("is_smart_follow_up", False):
-            return SmartFollowUpState(**json)
-        else:
-            return cls(**json)
+        return FlowStateAssignedToChat(**json)
 
 
     @classmethod
@@ -128,11 +118,10 @@ class FullState(FlowStateAssignedToChat):
 
     @staticmethod
     def from_state(state: FlowStateAssignedToChat, flow_preview: FlowPreview) -> FullState:
-        full_state = FullState(**state.__dict__, title=flow_preview.title, description=flow_preview.description)
+        full_state = FullState(**state.__dict__, title=flow_preview.title, description=flow_preview.description if flow_preview.description else "")
         return full_state
 
 class SmartFollowUpState(FlowStateAssignedToChat):
     """Smart follow-up workflow state with tracking"""
-    # Follow-up strategy and tracking
-    total_followups_sent: int = Field(default=0)
-    consecutive_count: int = Field(default=0)
+    logger.warning("SmartFollowUpState is deprecated")
+    pass

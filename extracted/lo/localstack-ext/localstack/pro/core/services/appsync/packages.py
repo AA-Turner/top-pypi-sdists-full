@@ -1,5 +1,4 @@
 import logging
-from typing import List
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import NodePackageInstaller
 from localstack.pro.core import config as pro_config

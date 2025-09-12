@@ -100,6 +100,7 @@ from ._warehouses import (
     delete_warehouse,
     get_warehouse_columns,
     get_warehouse_tables,
+    get_warehouse_connection_string,
 )
 from ._data_pipelines import (
     list_data_pipelines,
@@ -346,6 +347,9 @@ from ._vertipaq import (
 )
 from ._user_delegation_key import (
     get_user_delegation_key,
+)
+from ._data_access_security import (
+    list_data_access_roles,
 )
 
 __all__ = [
@@ -599,4 +603,6 @@ __all__ = [
     "get_item_definition",
     "get_workspace_network_communication_policy",
     "set_workspace_network_communication_policy",
+    "get_warehouse_connection_string",
+    "list_data_access_roles",
 ]

@@ -7,6 +7,7 @@ from typing import Literal, Optional
 from htmltools import Tag, TagAttrs, TagAttrValue, TagChild, TagFunction, TagList
 
 from ... import ui
+from ..._deprecated import warn_deprecated
 from ..._docstring import add_example, no_example
 from ...types import DEPRECATED, MISSING, MISSING_TYPE
 from ...ui._accordion import AccordionPanel
@@ -63,6 +64,7 @@ def sidebar(
     max_height_mobile: Optional[str | float] = None,
     gap: Optional[CssUnit] = None,
     padding: Optional[CssUnit | list[CssUnit]] = None,
+    fillable: bool = False,
     **kwargs: TagAttrValue,
 ) -> RecallContextManager[ui.Sidebar]:
     """
@@ -121,6 +123,10 @@ def sidebar(
           and right, and the third will be bottom.
         * If four, then the values will be interpreted as top, right, bottom, and left
           respectively.
+    fillable
+        Whether or not the sidebar should be considered a fillable container.
+        When `True`, the sidebar and its content can use `fill` to consume
+        available vertical space.
     **kwargs
         Named attributes are supplied to the sidebar content container.
     """
@@ -138,6 +144,7 @@ def sidebar(
             max_height_mobile=max_height_mobile,
             gap=gap,
             padding=padding,
+            fillable=fillable,
             **kwargs,
         ),
     )
@@ -1202,7 +1209,7 @@ def nav_panel(
     value
         The value of the item. This is used to determine whether the item is active
         (when an ``id`` is provided to the nav container), programmatically select the
-        item (e.g., :func:`~shiny.ui.update_navs`), and/or be provided to the
+        item (e.g., :func:`~shiny.ui.update_navset`), and/or be provided to the
         ``selected`` argument of the navigation container (e.g.,
         :func:`~shiny.ui.navset_tab`).
     icon
@@ -1248,7 +1255,7 @@ def nav_menu(
     value
         The value of the item. This is used to determine whether the item is active
         (when an ``id`` is provided to the nav container), programmatically select the
-        item (e.g., :func:`~shiny.ui.update_navs`), and/or be provided to the
+        item (e.g., :func:`~shiny.ui.update_navset`), and/or be provided to the
         ``selected`` argument of the navigation container (e.g.,
         :func:`~shiny.ui.navset_tab`).
     icon
@@ -1363,13 +1370,9 @@ def value_box(
 @no_example()
 def panel_well(**kwargs: TagAttrValue) -> RecallContextManager[Tag]:
     """
-    Context manager for a well panel
-
-    This function wraps :func:`~shiny.ui.panel_well`.
-
-    A well panel is a simple container with a border and some padding. It's useful for
-    grouping related content together.
+    Deprecated. Use :func:`~shiny.express.ui.card` instead.
     """
+    warn_deprecated("panel_well() is deprecated. Use shiny.express.ui.card() instead.")
     return RecallContextManager(
         ui.panel_well,
         kwargs=dict(

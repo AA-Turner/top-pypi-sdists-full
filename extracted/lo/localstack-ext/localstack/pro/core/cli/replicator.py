@@ -8,9 +8,10 @@ _C='aws_secret_access_key'
 _B='aws_access_key_id'
 _A=None
 import json,os,subprocess as sp,sys,time
+from collections.abc import Mapping
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Mapping,Optional,TypedDict
+from typing import Optional,TypedDict
 import click,requests
 from localstack import config
 from localstack.cli import console
@@ -34,20 +35,20 @@ def get_config_from_profile(profile_name,profile_dir=_A):
 		except KeyError:raise ProfileLoadError(B)
 	E=C(A/'config',profile_prefix='profile ');D=C(A/'credentials');return AWSConfig(aws_access_key_id=D[_B],aws_secret_access_key=D[_C],region_name=E[_H],profile_name=B)
 def get_awscli_config():
-	I='utf8';E='configure';D='aws'
-	try:A=[D,E,'export-credentials'];B=sp.check_output(A,stderr=sp.PIPE);C=json.loads(B.decode(I))
-	except sp.CalledProcessError as F:
-		if b'AWS CLI version 2'in F.stderr:print('Warning: awscli v1 installed. Please use v2 for auto detection of credentials',file=sys.stderr);return
-	try:A=[D,E,'get',_F];G=sp.check_output(A,stderr=sp.PIPE).decode(I)
-	except sp.CalledProcessError:G=os.getenv('AWS_ENDPOINT_URL')
+	H='utf8';E='configure';D='aws'
+	try:A=[D,E,'export-credentials'];B=sp.check_output(A,stderr=sp.PIPE);C=json.loads(B.decode(H))
+	except sp.CalledProcessError as I:
+		if b'AWS CLI version 2'in I.stderr:print('Warning: awscli v1 installed. Please use v2 for auto detection of credentials',file=sys.stderr);return
+	try:A=[D,E,'get',_F];F=sp.check_output(A,stderr=sp.PIPE).decode(H)
+	except sp.CalledProcessError:F=os.getenv('AWS_ENDPOINT_URL')
 	try:
 		A=[D,E,'list'];B=sp.check_output(A,stderr=sp.PIPE)
-		for H in B.decode().splitlines():
-			if _H not in H:continue
-			J=H.split()
-			try:K=J[1];return AWSConfig(aws_access_key_id=C['AccessKeyId'],aws_secret_access_key=C['SecretAccessKey'],aws_session_token=C.get('SessionToken'),region_name=K,endpoint_url=G)
+		for G in B.decode().splitlines():
+			if _H not in G:continue
+			J=G.split()
+			try:K=J[1];return AWSConfig(aws_access_key_id=C['AccessKeyId'],aws_secret_access_key=C['SecretAccessKey'],aws_session_token=C.get('SessionToken'),region_name=K,endpoint_url=F)
 			except IndexError:return
-	except(sp.CalledProcessError,FileNotFoundError)as F:return
+	except(sp.CalledProcessError,FileNotFoundError):return
 def get_source_config(profile_dir=_A):
 	B=get_awscli_config()
 	if B:print('Configured credentials from the AWS CLI',file=sys.stderr);return B
@@ -72,7 +73,7 @@ def validate_start_command(replication_type,resource_arn=_A,resource_type=_A,res
 		if B and not resource_identifier:raise CLIError('You must specify --resource-id when using --resource-type')
 		if A and not A.startswith('arn:aws:'):raise CLIError('--resource-arn must start with arn:aws:')
 @replicator.command(name='start',short_help='Replicate an AWS resource',help='\nStarts a job to replicate an AWS resource into localstack.\nYou must have credentials with sufficient read access to the resource trying to replicate.\nAt the moment only environment variables are recognized.\n`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_DEFAULT_REGION` must be set. `AWS_ENDPOINT_URL` and `AWS_SESSION_TOKEN` are optional.\n')
-@click.option('--replication-type',type=click.Choice(['MOCK',_E]),default=_E,show_default=True,help='Type of replication job: MOCK, SINGLE_RESOURCE')
+@click.option('--replication-type',type=click.Choice(['MOCK',_E,'BATCH']),default=_E,show_default=True,help='Type of replication job: MOCK, SINGLE_RESOURCE, BATCH')
 @click.option('--resource-arn',help='ARN of the resource to recreate. Optional for SINGLE_RESOURCE replication')
 @click.option('--resource-type',help='CloudControl type of the resource to recreate. Optional for SINGLE_RESOURCE replication')
 @click.option('--resource-identifier',help='CloudControl identifier of the resource to recreate. Mandatory if --resource-type is used')

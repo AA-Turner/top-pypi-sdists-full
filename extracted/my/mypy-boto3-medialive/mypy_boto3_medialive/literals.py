@@ -185,9 +185,11 @@ __all__ = (
     "H265TreeblockSizeType",
     "HlsAdMarkersType",
     "HlsAkamaiHttpTransferModeType",
+    "HlsAutoSelectType",
     "HlsCaptionLanguageSettingType",
     "HlsClientCacheType",
     "HlsCodecSpecificationType",
+    "HlsDefaultType",
     "HlsDirectoryStructureType",
     "HlsDiscontinuityTagsType",
     "HlsEncryptionTypeType",
@@ -748,9 +750,11 @@ H265TimecodeInsertionBehaviorType = Literal["DISABLED", "PIC_TIMING_SEI"]
 H265TreeblockSizeType = Literal["AUTO", "TREE_SIZE_32X32"]
 HlsAdMarkersType = Literal["ADOBE", "ELEMENTAL", "ELEMENTAL_SCTE35"]
 HlsAkamaiHttpTransferModeType = Literal["CHUNKED", "NON_CHUNKED"]
+HlsAutoSelectType = Literal["NO", "OMIT", "YES"]
 HlsCaptionLanguageSettingType = Literal["INSERT", "NONE", "OMIT"]
 HlsClientCacheType = Literal["DISABLED", "ENABLED"]
 HlsCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
+HlsDefaultType = Literal["NO", "OMIT", "YES"]
 HlsDirectoryStructureType = Literal["SINGLE_DIRECTORY", "SUBDIRECTORY_PER_STREAM"]
 HlsDiscontinuityTagsType = Literal["INSERT", "NEVER_INSERT"]
 HlsEncryptionTypeType = Literal["AES128", "SAMPLE_AES"]
@@ -1379,8 +1383,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -1513,16 +1515,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_schedule",

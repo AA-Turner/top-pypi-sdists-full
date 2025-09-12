@@ -388,10 +388,10 @@ class CollectorValidationService:
         # if there are only warnings we log them but consider it a successful validation
         ok = result.success or not bool(result.errors)
         if result.warnings:
-            for warning in result.warnings:  # type: ignore
+            for warning in result.warnings:
                 echo_warning_message(f"\t{warning.cause}")
         if result.errors:
-            for error in result.errors:  # type: ignore
+            for error in result.errors:
                 echo_error_message(f"\t{error.cause}")
         elif not result.success:
             warning = True

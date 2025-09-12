@@ -1,7 +1,7 @@
 r'''
 # `aws_dataexchange_revision_assets`
 
-Refer to the Terraform Registry for docs: [`aws_dataexchange_revision_assets`](https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets).
+Refer to the Terraform Registry for docs: [`aws_dataexchange_revision_assets`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataexchangeRevisionAssets(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataexchangeRevisionAssets.DataexchangeRevisionAssets",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets aws_dataexchange_revision_assets}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets aws_dataexchange_revision_assets}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DataexchangeRevisionAssets(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets aws_dataexchange_revision_assets} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets aws_dataexchange_revision_assets} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.
-        :param asset: asset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.
-        :param finalized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.
+        :param asset: asset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.
+        :param finalized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DataexchangeRevisionAssets(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataexchangeRevisionAssets to import.
-        :param import_from_id: The id of the existing DataexchangeRevisionAssets that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataexchangeRevisionAssets that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataexchangeRevisionAssets to import is found.
         '''
         if __debug__:
@@ -151,7 +151,7 @@ class DataexchangeRevisionAssets(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
         '''
         value = DataexchangeRevisionAssetsTimeouts(create=create)
 
@@ -378,9 +378,9 @@ class DataexchangeRevisionAssetsAsset:
         import_assets_from_signed_url: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataexchangeRevisionAssetsAssetImportAssetsFromSignedUrl", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param create_s3_data_access_from_s3_bucket: create_s3_data_access_from_s3_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#create_s3_data_access_from_s3_bucket DataexchangeRevisionAssets#create_s3_data_access_from_s3_bucket}
-        :param import_assets_from_s3: import_assets_from_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#import_assets_from_s3 DataexchangeRevisionAssets#import_assets_from_s3}
-        :param import_assets_from_signed_url: import_assets_from_signed_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#import_assets_from_signed_url DataexchangeRevisionAssets#import_assets_from_signed_url}
+        :param create_s3_data_access_from_s3_bucket: create_s3_data_access_from_s3_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#create_s3_data_access_from_s3_bucket DataexchangeRevisionAssets#create_s3_data_access_from_s3_bucket}
+        :param import_assets_from_s3: import_assets_from_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#import_assets_from_s3 DataexchangeRevisionAssets#import_assets_from_s3}
+        :param import_assets_from_signed_url: import_assets_from_signed_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#import_assets_from_signed_url DataexchangeRevisionAssets#import_assets_from_signed_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__989ff3ada015e749900999e468055a240dae7f0f0edfbaa149965884e921016f)
@@ -401,7 +401,7 @@ class DataexchangeRevisionAssetsAsset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3Bucket"]]]:
         '''create_s3_data_access_from_s3_bucket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#create_s3_data_access_from_s3_bucket DataexchangeRevisionAssets#create_s3_data_access_from_s3_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#create_s3_data_access_from_s3_bucket DataexchangeRevisionAssets#create_s3_data_access_from_s3_bucket}
         '''
         result = self._values.get("create_s3_data_access_from_s3_bucket")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3Bucket"]]], result)
@@ -412,7 +412,7 @@ class DataexchangeRevisionAssetsAsset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromS3"]]]:
         '''import_assets_from_s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#import_assets_from_s3 DataexchangeRevisionAssets#import_assets_from_s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#import_assets_from_s3 DataexchangeRevisionAssets#import_assets_from_s3}
         '''
         result = self._values.get("import_assets_from_s3")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromS3"]]], result)
@@ -423,7 +423,7 @@ class DataexchangeRevisionAssetsAsset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromSignedUrl"]]]:
         '''import_assets_from_signed_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#import_assets_from_signed_url DataexchangeRevisionAssets#import_assets_from_signed_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#import_assets_from_signed_url DataexchangeRevisionAssets#import_assets_from_signed_url}
         '''
         result = self._values.get("import_assets_from_signed_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromSignedUrl"]]], result)
@@ -452,7 +452,7 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3Bucket:
         asset_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param asset_source: asset_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
+        :param asset_source: asset_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__994792d448b12b45276bb3a6d43542fb0db05f1e937d31bdaff04fb335f17d91)
@@ -467,7 +467,7 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3Bucket:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource"]]]:
         '''asset_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
         '''
         result = self._values.get("asset_source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource"]]], result)
@@ -504,10 +504,10 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource:
         kms_keys_to_grant: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSourceKmsKeysToGrant", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.
-        :param key_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#key_prefixes DataexchangeRevisionAssets#key_prefixes}.
-        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#keys DataexchangeRevisionAssets#keys}.
-        :param kms_keys_to_grant: kms_keys_to_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#kms_keys_to_grant DataexchangeRevisionAssets#kms_keys_to_grant}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.
+        :param key_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#key_prefixes DataexchangeRevisionAssets#key_prefixes}.
+        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#keys DataexchangeRevisionAssets#keys}.
+        :param kms_keys_to_grant: kms_keys_to_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#kms_keys_to_grant DataexchangeRevisionAssets#kms_keys_to_grant}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf783244dfaeb854ae1bbd32342fed663020c0481f1db0bf9dd6ade4da131e47)
@@ -527,20 +527,20 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#key_prefixes DataexchangeRevisionAssets#key_prefixes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#key_prefixes DataexchangeRevisionAssets#key_prefixes}.'''
         result = self._values.get("key_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#keys DataexchangeRevisionAssets#keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#keys DataexchangeRevisionAssets#keys}.'''
         result = self._values.get("keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -550,7 +550,7 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSourceKmsKeysToGrant"]]]:
         '''kms_keys_to_grant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#kms_keys_to_grant DataexchangeRevisionAssets#kms_keys_to_grant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#kms_keys_to_grant DataexchangeRevisionAssets#kms_keys_to_grant}
         '''
         result = self._values.get("kms_keys_to_grant")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSourceKmsKeysToGrant"]]], result)
@@ -575,7 +575,7 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSource:
 class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSourceKmsKeysToGrant:
     def __init__(self, *, kms_key_arn: builtins.str) -> None:
         '''
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#kms_key_arn DataexchangeRevisionAssets#kms_key_arn}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#kms_key_arn DataexchangeRevisionAssets#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58b5509ffb64737e178470b857e3217e156c951501d04720c6aa4224e70310cf)
@@ -586,7 +586,7 @@ class DataexchangeRevisionAssetsAssetCreateS3DataAccessFromS3BucketAssetSourceKm
 
     @builtins.property
     def kms_key_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#kms_key_arn DataexchangeRevisionAssets#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#kms_key_arn DataexchangeRevisionAssets#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         assert result is not None, "Required property 'kms_key_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1174,7 +1174,7 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromS3:
         asset_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataexchangeRevisionAssetsAssetImportAssetsFromS3AssetSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param asset_source: asset_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
+        :param asset_source: asset_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3ecb9b22db195c3a36efe5ae3a0399333288f8a6c30047520e7b635d261b852)
@@ -1189,7 +1189,7 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromS3:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromS3AssetSource"]]]:
         '''asset_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset_source DataexchangeRevisionAssets#asset_source}
         '''
         result = self._values.get("asset_source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataexchangeRevisionAssetsAssetImportAssetsFromS3AssetSource"]]], result)
@@ -1214,8 +1214,8 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromS3:
 class DataexchangeRevisionAssetsAssetImportAssetsFromS3AssetSource:
     def __init__(self, *, bucket: builtins.str, key: builtins.str) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#key DataexchangeRevisionAssets#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#key DataexchangeRevisionAssets#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dad6e1f9c9bd3cf39ff0f73031c3b3d6f8ea3f8ab7b216d160833cac9a441571)
@@ -1228,14 +1228,14 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromS3AssetSource:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#bucket DataexchangeRevisionAssets#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#key DataexchangeRevisionAssets#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#key DataexchangeRevisionAssets#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1599,7 +1599,7 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromS3OutputReference(
 class DataexchangeRevisionAssetsAssetImportAssetsFromSignedUrl:
     def __init__(self, *, filename: builtins.str) -> None:
         '''
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#filename DataexchangeRevisionAssets#filename}.
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#filename DataexchangeRevisionAssets#filename}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98994e1769e1ac83d9fa6a6cdba7117d9059be9974d07f8906227f3d4db25f5f)
@@ -1610,7 +1610,7 @@ class DataexchangeRevisionAssetsAssetImportAssetsFromSignedUrl:
 
     @builtins.property
     def filename(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#filename DataexchangeRevisionAssets#filename}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#filename DataexchangeRevisionAssets#filename}.'''
         result = self._values.get("filename")
         assert result is not None, "Required property 'filename' is missing"
         return typing.cast(builtins.str, result)
@@ -2085,14 +2085,14 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.
-        :param asset: asset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.
-        :param finalized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.
+        :param asset: asset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.
+        :param finalized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2213,7 +2213,7 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def data_set_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#data_set_id DataexchangeRevisionAssets#data_set_id}.'''
         result = self._values.get("data_set_id")
         assert result is not None, "Required property 'data_set_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2224,14 +2224,14 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataexchangeRevisionAssetsAsset]]]:
         '''asset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#asset DataexchangeRevisionAssets#asset}
         '''
         result = self._values.get("asset")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataexchangeRevisionAssetsAsset]]], result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#comment DataexchangeRevisionAssets#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2239,7 +2239,7 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def finalized(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#finalized DataexchangeRevisionAssets#finalized}.'''
         result = self._values.get("finalized")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2247,7 +2247,7 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#force_destroy DataexchangeRevisionAssets#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2255,14 +2255,14 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#region DataexchangeRevisionAssets#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#tags DataexchangeRevisionAssets#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2270,7 +2270,7 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataexchangeRevisionAssetsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#timeouts DataexchangeRevisionAssets#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataexchangeRevisionAssetsTimeouts"], result)
@@ -2295,7 +2295,7 @@ class DataexchangeRevisionAssetsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataexchangeRevisionAssetsTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfaa016727f0b7e68879598a136ef6f8d7b2cc4c11484ff9931b56ceb693401b)
@@ -2308,7 +2308,7 @@ class DataexchangeRevisionAssetsTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.12.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dataexchange_revision_assets#create DataexchangeRevisionAssets#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

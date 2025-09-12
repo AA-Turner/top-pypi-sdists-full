@@ -1,3 +1,4 @@
+# arpakit
 import datetime as dt
 from typing import Any, Optional
 
@@ -10,6 +11,7 @@ from sqlalchemy.sql.sqltypes import (
     DateTime, Date, Time,
     Float, Numeric, DECIMAL, LargeBinary, JSON
 )
+_ARPAKIT_LIB_MODULE_VERSION = "3.0"
 
 _SQLA_TYPE_MAP = {
     Boolean: bool,

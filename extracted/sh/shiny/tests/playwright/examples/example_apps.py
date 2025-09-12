@@ -4,7 +4,7 @@ import typing
 from pathlib import PurePath
 from typing import Literal
 
-from playwright.sync_api import ConsoleMessage, Page
+from playwright.sync_api import ConsoleMessage, Page, expect
 
 from shiny.run import ShinyAppProc, run_shiny_app
 
@@ -89,11 +89,19 @@ app_allow_external_errors: typing.List[str] = [
     "FutureWarning: The default of observed=False is deprecated",
     # seaborn: https://github.com/mwaskom/seaborn/pull/3355
     "FutureWarning: use_inf_as_na option is deprecated",
-    "pd.option_context('mode.use_inf_as_na",  # continutation of line above
+    "pd.option_context('mode.use_inf_as_na",  # continutation of line above,
+    "RuntimeWarning: invalid value encountered in dot",  # some groups didn't have enough data points to create a meaningful line
 ]
 app_allow_js_errors: typing.Dict[str, typing.List[str]] = {
     "examples/brownian": ["Failed to acquire camera feed:"],
 }
+
+# Check for Shiny output errors, except for known exception cases
+app_allow_output_error = [
+    "shiny/api-examples/SafeException/app-express.py",
+    "shiny/api-examples/SafeException/app-core.py",
+    "examples/global_pyplot/app.py",
+]
 
 
 # Altered from `shinytest2:::app_wait_for_idle()`
@@ -227,8 +235,8 @@ def validate_example(page: Page, ex_app_path: str) -> None:
                 print("\nshort_app_path: " + short_app_path)
                 print("\napp_allowable_errors :")
                 print("\n".join(app_allowable_errors))
-                print("\nError lines remaining:")
-                print("\n".join(error_lines))
+                # The below can be used to get the exact lines needed to update the `app_allow_*_errors()` objects above
+                print("Non-allowed error lines (in raw format): ", error_lines)
             assert len(error_lines) == 0
 
         # Check for JavaScript errors
@@ -250,3 +258,8 @@ def validate_example(page: Page, ex_app_path: str) -> None:
             + " had JavaScript console errors!\n"
             + "* ".join(console_errors)
         )
+
+        if ex_app_path not in app_allow_output_error:
+            # Ensure there are no output errors present
+            error_locator = page.locator(".shiny-output-error")
+            expect(error_locator).to_have_count(0)

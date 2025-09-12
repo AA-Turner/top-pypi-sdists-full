@@ -94,6 +94,7 @@ from ._input_update import (
     update_date,
     update_date_range,
     update_navs,
+    update_navset,
     update_numeric,
     update_popover,
     update_radio_buttons,
@@ -127,6 +128,11 @@ from ._navs import (
     navset_pill_list,
     navset_tab,
     navset_underline,
+)
+from ._navs_dynamic import (
+    update_nav_panel,
+    insert_nav_panel,
+    remove_nav_panel,
 )
 from ._notification import notification_remove, notification_show
 from ._output import (
@@ -268,6 +274,7 @@ __all__ = (
     "update_text",
     "update_text_area",
     "update_navs",
+    "update_navset",
     "update_tooltip",
     "update_popover",
     # _insert
@@ -297,6 +304,9 @@ __all__ = (
     "navset_pill_list",
     "navset_hidden",
     "navset_bar",
+    "insert_nav_panel",
+    "remove_nav_panel",
+    "update_nav_panel",
     "navbar_options",
     # _notification
     "notification_show",

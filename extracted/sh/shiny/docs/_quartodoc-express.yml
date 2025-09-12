@@ -78,10 +78,14 @@ quartodoc:
         - express.ui.navset_pill_list
         - express.ui.navset_hidden
         - express.ui.navbar_options
+        - express.ui.insert_nav_panel
+        - express.ui.remove_nav_panel
+        - express.ui.update_nav_panel
     - title: Chat interface
       desc: Build a chatbot interface
       contents:
-        - express.ui.Chat
+        - name: express.ui.Chat
+          include_inherited: true
     - title: Streaming markdown
       desc: Stream markdown content into the UI
       contents:
@@ -122,7 +126,7 @@ quartodoc:
         - express.ui.update_numeric
         - express.ui.update_text
         - express.ui.update_text_area
-        - express.ui.update_navs
+        - express.ui.update_navset
         - express.ui.update_action_button
         - express.ui.update_action_link
         - express.ui.update_task_button
@@ -157,7 +161,6 @@ quartodoc:
         - express.ui.panel_absolute
         - express.ui.panel_fixed
         - express.ui.panel_title
-        - express.ui.panel_well
     - title: Uploads & downloads
       desc: Allow users to upload and download files.
       contents:

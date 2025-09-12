@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: betfairlightweight
-Version: 2.21.1
+Version: 2.21.2
 Summary: Lightweight python wrapper for Betfair API-NG
 Project-URL: Homepage, https://github.com/betcode-org
 Project-URL: Documentation, https://betcode-org.github.io/betfair/

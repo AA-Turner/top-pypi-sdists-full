@@ -85,7 +85,10 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', col)")
         self.validate_identity("ALTER TABLE a SWAP WITH b")
         self.validate_identity("SELECT MATCH_CONDITION")
-        self.validate_identity("SELECT * REPLACE (CAST(col AS TEXT) AS scol) FROM t")
+        self.validate_identity(
+            "SELECT * REPLACE (CAST(col AS TEXT) AS scol) FROM t",
+            "SELECT * REPLACE (CAST(col AS VARCHAR) AS scol) FROM t",
+        )
         self.validate_identity("1 /* /* */")
         self.validate_identity("TO_TIMESTAMP(col, fmt)")
         self.validate_identity("SELECT TO_CHAR(CAST('12:05:05' AS TIME))")
@@ -178,7 +181,7 @@ class TestSnowflake(Validator):
         )
         self.validate_identity(
             "SELECT a:from::STRING, a:from || ' test' ",
-            "SELECT CAST(GET_PATH(a, 'from') AS TEXT), GET_PATH(a, 'from') || ' test'",
+            "SELECT CAST(GET_PATH(a, 'from') AS VARCHAR), GET_PATH(a, 'from') || ' test'",
         )
         self.validate_identity(
             "SELECT a:select",
@@ -187,7 +190,7 @@ class TestSnowflake(Validator):
         self.validate_identity("x:from", "GET_PATH(x, 'from')")
         self.validate_identity(
             "value:values::string::int",
-            "CAST(CAST(GET_PATH(value, 'values') AS TEXT) AS INT)",
+            "CAST(CAST(GET_PATH(value, 'values') AS VARCHAR) AS INT)",
         )
         self.validate_identity(
             """SELECT GET_PATH(PARSE_JSON('{"y": [{"z": 1}]}'), 'y[0]:z')""",
@@ -717,17 +720,19 @@ class TestSnowflake(Validator):
                 "teradata": "TO_CHAR(x, y)",
             },
         )
-        self.validate_identity(
-            "TO_CHAR(foo::DATE, 'yyyy')",
-            "TO_CHAR(CAST(foo AS DATE), 'yyyy')",
-        )
-        self.validate_all(
-            "TO_CHAR(foo::TIMESTAMP, 'YYYY-MM')",
-            write={
-                "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
-                "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
-            },
-        )
+        for to_func in ("TO_CHAR", "TO_VARCHAR"):
+            with self.subTest(f"Testing transpilation of {to_func}"):
+                self.validate_identity(
+                    f"{to_func}(foo::DATE, 'yyyy')",
+                    "TO_CHAR(CAST(foo AS DATE), 'yyyy')",
+                )
+                self.validate_all(
+                    f"{to_func}(foo::TIMESTAMP, 'YYYY-MM')",
+                    write={
+                        "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
+                        "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
+                    },
+                )
         self.validate_all(
             "SQUARE(x)",
             write={
@@ -1191,6 +1196,8 @@ class TestSnowflake(Validator):
             },
         )
 
+        self.validate_identity("TO_JSON(OBJECT_CONSTRUCT('name', 'Alice'))")
+
         with self.assertRaises(ParseError):
             parse_one(
                 "SELECT id, PRIOR name AS parent_name, name FROM tree CONNECT BY NOCYCLE PRIOR id = parent_id",
@@ -1271,6 +1278,18 @@ class TestSnowflake(Validator):
             },
         )
         self.validate_identity("VECTOR_L2_DISTANCE(x, y)")
+
+        for join in ("FULL OUTER", "LEFT", "RIGHT", "LEFT OUTER", "RIGHT OUTER", "INNER"):
+            with self.subTest(f"Testing transpilation of {join} from Snowflake to DuckDB"):
+                self.validate_all(
+                    f"SELECT * FROM t1 {join} JOIN t2",
+                    read={
+                        "snowflake": f"SELECT * FROM t1 {join} JOIN t2",
+                    },
+                    write={
+                        "duckdb": "SELECT * FROM t1, t2",
+                    },
+                )
 
     def test_null_treatment(self):
         self.validate_all(
@@ -2624,24 +2643,25 @@ STORAGE_ALLOWED_LOCATIONS=('s3://mybucket1/path1/', 's3://mybucket2/path2/')""",
         assert isinstance(ast.args["actions"][0], exp.SwapTable)
 
     def test_try_cast(self):
-        self.validate_identity("SELECT TRY_CAST(x AS DOUBLE)")
-        self.validate_identity("SELECT TRY_CAST(FOO() AS TEXT)")
-
-        self.validate_all("TRY_CAST('foo' AS TEXT)", read={"hive": "CAST('foo' AS STRING)"})
-        self.validate_all("CAST(5 + 5 AS TEXT)", read={"hive": "CAST(5 + 5 AS STRING)"})
+        self.validate_all("TRY_CAST('foo' AS VARCHAR)", read={"hive": "CAST('foo' AS STRING)"})
+        self.validate_all("CAST(5 + 5 AS VARCHAR)", read={"hive": "CAST(5 + 5 AS STRING)"})
         self.validate_all(
-            "CAST(TRY_CAST('2020-01-01' AS DATE) AS TEXT)",
+            "CAST(TRY_CAST('2020-01-01' AS DATE) AS VARCHAR)",
             read={
                 "hive": "CAST(CAST('2020-01-01' AS DATE) AS STRING)",
-                "snowflake": "CAST(TRY_CAST('2020-01-01' AS DATE) AS TEXT)",
+                "snowflake": "CAST(TRY_CAST('2020-01-01' AS DATE) AS VARCHAR)",
             },
         )
         self.validate_all(
-            "TRY_CAST('val' AS TEXT)",
+            "TRY_CAST('val' AS VARCHAR)",
             read={
                 "hive": "CAST('val' AS STRING)",
-                "snowflake": "TRY_CAST('val' AS TEXT)",
+                "snowflake": "TRY_CAST('val' AS VARCHAR)",
             },
+        )
+        self.validate_identity("SELECT TRY_CAST(x AS DOUBLE)")
+        self.validate_identity(
+            "SELECT TRY_CAST(FOO() AS TEXT)", "SELECT TRY_CAST(FOO() AS VARCHAR)"
         )
 
         from sqlglot.optimizer.annotate_types import annotate_types
@@ -2656,7 +2676,7 @@ STORAGE_ALLOWED_LOCATIONS=('s3://mybucket1/path1/', 's3://mybucket2/path2/')""",
 
                 expression = annotate_types(expression, schema={"t": {"x": value_type}})
                 self.assertEqual(
-                    expression.sql(dialect="snowflake"), f"SELECT {func}(t.x AS TEXT) FROM t"
+                    expression.sql(dialect="snowflake"), f"SELECT {func}(t.x AS VARCHAR) FROM t"
                 )
 
     def test_copy(self):
@@ -2676,6 +2696,7 @@ STORAGE_ALLOWED_LOCATIONS=('s3://mybucket1/path1/', 's3://mybucket2/path2/')""",
         self.validate_identity(
             """COPY INTO @my_stage/result/data FROM (SELECT * FROM orderstiny) FILE_FORMAT = (TYPE='csv')"""
         )
+        self.validate_identity("COPY INTO mytable FILE_FORMAT = (TYPE='csv')")
         self.validate_identity(
             """COPY INTO MY_DATABASE.MY_SCHEMA.MY_TABLE FROM @MY_DATABASE.MY_SCHEMA.MY_STAGE/my_path FILE_FORMAT = (FORMAT_NAME=MY_DATABASE.MY_SCHEMA.MY_FILE_FORMAT)"""
         )

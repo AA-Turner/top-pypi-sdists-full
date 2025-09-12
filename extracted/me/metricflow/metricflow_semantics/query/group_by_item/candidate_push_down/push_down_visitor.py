@@ -12,7 +12,8 @@ from dbt_semantic_interfaces.type_enums import MetricType
 from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 from typing_extensions import override
 
-from metricflow_semantics.mf_logging.formatting import indent
+from metricflow_semantics.errors.custom_grain_not_supported import error_if_not_standard_grain
+from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat, mf_pformat_dict
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
@@ -205,21 +206,20 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 logger.debug(
                     LazyFormat(
                         lambda: f"For {node.ui_description}:\n"
-                        + indent(
+                        + mf_indent(
                             "After applying patterns:\n"
-                            + indent(mf_pformat(patterns_to_apply + self._source_spec_patterns))
+                            + mf_indent(mf_pformat(patterns_to_apply + self._source_spec_patterns))
                             + "\n"
                             + "to inputs, matches are:\n"
-                            + indent(mf_pformat(matching_items.specs))
+                            + mf_indent(mf_pformat(matching_items.specs))
                         )
                     )
                 )
 
             # The specified patterns don't match to any of the available group-by-items that can be queried for the
             # measure.
-            if matching_items.spec_count == 0:
+            if matching_items.is_empty:
                 input_suggestions: Sequence[str] = ()
-
                 if self._suggestion_generator is not None:
                     candidate_specs = self._group_by_item_resolver_for_query.resolve_available_items(
                         source_spec_patterns=self._suggestion_generator.candidate_filters
@@ -329,7 +329,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 logger.debug(
                     LazyFormat(
                         lambda: "Candidates from parents:\n"
-                        + indent(mf_pformat(merged_result_from_parents.candidate_set.specs))
+                        + mf_indent(mf_pformat(merged_result_from_parents.candidate_set.specs))
                     )
                 )
             if merged_result_from_parents.candidate_set.is_empty:
@@ -365,19 +365,19 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 logger.debug(
                     LazyFormat(
                         lambda: f"For {node.ui_description}:\n"
-                        + indent(
+                        + mf_indent(
                             "After applying patterns:\n"
-                            + indent(mf_pformat(patterns_to_apply))
+                            + mf_indent(mf_pformat(patterns_to_apply))
                             + "\n"
                             + "to inputs, outputs are:\n"
-                            + indent(mf_pformat(matched_specs))
+                            + mf_indent(mf_pformat(matched_specs))
                         )
                     )
                 )
 
             # There were candidates that were common from the ones passed from parents, but after applying the filters,
             # none of the candidates were valid.
-            if matched_items.spec_count == 0:
+            if matched_items.is_empty:
                 issue_sets_to_merge.append(
                     MetricFlowQueryResolutionIssueSet.from_issue(
                         MetricExcludesDatePartIssue.from_parameters(
@@ -401,14 +401,20 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
 
             # If time granularity is not set for the metric, defaults to DAY if available, else the smallest available granularity.
             # Note: ignores any granularity set on input metrics.
-            metric_default_time_granularity = metric_to_use_for_time_granularity_resolution.time_granularity or max(
+            metric_time_granularity: Optional[TimeGranularity] = None
+            if metric_to_use_for_time_granularity_resolution.time_granularity is not None:
+                metric_time_granularity = error_if_not_standard_grain(
+                    context=f"Metric({metric_to_use_for_time_granularity_resolution}).time_granularity",
+                    input_granularity=metric_to_use_for_time_granularity_resolution.time_granularity,
+                )
+            metric_default_time_granularity = metric_time_granularity or max(
                 TimeGranularity.DAY,
                 self._semantic_manifest_lookup.metric_lookup.get_min_queryable_time_granularity(
                     MetricReference(metric_to_use_for_time_granularity_resolution.name)
                 ),
             )
 
-            if matched_items.spec_count == 0:
+            if matched_items.is_empty:
                 return PushDownResult(
                     candidate_set=GroupByItemCandidateSet.empty_instance(),
                     issue_set=MetricFlowQueryResolutionIssueSet.merge_iterable(issue_sets_to_merge),
@@ -442,7 +448,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 logger.debug(
                     LazyFormat(
                         lambda: "Candidates from parents:\n"
-                        + indent(mf_pformat(merged_result_from_parents.candidate_set.specs))
+                        + mf_indent(mf_pformat(merged_result_from_parents.candidate_set.specs))
                     )
                 )
 
@@ -459,7 +465,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 logger.debug(LazyFormat(lambda: f"Candidate elements are:\n{mf_pformat(candidate_elements)}"))
             candidates_after_filtering = candidate_elements.filter_by_spec_patterns(self._source_spec_patterns)
 
-            if candidates_after_filtering.spec_count == 0:
+            if candidates_after_filtering.is_empty:
                 return PushDownResult(
                     candidate_set=GroupByItemCandidateSet.empty_instance(),
                     issue_set=MetricFlowQueryResolutionIssueSet.from_issue(

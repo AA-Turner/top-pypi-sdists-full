@@ -341,26 +341,21 @@ class BeginTransactionResponse(TypedDict, total=False):
     transactionId: Optional[Id]
 
 
-ColumnMetadata = TypedDict(
-    "ColumnMetadata",
-    {
-        "name": Optional[String],
-        "type": Optional[Integer],
-        "typeName": Optional[String],
-        "label": Optional[String],
-        "schemaName": Optional[String],
-        "tableName": Optional[String],
-        "isAutoIncrement": Optional[Boolean],
-        "isSigned": Optional[Boolean],
-        "isCurrency": Optional[Boolean],
-        "isCaseSensitive": Optional[Boolean],
-        "nullable": Optional[Integer],
-        "precision": Optional[Integer],
-        "scale": Optional[Integer],
-        "arrayBaseColumnType": Optional[Integer],
-    },
-    total=False,
-)
+class ColumnMetadata(TypedDict, total=False):
+    name: Optional[String]
+    type: Optional[Integer]
+    typeName: Optional[String]
+    label: Optional[String]
+    schemaName: Optional[String]
+    tableName: Optional[String]
+    isAutoIncrement: Optional[Boolean]
+    isSigned: Optional[Boolean]
+    isCurrency: Optional[Boolean]
+    isCaseSensitive: Optional[Boolean]
+    nullable: Optional[Integer]
+    precision: Optional[Integer]
+    scale: Optional[Integer]
+    arrayBaseColumnType: Optional[Integer]
 
 
 class CommitTransactionRequest(ServiceRequest):

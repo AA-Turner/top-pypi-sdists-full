@@ -27,6 +27,8 @@ from .literals import (
     LoggingConfigurationStatusCodeType,
     QueryLoggingConfigurationStatusCodeType,
     RuleGroupsNamespaceStatusCodeType,
+    ScraperComponentTypeType,
+    ScraperLoggingConfigurationStatusCodeType,
     ScraperStatusCodeType,
     WorkspaceConfigurationStatusCodeType,
     WorkspacePolicyStatusCodeType,
@@ -51,6 +53,9 @@ __all__ = (
     "AmpConfigurationTypeDef",
     "BlobTypeDef",
     "CloudWatchLogDestinationTypeDef",
+    "ComponentConfigOutputTypeDef",
+    "ComponentConfigTypeDef",
+    "ComponentConfigUnionTypeDef",
     "CreateAlertManagerDefinitionRequestTypeDef",
     "CreateAlertManagerDefinitionResponseTypeDef",
     "CreateLoggingConfigurationRequestTypeDef",
@@ -68,6 +73,7 @@ __all__ = (
     "DeleteQueryLoggingConfigurationRequestTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteRuleGroupsNamespaceRequestTypeDef",
+    "DeleteScraperLoggingConfigurationRequestTypeDef",
     "DeleteScraperRequestTypeDef",
     "DeleteScraperResponseTypeDef",
     "DeleteWorkspaceRequestTypeDef",
@@ -81,6 +87,8 @@ __all__ = (
     "DescribeResourcePolicyResponseTypeDef",
     "DescribeRuleGroupsNamespaceRequestTypeDef",
     "DescribeRuleGroupsNamespaceResponseTypeDef",
+    "DescribeScraperLoggingConfigurationRequestTypeDef",
+    "DescribeScraperLoggingConfigurationResponseTypeDef",
     "DescribeScraperRequestTypeDef",
     "DescribeScraperRequestWaitExtraTypeDef",
     "DescribeScraperRequestWaitTypeDef",
@@ -132,7 +140,12 @@ __all__ = (
     "ScrapeConfigurationOutputTypeDef",
     "ScrapeConfigurationTypeDef",
     "ScrapeConfigurationUnionTypeDef",
+    "ScraperComponentOutputTypeDef",
+    "ScraperComponentTypeDef",
+    "ScraperComponentUnionTypeDef",
     "ScraperDescriptionTypeDef",
+    "ScraperLoggingConfigurationStatusTypeDef",
+    "ScraperLoggingDestinationTypeDef",
     "ScraperStatusTypeDef",
     "ScraperSummaryTypeDef",
     "SourceOutputTypeDef",
@@ -144,6 +157,8 @@ __all__ = (
     "UpdateLoggingConfigurationResponseTypeDef",
     "UpdateQueryLoggingConfigurationRequestTypeDef",
     "UpdateQueryLoggingConfigurationResponseTypeDef",
+    "UpdateScraperLoggingConfigurationRequestTypeDef",
+    "UpdateScraperLoggingConfigurationResponseTypeDef",
     "UpdateScraperRequestTypeDef",
     "UpdateScraperResponseTypeDef",
     "UpdateWorkspaceAliasRequestTypeDef",
@@ -172,6 +187,14 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class CloudWatchLogDestinationTypeDef(TypedDict):
     logGroupArn: str
+
+
+class ComponentConfigOutputTypeDef(TypedDict):
+    options: NotRequired[Dict[str, str]]
+
+
+class ComponentConfigTypeDef(TypedDict):
+    options: NotRequired[Mapping[str, str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -250,6 +273,11 @@ class DeleteRuleGroupsNamespaceRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class DeleteScraperLoggingConfigurationRequestTypeDef(TypedDict):
+    scraperId: str
+    clientToken: NotRequired[str]
+
+
 class DeleteScraperRequestTypeDef(TypedDict):
     scraperId: str
     clientToken: NotRequired[str]
@@ -279,6 +307,15 @@ class DescribeResourcePolicyRequestTypeDef(TypedDict):
 class DescribeRuleGroupsNamespaceRequestTypeDef(TypedDict):
     workspaceId: str
     name: str
+
+
+class DescribeScraperLoggingConfigurationRequestTypeDef(TypedDict):
+    scraperId: str
+
+
+class ScraperLoggingConfigurationStatusTypeDef(TypedDict):
+    statusCode: ScraperLoggingConfigurationStatusCodeType
+    statusReason: NotRequired[str]
 
 
 class DescribeScraperRequestTypeDef(TypedDict):
@@ -425,6 +462,20 @@ class PutRuleGroupsNamespaceRequestTypeDef(TypedDict):
 
 class ScrapeConfigurationTypeDef(TypedDict):
     configurationBlob: NotRequired[BlobTypeDef]
+
+
+class ScraperLoggingDestinationTypeDef(TypedDict):
+    cloudWatchLogs: NotRequired[CloudWatchLogDestinationTypeDef]
+
+
+ScraperComponentOutputTypeDef = TypedDict(
+    "ScraperComponentOutputTypeDef",
+    {
+        "type": ScraperComponentTypeType,
+        "config": NotRequired[ComponentConfigOutputTypeDef],
+    },
+)
+ComponentConfigUnionTypeDef = Union[ComponentConfigTypeDef, ComponentConfigOutputTypeDef]
 
 
 class CreateAlertManagerDefinitionResponseTypeDef(TypedDict):
@@ -579,6 +630,11 @@ class WorkspaceSummaryTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
 
 
+class UpdateScraperLoggingConfigurationResponseTypeDef(TypedDict):
+    status: ScraperLoggingConfigurationStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeScraperRequestWaitExtraTypeDef(TypedDict):
     scraperId: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
@@ -651,6 +707,24 @@ class DescribeAlertManagerDefinitionResponseTypeDef(TypedDict):
 ScrapeConfigurationUnionTypeDef = Union[
     ScrapeConfigurationTypeDef, ScrapeConfigurationOutputTypeDef
 ]
+
+
+class DescribeScraperLoggingConfigurationResponseTypeDef(TypedDict):
+    status: ScraperLoggingConfigurationStatusTypeDef
+    scraperId: str
+    loggingDestination: ScraperLoggingDestinationTypeDef
+    scraperComponents: List[ScraperComponentOutputTypeDef]
+    modifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ScraperComponentTypeDef = TypedDict(
+    "ScraperComponentTypeDef",
+    {
+        "type": ScraperComponentTypeType,
+        "config": NotRequired[ComponentConfigUnionTypeDef],
+    },
+)
 
 
 class DescribeLoggingConfigurationResponseTypeDef(TypedDict):
@@ -752,6 +826,9 @@ class UpdateScraperRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+ScraperComponentUnionTypeDef = Union[ScraperComponentTypeDef, ScraperComponentOutputTypeDef]
+
+
 class DescribeScraperResponseTypeDef(TypedDict):
     scraper: ScraperDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -788,3 +865,9 @@ class UpdateWorkspaceConfigurationRequestTypeDef(TypedDict):
 class DescribeQueryLoggingConfigurationResponseTypeDef(TypedDict):
     queryLoggingConfiguration: QueryLoggingConfigurationMetadataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateScraperLoggingConfigurationRequestTypeDef(TypedDict):
+    scraperId: str
+    loggingDestination: ScraperLoggingDestinationTypeDef
+    scraperComponents: NotRequired[Sequence[ScraperComponentUnionTypeDef]]

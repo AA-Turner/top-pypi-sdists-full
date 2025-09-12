@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, Optional, Sequence, Set, Tuple
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
 from dbt_semantic_interfaces.protocols.metric import Metric, MetricInputMeasure, MetricType
@@ -12,16 +12,20 @@ from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 from metricflow_semantics.collection_helpers.lru_cache import LruCache
 from metricflow_semantics.errors.error_classes import DuplicateMetricError, MetricNotFoundError, NonExistentMeasureError
+from metricflow_semantics.experimental.ordered_set import FrozenOrderedSet
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
 from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
-from metricflow_semantics.model.semantics.linkable_element_set import LinkableElementSet
+from metricflow_semantics.model.semantics.linkable_element_set_base import BaseLinkableElementSet
+from metricflow_semantics.model.semantics.linkable_spec_index import LinkableSpecIndex
+from metricflow_semantics.model.semantics.linkable_spec_index_builder import LinkableSpecIndexBuilder
 from metricflow_semantics.model.semantics.linkable_spec_resolver import (
-    ValidLinkableSpecResolver,
+    LegacyLinkableSpecResolver,
+    LinkableSpecResolver,
 )
+from metricflow_semantics.model.semantics.manifest_object_lookup import SemanticManifestObjectLookup
 from metricflow_semantics.model.semantics.semantic_model_join_evaluator import MAX_JOIN_HOPS
 from metricflow_semantics.model.semantics.semantic_model_lookup import SemanticModelLookup
-from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
 from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
 
@@ -31,11 +35,56 @@ logger = logging.getLogger(__name__)
 class MetricLookup:
     """Tracks semantic information for metrics by linking them to semantic models."""
 
+    @staticmethod
+    def create(  # noqa: D102
+        semantic_manifest: SemanticManifest,
+        semantic_model_lookup: SemanticModelLookup,
+        custom_granularities: Dict[str, ExpandedTimeGranularity],
+    ) -> MetricLookup:
+        manifest_object_lookup = SemanticManifestObjectLookup(semantic_manifest)
+
+        linkable_spec_index_builder = LinkableSpecIndexBuilder(
+            semantic_manifest=semantic_manifest,
+            semantic_model_lookup=semantic_model_lookup,
+            manifest_object_lookup=manifest_object_lookup,
+            max_entity_links=MAX_JOIN_HOPS,
+        )
+        linkable_spec_index = linkable_spec_index_builder.build_index()
+        return MetricLookup.create_using_index(
+            semantic_manifest=semantic_manifest,
+            semantic_model_lookup=semantic_model_lookup,
+            custom_granularities=custom_granularities,
+            linkable_spec_index=linkable_spec_index,
+        )
+
+    @staticmethod
+    def create_using_index(  # noqa: D102
+        semantic_manifest: SemanticManifest,
+        semantic_model_lookup: SemanticModelLookup,
+        custom_granularities: Dict[str, ExpandedTimeGranularity],
+        linkable_spec_index: LinkableSpecIndex,
+    ) -> MetricLookup:
+        manifest_object_lookup = SemanticManifestObjectLookup(semantic_manifest)
+        linkable_spec_resolver = LegacyLinkableSpecResolver(
+            semantic_manifest=semantic_manifest,
+            semantic_model_lookup=semantic_model_lookup,
+            manifest_object_lookup=manifest_object_lookup,
+            linkable_spec_index=linkable_spec_index,
+        )
+
+        return MetricLookup(
+            semantic_manifest=semantic_manifest,
+            semantic_model_lookup=semantic_model_lookup,
+            custom_granularities=custom_granularities,
+            linkable_spec_resolver=linkable_spec_resolver,
+        )
+
     def __init__(
         self,
         semantic_manifest: SemanticManifest,
         semantic_model_lookup: SemanticModelLookup,
         custom_granularities: Dict[str, ExpandedTimeGranularity],
+        linkable_spec_resolver: LinkableSpecResolver,
     ) -> None:
         """Initializer.
 
@@ -50,11 +99,7 @@ class MetricLookup:
         for metric in semantic_manifest.metrics:
             self._add_metric(metric)
 
-        self._linkable_spec_resolver = ValidLinkableSpecResolver(
-            semantic_manifest=semantic_manifest,
-            semantic_model_lookup=semantic_model_lookup,
-            max_entity_links=MAX_JOIN_HOPS,
-        )
+        self._linkable_spec_resolver = linkable_spec_resolver
 
         # Cache for `get_min_queryable_time_granularity()`
         self._metric_reference_to_min_metric_time_grain: Dict[MetricReference, TimeGranularity] = {}
@@ -66,24 +111,26 @@ class MetricLookup:
 
         # Cache for `linkable_elements_for_measure()`.
         self._linkable_element_set_for_measure_cache: Dict[
-            Tuple[MeasureReference, LinkableElementFilter], LinkableElementSet
+            Tuple[MeasureReference, LinkableElementFilter], BaseLinkableElementSet
         ] = {}
 
         self._linkable_elements_including_group_by_metrics_cache = LruCache[
-            Tuple[MeasureReference, LinkableElementFilter], LinkableElementSet
+            Tuple[MeasureReference, LinkableElementFilter], BaseLinkableElementSet
         ](128)
-        self._linkable_elements_for_no_metrics_query_cache = LruCache[LinkableElementFilter, LinkableElementSet](128)
+        self._linkable_elements_for_no_metrics_query_cache = LruCache[LinkableElementFilter, BaseLinkableElementSet](
+            128
+        )
         self._linkable_elements_for_metrics_cache = LruCache[
-            Tuple[Sequence[MetricReference], LinkableElementFilter], LinkableElementSet
+            Tuple[Sequence[MetricReference], LinkableElementFilter], BaseLinkableElementSet
         ](128)
 
     def linkable_elements_for_measure(
         self,
         measure_reference: MeasureReference,
         element_filter: LinkableElementFilter = LinkableElementFilter(),
-    ) -> LinkableElementSet:
+    ) -> BaseLinkableElementSet:
         """Return the set of linkable elements reachable from a given measure."""
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         # Cache the result when group-by-metrics are selected in an LRU cache as there can be many of them and may
         # significantly increase memory usage.
@@ -120,14 +167,14 @@ class MetricLookup:
                 "Finished getting linkable elements",
                 measure_reference=measure_reference,
                 element_filter=element_filter,
-                runtime=time.time() - start_time,
+                runtime=time.perf_counter() - start_time,
             )
         )
         return result.filter(element_filter)
 
     def linkable_elements_for_no_metrics_query(
         self, element_set_filter: LinkableElementFilter = LinkableElementFilter()
-    ) -> LinkableElementSet:
+    ) -> BaseLinkableElementSet:
         """Return the reachable linkable elements for a dimension values query with no metrics."""
         cache_key = element_set_filter
         result = self._linkable_elements_for_no_metrics_query_cache.get(cache_key)
@@ -140,7 +187,7 @@ class MetricLookup:
 
     def linkable_elements_for_metrics(
         self, metric_references: Sequence[MetricReference], element_set_filter: LinkableElementFilter
-    ) -> LinkableElementSet:
+    ) -> BaseLinkableElementSet:
         """Retrieve the matching set of linkable elements common to all metrics requested (intersection)."""
         cache_key = (metric_references, element_set_filter)
         result = self._linkable_elements_for_metrics_cache.get(cache_key)
@@ -153,7 +200,7 @@ class MetricLookup:
         self._linkable_elements_for_metrics_cache.set(cache_key, result)
         return result
 
-    def get_metrics(self, metric_references: Sequence[MetricReference]) -> Sequence[Metric]:  # noqa: D102
+    def get_metrics(self, metric_references: Iterable[MetricReference]) -> Sequence[Metric]:  # noqa: D102
         res = []
         for metric_reference in metric_references:
             if metric_reference not in self._metrics:
@@ -165,8 +212,8 @@ class MetricLookup:
         return res
 
     @property
-    def metric_references(self) -> Sequence[MetricReference]:  # noqa: D102
-        return sorted(self._metrics.keys())
+    def metric_references(self) -> FrozenOrderedSet[MetricReference]:  # noqa: D102
+        return FrozenOrderedSet(sorted(self._metrics.keys()))
 
     def get_metric(self, metric_reference: MetricReference) -> Metric:  # noqa: D102
         if metric_reference not in self._metrics:
@@ -279,15 +326,3 @@ class MetricLookup:
             agg_time_dimension_grains.add(measure_properties.agg_time_granularity)
 
         return max(agg_time_dimension_grains, key=lambda time_granularity: time_granularity.to_int())
-
-    def get_joinable_scd_specs_for_metric(self, metric_reference: MetricReference) -> Sequence[LinkableInstanceSpec]:
-        """Get the SCDs that can be joined to a metric."""
-        filter = LinkableElementFilter(
-            with_any_of=frozenset([LinkableElementProperty.SCD_HOP]),
-        )
-        scd_elems = self.linkable_elements_for_metrics(
-            metric_references=(metric_reference,),
-            element_set_filter=filter,
-        )
-
-        return scd_elems.specs

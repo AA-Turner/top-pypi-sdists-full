@@ -1,7 +1,7 @@
 r'''
 # `snowflake_listing`
 
-Refer to the Terraform Registry for docs: [`snowflake_listing`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing).
+Refer to the Terraform Registry for docs: [`snowflake_listing`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Listing(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.listing.Listing",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing snowflake_listing}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing snowflake_listing}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class Listing(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing snowflake_listing} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing snowflake_listing} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#manifest Listing#manifest}
-        :param name: Specifies the listing identifier (name). It must be unique within the organization, regardless of which Snowflake region the account is located in. Must start with an alphabetic character and cannot contain spaces or special characters except for underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#name Listing#name}
-        :param application_package: Specifies the application package attached to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#application_package Listing#application_package}
-        :param comment: Specifies a comment for the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#comment Listing#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#id Listing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param publish: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Determines if the listing should be published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#publish Listing#publish}
-        :param share: Specifies the identifier for the share to attach to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#share Listing#share}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#timeouts Listing#timeouts}
+        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#manifest Listing#manifest}
+        :param name: Specifies the listing identifier (name). It must be unique within the organization, regardless of which Snowflake region the account is located in. Must start with an alphabetic character and cannot contain spaces or special characters except for underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#name Listing#name}
+        :param application_package: Specifies the application package attached to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#application_package Listing#application_package}
+        :param comment: Specifies a comment for the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#comment Listing#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#id Listing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param publish: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Determines if the listing should be published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#publish Listing#publish}
+        :param share: Specifies the identifier for the share to attach to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#share Listing#share}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#timeouts Listing#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class Listing(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Listing to import.
-        :param import_from_id: The id of the existing Listing that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Listing that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Listing to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class Listing(
         from_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_stage: from_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_stage Listing#from_stage}
-        :param from_string: Manifest provided as a string. Wrapping ``$$`` signs are added by the provider automatically; do not include them. For more information on manifest syntax, see `Listing manifest reference <https://docs.snowflake.com/en/progaccess/listing-manifest-reference>`_. Also, the `multiline string syntax <https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings>`_ is a must here. A proper YAML indentation (2 spaces) is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_string Listing#from_string}
+        :param from_stage: from_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_stage Listing#from_stage}
+        :param from_string: Manifest provided as a string. Wrapping ``$$`` signs are added by the provider automatically; do not include them. For more information on manifest syntax, see `Listing manifest reference <https://docs.snowflake.com/en/progaccess/listing-manifest-reference>`_. Also, the `multiline string syntax <https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings>`_ is a must here. A proper YAML indentation (2 spaces) is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_string Listing#from_string}
         '''
         value = ListingManifest(from_stage=from_stage, from_string=from_string)
 
@@ -160,10 +160,10 @@ class Listing(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#create Listing#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#delete Listing#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#read Listing#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#update Listing#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#create Listing#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#delete Listing#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#read Listing#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#update Listing#update}.
         '''
         value = ListingTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -390,14 +390,14 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#manifest Listing#manifest}
-        :param name: Specifies the listing identifier (name). It must be unique within the organization, regardless of which Snowflake region the account is located in. Must start with an alphabetic character and cannot contain spaces or special characters except for underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#name Listing#name}
-        :param application_package: Specifies the application package attached to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#application_package Listing#application_package}
-        :param comment: Specifies a comment for the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#comment Listing#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#id Listing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param publish: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Determines if the listing should be published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#publish Listing#publish}
-        :param share: Specifies the identifier for the share to attach to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#share Listing#share}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#timeouts Listing#timeouts}
+        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#manifest Listing#manifest}
+        :param name: Specifies the listing identifier (name). It must be unique within the organization, regardless of which Snowflake region the account is located in. Must start with an alphabetic character and cannot contain spaces or special characters except for underscores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#name Listing#name}
+        :param application_package: Specifies the application package attached to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#application_package Listing#application_package}
+        :param comment: Specifies a comment for the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#comment Listing#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#id Listing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param publish: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Determines if the listing should be published. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#publish Listing#publish}
+        :param share: Specifies the identifier for the share to attach to the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#share Listing#share}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#timeouts Listing#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -521,7 +521,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def manifest(self) -> "ListingManifest":
         '''manifest block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#manifest Listing#manifest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#manifest Listing#manifest}
         '''
         result = self._values.get("manifest")
         assert result is not None, "Required property 'manifest' is missing"
@@ -533,7 +533,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It must be unique within the organization, regardless of which Snowflake region the account is located in. Must start with an alphabetic character and cannot contain spaces or special characters except for underscores.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#name Listing#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#name Listing#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -543,7 +543,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_package(self) -> typing.Optional[builtins.str]:
         '''Specifies the application package attached to the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#application_package Listing#application_package}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#application_package Listing#application_package}
         '''
         result = self._values.get("application_package")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -552,14 +552,14 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#comment Listing#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#comment Listing#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#id Listing#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#id Listing#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -571,7 +571,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publish(self) -> typing.Optional[builtins.str]:
         '''(Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Determines if the listing should be published.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#publish Listing#publish}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#publish Listing#publish}
         '''
         result = self._values.get("publish")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -580,7 +580,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def share(self) -> typing.Optional[builtins.str]:
         '''Specifies the identifier for the share to attach to the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#share Listing#share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#share Listing#share}
         '''
         result = self._values.get("share")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -589,7 +589,7 @@ class ListingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ListingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#timeouts Listing#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#timeouts Listing#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ListingTimeouts"], result)
@@ -619,8 +619,8 @@ class ListingManifest:
         from_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_stage: from_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_stage Listing#from_stage}
-        :param from_string: Manifest provided as a string. Wrapping ``$$`` signs are added by the provider automatically; do not include them. For more information on manifest syntax, see `Listing manifest reference <https://docs.snowflake.com/en/progaccess/listing-manifest-reference>`_. Also, the `multiline string syntax <https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings>`_ is a must here. A proper YAML indentation (2 spaces) is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_string Listing#from_string}
+        :param from_stage: from_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_stage Listing#from_stage}
+        :param from_string: Manifest provided as a string. Wrapping ``$$`` signs are added by the provider automatically; do not include them. For more information on manifest syntax, see `Listing manifest reference <https://docs.snowflake.com/en/progaccess/listing-manifest-reference>`_. Also, the `multiline string syntax <https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings>`_ is a must here. A proper YAML indentation (2 spaces) is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_string Listing#from_string}
         '''
         if isinstance(from_stage, dict):
             from_stage = ListingManifestFromStage(**from_stage)
@@ -638,7 +638,7 @@ class ListingManifest:
     def from_stage(self) -> typing.Optional["ListingManifestFromStage"]:
         '''from_stage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_stage Listing#from_stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_stage Listing#from_stage}
         '''
         result = self._values.get("from_stage")
         return typing.cast(typing.Optional["ListingManifestFromStage"], result)
@@ -649,7 +649,7 @@ class ListingManifest:
 
         Wrapping ``$$`` signs are added by the provider automatically; do not include them. For more information on manifest syntax, see `Listing manifest reference <https://docs.snowflake.com/en/progaccess/listing-manifest-reference>`_. Also, the `multiline string syntax <https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings>`_ is a must here. A proper YAML indentation (2 spaces) is required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#from_string Listing#from_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#from_string Listing#from_string}
         '''
         result = self._values.get("from_string")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -686,10 +686,10 @@ class ListingManifestFromStage:
         version_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param stage: Identifier of the stage where the manifest file is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#stage Listing#stage}
-        :param location: Location of the manifest file in the stage. If not specified, the manifest file will be expected to be at the root of the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#location Listing#location}
-        :param version_comment: Specifies a comment for the listing version. Whenever a new version is created, this comment will be associated with it. The comment on the version will be visible in the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_comment Listing#version_comment}
-        :param version_name: Represents manifest version name. It's case-sensitive and used in manifest versioning. Version name should be specified or changed whenever any changes in the manifest should be applied to the listing. Later on the versions of the listing can be analyzed by calling the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command. The resource does not track the changes on the specified stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_name Listing#version_name}
+        :param stage: Identifier of the stage where the manifest file is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#stage Listing#stage}
+        :param location: Location of the manifest file in the stage. If not specified, the manifest file will be expected to be at the root of the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#location Listing#location}
+        :param version_comment: Specifies a comment for the listing version. Whenever a new version is created, this comment will be associated with it. The comment on the version will be visible in the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_comment Listing#version_comment}
+        :param version_name: Represents manifest version name. It's case-sensitive and used in manifest versioning. Version name should be specified or changed whenever any changes in the manifest should be applied to the listing. Later on the versions of the listing can be analyzed by calling the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command. The resource does not track the changes on the specified stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_name Listing#version_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__376a022560d451a84b8bc66a7356c918adef5deb06968bfab0fee4984c0633c5)
@@ -711,7 +711,7 @@ class ListingManifestFromStage:
     def stage(self) -> builtins.str:
         '''Identifier of the stage where the manifest file is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#stage Listing#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#stage Listing#stage}
         '''
         result = self._values.get("stage")
         assert result is not None, "Required property 'stage' is missing"
@@ -723,7 +723,7 @@ class ListingManifestFromStage:
 
         If not specified, the manifest file will be expected to be at the root of the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#location Listing#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#location Listing#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -734,7 +734,7 @@ class ListingManifestFromStage:
 
         Whenever a new version is created, this comment will be associated with it. The comment on the version will be visible in the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_comment Listing#version_comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_comment Listing#version_comment}
         '''
         result = self._values.get("version_comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -745,7 +745,7 @@ class ListingManifestFromStage:
 
         It's case-sensitive and used in manifest versioning. Version name should be specified or changed whenever any changes in the manifest should be applied to the listing. Later on the versions of the listing can be analyzed by calling the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command. The resource does not track the changes on the specified stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_name Listing#version_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_name Listing#version_name}
         '''
         result = self._values.get("version_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -905,10 +905,10 @@ class ListingManifestOutputReference(
         version_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param stage: Identifier of the stage where the manifest file is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#stage Listing#stage}
-        :param location: Location of the manifest file in the stage. If not specified, the manifest file will be expected to be at the root of the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#location Listing#location}
-        :param version_comment: Specifies a comment for the listing version. Whenever a new version is created, this comment will be associated with it. The comment on the version will be visible in the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_comment Listing#version_comment}
-        :param version_name: Represents manifest version name. It's case-sensitive and used in manifest versioning. Version name should be specified or changed whenever any changes in the manifest should be applied to the listing. Later on the versions of the listing can be analyzed by calling the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command. The resource does not track the changes on the specified stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#version_name Listing#version_name}
+        :param stage: Identifier of the stage where the manifest file is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#stage Listing#stage}
+        :param location: Location of the manifest file in the stage. If not specified, the manifest file will be expected to be at the root of the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#location Listing#location}
+        :param version_comment: Specifies a comment for the listing version. Whenever a new version is created, this comment will be associated with it. The comment on the version will be visible in the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_comment Listing#version_comment}
+        :param version_name: Represents manifest version name. It's case-sensitive and used in manifest versioning. Version name should be specified or changed whenever any changes in the manifest should be applied to the listing. Later on the versions of the listing can be analyzed by calling the `SHOW VERSIONS IN LISTING <https://docs.snowflake.com/en/sql-reference/sql/show-versions-in-listing>`_ command. The resource does not track the changes on the specified stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#version_name Listing#version_name}
         '''
         value = ListingManifestFromStage(
             stage=stage,
@@ -1250,10 +1250,10 @@ class ListingTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#create Listing#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#delete Listing#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#read Listing#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#update Listing#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#create Listing#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#delete Listing#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#read Listing#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#update Listing#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c98310711c55e91d04d76395c0643049246fce382346966c5a9a05065c3902d9)
@@ -1273,25 +1273,25 @@ class ListingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#create Listing#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#create Listing#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#delete Listing#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#delete Listing#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#read Listing#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#read Listing#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.6.0/docs/resources/listing#update Listing#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.7.0/docs/resources/listing#update Listing#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

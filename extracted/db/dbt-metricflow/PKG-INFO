@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-metricflow
-Version: 0.8.2
+Version: 0.10.0
 Summary: Execute commands against the MetricFlow semantic layer with dbt.
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow/tree/main/dbt-metricflow
 Author-email: dbt Labs <info@dbtlabs.com>
@@ -16,26 +16,26 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: <3.13,>=3.9
 Requires-Dist: click>=8.1.6
-Requires-Dist: dbt-core<1.10.0,>=1.9.0
+Requires-Dist: dbt-core<1.11.0,>=1.10.4
 Requires-Dist: dbt-semantic-interfaces
 Requires-Dist: halo<0.1.0,>=0.0.31
 Requires-Dist: jinja2<3.7.0,>=3.1.6
-Requires-Dist: metricflow<0.208.0,>=0.207.3
+Requires-Dist: metricflow==0.208.0
 Requires-Dist: update-checker<0.19.0,>=0.18.0
 Provides-Extra: dbt-bigquery
-Requires-Dist: dbt-bigquery<1.10.0,>=1.9.0; extra == 'dbt-bigquery'
+Requires-Dist: dbt-bigquery; extra == 'dbt-bigquery'
 Provides-Extra: dbt-databricks
-Requires-Dist: dbt-databricks<1.10.0,>=1.9.0; extra == 'dbt-databricks'
+Requires-Dist: dbt-databricks; extra == 'dbt-databricks'
 Provides-Extra: dbt-duckdb
-Requires-Dist: dbt-duckdb<1.10.0,>=1.9.0; extra == 'dbt-duckdb'
+Requires-Dist: dbt-duckdb; extra == 'dbt-duckdb'
 Provides-Extra: dbt-postgres
-Requires-Dist: dbt-postgres<1.10.0,>=1.9.0; extra == 'dbt-postgres'
+Requires-Dist: dbt-postgres; extra == 'dbt-postgres'
 Provides-Extra: dbt-redshift
-Requires-Dist: dbt-redshift<1.10.0,>=1.9.0; extra == 'dbt-redshift'
+Requires-Dist: dbt-redshift; extra == 'dbt-redshift'
 Provides-Extra: dbt-snowflake
-Requires-Dist: dbt-snowflake<1.10.0,>=1.9.0; extra == 'dbt-snowflake'
+Requires-Dist: dbt-snowflake; extra == 'dbt-snowflake'
 Provides-Extra: dbt-trino
-Requires-Dist: dbt-trino<1.10.0,>=1.9.0; extra == 'dbt-trino'
+Requires-Dist: dbt-trino; extra == 'dbt-trino'
 Description-Content-Type: text/markdown
 
 <p align="center">

@@ -1,5 +1,4 @@
 _A='latest'
-from typing import List
 from localstack.packages import InstallTarget,Package
 from localstack.pro.core.packages import OSPackageInstaller
 class MariaDBPackageInstaller(OSPackageInstaller):

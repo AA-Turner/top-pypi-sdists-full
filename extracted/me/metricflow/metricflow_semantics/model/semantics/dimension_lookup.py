@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Sequence
 
-from dbt_semantic_interfaces.protocols import SemanticModel
+from dbt_semantic_interfaces.protocols import Dimension, SemanticModel
 from dbt_semantic_interfaces.references import DimensionReference
 from dbt_semantic_interfaces.type_enums import DimensionType
 
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.model.semantics.semantic_model_helper import SemanticModelHelper
+from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,7 @@ class DimensionLookup:
 
     def __init__(self, semantic_models: Sequence[SemanticModel]) -> None:  # noqa: D107
         self._dimension_reference_to_invariant: Dict[DimensionReference, DimensionInvariant] = {}
+        self.dimensions_by_qualified_name: Dict[str, Dimension] = {}
         for semantic_model in semantic_models:
             for dimension in semantic_model.dimensions:
                 invariant = DimensionInvariant(
@@ -33,20 +36,23 @@ class DimensionLookup:
                 existing_invariant = self._dimension_reference_to_invariant.get(dimension_reference)
                 if existing_invariant is not None and existing_invariant != invariant:
                     raise ValueError(
-                        str(
-                            LazyFormat(
-                                "Dimensions with the same name have been defined with conflicting values that "
-                                "should have been the same in a given semantic manifest. This should have been caught "
-                                "during validation.",
-                                dimension_reference=dimension_reference,
-                                existing_invariant=existing_invariant,
-                                conflicting_invariant=invariant,
-                                semantic_model_reference=semantic_model.reference,
-                            )
+                        LazyFormat(
+                            "Dimensions with the same name have been defined with conflicting values that "
+                            "should have been the same in a given semantic manifest. This should have been caught "
+                            "during validation.",
+                            dimension_reference=dimension_reference,
+                            existing_invariant=existing_invariant,
+                            conflicting_invariant=invariant,
+                            semantic_model_reference=semantic_model.reference,
                         )
                     )
 
                 self._dimension_reference_to_invariant[dimension_reference] = invariant
+                primary_entity = SemanticModelHelper.resolved_primary_entity(semantic_model)
+                structured_name = StructuredLinkableSpecName(
+                    entity_link_names=(primary_entity.element_name,), element_name=dimension.name
+                )
+                self.dimensions_by_qualified_name[structured_name.qualified_name] = dimension
 
     def get_invariant(self, dimension_reference: DimensionReference) -> DimensionInvariant:
         """Get invariants for the given dimension in the semantic manifest."""
@@ -55,12 +61,10 @@ class DimensionLookup:
         invariant = self._dimension_reference_to_invariant[dimension_reference]
         if invariant is None:
             raise ValueError(
-                str(
-                    LazyFormat(
-                        "Unknown dimension reference",
-                        dimension_reference=dimension_reference,
-                        known_dimension_references=list(self._dimension_reference_to_invariant.keys()),
-                    )
+                LazyFormat(
+                    "Unknown dimension reference",
+                    dimension_reference=dimension_reference,
+                    known_dimension_references=list(self._dimension_reference_to_invariant.keys()),
                 )
             )
 

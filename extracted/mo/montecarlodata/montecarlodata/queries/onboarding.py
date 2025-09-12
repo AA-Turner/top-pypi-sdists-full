@@ -35,8 +35,8 @@ mutation testHiveCredentials($database:String, $host:String, $port:Int, $usernam
 """
 
 TEST_GLUE_CRED_MUTATION = """
-mutation testGlueCredentials($assumableRole:String, $externalId:String, $awsRegion:String, $connectionOptions:ConnectionTestOptions) {
-  testGlueCredentials(assumableRole:$assumableRole, externalId:$externalId, awsRegion:$awsRegion, connectionOptions:$connectionOptions) {
+mutation testGlueCredentials($assumableRole:String, $externalId:String, $awsRegion:String, $connectionOptions:ConnectionTestOptions, $sslOptions:SslInputOptions) {
+  testGlueCredentials(assumableRole:$assumableRole, externalId:$externalId, awsRegion:$awsRegion, connectionOptions:$connectionOptions, sslOptions:$sslOptions) {
     success
     key,
     validations {

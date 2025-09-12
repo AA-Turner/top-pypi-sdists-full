@@ -31,6 +31,8 @@ from .paginator import (
     ListEnvironmentVlansPaginator,
 )
 from .type_defs import (
+    AssociateEipToVlanRequestTypeDef,
+    AssociateEipToVlanResponseTypeDef,
     CreateEnvironmentHostRequestTypeDef,
     CreateEnvironmentHostResponseTypeDef,
     CreateEnvironmentRequestTypeDef,
@@ -39,6 +41,8 @@ from .type_defs import (
     DeleteEnvironmentHostResponseTypeDef,
     DeleteEnvironmentRequestTypeDef,
     DeleteEnvironmentResponseTypeDef,
+    DisassociateEipFromVlanRequestTypeDef,
+    DisassociateEipFromVlanResponseTypeDef,
     GetEnvironmentRequestTypeDef,
     GetEnvironmentResponseTypeDef,
     ListEnvironmentHostsRequestTypeDef,
@@ -113,6 +117,16 @@ class EVSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#generate_presigned_url)
         """
 
+    def associate_eip_to_vlan(
+        self, **kwargs: Unpack[AssociateEipToVlanRequestTypeDef]
+    ) -> AssociateEipToVlanResponseTypeDef:
+        """
+        Associates an Elastic IP address with a public HCX VLAN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/associate_eip_to_vlan.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#associate_eip_to_vlan)
+        """
+
     def create_environment(
         self, **kwargs: Unpack[CreateEnvironmentRequestTypeDef]
     ) -> CreateEnvironmentResponseTypeDef:
@@ -152,6 +166,16 @@ class EVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_environment_host.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#delete_environment_host)
+        """
+
+    def disassociate_eip_from_vlan(
+        self, **kwargs: Unpack[DisassociateEipFromVlanRequestTypeDef]
+    ) -> DisassociateEipFromVlanResponseTypeDef:
+        """
+        Disassociates an Elastic IP address from a public HCX VLAN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/disassociate_eip_from_vlan.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/client/#disassociate_eip_from_vlan)
         """
 
     def get_environment(

@@ -1,3 +1,4 @@
+import importlib.metadata
 import inspect
 import functools
 import re
@@ -27,6 +28,10 @@ NESTED_NONE = 'none'
 NestedT = ty.Literal['full', 'short', 'none', None]
 
 ANSI_ESC_SEQ_RE = re.compile(r'\x1B\[\d+(;\d+){0,2}m', flags=re.MULTILINE)
+
+CLICK_VERSION = tuple(
+    int(x) for x in importlib.metadata.version('click').split('.')[0:2]
+)
 
 _T_Formatter = ty.Callable[[click.Context], ty.Generator[str, None, None]]
 
@@ -116,7 +121,7 @@ def _get_help_record(ctx: click.Context, opt: click.core.Option) -> ty.Tuple[str
             % (
                 ', '.join(repr(d) for d in opt.default)
                 if isinstance(opt.default, (list, tuple))
-                else repr(opt.default),
+                else repr(opt.default)
             )
         )
 
@@ -239,7 +244,7 @@ def _format_arguments(ctx: click.Context) -> ty.Generator[str, None, None]:
 
 
 def _format_envvar(
-    param: ty.Union[click.core.Option, click.Argument]
+    param: ty.Union[click.core.Option, click.Argument],
 ) -> ty.Generator[str, None, None]:
     """Format the envvars of a `click.Option` or `click.Argument`."""
     yield '.. envvar:: {}'.format(param.envvar)
@@ -319,8 +324,14 @@ def _filter_commands(
     commands: ty.Optional[ty.List[str]] = None,
 ) -> ty.List[click.Command]:
     """Return list of used commands."""
+    # click 8.2.0 deprecated MultiCommand and made it a subclass of Group
+    if CLICK_VERSION >= (8, 2):
+        group_cls = click.Group
+    else:
+        group_cls = click.MultiCommand
+
     lookup = getattr(ctx.command, 'commands', {})
-    if not lookup and isinstance(ctx.command, click.MultiCommand):
+    if not lookup and isinstance(ctx.command, group_cls):
         lookup = _get_lazyload_commands(ctx)
 
     if commands is None:

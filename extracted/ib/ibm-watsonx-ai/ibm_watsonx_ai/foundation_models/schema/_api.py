@@ -186,16 +186,46 @@ class TextGenParameters(BaseSchema):
 
 class TextChatResponseFormatType(StrEnum):
     JSON_OBJECT = "json_object"
+    JSON_SCHEMA = "json_schema"
+    TEXT = "text"
+
+
+@dataclass
+class TextChatResponseJsonSchema(BaseSchema):
+    name: str | None = None
+    schema: dict | None = None
+    strict: bool | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for TextChatResponseJsonSchema."""
+        return {
+            "name": "Sample JSON schema",
+            "schema": {
+                "title": "SimpleUser",
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string"},
+                    "email": {"type": "string", "format": "email"},
+                },
+                "required": ["username", "email"],
+            },
+            "strict": False,
+        }
 
 
 @dataclass
 class TextChatResponseFormat(BaseSchema):
-    type: str | TextChatResponseFormatType | None = None
+    type: str | TextChatResponseFormatType
+    json_schema: dict | TextChatResponseJsonSchema | None = None
 
     @classmethod
     def get_sample_params(cls) -> dict[str, Any]:
         """Provide example values for TextChatResponseFormat."""
-        return {"type": list(TextChatResponseFormatType)[0].value}
+        return {
+            "type": TextChatResponseFormatType.JSON_SCHEMA.value,
+            "json_schema": TextChatResponseJsonSchema.get_sample_params(),
+        }
 
 
 @dataclass
@@ -454,6 +484,34 @@ class AutoAIRAGRetrievalConfig(BaseSchema):
             "number_of_chunks": 5,
             "window_size": 2,
             "hybrid_ranker": AutoAIRAGHybridRankerParams.get_sample_params(),
+        }
+
+
+@dataclass
+class AutoAIRAGLanguageConfig(BaseSchema):
+    auto_detect: bool | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGLanguageConfig."""
+        return {
+            "auto_detect": True,
+        }
+
+
+@dataclass
+class AutoAIRAGGenerationConfig(BaseSchema):
+    language: str | AutoAIRAGLanguageConfig | None = None
+    foundation_models: (
+        list[dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
+    ) = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGGenerationConfig."""
+        return {
+            "language": AutoAIRAGLanguageConfig.get_sample_params(),
+            "foundation_models": [AutoAIRAGModelConfig.get_sample_params()],
         }
 
 

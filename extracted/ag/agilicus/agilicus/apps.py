@@ -973,6 +973,7 @@ def update_application_service(  # noqa: C901
     dynamic_source_port_override=None,
     diagnostic_mode=None,
     connector_instance_id=None,
+    set_token_cookie=None,
 ):
 
     token = context.get_token(ctx)
@@ -1009,6 +1010,12 @@ def update_application_service(  # noqa: C901
         if not service.protocol_config.http_config:
             service.protocol_config.http_config = agilicus.ServiceHttpConfig()
         service.protocol_config.http_config.disable_http2 = disable_http2
+    if set_token_cookie is not None:
+        if not service.protocol_config:
+            service.protocol_config = agilicus.ServiceProtocolConfig()
+        if not service.protocol_config.http_config:
+            service.protocol_config.http_config = agilicus.ServiceHttpConfig()
+        service.protocol_config.http_config.set_token_cookie = set_token_cookie
     if expose_as_hostname is not None:
         if not service.protocol_config:
             service.protocol_config = agilicus.ServiceProtocolConfig()
